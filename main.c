@@ -52,7 +52,7 @@ extern void lv_example_scroll_20(void);
 extern void a();
 extern void lv_100ask_demo_course_3_3_1(void);
 extern void btn_2group_test(void);
-
+void UI_main();
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int nCmdShow)
 {
     /*Initialize LittlevGL*/
@@ -67,7 +67,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLi
     /*Run the demo*/
     //lv_demo_widgets();
     //a();
-    btn_2group_test();
+    UI_main();
 
     while(!lv_win32_quit_signal) {
         /* Periodically call the lv_task handler.
