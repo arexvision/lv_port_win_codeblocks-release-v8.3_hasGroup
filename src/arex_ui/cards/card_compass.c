@@ -1,7 +1,7 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
 #include "../arex_ui_state.h"
-#include "../../lvgl/lvgl.h"
+#include "lvgl/lvgl.h"
 #include <stdio.h>
 #include <math.h>
 

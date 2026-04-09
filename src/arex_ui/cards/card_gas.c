@@ -1,12 +1,14 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
 #include "../arex_ui_state.h"
-#include "../../lvgl/lvgl.h"
+#include "lvgl/lvgl.h"
 #include <stdio.h>
 
 static lv_obj_t *s_items[AREX_GAS_COUNT];
 static lv_obj_t *s_lbl_ppo2[AREX_GAS_COUNT];
 static lv_obj_t *s_lbl_mod[AREX_GAS_COUNT];
+
+void card_gas_update(void); /* forward declaration */
 
 void card_gas_create(lv_obj_t *parent)
 {

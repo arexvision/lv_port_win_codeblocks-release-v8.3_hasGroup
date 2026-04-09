@@ -1,6 +1,6 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
-#include "../../lvgl/lvgl.h"
+#include "lvgl/lvgl.h"
 #include <stdio.h>
 
 #define BAR_W   20

@@ -1,5 +1,5 @@
-#ifndef AREX_SCREEN_H
-#define AREX_SCREEN_H
+#ifndef AREX_SCREEN_HDR
+#define AREX_SCREEN_HDR
 
 #include "lvgl/lvgl.h"
 #include <stdint.h>
@@ -101,4 +101,4 @@ void arex_screen_refresh_compass_target(void);
    ========================================= */
 void arex_screen_update_scroll_dots(uint8_t active_idx, bool visible);
 
-#endif /* AREX_SCREEN_H */
+#endif /* AREX_SCREEN_HDR */

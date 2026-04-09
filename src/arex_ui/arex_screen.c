@@ -299,7 +299,7 @@ static void modal_create(void)
     lv_obj_set_size(s_modal, AREX_RIGHT_W, AREX_SCREEN_H);
     lv_obj_set_pos(s_modal, 0, 0);
     lv_obj_set_style_bg_color(s_modal, lv_color_make(0,0,0), 0);
-    lv_obj_set_style_bg_opa(s_modal, LV_OPA_95, 0);
+    lv_obj_set_style_bg_opa(s_modal, LV_OPA_90, 0);
     lv_obj_set_style_border_width(s_modal, 0, 0);
     lv_obj_add_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
 

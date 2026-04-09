@@ -1,7 +1,7 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
 #include "../arex_ui_state.h"
-#include "../../lvgl/lvgl.h"
+#include "lvgl/lvgl.h"
 
 void arex_screen_register_setup_list(lv_obj_t *list);
 
