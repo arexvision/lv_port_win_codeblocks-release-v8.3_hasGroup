@@ -39,7 +39,3 @@
  *  STATIC VARIABLES
  **********************/
 
-void UI_main()
-{
-    
-}
