@@ -458,12 +458,15 @@ void arex_screen_set_info_selection(uint8_t idx)
     uint32_t cnt = lv_obj_get_child_cnt(s_info_list);
     for (uint32_t i = 0; i < cnt; i++) {
         lv_obj_t *item = lv_obj_get_child(s_info_list, i);
+        lv_obj_t *lbl  = lv_obj_get_child(item, 0);
         if (i == idx) {
             lv_obj_set_style_bg_color(item, AREX_GREEN, 0);
-            lv_obj_set_style_text_color(item, AREX_BLACK, 0);
+            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            if (lbl) lv_obj_set_style_text_color(lbl, AREX_BLACK, 0);
         } else {
             lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
-            lv_obj_set_style_text_color(item, AREX_GREEN, 0);
+            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            if (lbl) lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
         }
     }
 }
@@ -480,12 +483,15 @@ void arex_screen_set_setup_selection(uint8_t idx)
     uint32_t cnt = lv_obj_get_child_cnt(s_setup_list);
     for (uint32_t i = 0; i < cnt; i++) {
         lv_obj_t *item = lv_obj_get_child(s_setup_list, i);
+        lv_obj_t *lbl  = lv_obj_get_child(item, 0);
         if (i == idx) {
             lv_obj_set_style_bg_color(item, AREX_GREEN, 0);
-            lv_obj_set_style_text_color(item, AREX_BLACK, 0);
+            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            if (lbl) lv_obj_set_style_text_color(lbl, AREX_BLACK, 0);
         } else {
             lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
-            lv_obj_set_style_text_color(item, AREX_GREEN, 0);
+            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            if (lbl) lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
         }
     }
 }

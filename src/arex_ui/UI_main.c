@@ -30,6 +30,9 @@ void UI_main(void)
     /* Populate left panel with initial values */
     arex_screen_refresh_left_panel();
 
+    /* Set initial selection highlight on INFO card item 0 */
+    arex_screen_set_info_selection(0);
+
     /* Simulation tick: 1 second interval */
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
 }
