@@ -28,6 +28,8 @@ static lv_obj_t *s_lbl_time;
 /* Wall indicators */
 static lv_obj_t *s_wall_top;
 static lv_obj_t *s_wall_bottom;
+static lv_obj_t *s_wall_text_top,    *s_wall_blocks_top;
+static lv_obj_t *s_wall_text_bottom, *s_wall_blocks_bottom;
 
 /* Scroll dots */
 static lv_obj_t *s_scroll_dots[6];
@@ -249,46 +251,53 @@ static void right_panel_create(void)
     arex_screen_update_scroll_dots(0, true);
 }
 
-/* =========================================
-   Wall indicators
-   ========================================= */
+/* Wall indicator: each wall has two child labels —
+     child 0 = text line ("<<< RETURN TO DASH <<<")
+     child 1 = charge blocks ("[ ■ ]   [ ■ ]   [   ]") */
+
+static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
+{
+    lv_obj_t *w = lv_obj_create(parent);
+    lv_obj_set_size(w, AREX_RIGHT_W, 90);
+    lv_obj_set_pos(w, 0, y);
+    lv_obj_set_style_bg_color(w, AREX_BLACK, 0);
+    lv_obj_set_style_bg_opa(w, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(w, AREX_DARK, 0);
+    lv_obj_set_style_border_width(w, 2, 0);
+    lv_obj_set_style_border_side(w, LV_BORDER_SIDE_TOP | LV_BORDER_SIDE_BOTTOM, 0);
+    lv_obj_set_style_pad_all(w, 0, 0);
+    lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(w, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Line 1: text */
+    lv_obj_t *txt = lv_label_create(w);
+    lv_obj_set_style_text_color(txt, AREX_GREEN, 0);
+    lv_obj_set_style_text_font(txt, AREX_FONT_TITLE, 0);
+    lv_obj_set_width(txt, AREX_RIGHT_W);
+    lv_obj_set_style_text_align(txt, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_pos(txt, 0, 12);
+    lv_label_set_text(txt, "");
+
+    /* Line 2: charge blocks — larger font, centered */
+    lv_obj_t *blk = lv_label_create(w);
+    lv_obj_set_style_text_color(blk, AREX_GREEN, 0);
+    lv_obj_set_style_text_font(blk, AREX_FONT_MEDIUM, 0);
+    lv_obj_set_width(blk, AREX_RIGHT_W);
+    lv_obj_set_style_text_align(blk, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_pos(blk, 0, 50);
+    lv_label_set_text(blk, "");
+
+    return w;
+}
+
 static void wall_create(void)
 {
-    /* Top wall */
-    s_wall_top = lv_obj_create(s_right_cont);
-    lv_obj_set_size(s_wall_top, AREX_RIGHT_W, 60);
-    lv_obj_set_pos(s_wall_top, 0, 0);
-    lv_obj_set_style_bg_color(s_wall_top, AREX_BLACK, 0);
-    lv_obj_set_style_bg_opa(s_wall_top, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(s_wall_top, AREX_DARK, 0);
-    lv_obj_set_style_border_width(s_wall_top, 2, 0);
-    lv_obj_set_style_text_color(s_wall_top, AREX_GREEN, 0);
-    lv_obj_add_flag(s_wall_top, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_style_pad_all(s_wall_top, 8, 0);
-
-    lv_obj_t *lbl = lv_label_create(s_wall_top);
-    lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
-    lv_obj_center(lbl);
-    lv_label_set_text(lbl, "");
-    lv_obj_set_user_data(s_wall_top, lbl);
-
-    /* Bottom wall */
-    s_wall_bottom = lv_obj_create(s_right_cont);
-    lv_obj_set_size(s_wall_bottom, AREX_RIGHT_W, 60);
-    lv_obj_set_pos(s_wall_bottom, 0, AREX_SCREEN_H - 60);
-    lv_obj_set_style_bg_color(s_wall_bottom, AREX_BLACK, 0);
-    lv_obj_set_style_bg_opa(s_wall_bottom, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(s_wall_bottom, AREX_DARK, 0);
-    lv_obj_set_style_border_width(s_wall_bottom, 2, 0);
-    lv_obj_set_style_text_color(s_wall_bottom, AREX_GREEN, 0);
-    lv_obj_add_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_style_pad_all(s_wall_bottom, 8, 0);
-
-    lv_obj_t *lbl2 = lv_label_create(s_wall_bottom);
-    lv_obj_set_style_text_color(lbl2, AREX_GREEN, 0);
-    lv_obj_center(lbl2);
-    lv_label_set_text(lbl2, "");
-    lv_obj_set_user_data(s_wall_bottom, lbl2);
+    s_wall_top    = make_wall(s_right_cont, 0);
+    s_wall_bottom = make_wall(s_right_cont, AREX_SCREEN_H - 90);
+    s_wall_text_top      = lv_obj_get_child(s_wall_top, 0);
+    s_wall_blocks_top    = lv_obj_get_child(s_wall_top, 1);
+    s_wall_text_bottom   = lv_obj_get_child(s_wall_bottom, 0);
+    s_wall_blocks_bottom = lv_obj_get_child(s_wall_bottom, 1);
 }
 
 /* =========================================
@@ -326,21 +335,34 @@ static void submenu_layer_create(void)
     lv_obj_set_style_bg_color(s_submenu_layer, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(s_submenu_layer, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(s_submenu_layer, 0, 0);
-    lv_obj_set_style_pad_all(s_submenu_layer, 20, 0);
+    lv_obj_set_style_pad_all(s_submenu_layer, 0, 0);
     lv_obj_clear_flag(s_submenu_layer, LV_OBJ_FLAG_SCROLLABLE);
 
+    /* Title uses same helper as card tiles for visual consistency */
     s_submenu_title = lv_label_create(s_submenu_layer);
     lv_obj_set_style_text_color(s_submenu_title, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(s_submenu_title, AREX_FONT_TITLE, 0);
-    lv_obj_set_pos(s_submenu_title, 0, 0);
+    lv_obj_set_pos(s_submenu_title, 16, 12);
     lv_label_set_text(s_submenu_title, "> SUB MENU");
 
+    /* Title border line, identical to arex_screen_make_card_title */
+    lv_obj_t *title_line = lv_obj_create(s_submenu_layer);
+    lv_obj_set_size(title_line, AREX_RIGHT_W - 32, 2);
+    lv_obj_set_pos(title_line, 16, 38);
+    lv_obj_set_style_bg_color(title_line, AREX_DARK, 0);
+    lv_obj_set_style_bg_opa(title_line, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(title_line, 0, 0);
+    lv_obj_set_style_pad_all(title_line, 0, 0);
+    lv_obj_set_style_radius(title_line, 0, 0);
+
+    /* List container — identical geometry to card_info/card_setup lists */
     s_submenu_list = lv_obj_create(s_submenu_layer);
-    lv_obj_set_size(s_submenu_list, AREX_RIGHT_W - 40, AREX_SCREEN_H - 60);
-    lv_obj_set_pos(s_submenu_list, 0, 40);
+    lv_obj_set_size(s_submenu_list, 428, AREX_SCREEN_H - 50);
+    lv_obj_set_pos(s_submenu_list, 16, 50);
     lv_obj_set_style_bg_opa(s_submenu_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_submenu_list, 0, 0);
     lv_obj_set_style_pad_all(s_submenu_list, 0, 0);
+    lv_obj_set_style_pad_row(s_submenu_list, 8, 0);
     lv_obj_set_flex_flow(s_submenu_list, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(s_submenu_list, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_scrollbar_mode(s_submenu_list, LV_SCROLLBAR_MODE_OFF);
@@ -415,7 +437,14 @@ void arex_screen_refresh_left_panel(void)
 /* =========================================
    Wall indicators
    ========================================= */
-static const char *charge_blocks[] = { "", "[#] [ ] [ ]", "[#] [#] [ ]", "[#] [#] [#]" };
+/* Charge block strings: filled slot uses '#' (ASCII, always available),
+   wide spacing between brackets to match HTML letter-spacing:10px effect. */
+static const char *charge_blocks[] = {
+    "[   ]        [   ]        [   ]",
+    "[ # ]        [   ]        [   ]",
+    "[ # ]        [ # ]        [   ]",
+    "[ # ]        [ # ]        [ # ]",
+};
 
 /* Slide tileview to offset_y with ease-out, hold there until wall clears.
    Mirrors HTML: elevator-track transition 0.35s cubic-bezier(0.2,0.8,0.2,1)
@@ -439,12 +468,13 @@ static void wall_nudge_tileview(lv_coord_t offset_y)
 void arex_screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
 {
     if (charge > 3) charge = 3;
-    char buf[64];
-    snprintf(buf, sizeof(buf), "%s\n%s", text, charge_blocks[charge]);
 
-    lv_obj_t *wall = (side == WALL_TOP) ? s_wall_top : s_wall_bottom;
-    lv_obj_t *lbl  = (lv_obj_t *)lv_obj_get_user_data(wall);
-    lv_label_set_text(lbl, buf);
+    lv_obj_t *wall    = (side == WALL_TOP) ? s_wall_top    : s_wall_bottom;
+    lv_obj_t *txt_lbl = (side == WALL_TOP) ? s_wall_text_top    : s_wall_text_bottom;
+    lv_obj_t *blk_lbl = (side == WALL_TOP) ? s_wall_blocks_top  : s_wall_blocks_bottom;
+
+    lv_label_set_text(txt_lbl, text);
+    lv_label_set_text(blk_lbl, charge_blocks[charge]);
     lv_obj_clear_flag(wall, LV_OBJ_FLAG_HIDDEN);
 
     /* Rubber-band nudge: top-wall pushes down, bottom-wall pushes up */
@@ -586,16 +616,18 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
 
     for (uint8_t i = 0; i < count; i++) {
         lv_obj_t *item = lv_obj_create(s_submenu_list);
-        lv_obj_set_size(item, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_size(item, LV_PCT(100), 48);
         lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
         lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(item, AREX_DARK, 0);
         lv_obj_set_style_border_width(item, 2, 0);
         lv_obj_set_style_radius(item, 0, 0);
-        lv_obj_set_style_pad_all(item, 10, 0);
+        lv_obj_set_style_pad_ver(item, 12, 0);
+        lv_obj_set_style_pad_hor(item, 15, 0);
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+        lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
         lv_label_set_text(lbl, items[i]);
     }
     arex_screen_set_submenu_selection(0);

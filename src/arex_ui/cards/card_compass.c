@@ -102,7 +102,7 @@ void card_compass_create(lv_obj_t *parent)
 
     s_canvas = lv_canvas_create(parent);
     lv_canvas_set_buffer(s_canvas, s_cbuf, COMP_W, COMP_H, LV_IMG_CF_TRUE_COLOR);
-    lv_obj_align(s_canvas, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_set_pos(s_canvas, 0, 50);
 
     draw_tape((lv_coord_t)g_arex.compass.heading);
     s_last_style = g_arex.compass.style;

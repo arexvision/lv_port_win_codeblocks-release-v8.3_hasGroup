@@ -4,11 +4,13 @@
 #include "../fonts/arex_fonts.h"
 #include <stdio.h>
 
-#define BAR_W   20
+#define BAR_W   23
 #define BAR_H   80
-#define BAR_GAP 5
-#define GRID_X  10
-#define GRID_Y  60
+#define BAR_GAP 4
+#define GRID_X  16
+
+/* Bar area starts at y=230 (after 3 grid rows + tissue label) */
+#define BARS_Y  230
 
 static lv_obj_t *s_bars[16];
 static lv_obj_t *s_lbl_gf99;
@@ -43,52 +45,91 @@ static lv_color_t tissue_color(uint8_t pct)
     return lv_color_make(0x00, 0xFF, 0x00);
 }
 
+/* Helper: make one deco-grid row at the given y position.
+   Each row has a left label+value and a right label+value.
+   Returns nothing; stores value labels in the provided pointers (may be NULL). */
+static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
+                           const char *left_cap, const char *left_val, lv_obj_t **left_ref,
+                           const char *right_cap, const char *right_val, lv_obj_t **right_ref,
+                           bool dashed_bottom)
+{
+    /* Left cap */
+    lv_obj_t *lc = lv_label_create(parent);
+    lv_obj_set_style_text_color(lc, lv_color_make(0x55,0xFF,0x55), 0);
+    lv_obj_set_style_text_font(lc, AREX_FONT_SMALL, 0);
+    lv_label_set_text(lc, left_cap);
+    lv_obj_set_pos(lc, GRID_X, y);
+
+    /* Left val */
+    lv_obj_t *lv_ = lv_label_create(parent);
+    lv_obj_set_style_text_color(lv_, lv_color_make(0x00,0xFF,0x00), 0);
+    lv_obj_set_style_text_font(lv_, AREX_FONT_TITLE, 0);
+    lv_label_set_text(lv_, left_val);
+    lv_obj_set_pos(lv_, GRID_X, y + 16);
+    if (left_ref) *left_ref = lv_;
+
+    /* Right cap */
+    lv_obj_t *rc = lv_label_create(parent);
+    lv_obj_set_style_text_color(rc, lv_color_make(0x55,0xFF,0x55), 0);
+    lv_obj_set_style_text_font(rc, AREX_FONT_SMALL, 0);
+    lv_label_set_text(rc, right_cap);
+    lv_obj_set_pos(rc, 240, y);
+
+    /* Right val */
+    lv_obj_t *rv = lv_label_create(parent);
+    lv_obj_set_style_text_color(rv, lv_color_make(0x00,0xFF,0x00), 0);
+    lv_obj_set_style_text_font(rv, AREX_FONT_TITLE, 0);
+    lv_label_set_text(rv, right_val);
+    lv_obj_set_pos(rv, 240, y + 16);
+    if (right_ref) *right_ref = rv;
+
+    if (dashed_bottom) {
+        lv_obj_t *line = lv_obj_create(parent);
+        lv_obj_set_size(line, 428, 1);
+        lv_obj_set_pos(line, GRID_X, y + 40);
+        lv_obj_set_style_bg_color(line, lv_color_make(0x00,0x33,0x00), 0);
+        lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(line, 0, 0);
+        lv_obj_set_style_pad_all(line, 0, 0);
+        lv_obj_set_style_radius(line, 0, 0);
+    }
+}
+
 void card_deco_create(lv_obj_t *parent)
 {
     arex_screen_make_card_title(parent, "2F: TISSUES & DECO");
 
-    /* Top row: GF99 / SURF GF / CNS / OTU */
-    lv_obj_t *row = lv_obj_create(parent);
-    lv_obj_set_size(row, 420, 48);
-    lv_obj_set_pos(row, 20, 36);
-    lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(row, 0, 0);
-    lv_obj_set_style_pad_all(row, 0, 0);
-    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_scrollbar_mode(row, LV_SCROLLBAR_MODE_OFF);
+    /* Row 1: ALGORITHM + GF LOW/HIGH  (y=50) */
+    make_grid_row(parent, 50,
+                  "ALGORITHM", "ZHL-16C", NULL,
+                  "GF LOW/HIGH", "30 / 70", NULL,
+                  true);
 
-    struct { lv_obj_t **ref; const char *cap; } cols[] = {
-        { &s_lbl_gf99,    "GF99" },
-        { &s_lbl_surf_gf, "SURF GF" },
-        { &s_lbl_cns,     "CNS" },
-        { &s_lbl_otu,     "OTU" },
-    };
-    for (int i = 0; i < 4; i++) {
-        lv_obj_t *col = lv_obj_create(row);
-        lv_obj_set_size(col, 96, LV_SIZE_CONTENT);
-        lv_obj_set_style_bg_opa(col, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(col, 0, 0);
-        lv_obj_set_flex_flow(col, LV_FLEX_FLOW_COLUMN);
+    /* Row 2: GF99 + SURF GF  (y=97) */
+    make_grid_row(parent, 97,
+                  "GF99", "--", &s_lbl_gf99,
+                  "SURF GF", "--", &s_lbl_surf_gf,
+                  true);
 
-        lv_obj_t *cap = lv_label_create(col);
-        lv_obj_set_style_text_color(cap, lv_color_make(0x55,0xFF,0x55), 0);
-        lv_obj_set_style_text_font(cap, AREX_FONT_SMALL, 0);
-        lv_label_set_text(cap, cols[i].cap);
+    /* Row 3: CNS O2 + OTU  (y=144) */
+    make_grid_row(parent, 144,
+                  "CNS O2", "--%", &s_lbl_cns,
+                  "OTU", "--", &s_lbl_otu,
+                  false);
 
-        lv_obj_t *val = lv_label_create(col);
-        lv_obj_set_style_text_color(val, lv_color_make(0x00,0xFF,0x00), 0);
-        lv_obj_set_style_text_font(val, AREX_FONT_TITLE, 0);
-        lv_label_set_text(val, "--");
-        *cols[i].ref = val;
-    }
+    /* "TISSUE SATURATION" section label (y=200) */
+    lv_obj_t *sec_lbl = lv_label_create(parent);
+    lv_obj_set_style_text_color(sec_lbl, lv_color_make(0x55,0xFF,0x55), 0);
+    lv_obj_set_style_text_font(sec_lbl, AREX_FONT_SMALL, 0);
+    lv_label_set_text(sec_lbl, "TISSUE SATURATION (16 COMPARTMENTS)");
+    lv_obj_set_pos(sec_lbl, GRID_X, 200);
 
-    /* 16 tissue bars */
+    /* 16 tissue bars (y=218) */
     for (int i = 0; i < 16; i++) {
         lv_obj_t *bar = lv_bar_create(parent);
         lv_bar_set_range(bar, 0, 110);
         lv_obj_set_size(bar, BAR_W, BAR_H);
-        lv_obj_set_pos(bar, GRID_X + i * (BAR_W + BAR_GAP), GRID_Y + 56);
+        lv_obj_set_pos(bar, GRID_X + i * (BAR_W + BAR_GAP), BARS_Y);
         lv_bar_set_start_value(bar, 0, LV_ANIM_OFF);
         lv_bar_set_value(bar, 0, LV_ANIM_OFF);
 
@@ -99,23 +140,25 @@ void card_deco_create(lv_obj_t *parent)
 
         s_bars[i] = bar;
 
-        /* compartment label */
+        /* Compartment number label below bar */
         lv_obj_t *lbl = lv_label_create(parent);
         lv_obj_set_style_text_color(lbl, lv_color_make(0x55,0xFF,0x55), 0);
         lv_obj_set_style_text_font(lbl, AREX_FONT_SMALL, 0);
         char buf[4];
         snprintf(buf, sizeof(buf), "%d", i + 1);
         lv_label_set_text(lbl, buf);
-        lv_obj_set_pos(lbl, GRID_X + i * (BAR_W + BAR_GAP), GRID_Y + 56 + BAR_H + 4);
+        lv_obj_set_pos(lbl, GRID_X + i * (BAR_W + BAR_GAP), BARS_Y + BAR_H + 4);
     }
 
-    /* M-value line at 100% */
+    /* M-value line at 80% height from bottom (top 20%) */
     lv_obj_t *mline = lv_obj_create(parent);
     lv_obj_set_size(mline, 16 * (BAR_W + BAR_GAP) - BAR_GAP, 2);
-    lv_obj_set_pos(mline, GRID_X, GRID_Y + 56 + BAR_H * (1 - 100/110.0f));
-    lv_obj_set_style_bg_color(mline, lv_color_make(0xFF,0x00,0x00), 0);
+    lv_obj_set_pos(mline, GRID_X, BARS_Y + (int)(BAR_H * 0.2f));
+    lv_obj_set_style_bg_color(mline, lv_color_make(0x00,0xFF,0x00), 0);
     lv_obj_set_style_bg_opa(mline, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(mline, 0, 0);
+    lv_obj_set_style_pad_all(mline, 0, 0);
+    lv_obj_set_style_radius(mline, 0, 0);
 
     card_deco_update();
 }

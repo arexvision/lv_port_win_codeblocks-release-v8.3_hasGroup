@@ -12,7 +12,8 @@
       "Bash(lv_font_conv --font \"C:/Windows/Fonts/courbd.ttf\" --size 28 --bpp 4 --format lvgl -o lv_font_courier_28.c --range 0x20-0x7E --no-compress)",
       "Bash(lv_font_conv --font \"C:/Windows/Fonts/courbd.ttf\" --size 48 --bpp 4 --format lvgl -o lv_font_courier_48.c --range 0x20-0x7E --no-compress)",
       "Bash(grep -n \"card-title\\\\|card_title\\\\|INFO MENU\\\\|NAV COMPASS\\\\|TISSUES\\\\|GAS SWITCH\\\\|DIVE PLAN\\\\|DIVE SETUP\" \"e:/UI/lv_port_win_codeblocks-release-v8.3_hasGroup/src/arex_ui/cards/\"*.c)",
-      "Bash(python3 -c ':*)"
+      "Bash(python3 -c ':*)",
+      "Read(//e/UI/UI_html/**)"
     ]
   }
 }

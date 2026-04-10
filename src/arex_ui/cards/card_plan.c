@@ -5,10 +5,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#define CHART_W  380
-#define CHART_H  280
-#define CHART_X  40
-#define CHART_Y  80
+#define CHART_W  410
+#define CHART_H  300
+#define CHART_X  16
+#define CHART_Y  50
 
 static lv_color_t s_cbuf[CHART_W * CHART_H];
 static lv_obj_t  *s_canvas;
@@ -40,7 +40,7 @@ static void draw_plan(void)
         lv_canvas_draw_line(s_canvas,
             (lv_point_t[]){{0,y},{CHART_W,y}}, 2, &l);
         char buf[8]; snprintf(buf,sizeof(buf),"%dm",d);
-        lv_canvas_draw_text(s_canvas, 0, y-8, 30, &t, buf);
+        lv_canvas_draw_text(s_canvas, 2, y+2, 36, &t, buf);
     }
     for (int m = 0; m <= 55; m += 10) {
         lv_coord_t x = (lv_coord_t)(m * CHART_W / 55);
@@ -69,7 +69,13 @@ static void draw_plan(void)
     lv_draw_rect_dsc_t r; lv_draw_rect_dsc_init(&r);
     r.bg_color = lv_color_make(0xFF,0xFF,0x00);
     r.radius   = LV_RADIUS_CIRCLE;
-    lv_canvas_draw_rect(s_canvas, cx-4, cy-4, 8, 8, &r);
+    lv_canvas_draw_rect(s_canvas, cx-5, cy-5, 10, 10, &r);
+
+    /* "NOW" label near dot */
+    lv_draw_label_dsc_t nl; lv_draw_label_dsc_init(&nl);
+    nl.font  = AREX_FONT_SMALL;
+    nl.color = lv_color_make(0x00,0xFF,0x00);
+    lv_canvas_draw_text(s_canvas, cx+8, cy-8, 40, &nl, "NOW");
 }
 
 void card_plan_create(lv_obj_t *parent)
@@ -78,7 +84,11 @@ void card_plan_create(lv_obj_t *parent)
 
     s_canvas = lv_canvas_create(parent);
     lv_canvas_set_buffer(s_canvas, s_cbuf, CHART_W, CHART_H, LV_IMG_CF_TRUE_COLOR);
-    lv_obj_set_pos(s_canvas, 30, 60);
+    lv_obj_set_pos(s_canvas, CHART_X, CHART_Y);
+
+    /* Chart shell border */
+    lv_obj_set_style_border_color(s_canvas, lv_color_make(0x00,0x33,0x00), 0);
+    lv_obj_set_style_border_width(s_canvas, 2, 0);
 
     draw_plan();
 }
