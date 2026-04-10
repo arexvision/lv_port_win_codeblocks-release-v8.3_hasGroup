@@ -149,6 +149,8 @@ static void left_panel_create(void)
     lv_obj_set_style_bg_color(s_lbl_tts, AREX_GREEN, 0);
     lv_obj_set_style_bg_opa(s_lbl_tts, LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(s_lbl_tts, AREX_BLACK, 0);
+    lv_obj_set_style_pad_ver(s_lbl_tts, 0, 0);
+    lv_obj_set_style_pad_hor(s_lbl_tts, 4, 0);
     lv_obj_set_pos(s_lbl_tts, 90, 96);
 
     /* NEXT STOP */
@@ -158,17 +160,21 @@ static void left_panel_create(void)
     lv_obj_set_style_text_color(s_lbl_next_stop, AREX_LIGHT, 0);
     lv_obj_set_pos(s_lbl_next_stop, 0, 148);
 
-    /* POD 1 / POD 2 */
+    /* POD 1 / POD 2 — HTML: font calc(28*0.75)=21px, space-between layout
+       Panel inner width = 180 - 2*10(pad) = 160px.
+       POD1 left-aligned, POD2 right-aligned (align right edge at x=158) */
     lv_obj_t *lbl_p1_cap = make_label(s_left_panel, &s_style_label_small, "POD 1");
     lv_obj_set_pos(lbl_p1_cap, 0, 192);
-    s_lbl_pod1 = make_label(s_left_panel, &s_style_label_med, "210 BAR");
+    s_lbl_pod1 = make_label(s_left_panel, &s_style_label_med, "210");
+    lv_obj_set_style_text_font(s_lbl_pod1, AREX_FONT_TITLE, 0);
     lv_obj_set_pos(s_lbl_pod1, 0, 208);
 
     lv_obj_t *lbl_p2_cap = make_label(s_left_panel, &s_style_label_small, "POD 2");
-    lv_obj_set_pos(lbl_p2_cap, 90, 192);
-    s_lbl_pod2 = make_label(s_left_panel, &s_style_label_med, "195 BAR");
+    lv_obj_set_pos(lbl_p2_cap, 84, 192);
+    s_lbl_pod2 = make_label(s_left_panel, &s_style_label_med, "195");
+    lv_obj_set_style_text_font(s_lbl_pod2, AREX_FONT_TITLE, 0);
     lv_obj_set_style_text_color(s_lbl_pod2, AREX_LIGHT, 0);
-    lv_obj_set_pos(s_lbl_pod2, 90, 208);
+    lv_obj_set_pos(s_lbl_pod2, 84, 208);
 
     /* GAS */
     lv_obj_t *lbl_gas_cap = make_label(s_left_panel, &s_style_label_small, "GAS");
@@ -182,11 +188,11 @@ static void left_panel_create(void)
     s_lbl_ppo2 = make_label(s_left_panel, &s_style_label_small, "1.2 | 1.2 | 1.3");
     lv_obj_set_pos(s_lbl_ppo2, 0, 320);
 
-    /* TIME */
+    /* TIME — HTML: margin-top:auto, sticks to bottom of panel */
     lv_obj_t *lbl_time_cap = make_label(s_left_panel, &s_style_label_small, "TIME");
-    lv_obj_set_pos(lbl_time_cap, 0, 440);
+    lv_obj_set_pos(lbl_time_cap, 0, 430);
     s_lbl_time = make_label(s_left_panel, &s_style_label_med, "38:14");
-    lv_obj_set_pos(s_lbl_time, 0, 456);
+    lv_obj_set_pos(s_lbl_time, 0, 446);
 }
 
 /* =========================================
@@ -417,10 +423,10 @@ void arex_screen_refresh_left_panel(void)
     snprintf(buf, sizeof(buf), "%dm %d'", g_arex.dive.next_stop_m, g_arex.dive.next_stop_min);
     lv_label_set_text(s_lbl_next_stop, buf);
 
-    snprintf(buf, sizeof(buf), "%d BAR", g_arex.dive.pod1_bar);
+    snprintf(buf, sizeof(buf), "%d", g_arex.dive.pod1_bar);
     lv_label_set_text(s_lbl_pod1, buf);
 
-    snprintf(buf, sizeof(buf), "%d BAR", g_arex.dive.pod2_bar);
+    snprintf(buf, sizeof(buf), "%d", g_arex.dive.pod2_bar);
     lv_label_set_text(s_lbl_pod2, buf);
 
     lv_label_set_text(s_lbl_gas_name, AREX_GAS_TABLE[g_arex.gas.active_idx].name);
@@ -437,13 +443,13 @@ void arex_screen_refresh_left_panel(void)
 /* =========================================
    Wall indicators
    ========================================= */
-/* Charge block strings: filled slot uses '#' (ASCII, always available),
-   wide spacing between brackets to match HTML letter-spacing:10px effect. */
+/* Charge block strings — matches HTML .charge-blocks with [ ■ ] slots.
+   U+25A0 (■) is included in lv_font_courier_28 glyph range. */
 static const char *charge_blocks[] = {
-    "[   ]        [   ]        [   ]",
-    "[ # ]        [   ]        [   ]",
-    "[ # ]        [ # ]        [   ]",
-    "[ # ]        [ # ]        [ # ]",
+    "[   ]   [   ]   [   ]",
+    "[ \xE2\x96\xA0 ]   [   ]   [   ]",
+    "[ \xE2\x96\xA0 ]   [ \xE2\x96\xA0 ]   [   ]",
+    "[ \xE2\x96\xA0 ]   [ \xE2\x96\xA0 ]   [ \xE2\x96\xA0 ]",
 };
 
 /* Slide tileview to offset_y with ease-out, hold there until wall clears.
