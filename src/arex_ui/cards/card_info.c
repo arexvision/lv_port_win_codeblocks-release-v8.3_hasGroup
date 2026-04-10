@@ -27,7 +27,7 @@ void card_info_create(lv_obj_t *parent)
     /* List container */
     s_list = lv_obj_create(parent);
     lv_obj_set_size(s_list, 420, INFO_ITEM_COUNT * 60);
-    lv_obj_align(s_list, LV_ALIGN_CENTER, 0, 20);
+    lv_obj_set_pos(s_list, 16, 50);
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_pad_all(s_list, 0, 0);
