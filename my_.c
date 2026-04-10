@@ -7,7 +7,6 @@
 #include "lv_100ask_teach_demos.h"
 #include "lv_100ask_teach_demos_conf.h"
 
-#include "src/lv_100ask_demo_course_3_1_1/lv_100ask_demo_course_3_1_1.h"
 
 
 #include <windows.h>

@@ -42,16 +42,8 @@ static int tick_thread(void *data);
  *   GLOBAL FUNCTIONS
  **********************/
 
-#include "lv_100ask_teach_demos.h"
-#include "lv_100ask_teach_demos_conf.h"
-
-#include "src/lv_100ask_demo_course_3_3_1/lv_100ask_demo_course_3_3_1.h"
 
 
-extern void lv_example_scroll_20(void);
-extern void a();
-extern void lv_100ask_demo_course_3_3_1(void);
-extern void btn_2group_test(void);
 void UI_main();
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int nCmdShow)
 {
