@@ -298,6 +298,37 @@ static void right_panel_create(void)
     arex_screen_update_scroll_dots(0, true);
 }
 
+/* =========================================
+   Method 2: rebuild tileview at runtime
+   After modifying g_arex.settings.card_order[], call this
+   to recreate the tileview with the new card order.
+   Also clears card->tile_obj before delete to avoid dangling pointers.
+   ========================================= */
+void arex_screen_rebuild_tileview(void)
+{
+    /* 1. 清掉所有 card 的 tile_obj，防止 lv_obj_del 后的悬垂指针 */
+    uint8_t count = arex_card_count();
+    for (uint8_t i = 0; i < count; i++) {
+        arex_card_reg_t *card = arex_card_get_by_id(i);
+        if (card) card->tile_obj = NULL;
+    }
+
+    /* 2. 删除整个 right panel（包含 tileview / tiles / scroll dots） */
+    if (s_right_cont) {
+        lv_obj_del(s_right_cont);
+        s_right_cont = NULL;
+        s_tileview    = NULL;
+        /* s_scroll_dots[] 已在 lv_obj_del(s_right_cont) 时一起释放 */
+        for (uint8_t i = 0; i < 6; i++) s_scroll_dots[i] = NULL;
+    }
+
+    /* 3. 重建 */
+    right_panel_create();
+
+    /* 4. 重刷滚动指示器（停在当前卡片位置） */
+    arex_screen_update_scroll_dots(g_ui.dash_card, true);
+}
+
 /* Wall indicator: each wall has two child labels —
      child 0 = text line ("<<< RETURN TO DASH <<<")
      child 1 = charge blocks ("[ ■ ]   [ ■ ]   [   ]") */

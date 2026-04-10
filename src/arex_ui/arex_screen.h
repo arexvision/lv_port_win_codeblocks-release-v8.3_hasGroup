@@ -42,6 +42,13 @@ void arex_screen_create(void);
 void arex_screen_scroll_to_card(uint8_t idx);
 
 /* =========================================
+   Card order rebuild (method 2: runtime swap)
+   Call this after modifying g_arex.settings.card_order[]
+   to recreate the tileview with the new card order.
+   ========================================= */
+void arex_screen_rebuild_tileview(void);
+
+/* =========================================
    Left panel refresh
    ========================================= */
 void arex_screen_refresh_left_panel(void);
