@@ -171,6 +171,11 @@ UI_SETUP 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=4（PLAN）
 
 ### 5.2 气体切换流程（3F 卡片）
 
+> **【重点 · CONFIG GAS 退出规则】**  
+> **气体在当前深度不可用**（`dive.depth >` 该气体的 **MOD**，不适用深度）时，**不能**用确认键完成切换：弹窗内 **Enter/点击** 仅触发 `arex_screen_pulse_modal()` 震动，**不会**改 `active_idx`、**不会**回到仪表盘。  
+> 此时**必须**通过 **返回键（Back / ESC）** 退出 CONFIG GAS：`UI_MODAL_GAS` 先回到 `UI_EDIT_GAS`，再按一次返回才回到 `UI_DASH`。  
+> **不可用气体时，不得以「确认切换」的方式离开气体配置流程。**
+
 ```
 UI_DASH（当前卡片为 GAS，card_order index=3）
   │
@@ -183,11 +188,11 @@ UI_DASH（当前卡片为 GAS，card_order index=3）
   CLICK → UI_MODAL_GAS，arex_screen_show_modal_gas()
   │
   ├─ 深度 ≤ MOD → CLICK 确认：active_idx = gas_cursor，返回 UI_DASH
-  └─ 深度 > MOD → CLICK 无效：modal 震动动画（arex_screen_pulse_modal）
+  └─ 深度 > MOD（气体不可用）→ CLICK 无效：modal 震动；仅能通过 BACK 退出（见上文重点）
   
-  ESC（任意时）:
-    UI_MODAL_GAS → UI_EDIT_GAS
-    UI_EDIT_GAS  → UI_DASH
+  BACK / ESC:
+    UI_MODAL_GAS → UI_EDIT_GAS（关弹窗，留在气体编辑）
+    UI_EDIT_GAS  → UI_DASH（退出 CONFIG GAS）
 ```
 
 ### 5.3 罗盘标记流程（1F 卡片）
@@ -379,6 +384,8 @@ key_event_cb():
 - M 值虚线：容器高度 80px 的 **top 20%**，`LV_OPA_50`；右侧 `M-VALUE` 小字标签。
 
 ### 9.3 card_gas.c（3F）
+
+> **【与 §5.2 一致】** 当前深度超过某行 MOD、该气体不可用时，确认切换无效，**须用返回键退出 CONFIG GAS**（见 §5.2 重点说明）。
 
 - 规范：行高 **49px**，间距 8，padding 上下 **12px**，左右 **15px**；字体 `AREX_FONT_TITLE`(20px)。
 - 与 HTML `.menu-list` / `.menu-item` / `.static-active` / `.active` / `.hint-text` / `#gas-card-status` 对齐：
