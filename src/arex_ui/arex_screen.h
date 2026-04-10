@@ -50,7 +50,8 @@ void arex_screen_refresh_left_panel(void);
    Wall charge indicators
    ========================================= */
 void arex_screen_show_wall(wall_side_t side, uint8_t charge, const char *text);
-void arex_screen_hide_walls(void);
+void arex_screen_hide_walls(void);        /* smooth return to y=0 (wall-charge reversed) */
+void arex_screen_hide_walls_snap(void);   /* instant y=0 (wall-charge threshold crossed) */
 
 /* =========================================
    Menu list selection helpers

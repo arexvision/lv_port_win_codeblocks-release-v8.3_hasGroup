@@ -67,18 +67,18 @@ void ui_handle_rotate(int8_t dir)
                 arex_screen_show_wall(WALL_TOP, g_ui.wall_charge, ">>> ENTER INFO MENU >>>");
                 if (g_ui.wall_charge >= 3) {
                     g_ui.wall_charge = 0;
-                    arex_screen_hide_walls();
+                    arex_screen_hide_walls_snap();
                     g_ui.state = UI_INFO;
                     g_ui.menu_info_idx = 0;
                     arex_screen_set_info_selection(0);
-                    arex_ui_go_to_card(0);   /* INFO card is always index 0 in order */
+                    arex_ui_go_to_card(0);
                 }
             } else if (at_bottom && dir == 1) {
                 g_ui.wall_charge++;
                 arex_screen_show_wall(WALL_BOTTOM, g_ui.wall_charge, "<<< ENTER DIVE SETUP <<<");
                 if (g_ui.wall_charge >= 3) {
                     g_ui.wall_charge = 0;
-                    arex_screen_hide_walls();
+                    arex_screen_hide_walls_snap();
                     g_ui.state = UI_SETUP;
                     g_ui.menu_setup_idx = 0;
                     arex_screen_set_setup_selection(0);
@@ -86,7 +86,7 @@ void ui_handle_rotate(int8_t dir)
                 }
             } else {
                 g_ui.wall_charge = 0;
-                arex_screen_hide_walls();
+                arex_screen_hide_walls();  /* smooth return */
                 int8_t next = (int8_t)g_ui.dash_card + dir;
                 if (next < (int8_t)dash_min) next = (int8_t)dash_min;
                 if (next > (int8_t)dash_max) next = (int8_t)dash_max;
@@ -111,14 +111,14 @@ void ui_handle_rotate(int8_t dir)
                 arex_screen_show_wall(WALL_BOTTOM, g_ui.wall_charge, "<<< RETURN TO DASH <<<");
                 if (g_ui.wall_charge >= 3) {
                     g_ui.wall_charge = 0;
-                    arex_screen_hide_walls();
+                    arex_screen_hide_walls_snap();
                     g_ui.state = UI_DASH;
-                    g_ui.dash_card = 1;   /* 返回 DASH 第一张卡（COMPASS） */
+                    g_ui.dash_card = 1;
                     arex_ui_go_to_card(1);
                 }
             } else {
                 g_ui.wall_charge = 0;
-                arex_screen_hide_walls();
+                arex_screen_hide_walls();  /* smooth return */
                 int8_t next = (int8_t)g_ui.menu_info_idx + dir;
                 if (next < 0) next = 0;
                 if (next >= (int8_t)len) next = len - 1;
@@ -136,14 +136,14 @@ void ui_handle_rotate(int8_t dir)
                 arex_screen_show_wall(WALL_TOP, g_ui.wall_charge, ">>> RETURN TO DASH >>>");
                 if (g_ui.wall_charge >= 3) {
                     g_ui.wall_charge = 0;
-                    arex_screen_hide_walls();
+                    arex_screen_hide_walls_snap();
                     g_ui.state = UI_DASH;
-                    g_ui.dash_card = total_cards - 2;   /* 返回 DASH 最后一张卡（PLAN） */
+                    g_ui.dash_card = total_cards - 2;
                     arex_ui_go_to_card(total_cards - 2);
                 }
             } else {
                 g_ui.wall_charge = 0;
-                arex_screen_hide_walls();
+                arex_screen_hide_walls();  /* smooth return */
                 int8_t next = (int8_t)g_ui.menu_setup_idx + dir;
                 if (next < 0) next = 0;
                 if (next >= (int8_t)len) next = len - 1;

@@ -158,8 +158,9 @@ DASH 可滚动范围：dash_card ∈ [1, 4]
 ```
 
 **橡皮筋动画实现（`wall_nudge_tileview`）：**  
-对 `s_tileview` 做 `lv_obj_set_y` 动画：80ms ease-out 推到 `charge×20px`，120ms 自动回弹到 0。  
-对应 HTML 的 `updateElevator(wallCharge * 20)` / `updateElevator(-wallCharge * 20)`。
+对 `s_tileview` 做 `lv_obj_set_y` 动画：350ms ease-out 平滑推到 `charge×20px`，停在那里直到 wall 清零。  
+`arex_screen_hide_walls` 时立即 `set_y(0)` 归位。  
+对应 HTML 的 `transition: 0.35s cubic-bezier(0.2,0.8,0.2,1)` + `updateElevator(wallCharge * 20)`，无回弹。
 
 UI_INFO 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=1（COMPASS）  
 UI_SETUP 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=4（PLAN）
