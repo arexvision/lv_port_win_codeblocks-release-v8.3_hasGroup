@@ -2,6 +2,7 @@
 #include "../arex_data.h"
 #include "../arex_ui_state.h"
 #include "lvgl/lvgl.h"
+#include "../fonts/arex_fonts.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -24,7 +25,7 @@ void card_info_create(lv_obj_t *parent)
     /* Title bar */
     lv_obj_t *title = lv_label_create(parent);
     lv_obj_set_style_text_color(title, lv_color_make(0x00,0xFF,0x00), 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(title, AREX_FONT_SMALL, 0);
     lv_label_set_text(title, "0F  INFO MENU");
     lv_obj_set_pos(title, 16, 12);
 
@@ -50,7 +51,7 @@ void card_info_create(lv_obj_t *parent)
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, lv_color_make(0x00,0xFF,0x00), 0);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_20, 0);
+        lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
         lv_label_set_text(lbl, s_info_items[i]);
     }
 

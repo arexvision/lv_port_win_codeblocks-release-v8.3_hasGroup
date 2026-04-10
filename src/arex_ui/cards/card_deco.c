@@ -1,6 +1,7 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
 #include "lvgl/lvgl.h"
+#include "../fonts/arex_fonts.h"
 #include <stdio.h>
 
 #define BAR_W   20
@@ -46,7 +47,7 @@ void card_deco_create(lv_obj_t *parent)
 {
     lv_obj_t *title = lv_label_create(parent);
     lv_obj_set_style_text_color(title, lv_color_make(0x00,0xFF,0x00), 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(title, AREX_FONT_SMALL, 0);
     lv_label_set_text(title, "2F  TISSUES & DECO");
     lv_obj_set_pos(title, 16, 12);
 
@@ -76,12 +77,12 @@ void card_deco_create(lv_obj_t *parent)
 
         lv_obj_t *cap = lv_label_create(col);
         lv_obj_set_style_text_color(cap, lv_color_make(0x55,0xFF,0x55), 0);
-        lv_obj_set_style_text_font(cap, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(cap, AREX_FONT_SMALL, 0);
         lv_label_set_text(cap, cols[i].cap);
 
         lv_obj_t *val = lv_label_create(col);
         lv_obj_set_style_text_color(val, lv_color_make(0x00,0xFF,0x00), 0);
-        lv_obj_set_style_text_font(val, &lv_font_montserrat_20, 0);
+        lv_obj_set_style_text_font(val, AREX_FONT_TITLE, 0);
         lv_label_set_text(val, "--");
         *cols[i].ref = val;
     }
@@ -105,7 +106,7 @@ void card_deco_create(lv_obj_t *parent)
         /* compartment label */
         lv_obj_t *lbl = lv_label_create(parent);
         lv_obj_set_style_text_color(lbl, lv_color_make(0x55,0xFF,0x55), 0);
-        lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(lbl, AREX_FONT_SMALL, 0);
         char buf[4];
         snprintf(buf, sizeof(buf), "%d", i + 1);
         lv_label_set_text(lbl, buf);

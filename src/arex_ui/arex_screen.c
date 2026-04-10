@@ -2,6 +2,7 @@
 #include "arex_data.h"
 #include "arex_ui_state.h"
 #include "arex_card_registry.h"
+#include "fonts/arex_fonts.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -77,15 +78,15 @@ static void styles_init(void)
 
     lv_style_init(&s_style_label_huge);
     lv_style_set_text_color(&s_style_label_huge, AREX_GREEN);
-    lv_style_set_text_font(&s_style_label_huge, &lv_font_montserrat_48);
+    lv_style_set_text_font(&s_style_label_huge, AREX_FONT_HUGE);
 
     lv_style_init(&s_style_label_med);
     lv_style_set_text_color(&s_style_label_med, AREX_GREEN);
-    lv_style_set_text_font(&s_style_label_med, &lv_font_montserrat_28);
+    lv_style_set_text_font(&s_style_label_med, AREX_FONT_MEDIUM);
 
     lv_style_init(&s_style_label_small);
     lv_style_set_text_color(&s_style_label_small, AREX_LIGHT);
-    lv_style_set_text_font(&s_style_label_small, &lv_font_montserrat_14);
+    lv_style_set_text_font(&s_style_label_small, AREX_FONT_SMALL);
 
     lv_style_init(&s_style_menu_item);
     lv_style_set_bg_color(&s_style_menu_item, AREX_BLACK);
@@ -330,7 +331,7 @@ static void submenu_layer_create(void)
 
     s_submenu_title = lv_label_create(s_submenu_layer);
     lv_obj_set_style_text_color(s_submenu_title, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(s_submenu_title, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(s_submenu_title, AREX_FONT_TITLE, 0);
     lv_obj_set_pos(s_submenu_title, 0, 0);
     lv_label_set_text(s_submenu_title, "> SUB MENU");
 
@@ -702,19 +703,19 @@ static void modal_set_content(const char *title, const char *body, const char *h
 
     lv_obj_t *t = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(t, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(t, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_font(t, AREX_FONT_TITLE, 0);
     lv_label_set_text(t, title);
     lv_obj_set_pos(t, 0, 0);
 
     lv_obj_t *b = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(b, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(b, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_font(b, AREX_FONT_MEDIUM, 0);
     lv_label_set_text(b, body);
     lv_obj_set_pos(b, 0, 40);
 
     lv_obj_t *h = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(h, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(h, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(h, AREX_FONT_SMALL, 0);
     lv_label_set_text(h, hint);
     lv_obj_set_pos(h, 0, 100);
 }

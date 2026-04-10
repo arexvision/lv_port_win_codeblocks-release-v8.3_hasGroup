@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(xargs grep:*)",
-      "WebFetch(domain:)"
+      "WebFetch(domain:)",
+      "Bash(npm --version)",
+      "Read(//c/Windows/Fonts/**)",
+      "Bash(npm install:*)",
+      "Bash(lv_font_conv --version)",
+      "Bash(lv_font_conv --font \"C:/Windows/Fonts/courbd.ttf\" --size 14 --bpp 4 --format lvgl -o lv_font_courier_14.c --range 0x20-0x7E --no-compress)",
+      "Bash(lv_font_conv --font \"C:/Windows/Fonts/courbd.ttf\" --size 20 --bpp 4 --format lvgl -o lv_font_courier_20.c --range 0x20-0x7E --no-compress)",
+      "Bash(lv_font_conv --font \"C:/Windows/Fonts/courbd.ttf\" --size 28 --bpp 4 --format lvgl -o lv_font_courier_28.c --range 0x20-0x7E --no-compress)",
+      "Bash(lv_font_conv --font \"C:/Windows/Fonts/courbd.ttf\" --size 48 --bpp 4 --format lvgl -o lv_font_courier_48.c --range 0x20-0x7E --no-compress)"
     ]
   }
 }

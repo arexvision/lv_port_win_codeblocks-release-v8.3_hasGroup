@@ -1,6 +1,7 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
 #include "lvgl/lvgl.h"
+#include "../fonts/arex_fonts.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -28,7 +29,7 @@ static void draw_plan(void)
     lv_draw_line_dsc_init(&l);
     lv_draw_label_dsc_t t;
     lv_draw_label_dsc_init(&t);
-    t.font  = &lv_font_montserrat_14;
+    t.font  = AREX_FONT_SMALL;
     t.color = lv_color_make(0x55,0xFF,0x55);
 
     /* Grid */
@@ -75,7 +76,7 @@ void card_plan_create(lv_obj_t *parent)
 {
     lv_obj_t *title = lv_label_create(parent);
     lv_obj_set_style_text_color(title, lv_color_make(0x00,0xFF,0x00), 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(title, AREX_FONT_SMALL, 0);
     lv_label_set_text(title, "4F  DIVE PLAN TRACK");
     lv_obj_set_pos(title, 16, 12);
 

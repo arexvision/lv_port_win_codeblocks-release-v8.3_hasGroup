@@ -2,6 +2,7 @@
 #include "../arex_data.h"
 #include "../arex_ui_state.h"
 #include "lvgl/lvgl.h"
+#include "../fonts/arex_fonts.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -31,7 +32,7 @@ static void draw_tape(lv_coord_t heading)
     lv_draw_label_dsc_t lbl_dsc;
     lv_draw_label_dsc_init(&lbl_dsc);
     lbl_dsc.color = lv_color_make(0x00, 0xFF, 0x00);
-    lbl_dsc.font  = &lv_font_montserrat_14;
+    lbl_dsc.font  = AREX_FONT_SMALL;
 
     /* Tape: draw tick marks centered on heading */
     for (int deg = -60; deg <= 60; deg++) {
@@ -64,7 +65,7 @@ static void draw_tape(lv_coord_t heading)
     /* Heading value */
     char buf[8];
     snprintf(buf, sizeof(buf), "%03d°", (int)heading);
-    lbl_dsc.font  = &lv_font_montserrat_48;
+    lbl_dsc.font  = AREX_FONT_HUGE;
     lbl_dsc.color = lv_color_make(0x00,0xFF,0x00);
     lv_canvas_draw_text(s_canvas, CX - 64, TAPE_H + 10, 128, &lbl_dsc, buf);
 
@@ -79,7 +80,7 @@ static void draw_tape(lv_coord_t heading)
             lv_canvas_draw_line(s_canvas, (lv_point_t[]){ {tx,0},{tx,TAPE_H} }, 2, &line_dsc);
         }
 
-        lbl_dsc.font  = &lv_font_montserrat_14;
+        lbl_dsc.font  = AREX_FONT_SMALL;
         lbl_dsc.color = lv_color_make(0xFF,0xFF,0x00);
         char tbuf[16];
         snprintf(tbuf, sizeof(tbuf), "TARGET %03d°", (int)g_arex.compass.target);
@@ -87,7 +88,7 @@ static void draw_tape(lv_coord_t heading)
     }
 
     /* Hint */
-    lbl_dsc.font  = &lv_font_montserrat_14;
+    lbl_dsc.font  = AREX_FONT_SMALL;
     lbl_dsc.color = lv_color_make(0x55,0xFF,0x55);
     lv_canvas_draw_text(s_canvas, 10, COMP_H - 40, 400, &lbl_dsc,
         g_arex.compass.marked
@@ -99,7 +100,7 @@ void card_compass_create(lv_obj_t *parent)
 {
     lv_obj_t *title = lv_label_create(parent);
     lv_obj_set_style_text_color(title, lv_color_make(0x00,0xFF,0x00), 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(title, AREX_FONT_SMALL, 0);
     lv_label_set_text(title, "1F  NAV COMPASS");
     lv_obj_set_pos(title, 16, 12);
 

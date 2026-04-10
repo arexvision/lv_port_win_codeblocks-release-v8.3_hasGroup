@@ -2,6 +2,7 @@
 #include "../arex_data.h"
 #include "../arex_ui_state.h"
 #include "lvgl/lvgl.h"
+#include "../fonts/arex_fonts.h"
 #include <stdio.h>
 
 static lv_obj_t *s_items[AREX_GAS_COUNT];
@@ -14,7 +15,7 @@ void card_gas_create(lv_obj_t *parent)
 {
     lv_obj_t *title = lv_label_create(parent);
     lv_obj_set_style_text_color(title, lv_color_make(0x00,0xFF,0x00), 0);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(title, AREX_FONT_SMALL, 0);
     lv_label_set_text(title, "3F  GAS SWITCH");
     lv_obj_set_pos(title, 16, 12);
 
@@ -34,14 +35,14 @@ void card_gas_create(lv_obj_t *parent)
         /* Gas name */
         lv_obj_t *lbl_name = lv_label_create(row);
         lv_obj_set_style_text_color(lbl_name, lv_color_make(0x00,0xFF,0x00), 0);
-        lv_obj_set_style_text_font(lbl_name, &lv_font_montserrat_28, 0);
+        lv_obj_set_style_text_font(lbl_name, AREX_FONT_MEDIUM, 0);
         lv_label_set_text(lbl_name, AREX_GAS_TABLE[i].name);
         lv_obj_set_pos(lbl_name, 0, 0);
 
         /* MOD */
         s_lbl_mod[i] = lv_label_create(row);
         lv_obj_set_style_text_color(s_lbl_mod[i], lv_color_make(0x55,0xFF,0x55), 0);
-        lv_obj_set_style_text_font(s_lbl_mod[i], &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(s_lbl_mod[i], AREX_FONT_SMALL, 0);
         char buf[20];
         snprintf(buf, sizeof(buf), "MOD %dm", AREX_GAS_TABLE[i].mod_m);
         lv_label_set_text(s_lbl_mod[i], buf);
@@ -50,7 +51,7 @@ void card_gas_create(lv_obj_t *parent)
         /* PPO2 (placeholder, updated live) */
         s_lbl_ppo2[i] = lv_label_create(row);
         lv_obj_set_style_text_color(s_lbl_ppo2[i], lv_color_make(0x55,0xFF,0x55), 0);
-        lv_obj_set_style_text_font(s_lbl_ppo2[i], &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_font(s_lbl_ppo2[i], AREX_FONT_SMALL, 0);
         lv_label_set_text(s_lbl_ppo2[i], "PO2 -.-");
         lv_obj_set_pos(s_lbl_ppo2[i], 200, 28);
     }
