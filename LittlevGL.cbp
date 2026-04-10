@@ -1826,6 +1826,19 @@
 		<Unit filename="src/arex_ui/cards/card_setup.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/arex_ui/fonts/arex_fonts.h" />
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_14.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_20.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_28.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_48.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="src/lv_100ask_demo_course_3_1_1/lv_100ask_demo_course_3_1_1.h" />
 		<Unit filename="src/lv_100ask_demo_course_3_3_1/lv_100ask_demo_course_3_3_1.h" />
 		<Extensions>

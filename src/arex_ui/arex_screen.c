@@ -259,6 +259,9 @@ static void right_panel_create(void)
         lv_obj_set_style_bg_color(tile, AREX_BLACK, 0);
         lv_obj_set_style_bg_opa(tile, LV_OPA_COVER, 0);
         lv_obj_set_style_pad_all(tile, 0, 0);
+        /* 关闭 tile 原生滚动条，防止右侧出现灰色滚动条 */
+        lv_obj_set_scrollbar_mode(tile, LV_SCROLLBAR_MODE_OFF);
+        lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
         card->tile_obj = tile;
 
         if (card->create_cb) card->create_cb(tile);
@@ -273,6 +276,9 @@ static void right_panel_create(void)
     lv_obj_set_style_pad_all(dot_cont, 0, 0);
     lv_obj_set_flex_flow(dot_cont, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(dot_cont, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    /* 默认可滚动，竖向 flex 略挤即出现左侧灰条滚动条 */
+    lv_obj_set_scrollbar_mode(dot_cont, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_clear_flag(dot_cont, LV_OBJ_FLAG_SCROLLABLE);
 
     for (uint8_t i = 0; i < count && i < 6; i++) {
         s_scroll_dots[i] = lv_obj_create(dot_cont);
@@ -287,6 +293,7 @@ static void right_panel_create(void)
         lv_obj_set_style_shadow_width(s_scroll_dots[i], 0, 0);    /* 默认无阴影 */
         lv_obj_set_style_shadow_color(s_scroll_dots[i], AREX_GREEN, 0);
         lv_obj_set_style_shadow_opa(s_scroll_dots[i], 0, 0);
+        lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_SCROLLABLE);
     }
     arex_screen_update_scroll_dots(0, true);
 }
