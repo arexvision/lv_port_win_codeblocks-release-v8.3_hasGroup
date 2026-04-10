@@ -77,6 +77,19 @@ void arex_screen_open_setup_submenu(uint8_t item_idx);
 void arex_screen_handle_submenu_select(uint8_t item_idx);
 void arex_screen_close_submenu(void);
 
+/* Open a nested (3rd-level) sub-menu, pushing current onto history stack */
+void arex_screen_open_nested_submenu(const char *title, const char **items, uint8_t count);
+
+/* Update the value shown in a setup menu item's right-side badge */
+void arex_screen_update_setup_badge(uint8_t item_idx, const char *value);
+
+/* Show a generic action modal that auto-closes after 1 second */
+void arex_screen_show_modal_act(const char *action_text);
+
+/* Begin inline editing for a sub-menu item (MOD PO2 pattern) */
+void arex_screen_begin_edit_value(uint8_t item_idx, float value,
+                                   float min, float max, float step);
+
 /* =========================================
    Modal dialogs
    ========================================= */

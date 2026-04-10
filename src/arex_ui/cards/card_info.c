@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Forward declared in arex_card_registry.c */
 void arex_screen_register_info_list(lv_obj_t *list);
 
 static const char *s_info_items[] = {
@@ -38,16 +37,16 @@ void card_info_create(lv_obj_t *parent)
     for (uint8_t i = 0; i < INFO_ITEM_COUNT; i++) {
         lv_obj_t *item = lv_obj_create(s_list);
         lv_obj_set_size(item, LV_PCT(100), 48);
-        lv_obj_set_style_bg_color(item, lv_color_make(0,0,0), 0);
+        lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
         lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(item, lv_color_make(0x00,0x33,0x00), 0);
+        lv_obj_set_style_border_color(item, AREX_DARK, 0);
         lv_obj_set_style_border_width(item, 2, 0);
         lv_obj_set_style_radius(item, 0, 0);
         lv_obj_set_style_pad_ver(item, 12, 0);
         lv_obj_set_style_pad_hor(item, 15, 0);
 
         lv_obj_t *lbl = lv_label_create(item);
-        lv_obj_set_style_text_color(lbl, lv_color_make(0x00,0xFF,0x00), 0);
+        lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
         lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
         lv_label_set_text(lbl, s_info_items[i]);
     }
@@ -57,5 +56,8 @@ void card_info_create(lv_obj_t *parent)
 
 void card_info_update(void)
 {
-    /* Static menu — no live data to refresh */
+    /* INFO sub-menu strings are built dynamically in arex_screen.c
+       from g_arex values each time the user opens a sub-menu.
+       This update callback is intentionally minimal — the static
+       item titles never change. */
 }

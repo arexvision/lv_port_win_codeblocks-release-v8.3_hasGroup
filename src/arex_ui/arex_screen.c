@@ -655,24 +655,79 @@ void arex_screen_set_submenu_selection(uint8_t idx)
     }
 }
 
-/* INFO sub-menu content table */
-static const char *s_info_sub[][6] = {
-    { "MAX DEPTH: 45m", "DIVE TIME: 55m", "SURFACE INT: 2h 10m", "< BACK", NULL },
-    { "VIEW PROFILE",   "RECALCULATE",    "< BACK",              NULL },
-    { "VIEW BAR GRAPH", "GF: 30/70",      "CNS: 15%",  "OTU: 22", "< BACK", NULL },
-    { "GAS 1: TX18/45", "GAS 2: O2 100%", "ALGO: ZHL-16C",       "< BACK", NULL },
-    { "POD 1: 210 BAR", "POD 2: 195 BAR", "BATTERY: 85%",  "TEMP: 24C", "< BACK", NULL },
-};
+/* INFO sub-menu — dynamically built strings */
 static const char *s_info_titles[] = {
     "> LAST DIVE", "> DIVE PLAN", "> TISSUE & TOX", "> GAS & CALC", "> SENSOR & DEVICE"
 };
 
+/* String buffers for dynamic INFO sub-menu items */
+static char s_info_str[5][5][32]; /* [submenu][item][chars] */
+static const char *s_info_dyn[5][6]; /* pointer table, NULL-terminated */
+
+static void build_info_submenu(uint8_t idx)
+{
+    uint8_t n = 0;
+    switch (idx) {
+        case 0: /* LAST DIVE */
+            snprintf(s_info_str[0][0], 32, "MAX DEPTH: %dm",
+                     (int)g_arex.dive.depth);
+            snprintf(s_info_str[0][1], 32, "DIVE TIME: %dm",
+                     (int)(g_arex.dive.dive_time_s / 60));
+            snprintf(s_info_str[0][2], 32, "SURFACE INT: 2h 10m"); /* static demo */
+            s_info_dyn[0][n++] = s_info_str[0][0];
+            s_info_dyn[0][n++] = s_info_str[0][1];
+            s_info_dyn[0][n++] = s_info_str[0][2];
+            s_info_dyn[0][n++] = "< BACK";
+            break;
+        case 1: /* DIVE PLAN */
+            s_info_dyn[1][n++] = "VIEW PROFILE";
+            s_info_dyn[1][n++] = "RECALCULATE";
+            s_info_dyn[1][n++] = "< BACK";
+            break;
+        case 2: /* TISSUE & TOX */
+            snprintf(s_info_str[2][0], 32, "GF: %d/%d",
+                     30, 70); /* TODO: from g_arex when GF settings added */
+            snprintf(s_info_str[2][1], 32, "CNS: %d%%", g_arex.deco.cns_pct);
+            snprintf(s_info_str[2][2], 32, "OTU: %d",   g_arex.deco.otu);
+            s_info_dyn[2][n++] = "VIEW BAR GRAPH";
+            s_info_dyn[2][n++] = s_info_str[2][0];
+            s_info_dyn[2][n++] = s_info_str[2][1];
+            s_info_dyn[2][n++] = s_info_str[2][2];
+            s_info_dyn[2][n++] = "< BACK";
+            break;
+        case 3: /* GAS & CALC */
+            snprintf(s_info_str[3][0], 32, "GAS 1: %s",
+                     AREX_GAS_TABLE[g_arex.gas.active_idx].name);
+            snprintf(s_info_str[3][1], 32, "ALGO: ZHL-16C");
+            s_info_dyn[3][n++] = s_info_str[3][0];
+            s_info_dyn[3][n++] = s_info_str[3][1];
+            s_info_dyn[3][n++] = "< BACK";
+            break;
+        case 4: /* SENSOR & DEVICE */
+            snprintf(s_info_str[4][0], 32, "POD 1: %d BAR", g_arex.dive.pod1_bar);
+            snprintf(s_info_str[4][1], 32, "POD 2: %d BAR", g_arex.dive.pod2_bar);
+            snprintf(s_info_str[4][2], 32, "BATTERY: 85%%"); /* static demo */
+            snprintf(s_info_str[4][3], 32, "TEMP: 24C");     /* static demo */
+            s_info_dyn[4][n++] = s_info_str[4][0];
+            s_info_dyn[4][n++] = s_info_str[4][1];
+            s_info_dyn[4][n++] = s_info_str[4][2];
+            s_info_dyn[4][n++] = s_info_str[4][3];
+            s_info_dyn[4][n++] = "< BACK";
+            break;
+        default:
+            s_info_dyn[idx][n++] = "< BACK";
+            break;
+    }
+    s_info_dyn[idx][n] = NULL;
+}
+
 void arex_screen_open_info_submenu(uint8_t item_idx)
 {
     if (item_idx >= 5) return;
+    build_info_submenu(item_idx);
     uint8_t count = 0;
-    while (count < 6 && s_info_sub[item_idx][count]) count++;
-    submenu_populate(s_info_titles[item_idx], s_info_sub[item_idx], count);
+    while (count < 6 && s_info_dyn[item_idx][count]) count++;
+    submenu_populate(s_info_titles[item_idx], s_info_dyn[item_idx], count);
     g_ui.sub_item_count = count;
     g_ui.sub_menu_idx   = 0;
     g_ui.sub_parent     = UI_INFO;
@@ -680,13 +735,13 @@ void arex_screen_open_info_submenu(uint8_t item_idx)
     submenu_slide_in();
 }
 
-/* SETUP sub-menu content table */
-static const char *s_setup_sub[][6] = {
+/* SETUP sub-menu content table — max 7 items per row (last must be NULL) */
+static const char *s_setup_sub[][7] = {
     { "SELECT AIR", "SELECT NX 32", "SELECT TX 18/45", "SELECT O2 100%", "< BACK", NULL },
     { "LOW (GF 40/85)", "MED (GF 30/70)", "HIGH (GF 20/65)", "< BACK", NULL },
     { "LOW", "MED", "HIGH", "MAX", "< BACK", NULL },
     { "START CALIBRATION", "< BACK", NULL },
-    { "MODE SETUP >", "DIVE SETUP >", "AI SETUP >", "ALERTS SETUP >", "< BACK", NULL },
+    { "MODE SETUP >", "DIVE SETUP >", "AI SETUP >", "ALERTS SETUP >", "DISPLAY / SYS >", "< BACK", NULL },
 };
 static const char *s_setup_titles[] = {
     "> GAS SWITCH", "> CONSERVATISM", "> BRIGHTNESS", "> COMPASS CAL", "> SYSTEM SETUP"
@@ -696,13 +751,78 @@ void arex_screen_open_setup_submenu(uint8_t item_idx)
 {
     if (item_idx >= 5) return;
     uint8_t count = 0;
-    while (count < 6 && s_setup_sub[item_idx][count]) count++;
+    while (count < 7 && s_setup_sub[item_idx][count]) count++;
     submenu_populate(s_setup_titles[item_idx], s_setup_sub[item_idx], count);
     g_ui.sub_item_count = count;
     g_ui.sub_menu_idx   = 0;
     g_ui.sub_parent     = UI_SETUP;
     g_ui.state          = UI_SUB_MENU;
     submenu_slide_in();
+}
+
+/* =========================================
+   Nested sub-menu content tables (3rd level)
+   ========================================= */
+static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS NX", "GAUGE", "< BACK", NULL };
+static const char *s_nested_ai_setup[]     = { "PAIR T1", "PAIR T2", "GTR MODE: ON", "< BACK", NULL };
+static const char *s_nested_alerts_setup[] = { "DEPTH ALARM: 40m", "TIME ALARM: 60m", "LOW NDL: 5m", "TEST VIBRATION", "< BACK", NULL };
+static const char *s_nested_display_sys[]  = { "UNITS: METRIC", "DATE & CLOCK", "LOG RATE: 10s", "BLUETOOTH: OFF", "RESET DEFAULTS", "< BACK", NULL };
+
+/* DIVE SETUP nested items — MOD PO2 string built dynamically */
+static char s_modppo2_str[20];
+static const char *s_nested_dive_setup[6]; /* filled before use */
+
+static void build_nested_dive_setup(void)
+{
+    snprintf(s_modppo2_str, sizeof(s_modppo2_str), "MOD PO2: %.1f", g_arex.settings.mod_ppo2);
+    s_nested_dive_setup[0] = "SALINITY: FRESH";
+    s_nested_dive_setup[1] = s_modppo2_str;
+    s_nested_dive_setup[2] = "SAFETY STOP: 3 MIN";
+    s_nested_dive_setup[3] = "ALTITUDE: AUTO";
+    s_nested_dive_setup[4] = "< BACK";
+    s_nested_dive_setup[5] = NULL;
+}
+
+/* Helper: get a nested items table and count by title */
+static const char **nested_items_for(const char *title, uint8_t *out_count)
+{
+    const char **tbl = NULL;
+    if      (strcmp(title, "MODE SETUP")    == 0) tbl = s_nested_mode_setup;
+    else if (strcmp(title, "DIVE SETUP")    == 0) { build_nested_dive_setup(); tbl = s_nested_dive_setup; }
+    else if (strcmp(title, "AI SETUP")      == 0) tbl = s_nested_ai_setup;
+    else if (strcmp(title, "ALERTS SETUP")  == 0) tbl = s_nested_alerts_setup;
+    else if (strcmp(title, "DISPLAY / SYS") == 0) tbl = s_nested_display_sys;
+
+    if (tbl && out_count) {
+        *out_count = 0;
+        while (*out_count < 8 && tbl[*out_count]) (*out_count)++;
+    }
+    return tbl;
+}
+
+/* Push current sub-menu state onto the history stack */
+static void submenu_history_push(void)
+{
+    if (g_ui.sub_history_depth >= AREX_SUB_HISTORY_MAX) return;
+    arex_sub_history_t *h = &g_ui.sub_history[g_ui.sub_history_depth];
+    /* Store the current title shown in the submenu layer */
+    const char *cur_title = lv_label_get_text(s_submenu_title);
+    lv_snprintf(h->title, sizeof(h->title), "%s", cur_title ? cur_title : "");
+    h->idx = g_ui.sub_menu_idx;
+    g_ui.sub_history_depth++;
+}
+
+void arex_screen_open_nested_submenu(const char *title, const char **items, uint8_t count)
+{
+    submenu_history_push();
+    char full_title[40];
+    lv_snprintf(full_title, sizeof(full_title), "> %s", title);
+    submenu_populate(full_title, items, count);
+    g_ui.sub_item_count = count;
+    g_ui.sub_menu_idx   = 0;
+    /* sub_parent stays the same — nested menus return to SETUP ultimately */
+    g_ui.state = UI_SUB_MENU;
+    /* No slide animation for nested — already visible, just swap content */
 }
 
 void arex_screen_handle_submenu_select(uint8_t item_idx)
@@ -714,22 +834,220 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     const char *text = lv_label_get_text(lbl);
     if (!text) return;
 
+    /* --- BACK button --- */
     if (strcmp(text, "< BACK") == 0) {
         arex_screen_close_submenu();
         return;
     }
-    /* Deeper menus, value edits, and actions handled in arex_ui_state.c
-       via the public handle_submenu_select path — just forward the text */
-    /* (Extend here as cards are implemented) */
+
+    /* Get the current sub-menu title (strip leading "> ") */
+    const char *raw_title = lv_label_get_text(s_submenu_title);
+    char cur_title[40] = {0};
+    if (raw_title) {
+        const char *p = raw_title;
+        if (p[0] == '>' && p[1] == ' ') p += 2;
+        lv_snprintf(cur_title, sizeof(cur_title), "%s", p);
+    }
+
+    /* --- Items with ">" suffix → enter nested sub-menu --- */
+    if (text[strlen(text) - 1] == '>') {
+        char nested_name[40] = {0};
+        /* Strip trailing " >" */
+        size_t len = strlen(text);
+        size_t copy_len = (len >= 2) ? len - 2 : 0;
+        if (copy_len >= sizeof(nested_name)) copy_len = sizeof(nested_name) - 1;
+        memcpy(nested_name, text, copy_len);
+        /* Trim trailing space */
+        while (copy_len > 0 && nested_name[copy_len - 1] == ' ') {
+            nested_name[--copy_len] = '\0';
+        }
+        uint8_t ncnt = 0;
+        const char **nitems = nested_items_for(nested_name, &ncnt);
+        if (nitems && ncnt > 0) {
+            arex_screen_open_nested_submenu(nested_name, nitems, ncnt);
+        }
+        return;
+    }
+
+    /* -------------------------------------------------------
+       GAS SWITCH: "SELECT XXX" → switch active gas
+    ------------------------------------------------------- */
+    if (strcmp(cur_title, "GAS SWITCH") == 0) {
+        const char *gas_name = text;
+        /* Strip "SELECT " prefix */
+        if (strncmp(text, "SELECT ", 7) == 0) gas_name = text + 7;
+        for (uint8_t i = 0; i < AREX_GAS_COUNT; i++) {
+            if (strcmp(AREX_GAS_TABLE[i].name, gas_name) == 0) {
+                g_arex.gas.active_idx = i;
+                arex_screen_refresh_gas_menu();
+                arex_screen_refresh_left_panel();
+                arex_screen_close_submenu();
+                return;
+            }
+        }
+        return;
+    }
+
+    /* -------------------------------------------------------
+       CONSERVATISM: LOW / MED / HIGH
+    ------------------------------------------------------- */
+    if (strcmp(cur_title, "CONSERVATISM") == 0) {
+        uint8_t val = 0xFF;
+        if      (strncmp(text, "LOW",  3) == 0) val = 0;
+        else if (strncmp(text, "MED",  3) == 0) val = 1;
+        else if (strncmp(text, "HIGH", 4) == 0) val = 2;
+        if (val != 0xFF) {
+            g_arex.settings.conservatism = val;
+            const char *badge_str = (val == 0) ? "LOW" : (val == 1) ? "MED" : "HIGH";
+            arex_screen_update_setup_badge(1 /* CONSERVATISM row */, badge_str);
+            arex_screen_close_submenu();
+        }
+        return;
+    }
+
+    /* -------------------------------------------------------
+       BRIGHTNESS: LOW / MED / HIGH / MAX
+    ------------------------------------------------------- */
+    if (strcmp(cur_title, "BRIGHTNESS") == 0) {
+        uint8_t val = 0xFF;
+        if      (strcmp(text, "LOW")  == 0) val = 0;
+        else if (strcmp(text, "MED")  == 0) val = 1;
+        else if (strcmp(text, "HIGH") == 0) val = 2;
+        else if (strcmp(text, "MAX")  == 0) val = 3;
+        if (val != 0xFF) {
+            g_arex.settings.brightness = val;
+            arex_screen_update_setup_badge(2 /* BRIGHTNESS row */, text);
+            arex_screen_close_submenu();
+        }
+        return;
+    }
+
+    /* -------------------------------------------------------
+       DIVE SETUP (nested): MOD PO2 inline edit
+    ------------------------------------------------------- */
+    if (strcmp(cur_title, "DIVE SETUP") == 0) {
+        if (strncmp(text, "MOD PO2:", 8) == 0) {
+            arex_screen_begin_edit_value(item_idx,
+                                         g_arex.settings.mod_ppo2,
+                                         1.0f, 1.6f, 0.1f);
+            return;
+        }
+        /* Other DIVE SETUP items → generic action modal */
+        arex_screen_show_modal_act(text);
+        return;
+    }
+
+    /* -------------------------------------------------------
+       Everything else → generic action modal (1s auto-close)
+    ------------------------------------------------------- */
+    arex_screen_show_modal_act(text);
 }
 
 void arex_screen_close_submenu(void)
 {
     if (g_ui.sub_history_depth > 0) {
-        /* TODO: pop history when nested menus added */
+        /* Pop history: restore previous sub-menu level */
+        g_ui.sub_history_depth--;
+        arex_sub_history_t *h = &g_ui.sub_history[g_ui.sub_history_depth];
+
+        /* Determine which items table to restore */
+        const char *prev_title = h->title;
+        if (prev_title[0] == '>' && prev_title[1] == ' ') prev_title += 2;
+
+        /* Try setup sub-tables first */
+        bool found = false;
+        for (uint8_t i = 0; i < 5 && !found; i++) {
+            const char *setup_title_stripped = s_setup_titles[i];
+            if (setup_title_stripped[0] == '>' && setup_title_stripped[1] == ' ')
+                setup_title_stripped += 2;
+            if (strcmp(prev_title, setup_title_stripped) == 0) {
+                uint8_t cnt = 0;
+                while (cnt < 6 && s_setup_sub[i][cnt]) cnt++;
+                submenu_populate(s_setup_titles[i], s_setup_sub[i], cnt);
+                g_ui.sub_item_count = cnt;
+                g_ui.sub_menu_idx   = h->idx;
+                arex_screen_set_submenu_selection(h->idx);
+                found = true;
+            }
+        }
+        /* Try nested tables */
+        if (!found) {
+            uint8_t ncnt = 0;
+            const char **nitems = nested_items_for(prev_title, &ncnt);
+            if (nitems && ncnt > 0) {
+                char full_title[40];
+                lv_snprintf(full_title, sizeof(full_title), "> %s", prev_title);
+                submenu_populate(full_title, nitems, ncnt);
+                g_ui.sub_item_count = ncnt;
+                g_ui.sub_menu_idx   = h->idx;
+                arex_screen_set_submenu_selection(h->idx);
+                found = true;
+            }
+        }
+        /* Stay in UI_SUB_MENU regardless */
+        g_ui.state = UI_SUB_MENU;
+        return;
     }
     submenu_slide_out();
     g_ui.state = g_ui.sub_parent;
+}
+
+/* =========================================
+   Setup badge update
+   Updates the right-side badge label (child 1) of a SETUP menu item.
+   item_idx is 0-based position in the setup list.
+   ========================================= */
+void arex_screen_update_setup_badge(uint8_t item_idx, const char *value)
+{
+    if (!s_setup_list) return;
+    lv_obj_t *item = lv_obj_get_child(s_setup_list, item_idx);
+    if (!item) return;
+    /* child 0 = title label, child 1 = badge label */
+    lv_obj_t *badge = lv_obj_get_child(item, 1);
+    if (!badge) return;
+    lv_label_set_text(badge, value ? value : "");
+}
+
+/* Forward declaration — modal_set_content is defined below in the Modal section */
+static void modal_set_content(const char *title, const char *body, const char *hint);
+
+/* =========================================
+   Modal action (generic, 1-second auto-close)
+   ========================================= */
+static void modal_act_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    arex_screen_hide_modal();
+    if (g_ui.state == UI_MODAL_ACT) {
+        g_ui.state = UI_SUB_MENU;
+    }
+    lv_timer_del(t);
+}
+
+void arex_screen_show_modal_act(const char *action_text)
+{
+    modal_set_content("ACTION", action_text ? action_text : "",
+                      "[ ESC TO BACK ]");
+    lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
+    g_ui.state = UI_MODAL_ACT;
+    lv_timer_create(modal_act_timer_cb, 1000, NULL);
+}
+
+/* =========================================
+   Begin inline value edit (MOD PO2 pattern)
+   ========================================= */
+void arex_screen_begin_edit_value(uint8_t item_idx, float value,
+                                   float min, float max, float step)
+{
+    g_ui.edit_ctx.value      = value;
+    g_ui.edit_ctx.original   = value;
+    g_ui.edit_ctx.min        = min;
+    g_ui.edit_ctx.max        = max;
+    g_ui.edit_ctx.step       = step;
+    g_ui.edit_ctx.item_index = item_idx;
+    g_ui.edit_ctx.active     = true;
+    g_ui.state = UI_EDIT_VALUE;
+    arex_screen_refresh_edit_value();
 }
 
 /* =========================================

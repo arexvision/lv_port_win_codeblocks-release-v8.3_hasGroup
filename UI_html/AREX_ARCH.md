@@ -453,3 +453,72 @@ main.c (WinMain)
 5. **Wall-charge 防误触**：连续3次才穿越边界，防止单次抖动误触进入菜单。
 
 6. **Modal 震动反馈**：气体切换超 MOD 时，`arex_screen_pulse_modal()` 用 lv_anim 做左右 ±6px 抖动（2次重复，80ms），对应 HTML 的 `scale(1.05)` 弹跳。
+
+---
+
+## 14. 子菜单动作路由（v0.10 新增）
+
+`arex_screen_handle_submenu_select()` 在 `arex_screen.c` 中全面实现，按 `cur_title` 分支路由：
+
+### 14.1 动作路由表
+
+| 当前子菜单标题 | 选中项规则 | 执行动作 |
+|---|---|---|
+| `GAS SWITCH` | `SELECT XXX` | 更新 `g_arex.gas.active_idx`，刷新 gas 卡和左面板，关闭子菜单 |
+| `CONSERVATISM` | `LOW/MED/HIGH` 开头 | 更新 `g_arex.settings.conservatism`，更新 SETUP 菜单 badge，关闭子菜单 |
+| `BRIGHTNESS` | 精确匹配 `LOW/MED/HIGH/MAX` | 更新 `g_arex.settings.brightness`，更新 SETUP 菜单 badge，关闭子菜单 |
+| `DIVE SETUP`（嵌套） | `MOD PO2:` 开头 | 调用 `arex_screen_begin_edit_value()` → `UI_EDIT_VALUE` |
+| `DIVE SETUP`（嵌套） | 其他项 | `arex_screen_show_modal_act(text)` 通用动作弹窗 |
+| 任意标题 | 末尾含 `>` | 解析标题，调用 `arex_screen_open_nested_submenu()` 进入下一级 |
+| 任意标题 | `< BACK` | `arex_screen_close_submenu()` 退出/回上级 |
+| 其他所有 | 任意 | `arex_screen_show_modal_act(text)` 通用动作弹窗（1秒自动关闭） |
+
+### 14.2 嵌套子菜单（三级）
+
+```
+SETUP → SYSTEM SETUP（二级）
+           ├─ MODE SETUP >   → [AIR / NITROX / 3 GAS NX / GAUGE]
+           ├─ DIVE SETUP >   → [SALINITY / MOD PO2 / SAFETY STOP / ALTITUDE]
+           │                      └─ MOD PO2 → UI_EDIT_VALUE（内联数值编辑）
+           ├─ AI SETUP >     → [PAIR T1 / PAIR T2 / GTR MODE: ON]
+           ├─ ALERTS SETUP > → [DEPTH ALARM / TIME ALARM / LOW NDL / TEST VIB]
+           └─ DISPLAY / SYS >→ [UNITS / DATE & CLOCK / LOG RATE / BLUETOOTH / RESET]
+```
+
+**导航栈** (`g_ui.sub_history[]`, 最深 4 层)：
+- 进入嵌套时 `submenu_history_push()` 保存当前标题和光标位置
+- `arex_screen_close_submenu()` 检测 `sub_history_depth > 0` 时执行 pop，重新 populate 上一级内容
+- `sub_history_depth == 0` 时执行 `submenu_slide_out()`，返回 `sub_parent` 状态
+
+### 14.3 SETUP badge 更新
+
+`card_setup.c` 每个菜单项有两个子 label：
+- child 0：标题文字（`> GAS SWITCH` 等）
+- child 1：右侧 badge（`MED` / `HIGH` / 空）
+
+`arex_screen_update_setup_badge(item_idx, value)` 通过 `s_setup_list` 直接写 child 1。  
+`card_setup_update()` 每 tick 从 `g_arex.settings` 同步 CONSERVATISM / BRIGHTNESS 的 badge 文字。
+
+### 14.4 INFO 子菜单动态数据
+
+`arex_screen_open_info_submenu()` 在打开前调用 `build_info_submenu(idx)` 从 `g_arex` 动态构建字符串：
+
+| 子菜单 | 动态字段来源 |
+|--------|-------------|
+| LAST DIVE | `g_arex.dive.depth`，`g_arex.dive.dive_time_s` |
+| TISSUE & TOX | `g_arex.deco.cns_pct`，`g_arex.deco.otu` |
+| GAS & CALC | `AREX_GAS_TABLE[g_arex.gas.active_idx].name` |
+| SENSOR & DEVICE | `g_arex.dive.pod1_bar`，`g_arex.dive.pod2_bar` |
+
+### 14.5 DIVE SETUP 嵌套菜单中 MOD PO2 实时值
+
+`build_nested_dive_setup()` 在每次打开该子菜单前调用，将 `g_arex.settings.mod_ppo2` 格式化进 `s_modppo2_str[]`，保证显示最新值。编辑提交后 `arex_screen_commit_edit_value()` 直接更新同一 label。
+
+### 14.6 新增 arex_screen.h 公开 API
+
+| 函数签名 | 作用 |
+|----------|------|
+| `arex_screen_open_nested_submenu(title, items, count)` | 把当前状态压栈，原地替换子菜单内容（无滑动动画） |
+| `arex_screen_update_setup_badge(item_idx, value)` | 更新 SETUP 菜单行的右侧 badge label |
+| `arex_screen_show_modal_act(action_text)` | 显示通用动作弹窗，1秒后自动关闭，状态回 `UI_SUB_MENU` |
+| `arex_screen_begin_edit_value(item_idx, value, min, max, step)` | 初始化 `edit_ctx`，进入 `UI_EDIT_VALUE` 状态 |
