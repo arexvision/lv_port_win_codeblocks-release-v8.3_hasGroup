@@ -44,6 +44,8 @@ void card_info_create(lv_obj_t *parent)
         lv_obj_set_style_radius(item, 0, 0);
         lv_obj_set_style_pad_ver(item, 12, 0);
         lv_obj_set_style_pad_hor(item, 15, 0);
+        lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_style_clip_corner(item, false, 0);
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);

@@ -387,8 +387,8 @@ void arex_screen_create(void)
     left_panel_create();
     right_panel_create();
     wall_create();
-    modal_create();
     submenu_layer_create();
+    modal_create();          /* modal last → highest z-order, always on top */
 
     lv_scr_load(s_scr);
 }
@@ -630,6 +630,8 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         lv_obj_set_style_radius(item, 0, 0);
         lv_obj_set_style_pad_ver(item, 12, 0);
         lv_obj_set_style_pad_hor(item, 15, 0);
+        lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_style_clip_corner(item, false, 0);
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
@@ -1034,23 +1036,6 @@ void arex_screen_show_modal_act(const char *action_text)
 }
 
 /* =========================================
-   Begin inline value edit (MOD PO2 pattern)
-   ========================================= */
-void arex_screen_begin_edit_value(uint8_t item_idx, float value,
-                                   float min, float max, float step)
-{
-    g_ui.edit_ctx.value      = value;
-    g_ui.edit_ctx.original   = value;
-    g_ui.edit_ctx.min        = min;
-    g_ui.edit_ctx.max        = max;
-    g_ui.edit_ctx.step       = step;
-    g_ui.edit_ctx.item_index = item_idx;
-    g_ui.edit_ctx.active     = true;
-    g_ui.state = UI_EDIT_VALUE;
-    arex_screen_refresh_edit_value();
-}
-
-/* =========================================
    Modal
    ========================================= */
 static void modal_set_content(const char *title, const char *body, const char *hint)
@@ -1137,38 +1122,124 @@ void arex_screen_refresh_gas_menu(void)
 
 /* =========================================
    Inline value edit (forwarded to sub-menu list)
+
+   HTML .menu-item.editing:  border-color = AREX_GREEN, black bg
+   HTML .mod-po2-edit:       green bg, black text (the value block)
+   HTML .mod-po2-arrows:     AREX_LIGHT color, right side
+
+   Row layout (fixed coords inside item, pad_hor=15):
+     x=0  "MOD PO2: "  prefix label (child 0, existing)
+     x≈110  green-bg value badge (child 1, new obj)
+     x=right-4  "▲▼" arrows (child 2, new label)
    ========================================= */
 void arex_screen_refresh_edit_value(void)
 {
     if (!g_ui.edit_ctx.active) return;
     lv_obj_t *item = lv_obj_get_child(s_submenu_list, g_ui.edit_ctx.item_index);
     if (!item) return;
-    lv_obj_t *lbl = lv_obj_get_child(item, 0);
-    if (!lbl) return;
-    char buf[32];
-    snprintf(buf, sizeof(buf), "MOD PO2: %.1f  ▲▼", g_ui.edit_ctx.value);
-    lv_label_set_text(lbl, buf);
-    lv_obj_set_style_bg_color(item, AREX_GREEN, 0);
-    lv_obj_set_style_text_color(lbl, AREX_BLACK, 0);
+
+    /* child 1 = badge container, its child 0 = value label */
+    lv_obj_t *badge = lv_obj_get_child(item, 1);
+    if (!badge) return;
+    lv_obj_t *val_lbl = lv_obj_get_child(badge, 0);
+    if (!val_lbl) return;
+    char buf[12];
+    snprintf(buf, sizeof(buf), " %.1f ", g_ui.edit_ctx.value);
+    lv_label_set_text(val_lbl, buf);
+}
+
+void arex_screen_begin_edit_value(uint8_t item_idx, float value,
+                                   float min, float max, float step)
+{
+    g_ui.edit_ctx.value      = value;
+    g_ui.edit_ctx.original   = value;
+    g_ui.edit_ctx.min        = min;
+    g_ui.edit_ctx.max        = max;
+    g_ui.edit_ctx.step       = step;
+    g_ui.edit_ctx.item_index = item_idx;
+    g_ui.edit_ctx.active     = true;
+    g_ui.state = UI_EDIT_VALUE;
+
+    lv_obj_t *item = lv_obj_get_child(s_submenu_list, item_idx);
+    if (!item) return;
+
+    /* Highlight border to indicate editing state */
+    lv_obj_set_style_border_color(item, AREX_GREEN, 0);
+
+    /* child 0: shorten prefix to "MOD PO2:" */
+    lv_obj_t *prefix_lbl = lv_obj_get_child(item, 0);
+    if (prefix_lbl) {
+        lv_label_set_text(prefix_lbl, "MOD PO2:");
+        lv_obj_set_pos(prefix_lbl, 0, 0);   /* stays at default left */
+    }
+
+    /* child 1: value badge — absolute position inside item content area
+       item pad_hor=15, pad_ver=12; inner height = 48-24=24px
+       place badge at x=108 (after "MOD PO2: " ~9 chars * ~12px) */
+    lv_obj_t *badge = lv_obj_create(item);
+    lv_obj_clear_flag(badge, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(badge, AREX_GREEN, 0);
+    lv_obj_set_style_bg_opa(badge, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(badge, 0, 0);
+    lv_obj_set_style_pad_all(badge, 0, 0);
+    lv_obj_set_style_radius(badge, 0, 0);
+    lv_obj_set_size(badge, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    /* Use absolute pos relative to item's content area (inside padding) */
+    lv_obj_set_pos(badge, 108, 0);
+
+    lv_obj_t *val_lbl = lv_label_create(badge);
+    lv_obj_set_style_text_color(val_lbl, AREX_BLACK, 0);
+    lv_obj_set_style_text_font(val_lbl, AREX_FONT_TITLE, 0);
+    lv_obj_set_style_bg_opa(val_lbl, LV_OPA_TRANSP, 0);
+    char buf[12];
+    snprintf(buf, sizeof(buf), " %.1f ", value);
+    lv_label_set_text(val_lbl, buf);
+
+    /* child 2: arrow label — absolute position, right side
+       item inner width = item_width - 2*pad_hor. Place at fixed x offset from right.
+       Since item width = LV_PCT(100) ≈ 428px, inner = 428-30 = 398.
+       Arrow "▲▼" ~2 chars, place at x = 398 - ~30 = 368 */
+    lv_obj_t *arrow_lbl = lv_label_create(item);
+    lv_obj_set_style_text_color(arrow_lbl, AREX_LIGHT, 0);
+    lv_obj_set_style_text_font(arrow_lbl, AREX_FONT_TITLE, 0);
+    lv_obj_set_style_bg_opa(arrow_lbl, LV_OPA_TRANSP, 0);
+    lv_label_set_text(arrow_lbl, "▲▼");
+    lv_obj_set_pos(arrow_lbl, 360, 0);
+}
+
+static void edit_value_cleanup(lv_obj_t *item)
+{
+    if (!item) return;
+    /* Restore border */
+    lv_obj_set_style_border_color(item, AREX_DARK, 0);
+    /* Delete in reverse: child 2 (arrows), child 1 (badge) */
+    uint32_t cnt = lv_obj_get_child_cnt(item);
+    if (cnt > 2) lv_obj_del(lv_obj_get_child(item, 2));
+    cnt = lv_obj_get_child_cnt(item);
+    if (cnt > 1) lv_obj_del(lv_obj_get_child(item, 1));
 }
 
 void arex_screen_commit_edit_value(void)
 {
     lv_obj_t *item = lv_obj_get_child(s_submenu_list, g_ui.edit_ctx.item_index);
     if (!item) return;
+
+    edit_value_cleanup(item);
+
+    /* Restore prefix label to full text with committed value */
     lv_obj_t *lbl = lv_obj_get_child(item, 0);
-    if (!lbl) return;
-    char buf[32];
-    snprintf(buf, sizeof(buf), "MOD PO2: %.1f", g_arex.settings.mod_ppo2);
-    lv_label_set_text(lbl, buf);
-    lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
-    lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+    if (lbl) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "MOD PO2: %.1f", g_arex.settings.mod_ppo2);
+        lv_label_set_text(lbl, buf);
+        lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+    }
     arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
 }
 
 void arex_screen_cancel_edit_value(void)
 {
-    arex_screen_commit_edit_value(); /* restore from g_arex (already reverted by state machine) */
+    arex_screen_commit_edit_value(); /* g_arex already reverted by state machine */
 }
 
 /* =========================================
