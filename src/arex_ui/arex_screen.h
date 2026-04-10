@@ -102,4 +102,12 @@ void arex_screen_refresh_compass_target(void);
    ========================================= */
 void arex_screen_update_scroll_dots(uint8_t active_idx, bool visible);
 
+/* =========================================
+   Card title helper
+   Creates a LIGHT-colored title label (font TITLE) at pos (16,12)
+   with a 2px DARK bottom border line underneath, matching .card-title in HTML.
+   Returns the label object. The border line is placed at y=38.
+   ========================================= */
+lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text);
+
 #endif /* AREX_SCREEN_HDR */

@@ -98,11 +98,7 @@ static void draw_tape(lv_coord_t heading)
 
 void card_compass_create(lv_obj_t *parent)
 {
-    lv_obj_t *title = lv_label_create(parent);
-    lv_obj_set_style_text_color(title, lv_color_make(0x00,0xFF,0x00), 0);
-    lv_obj_set_style_text_font(title, AREX_FONT_SMALL, 0);
-    lv_label_set_text(title, "1F  NAV COMPASS");
-    lv_obj_set_pos(title, 16, 12);
+    arex_screen_make_card_title(parent, "1F: NAV COMPASS");
 
     s_canvas = lv_canvas_create(parent);
     lv_canvas_set_buffer(s_canvas, s_cbuf, COMP_W, COMP_H, LV_IMG_CF_TRUE_COLOR);

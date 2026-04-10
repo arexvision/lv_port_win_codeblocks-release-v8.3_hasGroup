@@ -45,11 +45,7 @@ static lv_color_t tissue_color(uint8_t pct)
 
 void card_deco_create(lv_obj_t *parent)
 {
-    lv_obj_t *title = lv_label_create(parent);
-    lv_obj_set_style_text_color(title, lv_color_make(0x00,0xFF,0x00), 0);
-    lv_obj_set_style_text_font(title, AREX_FONT_SMALL, 0);
-    lv_label_set_text(title, "2F  TISSUES & DECO");
-    lv_obj_set_pos(title, 16, 12);
+    arex_screen_make_card_title(parent, "2F: TISSUES & DECO");
 
     /* Top row: GF99 / SURF GF / CNS / OTU */
     lv_obj_t *row = lv_obj_create(parent);

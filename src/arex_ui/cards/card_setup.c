@@ -19,11 +19,7 @@ static lv_obj_t *s_list;
 
 void card_setup_create(lv_obj_t *parent)
 {
-    lv_obj_t *title = lv_label_create(parent);
-    lv_obj_set_style_text_color(title, lv_color_make(0x00,0xFF,0x00), 0);
-    lv_obj_set_style_text_font(title, AREX_FONT_SMALL, 0);
-    lv_label_set_text(title, "5F  DIVE SETUP");
-    lv_obj_set_pos(title, 16, 12);
+    arex_screen_make_card_title(parent, "> DIVE SETUP");
 
     s_list = lv_obj_create(parent);
     lv_obj_set_size(s_list, 420, SETUP_ITEM_COUNT * 60);

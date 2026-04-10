@@ -14,7 +14,6 @@
 #define LV_FONT_COURIER_14 1
 #endif
 
-#if LV_FONT_COURIER_14
 
 /*-----------------
  *    BITMAPS
@@ -837,5 +836,4 @@ lv_font_t lv_font_courier_14 = {
 
 
 
-#endif /*#if LV_FONT_COURIER_14*/
 

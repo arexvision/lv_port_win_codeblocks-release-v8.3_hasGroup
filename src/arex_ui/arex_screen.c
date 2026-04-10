@@ -814,3 +814,32 @@ void arex_screen_cancel_edit_value(void)
 {
     arex_screen_commit_edit_value(); /* restore from g_arex (already reverted by state machine) */
 }
+
+/* =========================================
+   Card title helper
+   Mirrors HTML .card-title:
+     font: AREX_FONT_TITLE (20px Courier Bold)
+     color: AREX_LIGHT
+     border-bottom: 2px solid AREX_DARK
+     padding-bottom: 8px  → line placed at y=38
+   ========================================= */
+lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
+{
+    lv_obj_t *lbl = lv_label_create(parent);
+    lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
+    lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
+    lv_label_set_text(lbl, text);
+    lv_obj_set_pos(lbl, 16, 12);
+
+    /* Bottom border line */
+    lv_obj_t *line = lv_obj_create(parent);
+    lv_obj_set_size(line, AREX_RIGHT_W - 32, 2);
+    lv_obj_set_pos(line, 16, 38);
+    lv_obj_set_style_bg_color(line, AREX_DARK, 0);
+    lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(line, 0, 0);
+    lv_obj_set_style_pad_all(line, 0, 0);
+    lv_obj_set_style_radius(line, 0, 0);
+
+    return lbl;
+}
