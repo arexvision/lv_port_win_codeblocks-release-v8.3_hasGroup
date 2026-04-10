@@ -19,6 +19,8 @@ static lv_obj_t *s_lbl_otu;
 static lv_timer_t *s_flash_timer;
 static bool        s_flash_state;
 
+void card_deco_update(void);
+
 static void flash_timer_cb(lv_timer_t *t)
 {
     (void)t;
