@@ -3,14 +3,33 @@
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
 #include <stdio.h>
+#include <stdbool.h>
 
 #define BAR_W   23
 #define BAR_H   80
 #define BAR_GAP 4
 #define GRID_X  16
+#define TISSUE_AREA_W    (16 * (BAR_W + BAR_GAP) - BAR_GAP)
 
-/* Bar area starts at y=230 (after 3 grid rows + tissue label) */
-#define BARS_Y  230
+/* Tile content height = AREX_SCREEN_H (480). HTML .card: flex column; .tissue-section-title
+   has margin-top:auto → tissue block sits on bottom. LVGL: pin bars from bottom upward. */
+#define TILE_H           AREX_SCREEN_H
+#define BOTTOM_PAD       8
+#define BAR_LBL_GAP      4
+#define COMPARTMENT_LBL_H 14 /* AREX_FONT_SMALL line height */
+#define SEC_TITLE_GAP    5   /* HTML .tissue-section-title margin-bottom */
+#define SEC_TITLE_H      18
+
+#define BAR_LBL_BOTTOM   (TILE_H - BOTTOM_PAD)
+#define BARS_Y           (BAR_LBL_BOTTOM - COMPARTMENT_LBL_H - BAR_LBL_GAP - BAR_H)
+#define SEC_TITLE_Y      (BARS_Y - SEC_TITLE_GAP - SEC_TITLE_H)
+
+/* HTML: .t-fill.high for ~75–85%; .t-fill.danger (flashInvert) for top compartment ~95% */
+#define TISSUE_DANGER_PCT   90
+#define TISSUE_HIGH_MIN     70
+
+/* HTML --flash-speed default 0.3s → 300ms half-period for flashInvert */
+#define TISSUE_FLASH_MS     300
 
 static lv_obj_t *s_bars[16];
 static lv_obj_t *s_lbl_gf99;
@@ -18,66 +37,106 @@ static lv_obj_t *s_lbl_surf_gf;
 static lv_obj_t *s_lbl_cns;
 static lv_obj_t *s_lbl_otu;
 
-/* Flash timer handle */
-static lv_timer_t *s_flash_timer;
-static bool        s_flash_state;
+static lv_timer_t *s_tissue_flash_timer;
+static bool        s_tissue_flash_phase;
 
 void card_deco_update(void);
 
-static void flash_timer_cb(lv_timer_t *t)
+static bool any_tissue_danger(void)
+{
+    for (int i = 0; i < 16; i++) {
+        if (g_arex.deco.tissue_pct[i] >= TISSUE_DANGER_PCT) return true;
+    }
+    return false;
+}
+
+static void tissue_danger_flash_cb(lv_timer_t *t)
 {
     (void)t;
-    if (g_arex.deco.surf_gf <= 100) {
-        lv_timer_del(s_flash_timer);
-        s_flash_timer = NULL;
-        lv_obj_set_style_text_color(s_lbl_surf_gf, lv_color_make(0x00,0xFF,0x00), 0);
-        return;
+    s_tissue_flash_phase = !s_tissue_flash_phase;
+    for (int i = 0; i < 16; i++) {
+        if (g_arex.deco.tissue_pct[i] >= TISSUE_DANGER_PCT) {
+            lv_color_t c = s_tissue_flash_phase ? AREX_GREEN : AREX_BLACK;
+            lv_obj_set_style_bg_color(s_bars[i], c, LV_PART_INDICATOR);
+        }
     }
-    s_flash_state = !s_flash_state;
-    lv_color_t col = s_flash_state ? lv_color_make(0xFF,0x00,0x00) : lv_color_make(0,0,0);
-    lv_obj_set_style_text_color(s_lbl_surf_gf, col, 0);
 }
 
-static lv_color_t tissue_color(uint8_t pct)
+static void tissue_flash_ensure(void)
 {
-    if (pct > 100) return lv_color_make(0xFF, 0x00, 0x00);
-    if (pct > 80)  return lv_color_make(0xFF, 0xAA, 0x00);
-    return lv_color_make(0x00, 0xFF, 0x00);
+    if (any_tissue_danger()) {
+        if (!s_tissue_flash_timer) {
+            s_tissue_flash_phase = false;
+            s_tissue_flash_timer = lv_timer_create(tissue_danger_flash_cb, TISSUE_FLASH_MS, NULL);
+        }
+    } else {
+        if (s_tissue_flash_timer) {
+            lv_timer_del(s_tissue_flash_timer);
+            s_tissue_flash_timer = NULL;
+        }
+    }
 }
 
-/* Helper: make one deco-grid row at the given y position.
-   Each row has a left label+value and a right label+value.
-   Returns nothing; stores value labels in the provided pointers (may be NULL). */
+/* HTML .t-bar: rgba(0,51,0,0.5) — AREX_DARK is #003300 */
+static void bar_set_track_style(lv_obj_t *bar)
+{
+    lv_obj_set_style_bg_color(bar, AREX_DARK, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(bar, LV_OPA_50, LV_PART_MAIN);
+}
+
+static lv_color_t tissue_fill_color(uint8_t pct)
+{
+    if (pct >= TISSUE_DANGER_PCT)
+        return s_tissue_flash_phase ? AREX_GREEN : AREX_BLACK;
+    if (pct > TISSUE_HIGH_MIN)
+        return AREX_LIGHT;
+    return AREX_GREEN;
+}
+
+/* HTML .highlight-invert on SurfGF when over limit (145% demo): green bg, black text */
+static void surf_gf_apply_style(void)
+{
+    if (g_arex.deco.surf_gf > 100) {
+        lv_obj_set_style_bg_color(s_lbl_surf_gf, AREX_GREEN, 0);
+        lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_COVER, 0);
+        lv_obj_set_style_text_color(s_lbl_surf_gf, AREX_BLACK, 0);
+        lv_obj_set_style_pad_hor(s_lbl_surf_gf, 4, 0);
+        lv_obj_set_style_pad_ver(s_lbl_surf_gf, 0, 0);
+    } else {
+        lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_text_color(s_lbl_surf_gf, AREX_GREEN, 0);
+        lv_obj_set_style_pad_hor(s_lbl_surf_gf, 0, 0);
+        lv_obj_set_style_pad_ver(s_lbl_surf_gf, 0, 0);
+    }
+}
+
+/* Helper: one deco-grid row (HTML .deco-grid) */
 static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
                            const char *left_cap, const char *left_val, lv_obj_t **left_ref,
                            const char *right_cap, const char *right_val, lv_obj_t **right_ref,
                            bool dashed_bottom)
 {
-    /* Left cap */
     lv_obj_t *lc = lv_label_create(parent);
-    lv_obj_set_style_text_color(lc, lv_color_make(0x55,0xFF,0x55), 0);
+    lv_obj_set_style_text_color(lc, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(lc, AREX_FONT_SMALL, 0);
     lv_label_set_text(lc, left_cap);
     lv_obj_set_pos(lc, GRID_X, y);
 
-    /* Left val */
     lv_obj_t *lv_ = lv_label_create(parent);
-    lv_obj_set_style_text_color(lv_, lv_color_make(0x00,0xFF,0x00), 0);
+    lv_obj_set_style_text_color(lv_, AREX_GREEN, 0);
     lv_obj_set_style_text_font(lv_, AREX_FONT_TITLE, 0);
     lv_label_set_text(lv_, left_val);
     lv_obj_set_pos(lv_, GRID_X, y + 16);
     if (left_ref) *left_ref = lv_;
 
-    /* Right cap */
     lv_obj_t *rc = lv_label_create(parent);
-    lv_obj_set_style_text_color(rc, lv_color_make(0x55,0xFF,0x55), 0);
+    lv_obj_set_style_text_color(rc, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(rc, AREX_FONT_SMALL, 0);
     lv_label_set_text(rc, right_cap);
     lv_obj_set_pos(rc, 240, y);
 
-    /* Right val */
     lv_obj_t *rv = lv_label_create(parent);
-    lv_obj_set_style_text_color(rv, lv_color_make(0x00,0xFF,0x00), 0);
+    lv_obj_set_style_text_color(rv, AREX_GREEN, 0);
     lv_obj_set_style_text_font(rv, AREX_FONT_TITLE, 0);
     lv_label_set_text(rv, right_val);
     lv_obj_set_pos(rv, 240, y + 16);
@@ -87,7 +146,7 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
         lv_obj_t *line = lv_obj_create(parent);
         lv_obj_set_size(line, 428, 1);
         lv_obj_set_pos(line, GRID_X, y + 40);
-        lv_obj_set_style_bg_color(line, lv_color_make(0x00,0x33,0x00), 0);
+        lv_obj_set_style_bg_color(line, AREX_DARK, 0);
         lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(line, 0, 0);
         lv_obj_set_style_pad_all(line, 0, 0);
@@ -99,32 +158,29 @@ void card_deco_create(lv_obj_t *parent)
 {
     arex_screen_make_card_title(parent, "2F: TISSUES & DECO");
 
-    /* Row 1: ALGORITHM + GF LOW/HIGH  (y=50) */
+    /* HTML order: three .deco-grid rows under title */
     make_grid_row(parent, 50,
                   "ALGORITHM", "ZHL-16C", NULL,
-                  "GF LOW/HIGH", "30 / 70", NULL,
+                  "GF LOW / HIGH", "30 / 70", NULL,
                   true);
 
-    /* Row 2: GF99 + SURF GF  (y=97) */
     make_grid_row(parent, 97,
                   "GF99", "--", &s_lbl_gf99,
-                  "SURF GF", "--", &s_lbl_surf_gf,
+                  "SurfGF", "--", &s_lbl_surf_gf,
                   true);
 
-    /* Row 3: CNS O2 + OTU  (y=144) */
     make_grid_row(parent, 144,
                   "CNS O2", "--%", &s_lbl_cns,
                   "OTU", "--", &s_lbl_otu,
                   false);
 
-    /* "TISSUE SATURATION" section label (y=200) */
+    /* HTML .tissue-section-title — directly above .tissue-container, margin-top:auto on card */
     lv_obj_t *sec_lbl = lv_label_create(parent);
-    lv_obj_set_style_text_color(sec_lbl, lv_color_make(0x55,0xFF,0x55), 0);
+    lv_obj_set_style_text_color(sec_lbl, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(sec_lbl, AREX_FONT_SMALL, 0);
     lv_label_set_text(sec_lbl, "TISSUE SATURATION (16 COMPARTMENTS)");
-    lv_obj_set_pos(sec_lbl, GRID_X, 200);
+    lv_obj_set_pos(sec_lbl, GRID_X, SEC_TITLE_Y);
 
-    /* 16 tissue bars (y=218) */
     for (int i = 0; i < 16; i++) {
         lv_obj_t *bar = lv_bar_create(parent);
         lv_bar_set_range(bar, 0, 110);
@@ -133,32 +189,40 @@ void card_deco_create(lv_obj_t *parent)
         lv_bar_set_start_value(bar, 0, LV_ANIM_OFF);
         lv_bar_set_value(bar, 0, LV_ANIM_OFF);
 
-        lv_obj_set_style_bg_color(bar, lv_color_make(0x00,0x22,0x00), 0);
-        lv_obj_set_style_bg_color(bar, lv_color_make(0x00,0xFF,0x00), LV_PART_INDICATOR);
+        bar_set_track_style(bar);
+        lv_obj_set_style_bg_color(bar, AREX_GREEN, LV_PART_INDICATOR);
         lv_obj_set_style_radius(bar, 0, 0);
         lv_obj_set_style_radius(bar, 0, LV_PART_INDICATOR);
 
         s_bars[i] = bar;
 
-        /* Compartment number label below bar */
         lv_obj_t *lbl = lv_label_create(parent);
-        lv_obj_set_style_text_color(lbl, lv_color_make(0x55,0xFF,0x55), 0);
+        lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
         lv_obj_set_style_text_font(lbl, AREX_FONT_SMALL, 0);
         char buf[4];
         snprintf(buf, sizeof(buf), "%d", i + 1);
         lv_label_set_text(lbl, buf);
-        lv_obj_set_pos(lbl, GRID_X + i * (BAR_W + BAR_GAP), BARS_Y + BAR_H + 4);
+        lv_obj_set_pos(lbl, GRID_X + i * (BAR_W + BAR_GAP), BARS_Y + BAR_H + BAR_LBL_GAP);
     }
 
-    /* M-value line at 80% height from bottom (top 20%) */
+    /* HTML .m-value-line at top 20% of 80px tissue-container */
     lv_obj_t *mline = lv_obj_create(parent);
-    lv_obj_set_size(mline, 16 * (BAR_W + BAR_GAP) - BAR_GAP, 2);
-    lv_obj_set_pos(mline, GRID_X, BARS_Y + (int)(BAR_H * 0.2f));
-    lv_obj_set_style_bg_color(mline, lv_color_make(0x00,0xFF,0x00), 0);
-    lv_obj_set_style_bg_opa(mline, LV_OPA_COVER, 0);
+    lv_obj_set_size(mline, TISSUE_AREA_W, 2);
+    lv_obj_set_pos(mline, GRID_X, BARS_Y + (lv_coord_t)(BAR_H * 0.2f));
+    lv_obj_set_style_bg_color(mline, AREX_GREEN, 0);
+    lv_obj_set_style_bg_opa(mline, LV_OPA_50, 0);
     lv_obj_set_style_border_width(mline, 0, 0);
     lv_obj_set_style_pad_all(mline, 0, 0);
     lv_obj_set_style_radius(mline, 0, 0);
+
+    lv_obj_t *mlbl = lv_label_create(parent);
+    lv_obj_set_style_text_color(mlbl, AREX_GREEN, 0);
+    lv_obj_set_style_text_font(mlbl, AREX_FONT_SMALL, 0);
+    lv_obj_set_style_bg_opa(mlbl, LV_OPA_TRANSP, 0);
+    lv_label_set_text(mlbl, "M-VALUE");
+    /* HTML .m-value-label: right: 5px from tissue area edge, above dashed line */
+    lv_obj_set_pos(mlbl, GRID_X + TISSUE_AREA_W - 58,
+                   BARS_Y + (lv_coord_t)(BAR_H * 0.2f) - 12);
 
     card_deco_update();
 }
@@ -172,6 +236,7 @@ void card_deco_update(void)
 
     snprintf(buf, sizeof(buf), "%d%%", g_arex.deco.surf_gf);
     lv_label_set_text(s_lbl_surf_gf, buf);
+    surf_gf_apply_style();
 
     snprintf(buf, sizeof(buf), "%d%%", g_arex.deco.cns_pct);
     lv_label_set_text(s_lbl_cns, buf);
@@ -179,14 +244,12 @@ void card_deco_update(void)
     snprintf(buf, sizeof(buf), "%d", g_arex.deco.otu);
     lv_label_set_text(s_lbl_otu, buf);
 
-    /* Flash timer for surf_gf > 100 */
-    if (g_arex.deco.surf_gf > 100 && !s_flash_timer) {
-        s_flash_timer = lv_timer_create(flash_timer_cb, 500, NULL);
-    }
+    tissue_flash_ensure();
 
     for (int i = 0; i < 16; i++) {
         uint8_t pct = g_arex.deco.tissue_pct[i];
         lv_bar_set_value(s_bars[i], pct, LV_ANIM_ON);
-        lv_obj_set_style_bg_color(s_bars[i], tissue_color(pct), LV_PART_INDICATOR);
+        bar_set_track_style(s_bars[i]);
+        lv_obj_set_style_bg_color(s_bars[i], tissue_fill_color(pct), LV_PART_INDICATOR);
     }
 }

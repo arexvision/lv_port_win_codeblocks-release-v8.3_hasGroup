@@ -80,7 +80,7 @@ typedef struct {
 ### 关键设计点
 
 - `settings.card_order[6]`：控制 tileview 中卡片的显示顺序（indirection 层），默认 `{0,1,2,3,4,5}`
-- `deco.surf_gf > 100` 时，card_deco.c 会创建 500ms 闪烁定时器（红色警告）
+- `deco.surf_gf > 100` 时，SurfGF 数值使用 HTML `.highlight-invert`：绿底黑字（非红色闪烁）；组织条 `≥90%` 使用与 HTML `.t-fill.danger` 相同的 `flashInvert` 节奏（300ms，对应 `--flash-speed 0.3s`）
 - `dive.depth` 是浮点数，左面板每秒更新
 
 ---
@@ -314,7 +314,7 @@ typedef struct {
 |----|------|------|----------|
 | 0 CARD_ID_INFO | card_info.c | INFO MENU | 5条静态列表，`arex_screen_register_info_list()` 注册到屏幕层 |
 | 1 CARD_ID_COMPASS | card_compass.c | NAV COMPASS | 420×380 canvas，`draw_tape()` 每帧重绘，目标航向黄线 |
-| 2 CARD_ID_DECO | card_deco.c | TISSUES & DECO | 16个 `lv_bar`（竖向），GF99/SurfGF/CNS/OTU 标签，SurfGF>100触发500ms闪烁定时器 |
+| 2 CARD_ID_DECO | card_deco.c | TISSUES & DECO | 16 竖条贴卡片底（对齐 HTML `margin-top:auto`）；条槽 `AREX_DARK` 半透明；填充绿 / `>70%` 浅绿 / `≥90%` 反色闪烁；SurfGF>100 绿底黑字 |
 | 3 CARD_ID_GAS | card_gas.c | GAS SWITCH | 4行 `lv_obj` 容器，光标/激活/超MOD三态颜色，实时 PPO2 计算 |
 | 4 CARD_ID_PLAN | card_plan.c | DIVE PLAN TRACK | 380×280 canvas，网格+折线+当前位置黄点 |
 | 5 CARD_ID_SETUP | card_setup.c | DIVE SETUP | 5条静态列表，`arex_screen_register_setup_list()` 注册 |
@@ -362,20 +362,19 @@ key_event_cb():
   - major（每45°）画高刻度+方位字母（N/NE/E/SE/S/SW/W/NW）
   - minor（每15°）画中刻度；其余画短刻度
   - 中央画绿色竖线（指针）
-  - 大字号显示当前航向数字（如 `265°`）
-  - 若 `compass.marked`：在目标航向对应位置画黄色竖线，下方显示 `TARGET 265°`
+  - 大字号显示当前航向三位数（如 `265`）；**不输出 `°` 字符** — `lv_font_courier_*` 仅含 ASCII `0x20-0x7E`，`U+00B0` 会显示为方框
+  - 若 `compass.marked`：在目标航向对应位置画黄色竖线，下方显示 `TARGET 265`（同上无度符号）
 - 每秒通过 `card_compass_update()` 触发重绘
 
 ### 9.2 card_deco.c（2F）
 
-- 顶部4列：GF99 / SURF GF / CNS / OTU（`lv_label`）
-- 16个 `lv_bar`（范围 0~110，代表0~110%，M值线在100%处）
-- 颜色规则：
-  - `pct ≤ 80` → 绿色 `#00FF00`
-  - `80 < pct ≤ 100` → 橙色 `#FFAA00`
-  - `pct > 100` → 红色 `#FF0000`
-- M值线：`BAR_H * (1 - 100/110)` 处画红色横线
-- `surf_gf > 100` 时启动 500ms 定时器交替变色（闪烁）；低于100时自动销毁定时器
+- 布局：与 `arex_ui_test_0.10.html` 一致 — `.card` 为列 flex，`.tissue-section-title` 使用 `margin-top:auto`，隔室图在卡片**最下方**；LVGL 用 `BARS_Y` 从 `TILE_H` 向上反算。
+- 顶部三行 `.deco-grid`：文案 `SurfGF`、`GF LOW / HIGH` 等与 HTML 一致。
+- **SurfGF**：`surf_gf > 100` 时为 `.highlight-invert`（`AREX_GREEN` 底 + `AREX_BLACK` 字 + 水平 padding 4），无红字闪烁。
+- 16 个 `lv_bar`（0~110）：
+  - 槽道：`.t-bar` 对应 `AREX_DARK` + `LV_OPA_50`（等同 `rgba(0,51,0,0.5)`）。
+  - 填充：`≤70%` → `AREX_GREEN`；`>70%` 且 `<90%` → `AREX_LIGHT`（`.t-fill.high`）；`≥90%` → `.t-fill.danger` 式反色闪烁（300ms 定时器，绿/黑切换）。
+- M 值虚线：容器高度 80px 的 **top 20%**（与 HTML `.m-value-line`），线宽 `TISSUE_AREA_W`，`LV_OPA_50`；右侧 `M-VALUE` 小字标签。
 
 ### 9.3 card_gas.c（3F）
 
@@ -423,7 +422,7 @@ AREX_BG     = #050505   // 屏幕根背景（接近纯黑，略有区分）
 | JS `STATE` 对象 | `arex_ui_ctx_t g_ui` |
 | JS `gasData[]` | `AREX_GAS_TABLE[]` |
 | JS `setInterval 150ms`（罗盘） | `sim_tick_cb` 1000ms + `card_compass_update` |
-| JS `flashInvert` 动画 | `flash_timer_cb` 500ms（card_deco.c） |
+| JS `flashInvert`（`.t-fill.danger`） | `tissue_danger_flash_cb` 300ms（card_deco.c，仅 `pct≥90` 的条） |
 | JS `renderModal('GAS')` MOD 警告 | `arex_screen_show_modal_gas()` hint 字符串切换 |
 
 ---

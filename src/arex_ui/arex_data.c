@@ -46,7 +46,7 @@ void arex_data_init(void)
         g_arex.deco.tissue_pct[i] = tissue_demo[i];
     }
     g_arex.deco.gf99    = 82;
-    g_arex.deco.surf_gf = 145;   /* >100 → danger flash */
+    g_arex.deco.surf_gf = 145;   /* >100 → HTML .highlight-invert (green chip / black text) */
     g_arex.deco.cns_pct = 15;
     g_arex.deco.otu     = 22;
 

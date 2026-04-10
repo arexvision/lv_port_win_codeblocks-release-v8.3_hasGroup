@@ -62,9 +62,9 @@ static void draw_tape(lv_coord_t heading)
     line_dsc.width = 3;
     lv_canvas_draw_line(s_canvas, (lv_point_t[]){ {CX, 0},{CX, 36} }, 2, &line_dsc);
 
-    /* Heading value */
-    char buf[8];
-    snprintf(buf, sizeof(buf), "%03d°", (int)heading);
+    /* Heading value — no U+00B0 (°): lv_font_courier_* only has 0x20-0x7E */
+    char buf[12];
+    snprintf(buf, sizeof(buf), "%03d", (int)heading);
     lbl_dsc.font  = AREX_FONT_HUGE;
     lbl_dsc.color = lv_color_make(0x00,0xFF,0x00);
     lv_canvas_draw_text(s_canvas, CX - 64, TAPE_H + 10, 128, &lbl_dsc, buf);
@@ -83,7 +83,7 @@ static void draw_tape(lv_coord_t heading)
         lbl_dsc.font  = AREX_FONT_SMALL;
         lbl_dsc.color = lv_color_make(0xFF,0xFF,0x00);
         char tbuf[16];
-        snprintf(tbuf, sizeof(tbuf), "TARGET %03d°", (int)g_arex.compass.target);
+        snprintf(tbuf, sizeof(tbuf), "TARGET %03d", (int)g_arex.compass.target);
         lv_canvas_draw_text(s_canvas, 10, TAPE_H + 72, 200, &lbl_dsc, tbuf);
     }
 
