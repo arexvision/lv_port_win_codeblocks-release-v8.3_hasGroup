@@ -22,7 +22,9 @@ static lv_obj_t *s_lbl_next_stop;
 static lv_obj_t *s_lbl_pod1;
 static lv_obj_t *s_lbl_pod2;
 static lv_obj_t *s_lbl_gas_name;
-static lv_obj_t *s_lbl_ppo2;
+static lv_obj_t *s_lbl_ppo2;        /* PO2 值段0（向后兼容句柄） */
+static lv_obj_t *s_ppo2_vals[3];   /* PO2 三段值（刷新用） */
+static lv_obj_t *s_ppo2_seps[2];   /* PO2 分隔符（透明度 30%） */
 static lv_obj_t *s_lbl_time;
 
 /* Wall indicators */
@@ -130,12 +132,15 @@ static void left_panel_create(void)
     lv_obj_set_scrollbar_mode(s_left_panel, LV_SCROLLBAR_MODE_OFF);
     lv_obj_clear_flag(s_left_panel, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* DEPTH label */
+    /* DEPTH label（14px AREX_LIGHT），值（48px AREX_GREEN，line-height收紧letter_space=-2）
+       规范：panel padding 上下10px → DEPTH从y=10起；大字体行高≈48px，字间距-2 */
     lv_obj_t *lbl_depth_caption = make_label(s_left_panel, &s_style_label_small, "DEPTH");
-    lv_obj_set_pos(lbl_depth_caption, 0, 0);
+    lv_obj_set_pos(lbl_depth_caption, 0, 10);
 
+    /* DEPTH 值 — 使用 Huge(48px)，字间距-2px，行高紧 */
     s_lbl_depth = make_label(s_left_panel, &s_style_label_huge, "45.2");
-    lv_obj_set_pos(s_lbl_depth, 0, 16);
+    lv_obj_set_pos(s_lbl_depth, 0, 24);
+    lv_obj_set_style_text_letter_space(s_lbl_depth, -2, 0);
 
     /* NDL / TTS row */
     lv_obj_t *lbl_ndl_cap = make_label(s_left_panel, &s_style_label_small, "NDL");
@@ -182,11 +187,35 @@ static void left_panel_create(void)
     s_lbl_gas_name = make_label(s_left_panel, &s_style_label_med, "TX 18/45");
     lv_obj_set_pos(s_lbl_gas_name, 0, 268);
 
-    /* PO2 */
+    /* PO2 — 规范：| 符号透明度 30%（opa≈76）
+       使用独立 label 对象：PO2值1 | PO2值2 | PO2值3
+       刷新函数按同样结构更新 s_lbl_ppo2_vals[3] */
+    static lv_obj_t *s_ppo2_vals[3];
+    static lv_obj_t *s_ppo2_seps[2];
+
     lv_obj_t *lbl_po2_cap = make_label(s_left_panel, &s_style_label_small, "PO2");
     lv_obj_set_pos(lbl_po2_cap, 0, 304);
-    s_lbl_ppo2 = make_label(s_left_panel, &s_style_label_small, "1.2 | 1.2 | 1.3");
-    lv_obj_set_pos(s_lbl_ppo2, 0, 320);
+
+    lv_obj_t *ppo2_val0 = make_label(s_left_panel, &s_style_label_small, "1.2");
+    lv_obj_set_pos(ppo2_val0, 30, 320);
+    lv_obj_t *ppo2_sep0 = make_label(s_left_panel, &s_style_label_small, "|");
+    lv_obj_set_pos(ppo2_sep0, 58, 320);
+    lv_obj_set_style_text_opa(ppo2_sep0, LV_OPA_30, 0); /* 规范 30% */
+    lv_obj_t *ppo2_val1 = make_label(s_left_panel, &s_style_label_small, "1.2");
+    lv_obj_set_pos(ppo2_val1, 66, 320);
+    lv_obj_t *ppo2_sep1 = make_label(s_left_panel, &s_style_label_small, "|");
+    lv_obj_set_pos(ppo2_sep1, 94, 320);
+    lv_obj_set_style_text_opa(ppo2_sep1, LV_OPA_30, 0);
+    lv_obj_t *ppo2_val2 = make_label(s_left_panel, &s_style_label_small, "1.3");
+    lv_obj_set_pos(ppo2_val2, 102, 320);
+
+    s_ppo2_vals[0] = ppo2_val0;
+    s_ppo2_vals[1] = ppo2_val1;
+    s_ppo2_vals[2] = ppo2_val2;
+    s_ppo2_seps[0] = ppo2_sep0;
+    s_ppo2_seps[1] = ppo2_sep1;
+    /* s_lbl_ppo2 保留作为向后兼容句柄 */
+    s_lbl_ppo2 = ppo2_val0;
 
     /* TIME — HTML: margin-top:auto, sticks to bottom of panel */
     lv_obj_t *lbl_time_cap = make_label(s_left_panel, &s_style_label_small, "TIME");
@@ -253,6 +282,11 @@ static void right_panel_create(void)
         lv_obj_set_style_bg_opa(s_scroll_dots[i], LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(s_scroll_dots[i], 0, 0);
         lv_obj_set_style_pad_all(s_scroll_dots[i], 0, 0);
+        /* 规范：激活状态发光阴影 shadow_width=8, shadow_color=#00FF00
+           LVGL 阴影通过 shadow_width + shadow_color 实现 */
+        lv_obj_set_style_shadow_width(s_scroll_dots[i], 0, 0);    /* 默认无阴影 */
+        lv_obj_set_style_shadow_color(s_scroll_dots[i], AREX_GREEN, 0);
+        lv_obj_set_style_shadow_opa(s_scroll_dots[i], 0, 0);
     }
     arex_screen_update_scroll_dots(0, true);
 }
@@ -314,20 +348,22 @@ static void modal_create(void)
     s_modal = lv_obj_create(s_right_cont);
     lv_obj_set_size(s_modal, AREX_RIGHT_W, AREX_SCREEN_H);
     lv_obj_set_pos(s_modal, 0, 0);
+    /* 规范：背景遮罩 95% 透明度 → LVGL opa 242（≈255*0.95） */
     lv_obj_set_style_bg_color(s_modal, lv_color_make(0,0,0), 0);
-    lv_obj_set_style_bg_opa(s_modal, LV_OPA_90, 0);
+    lv_obj_set_style_bg_opa(s_modal, 242, 0);
     lv_obj_set_style_border_width(s_modal, 0, 0);
     lv_obj_add_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
 
+    /* 规范：弹窗居中，宽 400px，背景 #000000，边框 4px #00FF00，内边距 30px */
     s_modal_box = lv_obj_create(s_modal);
-    lv_obj_set_size(s_modal_box, 380, 260);
+    lv_obj_set_size(s_modal_box, 400, 260);
     lv_obj_center(s_modal_box);
     lv_obj_set_style_bg_color(s_modal_box, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(s_modal_box, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(s_modal_box, AREX_GREEN, 0);
-    lv_obj_set_style_border_width(s_modal_box, 3, 0);
+    lv_obj_set_style_border_width(s_modal_box, 4, 0);
     lv_obj_set_style_radius(s_modal_box, 0, 0);
-    lv_obj_set_style_pad_all(s_modal_box, 24, 0);
+    lv_obj_set_style_pad_all(s_modal_box, 30, 0); /* 规范：内边距 30px */
 }
 
 /* =========================================
@@ -431,9 +467,16 @@ void arex_screen_refresh_left_panel(void)
 
     lv_label_set_text(s_lbl_gas_name, AREX_GAS_TABLE[g_arex.gas.active_idx].name);
 
-    snprintf(buf, sizeof(buf), "%.1f|%.1f|%.1f",
-             g_arex.gas.ppo2[0], g_arex.gas.ppo2[1], g_arex.gas.ppo2[2]);
-    lv_label_set_text(s_lbl_ppo2, buf);
+    /* PO2 三段刷新 */
+    if (s_ppo2_vals[0]) {
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%.1f", g_arex.gas.ppo2[0]);
+        lv_label_set_text(s_ppo2_vals[0], buf);
+        snprintf(buf, sizeof(buf), "%.1f", g_arex.gas.ppo2[1]);
+        lv_label_set_text(s_ppo2_vals[1], buf);
+        snprintf(buf, sizeof(buf), "%.1f", g_arex.gas.ppo2[2]);
+        lv_label_set_text(s_ppo2_vals[2], buf);
+    }
 
     uint32_t s = g_arex.dive.dive_time_s;
     snprintf(buf, sizeof(buf), "%02d:%02d", s / 60, s % 60);
@@ -526,8 +569,18 @@ void arex_screen_update_scroll_dots(uint8_t active_idx, bool visible)
         if (!s_scroll_dots[i]) continue;
         if (!visible) { lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN); continue; }
         lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
-        lv_color_t col = (i == active_idx) ? AREX_GREEN : AREX_DARK;
-        lv_obj_set_style_bg_color(s_scroll_dots[i], col, 0);
+        if (i == active_idx) {
+            /* 规范：激活状态发光阴影 shadow_width=8, shadow_color=#00FF00 */
+            lv_obj_set_style_bg_color(s_scroll_dots[i], AREX_GREEN, 0);
+            lv_obj_set_style_shadow_width(s_scroll_dots[i], 8, 0);
+            lv_obj_set_style_shadow_color(s_scroll_dots[i], AREX_GREEN, 0);
+            lv_obj_set_style_shadow_opa(s_scroll_dots[i], 255, 0);
+        } else {
+            lv_obj_set_style_bg_color(s_scroll_dots[i], AREX_DARK, 0);
+            /* 非激活：清除阴影 */
+            lv_obj_set_style_shadow_width(s_scroll_dots[i], 0, 0);
+            lv_obj_set_style_shadow_opa(s_scroll_dots[i], 0, 0);
+        }
     }
 }
 

@@ -356,54 +356,97 @@ key_event_cb():
 
 ### 9.1 card_compass.c（1F）
 
-- 使用 `lv_canvas`（420×380，静态像素缓冲 `s_cbuf`）
+- 与规范对齐：Canvas **420×140**px，标题下 y=50：
+  - 滑动框(Tape)：高 **60px**，2px `AREX_DARK` 边框
+  - 航向数字：最接近规范 46.4px，字库用 `AREX_FONT_HUGE`(48px)，居中
+  - 中心游标：**宽 4px**，高 60px，`AREX_GREEN`
 - `draw_tape(heading)` 每次完整清屏重绘：
-  - 以 heading 为中心，±60° 范围画刻度线
+  - 以 heading 为中心，±60° 范围画刻度线，每度 3px
   - major（每45°）画高刻度+方位字母（N/NE/E/SE/S/SW/W/NW）
   - minor（每15°）画中刻度；其余画短刻度
-  - 中央画绿色竖线（指针）
-  - 大字号显示当前航向三位数（如 `265`）；**不输出 `°` 字符** — `lv_font_courier_*` 仅含 ASCII `0x20-0x7E`，`U+00B0` 会显示为方框
+  - **不输出 `°` 字符** — `lv_font_courier_*` 仅含 ASCII `0x20-0x7E`，`U+00B0` 会显示为方框
   - 若 `compass.marked`：在目标航向对应位置画黄色竖线，下方显示 `TARGET 265`（同上无度符号）
 - 每秒通过 `card_compass_update()` 触发重绘
 
 ### 9.2 card_deco.c（2F）
 
-- 布局：与 `arex_ui_test_0.10.html` 一致 — `.card` 为列 flex，`.tissue-section-title` 使用 `margin-top:auto`，隔室图在卡片**最下方**；LVGL 用 `BARS_Y` 从 `TILE_H` 向上反算。
-- 顶部三行 `.deco-grid`：文案 `SurfGF`、`GF LOW / HIGH` 等与 HTML 一致。
+- 布局：与 `arex_ui_test_0.10.html` 一致 — `.card` 为列 flex，`.tissue-section-title` 使用 `margin-top:auto`，隔室图在卡片**最下方**；LVGL 用 `BARS_Y` 从 `TILE_H` 向上反算；规范 Section Title Y≈250，`BOTTOM_PAD=36`。
+- 顶部三行 `.deco-grid`（y=60/107/154）：文案 `SurfGF`、`GF LOW / HIGH` 等与 HTML 一致。
 - **SurfGF**：`surf_gf > 100` 时为 `.highlight-invert`（`AREX_GREEN` 底 + `AREX_BLACK` 字 + 水平 padding 4），无红字闪烁。
-- 16 个 `lv_bar`（0~110）：
-  - 槽道：`.t-bar` 对应 `AREX_DARK` + `LV_OPA_50`（等同 `rgba(0,51,0,0.5)`）。
-  - 填充：`≤70%` → `AREX_GREEN`；`>70%` 且 `<90%` → `AREX_LIGHT`（`.t-fill.high`）；`≥90%` → `.t-fill.danger` 式反色闪烁（300ms 定时器，绿/黑切换）。
-- M 值虚线：容器高度 80px 的 **top 20%**（与 HTML `.m-value-line`），线宽 `TISSUE_AREA_W`，`LV_OPA_50`；右侧 `M-VALUE` 小字标签。
+- 16 个 `lv_bar`（规范：间距 4px，槽 `AREX_DARK`+`LV_OPA_50`，填充≤70%绿/>70%浅绿/≥90%危险闪烁）：
+  - 槽道：`.t-bar` 对应 `AREX_DARK` + `LV_OPA_50`。
+  - 填充：`≤70%` → `AREX_GREEN`；`>70%` 且 `<90%` → `AREX_LIGHT`（`.t-fill.high`）；`≥90%` → `.t-fill.danger` 式反色闪烁（**300ms** 定时器，绿/黑切换）。
+- M 值虚线：容器高度 80px 的 **top 20%**，`LV_OPA_50`；右侧 `M-VALUE` 小字标签。
 
 ### 9.3 card_gas.c（3F）
 
-- 4行 `lv_obj` 容器（400×72px，间距86px）
-- 三态颜色逻辑（`card_gas_update` 每帧评估）：
-  - 光标行（`UI_EDIT_GAS && gas_cursor==i`）：绿底黑字
-  - 激活行（`active_idx==i`）：深绿底绿字
-  - 普通行：黑底绿字
-- 超 MOD：边框变红（`depth > MOD`）
-- PPO2 简化计算：`depth/10 * 0.21`（使用当前深度）
+- 规范：行高 **49px**，间距 8，padding 上下 **12px**，左右 **15px**；字体 `AREX_FONT_TITLE`(20px)。
+- 与 HTML `.menu-list` / `.menu-item` / `.static-active` / `.active` / `.hint-text` / `#gas-card-status` 对齐：
+  - 气体名：`AREX_GREEN` 左对齐；MOD/PO2：`AREX_LIGHT`，右上/右下对齐。
+  - 光标行（`UI_EDIT_GAS && gas_cursor==i`）：`.active` — 绿底、黑字、绿边框。
+  - 当前呼吸气（`active_idx==i`，非光标）：`.static-active` — **黑底**、绿边框、气体名 `AREX_GREEN`。
+  - 普通行：黑底、绿字、`AREX_DARK` 边框。
+  - `#gas-card-status`：右上角 `[EDIT MODE]`（`AREX_FONT_SMALL`，`AREX_GREEN`）。
+  - `.hint-text`：底部提示，`AREX_LIGHT` + `LV_OPA_60`；编辑/空闲文案与 HTML 一致。
+- **超 MOD**（`depth > MOD`）：红边框；若该行同时为编辑光标，边框保持绿色。
+- PPO2 简化计算：`depth/10 * 0.21`，文案 `PO2 %.2f`。
 
 ### 9.4 card_plan.c（4F）
 
-- 380×280 canvas，静态像素缓冲
-- 固定 demo 剖面数据（13个坐标点）
-- 网格：深度0~50m（步进10m）、时间0~55min（步进10min）
-- 折线：绿色实线连接 profile 点
-- 当前位置：黄色圆点，坐标由 `g_arex.dive.dive_time_s` 和 `g_arex.dive.depth` 实时计算
+- 规范参数（已对齐）：
+  - 外壳：2px 实线 `AREX_DARK`，Padding 10px
+  - 画布：**400×320px**（`CHART_W`/`CHART_H`）
+  - 背景网格：横间距按 CHART_W/53px 步进，纵间距按 CHART_H/64px 步进；线宽 1px，`LV_OPA_51`（透明度 20%）
+  - 坐标轴文字：`AREX_FONT_SMALL`(14px)，`LV_OPA_191`（透明度 75%）
+  - 走势线：实线，粗细 **4px**，`AREX_GREEN`
+  - 停留点：半径 **6px**，填充黑，描边 2px `AREX_GREEN`（仅水平段且停留≥3min 时绘制）
+- 当前位置：黄色圆点，动态由 `g_arex.dive.dive_time_s` 和 `g_arex.dive.depth` 计算，带 "NOW" 标签
 
 ---
 
-## 10. 颜色常量
+## 10. 颜色常量与字体
 
 ```c
+/* 颜色 */
 AREX_GREEN  = #00FF00   // 主色（文字、指针、激活态）
 AREX_LIGHT  = #55FF55   // 副色（标签、辅助文字、次要数值）
 AREX_DARK   = #003300   // 边框、刻度线、非激活背景
 AREX_BLACK  = #000000   // 卡片背景
-AREX_BG     = #050505   // 屏幕根背景（接近纯黑，略有区分）
+AREX_BG     = #050505   // 屏幕根背景
+
+/* 字体（Courier New Bold）*/
+AREX_FONT_SMALL    = 14px   // 标签/单位/Status Badge
+AREX_FONT_TITLE    = 20px   // 菜单项/卡片标题（规范21px最接近）
+AREX_FONT_MEDIUM   = 28px   // 数据值
+AREX_FONT_HUGE     = 48px   // 深度大数字（规范58px）
+AREX_FONT_DERIVED  = 20px   // 21px派生（规范0.75x≈21px）
+```
+
+## 10.1 弹窗参数（规范值）
+
+```c
+modal_overlay:  bg #000000, opacity 95% (LVGL opa=242)
+modal_box:      400×? px, bg #000000, border 4px #00FF00, padding 30px
+```
+
+## 10.2 滚动指示器（规范值）
+
+```c
+位置: 右侧 8px，垂直居中（LV_ALIGN_RIGHT_MID）
+大小: 6×6px（border-radius:0 → 正方形）
+间距: 纵向 gap 8px
+默认: #003300 (AREX_DARK)
+激活: #00FF00 (AREX_GREEN) + shadow_width=8, shadow_color=#00FF00
+```
+
+## 10.3 左侧面板 PO2（规范值）
+
+```c
+PO2 标签: AREX_FONT_SMALL(14px), AREX_LIGHT
+三个值段 + 两个 | 分隔符，x=30/66/102, 间距≈28px
+| 分隔符: 透明度 30% (LV_OPA_30)
+DEPTH 大数字: AREX_FONT_HUGE(48px), AREX_GREEN, 字间距 -2px, y=24
+DEPTH 标签:  AREX_FONT_SMALL(14px), AREX_LIGHT, y=10
 ```
 
 ---
@@ -418,8 +461,8 @@ AREX_BG     = #050505   // 屏幕根背景（接近纯黑，略有区分）
 | `#top-wall-ui / #bottom-wall-ui` | `s_wall_top / s_wall_bottom`（HIDDENFlag 切换） |
 | `#canvas-modal` | `s_modal + s_modal_box` |
 | `#sub-menu-layer`（translateX 动画）| `s_submenu_layer`（lv_anim 水平滑入/滑出） |
-| `#scroll-indicator` | `s_scroll_dots[6]` |
-| JS `STATE` 对象 | `arex_ui_ctx_t g_ui` |
+| `#scroll-indicator` | `s_scroll_dots[6]`（激活时 shadow_width=8, shadow_color=AREX_GREEN） |
+| `.menu-list`/`.menu-item`/`.static-active`/`.active` | `card_gas.c`（行 428×49、间距8、padding 12/15px、三态颜色） |
 | JS `gasData[]` | `AREX_GAS_TABLE[]` |
 | JS `setInterval 150ms`（罗盘） | `sim_tick_cb` 1000ms + `card_compass_update` |
 | JS `flashInvert`（`.t-fill.danger`） | `tissue_danger_flash_cb` 300ms（card_deco.c，仅 `pct≥90` 的条） |

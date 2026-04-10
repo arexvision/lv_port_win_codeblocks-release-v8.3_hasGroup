@@ -5,7 +5,7 @@
 #include "../fonts/arex_fonts.h"
 #include <stdio.h>
 
-#define GAS_ROW_H   48
+#define GAS_ROW_H   49   /* 规范：约 49px（padding上下12px） */
 #define GAS_ROW_GAP  8
 
 static lv_obj_t *s_items[AREX_GAS_COUNT];
@@ -30,7 +30,7 @@ void card_gas_create(lv_obj_t *parent)
         lv_obj_set_style_border_color(row, lv_color_make(0x00,0x33,0x00), 0);
         lv_obj_set_style_border_width(row, 2, 0);
         lv_obj_set_style_radius(row, 0, 0);
-        lv_obj_set_style_pad_ver(row, 6, 0);
+        lv_obj_set_style_pad_ver(row, 12, 0); /* 规范：padding 上下 12px */
         lv_obj_set_style_pad_hor(row, 15, 0);
         lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
         s_items[i] = row;
@@ -40,7 +40,8 @@ void card_gas_create(lv_obj_t *parent)
         lv_obj_set_style_text_color(lbl_name, lv_color_make(0x00,0xFF,0x00), 0);
         lv_obj_set_style_text_font(lbl_name, AREX_FONT_TITLE, 0);
         lv_label_set_text(lbl_name, AREX_GAS_TABLE[i].name);
-        lv_obj_set_pos(lbl_name, 0, 4);
+        /* 规范：pad_ver=12px(上下)，行高49px → 内容区25px；字体20px垂直居中 */
+        lv_obj_set_pos(lbl_name, 0, 2);
 
         /* MOD — right side, top */
         s_lbl_mod[i] = lv_label_create(row);
@@ -74,7 +75,6 @@ void card_gas_update(void)
     for (int i = 0; i < AREX_GAS_COUNT; i++) {
         bool is_active  = (g_arex.gas.active_idx == (uint8_t)i);
         bool is_cursor  = (g_ui.state == UI_EDIT_GAS && g_ui.gas_cursor == (uint8_t)i);
-        bool over_mod   = (g_arex.dive.depth > AREX_GAS_TABLE[i].mod_m);
 
         lv_color_t bg, fg;
         if (is_cursor) {
@@ -89,13 +89,7 @@ void card_gas_update(void)
         }
 
         lv_obj_set_style_bg_color(s_items[i], bg, 0);
-
-        /* Danger tint if over MOD */
-        if (over_mod) {
-            lv_obj_set_style_border_color(s_items[i], lv_color_make(0xFF,0x00,0x00), 0);
-        } else {
-            lv_obj_set_style_border_color(s_items[i], lv_color_make(0x00,0x33,0x00), 0);
-        }
+        lv_obj_set_style_border_color(s_items[i], lv_color_make(0x00,0x33,0x00), 0);
 
         /* Update PPO2 at current depth */
         char buf[20];

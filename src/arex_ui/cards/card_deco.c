@@ -14,11 +14,13 @@
 /* Tile content height = AREX_SCREEN_H (480). HTML .card: flex column; .tissue-section-title
    has margin-top:auto → tissue block sits on bottom. LVGL: pin bars from bottom upward. */
 #define TILE_H           AREX_SCREEN_H
-#define BOTTOM_PAD       8
+/* 规范：组织区底部余白约 36px（从480px屏高减去bar区+标签+余白）
+   调整 BOTTOM_PAD 使 Section Title Y = 250（规范）*/
+#define BOTTOM_PAD       36
 #define BAR_LBL_GAP      4
 #define COMPARTMENT_LBL_H 14 /* AREX_FONT_SMALL line height */
-#define SEC_TITLE_GAP    5   /* HTML .tissue-section-title margin-bottom */
-#define SEC_TITLE_H      18
+#define SEC_TITLE_GAP    6   /* HTML .tissue-section-title 与组织区的间距 */
+#define SEC_TITLE_H      14 /* AREX_FONT_SMALL(14px)，规范字体18px暂无 */
 
 #define BAR_LBL_BOTTOM   (TILE_H - BOTTOM_PAD)
 #define BARS_Y           (BAR_LBL_BOTTOM - COMPARTMENT_LBL_H - BAR_LBL_GAP - BAR_H)
@@ -158,18 +160,19 @@ void card_deco_create(lv_obj_t *parent)
 {
     arex_screen_make_card_title(parent, "2F: TISSUES & DECO");
 
-    /* HTML order: three .deco-grid rows under title */
-    make_grid_row(parent, 50,
+    /* HTML order: three .deco-grid rows under title
+       调整行间距：section title y=290，rows均匀分布 */
+    make_grid_row(parent, 60,                  /* 原 50 */
                   "ALGORITHM", "ZHL-16C", NULL,
                   "GF LOW / HIGH", "30 / 70", NULL,
                   true);
 
-    make_grid_row(parent, 97,
+    make_grid_row(parent, 107,                 /* 原 97 */
                   "GF99", "--", &s_lbl_gf99,
                   "SurfGF", "--", &s_lbl_surf_gf,
                   true);
 
-    make_grid_row(parent, 144,
+    make_grid_row(parent, 154,                /* 原 144 */
                   "CNS O2", "--%", &s_lbl_cns,
                   "OTU", "--", &s_lbl_otu,
                   false);
