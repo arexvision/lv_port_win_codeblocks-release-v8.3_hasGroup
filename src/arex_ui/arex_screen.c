@@ -926,9 +926,11 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
 
     /* -------------------------------------------------------
        DIVE SETUP (nested): MOD PO2 inline edit
+       HTML builds "MOD PO2: 1.4" (space after colon).
+       Check both "MOD PO2:" (8) and "MOD PO2 " (8) as prefix.
     ------------------------------------------------------- */
     if (strcmp(cur_title, "DIVE SETUP") == 0) {
-        if (strncmp(text, "MOD PO2:", 8) == 0) {
+        if (strncmp(text, "MOD PO2:", 8) == 0 || strncmp(text, "MOD PO2 ", 8) == 0) {
             arex_screen_begin_edit_value(item_idx,
                                          g_arex.settings.mod_ppo2,
                                          1.0f, 1.6f, 0.1f);
@@ -1121,16 +1123,71 @@ void arex_screen_refresh_gas_menu(void)
 }
 
 /* =========================================
+   Inline value edit — flash animation timer
+   Mirrors HTML:
+     .mod-po2-edit  { background: green; color: black; animation: blink 1.2s; }
+     .mod-po2-arrows{ color: AREX_LIGHT; }
+   Flash period is 1200ms/2 = 600ms per phase (CSS keyframe 0%/100%).
+   ========================================= */
+static lv_timer_t *s_edit_flash_timer;
+static lv_obj_t   *s_edit_flash_badge;   /* green value box (child of item) */
+static lv_obj_t   *s_edit_flash_val_lbl; /* numeric label inside badge — must toggle fg */
+static bool        s_edit_flash_on;
+
+static void edit_flash_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    s_edit_flash_on = !s_edit_flash_on;
+    /* HTML .mod-po2-edit blink: green bg + black text <-> black bg + green text */
+    if (s_edit_flash_badge && s_edit_flash_val_lbl) {
+        lv_color_t bg = s_edit_flash_on ? AREX_GREEN : AREX_BLACK;
+        lv_color_t fg = s_edit_flash_on ? AREX_BLACK : AREX_GREEN;
+        lv_obj_set_style_bg_color(s_edit_flash_badge, bg, 0);
+        lv_obj_set_style_text_color(s_edit_flash_val_lbl, fg, 0);
+    }
+}
+
+static void edit_flash_stop(void)
+{
+    if (s_edit_flash_timer) {
+        lv_timer_del(s_edit_flash_timer);
+        s_edit_flash_timer = NULL;
+    }
+    s_edit_flash_badge   = NULL;
+    s_edit_flash_val_lbl = NULL;
+}
+
+static void edit_flash_start(void)
+{
+    /* Only replace timer — do NOT call edit_flash_stop() here; it would clear
+       s_edit_flash_badge / s_edit_flash_val_lbl set just before this. */
+    if (s_edit_flash_timer) {
+        lv_timer_del(s_edit_flash_timer);
+        s_edit_flash_timer = NULL;
+    }
+    s_edit_flash_on = true;
+    s_edit_flash_timer = lv_timer_create(edit_flash_timer_cb, 600, NULL);
+}
+
+/* Forward declaration */
+static void edit_value_cleanup(lv_obj_t *item);
+
+/* =========================================
    Inline value edit (forwarded to sub-menu list)
 
-   HTML .menu-item.editing:  border-color = AREX_GREEN, black bg
-   HTML .mod-po2-edit:       green bg, black text (the value block)
-   HTML .mod-po2-arrows:     AREX_LIGHT color, right side
+   HTML layout (inside a flex row):
+     <label>MOD PO2: </label>          ← child 0: prefix label (AREX_GREEN)
+     <span class="mod-po2-edit"> 1.4 </span> ← child 1: green badge (black text)
+     <span class="mod-po2-arrows">▲▼</span>  ← child 2: arrows (AREX_LIGHT)
 
-   Row layout (fixed coords inside item, pad_hor=15):
-     x=0  "MOD PO2: "  prefix label (child 0, existing)
-     x≈110  green-bg value badge (child 1, new obj)
-     x=right-4  "▲▼" arrows (child 2, new label)
+   Badge: flex_grow so it fills remaining space, text centered inside.
+   Arrows: align RIGHT, fixed position.
+
+   HTML arex_ui_test_0.10.html — .menu-item (line 137):
+     display:flex; justify-content:space-between; align-items:center;
+     padding:12px 15px;
+   Editing row is three flex children: "MOD PO2: " | .mod-po2-edit | .mod-po2-arrows
+   LVGL: same row = item LV_LAYOUT_FLEX + LV_FLEX_ALIGN_SPACE_BETWEEN on cross CENTER.
    ========================================= */
 void arex_screen_refresh_edit_value(void)
 {
@@ -1144,7 +1201,7 @@ void arex_screen_refresh_edit_value(void)
     lv_obj_t *val_lbl = lv_obj_get_child(badge, 0);
     if (!val_lbl) return;
     char buf[12];
-    snprintf(buf, sizeof(buf), " %.1f ", g_ui.edit_ctx.value);
+    snprintf(buf, sizeof(buf), "%.1f", g_ui.edit_ctx.value);
     lv_label_set_text(val_lbl, buf);
 }
 
@@ -1163,53 +1220,66 @@ void arex_screen_begin_edit_value(uint8_t item_idx, float value,
     lv_obj_t *item = lv_obj_get_child(s_submenu_list, item_idx);
     if (!item) return;
 
-    /* Highlight border to indicate editing state */
+    /* HTML setSubMenuEditing: remove .active — row is BLACK, not green selection */
+    lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
+    lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(item, AREX_GREEN, 0);
 
-    /* child 0: shorten prefix to "MOD PO2:" */
+    /* HTML .menu-item: flex + space-between — label | value | arrows (not badge flush to label) */
+    lv_obj_set_layout(item, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(item, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(item, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    /* child 0: prefix "MOD PO2: " (trailing space like HTML text node) */
     lv_obj_t *prefix_lbl = lv_obj_get_child(item, 0);
     if (prefix_lbl) {
-        lv_label_set_text(prefix_lbl, "MOD PO2:");
-        lv_obj_set_pos(prefix_lbl, 0, 0);   /* stays at default left */
+        lv_label_set_text(prefix_lbl, "MOD PO2: ");
+        lv_obj_set_style_text_color(prefix_lbl, AREX_GREEN, 0);
     }
 
-    /* child 1: value badge — absolute position inside item content area
-       item pad_hor=15, pad_ver=12; inner height = 48-24=24px
-       place badge at x=108 (after "MOD PO2: " ~9 chars * ~12px) */
+    /* child 1: compact value badge only around the number (not full row)
+       Inner flex centers the digits inside the green pad (.mod-po2-edit padding 0 6px) */
     lv_obj_t *badge = lv_obj_create(item);
     lv_obj_clear_flag(badge, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(badge, AREX_GREEN, 0);
     lv_obj_set_style_bg_opa(badge, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(badge, 0, 0);
-    lv_obj_set_style_pad_all(badge, 0, 0);
+    lv_obj_set_style_pad_hor(badge, 6, 0);
+    lv_obj_set_style_pad_ver(badge, 0, 0);
     lv_obj_set_style_radius(badge, 0, 0);
-    lv_obj_set_size(badge, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    /* Use absolute pos relative to item's content area (inside padding) */
-    lv_obj_set_pos(badge, 108, 0);
+    /* Flex so label is auto-sized to content and centered within badge */
+    lv_obj_set_layout(badge, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(badge, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(badge, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    s_edit_flash_badge = badge;
 
     lv_obj_t *val_lbl = lv_label_create(badge);
     lv_obj_set_style_text_color(val_lbl, AREX_BLACK, 0);
     lv_obj_set_style_text_font(val_lbl, AREX_FONT_TITLE, 0);
     lv_obj_set_style_bg_opa(val_lbl, LV_OPA_TRANSP, 0);
     char buf[12];
-    snprintf(buf, sizeof(buf), " %.1f ", value);
+    snprintf(buf, sizeof(buf), "%.1f", value);
     lv_label_set_text(val_lbl, buf);
+    s_edit_flash_val_lbl = val_lbl;
 
-    /* child 2: arrow label — absolute position, right side
-       item inner width = item_width - 2*pad_hor. Place at fixed x offset from right.
-       Since item width = LV_PCT(100) ≈ 428px, inner = 428-30 = 398.
-       Arrow "▲▼" ~2 chars, place at x = 398 - ~30 = 368 */
+    /* Arrows: ASCII only — ▲▼ are outside courier_20 glyph range */
     lv_obj_t *arrow_lbl = lv_label_create(item);
     lv_obj_set_style_text_color(arrow_lbl, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(arrow_lbl, AREX_FONT_TITLE, 0);
     lv_obj_set_style_bg_opa(arrow_lbl, LV_OPA_TRANSP, 0);
-    lv_label_set_text(arrow_lbl, "▲▼");
-    lv_obj_set_pos(arrow_lbl, 360, 0);
+    /* Same order as HTML: … <span class="mod-po2-arrows"> — ASCII ^ v (font has no ▲▼) */
+    lv_label_set_text(arrow_lbl, "^ v");
+
+    lv_obj_update_layout(item);
+
+    edit_flash_start();
 }
 
 static void edit_value_cleanup(lv_obj_t *item)
 {
     if (!item) return;
+    /* Stop flash before deleting objects */
+    edit_flash_stop();
     /* Restore border */
     lv_obj_set_style_border_color(item, AREX_DARK, 0);
     /* Delete in reverse: child 2 (arrows), child 1 (badge) */
@@ -1217,6 +1287,9 @@ static void edit_value_cleanup(lv_obj_t *item)
     if (cnt > 2) lv_obj_del(lv_obj_get_child(item, 2));
     cnt = lv_obj_get_child_cnt(item);
     if (cnt > 1) lv_obj_del(lv_obj_get_child(item, 1));
+    /* Back to default layout (submenu_populate items are not flex) */
+    lv_obj_set_layout(item, 0);
+    lv_obj_update_layout(item);
 }
 
 void arex_screen_commit_edit_value(void)

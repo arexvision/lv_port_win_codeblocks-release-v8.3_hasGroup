@@ -224,17 +224,29 @@ UI_INFO / UI_SETUP
 ### 5.5 数值内联编辑（MOD PO2）
 
 ```
-UI_SUB_MENU（DIVE SETUP 子菜单）
+UI_SUB_MENU（DIVE SETUP 子菜单，"MOD PO2: X.X" 行高亮）
   │
-  CLICK "MOD PO2: X.X" → UI_EDIT_VALUE
-  edit_ctx = {value=当前值, min=1.0, max=1.6, step=0.1, original=旧值}
-  子菜单项显示 "MOD PO2: X.X ▲▼"（黑字绿底 blink 提示）
+  CLICK "MOD PO2: X.X" → arex_screen_begin_edit_value()
+    - edit_ctx = {value=当前值, min=1.0, max=1.6, step=0.1, original=旧值}
+    - UI 变化：行从绿底黑字恢复为黑底绿字 + 绿边框
+    - 布局：与 HTML `.menu-item` 一致 — `display:flex; justify-content:space-between; align-items:center`（LVGL：`LV_LAYOUT_FLEX` + `LV_FLEX_ALIGN_SPACE_BETWEEN`），三列：`MOD PO2: ` | 绿底数值 | `^ v`
+    - value badge：绿底(AREX_GREEN) + 黑字(AREX_BLACK)
+    - ▲▼ 箭头：AREX_LIGHT 灰色，贴右
+    - 启动 600ms 定时器 toggle 闪烁
   │
   ROTATE → edit_ctx.value ± step（clamp 到 min/max）
-            arex_screen_refresh_edit_value() 更新文字
-  CLICK  → 提交：g_arex.settings.mod_ppo2 = edit_ctx.value，返回 UI_SUB_MENU
-  ESC    → 取消：恢复 edit_ctx.original，返回 UI_SUB_MENU
+            arex_screen_refresh_edit_value() 更新 badge 内数值
+            闪烁不中断（定时器继续）
+  │
+  CLICK  → 提交：g_arex.settings.mod_ppo2 = edit_ctx.value
+            停止闪烁，清理 badge/arrows，恢复完整标签
+            返回 UI_SUB_MENU（该行恢复选中态）
+  ESC    → 取消：恢复 edit_ctx.original
+            停止闪烁，清理 badge/arrows，恢复旧值
+            返回 UI_SUB_MENU
 ```
+
+> **实现细节：** `s_edit_flash_timer`（`lv_timer`，600ms）持续切换 badge 背景色（绿↔黑）与数值 label 文字色（黑↔绿），`edit_flash_start()` 不清空 `s_edit_flash_badge`/`s_edit_flash_val_lbl`，确保定时器回调有效。
 
 ---
 
@@ -521,4 +533,4 @@ SETUP → SYSTEM SETUP（二级）
 | `arex_screen_open_nested_submenu(title, items, count)` | 把当前状态压栈，原地替换子菜单内容（无滑动动画） |
 | `arex_screen_update_setup_badge(item_idx, value)` | 更新 SETUP 菜单行的右侧 badge label |
 | `arex_screen_show_modal_act(action_text)` | 显示通用动作弹窗，1秒后自动关闭，状态回 `UI_SUB_MENU` |
-| `arex_screen_begin_edit_value(item_idx, value, min, max, step)` | 初始化 `edit_ctx`，进入 `UI_EDIT_VALUE` 状态 |
+| `arex_screen_begin_edit_value(item_idx, value, min, max, step)` | 初始化 `edit_ctx`，进入 `UI_EDIT_VALUE` 状态；UI：行黑底+绿边框；整行 flex `space-between`（对齐 HTML 第 137 行）；数值 `X.X` 在绿底 badge 内居中；箭头 `^ v`；`s_edit_flash_timer` 600ms 切换 badge 背景（绿↔黑）与数值文字颜色（黑↔绿） |
