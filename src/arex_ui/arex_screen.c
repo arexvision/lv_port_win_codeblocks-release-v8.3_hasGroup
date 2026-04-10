@@ -416,6 +416,30 @@ void arex_screen_refresh_left_panel(void)
    ========================================= */
 static const char *charge_blocks[] = { "", "[#] [ ] [ ]", "[#] [#] [ ]", "[#] [#] [#]" };
 
+/* Nudge the tileview by offset_y pixels then spring back to 0.
+   Mirrors HTML: updateElevator(wallCharge * 20) on top-wall,
+                 updateElevator(-wallCharge * 20) on bottom-wall. */
+static void wall_nudge_tileview(lv_coord_t offset_y)
+{
+    /* Cancel any running nudge first */
+    lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
+
+    lv_coord_t base_y = 0; /* tileview sits at y=0 inside s_right_cont */
+
+    /* Phase 1: push to offset_y */
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, s_tileview);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+    lv_anim_set_values(&a, base_y, offset_y);
+    lv_anim_set_time(&a, 80);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    /* Phase 2: spring back */
+    lv_anim_set_playback_time(&a, 120);
+    lv_anim_set_playback_delay(&a, 0);
+    lv_anim_start(&a);
+}
+
 void arex_screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
 {
     if (charge > 3) charge = 3;
@@ -426,12 +450,19 @@ void arex_screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
     lv_obj_t *lbl  = (lv_obj_t *)lv_obj_get_user_data(wall);
     lv_label_set_text(lbl, buf);
     lv_obj_clear_flag(wall, LV_OBJ_FLAG_HIDDEN);
+
+    /* Rubber-band nudge: top-wall pushes down, bottom-wall pushes up */
+    lv_coord_t nudge = (lv_coord_t)(charge * 20);
+    wall_nudge_tileview(side == WALL_TOP ? nudge : -nudge);
 }
 
 void arex_screen_hide_walls(void)
 {
     lv_obj_add_flag(s_wall_top,    LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
+    /* Snap tileview back to y=0 immediately on wall clear */
+    lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
+    lv_obj_set_y(s_tileview, 0);
 }
 
 /* =========================================

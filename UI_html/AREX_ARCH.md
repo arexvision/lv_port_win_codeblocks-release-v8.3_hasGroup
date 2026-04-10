@@ -147,13 +147,19 @@ DASH 可滚动范围：dash_card ∈ [1, 4]
 
 在 UI_DASH 下：
   dash_card==1 且继续向上 → wall_charge++，显示顶部墙 "[#][ ][ ]"
+                            → tileview 向下偏移 charge×20px 然后弹回（橡皮筋感）
   连续3次 → 穿越到 UI_INFO（滚动到 index=0），wall_charge 清零
 
   dash_card==4 且继续向下 → wall_charge++，显示底部墙
+                            → tileview 向上偏移 charge×20px 然后弹回
   连续3次 → 穿越到 UI_SETUP（滚动到 index=5）
 
-  任何中途改变方向 → wall_charge = 0，墙UI隐藏
+  任何中途改变方向 → wall_charge = 0，墙UI隐藏，tileview 立即归位
 ```
+
+**橡皮筋动画实现（`wall_nudge_tileview`）：**  
+对 `s_tileview` 做 `lv_obj_set_y` 动画：80ms ease-out 推到 `charge×20px`，120ms 自动回弹到 0。  
+对应 HTML 的 `updateElevator(wallCharge * 20)` / `updateElevator(-wallCharge * 20)`。
 
 UI_INFO 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=1（COMPASS）  
 UI_SETUP 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=4（PLAN）
