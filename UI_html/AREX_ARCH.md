@@ -41,7 +41,8 @@ UI_main()
   │    └── submenu_layer_create()
   ├─ arex_input_init(scr)      → 注册键盘/编码器事件回调
   ├─ arex_screen_refresh_left_panel()   → 左侧面板初始值填充
-  ├─ arex_screen_set_info_selection(0)  → INFO 卡高亮第0项
+  ├─ arex_screen_scroll_to_card(0)      → 跳到 tile 0（INFO 卡）
+  ├─ arex_screen_set_info_selection(0)  → 高亮第一条 LAST DIVE
   └─ lv_timer_create(sim_tick_cb, 1000ms)  → 每秒仿真 tick
 ```
 
@@ -136,18 +137,30 @@ typedef struct {
 
 ### 5.1 Wall-Charge 边界穿越机制
 
-```
-在 UI_DASH 下：
-  到达 card 0 且继续向上 → wall_charge++，显示顶部墙 "[#][ ][ ]"
-  连续3次 → 穿越到 UI_INFO（滚动到 INFO 卡），wall_charge 清零
+**DASH 的可滚动范围是 index 1~4（card_order 中 COMPASS 到 PLAN），index 0（INFO）和 index 5（SETUP）仅通过 wall-charge 进入。**
 
-  到达最后卡片且继续向下 → wall_charge++，显示底部墙
-  连续3次 → 穿越到 UI_SETUP（滚动到 SETUP 卡）
+```
+card_order 布局：[0]=INFO  [1]=COMPASS  [2]=DECO  [3]=GAS  [4]=PLAN  [5]=SETUP
+                  ↑ wall-charge 才能进                            ↑ wall-charge 才能进
+
+DASH 可滚动范围：dash_card ∈ [1, 4]
+
+在 UI_DASH 下：
+  dash_card==1 且继续向上 → wall_charge++，显示顶部墙 "[#][ ][ ]"
+  连续3次 → 穿越到 UI_INFO（滚动到 index=0），wall_charge 清零
+
+  dash_card==4 且继续向下 → wall_charge++，显示底部墙
+  连续3次 → 穿越到 UI_SETUP（滚动到 index=5）
 
   任何中途改变方向 → wall_charge = 0，墙UI隐藏
 ```
 
-同理 UI_INFO / UI_SETUP 也有边界返回 DASH 的 wall-charge 机制。
+UI_INFO 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=1（COMPASS）  
+UI_SETUP 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=4（PLAN）
+
+> **启动行为说明：** 启动直接进入 `UI_INFO` 状态，显示 INFO 卡（tile 0），光标聚焦第一条 LAST DIVE。
+> 在 INFO 菜单底部 wall-charge（连续3次向下）→ 进入 `UI_DASH`，从 COMPASS（tile 1）开始。
+> 在 DASH 顶部 wall-charge（COMPASS 处连续3次向上）→ 返回 `UI_INFO`。
 
 ### 5.2 气体切换流程（3F 卡片）
 

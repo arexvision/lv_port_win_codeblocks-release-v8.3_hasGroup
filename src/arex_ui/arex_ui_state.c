@@ -16,9 +16,10 @@ arex_ui_ctx_t g_ui;
 void arex_ui_state_init(void)
 {
     memset(&g_ui, 0, sizeof(g_ui));
-    g_ui.state      = UI_DASH;
-    g_ui.dash_card  = 0;
-    g_ui.wall_charge = 0;
+    g_ui.state         = UI_INFO;  /* 启动直接进 INFO 菜单 */
+    g_ui.dash_card     = 1;        /* DASH 默认卡（COMPASS），wall-charge 退出 INFO 后跳这里 */
+    g_ui.menu_info_idx = 0;
+    g_ui.wall_charge   = 0;
 }
 
 /* =========================================
@@ -50,10 +51,16 @@ void ui_handle_rotate(int8_t dir)
 
     switch (g_ui.state) {
 
-        /* --- DASH: scroll between cards with wall-charge at edges --- */
+        /* --- DASH: scroll between cards with wall-charge at edges ---
+           card_order layout:  [0]=INFO  [1]=COMPASS  [2]=DECO  [3]=GAS  [4]=PLAN  [5]=SETUP
+           DASH 可滚动范围: index 1~(total_cards-2)
+           index 0 (INFO) 和 index (total_cards-1) (SETUP) 只能通过 wall-charge 进入
+        --- */
         case UI_DASH: {
-            bool at_top    = (g_ui.dash_card == 0);
-            bool at_bottom = (g_ui.dash_card == total_cards - 1);
+            uint8_t dash_min = 1;
+            uint8_t dash_max = total_cards - 2;
+            bool at_top    = (g_ui.dash_card == dash_min);
+            bool at_bottom = (g_ui.dash_card == dash_max);
 
             if (at_top && dir == -1) {
                 g_ui.wall_charge++;
@@ -81,8 +88,8 @@ void ui_handle_rotate(int8_t dir)
                 g_ui.wall_charge = 0;
                 arex_screen_hide_walls();
                 int8_t next = (int8_t)g_ui.dash_card + dir;
-                if (next < 0) next = 0;
-                if (next >= (int8_t)total_cards) next = total_cards - 1;
+                if (next < (int8_t)dash_min) next = (int8_t)dash_min;
+                if (next > (int8_t)dash_max) next = (int8_t)dash_max;
                 arex_ui_go_to_card((uint8_t)next);
             }
             break;
@@ -106,8 +113,8 @@ void ui_handle_rotate(int8_t dir)
                     g_ui.wall_charge = 0;
                     arex_screen_hide_walls();
                     g_ui.state = UI_DASH;
-                    g_ui.dash_card = 0;
-                    arex_ui_go_to_card(0);
+                    g_ui.dash_card = 1;   /* 返回 DASH 第一张卡（COMPASS） */
+                    arex_ui_go_to_card(1);
                 }
             } else {
                 g_ui.wall_charge = 0;
@@ -131,8 +138,8 @@ void ui_handle_rotate(int8_t dir)
                     g_ui.wall_charge = 0;
                     arex_screen_hide_walls();
                     g_ui.state = UI_DASH;
-                    g_ui.dash_card = total_cards - 1;
-                    arex_ui_go_to_card(total_cards - 1);
+                    g_ui.dash_card = total_cards - 2;   /* 返回 DASH 最后一张卡（PLAN） */
+                    arex_ui_go_to_card(total_cards - 2);
                 }
             } else {
                 g_ui.wall_charge = 0;
@@ -286,10 +293,15 @@ void ui_handle_back(void)
             break;
 
         case UI_INFO:
+            g_ui.state = UI_DASH;
+            g_ui.dash_card = 1;
+            arex_ui_go_to_card(1);
+            break;
+
         case UI_SETUP:
             g_ui.state = UI_DASH;
-            g_ui.dash_card = 0;
-            arex_ui_go_to_card(0);
+            g_ui.dash_card = arex_card_count() - 2;
+            arex_ui_go_to_card(arex_card_count() - 2);
             break;
 
         default:

@@ -30,7 +30,8 @@ void UI_main(void)
     /* Populate left panel with initial values */
     arex_screen_refresh_left_panel();
 
-    /* Set initial selection highlight on INFO card item 0 */
+    /* 启动在 INFO 卡（tile 0），高亮第一条 LAST DIVE */
+    arex_screen_scroll_to_card(0);
     arex_screen_set_info_selection(0);
 
     /* Simulation tick: 1 second interval */
