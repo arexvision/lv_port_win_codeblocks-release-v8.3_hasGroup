@@ -28,7 +28,6 @@
 #include "lv_100ask_teach_demos.h"
 
 
-#include "src/lv_100ask_demo_course_3_1_1/lv_100ask_demo_course_3_1_1.h"
 
 
 /*********************

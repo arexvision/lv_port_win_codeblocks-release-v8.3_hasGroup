@@ -22,7 +22,6 @@
 /*********************
  *      INCLUDES
  *********************/
-#include "src/lv_100ask_demo_course_3_3_1/lv_100ask_demo_course_3_3_1.h"
 
 
 
