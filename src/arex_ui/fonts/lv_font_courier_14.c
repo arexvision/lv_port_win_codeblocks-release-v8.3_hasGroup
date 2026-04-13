@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 14 px
  * Bpp: 4
- * Opts: --font C:/Windows/Fonts/courbd.ttf --size 14 --bpp 4 --format lvgl -o lv_font_courier_14.c --range 0x20-0x7E --no-compress
+ * Opts: --font C:/Windows/Fonts/courbd.ttf --size 14 --bpp 4 --format lvgl --range 0x20-0x7E,0x00B0 --no-compress -o lv_font_courier_14.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -14,6 +14,7 @@
 #define LV_FONT_COURIER_14 1
 #endif
 
+#if LV_FONT_COURIER_14
 
 /*-----------------
  *    BITMAPS
@@ -652,7 +653,12 @@ static LV_ATTRIBUTE_LARGE_CONST const uint8_t glyph_bitmap[] = {
 
     /* U+007E "~" */
     0x3, 0xdd, 0x40, 0x52, 0xf, 0xcc, 0xfa, 0xf6,
-    0x6, 0x0, 0xaf, 0x90
+    0x6, 0x0, 0xaf, 0x90,
+
+    /* U+00B0 "°" */
+    0x0, 0x0, 0x2, 0xdf, 0x60, 0xba, 0x5f, 0x2f,
+    0x30, 0xc5, 0xc7, 0x2f, 0x34, 0xff, 0x90, 0x0,
+    0x20, 0x0
 };
 
 
@@ -756,7 +762,8 @@ static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {
     {.bitmap_index = 3099, .adv_w = 134, .box_w = 5, .box_h = 13, .ofs_x = 2, .ofs_y = -3},
     {.bitmap_index = 3132, .adv_w = 134, .box_w = 2, .box_h = 13, .ofs_x = 3, .ofs_y = -3},
     {.bitmap_index = 3145, .adv_w = 134, .box_w = 5, .box_h = 13, .ofs_x = 2, .ofs_y = -3},
-    {.bitmap_index = 3178, .adv_w = 134, .box_w = 8, .box_h = 3, .ofs_x = 0, .ofs_y = 3}
+    {.bitmap_index = 3178, .adv_w = 134, .box_w = 8, .box_h = 3, .ofs_x = 0, .ofs_y = 3},
+    {.bitmap_index = 3190, .adv_w = 134, .box_w = 5, .box_h = 7, .ofs_x = 2, .ofs_y = 6}
 };
 
 /*---------------------
@@ -770,6 +777,10 @@ static const lv_font_fmt_txt_cmap_t cmaps[] =
 {
     {
         .range_start = 32, .range_length = 95, .glyph_id_start = 1,
+        .unicode_list = NULL, .glyph_id_ofs_list = NULL, .list_length = 0, .type = LV_FONT_FMT_TXT_CMAP_FORMAT0_TINY
+    },
+    {
+        .range_start = 176, .range_length = 1, .glyph_id_start = 96,
         .unicode_list = NULL, .glyph_id_ofs_list = NULL, .list_length = 0, .type = LV_FONT_FMT_TXT_CMAP_FORMAT0_TINY
     }
 };
@@ -795,7 +806,7 @@ static lv_font_fmt_txt_dsc_t font_dsc = {
     .cmaps = cmaps,
     .kern_dsc = NULL,
     .kern_scale = 0,
-    .cmap_num = 1,
+    .cmap_num = 2,
     .bpp = 4,
     .kern_classes = 0,
     .bitmap_format = 0,
@@ -818,7 +829,7 @@ lv_font_t lv_font_courier_14 = {
 #endif
     .get_glyph_dsc = lv_font_get_glyph_dsc_fmt_txt,    /*Function pointer to get glyph's data*/
     .get_glyph_bitmap = lv_font_get_bitmap_fmt_txt,    /*Function pointer to get glyph's bitmap*/
-    .line_height = 16,          /*The maximum line height required by the font*/
+    .line_height = 18,          /*The maximum line height required by the font*/
     .base_line = 5,             /*Baseline measured from the bottom of the line*/
 #if !(LVGL_VERSION_MAJOR == 6 && LVGL_VERSION_MINOR == 0)
     .subpx = LV_FONT_SUBPX_NONE,
@@ -836,4 +847,5 @@ lv_font_t lv_font_courier_14 = {
 
 
 
+#endif /*#if LV_FONT_COURIER_14*/
 

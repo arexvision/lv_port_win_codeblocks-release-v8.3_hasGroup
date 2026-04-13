@@ -74,7 +74,7 @@ static void draw_tape(lv_coord_t heading)
 
     /* 航向数字 — 规范 46.4px，字库最接近 AREX_FONT_HUGE(48px)，居中显示 */
     char buf[12];
-    snprintf(buf, sizeof(buf), "%03d", (int)heading);
+    snprintf(buf, sizeof(buf), "%03d\xC2\xB0", (int)heading);
     lbl_dsc.font  = AREX_FONT_HUGE; /* 48px（规范 46.4px） */
     lbl_dsc.color = lv_color_make(0x00,0xFF,0x00);
     lv_canvas_draw_text(s_canvas, CX - 64, HEADING_Y, 128, &lbl_dsc, buf);
@@ -93,7 +93,7 @@ static void draw_tape(lv_coord_t heading)
         lbl_dsc.font  = AREX_FONT_SMALL;
         lbl_dsc.color = lv_color_make(0xFF,0xFF,0x00);
         char tbuf[16];
-        snprintf(tbuf, sizeof(tbuf), "TARGET %03d", (int)g_arex.compass.target);
+        snprintf(tbuf, sizeof(tbuf), "TARGET %03d\xC2\xB0", (int)g_arex.compass.target);
         lv_canvas_draw_text(s_canvas, 10, TARGET_Y, 200, &lbl_dsc, tbuf);
     }
 
