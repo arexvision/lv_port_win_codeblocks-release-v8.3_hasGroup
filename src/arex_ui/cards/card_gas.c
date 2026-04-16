@@ -27,7 +27,7 @@ void card_gas_create(lv_obj_t *parent)
         lv_obj_set_pos(row, 16, row_y);
         lv_obj_set_style_bg_color(row, lv_color_make(0,0,0), 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(row, lv_color_make(0x00,0x33,0x00), 0);
+        lv_obj_set_style_border_color(row, AREX_DARK, 0);
         lv_obj_set_style_border_width(row, 2, 0);
         lv_obj_set_style_radius(row, 0, 0);
         lv_obj_set_style_pad_ver(row, 12, 0); /* 规范：padding 上下 12px */
@@ -81,7 +81,7 @@ void card_gas_update(void)
             bg = lv_color_make(0x00,0xFF,0x00);
             fg = lv_color_make(0x00,0x00,0x00);
         } else if (is_active) {
-            bg = lv_color_make(0x00,0x33,0x00);
+            bg = lv_color_make(0x00,0x00,0x00);
             fg = lv_color_make(0x00,0xFF,0x00);
         } else {
             bg = lv_color_make(0x00,0x00,0x00);
@@ -89,7 +89,13 @@ void card_gas_update(void)
         }
 
         lv_obj_set_style_bg_color(s_items[i], bg, 0);
-        lv_obj_set_style_border_color(s_items[i], lv_color_make(0x00,0x33,0x00), 0);
+
+        /* 被选中的活动气体：边框变绿色 #00FF00 */
+        if (is_active) {
+            lv_obj_set_style_border_color(s_items[i], AREX_GREEN, 0);
+        } else {
+            lv_obj_set_style_border_color(s_items[i], AREX_DARK, 0);
+        }
 
         /* Update PPO2 at current depth */
         char buf[20];
