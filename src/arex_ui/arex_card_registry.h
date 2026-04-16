@@ -18,7 +18,11 @@ typedef enum {
     CARD_ID_COUNT
 } arex_card_id_t;
 
+/* 物理卡片总数（INFO + COMPASS + DECO + GAS + PLAN + SETUP = 6） */
 #define AREX_CARD_COUNT CARD_ID_COUNT
+
+/* DASH 状态下可滑动的卡片数（排除首尾 INFO/SETUP） */
+#define AREX_DASH_CARD_COUNT (AREX_CARD_COUNT - 2)
 
 /* =========================================
    Card descriptor

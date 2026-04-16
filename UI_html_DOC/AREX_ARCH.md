@@ -137,33 +137,35 @@ typedef struct {
 
 ### 5.1 Wall-Charge 边界穿越机制
 
-**DASH 的可滚动范围是 index 1~4（card_order 中 COMPASS 到 PLAN），index 0（INFO）和 index 5（SETUP）仅通过 wall-charge 进入。**
+**`dash_card` 语义（与 HTML 一致）：**
+- `dash_card` = card 在 `card_order[]` 中的位置（0~5）
+- `dash_card=0` → INFO（仅 wall-charge 可进），`dash_card=1` → COMPASS，`dash_card=2` → DECO，`dash_card=3` → GAS，`dash_card=4` → PLAN，`dash_card=5` → SETUP（仅 wall-charge 可进）
 
 ```
 card_order 布局：[0]=INFO  [1]=COMPASS  [2]=DECO  [3]=GAS  [4]=PLAN  [5]=SETUP
                   ↑ wall-charge 才能进                            ↑ wall-charge 才能进
 
-DASH 可滚动范围：dash_card ∈ [1, 4]
+DASH 可滚动范围：dash_card ∈ [1, AREX_CARD_COUNT-2]（可配置）
 
 在 UI_DASH 下：
   dash_card==1 且继续向上 → wall_charge++，显示顶部墙 "[#][ ][ ]"
                             → tileview 向下偏移 charge×20px 然后弹回（橡皮筋感）
-  连续3次 → 穿越到 UI_INFO（滚动到 index=0），wall_charge 清零
+  连续3次 → 穿越到 UI_INFO（滚动到 tile_pos=0），wall_charge 清零
 
-  dash_card==4 且继续向下 → wall_charge++，显示底部墙
+  dash_card==AREX_CARD_COUNT-2 且继续向下 → wall_charge++，显示底部墙
                             → tileview 向上偏移 charge×20px 然后弹回
-  连续3次 → 穿越到 UI_SETUP（滚动到 index=5）
+  连续3次 → 穿越到 UI_SETUP（滚动到 tile_pos=AREX_CARD_COUNT-1）
 
   任何中途改变方向 → wall_charge = 0，墙UI隐藏，tileview 立即归位
 ```
 
-**橡皮筋动画实现（`wall_nudge_tileview`）：**  
-对 `s_tileview` 做 `lv_obj_set_y` 动画：350ms ease-out 平滑推到 `charge×20px`，停在那里直到 wall 清零。  
-`arex_screen_hide_walls` 时立即 `set_y(0)` 归位。  
+**橡皮筋动画实现（`wall_nudge_tileview`）：**
+对 `s_tileview` 做 `lv_obj_set_y` 动画：350ms ease-out 平滑推到 `charge×20px`，停在那里直到 wall 清零。
+`arex_screen_hide_walls` 时立即 `set_y(0)` 归位。
 对应 HTML 的 `transition: 0.35s cubic-bezier(0.2,0.8,0.2,1)` + `updateElevator(wallCharge * 20)`，无回弹。
 
-UI_INFO 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=1（COMPASS）  
-UI_SETUP 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=4（PLAN）
+UI_INFO 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=1（COMPASS）
+UI_SETUP 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=AREX_CARD_COUNT-2（PLAN）
 
 > **启动行为说明：** 启动直接进入 `UI_INFO` 状态，显示 INFO 卡（tile 0），光标聚焦第一条 LAST DIVE。
 > 在 INFO 菜单底部 wall-charge（连续3次向下）→ 进入 `UI_DASH`，从 COMPASS（tile 1）开始。

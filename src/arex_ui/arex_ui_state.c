@@ -17,7 +17,7 @@ void arex_ui_state_init(void)
 {
     memset(&g_ui, 0, sizeof(g_ui));
     g_ui.state         = UI_INFO;  /* 启动直接进 INFO 菜单 */
-    g_ui.dash_card     = 1;        /* DASH 默认卡（COMPASS），wall-charge 退出 INFO 后跳这里 */
+    g_ui.dash_card     = 1;        /* DASH 默认卡：tile_pos=1（COMPASS），wall-charge 退出 INFO 后跳这里 */
     g_ui.menu_info_idx = 0;
     g_ui.wall_charge   = 0;
 }
@@ -36,10 +36,11 @@ void arex_ui_refresh_all(void)
 /* =========================================
    Internal: tileview navigation
    ========================================= */
-void arex_ui_go_to_card(uint8_t idx)
+/* dash_card = card_order[] 中的位置（0~5）：0=INFO 1=COMPASS 2=DECO 3=GAS 4=PLAN 5=SETUP */
+void arex_ui_go_to_card(uint8_t tile_pos)
 {
-    g_ui.dash_card = idx;
-    arex_screen_scroll_to_card(idx);
+    g_ui.dash_card = tile_pos;
+    arex_screen_scroll_to_card(tile_pos);
 }
 
 /* =========================================
@@ -47,18 +48,17 @@ void arex_ui_go_to_card(uint8_t idx)
    ========================================= */
 void ui_handle_rotate(int8_t dir)
 {
-    uint8_t total_cards = arex_card_count();
-
     switch (g_ui.state) {
 
         /* --- DASH: scroll between cards with wall-charge at edges ---
+           dash_card = card_order[] 中的位置（1~AREX_CARD_COUNT-2，即 COMPASS~PLAN）
            card_order layout:  [0]=INFO  [1]=COMPASS  [2]=DECO  [3]=GAS  [4]=PLAN  [5]=SETUP
-           DASH 可滚动范围: index 1~(total_cards-2)
-           index 0 (INFO) 和 index (total_cards-1) (SETUP) 只能通过 wall-charge 进入
+           wall-charge at top → ENTER INFO (tile_pos=0)
+           wall-charge at bottom → ENTER SETUP (tile_pos=AREX_CARD_COUNT-1)
         --- */
         case UI_DASH: {
             uint8_t dash_min = 1;
-            uint8_t dash_max = total_cards - 2;
+            uint8_t dash_max = AREX_CARD_COUNT - 2;
             bool at_top    = (g_ui.dash_card == dash_min);
             bool at_bottom = (g_ui.dash_card == dash_max);
 
@@ -82,7 +82,7 @@ void ui_handle_rotate(int8_t dir)
                     g_ui.state = UI_SETUP;
                     g_ui.menu_setup_idx = 0;
                     arex_screen_set_setup_selection(0);
-                    arex_ui_go_to_card(total_cards - 1);
+                    arex_ui_go_to_card(AREX_CARD_COUNT - 1);
                 }
             } else {
                 g_ui.wall_charge = 0;
@@ -138,8 +138,8 @@ void ui_handle_rotate(int8_t dir)
                     g_ui.wall_charge = 0;
                     arex_screen_hide_walls_snap();
                     g_ui.state = UI_DASH;
-                    g_ui.dash_card = total_cards - 2;
-                    arex_ui_go_to_card(total_cards - 2);
+                    g_ui.dash_card = AREX_CARD_COUNT - 2;  /* 返回 PLAN（card_order 最后第二张） */
+                    arex_ui_go_to_card(AREX_CARD_COUNT - 2);
                 }
             } else {
                 g_ui.wall_charge = 0;
@@ -189,8 +189,9 @@ void ui_handle_click(void)
     switch (g_ui.state) {
 
         case UI_DASH: {
+            /* dash_card = card_order[] 中的位置（1~4），card_order[dash_card] 得到物理卡片 ID */
             uint8_t physical_card = g_arex.settings.card_order[g_ui.dash_card];
-            if (physical_card == 1 /* COMPASS */) {
+            if (physical_card == CARD_ID_COMPASS) {
                 if (!g_arex.compass.marked) {
                     g_arex.compass.marked = true;
                     g_arex.compass.target = g_arex.compass.heading;
@@ -199,7 +200,7 @@ void ui_handle_click(void)
                     g_ui.state = UI_MODAL_COMPASS;
                     arex_screen_show_modal_compass();
                 }
-            } else if (physical_card == 3 /* GAS */) {
+            } else if (physical_card == CARD_ID_GAS) {
                 g_ui.state = UI_EDIT_GAS;
                 g_ui.gas_cursor = g_arex.gas.active_idx;
                 arex_screen_refresh_gas_menu();
@@ -300,8 +301,8 @@ void ui_handle_back(void)
 
         case UI_SETUP:
             g_ui.state = UI_DASH;
-            g_ui.dash_card = arex_card_count() - 2;
-            arex_ui_go_to_card(arex_card_count() - 2);
+            g_ui.dash_card = AREX_CARD_COUNT - 2;
+            arex_ui_go_to_card(AREX_CARD_COUNT - 2);
             break;
 
         default:

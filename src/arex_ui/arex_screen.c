@@ -249,7 +249,9 @@ static void right_panel_create(void)
     /* Disable touch/mouse scrolling — input goes through arex_input only */
     lv_obj_clear_flag(s_tileview, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Create tiles in card_order */
+    /* Create tiles in card_order（tile y 坐标 = card_order 中的位置 i）
+       card_order[0]=INFO [1]=COMPASS [2]=DECO [3]=GAS [4]=PLAN [5]=SETUP
+       arex_card_get(i) 返回 card_order[i] 对应的 card 对象 */
     uint8_t count = arex_card_count();
     for (uint8_t i = 0; i < count; i++) {
         arex_card_reg_t *card = arex_card_get(i);
@@ -280,7 +282,8 @@ static void right_panel_create(void)
     lv_obj_set_scrollbar_mode(dot_cont, LV_SCROLLBAR_MODE_OFF);
     lv_obj_clear_flag(dot_cont, LV_OBJ_FLAG_SCROLLABLE);
 
-    for (uint8_t i = 0; i < count && i < 6; i++) {
+    /* 创建 AREX_DASH_CARD_COUNT 个 dot：对应 card_order[1~AREX_CARD_COUNT-2]（COMPASS~PLAN） */
+    for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++) {
         s_scroll_dots[i] = lv_obj_create(dot_cont);
         lv_obj_set_size(s_scroll_dots[i], 6, 6);
         lv_obj_set_style_radius(s_scroll_dots[i], 0, 0);
@@ -295,6 +298,7 @@ static void right_panel_create(void)
         lv_obj_set_style_shadow_opa(s_scroll_dots[i], 0, 0);
         lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_SCROLLABLE);
     }
+    /* dot[0..AREX_DASH_CARD_COUNT-1] 对应 card_order[1..AREX_CARD_COUNT-2]，初始化激活 dot 0（COMPASS） */
     arex_screen_update_scroll_dots(0, true);
 }
 
@@ -325,8 +329,8 @@ void arex_screen_rebuild_tileview(void)
     /* 3. 重建 */
     right_panel_create();
 
-    /* 4. 重刷滚动指示器（停在当前卡片位置） */
-    arex_screen_update_scroll_dots(g_ui.dash_card, true);
+    /* 4. 重刷滚动指示器（停在当前 dot 位置，dot_index = dash_card - 1） */
+    arex_screen_update_scroll_dots(g_ui.dash_card > 0 ? g_ui.dash_card - 1 : 0, true);
 }
 
 /* Wall indicator: each wall has two child labels —
@@ -470,12 +474,30 @@ void arex_screen_create(void)
 /* =========================================
    Tileview navigation
    ========================================= */
-void arex_screen_scroll_to_card(uint8_t idx)
+void arex_screen_scroll_to_card(uint8_t tile_pos)
 {
-    arex_card_reg_t *card = arex_card_get(idx);
+    /* tile_pos: card 在 card_order[] 中的位置（0~5）
+       card_order[0]=INFO [1]=COMPASS [2]=DECO [3]=GAS [4]=PLAN [5]=SETUP
+       dot 只在 COMPASS~PLAN（tile_pos=1~4）时显示，dot index = tile_pos - 1 */
+    if (tile_pos >= AREX_CARD_COUNT) return;
+    arex_card_reg_t *card = arex_card_get(tile_pos);
     if (!card || !card->tile_obj) return;
+
+    /* 进入 INFO（tile_pos=0）时，清掉 wall-nudge 残留后再切换tile */
+    if (tile_pos == 0) {
+        lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
+        lv_obj_set_y(s_tileview, 0);
+    }
+
     lv_obj_set_tile(s_tileview, card->tile_obj, LV_ANIM_ON);
-    arex_screen_update_scroll_dots(idx, true);
+
+    /* DASH dot（0~3）对应 tile_pos=1~4） */
+    if (tile_pos >= 1) {
+        arex_screen_update_scroll_dots(tile_pos - 1, true);
+    } else {
+        /* 进入 INFO 时隐藏 DASH dot */
+        arex_screen_update_scroll_dots(0, false);
+    }
 }
 
 /* =========================================
@@ -602,10 +624,12 @@ void arex_screen_hide_walls_snap(void)
    ========================================= */
 void arex_screen_update_scroll_dots(uint8_t active_idx, bool visible)
 {
-    uint8_t count = arex_card_count();
-    for (uint8_t i = 0; i < count && i < 6; i++) {
+    /* dot[0~AREX_DASH_CARD_COUNT-1] 对应 card_order[1~AREX_CARD_COUNT-2]（COMPASS~PLAN） */
+    bool in_dash_or_edit = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
+    for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++) {
         if (!s_scroll_dots[i]) continue;
-        if (!visible) { lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN); continue; }
+        bool show = visible && in_dash_or_edit;
+        if (!show) { lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN); continue; }
         lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
         if (i == active_idx) {
             /* 规范：激活状态发光阴影 shadow_width=8, shadow_color=#00FF00 */

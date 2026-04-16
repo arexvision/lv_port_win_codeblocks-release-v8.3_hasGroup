@@ -34,7 +34,7 @@ typedef struct {
 typedef struct {
     arex_ui_state_t  state;
 
-    uint8_t  dash_card;         /* current tile index (0 .. CARD_COUNT-1) */
+    uint8_t  dash_card;         /* card_order[] 位置：0=INFO 1=COMPASS 2=DECO 3=GAS 4=PLAN 5=SETUP */
 
     /* Menu cursors */
     uint8_t  menu_info_idx;
