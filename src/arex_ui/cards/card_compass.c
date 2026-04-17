@@ -29,6 +29,7 @@ static lv_obj_t *s_hint_lbl;
 /* canvas 像素缓冲：最大 640×140 */
 #define CBUF_MAX (640 * COMP_H)
 static lv_color_t s_cbuf[CBUF_MAX];
+static int16_t    s_last_heading = -1;  /* 脏标志 */
 
 static void draw_tape(int16_t heading)
 {
@@ -132,8 +133,11 @@ void card_compass_create(lv_obj_t *parent)
 
 void card_compass_update(void)
 {
-    /* 从新传感器总线读取航向 */
-    draw_tape((int16_t)g_sensor.heading_deg);
+    int16_t hdg = (int16_t)g_sensor.heading_deg;
+    if (hdg != s_last_heading) {
+        s_last_heading = hdg;
+        draw_tape(hdg);
+    }
 
     /* 同步 hint 文字 */
     if (s_hint_lbl) {

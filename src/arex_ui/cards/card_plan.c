@@ -23,6 +23,7 @@
 
 static lv_obj_t   *s_canvas;
 static int16_t     s_cw, s_ch; /* canvas 实际尺寸 */
+static uint16_t    s_last_time_sec = 0xFFFF;  /* 脏标志：避免无变化时重绘 */
 
 /* Demo 潜水剖面 (time_min, depth_m) */
 static const int16_t s_profile[][2] = {
@@ -166,5 +167,8 @@ void card_plan_create(lv_obj_t *parent)
 
 void card_plan_update(void)
 {
+    /* 只在时间变化时重绘（每秒至多一次，避免无谓的全图软渲染） */
+    if (g_sensor.dive_time_sec == s_last_time_sec) return;
+    s_last_time_sec = g_sensor.dive_time_sec;
     draw_plan();
 }

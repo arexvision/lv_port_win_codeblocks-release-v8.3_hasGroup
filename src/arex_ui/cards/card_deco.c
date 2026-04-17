@@ -257,7 +257,7 @@ void card_deco_update(void)
 
     for (int i = 0; i < 16; i++) {
         uint8_t pct = g_sensor.tissue_pct[i];
-        lv_bar_set_value(s_bars[i], pct, LV_ANIM_ON);
+        lv_bar_set_value(s_bars[i], pct, LV_ANIM_OFF);
         lv_obj_set_style_bg_color(s_bars[i], AREX_DARK, LV_PART_MAIN);
         lv_obj_set_style_bg_opa(s_bars[i],   LV_OPA_50, LV_PART_MAIN);
         lv_obj_set_style_bg_color(s_bars[i], bar_color(pct), LV_PART_INDICATOR);
