@@ -34,7 +34,9 @@ typedef enum {
 /* =========================================
    Screen lifecycle
    ========================================= */
-void arex_screen_create(void);
+/* 新架构入口：只创建 wall/modal/submenu 三个浮层（挂到 g_layout.right_canvas）
+   必须在 arex_ui_engine_init() 之后调用 */
+void arex_screen_overlay_create(void);
 
 /* =========================================
    Tileview / card navigation

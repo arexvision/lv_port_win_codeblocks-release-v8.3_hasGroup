@@ -2,6 +2,7 @@
 #include "arex_data.h"
 #include "arex_card_registry.h"
 #include "arex_screen.h"
+#include "arex_ui_engine.h"
 
 #include <string.h>
 
@@ -40,7 +41,8 @@ void arex_ui_refresh_all(void)
 void arex_ui_go_to_card(uint8_t tile_pos)
 {
     g_ui.dash_card = tile_pos;
-    arex_screen_scroll_to_card(tile_pos);
+    arex_ui_scroll_to_card(tile_pos);
+    arex_ui_set_dot_active(tile_pos);
 }
 
 /* =========================================

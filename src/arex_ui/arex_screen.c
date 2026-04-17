@@ -2,6 +2,7 @@
 #include "arex_data.h"
 #include "arex_ui_state.h"
 #include "arex_card_registry.h"
+#include "arex_ui_engine.h"
 #include "fonts/arex_fonts.h"
 #include <stdio.h>
 #include <string.h>
@@ -303,34 +304,16 @@ static void right_panel_create(void)
 }
 
 /* =========================================
-   Method 2: rebuild tileview at runtime
-   After modifying g_arex.settings.card_order[], call this
-   to recreate the tileview with the new card order.
-   Also clears card->tile_obj before delete to avoid dangling pointers.
+   Method 2: rebuild card order at runtime
+   After modifying g_sys_config.card_order[], call this
+   to remap card Y coordinates via the new engine.
    ========================================= */
 void arex_screen_rebuild_tileview(void)
 {
-    /* 1. 清掉所有 card 的 tile_obj，防止 lv_obj_del 后的悬垂指针 */
-    uint8_t count = arex_card_count();
-    for (uint8_t i = 0; i < count; i++) {
-        arex_card_reg_t *card = arex_card_get_by_id(i);
-        if (card) card->tile_obj = NULL;
-    }
-
-    /* 2. 删除整个 right panel（包含 tileview / tiles / scroll dots） */
-    if (s_right_cont) {
-        lv_obj_del(s_right_cont);
-        s_right_cont = NULL;
-        s_tileview    = NULL;
-        /* s_scroll_dots[] 已在 lv_obj_del(s_right_cont) 时一起释放 */
-        for (uint8_t i = 0; i < 6; i++) s_scroll_dots[i] = NULL;
-    }
-
-    /* 3. 重建 */
-    right_panel_create();
-
-    /* 4. 重刷滚动指示器（停在当前 dot 位置，dot_index = dash_card - 1） */
-    arex_screen_update_scroll_dots(g_ui.dash_card > 0 ? g_ui.dash_card - 1 : 0, true);
+    /* 新架构：卡片重排只需重新推算 Y 坐标映射，不销毁重建 */
+    arex_ui_apply_config();
+    arex_ui_scroll_to_card(g_ui.dash_card);
+    arex_ui_set_dot_active(g_ui.dash_card);
 }
 
 /* Wall indicator: each wall has two child labels —
@@ -339,8 +322,10 @@ void arex_screen_rebuild_tileview(void)
 
 static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 {
+    int16_t rc_w = g_layout.rc_w > 0 ? g_layout.rc_w : AREX_RIGHT_W;
+    int16_t rc_h = g_layout.rc_h > 0 ? g_layout.rc_h : AREX_SCREEN_H;
     lv_obj_t *w = lv_obj_create(parent);
-    lv_obj_set_size(w, AREX_RIGHT_W, 90);
+    lv_obj_set_size(w, rc_w, 90);
     lv_obj_set_pos(w, 0, y);
     lv_obj_set_style_bg_color(w, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(w, LV_OPA_COVER, 0);
@@ -351,31 +336,31 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
     lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(w, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Line 1: text */
     lv_obj_t *txt = lv_label_create(w);
     lv_obj_set_style_text_color(txt, AREX_GREEN, 0);
     lv_obj_set_style_text_font(txt, AREX_FONT_TITLE, 0);
-    lv_obj_set_width(txt, AREX_RIGHT_W);
+    lv_obj_set_width(txt, rc_w);
     lv_obj_set_style_text_align(txt, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(txt, 0, 12);
     lv_label_set_text(txt, "");
 
-    /* Line 2: charge blocks — larger font, centered */
     lv_obj_t *blk = lv_label_create(w);
     lv_obj_set_style_text_color(blk, AREX_GREEN, 0);
     lv_obj_set_style_text_font(blk, AREX_FONT_MEDIUM, 0);
-    lv_obj_set_width(blk, AREX_RIGHT_W);
+    lv_obj_set_width(blk, rc_w);
     lv_obj_set_style_text_align(blk, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(blk, 0, 50);
     lv_label_set_text(blk, "");
 
+    (void)rc_h;
     return w;
 }
 
 static void wall_create(void)
 {
-    s_wall_top    = make_wall(s_right_cont, 0);
-    s_wall_bottom = make_wall(s_right_cont, AREX_SCREEN_H - 90);
+    lv_obj_t *rc = g_layout.right_canvas;
+    s_wall_top    = make_wall(rc, 0);
+    s_wall_bottom = make_wall(rc, (g_layout.rc_h > 0 ? g_layout.rc_h : AREX_SCREEN_H) - 90);
     s_wall_text_top      = lv_obj_get_child(s_wall_top, 0);
     s_wall_blocks_top    = lv_obj_get_child(s_wall_top, 1);
     s_wall_text_bottom   = lv_obj_get_child(s_wall_bottom, 0);
@@ -387,16 +372,20 @@ static void wall_create(void)
    ========================================= */
 static void modal_create(void)
 {
-    s_modal = lv_obj_create(s_right_cont);
-    lv_obj_set_size(s_modal, AREX_RIGHT_W, AREX_SCREEN_H);
+    lv_obj_t *rc = g_layout.right_canvas;
+    int16_t rc_w = g_layout.rc_w > 0 ? g_layout.rc_w : AREX_RIGHT_W;
+    int16_t rc_h = g_layout.rc_h > 0 ? g_layout.rc_h : AREX_SCREEN_H;
+
+    s_modal = lv_obj_create(rc);
+    lv_obj_set_size(s_modal, rc_w, rc_h);
     lv_obj_set_pos(s_modal, 0, 0);
-    /* 规范：背景遮罩 95% 透明度 → LVGL opa 242（≈255*0.95） */
     lv_obj_set_style_bg_color(s_modal, lv_color_make(0,0,0), 0);
     lv_obj_set_style_bg_opa(s_modal, 242, 0);
     lv_obj_set_style_border_width(s_modal, 0, 0);
+    lv_obj_set_style_pad_all(s_modal, 0, 0);
     lv_obj_add_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* 规范：弹窗居中，宽 400px，背景 #000000，边框 4px #00FF00，内边距 30px */
     s_modal_box = lv_obj_create(s_modal);
     lv_obj_set_size(s_modal_box, 400, 260);
     lv_obj_center(s_modal_box);
@@ -405,7 +394,8 @@ static void modal_create(void)
     lv_obj_set_style_border_color(s_modal_box, AREX_GREEN, 0);
     lv_obj_set_style_border_width(s_modal_box, 4, 0);
     lv_obj_set_style_radius(s_modal_box, 0, 0);
-    lv_obj_set_style_pad_all(s_modal_box, 30, 0); /* 规范：内边距 30px */
+    lv_obj_set_style_pad_all(s_modal_box, 30, 0);
+    lv_obj_clear_flag(s_modal_box, LV_OBJ_FLAG_SCROLLABLE);
 }
 
 /* =========================================
@@ -413,25 +403,32 @@ static void modal_create(void)
    ========================================= */
 static void submenu_layer_create(void)
 {
-    s_submenu_layer = lv_obj_create(s_right_cont);
-    lv_obj_set_size(s_submenu_layer, AREX_RIGHT_W, AREX_SCREEN_H);
-    lv_obj_set_pos(s_submenu_layer, AREX_RIGHT_W, 0); /* hidden off-screen right */
+    lv_obj_t *rc = g_layout.right_canvas;
+    int16_t rc_w = g_layout.rc_w > 0 ? g_layout.rc_w : AREX_RIGHT_W;
+    int16_t rc_h = g_layout.rc_h > 0 ? g_layout.rc_h : AREX_SCREEN_H;
+
+    s_submenu_layer = lv_obj_create(rc);
+    lv_obj_set_size(s_submenu_layer, rc_w, rc_h);
+    lv_obj_set_pos(s_submenu_layer, rc_w, 0); /* 初始隐藏在右侧屏外 */
     lv_obj_set_style_bg_color(s_submenu_layer, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(s_submenu_layer, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(s_submenu_layer, 0, 0);
     lv_obj_set_style_pad_all(s_submenu_layer, 0, 0);
+    lv_obj_set_style_radius(s_submenu_layer, 0, 0);
     lv_obj_clear_flag(s_submenu_layer, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollbar_mode(s_submenu_layer, LV_SCROLLBAR_MODE_OFF);
 
-    /* Title uses same helper as card tiles for visual consistency */
+    /* 标题 label */
     s_submenu_title = lv_label_create(s_submenu_layer);
     lv_obj_set_style_text_color(s_submenu_title, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(s_submenu_title, AREX_FONT_TITLE, 0);
+    lv_obj_set_style_bg_opa(s_submenu_title, LV_OPA_TRANSP, 0);
     lv_obj_set_pos(s_submenu_title, 16, 12);
     lv_label_set_text(s_submenu_title, "> SUB MENU");
 
-    /* Title border line, identical to arex_screen_make_card_title */
+    /* 标题分割线 */
     lv_obj_t *title_line = lv_obj_create(s_submenu_layer);
-    lv_obj_set_size(title_line, AREX_RIGHT_W - 32, 2);
+    lv_obj_set_size(title_line, rc_w - 32, 2);
     lv_obj_set_pos(title_line, 16, 38);
     lv_obj_set_style_bg_color(title_line, AREX_DARK, 0);
     lv_obj_set_style_bg_opa(title_line, LV_OPA_COVER, 0);
@@ -439,108 +436,50 @@ static void submenu_layer_create(void)
     lv_obj_set_style_pad_all(title_line, 0, 0);
     lv_obj_set_style_radius(title_line, 0, 0);
 
-    /* List container — identical geometry to card_info/card_setup lists */
+    /* 列表容器：透明，仅用于 lv_obj_clean() + lv_obj_get_child() 访问 */
     s_submenu_list = lv_obj_create(s_submenu_layer);
-    lv_obj_set_size(s_submenu_list, 428, AREX_SCREEN_H - 50);
+    lv_obj_set_size(s_submenu_list, rc_w - 32, rc_h - 50);
     lv_obj_set_pos(s_submenu_list, 16, 50);
     lv_obj_set_style_bg_opa(s_submenu_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_submenu_list, 0, 0);
     lv_obj_set_style_pad_all(s_submenu_list, 0, 0);
-    lv_obj_set_style_pad_row(s_submenu_list, 8, 0);
-    lv_obj_set_flex_flow(s_submenu_list, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(s_submenu_list, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_style_radius(s_submenu_list, 0, 0);
     lv_obj_set_scrollbar_mode(s_submenu_list, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_clear_flag(s_submenu_list, LV_OBJ_FLAG_SCROLLABLE);
 }
 
 /* =========================================
-   arex_screen_create — public entry
+   arex_screen_overlay_create
+   创建覆盖在 right_canvas 之上的三个浮层：
+   wall 指示器、modal 弹窗、submenu 滑入层
+   必须在 arex_ui_engine_init() 之后调用
    ========================================= */
-void arex_screen_create(void)
+void arex_screen_overlay_create(void)
 {
     styles_init();
-
-    s_scr = lv_obj_create(NULL);
-    lv_obj_add_style(s_scr, &s_style_screen, 0);
-
-    left_panel_create();
-    right_panel_create();
     wall_create();
     submenu_layer_create();
-    modal_create();          /* modal last → highest z-order, always on top */
-
-    lv_scr_load(s_scr);
+    modal_create();   /* modal 最后 → z-order 最高，始终在最上面 */
 }
 
 /* =========================================
    Tileview navigation
+   已被 arex_ui_scroll_to_card() 取代，保留空实现避免链接错误
    ========================================= */
 void arex_screen_scroll_to_card(uint8_t tile_pos)
 {
-    /* tile_pos: card 在 card_order[] 中的位置（0~5）
-       card_order[0]=INFO [1]=COMPASS [2]=DECO [3]=GAS [4]=PLAN [5]=SETUP
-       dot 只在 COMPASS~PLAN（tile_pos=1~4）时显示，dot index = tile_pos - 1 */
-    if (tile_pos >= AREX_CARD_COUNT) return;
-    arex_card_reg_t *card = arex_card_get(tile_pos);
-    if (!card || !card->tile_obj) return;
-
-    /* 进入 INFO（tile_pos=0）时，清掉 wall-nudge 残留后再切换tile */
-    if (tile_pos == 0) {
-        lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
-        lv_obj_set_y(s_tileview, 0);
-    }
-
-    lv_obj_set_tile(s_tileview, card->tile_obj, LV_ANIM_ON);
-
-    /* DASH dot（0~3）对应 tile_pos=1~4） */
-    if (tile_pos >= 1) {
-        arex_screen_update_scroll_dots(tile_pos - 1, true);
-    } else {
-        /* 进入 INFO 时隐藏 DASH dot */
-        arex_screen_update_scroll_dots(0, false);
-    }
+    /* 转发到新引擎，避免旧代码遗留调用产生空操作 */
+    arex_ui_scroll_to_card(tile_pos);
+    arex_ui_set_dot_active(tile_pos);
 }
 
 /* =========================================
    Left panel refresh
+   已被 arex_ui_update_data() 取代；此处转发保持兼容
    ========================================= */
 void arex_screen_refresh_left_panel(void)
 {
-    char buf[32];
-
-    snprintf(buf, sizeof(buf), "%.1f", g_arex.dive.depth);
-    lv_label_set_text(s_lbl_depth, buf);
-
-    snprintf(buf, sizeof(buf), "%d", g_arex.dive.ndl);
-    lv_label_set_text(s_lbl_ndl, buf);
-
-    snprintf(buf, sizeof(buf), "%d'", g_arex.dive.tts);
-    lv_label_set_text(s_lbl_tts, buf);
-
-    snprintf(buf, sizeof(buf), "%dm %d'", g_arex.dive.next_stop_m, g_arex.dive.next_stop_min);
-    lv_label_set_text(s_lbl_next_stop, buf);
-
-    snprintf(buf, sizeof(buf), "%d", g_arex.dive.pod1_bar);
-    lv_label_set_text(s_lbl_pod1, buf);
-
-    snprintf(buf, sizeof(buf), "%d", g_arex.dive.pod2_bar);
-    lv_label_set_text(s_lbl_pod2, buf);
-
-    lv_label_set_text(s_lbl_gas_name, AREX_GAS_TABLE[g_arex.gas.active_idx].name);
-
-    /* PO2 三段刷新 */
-    if (s_ppo2_vals[0]) {
-        char buf[8];
-        snprintf(buf, sizeof(buf), "%.1f", g_arex.gas.ppo2[0]);
-        lv_label_set_text(s_ppo2_vals[0], buf);
-        snprintf(buf, sizeof(buf), "%.1f", g_arex.gas.ppo2[1]);
-        lv_label_set_text(s_ppo2_vals[1], buf);
-        snprintf(buf, sizeof(buf), "%.1f", g_arex.gas.ppo2[2]);
-        lv_label_set_text(s_ppo2_vals[2], buf);
-    }
-
-    uint32_t s = g_arex.dive.dive_time_s;
-    snprintf(buf, sizeof(buf), "%02d:%02d", s / 60, s % 60);
-    lv_label_set_text(s_lbl_time, buf);
+    arex_ui_update_data();
 }
 
 /* =========================================
@@ -560,15 +499,19 @@ static const char *charge_blocks[] = {
    with updateElevator(wallCharge * 20) — no spring-back, just smooth push. */
 static void wall_nudge_tileview(lv_coord_t offset_y)
 {
-    lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
+    /* 对 right_canvas 做 Y 轻推，实现橡皮筋视觉；不影响卡片内部坐标 */
+    lv_obj_t *rc = g_layout.right_canvas;
+    if (!rc) return;
+    lv_anim_del(rc, (lv_anim_exec_xcb_t)lv_obj_set_y);
 
-    lv_coord_t cur_y = lv_obj_get_y(s_tileview);
+    lv_coord_t base_y = g_layout.rc_y; /* 正常位置 */
+    lv_coord_t cur_y  = lv_obj_get_y(rc);
 
     lv_anim_t a;
     lv_anim_init(&a);
-    lv_anim_set_var(&a, s_tileview);
+    lv_anim_set_var(&a, rc);
     lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
-    lv_anim_set_values(&a, cur_y, offset_y);
+    lv_anim_set_values(&a, cur_y, base_y + offset_y);
     lv_anim_set_time(&a, 350);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
     lv_anim_start(&a);
@@ -595,16 +538,17 @@ void arex_screen_hide_walls(void)
 {
     lv_obj_add_flag(s_wall_top,    LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
-    /* Smooth return to y=0 — same 350ms ease-out as the nudge,
-       mirrors HTML: updateElevator() after wallCharge reset */
-    lv_coord_t cur_y = lv_obj_get_y(s_tileview);
-    if (cur_y == 0) return;
-    lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
+    lv_obj_t *rc = g_layout.right_canvas;
+    if (!rc) return;
+    lv_coord_t base_y = g_layout.rc_y;
+    lv_coord_t cur_y  = lv_obj_get_y(rc);
+    if (cur_y == base_y) return;
+    lv_anim_del(rc, (lv_anim_exec_xcb_t)lv_obj_set_y);
     lv_anim_t a;
     lv_anim_init(&a);
-    lv_anim_set_var(&a, s_tileview);
+    lv_anim_set_var(&a, rc);
     lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
-    lv_anim_set_values(&a, cur_y, 0);
+    lv_anim_set_values(&a, cur_y, base_y);
     lv_anim_set_time(&a, 350);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
     lv_anim_start(&a);
@@ -614,9 +558,10 @@ void arex_screen_hide_walls_snap(void)
 {
     lv_obj_add_flag(s_wall_top,    LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
-    /* Instant snap — called when threshold crossed and view is changing */
-    lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
-    lv_obj_set_y(s_tileview, 0);
+    lv_obj_t *rc = g_layout.right_canvas;
+    if (!rc) return;
+    lv_anim_del(rc, (lv_anim_exec_xcb_t)lv_obj_set_y);
+    lv_obj_set_y(rc, g_layout.rc_y);
 }
 
 /* =========================================
@@ -708,10 +653,11 @@ void arex_screen_register_setup_list(lv_obj_t *list) { s_setup_list = list; }
    ========================================= */
 static void submenu_slide_in(void)
 {
+    int16_t rc_w = g_layout.rc_w > 0 ? g_layout.rc_w : AREX_RIGHT_W;
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, s_submenu_layer);
-    lv_anim_set_values(&a, AREX_RIGHT_W, 0);
+    lv_anim_set_values(&a, rc_w, 0);
     lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
     lv_anim_set_time(&a, 250);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
@@ -720,10 +666,11 @@ static void submenu_slide_in(void)
 
 static void submenu_slide_out(void)
 {
+    int16_t rc_w = g_layout.rc_w > 0 ? g_layout.rc_w : AREX_RIGHT_W;
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, s_submenu_layer);
-    lv_anim_set_values(&a, 0, AREX_RIGHT_W);
+    lv_anim_set_values(&a, 0, rc_w);
     lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
     lv_anim_set_time(&a, 250);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
@@ -735,23 +682,29 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
     lv_label_set_text(s_submenu_title, title);
     lv_obj_clean(s_submenu_list);
 
+    int16_t item_w = lv_obj_get_width(s_submenu_list);
+    int16_t item_y = 0;
     for (uint8_t i = 0; i < count; i++) {
         lv_obj_t *item = lv_obj_create(s_submenu_list);
-        lv_obj_set_size(item, LV_PCT(100), 48);
+        lv_obj_set_pos(item,  0, item_y);
+        lv_obj_set_size(item, item_w, 48);
         lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
-        lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+        lv_obj_set_style_bg_opa(item,   LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(item, AREX_DARK, 0);
         lv_obj_set_style_border_width(item, 2, 0);
-        lv_obj_set_style_radius(item, 0, 0);
+        lv_obj_set_style_radius(item,  0, 0);
         lv_obj_set_style_pad_ver(item, 12, 0);
         lv_obj_set_style_pad_hor(item, 15, 0);
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_style_clip_corner(item, false, 0);
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
-        lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
+        lv_obj_set_style_text_font(lbl,  AREX_FONT_TITLE, 0);
+        lv_obj_set_style_bg_opa(lbl,     LV_OPA_TRANSP, 0);
         lv_label_set_text(lbl, items[i]);
+        lv_obj_set_pos(lbl, 0, 0);
+
+        item_y += 48 + 8;
     }
     arex_screen_set_submenu_selection(0);
 }
