@@ -585,3 +585,124 @@ SETUP → SYSTEM SETUP（二级）
 | `arex_screen_update_setup_badge(item_idx, value)` | 更新 SETUP 菜单行的右侧 badge label |
 | `arex_screen_show_modal_act(action_text)` | 显示通用动作弹窗，1秒后自动关闭，状态回 `UI_SUB_MENU` |
 | `arex_screen_begin_edit_value(item_idx, value, min, max, step)` | 初始化 `edit_ctx`，进入 `UI_EDIT_VALUE` 状态；UI：行黑底+绿边框；整行 flex `space-between`（对齐 HTML 第 137 行）；数值 `X.X` 在绿底 badge 内居中；箭头 `^ v`；`s_edit_flash_timer` 600ms 切换 badge 背景（绿↔黑）与数值文字颜色（黑↔绿） |
+
+---
+
+## 15. 新架构：绝对坐标引擎（arex_ui_engine）
+
+> 对应需求文档 "AREX AR-HUD 潜水电脑表系统重构需求"，从 v0.11 起逐步替代旧的 `arex_screen.c` Flex 布局。
+
+### 15.1 架构铁律
+
+1. **数据/UI 完全解耦**：`arex_sensor_data_t g_sensor`（RAM Only）由底层传感器写入，UI 定时器只读，永远不触发排版。排版仅由 `arex_ui_apply_config()` 在配置变更时触发。
+2. **零 Flex/Grid**：所有 `lv_obj` 位置由 C 纯数学推算（`+/-/*` 整数），通过 `lv_obj_set_pos / lv_obj_set_size` 写入。
+3. **`ui_safe_zone` 是唯一坐标原点**：所有子组件坐标以 `safe_zone` 左上角 `(0,0)` 为参考，不受物理屏幕偏移影响。
+
+### 15.2 新增文件
+
+```
+src/arex_ui/
+├── arex_ui_engine.h     # 数据结构声明 + API（替代部分 arex_screen.h 功能）
+└── arex_ui_engine.c     # 绝对坐标推算引擎实现
+```
+
+### 15.3 双数据总线
+
+| 结构体 | 类型 | 写入者 | 读取者 | 触发排版？ |
+|--------|------|--------|--------|-----------|
+| `arex_sys_config_t g_sys_config` | NVDS / Flash | SETUP 菜单 / BLE | `arex_ui_apply_config()` | **是**，重排所有坐标 |
+| `arex_sensor_data_t g_sensor` | RAM Only | 传感器定时器 | `arex_ui_update_data()` | **否**，只写 label 文本 |
+| `arex_state_t g_arex` | RAM | 旧数据总线（过渡期） | 旧卡片 update_cb | — |
+
+过渡期间，`UI_main.c` 通过桥接代码把 `g_arex` 的初始值同步到 `g_sensor`。
+
+### 15.4 Safe Zone 与光学偏移
+
+```c
+// 物理屏幕固定 640×480
+lv_obj_t *scr = lv_scr_act();          // 物理边界，不动
+
+// safe_zone: 可动态调整尺寸和偏移
+g_layout.safe_zone = lv_obj_create(scr);
+lv_obj_set_size(safe_zone, cfg->safe_zone_w, cfg->safe_zone_h);  // 默认 580×400
+lv_obj_align(safe_zone, LV_ALIGN_CENTER, cfg->offset_x, cfg->offset_y); // IPD+浮力补偿
+// 一旦 safe_zone 设定，内部所有子组件代码一行不改
+```
+
+### 15.5 绝对坐标推算流程（arex_ui_apply_config 内）
+
+```
+arex_ui_apply_config()
+  │
+  ├─ Step 1: lv_obj_set_size(safe_zone) + lv_obj_align(..., offset_x, offset_y)
+  │
+  ├─ Step 2: arex_layout_calc_anchor_h()
+  │           current_y = 0
+  │           for each block i: block_y[i]=current_y, current_y += U2PX(h[i]) + gap_px
+  │
+  ├─ Step 3: layout_calc_regions()
+  │           Tech模式:  la=(0,0,160,safe_h)  rc=(161,0,safe_w-161,safe_h)
+  │           Classic模式: la=(0,0,safe_w,anchor_h)  rc=(0,anchor_h+gap,safe_w,safe_h-anchor_h-gap)
+  │           Reverse: 交换 la_x 和 rc_x（Tech）/ 交换 la_y 和 rc_y（Classic）
+  │
+  ├─ Step 4: layout_apply_blocks()
+  │           for each block: lv_obj_set_pos(blk, 0, block_y[i])
+  │                           lv_obj_set_size(blk, la_w, block_h[i])
+  │           分割块: split_L=(0,0,half_w,bh)  split_R=(half_w,0,half_w,bh)
+  │           split_outward: title/value 的 text_align 强制外展
+  │
+  ├─ Step 5: layout_calc_cards()
+  │           card_y[i] = i * rc_h   (电梯映射)
+  │           lv_obj_set_pos(card_obj[i], 0, card_y[i])
+  │
+  ├─ Step 6: layout_calc_grid()
+  │           grid_unit_w = rc_w / 5
+  │           grid_unit_h = rc_h / 6
+  │
+  └─ Step 7: layout_apply_dots()
+              dots_position → 绝对定位容器 + 每个点的 X/Y
+```
+
+### 15.6 卡片重构规则（cards/card_*.c）
+
+旧卡片使用 `g_arex` + Flex 布局，新卡片必须：
+
+1. **include `arex_ui_engine.h`** 代替 `arex_data.h`（传感器数据改从 `g_sensor` 读取）
+2. **使用 `g_layout.rc_w / rc_h`** 作为布局依据，不硬编码宽高
+3. **`create_cb` 只建控件**，不做任何数值填充（留给 `update_cb`）
+4. **`update_cb` 只写 label 文本 / bar 数值**，不调用任何 `lv_obj_set_pos/size`
+5. **严禁 `lv_obj_set_flex_flow` / `lv_obj_set_flex_align`**（info/setup 菜单列表也改为 `current_y` 累加）
+
+### 15.7 5F 自定义网格坐标公式
+
+```c
+// 每个 widget 的绝对坐标（相对 right_canvas）
+int16_t x = cfg->widget_col[i] * g_layout.grid_unit_w;
+int16_t y = cfg->widget_row[i] * g_layout.grid_unit_h;
+int16_t w = cfg->widget_w[i]   * g_layout.grid_unit_w;
+int16_t h = cfg->widget_h[i]   * g_layout.grid_unit_h;
+lv_obj_set_pos(widget_obj, x, y);
+lv_obj_set_size(widget_obj, w, h);
+
+// 自适应字号规则
+if (cfg->widget_w[i] >= 2 && cfg->widget_h[i] >= 2)
+    font = AREX_FONT_HUGE;    // 2×2 → 48px
+else if (cfg->widget_w[i] >= 2 || cfg->widget_h[i] >= 2)
+    font = AREX_FONT_MEDIUM;  // 跨行或跨列 → 28px
+else
+    font = AREX_FONT_SMALL;   // 1×1 → 14px
+```
+
+### 15.8 卡片重排（SCREEN ORDER）
+
+```
+UI_SETUP → SCREEN ORDER 子菜单
+  │
+  CLICK 选中某卡片行 → 进入 reordering 状态（行高亮 + scale 0.95 效果）
+  │
+  ROTATE → 在 g_sys_config.card_order[] 中做 Swap(当前idx, 当前idx±1)
+            同步更新菜单列表文字
+            调用 arex_ui_apply_config() → layout_calc_cards() 重映射 card_y[]
+  │
+  CLICK  → 释放选中，退出 reordering 状态
+```

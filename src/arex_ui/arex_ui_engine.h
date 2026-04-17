@@ -219,4 +219,10 @@ int16_t arex_layout_calc_anchor_h(const arex_sys_config_t *cfg);
 /* 工具：获取卡片区实际高度（含零高度防坍塌保护） */
 int16_t arex_layout_calc_right_h(const arex_sys_config_t *cfg, int16_t anchor_h);
 
+/* 卡片导航：电梯滚动到第 idx 张卡片 */
+void arex_ui_scroll_to_card(uint8_t idx);
+
+/* 卡片指示器：设置第 idx 个点为激活状态 */
+void arex_ui_set_dot_active(uint8_t idx);
+
 #endif /* AREX_UI_ENGINE_H */

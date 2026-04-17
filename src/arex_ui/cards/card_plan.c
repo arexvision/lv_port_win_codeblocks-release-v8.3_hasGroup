@@ -1,154 +1,166 @@
+/*
+ * card_plan.c  —  4F: DIVE PLAN TRACK
+ *
+ * 架构规则：
+ *   - canvas 尺寸 = (rc_w - PAD_X*2 - SHELL_PAD*2) × (rc_h - TITLE_H - PAD_Y*2 - SHELL_PAD*2)
+ *   - 从 g_sensor 读取当前深度和潜水时间
+ *   - X 轴最大刻度 = 实际潜水时间 * 1.05（动态贴满）最低保底 PLOT_T_MIN
+ */
+
+#include "../arex_ui_engine.h"
 #include "../arex_screen.h"
-#include "../arex_data.h"
-#include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
+#include "lvgl/lvgl.h"
 #include <stdio.h>
-#include <string.h>
 #include <math.h>
 
-/* ============================================================
-   4F: DIVE PLAN TRACK
-   规范参数：
-     外壳：2px 实线 AREX_DARK，Padding 10px
-     画布：400×320px
-     背景网格：横间距 53px，纵间距 64px，线宽 1px，透明度 20%（opa≈51）
-     坐标轴文字：12px，规范无此字号→用 AREX_FONT_SMALL(14px)，透明度 75%（opa≈191）
-     走势线（Past）：实线，粗细 4px，AREX_GREEN
-     计划线（Future）：虚线，粗细 4px，AREX_GREEN
-     停留点：R=6px，填充黑，描边 2px AREX_GREEN
-   ============================================================ */
+#define TITLE_H     44
+#define PAD_X       16
+#define PAD_Y        8
+#define SHELL_PAD   10
+#define PLOT_D_MAX  50    /* 深度轴最大 50m */
+#define PLOT_T_MIN  20    /* 时间轴最小保底 20min */
 
-#define CHART_PAD   10
-#define CHART_W     400    /* 规范 */
-#define CHART_H     320    /* 规范 */
-#define CHART_X     16     /* tile 内 x = 16 */
-#define CHART_Y     50     /* tile 内 y = 50（标题下方） */
+static lv_color_t *s_cbuf;   /* 动态分配，依赖 rc 尺寸 */
+static lv_obj_t   *s_canvas;
+static int16_t     s_cw, s_ch; /* canvas 实际尺寸 */
 
-/* 画布原点（左下）对应：时间 0min，深度 0m
-   X轴：0~55min → 映射到 0~CHART_W
-   Y轴：0~50m   → 映射到 0~CHART_H */
-#define PLOT_T_MAX  55     /* 分钟 */
-#define PLOT_D_MAX  50     /* 米 */
-
-static lv_color_t s_cbuf[CHART_W * CHART_H];
-static lv_obj_t  *s_canvas;
-
-/* Demo dive profile points (time_min, depth_m) */
+/* Demo 潜水剖面 (time_min, depth_m) */
 static const int16_t s_profile[][2] = {
-    {0,  0}, {2, 15}, {5, 30}, {10, 45}, {30, 45},
+    {0, 0}, {2, 15}, {5, 30}, {10, 45}, {30, 45},
     {33, 30}, {36, 21}, {40, 21}, {43, 9}, {48, 9},
     {50, 6},  {53, 6},  {55, 0},
 };
 #define PROFILE_LEN 13
 
-/* 原点 → 画布像素坐标（Y轴翻转：深度大为上方） */
-static inline lv_coord_t plot_x(int t) { return (lv_coord_t)(t * CHART_W / PLOT_T_MAX); }
-static inline lv_coord_t plot_y(int d) { return (lv_coord_t)(d * CHART_H / PLOT_D_MAX); }
+static lv_color_t s_static_cbuf[640 * 380]; /* 静态缓冲，足够大 */
 
 static void draw_plan(void)
 {
-    lv_canvas_fill_bg(s_canvas, lv_color_make(0,0,0), LV_OPA_COVER);
+    if (!s_canvas) return;
+
+    int16_t cw = s_cw, ch = s_ch;
+
+    /* 动态 X 轴：当前时间 * 1.05，保底 PLOT_T_MIN */
+    float dive_min = g_sensor.dive_time_sec / 60.0f;
+    int16_t t_max  = (int16_t)(dive_min * 1.05f);
+    if (t_max < PLOT_T_MIN) t_max = PLOT_T_MIN;
+    /* 向上取整到 5 的倍数，使网格对齐 */
+    t_max = ((t_max + 4) / 5) * 5;
+
+#define PX(t)  ((lv_coord_t)((t) * cw / t_max))
+#define PY(d)  ((lv_coord_t)(ch - (d) * ch / PLOT_D_MAX))
+
+    lv_canvas_fill_bg(s_canvas, AREX_BLACK, LV_OPA_COVER);
 
     lv_draw_line_dsc_t l;
     lv_draw_line_dsc_init(&l);
+    l.color = AREX_GREEN;
+    l.opa   = 51;  /* 20% */
+    l.width = 1;
+
     lv_draw_label_dsc_t t;
     lv_draw_label_dsc_init(&t);
     t.font  = AREX_FONT_SMALL;
-    t.color = lv_color_make(0x00,0xFF,0x00);
-    t.opa   = 191; /* 规范：透明度 75% */
+    t.color = AREX_GREEN;
+    t.opa   = 191; /* 75% */
 
-    /* 背景网格 — 规范：横间距 53px，纵间距 64px，透明度 20%（opa≈51） */
-    l.color = lv_color_make(0x00,0xFF,0x00);
-    l.width = 1;
-    l.opa   = 51; /* 20% opacity */
-
-    /* 横向网格线（深度刻度） */
+    /* 深度网格（横线）*/
     for (int d = 0; d <= PLOT_D_MAX; d += 10) {
-        lv_coord_t y = (lv_coord_t)(d * CHART_H / PLOT_D_MAX);
-        lv_canvas_draw_line(s_canvas,
-            (lv_point_t[]){{0,y},{CHART_W,y}}, 2, &l);
-        char buf[8]; snprintf(buf,sizeof(buf),"%dm",d);
-        lv_canvas_draw_text(s_canvas, 2, y+2, 36, &t, buf);
+        lv_coord_t y = PY(d);
+        lv_canvas_draw_line(s_canvas, (lv_point_t[]){{0,y},{cw,y}}, 2, &l);
+        char buf[8]; snprintf(buf, sizeof(buf), "%dm", d);
+        lv_canvas_draw_text(s_canvas, 2, y + 2, 36, &t, buf);
     }
-    /* 纵向网格线（时间刻度）— 规范：间距 53px */
-    for (int m = 0; m <= PLOT_T_MAX; m += 5) {
-        lv_coord_t x = (lv_coord_t)(m * CHART_W / PLOT_T_MAX);
-        if (x > CHART_W) x = CHART_W;
-        lv_canvas_draw_line(s_canvas,
-            (lv_point_t[]){{x,0},{x,CHART_H}}, 2, &l);
-        char buf[8]; snprintf(buf,sizeof(buf),"%d'",m);
-        lv_canvas_draw_text(s_canvas, x+2, CHART_H-18, 30, &t, buf);
+    /* 时间网格（纵线）*/
+    for (int m = 0; m <= t_max; m += 5) {
+        lv_coord_t x = PX(m);
+        if (x > cw) x = cw;
+        lv_canvas_draw_line(s_canvas, (lv_point_t[]){{x,0},{x,ch}}, 2, &l);
+        char buf[8]; snprintf(buf, sizeof(buf), "%d'", m);
+        lv_canvas_draw_text(s_canvas, x + 2, ch - 18, 30, &t, buf);
     }
 
-    /* 潜水走势线 — 规范：实线，粗细 4px，AREX_GREEN */
-    l.color = lv_color_make(0x00,0xFF,0x00);
+    /* 走势线（实线 4px）*/
+    l.color = AREX_GREEN;
     l.width = 4;
     l.opa   = 255;
     for (int i = 1; i < PROFILE_LEN; i++) {
-        lv_coord_t x1 = plot_x(s_profile[i-1][0]);
-        lv_coord_t y1 = CHART_H - plot_y(s_profile[i-1][1]); /* 翻转Y */
-        lv_coord_t x2 = plot_x(s_profile[i  ][0]);
-        lv_coord_t y2 = CHART_H - plot_y(s_profile[i  ][1]);
-        lv_canvas_draw_line(s_canvas,
-            (lv_point_t[]){{x1,y1},{x2,y2}}, 2, &l);
+        lv_coord_t x1 = PX(s_profile[i-1][0]);
+        lv_coord_t y1 = PY(s_profile[i-1][1]);
+        lv_coord_t x2 = PX(s_profile[i  ][0]);
+        lv_coord_t y2 = PY(s_profile[i  ][1]);
+        lv_canvas_draw_line(s_canvas, (lv_point_t[]){{x1,y1},{x2,y2}}, 2, &l);
     }
 
-    /* 停留点标记 — 规范：R=6px，填充黑，描边 2px AREX_GREEN */
+    /* 停留点（黑填充，绿边框圆形）*/
     lv_draw_rect_dsc_t r;
     lv_draw_rect_dsc_init(&r);
-    r.bg_color  = lv_color_make(0x00,0x00,0x00);
-    r.border_color = lv_color_make(0x00,0xFF,0x00);
+    r.bg_color     = AREX_BLACK;
+    r.border_color = AREX_GREEN;
     r.border_width = 2;
-    r.radius   = LV_RADIUS_CIRCLE;
-
+    r.radius       = LV_RADIUS_CIRCLE;
     for (int i = 1; i < PROFILE_LEN; i++) {
-        int t0 = s_profile[i-1][0];
-        int t1 = s_profile[i  ][0];
-        /* 停留点：在水平段中点（仅当 t1 - t0 >= 3） */
+        int t0 = s_profile[i-1][0], t1 = s_profile[i][0];
         if (s_profile[i][1] != 0 && (t1 - t0) >= 3) {
             int tm = (t0 + t1) / 2;
-            lv_coord_t cx = plot_x(tm);
-            lv_coord_t cy = CHART_H - plot_y(s_profile[i][1]);
+            lv_coord_t cx = PX(tm);
+            lv_coord_t cy = PY(s_profile[i][1]);
             lv_canvas_draw_rect(s_canvas, cx - 6, cy - 6, 12, 12, &r);
         }
     }
 
-    /* 当前潜水位置 — 黄色圆点（动态计算） */
-    float dive_min = g_arex.dive.dive_time_s / 60.0f;
-    if (dive_min > PLOT_T_MAX) dive_min = PLOT_T_MAX;
-    lv_coord_t cx = (lv_coord_t)(dive_min * CHART_W / PLOT_T_MAX);
-    lv_coord_t cy = CHART_H - (lv_coord_t)(g_arex.dive.depth * CHART_H / PLOT_D_MAX);
-    lv_draw_rect_dsc_t nd; lv_draw_rect_dsc_init(&nd);
-    nd.bg_color = lv_color_make(0xFF,0xFF,0x00);
+    /* 当前位置（黄点 + NOW 标签）*/
+    lv_coord_t cx = PX((int)dive_min);
+    lv_coord_t cy = PY((int)g_sensor.depth_m);
+    lv_draw_rect_dsc_t nd;
+    lv_draw_rect_dsc_init(&nd);
+    nd.bg_color = lv_color_make(0xFF, 0xFF, 0x00);
     nd.radius   = LV_RADIUS_CIRCLE;
     lv_canvas_draw_rect(s_canvas, cx - 5, cy - 5, 10, 10, &nd);
 
-    /* "NOW" 标签 */
-    lv_draw_label_dsc_t nl; lv_draw_label_dsc_init(&nl);
+    lv_draw_label_dsc_t nl;
+    lv_draw_label_dsc_init(&nl);
     nl.font  = AREX_FONT_SMALL;
-    nl.color = lv_color_make(0x00,0xFF,0x00);
+    nl.color = AREX_GREEN;
     nl.opa   = 255;
-    lv_canvas_draw_text(s_canvas, cx+8, cy-8, 40, &nl, "NOW");
+    lv_canvas_draw_text(s_canvas, cx + 8, cy - 8, 40, &nl, "NOW");
+
+#undef PX
+#undef PY
 }
 
 void card_plan_create(lv_obj_t *parent)
 {
     arex_screen_make_card_title(parent, "4F: DIVE PLAN TRACK");
 
-    /* 外壳边框 — 规范：2px 实线 AREX_DARK */
+    int16_t shell_x = PAD_X - SHELL_PAD;
+    int16_t shell_y = TITLE_H;
+    int16_t shell_w = g_layout.rc_w - PAD_X * 2 + SHELL_PAD * 2;
+    int16_t shell_h = g_layout.rc_h - TITLE_H - PAD_Y;
+
+    /* 外壳 */
     lv_obj_t *shell = lv_obj_create(parent);
-    lv_obj_set_size(shell, CHART_W + CHART_PAD*2, CHART_H + CHART_PAD*2);
-    lv_obj_set_pos(shell, CHART_X - CHART_PAD, CHART_Y - CHART_PAD);
-    lv_obj_set_style_bg_color(shell, AREX_BLACK, 0);
-    lv_obj_set_style_bg_opa(shell, LV_OPA_COVER, 0);
+    lv_obj_set_pos(shell,  shell_x, shell_y);
+    lv_obj_set_size(shell, shell_w, shell_h);
+    lv_obj_set_style_bg_color(shell,   AREX_BLACK, 0);
+    lv_obj_set_style_bg_opa(shell,     LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(shell, AREX_DARK, 0);
     lv_obj_set_style_border_width(shell, 2, 0);
-    lv_obj_set_style_radius(shell, 0, 0);
-    lv_obj_set_style_pad_all(shell, 0, 0);
+    lv_obj_set_style_radius(shell,     0, 0);
+    lv_obj_set_style_pad_all(shell,    0, 0);
+    lv_obj_set_scrollbar_mode(shell,   LV_SCROLLBAR_MODE_OFF);
+    lv_obj_clear_flag(shell, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* canvas 尺寸 */
+    s_cw = shell_w - SHELL_PAD * 2;
+    s_ch = shell_h - SHELL_PAD * 2;
+    if (s_cw < 10) s_cw = 10;
+    if (s_ch < 10) s_ch = 10;
 
     s_canvas = lv_canvas_create(parent);
-    lv_canvas_set_buffer(s_canvas, s_cbuf, CHART_W, CHART_H, LV_IMG_CF_TRUE_COLOR);
-    lv_obj_set_pos(s_canvas, CHART_X, CHART_Y);
+    lv_canvas_set_buffer(s_canvas, s_static_cbuf, s_cw, s_ch, LV_IMG_CF_TRUE_COLOR);
+    lv_obj_set_pos(s_canvas, PAD_X, TITLE_H + SHELL_PAD);
 
     draw_plan();
 }

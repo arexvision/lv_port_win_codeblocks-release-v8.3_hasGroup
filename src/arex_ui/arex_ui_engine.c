@@ -724,23 +724,27 @@ void arex_ui_engine_init(void)
     lv_obj_set_style_border_side(g_layout.left_anchor,
                                  LV_BORDER_SIDE_RIGHT, 0);
 
-    /* 5. 创建右侧卡片容器（父：safe_zone），overflow hidden */
+    /* 5. 创建右侧卡片容器（父：safe_zone），clip 超出部分 */
     g_layout.right_canvas = make_bare_obj(g_layout.safe_zone);
     lv_obj_set_style_bg_color(g_layout.right_canvas, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(g_layout.right_canvas,  LV_OPA_COVER, 0);
     lv_obj_set_style_clip_corner(g_layout.right_canvas, true, 0);
-    lv_obj_add_flag(g_layout.right_canvas, LV_OBJ_FLAG_OVERFLOW_VISIBLE ^ LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    /* 清除 OVERFLOW_VISIBLE 确保电梯卡片超出部分被裁剪 */
+    lv_obj_clear_flag(g_layout.right_canvas, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
-    /* 6. 构建左锚区内部组件（只建一次） */
-    build_left_anchor();
-
-    /* 7. 构建右侧卡片电梯（只建一次） */
-    build_right_canvas();
-
-    /* 8. 首次执行排版 */
+    /* 6. 首次执行排版（先算出 rc_w/rc_h/block_y 缓存，build 函数需要它）*/
     arex_ui_apply_config();
 
-    /* 9. 默认显示第 0 张卡片 */
+    /* 7. 构建左锚区内部组件（只建一次，依赖 g_layout.la_w/block_h） */
+    build_left_anchor();
+
+    /* 8. 构建右侧卡片电梯（只建一次，依赖 g_layout.rc_w/rc_h/card_h） */
+    build_right_canvas();
+
+    /* 9. 再次 apply 以把刚建好的 lv_obj 移到正确位置 */
+    arex_ui_apply_config();
+
+    /* 10. 默认显示第 0 张卡片 */
     arex_ui_scroll_to_card(0);
     arex_ui_set_dot_active(0);
 }
