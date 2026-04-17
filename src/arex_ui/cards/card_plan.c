@@ -21,7 +21,6 @@
 #define PLOT_D_MAX  50    /* 深度轴最大 50m */
 #define PLOT_T_MIN  20    /* 时间轴最小保底 20min */
 
-static lv_color_t *s_cbuf;   /* 动态分配，依赖 rc 尺寸 */
 static lv_obj_t   *s_canvas;
 static int16_t     s_cw, s_ch; /* canvas 实际尺寸 */
 

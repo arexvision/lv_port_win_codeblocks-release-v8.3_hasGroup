@@ -1,4 +1,5 @@
 #include "arex_ui_engine.h"
+#include "arex_screen.h"
 #include "arex_data.h"          /* g_arex — 旧数据总线（过渡期保留） */
 #include "arex_ui_state.h"
 #include "arex_input.h"
