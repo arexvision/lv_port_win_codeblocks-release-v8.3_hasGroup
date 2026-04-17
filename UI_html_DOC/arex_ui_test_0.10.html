@@ -1,102 +1,236 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AREX Pro Optical Simulator v0.10</title>
+<title>AREX Pro Optical Simulator v0.10 (w/ 10U Sandbox 2.5 + LVGL Notes)</title>
 <style>
     /* =========================================
-       Global Monochromatic AR Variables
+       [LVGL_MAP_COLORS] 全局色彩字典
+       在 C 代码中，请统一使用这些十六进制颜色宏定义：
        ========================================= */
     :root {
-        --arex-green: #00FF00;
-        --arex-light: #55FF55;
-        --arex-dark: #003300;
-        --arex-black: #000000;
+        /* 主强调色 (数值、高亮线、当前状态) -> lv_color_hex(0x00FF00) */
+        --arex-green: #00FF00;  
         
-        --font-huge: 58px;
-        --font-medium: 28px;
-        --font-small: 14px;
-        --arex-font: 'Courier New', Courier, monospace;
-        --flash-speed: 0.3s;
+        /* 次级文字色 (标题、单位、次要信息) -> lv_color_hex(0x55FF55) */
+        --arex-light: #55FF55;  
+        
+        /* 暗背景/边框色 (分割线、进度条底色、模块边框) -> lv_color_hex(0x003300) */
+        --arex-dark: #003300;   
+        
+        /* 纯黑背景/反色文字 -> lv_color_hex(0x000000) */
+        --arex-black: #000000;  
+        
+        /* [LVGL_MAP_TYPO] 动态排版与字体字典 
+           这些变量应绑定到 g_sys_config 结构体中。
+           LVGL 实现：lv_obj_set_style_text_font(obj, &lv_font_...)
+        */
+        --arex-font: 'Courier New', Courier, monospace; 
+        --font-huge: 58px;    /* 映射: g_sys_config.font_sz_huge */
+        --font-medium: 28px;  /* 映射: g_sys_config.font_sz_med */
+        --font-small: 14px;   /* 映射: g_sys_config.font_sz_small */
+        --flash-speed: 0.3s;  /* LVGL 动画：lv_anim_t 用于报警闪烁，周期 300ms */
+
+        /* [LVGL_MAP_SAFE_ZONE] 安全区物理约束 */
+        --ui-w: 580px;        /* 映射: g_sys_config.safe_zone_w */
+        --ui-h: 400px;        /* 映射: g_sys_config.safe_zone_h */
+        --off-x: 0px;         /* 映射: g_sys_config.offset_x */
+        --off-y: 0px;         /* 映射: g_sys_config.offset_y */
+
+        /* [LVGL_MAP_ALIGN] 独立对齐与分割线变量 */
+        --align-title: flex-start; /* 映射: 标题 lv_label 的对齐方式 */
+        --align-huge: flex-start;  /* 映射: 大字数值 lv_label 的对齐方式 */
+        --align-med: flex-start;   /* 映射: 中字数值 lv_label 的对齐方式 */
+        --sep-thick: 1px;          /* 映射: 模块分隔线的厚度 */
+        --sep-style: dashed;       /* 映射: 分隔线的绘制样式(虚线、实线) */
+        --sep-alpha: 0.2;          /* 映射: 分隔线的透明度 */
     }
 
     body { background-color: #050505; margin: 0; display: flex; height: 100vh; overflow: hidden; font-family: sans-serif; color: var(--arex-green); }
 
     /* =========================================
-       Sidebar Controls (Chinese for User)
+       Sidebar Controls (网页端模拟器控制台，LVGL 无需实现)
        ========================================= */
-    #sidebar { width: 400px; background: #111; border-right: 1px solid #333; padding: 20px; box-sizing: border-box; transition: transform 0.3s ease; display: flex; flex-direction: column; position: relative; z-index: 100; overflow-y: auto; }
+    #sidebar { width: 460px; background: #111; border-right: 1px solid #333; padding: 20px; box-sizing: border-box; transition: transform 0.3s ease; display: flex; flex-direction: column; position: relative; z-index: 100; overflow-y: auto; flex-shrink: 0;}
     #sidebar.collapsed { transform: translateX(-100%); }
     .toggle-btn { position: absolute; right: -30px; top: 20px; width: 30px; height: 40px; background: #222; border: 1px solid #444; border-left: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 0 5px 5px 0; }
-    
     .panel-section { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 15px; }
     .panel-title { font-size: 16px; color: #fff; margin-bottom: 15px; font-weight: bold; display: flex; align-items: center; justify-content: space-between;}
-    .control-row { margin-bottom: 12px; font-size: 13px; color: #ccc; }
-    .control-row label { display: block; margin-bottom: 5px; color: var(--arex-green); }
-    
+    .control-group { background: #1a1a1a; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px; }
+    .control-group h3 { margin: 0 0 15px 0; font-size: 14px; color: var(--arex-light); text-transform: uppercase; }
+    .control-row { margin-bottom: 12px; font-size: 13px; color: #ccc; display: flex; flex-direction: column;}
+    .control-row.flex-row { flex-direction: row; justify-content: space-between; align-items: center; }
+    .control-row label { margin-bottom: 5px; color: #eee; font-weight: bold; display: flex; justify-content: space-between; align-items: center;}
     input[type=range] { width: 100%; cursor: pointer; accent-color: var(--arex-green); }
-    select { width: 100%; padding: 5px; background: #222; color: #fff; border: 1px solid #555; font-family: monospace; }
-    
-    .val-display { float: right; color: #fff; background: #000; padding: 2px 5px; border-radius: 3px; border: 1px solid #333; font-family: monospace;}
-    .mm-display { color: var(--arex-light); font-size: 11px; margin-left: 5px; }
+    select { width: 100%; padding: 6px; background: #222; color: #fff; border: 1px solid #555; font-family: monospace; border-radius: 4px; font-size: 12px; outline: none;}
+    select:focus { border-color: var(--arex-green); }
+    input[type=checkbox] { accent-color: var(--arex-green); transform: scale(1.2); }
+    .val-display { color: var(--arex-green); font-family: monospace; font-size: 14px;}
+    .limit-text { font-size: 11px; color: #888; margin-left: 5px; font-weight: normal; margin-top: 2px;}
+
+    .btn-action { background: #002200; border: 1px solid var(--arex-green); color: var(--arex-green); padding: 10px 15px; font-family: monospace; font-weight: bold; cursor: pointer; border-radius: 4px; transition: all 0.2s; width: 100%; font-size: 14px; text-transform: uppercase; display: flex; justify-content: center; align-items: center; gap: 8px; }
+    .btn-action:hover { background: var(--arex-green); color: #000; }
+    .btn-secondary { background: #222; border-color: #555; color: #fff; }
+    .btn-secondary:hover { background: #555; border-color: #fff; color: #fff;}
 
     /* =========================================
-       AR Screen Core (STRICTLY ENGLISH INSIDE)
+       AR Screen Core (Physical Limit & Safe Zone)
        ========================================= */
-    #main-view { flex-grow: 1; display: flex; align-items: center; justify-content: center; position: relative; }
-    #device-bezel { padding: 25px; background: #0a0a0a; border-radius: 12px; box-shadow: 0 0 50px rgba(0, 255, 0, 0.05), inset 0 0 10px rgba(0,0,0,1); transform: scale(1.3); }
+    #main-view { flex-grow: 1; display: flex; align-items: center; justify-content: center; position: relative; min-width: 0; overflow: hidden;}
+    #device-bezel { padding: 40px; background: #0a0a0a; border-radius: 12px; box-shadow: 0 0 50px rgba(0, 255, 0, 0.05), inset 0 0 10px rgba(0,0,0,1); transition: transform 0.1s ease-out; transform-origin: center center; }
 
+    /* [LVGL_MAP_DISPLAY] The ultimate physical screen boundary (640x480 fixed)
+       LVGL实现: 对应底层的 lv_disp_get_scr_act(NULL)。
+       它的尺寸必须绝对写死为 640x480。底色必须是 0x000000。
+    */
     #ar-screen {
         width: 640px; height: 480px; background-color: var(--arex-black); color: var(--arex-green);
         font-family: var(--arex-font); display: flex; position: relative; overflow: hidden;
-        border: 2px solid var(--arex-dark); box-sizing: border-box; user-select: none; transition: opacity 0.3s;
+        border: 2px dashed #444; box-sizing: border-box; user-select: none; transition: opacity 0.3s;
     }
+    .screen-label { position: absolute; top: 5px; left: 5px; color: #666; font-family: monospace; font-size: 11px; z-index: 1;}
+
+    /* [LVGL_MAP_SAFE_ZONE] 动态可变安全区容器
+       LVGL实现: 这是建立在 screen 上的主节点：ui_safe_zone = lv_obj_create(lv_scr_act());
+       - 尺寸: lv_obj_set_size(ui, g_sys_config.safe_zone_w, g_sys_config.safe_zone_h);
+       - 偏移: lv_obj_align(ui, LV_ALIGN_CENTER, g_sys_config.offset_x, g_sys_config.offset_y);
+       - 样式: 必须清除默认的边框和背景 (背景色透明)。
+    */
+    #ui-safe-zone {
+        width: var(--ui-w); height: var(--ui-h);
+        position: absolute; left: 50%; top: 50%;
+        transform: translate(calc(-50% + var(--off-x)), calc(-50% + var(--off-y)));
+        border: 1px solid rgba(0, 255, 0, 0.2); box-sizing: border-box; z-index: 10;
+        display: flex; gap: 15px; 
+        background: rgba(0, 255, 0, 0.03); transition: border-color 0.1s, background 0.1s, width 0.2s, height 0.2s, transform 0.1s, flex-direction 0.3s ease;
+    }
+    #ui-safe-zone.danger { border-color: red; border-width: 3px; background: rgba(255, 0, 0, 0.1); box-shadow: 0 0 20px rgba(255,0,0,0.5) inset; }
+
+    /* [LVGL_MAP_ABSOLUTE_POS_LAYOUT] 绝对坐标排版引挈 (代替 Flex)
+       网页端使用 Flex 为了适配。但是在 LVGL 端，请 **拒绝使用 LV_FLEX**！
+       在 C 语言中，接收到 JSON 后，直接按区域推算坐标并调用 lv_obj_set_pos()。
+       
+       【极其重要：LVGL 相对坐标体系】
+       因为 left_canvas 和 right_canvas 的父对象是 ui_safe_zone，
+       所以它们的 (0,0) 原点就是 ui_safe_zone 的左上角！完全不受外层物理偏移的影响。
+       
+       Tech模式: 
+         左锚点: lv_obj_set_pos(left_canvas, 0, 0); lv_obj_set_size(left_canvas, 160, safe_zone_h);
+         右卡片: lv_obj_set_pos(right_canvas, 160 + gap, 0); lv_obj_set_size(right_canvas, safe_zone_w - 160 - gap, safe_zone_h);
+       Classic模式:
+         左锚点: lv_obj_set_pos(left_canvas, 0, 0); lv_obj_set_size(left_canvas, safe_zone_w, 算出的上区高度);
+         右卡片: lv_obj_set_pos(right_canvas, 0, 算出的上区高度 + gap); lv_obj_set_size(right_canvas, safe_zone_w, safe_zone_h - 算出的上区高度 - gap);
+    */
+    #ui-safe-zone.theme-tech { flex-direction: row; }
+    #ui-safe-zone.theme-tech.order-reverse { flex-direction: row-reverse; }
+    #ui-safe-zone.theme-tech #left-anchor-canvas { width: 160px; height: 100%; flex-shrink: 0; }
+    #ui-safe-zone.theme-tech #right-card-canvas { width: 100%; flex-grow: 1; height: 100%; }
+
+    #ui-safe-zone.theme-classic { flex-direction: column; }
+    #ui-safe-zone.theme-classic.order-reverse { flex-direction: column-reverse; }
+    #ui-safe-zone.theme-classic #left-anchor-canvas {
+        width: 100%; height: auto; flex-shrink: 0;
+        flex-direction: row !important; flex-wrap: wrap; align-content: flex-start;
+    }
+    #ui-safe-zone.theme-classic #right-card-canvas {
+        width: 100%; flex-grow: 1; height: auto; min-height: 0;
+    }
+
+    /* 开发调试用背景，LVGL 中全透明处理即可 */
+    .grid-bg { background-color: var(--arex-black); border: 1px dashed rgba(0,255,0,0.2); position: relative; overflow: hidden; box-sizing: border-box; display: flex; flex-direction: column; }
+
+    /* =========================================
+       [LVGL_MAP_COMPONENTS] Left Anchor Sandbox 10U Blocks (模块级绝对坐标)
+       LVGL实现：完全抛弃 Flex！
+       每个子模块的 Y 坐标 = current_y。然后 current_y += height_u * 10 + gap_u * 10。
+       对于“双拼容器”(ar-row-split)：它自身高度为 H，内部放入两个元素，分别设为 width=50%。
+       ========================================= */
+    #left-anchor-canvas > .ar-component, 
+    #left-anchor-canvas > .ar-row-split { width: 160px; flex-shrink: 0; }
+
+    .ar-component { box-sizing: border-box; border: 1px solid rgba(0, 255, 0, 0.3); display: flex; flex-direction: column; background: rgba(0, 255, 0, 0.02); }
+    .ar-row-split { display: flex; }
+    .ar-row-split .ar-component { width: 50%; border-left: none; border-right: none; }
+    .ar-row-split .ar-component:first-child { border-right: 1px solid rgba(0, 255, 0, 0.3); }
+
+    /* 内部标签坐标推算：
+       标题 (Title)： lv_obj_set_pos(title_label, 0, 0); lv_obj_set_size(title_label, parent_w, titleH * 10);
+       数值 (Value)： lv_obj_set_pos(val_label, 0, titleH * 10); lv_obj_set_size(val_label, parent_w, parent_h - titleH * 10);
+    */
+    .title-zone {
+        width: 100%; box-sizing: border-box; font-family: var(--arex-font); font-size: var(--font-small);
+        color: var(--arex-light); padding: 0 4px; display: flex; align-items: flex-end;
+        justify-content: var(--align-title);
+        border-bottom: var(--sep-thick) var(--sep-style) rgba(0, 255, 0, var(--sep-alpha));
+        overflow: hidden; white-space: nowrap;
+    }
+    
+    .value-zone {
+        width: 100%; box-sizing: border-box; font-family: var(--arex-font); font-weight: bold;
+        color: var(--arex-green); padding: 0 4px; display: flex; align-items: flex-end;
+        justify-content: var(--align-med);
+        overflow: hidden; white-space: nowrap;
+    }
+    .val-huge { font-size: var(--font-huge); justify-content: var(--align-huge); }
+    .val-med { font-size: var(--font-medium); justify-content: var(--align-med); }
+
+    /* 向外展开排版引擎 (覆写对齐参数，由 JSON 驱动) */
+    .split-outward .ar-row-split .ar-component:first-child .title-zone,
+    .split-outward .ar-row-split .ar-component:first-child .value-zone { justify-content: flex-start !important; }
+    .split-outward .ar-row-split .ar-component:last-child .title-zone,
+    .split-outward .ar-row-split .ar-component:last-child .value-zone { justify-content: flex-end !important; }
+
+    .clip-warning { background: rgba(255,0,0,0.2) !important; color: #ff4444 !important; border-color: #ff4444 !important; }
+
+    /* =========================================
+       Right Canvas (Dynamic Cards)
+       [LVGL_MAP_TILEVIEW] 这一整个区域在 LVGL 中可以使用 lv_obj_set_y 来做页面滑动切换。
+       不需要复杂的 Layout，每张卡片绝对定位：
+       card[i].y = i * actualHeight;
+       ========================================= */
+    #right-card-canvas { position: relative; overflow: hidden; }
+    #elevator-track { width: 100%; position: absolute; transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; }
+    
+    .card { width: 100%; padding: 10px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; }
+    .card-title { font-size: calc(var(--font-medium) * 0.75); color: var(--arex-light); text-transform: uppercase; border-bottom: 2px solid var(--arex-dark); padding-bottom: 8px; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;}
+    
+    /* [LVGL_MAP_SCROLL_DOTS] 右侧页面滚动圆点指示器 */
+    .elevator-dots { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 10; }
+    .dots-right { right: 8px; left: auto; flex-direction: column;}
+    .dots-left { left: 8px; right: auto; flex-direction: column;}
+    .dots-bottom { top: auto; bottom: 8px; left: 50%; transform: translateX(-50%); flex-direction: row; }
+    .dots-none { display: none !important; }
+    .e-dot { width: 6px; height: 6px; background: rgba(0,255,0,0.2); }
+    .e-dot.active { background: var(--arex-green); box-shadow: 0 0 8px var(--arex-green); } 
+
+    /* 面镜浮力盲区掩膜 (警告用) */
+    #buoyancy-mask { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: repeating-linear-gradient(45deg, rgba(255,0,0,0.2), rgba(255,0,0,0.2) 10px, rgba(255,0,0,0.4) 10px, rgba(255,0,0,0.4) 20px); border-top: 2px solid red; display: none; z-index: 50; align-items: center; justify-content: center; color: #ff6666; font-weight: bold; font-family: sans-serif; pointer-events: none; font-size: 14px;}
+    #status-bar { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: bold; color: var(--arex-green); padding: 8px 15px; background: #111; border-radius: 5px; border: 1px solid var(--arex-green); z-index: 1000; text-align: center; transition: 0.3s;}
+    .error-text { color: #ff4444; font-size: 11px; display: block; margin-top: 5px; font-family: monospace;}
 
     .highlight-invert { background: var(--arex-green); color: var(--arex-black) !important; font-weight: bold; padding: 0 4px;}
     .flash-danger { animation: flashInvert var(--flash-speed) infinite alternate; }
     @keyframes flashInvert { 0% { background: var(--arex-black); color: var(--arex-green); border-color: var(--arex-green); } 100% { background: var(--arex-green); color: var(--arex-black); border-color: var(--arex-black); } }
 
     /* =========================================
-       Left Anchor (180px) - RESTRUCTURED FOR PODS
+       Card Internals (1F - 5F)
        ========================================= */
-    #left-anchor { width: 180px; height: 100%; border-right: 2px dashed var(--arex-dark); display: flex; flex-direction: column; justify-content: space-between; padding: 10px 12px; box-sizing: border-box; z-index: 10; background: var(--arex-black); }
-    .data-block { margin-bottom: 8px; }
-    .data-label { font-size: var(--font-small); color: var(--arex-light); font-weight: bold; margin-bottom: 2px; }
-    .data-value { font-size: var(--font-medium); font-weight: bold; }
-    .data-value.huge { font-size: var(--font-huge); line-height: 1; letter-spacing: -2px; }
-    .split-row { display: flex; justify-content: space-between; align-items: flex-end; }
+    #sub-menu-layer { position: absolute; top: 0; left: 100%; width: 100%; height: 100%; background: var(--arex-black); z-index: 30; padding: 15px; box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column;}
     
-    .po2-val { font-size: calc(var(--font-medium) * 0.7); font-weight: bold; }
-    .po2-div { opacity: 0.3; margin: 0 2px; }
-
-    /* =========================================
-       Right Canvas (460px)
-       ========================================= */
-    #right-canvas { width: 460px; height: 100%; position: relative; overflow: hidden; }
-    #elevator-track { width: 100%; position: absolute; transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; }
-    .card { width: 460px; height: 480px; padding: 25px; box-sizing: border-box; display: flex; flex-direction: column; }
-    
-    .card-title { font-size: calc(var(--font-medium) * 0.75); color: var(--arex-light); text-transform: uppercase; border-bottom: 2px solid var(--arex-dark); padding-bottom: 8px; margin-bottom: 15px; font-weight: bold; display: flex; justify-content: space-between; align-items: center;}
-    .title-status { font-size: 14px; color: var(--arex-green); font-weight: normal; animation: blink 1s infinite; display: none; }
-    @keyframes blink { 0%, 49% {opacity:1;} 50%, 100% {opacity:0;} }
-
-    /* --- Sub Menu Layer --- */
-    #sub-menu-layer { position: absolute; top: 0; left: 100%; width: 100%; height: 100%; background: var(--arex-black); z-index: 30; padding: 25px; box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column;}
-    
-    /* --- Compass Styles (1F) --- */
-    .compass-wrapper { display: none; flex-direction: column; align-items: center; justify-content: center; height: 140px; margin-bottom: 10px; position: relative;}
+    /* 1F Compass */
+    .compass-wrapper { display: none; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; margin-bottom: 5px; position: relative;}
     .compass-wrapper.active { display: flex; }
     .comp-classic-heading { font-size: calc(var(--font-huge)*0.8); font-weight: bold; margin-bottom: 10px; }
-    .comp-classic-box { width: 100%; height: 60px; border: 2px solid var(--arex-dark); position: relative; overflow: hidden; display: flex; align-items: flex-end;}
-    .comp-classic-tape { display: flex; justify-content: space-between; width: 150%; padding-bottom: 5px; font-size: calc(var(--font-medium)*0.8); transition: transform 0.1s linear;}
-    .comp-classic-tape span { width: 60px; text-align: center; }
+    .comp-classic-box { width: 100%; height: 50px; border: 2px solid var(--arex-dark); position: relative; overflow: hidden; display: flex; align-items: flex-end; flex-shrink: 0;}
+    .comp-classic-tape { position: relative; width: 100%; height: 100%; font-size: calc(var(--font-medium)*0.8); }
+    .comp-classic-tape span { position: absolute; bottom: 5px; left: 50%; font-weight: bold; }
     .comp-classic-center { position: absolute; left: 50%; top: 0; width: 4px; height: 100%; background: var(--arex-green); transform: translateX(-50%); z-index: 5;}
     
     .comp-aero-box { width: 80%; height: 100%; position: relative; display: flex; flex-direction: column; align-items: center;}
     .comp-aero-top { width: 100%; height: 30px; border-bottom: 2px solid var(--arex-green); position: relative; overflow: hidden; display: flex; align-items: flex-start;}
-    .comp-aero-tape { display: flex; justify-content: space-between; width: 200%; margin-top: 5px; font-size: 16px; transition: transform 0.1s linear;}
-    .comp-aero-tape span { width: 50px; text-align: center; position: relative;}
+    .comp-aero-tape { position: relative; width: 100%; height: 100%; font-size: 16px; }
+    .comp-aero-tape span { position: absolute; top: 5px; left: 50%; font-weight: bold;}
     .comp-aero-tape span::before { content: ''; position: absolute; bottom: -10px; left: 50%; width: 2px; height: 6px; background: var(--arex-green); transform: translateX(-50%);}
     .comp-aero-chevron { position: absolute; top: 25px; left: 50%; width: 0; height: 0; border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 10px solid var(--arex-green); transform: translateX(-50%); z-index: 5;}
     .comp-aero-crosshair { flex-grow: 1; width: 100%; display: flex; align-items: center; justify-content: center; position: relative;}
@@ -115,436 +249,925 @@
 
     .target-info-box { text-align: center; height: 20px; font-size: 14px; color: var(--arex-green); font-weight: bold;}
     .hint-text { margin-top: auto; text-align: center; font-size: 14px; color: var(--arex-light); opacity: 0.6; }
-
-    /* --- Tissues (2F) Refined + CNS/OTU --- */
-    .deco-grid { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--arex-dark); padding-bottom: 5px; margin-bottom: 5px; }
+    
+    /* =========================================
+       [LVGL_MAP_2F_TISSUES] 2F Tissues 卡片
+       同样无需 Flex！由于有 16 根柱子，计算绝对宽度 w_bar = total_w / 16。
+       第 i 根的 X = i * w_bar。底部对齐即可。
+       ========================================= */
+    .deco-grid { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--arex-dark); padding-bottom: 5px; margin-bottom: 5px; flex-shrink: 0;}
     .deco-cell { display: flex; flex-direction: column; }
     .deco-cell.right { text-align: right; }
-    
-    .tissue-section-title { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: var(--arex-light); margin-top: auto;}
-    .tissue-container { position: relative; height: 80px; border-bottom: 2px solid var(--arex-dark); border-left: 2px solid var(--arex-dark); padding-bottom: 0; display: flex; align-items: flex-end;}
+    .tissue-section-title { font-size: 11px; font-weight: bold; margin-bottom: 5px; color: var(--arex-light); margin-top: auto;}
+    /* 容器高度锁定 90px，防拉伸坍塌 */
+    .tissue-container { position: relative; height: 90px; border-bottom: 2px solid var(--arex-dark); border-left: 2px solid var(--arex-dark); padding-bottom: 0; display: flex; align-items: flex-end; flex-shrink: 0;}
     .m-value-line { position: absolute; top: 20%; left: 0; width: 100%; border-top: 2px dashed var(--arex-green); opacity: 0.5; z-index: 2; }
-    .m-value-label { position: absolute; top: 20%; right: 5px; font-size: 10px; transform: translateY(-120%); color: var(--arex-green); opacity: 0.8;}
-    
     .tissue-grid { display: flex; align-items: flex-end; gap: 4px; width: 100%; height: 100%; padding-left: 4px;}
-    .t-bar { flex: 1; background: rgba(0,51,0,0.5); position: relative; height: 100%; }
-    .t-fill { position: absolute; bottom: 0; width: 100%; background: var(--arex-green); z-index: 3;}
-    .t-fill.high { background: var(--arex-light); }
+    .t-bar { flex: 1; background: rgba(0,51,0,0.5); position: relative; height: 100%; } 
+    .t-fill { position: absolute; bottom: 0; width: 100%; background: var(--arex-green); z-index: 3;} 
     .t-fill.danger { animation: flashInvert var(--flash-speed) infinite alternate; }
 
-    /* --- Menus & Lists --- */
-    .menu-list { display: flex; flex-direction: column; gap: 8px; }
-    .menu-item { padding: 12px 15px; border: 2px solid var(--arex-dark); font-size: calc(var(--font-medium) * 0.75); font-weight: bold; transition: 0.2s; display: flex; justify-content: space-between; align-items: center;}
+    /* 3F & Menus */
+    .menu-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding-right: 5px; flex-grow: 1;}
+    .menu-item { padding: 8px 12px; border: 2px solid var(--arex-dark); font-size: calc(var(--font-medium) * 0.7); font-weight: bold; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;}
     .menu-item.static-active { border-color: var(--arex-green); }
-    
     .menu-item.active { background: var(--arex-green) !important; color: var(--arex-black) !important; border-color: var(--arex-green) !important; }
-
     .menu-item.editing { border-color: var(--arex-green) !important; }
-    .mod-po2-edit { background: var(--arex-green); color: var(--arex-black); padding: 0 6px; font-weight: bold; animation: blink 1.2s infinite; }
-    .mod-po2-arrows { color: var(--arex-light); font-size: 0.9em; margin-left: 8px; }
-    
-    .status-badge { font-size: 14px; font-weight: normal; color: var(--arex-light); padding: 2px 6px;}
-    .status-badge.active-badge { background: var(--arex-green); color: var(--arex-black); font-weight: bold; }
-    .menu-item.active .status-badge.active-badge { background: var(--arex-black); color: var(--arex-green); }
+    /* 重排抓起特效：略微缩小并增加内阴影 */
+    .menu-item.reordering { background: var(--arex-green) !important; color: var(--arex-black) !important; transform: scale(0.95); box-shadow: inset 0 0 0 2px var(--arex-black); z-index: 10;}
+    .status-badge { font-size: 12px; font-weight: normal; color: var(--arex-light); padding: 2px 6px;}
 
-    /* Dive Plan (B5) */
-    .plan-chart-shell { border: 2px solid var(--arex-dark); padding: 10px; margin-top: 0px; }
-    .plan-chart-title { font-size: 16px; font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; opacity: 0.9; }
-    .plan-chart-svg { width: 100%; height: 320px; display: block; background:
-        linear-gradient(to bottom, rgba(0,255,51,0.08) 1px, transparent 1px) 0 0 / 100% 53px,
-        linear-gradient(to right, rgba(0,255,51,0.08) 1px, transparent 1px) 0 0 / 64px 100%;
-        border: 1px solid var(--arex-dark);
-    }
-    .plan-axis-label { font-size: 12px; fill: var(--arex-green); opacity: 0.75; }
-    .plan-line-past { fill: none; stroke: var(--arex-green); stroke-width: 4; }
-    .plan-line-future { fill: none; stroke: var(--arex-green); stroke-width: 4; stroke-dasharray: 8 7; }
-    .plan-line-stop { stroke: rgba(0,255,51,0.7); stroke-width: 2; stroke-dasharray: 3 4; }
+    /* 4F Dive Plan */
+    .plan-chart-shell { border: 2px solid var(--arex-dark); padding: 8px; margin-top: 0px; flex-grow: 1; display: flex; flex-direction: column;}
+    .plan-chart-title { font-size: 14px; font-weight: bold; margin-bottom: 5px; display: flex; justify-content: space-between; opacity: 0.9; flex-shrink: 0;}
+    .plan-chart-svg { width: 100%; flex-grow: 1; display: block; background: var(--arex-black); border: 1px solid var(--arex-dark); }
+    .plan-axis-label { font-size: 11px; fill: var(--arex-green); opacity: 0.75; }
+    .plan-line-past { fill: none; stroke: var(--arex-green); stroke-width: 3; stroke-linejoin: round;} /* lv_chart 过去折线 (Solid) */
+    .plan-line-future { fill: none; stroke: var(--arex-green); stroke-width: 3; stroke-dasharray: 6 5; stroke-linejoin: round;} /* lv_chart 预测折线 (Dashed) */
     .plan-now { fill: var(--arex-green); }
-    .plan-now-label { font-size: 14px; font-weight: bold; fill: var(--arex-black); }
-    .plan-stop-tag { fill: var(--arex-black); stroke: var(--arex-green); stroke-width: 1.5; }
-    .plan-stop-text { font-size: 13px; fill: var(--arex-green); font-weight: bold; }
-    .plan-legend { display: flex; gap: 14px; font-size: 14px; margin-top: 8px; opacity: 0.85; }
-    .plan-legend span::before { content: ''; display: inline-block; width: 20px; height: 0; border-top: 4px solid var(--arex-green); margin-right: 8px; vertical-align: middle; }
-    .plan-legend .future::before { border-top-style: dashed; }
+    .plan-now-label { font-size: 12px; font-weight: bold; fill: var(--arex-black); background: var(--arex-green);}
 
-    /* Walls & Modals */
+    /* =========================================
+       [LVGL_MAP_5F_CUSTOM_GRID] 5F Custom Widgets 绝对坐标化
+       虽然这里为了网页效果写了 CSS Grid (display: grid; dense)，
+       但我们在 C 端收到 JSON 数组时，它本质上已经描述了一个紧凑的 5x6 (总30格) 排列！
+       在LVGL中，不再需要 LV_GRID。直接根据 JSON 下发时的排列推导坐标：
+       每个基准单元格大小 = (parent_width / 5) * 80, (parent_height / 6) * 60。
+       只要收到 row (0~5) 和 col (0~4)，就可以直接算出 X/Y。
+       ========================================= */
+    .w-span-1x1 { grid-column: span 1; grid-row: span 1; }
+    .w-span-2x1 { grid-column: span 2; grid-row: span 1; }
+    .w-span-1x2 { grid-column: span 1; grid-row: span 2; }
+    .w-span-2x2 { grid-column: span 2; grid-row: span 2; }
+    
+    .widget-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); grid-auto-flow: dense; gap: 4px; flex-grow: 1; padding-bottom: 5px; height: 100%; align-content: stretch; overflow: hidden; }
+    .widget-slot { border: 2px dashed var(--arex-dark); display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,51,0,0.2); position: relative; transition: all 0.3s; }
+    .w-label { font-size: 9px; color: var(--arex-light); font-weight: bold; position: absolute; top: 4px; left: 6px; opacity: 0.8; line-height: 1;}
+    .w-val { font-size: calc(var(--font-medium)*0.8); font-weight: bold; }
+    .w-unit { font-size: 11px; font-weight: normal; margin-left: 2px; color: var(--arex-light); }
+
+    /* Modals & Interactivity */
+    #canvas-modal { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); display:none; align-items:center; justify-content:center; z-index:50; }
+    .modal-box { border: 4px solid var(--arex-green); background: var(--arex-black); padding: 25px; text-align: center; width: 80%; }
+    #ghost-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--arex-black); z-index: 500; display: none; color: var(--arex-dark); align-items: center; justify-content: center; font-size: 12px; }
+
+    /* =========================================
+       战术配置窗口 (Modal Config Export)
+       网页端辅助功能，不在 LVGL 端实现。
+       ========================================= */
+    #config-modal {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+        display: none; justify-content: center; align-items: center; z-index: 1000;
+        opacity: 0; transition: opacity 0.3s ease;
+    }
+    #config-modal.show { display: flex; opacity: 1; }
+    .config-box {
+        background: #111; width: 600px; border: 2px solid var(--arex-green);
+        border-radius: 8px; display: flex; flex-direction: column;
+        box-shadow: 0 0 30px rgba(0, 255, 0, 0.15);
+    }
+    .config-header {
+        padding: 15px 20px; border-bottom: 1px solid #333;
+        display: flex; justify-content: space-between; align-items: center;
+        background: #1a1a1a; border-radius: 8px 8px 0 0;
+    }
+    .config-header h2 { margin: 0; font-size: 18px; color: var(--arex-light); font-family: monospace; text-transform: uppercase;}
+    .close-btn { color: #888; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; }
+    .close-btn:hover { color: #ff4444; }
+    .config-body { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+    .config-body p { margin: 0; color: #aaa; font-size: 14px; }
+    textarea#config-json {
+        width: 100%; height: 250px; background: #050505; color: var(--arex-green);
+        border: 1px dashed #444; padding: 15px; font-family: monospace; font-size: 13px;
+        box-sizing: border-box; resize: none; outline: none; border-radius: 4px;
+    }
+    textarea#config-json:focus { border-color: var(--arex-green); }
+    .config-footer { display: flex; gap: 10px; justify-content: flex-end; }
+
+    /* App Mockup UI */
+    .app-mock-phone { background: #0a0a0a; border: 3px solid #444; border-radius: 12px; padding: 12px; margin-bottom: 15px; position: relative; }
+    .app-mock-phone::before { content:'APP SYNC (5x6 GRID)'; position:absolute; top:-8px; left:50%; transform:translateX(-50%); background:#111; padding:0 8px; font-size:10px; color:#888; font-weight:bold;}
+    
+    .app-mock-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); grid-auto-flow: dense; gap: 4px; height: 200px; background: #111; padding: 8px; border-radius: 8px; overflow: hidden;}
+    .app-widget { border: 1px solid #444; background: #1a1a1a; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: grab; text-align: center; color: #aaa; transition: 0.2s; user-select: none;}
+    .app-widget span { font-size: 8px; font-weight: bold; padding: 0 4px; line-height: 1.1; word-wrap: break-word;}
+    .app-widget.drag-over { background: rgba(0,255,0,0.2); border-color: var(--arex-green); color: #fff;}
+    .app-widget:active { cursor: grabbing; border-color: var(--arex-green); }
+    
+    .btn-resize { position: absolute; bottom: 0px; right: 2px; font-size: 10px; cursor: pointer; color: var(--arex-green); background: none; border: none; padding: 0; transition: 0.1s;}
+    .btn-remove { position: absolute; top: 0px; left: 2px; font-size: 10px; cursor: pointer; color: #ff5555; background: none; border: none; padding: 0; line-height: 1;}
+    
+    .app-slot-empty { border: 2px dashed #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #666; font-size: 16px; font-weight: bold; transition: 0.2s;}
+    .app-slot-empty.drag-over { background: rgba(0,255,0,0.1); border-color: var(--arex-green); color: #fff;}
+    .app-widget-lib { display: flex; flex-wrap: wrap; gap: 6px; }
+    .app-drag-item { background: #222; border: 1px solid #555; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: grab; font-weight: bold; transition: 0.1s; display: flex; align-items: center;}
+    
+    /* Wall UI (操作顶部/底部边界时的提示) */
     .wall-ui { position: absolute; left: 0; width: 100%; text-align: center; font-weight: bold; z-index: 20; color: var(--arex-green); background: var(--arex-black); padding: 15px 0; border: 2px dashed var(--arex-dark); opacity: 0; transition: opacity 0.2s;}
     #top-wall-ui { top: 0; } #bottom-wall-ui { bottom: 0; }
     .charge-blocks { font-size: 32px; letter-spacing: 10px; margin-top: 10px; }
-
-    #canvas-modal { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); display:none; align-items:center; justify-content:center; z-index:50; }
-    .modal-box { border: 4px solid var(--arex-green); background: var(--arex-black); padding: 30px; text-align: center; width: 400px; }
-    
-    #scroll-indicator { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; }
-    .scroll-dot { width: 6px; height: 6px; background: var(--arex-dark); border-radius: 0; }
-    .scroll-dot.active { background: var(--arex-green); box-shadow: 0 0 8px var(--arex-green); }
-
-    #ghost-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--arex-black); z-index: 500; display: none; color: var(--arex-dark); align-items: center; justify-content: center; font-size: 12px; }
-    .local-invert-zone { background: var(--arex-black); color: var(--arex-green); display: inline-block; padding: 10px 20px; border: 2px solid var(--arex-green); }
-    .local-invert-zone.flash-danger { animation: flashInvert var(--flash-speed) infinite alternate; border-color: var(--arex-black); }
-
-    /* Card Sorter UI */
-    .sort-row { display: flex; justify-content: space-between; align-items: center; background: #222; margin-bottom: 5px; padding: 6px 10px; border: 1px solid #444; border-radius: 4px; }
-    .sort-btns { display: flex; gap: 4px; }
-    .sort-btns button { background: #333; border: 1px solid #555; color: #fff; cursor: pointer; padding: 2px 8px; border-radius: 3px; font-size: 10px; }
-    .sort-btns button:hover:not(:disabled) { background: var(--arex-green); color: #000; border-color: var(--arex-green); }
-    .sort-btns button:disabled { opacity: 0.3; cursor: not-allowed; }
 </style>
 </head>
 <body>
 
+<!-- 侧边栏结构，网页调试用，LVGL 中这些参数应全数放入 arex_sys_config_t -->
 <div id="sidebar">
-    <button class="toggle-btn" onclick="toggleSidebar()">◂</button>
-    
     <div class="panel-section">
-        <div class="panel-title">🎛️ 基础状态控制 (v0.10)</div>
-        <div class="control-row">
-            <label>警告反色频率 <span class="val-display" id="val-flash-speed">0.3s</span></label>
-            <input type="range" id="flash-speed" min="0.1" max="1.0" step="0.1" value="0.3" oninput="updateSettings()">
+        <div class="panel-title">🎛️ 基础状态模拟</div>
+        <div class="control-row flex-row">
+            <label style="margin:0;">实时深度 <span class="val-display" id="val-depth-control">0m</span></label>
+            <input type="range" id="depth-slider" min="0" max="100" step="1" value="0" oninput="updateBaseValues()" style="width:50%;">
+        </div>
+        <div class="control-row flex-row">
+            <label style="margin:0;">实时航向 <span class="val-display" id="val-heading-control">265°</span></label>
+            <input type="range" id="heading-slider" min="0" max="720" step="1" value="265" oninput="updateBaseValues()" style="width:50%;">
         </div>
         <div class="control-row">
-            <label>实时深度模拟 <span class="val-display" id="val-depth-control">0m</span></label>
-            <input type="range" id="depth-slider" min="0" max="100" step="1" value="0" oninput="updateSettings()">
-        </div>
-        <div class="control-row">
-            <label>罗盘 UI 风格 (1F)</label>
-            <select id="compass-style-select" onchange="updateCompassStyle()">
-                <option value="classic">Tactical Tape (战术卷尺)</option>
-                <option value="aero">Fighter Jet HUD (战斗机平显)</option>
-                <option value="sub">Submarine Sonar (潜艇声呐)</option>
-            </select>
-        </div>
-        <div class="control-row">
-            <label>防呆拦截样式</label>
-            <select id="alert-style-select">
-                <option value="local">局部反色保护 (无眩晕)</option>
-                <option value="global">全屏反色 (高刺激)</option>
-            </select>
-        </div>
-        <div class="control-row">
-            <label>减压计划测试 (模拟)</label>
+            <label>减压计划测试 (Deco Plan)</label>
             <select id="deco-test-select" onchange="renderDiveLog()">
                 <option value="auto">自动 (基于当前深度)</option>
-                <option value="ndl">免减压 (仅 6m 安全停留)</option>
-                <option value="light">轻度减压 (12m, 6m 双停留)</option>
-                <option value="tech">大深度技术潜水 (21m, 12m, 6m 多停留)</option>
+                <option value="ndl">免减压 (仅 3m 安全停留)</option>
+                <option value="tech">大深度技术潜水 (21m至3m 全停)</option>
+            </select>
+        </div>
+        <div class="control-row flex-row" style="margin-top:10px;">
+            <label style="margin:0;">罗盘风格</label>
+            <select id="compass-style-select" onchange="updateCompassStyle()" style="width:60%;">
+                <option value="classic">Tactical Tape</option>
+                <option value="aero">Fighter Jet HUD</option>
+                <option value="sub">Submarine Sonar</option>
             </select>
         </div>
     </div>
 
-    <div class="panel-section">
-        <div class="panel-title">🗂️ 仪表盘卡片排序</div>
-        <div id="card-sorter-ui">
-            <!-- Dynamically populated via JS -->
+    <div class="panel-section" style="border-color: var(--arex-green);">
+        <div class="panel-title">📐 AREX 排版沙盒 2.5 (Left Anchor)</div>
+        
+        <div class="control-group" style="border-color: var(--arex-green);">
+            <h3 style="color: var(--arex-green);">1. 全局架构与安全区 (Architecture)</h3>
+            
+            <div class="control-row">
+                <label>UI 安全区约束 (SAFE ZONE)
+                    <span class="limit-text" id="ui-safe-limit">Limit: ±30px</span>
+                </label>
+                <div style="display:flex; gap:5px; margin-bottom: 5px;">
+                    <span style="font-size:10px; color:#888; width:40px;">W: <span id="val-ui-w">580</span></span>
+                    <input type="range" id="slider-ui-w" min="400" max="640" step="10" value="580" oninput="updateCalibration()">
+                </div>
+                <div style="display:flex; gap:5px; margin-bottom: 5px;">
+                    <span style="font-size:10px; color:#888; width:40px;">H: <span id="val-ui-h">400</span></span>
+                    <input type="range" id="slider-ui-h" min="300" max="480" step="10" value="400" oninput="updateCalibration()">
+                </div>
+                <div style="display:flex; gap:5px; margin-bottom: 5px;">
+                    <span style="font-size:10px; color:#888; width:40px;">IPD: <span id="val-off-x">0</span></span>
+                    <input type="range" id="slider-off-x" min="-120" max="120" step="10" value="0" oninput="updateCalibration()">
+                </div>
+                <div style="display:flex; gap:5px;">
+                    <span style="font-size:10px; color:#888; width:40px;">Y-Off: <span id="val-off-y">0</span></span>
+                    <input type="range" id="slider-off-y" min="-100" max="100" step="10" value="0" oninput="updateCalibration()">
+                </div>
+            </div>
+            
+            <div class="control-row" style="margin-top:10px;">
+                <label>UI 主题架构 (Theme)</label>
+                <select id="sl-theme" onchange="renderLeftAnchor()" style="font-weight: bold; border-color: var(--arex-green);">
+                    <option value="tech">Tech (左右宽屏布局)</option>
+                    <option value="classic">Classic (上下流式布局)</option>
+                </select>
+            </div>
+            
+            <div class="control-row" style="display:flex; gap:10px; flex-direction:row;">
+                <div style="flex:1;">
+                    <label style="font-size: 11px;">区域翻转 (Layout Order)</label>
+                    <select id="sl-order" onchange="renderLeftAnchor()">
+                        <option value="normal">标准对齐 (Left/Top)</option>
+                        <option value="reverse">镜像翻转 (Right/Bottom)</option>
+                    </select>
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size: 11px;">卡片指示器 (Scroll Dots)</label>
+                    <select id="sl-dots" onchange="renderLeftAnchor()">
+                        <option value="right">靠右 (Right)</option>
+                        <option value="left">靠左 (Left)</option>
+                        <option value="bottom">靠底 (Bottom)</option>
+                        <option value="none">隐藏 (Hidden)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <label style="display: flex; align-items: center; cursor: pointer; color: #ff6666; font-size: 12px; font-weight: bold; margin-top: 15px; border-top: 1px dashed #333; padding-top: 10px;">
+                <input type="checkbox" id="mask-toggle" onchange="updateCalibration()" style="margin-right: 8px;">
+                开启面镜浮力盲区掩膜 (Bottom 80px)
+            </label>
+        </div>
+
+        <div class="control-group">
+            <h3>2. 字体与定向对齐 (Typo & Align)</h3>
+            <div class="control-row">
+                <label>全局字体库 (Font Family)</label>
+                <select id="sl-font" onchange="renderLeftAnchor()">
+                    <option value="'Courier New', Courier, monospace">Courier New (标准等宽)</option>
+                    <option value="'Consolas', monospace">Consolas (紧凑等宽)</option>
+                    <option value="'Monaco', monospace">Monaco (圆润等宽)</option>
+                    <option value="'Lucida Console', monospace">Lucida Console</option>
+                    <option value="'Trebuchet MS', sans-serif">Trebuchet MS (战术无衬线)</option>
+                    <option value="sans-serif">System Sans-Serif</option>
+                    <option value="'Impact', sans-serif">Impact (粗犷极宽)</option>
+                </select>
+            </div>
+            
+            <div class="control-row" style="margin-top: 10px; display:flex; gap:10px; flex-direction:row;">
+                <div style="flex:1;">
+                    <label style="font-size: 11px;">全局标题对齐</label>
+                    <select id="sl-align-title" onchange="renderLeftAnchor()"><option value="flex-start">靠左</option><option value="center">居中</option><option value="flex-end">靠右</option></select>
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size: 11px;">大字对齐(单栏)</label>
+                    <select id="sl-align-huge" onchange="renderLeftAnchor()"><option value="flex-start">靠左</option><option value="center">居中</option><option value="flex-end">靠右</option></select>
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size: 11px;">中字对齐(单栏)</label>
+                    <select id="sl-align-med" onchange="renderLeftAnchor()"><option value="flex-start">靠左</option><option value="center">居中</option><option value="flex-end">靠右</option></select>
+                </div>
+            </div>
+
+            <div class="control-row" style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed #333;">
+                <label style="font-size: 11px; color: var(--arex-light);">双拼模块专属排版 (Split-Row Symmetry)</label>
+                <select id="sl-split-align" onchange="renderLeftAnchor()" style="border-color: var(--arex-light); color: var(--arex-light);">
+                    <option value="none">跟随上方全局设置 (No Override)</option>
+                    <option value="outward" selected>向外展开 (左块靠左 / 右块靠右)</option>
+                </select>
+            </div>
+
+            <div style="border-top: 1px solid #333; margin-top:10px; padding-top:10px;">
+                <div class="control-row flex-row"><label style="margin:0;">大字号 (Huge) <span class="val-display" id="val-f-huge">58px</span></label><input type="range" id="sl-f-huge" min="40" max="80" step="1" value="58" oninput="renderLeftAnchor()" style="width:50%;"></div>
+                <div class="control-row flex-row"><label style="margin:0;">中字号 (Medium) <span class="val-display" id="val-f-med">28px</span></label><input type="range" id="sl-f-med" min="16" max="40" step="1" value="28" oninput="renderLeftAnchor()" style="width:50%;"></div>
+                <div class="control-row flex-row"><label style="margin:0;">小字号 (Small) <span class="val-display" id="val-f-small">14px</span></label><input type="range" id="sl-f-small" min="10" max="24" step="1" value="14" oninput="renderLeftAnchor()" style="width:50%;"></div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>3. 标题分割线系统 (Separator Line)</h3>
+            <div class="control-row" style="display:flex; gap:10px; flex-direction:row;">
+                <div style="flex:1;">
+                    <label style="font-size: 11px;">线条风格</label>
+                    <select id="sl-sep-style" onchange="renderLeftAnchor()"><option value="dashed">虚线 (Dashed)</option><option value="solid">实线 (Solid)</option><option value="dotted">点线 (Dotted)</option><option value="none">隐藏 (None)</option></select>
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size: 11px;">透明度 (Alpha)</label>
+                    <select id="sl-sep-alpha" onchange="renderLeftAnchor()"><option value="0.2">20% (微弱)</option><option value="0.5">50% (适中)</option><option value="1.0">100% (强烈)</option></select>
+                </div>
+            </div>
+            <div class="control-row flex-row" style="margin-top:10px;"><label style="margin:0;">线条粗细 (Thickness) <span class="val-display" id="val-sep-thick">1px</span></label><input type="range" id="sl-sep-thick" min="1" max="5" step="1" value="1" oninput="renderLeftAnchor()" style="width:50%;"></div>
+        </div>
+
+        <div class="control-group">
+            <h3>4. 10U 网格高度分配 (Fixed Area Blocks)</h3>
+            <div class="control-row flex-row"><label style="margin:0;">DEPTH 大通栏 <span class="val-display" id="val-h-depth">8U</span></label><input type="range" id="sl-h-depth" min="4" max="12" step="1" value="8" oninput="renderLeftAnchor()" style="width:50%;"></div>
+            <div class="control-row flex-row"><label style="margin:0;">NDL / TTS 双拼 <span class="val-display" id="val-h-ndl">6U</span></label><input type="range" id="sl-h-ndl" min="4" max="10" step="1" value="6" oninput="renderLeftAnchor()" style="width:50%;"></div>
+            <div class="control-row flex-row"><label style="margin:0;">POD 1/2 双拼 <span class="val-display" id="val-h-pod">6U</span></label><input type="range" id="sl-h-pod" min="4" max="10" step="1" value="6" oninput="renderLeftAnchor()" style="width:50%;"></div>
+            <div class="control-row flex-row"><label style="margin:0;">BATT / W.TIME 双拼 <span class="val-display" id="val-h-batt">4U</span></label><input type="range" id="sl-h-batt" min="3" max="8" step="1" value="4" oninput="renderLeftAnchor()" style="width:50%;"></div>
+            <div class="control-row flex-row"><label style="margin:0;">GAS 中通栏 <span class="val-display" id="val-h-gas">6U</span></label><input type="range" id="sl-h-gas" min="4" max="10" step="1" value="6" oninput="renderLeftAnchor()" style="width:50%;"></div>
+            <div class="control-row flex-row"><label style="margin:0;">DIVE TIME 底部 <span class="val-display" id="val-h-time">4U</span></label><input type="range" id="sl-h-time" min="2" max="8" step="1" value="4" oninput="renderLeftAnchor()" style="width:50%;"></div>
+            
+            <div style="border-top: 1px solid #333; margin-top:15px; padding-top:15px;">
+                <div class="control-row flex-row"><label style="margin:0;">组件间距 (Gap) <span class="val-display" id="val-gap">1U</span></label><input type="range" id="sl-gap" min="0" max="4" step="1" value="1" oninput="renderLeftAnchor()" style="width:50%;"></div>
+                <div class="control-row flex-row"><label style="margin:0;">标题高度 (Title H) <span class="val-display" id="val-title-h">2U</span></label><input type="range" id="sl-title-h" min="1" max="4" step="1" value="2" oninput="renderLeftAnchor()" style="width:50%;"></div>
+            </div>
+        </div>
+
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
+            <button class="btn-action" onclick="openConfigModal()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                管理参数 / 导出配置
+            </button>
         </div>
     </div>
 
     <div class="panel-section">
-        <div class="panel-title">
-            <span>⚙️ 1米虚像视在尺寸计算</span>
-            <span style="font-size:11px; font-weight:normal; color:#888;">FOV 30°</span>
+        <div class="panel-title">📱 APP 表盘网格同步 (模拟)</div>
+        <div class="app-mock-phone">
+            <div class="app-mock-grid" id="app-mock-grid-container"></div>
         </div>
-        <div class="control-row">
-            <label>全局字体库</label>
-            <select id="font-select" onchange="updateTheme()">
-                <option value="'Courier New', Courier, monospace">Courier New (推荐等宽)</option>
-                <option value="sans-serif">Sans-Serif (无衬线)</option>
-            </select>
-        </div>
-        <div class="control-row">
-            <label>深度大字号 <span class="val-display" id="val-huge"></span></label>
-            <input type="range" id="size-huge" min="40" max="80" value="58" oninput="updateTheme()">
-        </div>
-        <div class="control-row">
-            <label>模块中字号 <span class="val-display" id="val-medium"></span></label>
-            <input type="range" id="size-medium" min="16" max="40" value="28" oninput="updateTheme()">
-        </div>
-        <div class="control-row">
-            <label>标签小字号 <span class="val-display" id="val-small"></span></label>
-            <input type="range" id="size-small" min="10" max="24" value="14" oninput="updateTheme()">
+        <div class="app-widget-lib">
+            <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="max-depth">MAX DPTH</div>
+            <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="temp">TEMP</div>
+            <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="heading">HEADING</div>
+            <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="sac">SAC RATE</div>
+            <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="battery">BATTERY</div>
+            <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="ndl">NO DECO</div>
         </div>
     </div>
 </div>
 
+<!-- ==========================================
+  [LVGL_MAP_ROOT] 真正的设备渲染原点
+  ========================================== -->
 <div id="main-view">
+    <div id="status-bar">系统初始化...<span class="error-text" id="error-msg"></span></div>
+    
     <div id="device-bezel">
+        <!-- [LVGL_MAP] Physical Screen (640x480) 对应底层画布，绝对锁定位置。 -->
         <div id="ar-screen">
-            
-            <div id="left-anchor">
-                <div>
-                    <div class="data-block" style="margin-bottom: 5px;">
-                        <div class="data-label">DEPTH</div>
-                        <div class="data-value huge" id="ui-depth">0.0</div>
-                    </div>
-                    <div class="split-row" style="margin-bottom: 5px;">
-                        <div><div class="data-label">NDL</div><div class="data-value">0</div></div>
-                        <div style="text-align: right;"><div class="data-label">TTS</div><div class="data-value highlight-invert">24'</div></div>
-                    </div>
-                    <div class="data-block" style="margin-bottom: 10px;">
-                        <div class="data-label">NEXT STOP</div>
-                        <div class="data-value" style="color: var(--arex-light);">21m <span style="font-size: 0.8em;">3'</span></div>
-                    </div>
+            <div class="screen-label">PHYSICAL LIMIT (640x480)</div>
+            <div id="buoyancy-mask">EYEBOX LOST DUE TO BUOYANCY</div>
+
+            <!-- [LVGL_MAP] Safe Zone。这是所有的 LVGL 组件挂载的根 lv_obj！-->
+            <div id="ui-safe-zone">
+                <!-- [LVGL_MAP] Left Anchor (10U 沙盒渲染区) -->
+                <div id="left-anchor-canvas" class="grid-bg"></div>
+
+                <!-- [LVGL_MAP] Right Canvas (对应多屏卡片的 lv_tileview 容器) -->
+                <div id="right-card-canvas" class="grid-bg">
                     
-                    <div style="border-top: 1px dashed var(--arex-dark); padding-top: 8px; margin-top: auto; display: flex; justify-content: space-between;">
-                        <div style="display: flex; flex-direction: column;">
-                            <span class="data-label">POD 1</span>
-                            <span class="data-value" style="font-size: calc(var(--font-medium)*0.75);">210<span style="font-size: 0.5em; margin-left: 2px;">BAR</span></span>
+                    <div id="top-wall-ui" class="wall-ui"><span id="top-wall-text"></span><br><div class="charge-blocks" id="top-blocks"></div></div>
+                    <div id="bottom-wall-ui" class="wall-ui"><span id="bottom-wall-text"></span><br><div class="charge-blocks" id="bottom-blocks"></div></div>
+                    
+                    <div id="elevator-track">
+                        <!-- [LVGL_MAP] 以下每个 .card 对应一页。 -->
+                        <div class="card" id="menu-info">
+                            <div class="card-title">> INFO MENU</div>
+                            <div class="menu-list" id="info-list">
+                                <div class="menu-item active">LAST DIVE</div>
+                                <div class="menu-item">DIVE PLAN</div>
+                                <div class="menu-item">TISSUE & TOX</div>
+                                <div class="menu-item">GAS & CALCULATION</div>
+                                <div class="menu-item">SENSOR & DEVICE</div>
+                            </div>
                         </div>
-                        <div style="display: flex; flex-direction: column; text-align: right;">
-                            <span class="data-label">POD 2</span>
-                            <span class="data-value" style="font-size: calc(var(--font-medium)*0.75); color: var(--arex-light);">195<span style="font-size: 0.5em; margin-left: 2px;">BAR</span></span>
+
+                        <!-- 1F: 罗盘。包含两个 lv_label (标题/数值) 和一组动态刻度线 (lv_canvas) -->
+                        <div class="card" id="card-compass">
+                            <div class="card-title"><span>1F: NAV COMPASS</span></div>
+                            <div style="text-align: center; font-size: 12px; color: var(--arex-green); font-weight: bold;" id="compass-target-text"></div>
+                            
+                            <div class="compass-wrapper active" id="comp-wrap-classic">
+                                <div class="comp-classic-heading" id="ui-head-classic">265°</div>
+                                <div class="comp-classic-box">
+                                    <div class="comp-classic-center"></div>
+                                    <div class="comp-classic-tape" id="tape-classic"></div>
+                                </div>
+                            </div>
+
+                            <div class="compass-wrapper" id="comp-wrap-aero">
+                                <div class="comp-aero-box">
+                                    <div class="comp-aero-top"><div class="comp-aero-tape" id="tape-aero"></div><div class="comp-aero-chevron"></div></div>
+                                    <div class="comp-aero-crosshair"><div class="aero-ch-line"></div><div class="aero-ch-center">-</div><div class="aero-ch-line"></div><div class="comp-aero-heading" id="ui-head-aero">265</div></div>
+                                </div>
+                            </div>
+
+                            <div class="compass-wrapper" id="comp-wrap-sub">
+                                <div class="comp-sub-box"><div class="comp-sub-cross"></div><div class="comp-sub-cross v"></div><div class="comp-sub-dial" id="dial-sub"></div><div class="comp-sub-ship"></div></div>
+                                <div class="comp-sub-heading" id="ui-head-sub">265°</div>
+                            </div>
+                        </div>
+
+                        <!-- 2F: 组织与减压。底部的柱体建议由 16 个底层对齐的 lv_bar 组成。 -->
+                        <div class="card" id="card-tissues">
+                            <div class="card-title"><span>2F: TISSUES & DECO</span></div>
+                            <div class="deco-grid">
+                                <div class="deco-cell"><span class="data-label" style="font-size:10px;">ALGORITHM</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.6);">ZHL-16C</span></div>
+                                <div class="deco-cell right"><span class="data-label" style="font-size:10px;">GF L/H</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.6);">30 / 70</span></div>
+                            </div>
+                            <div class="deco-grid" style="border:none;">
+                                <div class="deco-cell"><span class="data-label" style="font-size:10px;">CNS</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.6);">15%</span></div>
+                                <div class="deco-cell right"><span class="data-label" style="font-size:10px;">OTU</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.6);">22</span></div>
+                            </div>
+
+                            <div class="tissue-section-title">TISSUE SATURATION</div>
+                            <div class="tissue-container">
+                                <div class="m-value-line"></div><div class="m-value-label">M-VAL</div>
+                                <div class="tissue-grid">
+                                    <div class="t-bar"><div class="t-fill danger" style="height: 95%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill high" style="height: 85%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill high" style="height: 75%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 60%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 50%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 40%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 35%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 20%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 15%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 10%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 8%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 5%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 4%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 3%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 2%;"></div></div>
+                                    <div class="t-bar"><div class="t-fill" style="height: 1%;"></div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3F: 气体切换菜单。可用 lv_list 实现。 -->
+                        <div class="card" id="card-gas">
+                            <div class="card-title">
+                                <span>3F: GAS SWITCH</span>
+                                <span class="title-status" id="gas-card-status">[EDIT MODE]</span>
+                            </div>
+                            <div class="menu-list" id="gas-list"></div>
+                        </div>
+
+                        <!-- 4F: 潜水曲线。必须采用 lv_chart，并设置两条 Series 数据流。 -->
+                        <div class="card" id="card-plan">
+                            <div class="card-title"><span>4F: DIVE PLAN TRACK</span></div>
+                            <div class="plan-chart-shell">
+                                <svg class="plan-chart-svg" id="dive-log-svg" viewBox="0 0 400 320" preserveAspectRatio="none">
+                                    <!-- Dynamic content rendered by JS -->
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- 5F: 自定义网格布局。在 LVGL 必须建立基于 lv_grid 的弹性数组，尺寸跨度必须严格按配置绑定 -->
+                        <div class="card" id="card-custom">
+                            <div class="card-title">
+                                <span>5F: CUSTOM WIDGETS</span>
+                                <span class="title-status" id="custom-card-status" style="display:block; animation:none; font-size:10px; opacity:0.7; color:var(--arex-light); transition: 0.3s;">[APP SYNCED]</span>
+                            </div>
+                            <div class="widget-grid" id="ar-widget-container"></div>
+                        </div>
+
+                        <!-- 设置菜单。在LVGL中也是基于 lv_list。 -->
+                        <div class="card" id="menu-setup">
+                            <div class="card-title">> DIVE SETUP</div>
+                            <div class="menu-list" id="setup-list">
+                                <div class="menu-item active">GAS SWITCH <span>></span></div>
+                                <div class="menu-item">CONSERVATISM <span>30/70</span></div>
+                                <div class="menu-item">BRIGHTNESS <span>HIGH</span></div>
+                                <div class="menu-item">COMPASS CAL <span>></span></div>
+                                <div class="menu-item">SYSTEM SETUP <span>></span></div>
+                                <div class="menu-item">SCREEN ORDER <span>></span></div>
+                            </div>
                         </div>
                     </div>
 
-                    <div style="border-top: 1px dashed var(--arex-dark); padding-top: 5px; margin-top: 8px;">
-                        <div class="data-block" style="margin-bottom: 4px;">
-                            <div class="data-label">GAS</div>
-                            <div class="data-value" id="ui-gas-name" style="font-size: calc(var(--font-medium)*0.8);">TX 18/45</div>
-                        </div>
-                        <div class="data-block" style="margin-bottom: 4px;">
-                            <div class="data-label">PO2</div>
-                            <div class="data-value po2-val" style="margin-top: 2px;">1.2<span class="po2-div">|</span>1.2<span class="po2-div">|</span>1.3</div>
-                        </div>
+                    <!-- 动态电梯指示器点。LVGL中是一组小巧的 lv_obj 小圆点容器。 -->
+                    <div class="elevator-dots" id="scroll-indicator">
+                        <div class="e-dot active"></div><div class="e-dot"></div><div class="e-dot"></div><div class="e-dot"></div><div class="e-dot"></div>
                     </div>
-                </div>
-                <div class="data-block" style="margin-top:5px; margin-bottom:0;">
-                    <div class="data-label">TIME</div><div class="data-value">38:14</div>
+
+                    <!-- 子菜单。在LVGL中可能作为一个覆盖全屏的临时 lv_obj_create()。 -->
+                    <div id="sub-menu-layer">
+                        <div class="card-title" id="sub-menu-title">> SUB MENU</div>
+                        <div class="menu-list" id="sub-menu-list"></div>
+                    </div>
+
+                    <!-- 警告提示弹窗/覆盖层。同样使用高层级的 lv_obj。 -->
+                    <div id="canvas-modal">
+                        <div class="modal-box" id="modal-content-box"></div>
+                    </div>
                 </div>
             </div>
-
-            <div id="right-canvas">
-                <div id="top-wall-ui" class="wall-ui"><span id="top-wall-text"></span><br><div class="charge-blocks" id="top-blocks"></div></div>
-                <div id="bottom-wall-ui" class="wall-ui"><span id="bottom-wall-text"></span><br><div class="charge-blocks" id="bottom-blocks"></div></div>
-
-                <div id="elevator-track">
-                    
-                    <div class="card" id="menu-info">
-                        <div class="card-title">> INFO MENU</div>
-                        <div class="menu-list" id="info-list">
-                            <div class="menu-item active">LAST DIVE</div>
-                            <div class="menu-item">DIVE PLAN</div>
-                            <div class="menu-item">TISSUE & TOX</div>
-                            <div class="menu-item">GAS & CALCULATION</div>
-                            <div class="menu-item">SENSOR & DEVICE</div>
-                        </div>
-                    </div>
-
-                    <div class="card" id="card-compass">
-                        <div class="card-title"><span>1F: NAV COMPASS</span></div>
-                        <div class="target-info-box" id="compass-target-text"></div>
-                        
-                        <div class="compass-wrapper active" id="comp-wrap-classic">
-                            <div class="comp-classic-heading" id="ui-head-classic">265°</div>
-                            <div class="comp-classic-box">
-                                <div class="comp-classic-center"></div>
-                                <div class="comp-classic-tape" id="tape-classic"><span>210</span><span>240</span><span style="font-size:1.5em; font-weight:bold;">W</span><span>300</span><span>330</span><span>N</span></div>
-                            </div>
-                        </div>
-
-                        <div class="compass-wrapper" id="comp-wrap-aero">
-                            <div class="comp-aero-box">
-                                <div class="comp-aero-top"><div class="comp-aero-tape" id="tape-aero"><span>21</span><span>24</span><span>W</span><span>30</span><span>33</span><span>N</span></div><div class="comp-aero-chevron"></div></div>
-                                <div class="comp-aero-crosshair"><div class="aero-ch-line"></div><div class="aero-ch-center">-</div><div class="aero-ch-line"></div><div class="comp-aero-heading" id="ui-head-aero">265</div></div>
-                            </div>
-                        </div>
-
-                        <div class="compass-wrapper" id="comp-wrap-sub">
-                            <div class="comp-sub-box"><div class="comp-sub-cross"></div><div class="comp-sub-cross v"></div><div class="comp-sub-dial" id="dial-sub"></div><div class="comp-sub-ship"></div></div>
-                            <div class="comp-sub-heading" id="ui-head-sub">265°</div>
-                        </div>
-
-                        <div class="hint-text">[ PRESS TO MARK HEADING ]</div>
-                    </div>
-
-                    <div class="card" id="card-tissues">
-                        <div class="card-title"><span>2F: TISSUES & DECO</span></div>
-                        <div class="deco-grid">
-                            <div class="deco-cell"><span class="data-label">ALGORITHM</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.8);">ZHL-16C</span></div>
-                            <div class="deco-cell right"><span class="data-label">GF LOW / HIGH</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.8);">30 / 70</span></div>
-                        </div>
-                        <div class="deco-grid">
-                            <div class="deco-cell"><span class="data-label">GF99</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.8);">82%</span></div>
-                            <div class="deco-cell right"><span class="data-label">SurfGF</span><span class="data-value highlight-invert" style="font-size:calc(var(--font-medium)*0.8);">145%</span></div>
-                        </div>
-                        <div class="deco-grid" style="border:none;">
-                            <div class="deco-cell"><span class="data-label">CNS O2</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.8);">15%</span></div>
-                            <div class="deco-cell right"><span class="data-label">OTU</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.8);">22</span></div>
-                        </div>
-
-                        <div class="tissue-section-title">TISSUE SATURATION (16 COMPARTMENTS)</div>
-                        <div class="tissue-container">
-                            <div class="m-value-line"></div><div class="m-value-label">M-VALUE</div>
-                            <div class="tissue-grid">
-                                <div class="t-bar"><div class="t-fill danger" style="height: 95%;"></div></div>
-                                <div class="t-bar"><div class="t-fill high" style="height: 85%;"></div></div>
-                                <div class="t-bar"><div class="t-fill high" style="height: 75%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 60%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 50%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 40%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 35%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 20%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 15%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 10%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 8%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 5%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 4%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 3%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 2%;"></div></div>
-                                <div class="t-bar"><div class="t-fill" style="height: 1%;"></div></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card" id="card-gas">
-                        <div class="card-title">
-                            <span>3F: GAS SWITCH</span>
-                            <span class="title-status" id="gas-card-status">[EDIT MODE]</span>
-                        </div>
-                        <div class="menu-list" id="gas-list"></div>
-                        <div class="hint-text" id="gas-hint-text">[ PRESS TO SELECT GAS ]</div>
-                    </div>
-
-                    <div class="card" id="card-plan">
-                        <div class="card-title"><span>4F: DIVE PLAN TRACK</span></div>
-                        <div class="plan-chart-shell">
-                            <div class="plan-chart-title">
-                                <span>DEPTH / TIME PROFILE</span>
-                                <span>ZHL-16C + GF</span>
-                            </div>
-                            <svg class="plan-chart-svg" id="dive-log-svg" viewBox="0 0 400 320" aria-label="Dive plan chart">
-                                <!-- Dynamic content rendered by JS -->
-                            </svg>
-                            <div class="plan-legend">
-                                <span>PAST TRACK</span>
-                                <span class="future">DECO PLAN</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card" id="menu-setup">
-                        <div class="card-title">> DIVE SETUP</div>
-                        <div class="menu-list" id="setup-list">
-                            <div class="menu-item active">GAS SWITCH <span>></span></div>
-                            <div class="menu-item">CONSERVATISM <span>30/70</span></div>
-                            <div class="menu-item">BRIGHTNESS <span>HIGH</span></div>
-                            <div class="menu-item">COMPASS CAL <span>></span></div>
-                            <div class="menu-item">SYSTEM SETUP <span>></span></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="scroll-indicator">
-                    <div class="scroll-dot active"></div><div class="scroll-dot"></div><div class="scroll-dot"></div><div class="scroll-dot"></div>
-                </div>
-
-                <div id="sub-menu-layer">
-                    <div class="card-title" id="sub-menu-title">> SUB MENU</div>
-                    <div class="menu-list" id="sub-menu-list"></div>
-                </div>
-
-                <div id="canvas-modal">
-                    <div class="modal-box" id="modal-content-box"></div>
-                </div>
-            </div>
-            
             <div id="ghost-overlay">GHOST MODE STANDBY... NOD TO WAKE</div>
+        </div>
+    </div>
+</div>
+
+<div id="config-modal">
+    <div class="config-box">
+        <div class="config-header">
+            <h2>📦 系统预设 / 数据总线 (Data Bus)</h2>
+            <span class="close-btn" onclick="closeConfigModal()">&times;</span>
+        </div>
+        <div class="config-body">
+            <p>复制下方的 JSON 数据以导出您的自定义排版配置，或者粘贴已有的配置并点击“应用覆写”来加载他人分享的预设面板。</p>
+            <textarea id="config-json" spellcheck="false"></textarea>
+            <div class="config-footer">
+                <button class="btn-action btn-secondary" style="width: auto;" onclick="copyConfig()">📋 复制到剪贴板</button>
+                <button class="btn-action" style="width: auto;" onclick="applyConfig()">🚀 应用覆写 (Override)</button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
     // ==========================================
-    // Config & Setup
+    // State Initialization (Hoisted for safety)
     // ==========================================
+    /* [LVGL_MAP_DATA_BUS] 这个区域的所有变量，在底层 C 代码中对应 `arex_sensor_data_t` 结构体，
+       这属于 RAM 中的实时变量，由定时器负责不断刷新。
+    */
     let baseDepth = 0;
+    let baseHeading = 265;
+    let diveLog = [];
+    let diveTimeElapsed = 0;
+    let maxLogTime = 20; 
+    let maxDepthAxis = 60; 
 
-    function updateSettings() {
-        const speed = document.getElementById('flash-speed').value;
-        document.documentElement.style.setProperty('--flash-speed', speed + 's');
-        document.getElementById('val-flash-speed').innerText = speed + 's';
-        baseDepth = parseFloat(document.getElementById('depth-slider').value);
-        document.getElementById('val-depth-control').innerText = baseDepth + 'm';
-        document.getElementById('ui-depth').innerText = baseDepth.toFixed(1);
-    }
-
-    function calculateOptics(pixels) {
-        const angleDeg = pixels * (30 / 800);
-        return { arcmin: (angleDeg * 60).toFixed(1), mm: (Math.tan(angleDeg * Math.PI / 180) * 1000).toFixed(1) };
-    }
-
-    function updateTheme() {
-        const root = document.documentElement;
-        const sHuge = document.getElementById('size-huge').value;
-        const sMed = document.getElementById('size-medium').value;
-        const sSmall = document.getElementById('size-small').value;
-
-        root.style.setProperty('--arex-font', document.getElementById('font-select').value);
-        root.style.setProperty('--font-huge', sHuge + 'px');
-        root.style.setProperty('--font-medium', sMed + 'px');
-        root.style.setProperty('--font-small', sSmall + 'px');
-
-        const optHuge = calculateOptics(sHuge); document.getElementById('val-huge').innerHTML = `${sHuge}px | ${optHuge.arcmin}' <span class="mm-display">~${optHuge.mm}mm</span>`;
-        const optMed = calculateOptics(sMed); document.getElementById('val-medium').innerHTML = `${sMed}px | ${optMed.arcmin}' <span class="mm-display">~${optMed.mm}mm</span>`;
-        const optSmall = calculateOptics(sSmall); document.getElementById('val-small').innerHTML = `${sSmall}px | ${optSmall.arcmin}' <span class="mm-display">~${optSmall.mm}mm</span>`;
-    }
-
-    function updateCompassStyle() {
-        const style = document.getElementById('compass-style-select').value;
-        document.querySelectorAll('.compass-wrapper').forEach(el => el.classList.remove('active'));
-        document.getElementById(`comp-wrap-${style}`).classList.add('active');
-    }
-
-    let isSidebarOpen = true;
-    function toggleSidebar() {
-        isSidebarOpen = !isSidebarOpen;
-        document.getElementById('sidebar').classList.toggle('collapsed', !isSidebarOpen);
-        document.querySelector('.toggle-btn').innerText = isSidebarOpen ? '◂' : '▸';
-    }
-
-    // ==========================================
-    // STATE MACHINE 
-    // ==========================================
-    const STATE = { DASH: 0, INFO: 1, SETUP: 2, EDIT_GAS: 3, MODAL_GAS: 4, MODAL_COMPASS: 5, SUB_MENU: 6, MODAL_ACT: 7, EDIT_VALUE: 8 };
-    let currentState = STATE.DASH;
-    
-    let currentDashCard = 0; const MAX_CARDS = 3; // +1 for B5 Dive Plan
-    let wallCharge = 0;
-    
-    // Custom Card Ordering
-    let cardOrder = ['card-compass', 'card-tissues', 'card-gas', 'card-plan'];
-
-    let menuIndexInfo = 0; let menuIndexSetup = 0;
-    
-    // Sub-Menu context
-    let subMenuParent = null; 
-    let subMenuIndex = 0;
-    let subMenuItems = [];
-    let subMenuHistory = [];
-
-    // Gas & Compass context
-    let breathingGasIndex = 0; let gasCursorIndex = 0;
+    let breathingGasIndex = 0; 
+    let gasCursorIndex = 0;
     const gasData = [
         { name: "AIR", mod: 56 },
         { name: "NX 32", mod: 34 },
         { name: "TX 18/45", mod: 68 },
         { name: "O2 100%", mod: 6 }
     ];
-    let currentHeading = 265; let isHeadingMarked = false; let targetHeading = 0;
-
-    const settings = {
-        modPpo2: 1.4
-    };
-
-    // Dive Log Context
-    let diveLog = [];
-    let diveTimeElapsed = 0;
-    let maxLogTime = 20; // Start with 20s width for fast demo
-    let maxDepthAxis = 60; // Start with 60m depth, will auto-scale
-
+    
+    let currentHeading = 265; 
+    let isHeadingMarked = false; 
+    let targetHeading = 0;
+    const settings = { modPpo2: 1.4 };
+    
+    let reorderActiveIndex = -1;
     let editValueCtx = null;
+    let isCalibDanger = false;
+    let isLayoutDanger = false;
+    let calibMsg = "";
+    let layoutMsg = "";
 
-    const elevatorTrack = document.getElementById('elevator-track');
-    const scrollDots = document.querySelectorAll('.scroll-dot');
+    /* [LVGL_MAP_APP_STATE] 以下这些用于记录当前在哪个屏幕/界面层级 */
+    const STATE = { DASH: 0, INFO: 1, SETUP: 2, EDIT_GAS: 3, MODAL_GAS: 4, MODAL_COMPASS: 5, SUB_MENU: 6, MODAL_ACT: 7, EDIT_VALUE: 8 };
+    let currentState = STATE.DASH;
+    let currentDashCard = 0; const MAX_CARDS = 4; 
+    let wallCharge = 0;
+    
+    /* [LVGL_MAP_HARDWARE_REORDER] 这个数组存储的是卡片对象的指针排序，用于实时重排 (card_order[5]) */
+    let cardOrder = ['card-compass', 'card-tissues', 'card-gas', 'card-plan', 'card-custom'];
+    
+    let menuIndexInfo = 0; let menuIndexSetup = 0;
+    let subMenuParent = null; let subMenuIndex = 0; let subMenuItems = []; let subMenuHistory = [];
+
+    /* [LVGL_MAP_GRID_ENGINE] 精确匹配四种比例的自适应渲染工厂
+       在 LVGL 中，这部分逻辑对应根据 widget_id 创建不同的 lv_obj，
+       并根据占据的行宽列宽 (w, h) 来决定加载的字体指针：
+       如果 w>1 且 h>1 (2x2 模块)，字体设为 42 号。否则依次缩小为 28 号或 18 号，防止文字越界。
+    */
+    const WIDGET_DEFS = {
+        'max-depth': { label: 'MAX DPTH', render: (w, h) => `<div class="w-val" id="widget-max-depth" style="font-size:${w>1&&h>1?42:w>1?28:18}px">0.0<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">m</span></div>` },
+        'temp': { label: 'TEMP', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?42:w>1?28:18}px">18<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">°C</span></div>` },
+        'heading': { label: 'HEADING', render: (w, h) => `<div class="w-val" id="widget-heading" style="font-size:${w>1&&h>1?42:w>1?28:18}px">265°</div>` },
+        'sac': { label: 'SAC RATE', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?32:w>1?20:14}px;">14.2 <span class="w-unit">L/m</span></div>${h>1 || w>1 ? `<div class="w-bar-bg"><div class="w-bar-fill" style="width: 45%;"></div></div>` : ''}` },
+        'battery': { label: 'BATTERY', render: (w, h) => `<div class="w-val" style="color:var(--arex-light); font-size:${w>1&&h>1?42:w>1?28:18}px">85<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">%</span></div>` },
+        'ndl': { label: 'NO DECO', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?42:w>1?28:18}px">99<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">m</span></div>` }
+    };
+    
+    // 初始化完美装填的一个默认 5x6 (总30格) 排版组合
+    // [LVGL_MAP] 对应结构体数组 widget_ids, widget_w, widget_h。
+    let currentWidgetLayout = [
+        { id: 'max-depth', w: 2, h: 2 }, { id: 'ndl', w: 2, h: 1 }, { id: 'temp', w: 1, h: 1 }, 
+        { id: 'sac', w: 2, h: 2 }, { id: 'heading', w: 2, h: 1 }, { id: 'battery', w: 1, h: 1 }
+    ];
+
+    // ==========================================
+    // Config Export/Import (Sandbox 2.5)
+    // ==========================================
+    const configIds = [
+        'sl-theme', 'sl-order', 'sl-dots', 'sl-font', 'sl-align-title', 'sl-align-huge', 'sl-align-med', 
+        'sl-split-align', 'sl-f-huge', 'sl-f-med', 'sl-f-small', 'sl-sep-style', 'sl-sep-alpha', 'sl-sep-thick',
+        'sl-h-depth', 'sl-h-ndl', 'sl-h-pod', 'sl-h-batt', 'sl-h-gas', 'sl-h-time', 'sl-gap', 'sl-title-h',
+        'slider-ui-w', 'slider-ui-h', 'slider-off-x', 'slider-off-y'
+    ];
+
+    function openConfigModal() {
+        const modal = document.getElementById('config-modal');
+        const textarea = document.getElementById('config-json');
+        let currentConfig = {};
+        configIds.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) currentConfig[id] = el.value;
+        });
+        textarea.value = JSON.stringify(currentConfig, null, 4);
+        modal.classList.add('show');
+    }
+
+    function closeConfigModal() { document.getElementById('config-modal').classList.remove('show'); }
+
+    function applyConfig() {
+        const textarea = document.getElementById('config-json');
+        try {
+            const newConfig = JSON.parse(textarea.value);
+            for (let id in newConfig) {
+                if (configIds.includes(id)) {
+                    const el = document.getElementById(id);
+                    if (el) el.value = newConfig[id];
+                }
+            }
+            updateCalibration(); // This will trigger renderLeftAnchor automatically
+            closeConfigModal();
+            const statusBar = document.getElementById('status-bar');
+            statusBar.innerHTML = `✅ 预设配置加载成功！`;
+        } catch (e) {
+            alert("❌ JSON 格式错误，请检查您的输入！\n\n错误信息: " + e.message);
+        }
+    }
+
+    function copyConfig() {
+        const textarea = document.getElementById('config-json');
+        textarea.select(); document.execCommand('copy');
+        const btn = document.querySelector('.config-footer .btn-secondary');
+        const originalText = btn.innerText;
+        btn.innerText = '✔️ 已复制！';
+        btn.style.borderColor = 'var(--arex-green)'; btn.style.color = 'var(--arex-green)';
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.style.borderColor = '#555'; btn.style.color = '#fff';
+        }, 2000);
+    }
+
+    window.onclick = function(event) {
+        const modal = document.getElementById('config-modal');
+        if (event.target == modal) { closeConfigModal(); }
+    }
+
+    // ==========================================
+    // Config & Setup & Calibration
+    // ==========================================
+
+    function getVal(id) { return parseInt(document.getElementById(id).value) || 0; }
+    function getStr(id) { return document.getElementById(id).value; }
+
+    function updateBaseValues() {
+        baseDepth = parseFloat(document.getElementById('depth-slider').value);
+        baseHeading = parseFloat(document.getElementById('heading-slider').value);
+        document.getElementById('val-depth-control').innerText = baseDepth + 'm';
+        document.getElementById('val-heading-control').innerText = baseHeading + '°';
+        
+        const uiDepth = document.getElementById('ui-depth');
+        if(uiDepth) uiDepth.innerText = baseDepth.toFixed(1);
+    }
+
+    function updateStatusBar() {
+        const statusBar = document.getElementById('status-bar');
+        const errorMsg = document.getElementById('error-msg');
+        
+        let errors = [];
+        if(isCalibDanger) errors.push(calibMsg);
+        if(isLayoutDanger) errors.push(layoutMsg);
+
+        if (errors.length > 0) {
+            document.getElementById('ui-safe-zone').classList.add('danger');
+            statusBar.style.background = "rgba(255,0,0,0.1)"; statusBar.style.borderColor = "red"; statusBar.style.color = "red";
+            statusBar.innerHTML = `⚠️ 严重物理/排版干涉！<span class="error-text">${errors.join('<br>')}</span>`;
+        } else {
+            document.getElementById('ui-safe-zone').classList.remove('danger');
+            statusBar.style.background = "rgba(0,255,0,0.1)"; statusBar.style.borderColor = "var(--arex-green)"; statusBar.style.color = "var(--arex-green)";
+            const mode = getStr('sl-theme') === 'tech' ? '纵向完美贴合 (Tech)' : '流式阵列完美 (Classic)';
+            statusBar.innerHTML = `✅ 光学布局安全！${mode}`;
+        }
+    }
+
+    function updateCalibration() {
+        let safeW = getVal('slider-ui-w');
+        let safeH = getVal('slider-ui-h');
+        let offX = getVal('slider-off-x');
+        let offY = getVal('slider-off-y');
+        let maskOn = document.getElementById('mask-toggle').checked;
+
+        document.getElementById('val-ui-w').innerText = safeW;
+        document.getElementById('val-ui-h').innerText = safeH;
+        document.getElementById('val-off-x').innerText = offX;
+        document.getElementById('val-off-y').innerText = offY;
+
+        document.documentElement.style.setProperty('--ui-w', safeW + 'px');
+        document.documentElement.style.setProperty('--ui-h', safeH + 'px');
+        document.documentElement.style.setProperty('--off-x', offX + 'px');
+        document.documentElement.style.setProperty('--off-y', offY + 'px');
+
+        let maxOffsetX = Math.floor((640 - safeW) / 2);
+        let maxOffsetY = Math.floor((480 - safeH) / 2);
+        document.getElementById('ui-safe-limit').innerText = `X±${maxOffsetX} Y±${maxOffsetY}`;
+
+        document.getElementById('buoyancy-mask').style.display = maskOn ? 'flex' : 'none';
+
+        isCalibDanger = (Math.abs(offX) > maxOffsetX) || (Math.abs(offY) > maxOffsetY) || (maskOn && ((240 + (safeH / 2) + offY) > 400));
+        if (isCalibDanger) calibMsg = "UI 超出物理屏幕或掉入面镜盲区！";
+        else calibMsg = "";
+        
+        renderLeftAnchor();
+    }
+
+    function updateCompassStyle() {
+        const styleSelect = document.getElementById('compass-style-select');
+        if(!styleSelect) return;
+        const style = styleSelect.value;
+        document.querySelectorAll('.compass-wrapper').forEach(el => el.classList.remove('active'));
+        const wrap = document.getElementById(`comp-wrap-${style}`);
+        if(wrap) wrap.classList.add('active');
+    }
+
+    // ==========================================
+    // Dynamic Left Anchor Engine (10U Sandbox)
+    // ==========================================
+    /* [LVGL_MAP_BUILDER] 【绝对坐标计算映射 (Absolute Positioning)】
+       网页中使用了 Flex 方便渲染，但在固件端接收到 JSON 后，不需要使用 LV_FLEX！
+       直接遍历模块，依靠 U 和 gap 计算出每个模块的绝对 Y 坐标，并调用 lv_obj_set_pos()。
+       伪代码演示：
+       int current_y = 0;
+       for(int i=0; i<num_modules; i++) {
+           int h_px = modules[i].h_u * 10;
+           lv_obj_set_pos(obj, 0, current_y);
+           lv_obj_set_size(obj, 160, h_px);
+           current_y += h_px + (gap_u * 10);
+       }
+    */
+    function renderLeftAnchor() {
+        const theme = getStr('sl-theme');
+        const order = getStr('sl-order');
+        const dotsPos = getStr('sl-dots');
+
+        const safeZone = document.getElementById('ui-safe-zone');
+        safeZone.className = `theme-${theme} order-${order}`;
+        
+        const elDots = document.getElementById('scroll-indicator');
+        if(elDots) elDots.className = `elevator-dots dots-${dotsPos}`;
+
+        const hDepth = getVal('sl-h-depth'); const hNdl = getVal('sl-h-ndl'); const hPod = getVal('sl-h-pod');
+        const hBatt = getVal('sl-h-batt'); const hGas = getVal('sl-h-gas'); const hTime = getVal('sl-h-time');
+        const gap = getVal('sl-gap'); const titleH = getVal('sl-title-h'); 
+        
+        const fHuge = getVal('sl-f-huge'); const fMed = getVal('sl-f-med'); const fSmall = getVal('sl-f-small'); 
+        const fontFamily = getStr('sl-font'); const sepStyle = getStr('sl-sep-style');
+        const alignTitle = getStr('sl-align-title'); const alignHuge = getStr('sl-align-huge'); const alignMed = getStr('sl-align-med');
+        const splitAlign = getStr('sl-split-align'); 
+        const sepThick = getVal('sl-sep-thick'); const sepAlpha = getStr('sl-sep-alpha');
+
+        document.getElementById('val-h-depth').innerText = hDepth+'U'; document.getElementById('val-h-ndl').innerText = hNdl+'U';
+        document.getElementById('val-h-pod').innerText = hPod+'U'; document.getElementById('val-h-batt').innerText = hBatt+'U';
+        document.getElementById('val-h-gas').innerText = hGas+'U'; document.getElementById('val-h-time').innerText = hTime+'U';
+        document.getElementById('val-f-huge').innerText = fHuge+'px'; document.getElementById('val-f-med').innerText = fMed+'px';
+        document.getElementById('val-f-small').innerText = fSmall+'px'; document.getElementById('val-sep-thick').innerText = sepThick+'px';
+        document.getElementById('val-gap').innerText = gap+'U'; document.getElementById('val-title-h').innerText = titleH+'U';
+
+        // Apply CSS Variables (Simulating applying styles to lv_obj_t)
+        const root = document.documentElement;
+        root.style.setProperty('--arex-font', fontFamily);
+        root.style.setProperty('--font-huge', fHuge + 'px'); 
+        root.style.setProperty('--font-medium', fMed + 'px'); 
+        root.style.setProperty('--font-small', fSmall + 'px'); 
+        root.style.setProperty('--sep-style', sepStyle);
+        root.style.setProperty('--sep-thick', sepThick + 'px'); 
+        root.style.setProperty('--sep-alpha', sepAlpha);
+        root.style.setProperty('--align-title', alignTitle); 
+        root.style.setProperty('--align-huge', alignHuge); 
+        root.style.setProperty('--align-med', alignMed);
+
+        const canvas = document.getElementById('left-anchor-canvas');
+        if (splitAlign === 'outward') canvas.classList.add('split-outward');
+        else canvas.classList.remove('split-outward');
+        canvas.style.gap = `${gap * 10}px`;
+
+        let errors = [];
+        let totalU = 0;
+        const limitU = Math.floor(parseInt(document.getElementById('slider-ui-h').value) / 10);
+
+        if (theme === 'tech') {
+            totalU = hDepth + hNdl + hPod + hBatt + hGas + hTime + (gap * 5);
+            if (totalU > limitU) errors.push(`[Tech] 高度爆框: 已消耗 ${totalU}U / 限制 ${limitU}U`);
+        } else {
+            const row1H = Math.max(hDepth, hNdl, hPod);
+            const row2H = Math.max(hBatt, hGas, hTime);
+            totalU = row1H + row2H + gap;
+            if (totalU > limitU * 0.5) errors.push(`[Classic] 空间警告: 固定区占用 ${totalU}U，卡片区会被严重挤压！`);
+        }
+
+        const checkClip = (fontPx, zoneHeightPx) => fontPx > zoneHeightPx;
+        let titleClipping = checkClip(fSmall, titleH * 10);
+        if(titleClipping) errors.push(`[标题] ${fSmall}px字号溢出！`);
+
+        isLayoutDanger = errors.length > 0;
+        layoutMsg = errors.join(' | ');
+        updateStatusBar();
+
+        const buildComp = (name, totalHeightU, isHuge = false, customId = '', currentVal = '', extraHtml = '') => {
+            const valHeightPx = (totalHeightU - titleH) * 10;
+            const fontUsed = isHuge ? fHuge : fMed;
+            const isValClipping = valHeightPx > 0 && checkClip(fontUsed, valHeightPx);
+            
+            return `
+                <div class="ar-component" style="height: ${totalHeightU * 10}px;">
+                    <div class="title-zone ${titleClipping ? 'clip-warning' : ''}" style="height: ${titleH*10}px;">${name}</div>
+                    ${valHeightPx > 0 ? `<div class="value-zone ${isHuge ? 'val-huge' : 'val-med'} ${isValClipping ? 'clip-warning' : ''}" style="height: ${valHeightPx}px;" id="${customId}">${currentVal}${extraHtml}</div>` : ''}
+                </div>
+            `;
+        };
+
+        const getV = (id, fallback) => { const el = document.getElementById(id); return el ? el.innerHTML : fallback; };
+        let vDepth = getV('ui-depth', baseDepth.toFixed(1));
+        let vGas = getV('ui-gas-name', gasData[breathingGasIndex].name);
+
+        let html = '';
+        html += buildComp('DEPTH', hDepth, true, 'ui-depth', vDepth);
+        html += `<div class="ar-row-split" style="height: ${hNdl * 10}px; gap: 0;">${buildComp('NDL', hNdl, false, 'ui-ndl', '0')} ${buildComp('TTS', hNdl, false, 'ui-tts', '<span class="highlight-invert">24\'</span>')}</div>`;
+        html += `<div class="ar-row-split" style="height: ${hPod * 10}px; gap: 0;">${buildComp('POD 1', hPod, false, 'ui-pod1', '210', '<span class="po2-div">BAR</span>')} ${buildComp('POD 2', hPod, false, 'ui-pod2', '<span style="color:var(--arex-light)">195</span>', '<span class="po2-div">BAR</span>')}</div>`;
+        html += `<div class="ar-row-split" style="height: ${hBatt * 10}px; gap: 0;">${buildComp('BATT', hBatt, false, 'ui-batt', '85%')} ${buildComp('W.TIME', hBatt, false, 'ui-wtime', '10:45')}</div>`;
+        html += buildComp('GAS', hGas, false, 'ui-gas-name', vGas);
+        html += buildComp('DIVE TIME', hTime, false, 'ui-dive-time', '38:14');
+
+        canvas.innerHTML = html;
+    }
+
+    // ==========================================
+    // App Sync & Custom Widgets (拖拽模拟)
+    // ==========================================
+    function handleDragStart(ev) {
+        const isGridItem = ev.currentTarget.classList.contains('app-widget');
+        const data = {
+            source: isGridItem ? 'grid' : 'lib',
+            id: isGridItem ? currentWidgetLayout[ev.currentTarget.getAttribute('data-index')].id : ev.currentTarget.getAttribute('data-widget'),
+            index: isGridItem ? parseInt(ev.currentTarget.getAttribute('data-index')) : -1
+        };
+        ev.dataTransfer.setData("text/plain", JSON.stringify(data));
+    }
+    
+    function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+    function dragLeave(ev) { ev.currentTarget.classList.remove('drag-over'); }
+    
+    function handleDrop(ev) {
+        ev.preventDefault();
+        ev.currentTarget.classList.remove('drag-over');
+        
+        const targetIndex = ev.currentTarget.getAttribute('data-index');
+        if (targetIndex !== null) {
+            try {
+                const data = JSON.parse(ev.dataTransfer.getData("text/plain"));
+                let usedCells = currentWidgetLayout.reduce((acc, curr) => acc + (curr.w * curr.h), 0);
+
+                if (targetIndex === 'empty') {
+                    if (data.source === 'lib') { 
+                        if (usedCells + 1 <= 30) currentWidgetLayout.push({ id: data.id, w: 1, h: 1 }); 
+                    } 
+                    else if (data.source === 'grid') {
+                        const item = currentWidgetLayout.splice(data.index, 1)[0];
+                        currentWidgetLayout.push(item);
+                    }
+                } else {
+                    const tgtIdx = parseInt(targetIndex);
+                    if (data.source === 'lib') { currentWidgetLayout[tgtIdx].id = data.id; } 
+                    else if (data.source === 'grid') {
+                        const temp = currentWidgetLayout[tgtIdx];
+                        currentWidgetLayout[tgtIdx] = currentWidgetLayout[data.index];
+                        currentWidgetLayout[data.index] = temp;
+                    }
+                }
+                renderAppMock(); renderARWidgets();
+            } catch (e) { console.error("Drop failed", e); }
+        }
+    }
+
+    function cycleSize(idx) {
+        const w = currentWidgetLayout[idx];
+        let nextW = w.w, nextH = w.h;
+        
+        if (w.w === 1 && w.h === 1) { nextW = 2; nextH = 1; }
+        else if (w.w === 2 && w.h === 1) { nextW = 1; nextH = 2; }
+        else if (w.w === 1 && w.h === 2) { nextW = 2; nextH = 2; }
+        else { nextW = 1; nextH = 1; }
+        
+        let usedCellsWithoutCurrent = currentWidgetLayout.reduce((acc, curr, i) => acc + (i !== idx ? curr.w * curr.h : 0), 0);
+        if (usedCellsWithoutCurrent + (nextW * nextH) <= 30) {
+            w.w = nextW; w.h = nextH;
+        } else {
+            w.w = 1; w.h = 1; 
+        }
+        
+        renderAppMock(); renderARWidgets();
+    }
+
+    function removeWidget(idx) {
+        currentWidgetLayout.splice(idx, 1);
+        renderAppMock(); renderARWidgets();
+    }
+
+    function renderAppMock() {
+        const grid = document.getElementById('app-mock-grid-container');
+        let html = '';
+        let usedCells = 0;
+
+        currentWidgetLayout.forEach((w, i) => {
+            const def = WIDGET_DEFS[w.id];
+            usedCells += (w.w * w.h);
+            html += `
+                <div class="app-widget w-span-${w.w}x${w.h}" data-index="${i}" draggable="true"
+                     ondragstart="handleDragStart(event)" ondrop="handleDrop(event)"
+                     ondragover="allowDrop(event)" ondragleave="dragLeave(event)">
+                    <button class="btn-remove" onclick="removeWidget(${i})">×</button>
+                    <span>${def.label}</span>
+                    <button class="btn-resize" onclick="cycleSize(${i})">⤢</button>
+                </div>
+            `;
+        });
+        
+        if (usedCells < 30) {
+             html += `<div class="app-slot-empty" data-index="empty" ondrop="handleDrop(event)" ondragover="allowDrop(event)" ondragleave="dragLeave(event)">+</div>`;
+        }
+        grid.innerHTML = html;
+    }
+
+    function renderARWidgets() {
+        const container = document.getElementById('ar-widget-container');
+        if(!container) return;
+        let html = '';
+        currentWidgetLayout.forEach((w, i) => {
+            const def = WIDGET_DEFS[w.id];
+            html += `<div class="widget-slot w-span-${w.w}x${w.h}"><div class="w-label">${def.label}</div>${def.render(w.w, w.h)}</div>`;
+        });
+        container.innerHTML = html;
+        const status = document.getElementById('custom-card-status');
+        if(status) {
+            status.style.color = '#fff'; status.style.opacity = '1'; status.innerText = '[SYNCING...]';
+            setTimeout(() => { status.style.color = 'var(--arex-light)'; status.style.opacity = '0.7'; status.innerText = '[APP SYNCED]'; }, 500);
+        }
+    }
 
     function updateElevator(offset = 0) {
         let logicalIndex = 0;
@@ -552,15 +1175,35 @@
         else if (currentState === STATE.SETUP || (currentState === STATE.SUB_MENU && subMenuParent === STATE.SETUP)) logicalIndex = MAX_CARDS + 2;
         else logicalIndex = currentDashCard + 1;
 
-        elevatorTrack.style.transform = `translateY(${ -(logicalIndex * 480) + offset }px)`;
-        scrollDots.forEach((dot, i) => {
-            dot.style.display = (currentState === STATE.DASH || currentState === STATE.EDIT_GAS) ? 'block' : 'none';
-            dot.classList.toggle('active', i === currentDashCard);
-        });
+        const rightCanvas = document.getElementById('right-card-canvas');
+        const elevatorTrack = document.getElementById('elevator-track');
+        if(rightCanvas && elevatorTrack) {
+            let actualHeight = rightCanvas.clientHeight;
+            
+            if (actualHeight < 100) {
+                const theme = getStr('sl-theme');
+                actualHeight = theme === 'tech' ? parseInt(getVal('slider-ui-h')) || 400 : 200;
+            }
+
+            document.querySelectorAll('.card').forEach(c => c.style.height = actualHeight + 'px');
+            elevatorTrack.style.transform = `translateY(${ -(logicalIndex * actualHeight) + offset }px)`;
+        }
+        
+        const indicator = document.getElementById('scroll-indicator');
+        if (indicator) {
+            const showDots = [STATE.DASH, STATE.EDIT_GAS, STATE.MODAL_GAS, STATE.MODAL_COMPASS].includes(currentState);
+            indicator.style.display = showDots ? '' : 'none'; 
+            
+            const dots = indicator.querySelectorAll('.e-dot');
+            dots.forEach((dot, i) => {
+                dot.classList.toggle('active', i === currentDashCard);
+            });
+        }
     }
 
     function drawWallUI(type, charge, text) {
         const tUI = document.getElementById('top-wall-ui'); const bUI = document.getElementById('bottom-wall-ui');
+        if (!tUI || !bUI) return;
         const blocks = charge === 1 ? '[■] [ ] [ ]' : charge === 2 ? '[■] [■] [ ]' : '[ ] [ ] [ ]';
         if (type === 'top') { tUI.style.opacity = charge>0?1:0; document.getElementById('top-blocks').innerText = blocks; document.getElementById('top-wall-text').innerText = text; }
         else if (type === 'bottom') { bUI.style.opacity = charge>0?1:0; document.getElementById('bottom-blocks').innerText = blocks; document.getElementById('bottom-wall-text').innerText = text; }
@@ -575,87 +1218,60 @@
         if (!svg) return;
 
         const last = diveLog.length > 0 ? diveLog[diveLog.length - 1] : {time: 0, depth: 0};
-
-        // 1. 动态生成未来减压预测 (确定停靠站)
         const decoMode = document.getElementById('deco-test-select')?.value || 'auto';
         let mockStops = [];
         
         if (decoMode === 'tech' || (decoMode === 'auto' && last.depth > 40)) {
-            mockStops = [{d: 21, min: 2}, {d: 12, min: 4}, {d: 6, min: 10}];
+            mockStops = [ {d: 21, min: 1}, {d: 18, min: 1}, {d: 15, min: 1}, {d: 12, min: 2}, {d: 9, min: 2}, {d: 6, min: 5}, {d: 3, min: 8} ];
         } else if (decoMode === 'light' || (decoMode === 'auto' && last.depth > 20)) {
-            mockStops = [{d: 12, min: 3}, {d: 6, min: 5}];
+            mockStops = [ {d: 12, min: 1}, {d: 9, min: 2}, {d: 6, min: 3}, {d: 3, min: 5} ];
         } else if (last.depth > 5) {
-            mockStops = [{d: 6, min: 3}]; // 仅安全停留
+            mockStops = [{d: 3, min: 3}]; 
         }
 
-        // 2. 计算未来的"时间跨度" (采用标准 10m/min 上升速率，即 1m 需要 6秒)
         let predictedTime = diveTimeElapsed;
         let simDepth = last.depth;
         if (mockStops.length > 0) {
             mockStops.forEach(stop => {
                 let ascTime = Math.max(0, simDepth - stop.d) * 6; // 10m/min
                 predictedTime += ascTime; 
-                predictedTime += stop.min * 60; // 停留时间 (分钟转秒)
+                predictedTime += stop.min * 60; 
                 simDepth = stop.d;
             });
-            predictedTime += Math.max(0, simDepth) * 6; // 最后出水面的上升时间
+            predictedTime += Math.max(0, simDepth) * 6; 
         }
 
-        // 3. 全局 X 轴智能缩放 (包含预测线，确保右侧留有余量)
-        if (predictedTime >= maxLogTime * 0.9) {
-            // 如果未来的预测线快要碰到右侧，提前拉大 X 轴量程
-            maxLogTime = Math.max(Math.ceil(maxLogTime * 1.5), Math.ceil(predictedTime * 1.15));
-        } else if (diveTimeElapsed >= maxLogTime * 0.85) {
-            // 兜底逻辑：即使没有减压站，当时间跑到 85% 时也拉远
-            maxLogTime = Math.ceil(maxLogTime * 1.5);
-        }
+        let targetMaxTime = Math.max(20, diveTimeElapsed * 1.05, predictedTime * 1.05); 
+        if (targetMaxTime > 120) maxLogTime = Math.ceil(targetMaxTime / 60) * 60;
+        else maxLogTime = Math.ceil(targetMaxTime / 10) * 10;
 
-        // 4. 全局 Y 轴智能缩放 (Depth zoom out effect)
         const currentMaxDepth = diveLog.length > 0 ? Math.max(...diveLog.map(p => p.depth)) : 0;
-        if (currentMaxDepth >= maxDepthAxis * 0.9) {
-            maxDepthAxis = Math.ceil((currentMaxDepth + 15) / 20) * 20; // Snap to nearest 20m blocks
-        }
+        if (currentMaxDepth >= maxDepthAxis * 0.9) maxDepthAxis = Math.ceil((currentMaxDepth + 15) / 20) * 20; 
 
         const padX = 45; const padYTop = 15; const padYBot = 25; const padRight = 15;
         const w = 400 - padX - padRight; const h = 320 - padYTop - padYBot;
-
         let html = '';
 
-        // Dynamic Y grid step to prevent crowding
-        let yStep = 10;
-        if (maxDepthAxis >= 100) yStep = 20;
-        if (maxDepthAxis >= 200) yStep = 50;
+        let yStep = 10; if (maxDepthAxis >= 100) yStep = 20; if (maxDepthAxis >= 200) yStep = 50;
 
-        // Grid & Y-Axis (Depth)
         for (let d = 0; d <= maxDepthAxis; d += yStep) {
             const y = padYTop + (d / maxDepthAxis) * h;
             html += `<text x="${padX - 5}" y="${y + 4}" class="plan-axis-label" text-anchor="end">${d}m</text>`;
             html += `<line x1="${padX}" y1="${y}" x2="${400 - padRight}" y2="${y}" stroke="rgba(0,255,0,0.15)" stroke-width="1" stroke-dasharray="2 4"></line>`;
         }
 
-        // 智能生成 X 轴刻度步长
-        let xStep = 10; // 默认每 10s 一格
-        if (maxLogTime > 30) xStep = 15;
-        if (maxLogTime > 60) xStep = 30;
-        if (maxLogTime > 180) xStep = 60; // 超过 3 分钟，每 1min 一格
-        if (maxLogTime > 600) xStep = 300; // 超过 10 分钟，每 5min 一格
-        if (maxLogTime > 1800) xStep = 600; // 超过 30 分钟，每 10min 一格
+        let xStep = 10; 
+        if (maxLogTime > 60) xStep = 15; if (maxLogTime > 120) xStep = 30; if (maxLogTime > 300) xStep = 60;   
+        if (maxLogTime > 600) xStep = 120; if (maxLogTime > 1200) xStep = 300; if (maxLogTime > 3600) xStep = 600; 
 
-        // 决定整个 X 轴的显示单位：当图表总时长(量程)超过 2 分钟 (120s) 时，全局统一全部使用分钟
         const useMinutes = maxLogTime >= 120;
-
-        // Grid & X-Axis (Time)
         for (let t = 0; t <= maxLogTime; t += xStep) {
             const x = padX + (t / maxLogTime) * w;
-            
-            // 全局统一格式，绝对不再出现 s 和 min 混用的情况
             let label = useMinutes ? ((t / 60).toFixed(1).replace('.0', '') + 'min') : (t + 's');
-            
             html += `<text x="${x}" y="${320 - 5}" class="plan-axis-label" text-anchor="middle">${label}</text>`;
             html += `<line x1="${x}" y1="${padYTop}" x2="${x}" y2="${320 - padYBot}" stroke="rgba(0,255,0,0.15)" stroke-width="1" stroke-dasharray="2 4"></line>`;
         }
 
-        // Draw Past Track
         if (diveLog.length > 0) {
             let pts = diveLog.map(p => {
                 const px = padX + (p.time / maxLogTime) * w;
@@ -664,61 +1280,69 @@
             }).join(' ');
             html += `<polyline points="${pts}" class="plan-line-past"></polyline>`;
 
-            // Now indicator
             const nx = padX + (last.time / maxLogTime) * w;
             const ny = padYTop + (last.depth / maxDepthAxis) * h;
             html += `<circle cx="${nx}" cy="${ny}" r="6" class="plan-now"></circle>`;
             html += `<text x="${nx + 10}" y="${ny - 8}" class="plan-now-label" style="fill: var(--arex-green);">NOW</text>`;
 
-            // Draw Deco Plan using proper Time Scale mapping
             if (mockStops.length > 0) {
                 let decoPts = `${nx},${ny} `;
                 let curT = last.time;
                 let drawDepth = last.depth;
                 
                 mockStops.forEach(stop => {
-                    // Ascent Time (10m/min -> 6s per meter)
                     let ascT = Math.max(0, drawDepth - stop.d) * 6;
                     curT += ascT; 
                     const stopY = padYTop + (stop.d / maxDepthAxis) * h;
                     const ascentX = padX + (curT / maxLogTime) * w;
                     decoPts += `${ascentX},${stopY} `;
                     
-                    // Hold Time (minutes to seconds)
                     const holdT = stop.min * 60; 
                     curT += holdT; 
                     const holdX = padX + (curT / maxLogTime) * w;
                     decoPts += `${holdX},${stopY} `;
                     
-                    // Center the circle on the hold line
                     const circleX = padX + ((curT - holdT / 2) / maxLogTime) * w;
-                    html += `<circle cx="${circleX}" cy="${stopY}" r="4" fill="var(--arex-black)" stroke="rgba(0,255,51,0.5)" stroke-width="2"></circle>`;
-                    html += `<text x="${circleX - 10}" y="${stopY - 8}" style="font-size:11px; fill:var(--arex-light); font-weight:bold;">${stop.d}m ${stop.min}'</text>`;
-                    
+                    html += `<circle cx="${circleX}" cy="${stopY}" r="3" fill="var(--arex-black)" stroke="rgba(0,255,51,0.5)" stroke-width="2"></circle>`;
+                    html += `<text x="${circleX}" y="${stopY - 10}" text-anchor="middle" style="font-size:10px; fill:var(--arex-light); font-weight:bold; stroke:var(--arex-black); stroke-width:3px; paint-order:stroke fill;">${stop.d}m ${stop.min}'</text>`;
                     drawDepth = stop.d;
                 });
-                
-                // Surface Time
                 curT += Math.max(0, drawDepth) * 6; 
                 const finalX = padX + (curT / maxLogTime) * w;
                 decoPts += `${finalX},${padYTop}`;
-                
                 html += `<polyline points="${decoPts}" class="plan-line-future"></polyline>`;
             }
         }
-
         svg.innerHTML = html;
     }
 
     // ==========================================
-    // Card Sorter Logic
+    // Hardware Emulation Logic & UI Renderers
     // ==========================================
+    function getCardDisplayName(id) {
+        const map = { 'card-compass': 'NAV COMPASS', 'card-tissues': 'TISSUES & DECO', 'card-gas': 'GAS SWITCH', 'card-plan': 'DIVE PLAN TRACK', 'card-custom': 'CUSTOM WIDGETS'};
+        return map[id] || id;
+    }
+
+    function applyCardOrderToDOM() {
+        const track = document.getElementById('elevator-track');
+        const setupMenu = document.getElementById('menu-setup');
+        cardOrder.forEach((id, i) => {
+            const cardEl = document.getElementById(id);
+            track.insertBefore(cardEl, setupMenu);
+            const titleSpan = cardEl.querySelector('.card-title span:first-child');
+            titleSpan.innerText = (i + 1) + 'F: ' + titleSpan.innerText.replace(/^\dF:\s*/, '');
+        });
+        renderSorterUI();
+        updateElevator();
+    }
+
     function renderSorterUI() {
         const container = document.getElementById('card-sorter-ui');
+        if(!container) return;
         container.innerHTML = '';
         cardOrder.forEach((id, i) => {
-            const titleRaw = document.querySelector(`#${id} .card-title span:first-child`).innerText;
-            const coreName = titleRaw.replace(/^\dF:\s*/, '');
+            let coreName = getCardDisplayName(id);
             container.innerHTML += `
                 <div class="sort-row">
                     <span style="font-size:13px; color:#ddd; font-weight:bold;">${coreName}</span>
@@ -737,22 +1361,8 @@
         cardOrder[index] = cardOrder[index + dir];
         cardOrder[index + dir] = temp;
         
-        const track = document.getElementById('elevator-track');
-        const setupMenu = document.getElementById('menu-setup');
-        
-        // Physically reorder DOM nodes and update titles
-        cardOrder.forEach((id, i) => {
-            const cardEl = document.getElementById(id);
-            track.insertBefore(cardEl, setupMenu);
-            const titleSpan = cardEl.querySelector('.card-title span:first-child');
-            const coreName = titleSpan.innerText.replace(/^\dF:\s*/, '');
-            titleSpan.innerText = (i + 1) + 'F: ' + coreName;
-        });
-        
-        renderSorterUI();
-        // Snap back to the first card to avoid blank space visual glitches
+        applyCardOrderToDOM();
         currentDashCard = 0;
-        updateElevator();
     }
 
     function updateListSelection(listId, activeIndex) {
@@ -762,11 +1372,9 @@
         });
     }
 
-    // ==========================================
-    // Renderers
-    // ==========================================
     function renderGasMenu() {
         const container = document.getElementById('gas-list');
+        if(!container) return;
         let html = '';
         gasData.forEach((gas, i) => {
             const isActiveState = (currentState === STATE.EDIT_GAS) && (i === gasCursorIndex);
@@ -774,69 +1382,37 @@
             html += `<div class="menu-item ${isActiveState ? 'active' : (i===breathingGasIndex ? 'static-active' : '')}">${gas.name} ${statusHtml}</div>`;
         });
         container.innerHTML = html;
-        document.getElementById('gas-card-status').style.display = (currentState === STATE.EDIT_GAS) ? 'block' : 'none';
-        document.getElementById('gas-hint-text').innerText = (currentState === STATE.EDIT_GAS) ? "[ SCROLL TO SELECT / PRESS TO CONFIRM ]" : "[ PRESS TO SWITCH GAS ]";
     }
 
     function renderSubMenu(title, items, parentState, pushToHistory = true) {
         if (pushToHistory && currentState === STATE.SUB_MENU) {
-            subMenuHistory.push({
-                title: document.getElementById('sub-menu-title').innerText.replace('> ', ''),
-                items: [...subMenuItems],
-                parentState: subMenuParent,
-                index: subMenuIndex
-            });
+            subMenuHistory.push({ title: document.getElementById('sub-menu-title').innerText.replace('> ', ''), items: [...subMenuItems], parentState: subMenuParent, index: subMenuIndex });
         } else if (pushToHistory && (currentState === STATE.INFO || currentState === STATE.SETUP)) {
-            subMenuHistory = []; // clear history when entering from root menu
+            subMenuHistory = []; 
         }
 
-        subMenuParent = parentState;
-        subMenuIndex = 0;
-        subMenuItems = items;
-        
+        subMenuParent = parentState; subMenuIndex = 0; subMenuItems = items;
         document.getElementById('sub-menu-title').innerText = "> " + title;
         let html = '';
         items.forEach((item, i) => { html += `<div class="menu-item ${i===0?'active':''}">${item}</div>`; });
         document.getElementById('sub-menu-list').innerHTML = html;
-        
         document.getElementById('sub-menu-layer').style.transform = 'translateX(-100%)';
         currentState = STATE.SUB_MENU;
     }
 
     function closeSubMenu() {
         if (subMenuHistory.length > 0) {
-            // Pop history and restore previous sub-menu state
             const prev = subMenuHistory.pop();
             renderSubMenu(prev.title, prev.items, prev.parentState, false);
             subMenuIndex = prev.index;
             updateListSelection('sub-menu-list', subMenuIndex);
         } else {
-            // Return to root menu (INFO or SETUP)
             document.getElementById('sub-menu-layer').style.transform = 'translateX(0)';
             currentState = subMenuParent;
         }
     }
 
-    function normalizeMenuLabel(label) {
-        return (label || '').replace(/>/g, '').trim();
-    }
-
-    function updateSetupMenuValue(label, value) {
-        const targetLabel = normalizeMenuLabel(label);
-        const items = Array.from(document.querySelectorAll('#setup-list .menu-item'));
-        const targetItem = items.find((el) => normalizeMenuLabel(el.innerText.split('\n')[0]) === targetLabel);
-        if (!targetItem) return;
-        const span = targetItem.querySelector('span');
-        if (!span) return;
-        span.textContent = value;
-    }
-
-    function updateSubMenuItemText(index, text) {
-        subMenuItems[index] = text;
-        const els = document.querySelectorAll('#sub-menu-list .menu-item');
-        const el = els[index];
-        if (el) el.textContent = text;
-    }
+    function normalizeMenuLabel(label) { return (label || '').replace(/>/g, '').trim(); }
 
     function setSubMenuEditing(isEditing, index) {
         document.querySelectorAll('#sub-menu-list .menu-item').forEach((el, i) => {
@@ -848,69 +1424,40 @@
 
     function renderModPpo2Row(isEditing) {
         if (!editValueCtx) return;
-        const els = document.querySelectorAll('#sub-menu-list .menu-item');
-        const el = els[editValueCtx.index];
+        const el = document.querySelectorAll('#sub-menu-list .menu-item')[editValueCtx.index];
         if (!el) return;
         const val = settings.modPpo2.toFixed(1);
-        if (isEditing) {
-            el.innerHTML = `MOD PO2: <span class="mod-po2-edit">${val}</span><span class="mod-po2-arrows">▲▼</span>`;
-        } else {
-            el.textContent = `MOD PO2: ${val}`;
-        }
+        if (isEditing) el.innerHTML = `MOD PO2: <span class="mod-po2-edit">${val}</span><span class="mod-po2-arrows">▲▼</span>`;
+        else el.textContent = `MOD PO2: ${val}`;
     }
 
     function beginEditModPpo2() {
-        editValueCtx = {
-            key: 'modPpo2',
-            min: 1.0,
-            max: 1.6,
-            step: 0.1,
-            original: settings.modPpo2,
-            index: subMenuIndex
-        };
-        setSubMenuEditing(true, editValueCtx.index);
-        renderModPpo2Row(true);
-        currentState = STATE.EDIT_VALUE;
+        editValueCtx = { key: 'modPpo2', min: 1.0, max: 1.6, step: 0.1, original: settings.modPpo2, index: subMenuIndex };
+        setSubMenuEditing(true, editValueCtx.index); renderModPpo2Row(true); currentState = STATE.EDIT_VALUE;
     }
 
     function commitEditValue() {
-        if (editValueCtx && editValueCtx.key === 'modPpo2') {
-            renderModPpo2Row(false);
-        }
-        setSubMenuEditing(false);
-        editValueCtx = null;
-        currentState = STATE.SUB_MENU;
-        updateListSelection('sub-menu-list', subMenuIndex);
+        if (editValueCtx && editValueCtx.key === 'modPpo2') renderModPpo2Row(false);
+        setSubMenuEditing(false); editValueCtx = null; currentState = STATE.SUB_MENU; updateListSelection('sub-menu-list', subMenuIndex);
     }
 
     function cancelEditValue() {
         if (!editValueCtx) return;
         settings[editValueCtx.key] = editValueCtx.original;
-        if (editValueCtx.key === 'modPpo2') {
-            renderModPpo2Row(false);
-        } else {
-            updateSubMenuItemText(editValueCtx.index, `MOD PO2: ${settings.modPpo2.toFixed(1)}`);
-        }
-        setSubMenuEditing(false);
-        editValueCtx = null;
-        currentState = STATE.SUB_MENU;
-        updateListSelection('sub-menu-list', subMenuIndex);
+        if (editValueCtx.key === 'modPpo2') renderModPpo2Row(false);
+        setSubMenuEditing(false); editValueCtx = null; currentState = STATE.SUB_MENU; updateListSelection('sub-menu-list', subMenuIndex);
     }
 
     function renderModal(type, extra = "") {
         const box = document.getElementById('modal-content-box');
-        const styleMode = document.getElementById('alert-style-select').value;
         box.className = "modal-box";
-        
         if (type === 'GAS') {
             const gas = gasData[gasCursorIndex];
             let html = `<div style="font-size:var(--font-medium); font-weight:bold; margin-bottom:15px; border-bottom:2px solid var(--arex-dark); padding-bottom:5px;">CONFIRM GAS</div>
                         <div style="font-size:calc(var(--font-huge)*0.8); font-weight:bold; margin-bottom:10px;">${gas.name}</div>
                         <div style="font-size:var(--font-medium); margin-bottom:30px; color:var(--arex-light);">MOD: ${gas.mod}m</div>`;
-            if (baseDepth > gas.mod) {
-                if(styleMode === 'global') { box.className = "modal-box flash-danger"; html += `<div style="font-size:var(--font-medium); font-weight:bold;">[ FATAL: OVER MOD ]</div>`; } 
-                else { html += `<div class="local-invert-zone flash-danger" style="font-size:var(--font-medium); font-weight:bold;">[ FATAL: OVER MOD ]</div>`; }
-            } else { html += `<div style="font-size:calc(var(--font-medium)*0.8); color:var(--arex-light);">[ ENTER TO CONFIRM ]<br><br>[ ESC TO CANCEL ]</div>`; }
+            if (baseDepth > gas.mod) { box.className = "modal-box flash-danger"; html += `<div style="font-size:var(--font-medium); font-weight:bold;">[ FATAL: OVER MOD ]</div>`; } 
+            else { html += `<div style="font-size:calc(var(--font-medium)*0.8); color:var(--arex-light);">[ ENTER TO CONFIRM ]<br><br>[ ESC TO CANCEL ]</div>`; }
             box.innerHTML = html;
         } 
         else if (type === 'COMPASS') {
@@ -923,21 +1470,11 @@
             box.innerHTML = `<div style="font-size:var(--font-medium); font-weight:bold; margin-bottom:15px; border-bottom:2px solid var(--arex-dark); padding-bottom:5px;">ACTION</div>
                              <div style="font-size:calc(var(--font-medium)*1.2); font-weight:bold;">${extra || ''}</div>
                              <div style="font-size:calc(var(--font-medium)*0.8); color:var(--arex-light); margin-top:20px;">[ ESC TO BACK ]</div>`;
-            setTimeout(() => { 
-                if(currentState === STATE.MODAL_ACT) { 
-                    document.getElementById('canvas-modal').style.display = 'none'; 
-                    currentState = STATE.SUB_MENU; 
-                } 
-            }, 1000);
+            setTimeout(() => { if(currentState === STATE.MODAL_ACT) { document.getElementById('canvas-modal').style.display = 'none'; currentState = STATE.SUB_MENU; } }, 1000);
         }
     }
 
-    // ==========================================
-    // Interaction Handlers
-    // ==========================================
     function handleRotate(dir) {
-        if(currentState === STATE.GHOST) { wakeUp(); return; }
-
         switch(currentState) {
             case STATE.DASH:
                 if (currentDashCard === 0 && dir === -1) {
@@ -953,10 +1490,7 @@
                 }
                 break;
                 
-            case STATE.EDIT_GAS:
-                gasCursorIndex = (gasCursorIndex + dir + gasData.length) % gasData.length;
-                renderGasMenu();
-                break;
+            case STATE.EDIT_GAS: gasCursorIndex = (gasCursorIndex + dir + gasData.length) % gasData.length; renderGasMenu(); break;
 
             case STATE.INFO:
                 const lenInfo = document.querySelectorAll('#info-list .menu-item').length;
@@ -983,8 +1517,27 @@
                 break;
             
             case STATE.SUB_MENU:
-                subMenuIndex = Math.max(0, Math.min(subMenuItems.length - 1, subMenuIndex + dir));
-                updateListSelection('sub-menu-list', subMenuIndex);
+                const subTitleRotate = normalizeMenuLabel(document.getElementById('sub-menu-title').innerText);
+                if (subTitleRotate === 'SCREEN ORDER' && reorderActiveIndex !== -1) {
+                    const newIndex = Math.max(0, Math.min(cardOrder.length - 1, reorderActiveIndex + dir));
+                    if (newIndex !== reorderActiveIndex) {
+                        const tempId = cardOrder[reorderActiveIndex]; cardOrder[reorderActiveIndex] = cardOrder[newIndex]; cardOrder[newIndex] = tempId;
+                        applyCardOrderToDOM(); 
+                        const tempItem = subMenuItems[reorderActiveIndex]; subMenuItems[reorderActiveIndex] = subMenuItems[newIndex]; subMenuItems[newIndex] = tempItem;
+
+                        let options = cardOrder.map(id => getCardDisplayName(id)); options.push('< BACK');
+                        renderSubMenu('SCREEN ORDER', options, STATE.SETUP, false);
+                        reorderActiveIndex = newIndex; subMenuIndex = newIndex;
+
+                        document.querySelectorAll('#sub-menu-list .menu-item').forEach((el, i) => {
+                            if (i === subMenuIndex) { el.classList.add('active', 'reordering'); el.innerHTML += ' <span class="mod-po2-arrows">↕</span>'; } 
+                            else { el.classList.remove('active', 'reordering'); }
+                        });
+                    }
+                } else {
+                    subMenuIndex = Math.max(0, Math.min(subMenuItems.length - 1, subMenuIndex + dir));
+                    updateListSelection('sub-menu-list', subMenuIndex);
+                }
                 break;
 
             case STATE.EDIT_VALUE:
@@ -998,49 +1551,25 @@
     }
 
      let isClicking = false;
-
      function handleClick() {
-         if (isClicking) return;
-         isClicking = true;
-         setTimeout(() => { isClicking = false; }, 300);
+         if (isClicking) return; isClicking = true; setTimeout(() => { isClicking = false; }, 300);
         
         switch(currentState) {
             case STATE.DASH:
                 const activeCardId = cardOrder[currentDashCard];
                 if (activeCardId === 'card-compass') { 
-                    if (!isHeadingMarked) {
-                        isHeadingMarked = true; targetHeading = currentHeading;
-                        document.getElementById('compass-target-text').innerText = `[ TARGET LOCKED: ${Math.round(targetHeading)}° ]`;
-                    } else {
-                        currentState = STATE.MODAL_COMPASS; document.getElementById('canvas-modal').style.display = 'flex'; renderModal('COMPASS');
-                    }
+                    if (!isHeadingMarked) { isHeadingMarked = true; targetHeading = currentHeading; document.getElementById('compass-target-text').innerText = `[ TARGET LOCKED: ${Math.round(targetHeading)}° ]`; } 
+                    else { currentState = STATE.MODAL_COMPASS; document.getElementById('canvas-modal').style.display = 'flex'; renderModal('COMPASS'); }
                 }
-                else if (activeCardId === 'card-gas') { 
-                    currentState = STATE.EDIT_GAS; gasCursorIndex = breathingGasIndex; renderGasMenu();
-                }
+                else if (activeCardId === 'card-gas') { currentState = STATE.EDIT_GAS; gasCursorIndex = breathingGasIndex; renderGasMenu(); }
                 break;
-            
-            case STATE.EDIT_GAS:
-                currentState = STATE.MODAL_GAS; document.getElementById('canvas-modal').style.display = 'flex'; renderModal('GAS'); break;
-
+            case STATE.EDIT_GAS: currentState = STATE.MODAL_GAS; document.getElementById('canvas-modal').style.display = 'flex'; renderModal('GAS'); break;
             case STATE.MODAL_GAS:
-                if (baseDepth <= gasData[gasCursorIndex].mod) {
-                    breathingGasIndex = gasCursorIndex; document.getElementById('ui-gas-name').innerText = gasData[gasCursorIndex].name; 
-                    document.getElementById('canvas-modal').style.display = 'none'; currentState = STATE.DASH; renderGasMenu();
-                } else {
-                    const box = document.getElementById('modal-content-box'); box.style.transform = 'scale(1.05)'; setTimeout(() => box.style.transform = 'scale(1)', 100);
-                }
+                if (baseDepth <= gasData[gasCursorIndex].mod) { breathingGasIndex = gasCursorIndex; document.getElementById('ui-gas-name').innerText = gasData[gasCursorIndex].name; document.getElementById('canvas-modal').style.display = 'none'; currentState = STATE.DASH; renderGasMenu(); } 
+                else { const box = document.getElementById('modal-content-box'); box.style.transform = 'scale(1.05)'; setTimeout(() => box.style.transform = 'scale(1)', 100); }
                 break;
-            
-            case STATE.MODAL_COMPASS:
-                isHeadingMarked = false; document.getElementById('compass-target-text').innerText = '';
-                document.getElementById('canvas-modal').style.display = 'none'; currentState = STATE.DASH;
-                break;
-
-            case STATE.EDIT_VALUE:
-                commitEditValue();
-                break;
-
+            case STATE.MODAL_COMPASS: isHeadingMarked = false; document.getElementById('compass-target-text').innerText = ''; document.getElementById('canvas-modal').style.display = 'none'; currentState = STATE.DASH; break;
+            case STATE.EDIT_VALUE: commitEditValue(); break;
             case STATE.INFO:
                 const infoTitle = document.querySelectorAll('#info-list .menu-item')[menuIndexInfo].innerText;
                 let infoOptions = [];
@@ -1052,7 +1581,6 @@
                 else infoOptions = ['VIEW DETAILS', '< BACK'];
                 renderSubMenu(infoTitle, infoOptions, STATE.INFO);
                 break;
-                
             case STATE.SETUP:
                 const setupTitleRaw = document.querySelectorAll('#setup-list .menu-item')[menuIndexSetup].innerText;
                 const setupTitle = setupTitleRaw.split('\n')[0].replace('>', '').trim();
@@ -1063,71 +1591,46 @@
                 else if(setupTitle.includes('BRIGHTNESS')) setupOptions = ['LOW', 'MED', 'HIGH', 'MAX', '< BACK'];
                 else if(setupTitle.includes('COMPASS CAL')) setupOptions = ['START CALIBRATION', '< BACK'];
                 else if(setupTitle.includes('SYSTEM SETUP')) setupOptions = ['MODE SETUP >', 'DIVE SETUP >', 'AI SETUP >', 'ALERTS SETUP >', 'DISPLAY / SYS >', '< BACK'];
+                else if(setupTitle.includes('SCREEN ORDER')) { setupOptions = cardOrder.map(id => getCardDisplayName(id)); setupOptions.push('< BACK'); }
                 else setupOptions = ['ADJUST VALUE', '< BACK'];
-                
                 renderSubMenu(setupTitle, setupOptions, STATE.SETUP);
                 break;
             
             case STATE.SUB_MENU:
                 const currentSubItem = subMenuItems[subMenuIndex];
-                if (currentSubItem.includes('< BACK')) {
-                    closeSubMenu();
-                } else if (currentSubItem.includes('>')) {
-                    // Dive into deeper menu
-                    let deeperOptions = [];
-                    const deepTitle = currentSubItem.replace('>', '').trim();
+                if (currentSubItem.includes('< BACK')) { closeSubMenu(); } 
+                else if (currentSubItem.includes('>')) {
+                    let deeperOptions = []; const deepTitle = currentSubItem.replace('>', '').trim();
                     if(deepTitle === 'MODE SETUP') deeperOptions = ['AIR', 'NITROX', '3 GAS NX', 'GAUGE', '< BACK'];
                     else if(deepTitle === 'DIVE SETUP') deeperOptions = [`SALINITY: FRESH`, `MOD PO2: ${settings.modPpo2.toFixed(1)}`, 'SAFETY STOP: 3 MIN', 'ALTITUDE: AUTO', '< BACK'];
                     else if(deepTitle === 'AI SETUP') deeperOptions = ['PAIR T1', 'PAIR T2', 'GTR MODE: ON', '< BACK'];
                     else if(deepTitle === 'ALERTS SETUP') deeperOptions = ['DEPTH ALARM: 40m', 'TIME ALARM: 60m', 'LOW NDL: 5m', 'TEST VIBRATION', '< BACK'];
                     else if(deepTitle === 'DISPLAY / SYS') deeperOptions = ['UNITS: METRIC', 'DATE & CLOCK', 'LOG RATE: 10s', 'BLUETOOTH: OFF', 'RESET TO DEFAULTS', '< BACK'];
-                    
-                    if(deeperOptions.length > 0) {
-                        // Store current sub menu state before diving deeper
-                        renderSubMenu(deepTitle, deeperOptions, STATE.SUB_MENU);
-                    }
+                    if(deeperOptions.length > 0) { renderSubMenu(deepTitle, deeperOptions, STATE.SUB_MENU); }
                 } else {
                     const subTitle = normalizeMenuLabel(document.getElementById('sub-menu-title').innerText);
                     const leaf = (currentSubItem || '').trim();
 
+                    if (subTitle === 'SCREEN ORDER') {
+                        if (reorderActiveIndex === -1) {
+                            reorderActiveIndex = subMenuIndex;
+                            const el = document.querySelectorAll('#sub-menu-list .menu-item')[subMenuIndex];
+                            el.classList.add('reordering'); el.innerHTML += ' <span class="mod-po2-arrows">↕</span>';
+                        } else {
+                            reorderActiveIndex = -1; let savedIndex = subMenuIndex; 
+                            let options = cardOrder.map(id => getCardDisplayName(id)); options.push('< BACK');
+                            renderSubMenu('SCREEN ORDER', options, STATE.SETUP, false);
+                            subMenuIndex = savedIndex; updateListSelection('sub-menu-list', subMenuIndex);
+                        }
+                        break;
+                    }
                     if (subTitle === 'GAS SWITCH') {
                         const nextName = leaf.replace(/^SELECT\s+/i, '').trim();
                         const nextIndex = gasData.findIndex((g) => g.name === nextName);
-                        if (nextIndex >= 0) {
-                            breathingGasIndex = nextIndex;
-                            gasCursorIndex = nextIndex;
-                            document.getElementById('ui-gas-name').innerText = gasData[nextIndex].name;
-                            renderGasMenu();
-                            closeSubMenu();
-                            break;
-                        }
+                        if (nextIndex >= 0) { breathingGasIndex = nextIndex; gasCursorIndex = nextIndex; document.getElementById('ui-gas-name').innerText = gasData[nextIndex].name; renderGasMenu(); closeSubMenu(); break; }
                     }
-
-                    if (subTitle === 'DIVE SETUP' && leaf.startsWith('MOD PO2:')) {
-                        beginEditModPpo2();
-                        break;
-                    }
-
-                    if (subTitle === 'CONSERVATISM') {
-                        const nextVal = leaf.startsWith('LOW') ? 'LOW' : leaf.startsWith('MED') ? 'MED' : leaf.startsWith('HIGH') ? 'HIGH' : '';
-                        if (nextVal) {
-                            updateSetupMenuValue('CONSERVATISM', nextVal);
-                            closeSubMenu();
-                            break;
-                        }
-                    }
-
-                    if (subTitle === 'BRIGHTNESS') {
-                        if (['LOW', 'MED', 'HIGH', 'MAX'].includes(leaf)) {
-                            updateSetupMenuValue('BRIGHTNESS', leaf);
-                            closeSubMenu();
-                            break;
-                        }
-                    }
-
-                    currentState = STATE.MODAL_ACT;
-                    document.getElementById('canvas-modal').style.display = 'flex';
-                    renderModal('MENU_ACT', currentSubItem);
+                    if (subTitle === 'DIVE SETUP' && leaf.startsWith('MOD PO2:')) { beginEditModPpo2(); break; }
+                    currentState = STATE.MODAL_ACT; document.getElementById('canvas-modal').style.display = 'flex'; renderModal('MENU_ACT', currentSubItem);
                 }
                 break;
         }
@@ -1139,7 +1642,14 @@
             case STATE.MODAL_GAS: document.getElementById('canvas-modal').style.display = 'none'; currentState = STATE.EDIT_GAS; break;
             case STATE.MODAL_COMPASS: document.getElementById('canvas-modal').style.display = 'none'; currentState = STATE.DASH; break;
             case STATE.EDIT_VALUE: cancelEditValue(); break;
-            case STATE.SUB_MENU: closeSubMenu(); break;
+            case STATE.SUB_MENU: 
+                if (reorderActiveIndex !== -1) {
+                    reorderActiveIndex = -1; let savedIndex = subMenuIndex; 
+                    let options = cardOrder.map(id => getCardDisplayName(id)); options.push('< BACK');
+                    renderSubMenu('SCREEN ORDER', options, STATE.SETUP, false);
+                    subMenuIndex = savedIndex; updateListSelection('sub-menu-list', subMenuIndex);
+                } else { closeSubMenu(); }
+                break;
             case STATE.INFO: case STATE.SETUP: currentState = STATE.DASH; currentDashCard = 0; updateElevator(); break;
         }
     }
@@ -1148,6 +1658,7 @@
     function isUiControlTarget(target) {
         if (!(target instanceof Element)) return false;
         if (target.closest('#sidebar')) return true;
+        if (target.closest('#config-modal')) return true;
         const tag = target.tagName;
         return tag === 'SELECT' || tag === 'OPTION' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'BUTTON' || !!target.closest('label');
     }
@@ -1162,21 +1673,13 @@
 
     window.addEventListener('mousedown', (e) => {
         if (isUiControlTarget(e.target)) return;
-        if (e.button === 1) {
-            e.preventDefault();
-            handleClick();
-        } else if (e.button === 3 || e.button === 4) {
-            e.preventDefault();
-            handleSideButton();
-        }
+        if (e.button === 1) { e.preventDefault(); handleClick(); } 
+        else if (e.button === 3 || e.button === 4) { e.preventDefault(); handleSideButton(); }
     });
 
     window.addEventListener('keydown', (e) => {
         const active = document.activeElement;
-        if (active instanceof Element) {
-            const tag = active.tagName;
-            if (tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA') return;
-        }
+        if (active instanceof Element) { const tag = active.tagName; if (tag === 'SELECT' || tag === 'INPUT' || tag === 'TEXTAREA') return; }
         if (e.key === 'Enter') handleClick();
         else if (e.key === 'Escape') handleSideButton();
         else if (e.key === 'ArrowDown') handleRotate(1);
@@ -1184,27 +1687,85 @@
     });
     window.addEventListener('contextmenu', e => e.preventDefault());
 
-    // Dynamics
+    // Auto-Scale Bezel to fit smaller preview screens
+    function autoScaleBezel() {
+        const mainView = document.getElementById('main-view');
+        const bezel = document.getElementById('device-bezel');
+        if(mainView && bezel) {
+            const availableW = mainView.clientWidth - 40;
+            const availableH = mainView.clientHeight - 80;
+            const baseW = 720; // 640 + 80px padding
+            const baseH = 560; // 480 + 80px padding
+            const scale = Math.min(availableW / baseW, availableH / baseH, 1.1);
+            bezel.style.transform = `scale(${Math.max(scale, 0.3)})`;
+        }
+    }
+    window.addEventListener('resize', autoScaleBezel);
+
     setInterval(() => {
-        currentHeading += (Math.random() - 0.5) * 2; if(currentHeading >= 360) currentHeading -= 360; if(currentHeading < 0) currentHeading += 360;
-        document.getElementById('ui-head-classic').innerText = Math.round(currentHeading) + '°'; document.getElementById('tape-classic').style.transform = `translateX(${-((currentHeading / 360) * 100)}px)`;
-        document.getElementById('ui-head-aero').innerText = Math.round(currentHeading); document.getElementById('tape-aero').style.transform = `translateX(${-((currentHeading / 360) * 150)}px)`;
-        document.getElementById('ui-head-sub').innerText = Math.round(currentHeading) + '°'; document.getElementById('dial-sub').style.transform = `rotate(${-currentHeading}deg)`;
-    }, 150);
+        const drift = (Math.random() - 0.5) * 2; 
+        currentHeading = baseHeading + drift; 
+        currentHeading = ((currentHeading % 360) + 360) % 360;
+        
+        document.getElementById('ui-head-classic').innerText = Math.round(currentHeading) + '°'; 
+        document.getElementById('ui-head-aero').innerText = Math.round(currentHeading); 
+        document.getElementById('ui-head-sub').innerText = Math.round(currentHeading) + '°'; 
+        document.getElementById('dial-sub').style.transform = `rotate(${-currentHeading}deg)`;
+        
+        const widgetHeading = document.getElementById('widget-heading');
+        if(widgetHeading) widgetHeading.innerText = Math.round(currentHeading) + '°';
+
+        let htmlClassic = ''; let htmlAero = '';
+        const startAngle = Math.floor((currentHeading - 90) / 30) * 30;
+        const endAngle = startAngle + 180;
+
+        for (let a = startAngle; a <= endAngle; a += 30) {
+            let displayAngle = a;
+            while (displayAngle < 0) displayAngle += 360;
+            while (displayAngle >= 360) displayAngle -= 360;
+
+            let label = displayAngle;
+            if (displayAngle === 0) label = 'N'; else if (displayAngle === 90) label = 'E'; else if (displayAngle === 180) label = 'S'; else if (displayAngle === 270) label = 'W';
+
+            let aeroLabel = typeof label === 'number' ? label / 10 : label;
+            const angularDiff = a - currentHeading;
+
+            htmlClassic += `<span style="transform: translateX(calc(-50% + ${angularDiff * 3}px)); ${typeof label === 'string' ? 'font-size:1.5em; color:var(--arex-green);' : ''}">${label}</span>`;
+            htmlAero += `<span style="transform: translateX(calc(-50% + ${angularDiff * 4.5}px));">${aeroLabel}</span>`;
+        }
+        document.getElementById('tape-classic').innerHTML = htmlClassic; document.getElementById('tape-aero').innerHTML = htmlAero;
+    }, 50); 
 
     setInterval(() => { 
         const drift = (Math.random() - 0.5) * 0.2; 
         const currentDepth = baseDepth + drift;
-        document.getElementById('ui-depth').innerText = currentDepth.toFixed(1); 
+        const uiDepth = document.getElementById('ui-depth');
+        if(uiDepth) uiDepth.innerText = currentDepth.toFixed(1); 
         
-        // Update Dive Log Array & Render
         diveLog.push({ time: diveTimeElapsed, depth: Math.max(0, currentDepth) });
-        diveTimeElapsed++;
+        diveTimeElapsed += 2; 
         renderDiveLog();
-    }, 1000);
+        
+        const widgetMaxDepth = document.getElementById('widget-max-depth');
+        if(widgetMaxDepth) {
+            const maxD = Math.max(...diveLog.map(p => p.depth));
+            widgetMaxDepth.innerHTML = maxD.toFixed(1) + '<span class="w-unit">m</span>';
+        }
+    }, 2000); 
 
     // Init
-    updateTheme(); updateCompassStyle(); renderGasMenu(); renderSorterUI();
+    updateCalibration(); // This triggers renderLeftAnchor internally
+    updateCompassStyle();
+    renderGasMenu();
+    renderSorterUI();
+    renderAppMock(); 
+    renderARWidgets();
+    autoScaleBezel(); // Initialize scaling on load
+    
+    const ro = new ResizeObserver(() => updateElevator());
+    const rightCardCanvas = document.getElementById('right-card-canvas');
+    if (rightCardCanvas) ro.observe(rightCardCanvas);
+
 </script>
 </body>
 </html>
