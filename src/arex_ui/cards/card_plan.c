@@ -1,5 +1,6 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
+#include "../arex_ui_engine.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
 #include <stdio.h>
@@ -114,10 +115,10 @@ static void draw_plan(void)
     }
 
     /* 当前潜水位置 — 黄色圆点（动态计算） */
-    float dive_min = g_arex.dive.dive_time_s / 60.0f;
+    float dive_min = g_sensor_data.dive_time_s / 60.0f;
     if (dive_min > PLOT_T_MAX) dive_min = PLOT_T_MAX;
     lv_coord_t cx = (lv_coord_t)(dive_min * CHART_W / PLOT_T_MAX);
-    lv_coord_t cy = CHART_H - (lv_coord_t)(g_arex.dive.depth * CHART_H / PLOT_D_MAX);
+    lv_coord_t cy = CHART_H - (lv_coord_t)(g_sensor_data.depth * CHART_H / PLOT_D_MAX);
     lv_draw_rect_dsc_t nd; lv_draw_rect_dsc_init(&nd);
     nd.bg_color = lv_color_make(0xFF,0xFF,0x00);
     nd.radius   = LV_RADIUS_CIRCLE;

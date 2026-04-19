@@ -1,4 +1,5 @@
 #include "arex_data.h"
+#include "arex_ui_engine.h"
 #include "arex_ui_state.h"
 #include "arex_screen.h"
 #include "arex_input.h"
@@ -6,34 +7,53 @@
 
 static lv_timer_t *s_sim_timer;
 
-/* Simulate slowly changing depth and heading for demo */
+/* 模拟数据跳动回调 (1Hz)
+ * 仅更新 lv_label 文字，不触发排版重构。 */
 static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
-    g_arex.compass.heading = (float)((int)(g_arex.compass.heading + 1) % 360);
-    g_arex.dive.dive_time_s++;
+
+    /* 航向缓慢顺时针旋转 */
+    g_sensor_data.heading = (g_sensor_data.heading + 1) % 360;
+    g_sensor_data.dive_time_s++;
+    /* 深度轻微浮动 */
+    static float depth_base = 45.2f;
+    static int tick = 0;
+    tick++;
+    g_sensor_data.depth = depth_base + (tick % 10 < 5 ? 0.0f : 0.1f);
+
+    /* 刷新左侧面板 */
     arex_screen_refresh_left_panel();
+
+    /* 刷新所有卡片 */
     arex_ui_refresh_all();
 }
 
 void UI_main(void)
 {
+    /* 1. 初始化旧版 g_arex 数据 */
     arex_data_init();
-    arex_ui_state_init();
+
+    /* 2. 初始化 UI 引擎 (加载默认配置) */
+    arex_ui_init();
+
+    /* 3. 创建 UI 界面 (安全区 + 左侧锚点 + 卡片) */
     arex_screen_create();
 
-    /* Get screen handle to pass to input init.
-       arex_screen_create() calls lv_scr_load(), so active screen is ours. */
+    /* 4. 初始化输入处理 */
     lv_obj_t *scr = lv_scr_act();
     arex_input_init(scr);
 
-    /* Populate left panel with initial values */
+    /* 5. 刷新左侧面板初始值 */
     arex_screen_refresh_left_panel();
 
-    /* 启动在 INFO 卡（tile 0），高亮第一条 LAST DIVE */
+    /* 6. 初始化 UI 状态机 */
+    arex_ui_state_init();
+
+    /* 7. 启动在 INFO 卡 (tile 0) */
     arex_screen_scroll_to_card(0);
     arex_screen_set_info_selection(0);
 
-    /* Simulation tick: 1 second interval */
+    /* 8. 模拟定时器: 1Hz */
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
 }

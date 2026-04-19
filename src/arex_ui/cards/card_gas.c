@@ -1,5 +1,6 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
+#include "../arex_ui_engine.h"
 #include "../arex_ui_state.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
@@ -39,7 +40,7 @@ void card_gas_create(lv_obj_t *parent)
         lv_obj_t *lbl_name = lv_label_create(row);
         lv_obj_set_style_text_color(lbl_name, lv_color_make(0x00,0xFF,0x00), 0);
         lv_obj_set_style_text_font(lbl_name, AREX_FONT_TITLE, 0);
-        lv_label_set_text(lbl_name, AREX_GAS_TABLE[i].name);
+        lv_label_set_text(lbl_name, AREX_GAS_NAMES[i]);
         /* 规范：pad_ver=12px(上下)，行高49px → 内容区25px；字体20px垂直居中 */
         lv_obj_set_pos(lbl_name, 0, 2);
 
@@ -48,7 +49,7 @@ void card_gas_create(lv_obj_t *parent)
         lv_obj_set_style_text_color(s_lbl_mod[i], lv_color_make(0x55,0xFF,0x55), 0);
         lv_obj_set_style_text_font(s_lbl_mod[i], AREX_FONT_SMALL, 0);
         char buf[20];
-        snprintf(buf, sizeof(buf), "MOD %dm", AREX_GAS_TABLE[i].mod_m);
+        snprintf(buf, sizeof(buf), "MOD %dm", AREX_GAS_MOD_M[i]);
         lv_label_set_text(s_lbl_mod[i], buf);
         lv_obj_set_pos(s_lbl_mod[i], 220, 0);
 
@@ -73,7 +74,7 @@ void card_gas_create(lv_obj_t *parent)
 void card_gas_update(void)
 {
     for (int i = 0; i < AREX_GAS_COUNT; i++) {
-        bool is_active  = (g_arex.gas.active_idx == (uint8_t)i);
+        bool is_active  = (g_sensor_data.gas_active_idx == (uint8_t)i);
         bool is_cursor  = (g_ui.state == UI_EDIT_GAS && g_ui.gas_cursor == (uint8_t)i);
 
         lv_color_t bg, fg;
@@ -97,9 +98,8 @@ void card_gas_update(void)
             lv_obj_set_style_border_color(s_items[i], AREX_DARK, 0);
         }
 
-        /* Update PPO2 at current depth */
         char buf[20];
-        float ppo2 = g_arex.dive.depth / 10.0f * 0.21f;
+        float ppo2 = g_sensor_data.depth / 10.0f * 0.21f;
         snprintf(buf, sizeof(buf), "PO2 %.2f", ppo2);
         lv_label_set_text(s_lbl_ppo2[i], buf);
 

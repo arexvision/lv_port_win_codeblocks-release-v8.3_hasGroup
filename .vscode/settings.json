@@ -52,6 +52,7 @@
         "cinttypes": "c",
         "cstdbool": "c",
         "typeinfo": "c",
-        "variant": "c"
+        "variant": "c",
+        "arex_ui_engine.h": "c"
     }
 }

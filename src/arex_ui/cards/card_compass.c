@@ -1,5 +1,6 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
+#include "../arex_ui_engine.h"
 #include "../arex_ui_state.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
@@ -80,8 +81,8 @@ static void draw_tape(lv_coord_t heading)
     lv_canvas_draw_text(s_canvas, CX - 64, HEADING_Y, 128, &lbl_dsc, buf);
 
     /* 目标航向标记 */
-    if (g_arex.compass.marked) {
-        lv_coord_t diff = (int)(g_arex.compass.target - heading + 360) % 360;
+    if (g_sensor_data.heading_locked) {
+        lv_coord_t diff = (int)(g_sensor_data.heading_target - heading + 360) % 360;
         if (diff > 180) diff -= 360;
         lv_coord_t tx = CX + diff * 3;
         if (tx >= 0 && tx < COMP_W) {
@@ -93,7 +94,7 @@ static void draw_tape(lv_coord_t heading)
         lbl_dsc.font  = AREX_FONT_SMALL;
         lbl_dsc.color = lv_color_make(0xFF,0xFF,0x00);
         char tbuf[16];
-        snprintf(tbuf, sizeof(tbuf), "TARGET %03d\xC2\xB0", (int)g_arex.compass.target);
+        snprintf(tbuf, sizeof(tbuf), "TARGET %03d\xC2\xB0", (int)g_sensor_data.heading_target);
         lv_canvas_draw_text(s_canvas, 10, TARGET_Y, 200, &lbl_dsc, tbuf);
     }
 
@@ -101,7 +102,7 @@ static void draw_tape(lv_coord_t heading)
     lbl_dsc.font  = AREX_FONT_SMALL;
     lbl_dsc.color = lv_color_make(0x55,0xFF,0x55);
     lv_canvas_draw_text(s_canvas, 10, HINT_Y, 400, &lbl_dsc,
-        g_arex.compass.marked
+        g_sensor_data.heading_locked
             ? "[ ENTER ] clear target"
             : "[ ENTER ] mark heading");
 }
@@ -118,11 +119,12 @@ void card_compass_create(lv_obj_t *parent)
     /* 规范：canvas y=50（标题下方），高 140px */
     lv_obj_set_pos(s_canvas, 0, 50);
 
-    draw_tape((lv_coord_t)g_arex.compass.heading);
-    s_last_style = g_arex.compass.style;
+    draw_tape((lv_coord_t)g_sensor_data.heading);
+    s_last_style = g_sys_config.compass_style;
 }
 
 void card_compass_update(void)
 {
-    draw_tape((lv_coord_t)g_arex.compass.heading);
+    draw_tape((lv_coord_t)g_sensor_data.heading);
+    (void)s_last_style; /* suppress unused warning */
 }

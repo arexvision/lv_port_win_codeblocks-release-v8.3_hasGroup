@@ -1,5 +1,6 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
+#include "../arex_ui_engine.h"
 #include "../arex_ui_state.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
@@ -80,7 +81,7 @@ void card_setup_create(lv_obj_t *parent)
 
 void card_setup_update(void)
 {
-    /* Sync badge text with live g_arex settings */
+    /* Sync badge text with live settings */
     if (!s_list) return;
 
     static const char *cons_str[] = { "LOW", "MED", "HIGH" };

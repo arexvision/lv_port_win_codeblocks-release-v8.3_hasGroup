@@ -1,5 +1,6 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
+#include "../arex_ui_engine.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
 #include <stdio.h>
@@ -47,7 +48,7 @@ void card_deco_update(void);
 static bool any_tissue_danger(void)
 {
     for (int i = 0; i < 16; i++) {
-        if (g_arex.deco.tissue_pct[i] >= TISSUE_DANGER_PCT) return true;
+        if (g_sensor_data.tissue_pct[i] >= TISSUE_DANGER_PCT) return true;
     }
     return false;
 }
@@ -57,7 +58,7 @@ static void tissue_danger_flash_cb(lv_timer_t *t)
     (void)t;
     s_tissue_flash_phase = !s_tissue_flash_phase;
     for (int i = 0; i < 16; i++) {
-        if (g_arex.deco.tissue_pct[i] >= TISSUE_DANGER_PCT) {
+        if (g_sensor_data.tissue_pct[i] >= TISSUE_DANGER_PCT) {
             lv_color_t c = s_tissue_flash_phase ? AREX_GREEN : AREX_BLACK;
             lv_obj_set_style_bg_color(s_bars[i], c, LV_PART_INDICATOR);
         }
@@ -98,7 +99,7 @@ static lv_color_t tissue_fill_color(uint8_t pct)
 /* HTML .highlight-invert on SurfGF when over limit (145% demo): green bg, black text */
 static void surf_gf_apply_style(void)
 {
-    if (g_arex.deco.surf_gf > 100) {
+    if (g_sensor_data.cns_pct > 50) {
         lv_obj_set_style_bg_color(s_lbl_surf_gf, AREX_GREEN, 0);
         lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_COVER, 0);
         lv_obj_set_style_text_color(s_lbl_surf_gf, AREX_BLACK, 0);
@@ -234,23 +235,23 @@ void card_deco_update(void)
 {
     char buf[16];
 
-    snprintf(buf, sizeof(buf), "%d%%", g_arex.deco.gf99);
+    snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
     lv_label_set_text(s_lbl_gf99, buf);
 
-    snprintf(buf, sizeof(buf), "%d%%", g_arex.deco.surf_gf);
+    snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
     lv_label_set_text(s_lbl_surf_gf, buf);
     surf_gf_apply_style();
 
-    snprintf(buf, sizeof(buf), "%d%%", g_arex.deco.cns_pct);
+    snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
     lv_label_set_text(s_lbl_cns, buf);
 
-    snprintf(buf, sizeof(buf), "%d", g_arex.deco.otu);
+    snprintf(buf, sizeof(buf), "%d", g_sensor_data.otu);
     lv_label_set_text(s_lbl_otu, buf);
 
     tissue_flash_ensure();
 
     for (int i = 0; i < 16; i++) {
-        uint8_t pct = g_arex.deco.tissue_pct[i];
+        uint8_t pct = g_sensor_data.tissue_pct[i];
         lv_bar_set_value(s_bars[i], pct, LV_ANIM_ON);
         bar_set_track_style(s_bars[i]);
         lv_obj_set_style_bg_color(s_bars[i], tissue_fill_color(pct), LV_PART_INDICATOR);
