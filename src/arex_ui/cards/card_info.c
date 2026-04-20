@@ -26,8 +26,8 @@ void card_info_create(lv_obj_t *parent)
 
     /* List container */
     s_list = lv_obj_create(parent);
-    lv_obj_set_size(s_list, 428, INFO_ITEM_COUNT * 48 + (INFO_ITEM_COUNT - 1) * 8);
-    lv_obj_set_pos(s_list, 16, 50);
+    lv_obj_set_size(s_list, LV_PCT(100), INFO_ITEM_COUNT * 48 + (INFO_ITEM_COUNT - 1) * 8);
+    lv_obj_set_pos(s_list, 0, 50);
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_pad_all(s_list, 0, 0);
@@ -43,14 +43,17 @@ void card_info_create(lv_obj_t *parent)
         lv_obj_set_style_border_color(item, AREX_DARK, 0);
         lv_obj_set_style_border_width(item, 2, 0);
         lv_obj_set_style_radius(item, 0, 0);
-        lv_obj_set_style_pad_ver(item, 12, 0);
-        lv_obj_set_style_pad_hor(item, 15, 0);
+        lv_obj_set_style_pad_all(item, 0, 0);          /* 零边距，防止撑高 */
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_style_clip_corner(item, false, 0);
+        lv_obj_set_style_clip_corner(item, true, 0);   /* 强制裁剪溢出内容 */
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
         lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
+        lv_obj_set_size(lbl, LV_PCT(100), 48);
+        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
+        lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
+        lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
         lv_label_set_text(lbl, s_info_items[i]);
     }
 

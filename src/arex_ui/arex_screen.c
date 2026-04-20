@@ -87,9 +87,11 @@ static void styles_init(void)
 
     lv_style_init(&s_style_anchor_bg);
     lv_style_set_bg_color(&s_style_anchor_bg, AREX_BLACK);
-    lv_style_set_bg_opa(&s_style_anchor_bg, LV_OPA_20); /* 3% 透明度提示区 */
+    lv_style_set_bg_opa(&s_style_anchor_bg, LV_OPA_20);
     lv_style_set_border_color(&s_style_anchor_bg, AREX_DARK);
     lv_style_set_border_width(&s_style_anchor_bg, 1);
+    lv_style_set_pad_all(&s_style_anchor_bg, 0);     /* 必须显式清零，否则 LVGL 默认 padding 会偏移所有子组件坐标 */
+    lv_style_set_radius(&s_style_anchor_bg, 0);
 
     lv_style_init(&s_style_panel);
     lv_style_set_bg_color(&s_style_panel, AREX_BLACK);
@@ -216,6 +218,7 @@ static void left_anchor_create(void)
     lv_obj_set_size(s_left_anchor, AREX_LEFT_ANCHOR_W, g_sys_config.safe_zone_h);
     lv_obj_set_pos(s_left_anchor, 0, 0);
     lv_obj_add_style(s_left_anchor, &s_style_anchor_bg, 0);
+    lv_obj_set_style_pad_all(s_left_anchor, 0, 0);   /* 兜底：确保 theme 默认 padding 不干扰绝对坐标 */
     lv_obj_set_scrollbar_mode(s_left_anchor, LV_SCROLLBAR_MODE_OFF);
     lv_obj_clear_flag(s_left_anchor, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -228,12 +231,27 @@ static void left_anchor_create(void)
         "DEPTH", "NDL", "TTS", "POD 1", "POD 2", "BATT", "W.TIME", "GAS", "TIME"
     };
 
-    /* 字号映射: DEPTH 用 huge，其余用 med */
+    /* 字号映射：
+     * i=0  DEPTH   → HUGE  (48px)，val_h = (8-2)*10 = 60px ✓
+     * i=1  NDL     → MED   (28px)，val_h = (6-2)*10 = 40px ✓
+     * i=2  TTS     → MED   (28px)，val_h = 40px ✓
+     * i=3  POD 1   → TITLE (20px)，val_h = 40px ✓
+     * i=4  POD 2   → TITLE (20px)，val_h = 40px ✓
+     * i=5  BATT    → SMALL (14px)，val_h = (4-2)*10 = 20px ✓
+     * i=6  W.TIME  → SMALL (14px)，val_h = 20px ✓
+     * i=7  GAS     → MED   (28px)，val_h = (6-2)*10 = 40px ✓
+     * i=8  TIME    → SMALL (14px)，val_h = (4-2)*10 = 20px ✓
+     */
     const lv_font_t *title_fonts[ANCHOR_COMP_COUNT];
     const lv_font_t *val_fonts[ANCHOR_COMP_COUNT];
     for (uint8_t i = 0; i < ANCHOR_COMP_COUNT; i++) {
         title_fonts[i] = AREX_FONT_SMALL;
-        val_fonts[i]   = (i == 0) ? AREX_FONT_HUGE : AREX_FONT_MEDIUM;
+        switch (i) {
+            case 0:                          val_fonts[i] = AREX_FONT_HUGE;   break;
+            case 1: case 2: case 7:          val_fonts[i] = AREX_FONT_MEDIUM; break;
+            case 3: case 4:                  val_fonts[i] = AREX_FONT_TITLE;  break;
+            default: /* 5,6,8 — val_h=20px */ val_fonts[i] = AREX_FONT_SMALL;  break;
+        }
     }
 
     /* 清除旧子对象 (rebuild 时会用到) */
@@ -242,13 +260,26 @@ static void left_anchor_create(void)
     for (uint8_t i = 0; i < ANCHOR_COMP_COUNT; i++) {
         arex_anchor_comp_t *c = &comps[i];
 
-        /* 标题区 */
+        /* 标题区：双拼右块 x = half_w，其余 x = 0 */
+        lv_coord_t comp_x = (c->split == 2) ? (lv_coord_t)(AREX_LEFT_ANCHOR_W / 2) : 0;
+
+        /* 对齐方向：split_outward 时左块靠左、右块靠右；否则统一用全局对齐 */
+        lv_text_align_t comp_align;
+        if (g_sys_config.split_outward && c->split == 2)
+            comp_align = LV_TEXT_ALIGN_RIGHT;
+        else if (g_sys_config.split_outward && c->split == 1)
+            comp_align = LV_TEXT_ALIGN_LEFT;
+        else
+            comp_align = arex_align_to_lv(g_sys_config.align_med);
+
         lv_obj_t *title_zone = lv_obj_create(s_left_anchor);
-        lv_obj_set_pos(title_zone, 0, c->y);
+        lv_obj_set_pos(title_zone, comp_x, c->y);
         lv_obj_set_size(title_zone, c->w, c->title_h);
         lv_obj_set_style_bg_opa(title_zone, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(title_zone, 0, 0);
+        lv_obj_set_style_border_width(title_zone, 1, 0);
+        lv_obj_set_style_border_color(title_zone, lv_color_hex(0xFF0000), 0);
         lv_obj_set_style_pad_all(title_zone, 0, 0);
+        lv_obj_set_style_clip_corner(title_zone, true, 0);
         lv_obj_clear_flag(title_zone, LV_OBJ_FLAG_SCROLLABLE);
 
         /* 分割线 */
@@ -260,26 +291,34 @@ static void left_anchor_create(void)
         lv_obj_set_style_border_width(sep, 0, 0);
         lv_obj_set_style_pad_all(sep, 0, 0);
 
-        /* 标题文字 */
+        /* 标题文字 — 对齐与数值区统一 */
         lv_obj_t *lbl_title = lv_label_create(title_zone);
         lv_obj_set_pos(lbl_title, 4, 0);
+        lv_obj_set_size(lbl_title, c->w - 8, c->title_h);
+        lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_DOT);
+        lv_obj_set_style_text_align(lbl_title, comp_align, 0);
         lv_obj_set_style_text_color(lbl_title, AREX_LIGHT, 0);
         lv_obj_set_style_text_font(lbl_title, title_fonts[i], 0);
         lv_obj_set_style_bg_opa(lbl_title, LV_OPA_TRANSP, 0);
         lv_label_set_text(lbl_title, title_texts[i]);
 
-        /* 数值区 */
+        /* 数值区：双拼右块 x = half_w，其余 x = 0 */
         lv_obj_t *val_zone = lv_obj_create(s_left_anchor);
-        lv_obj_set_pos(val_zone, 0, c->y + c->title_h);
+        lv_obj_set_pos(val_zone, comp_x, c->y + c->title_h);
         lv_obj_set_size(val_zone, c->w, c->val_h);
         lv_obj_set_style_bg_opa(val_zone, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(val_zone, 0, 0);
+        lv_obj_set_style_border_width(val_zone, 1, 0);
+        lv_obj_set_style_border_color(val_zone, lv_color_hex(0x00FF00), 0);
         lv_obj_set_style_pad_all(val_zone, 0, 0);
+        lv_obj_set_style_clip_corner(val_zone, true, 0);
         lv_obj_clear_flag(val_zone, LV_OBJ_FLAG_SCROLLABLE);
 
         /* 数值文字 */
         lv_obj_t *lbl_val = lv_label_create(val_zone);
         lv_obj_set_pos(lbl_val, 4, 0);
+        lv_obj_set_size(lbl_val, c->w - 8, c->val_h);
+        lv_label_set_long_mode(lbl_val, LV_LABEL_LONG_DOT);
+        lv_obj_set_style_text_align(lbl_val, comp_align, 0);
         lv_obj_set_style_text_color(lbl_val, AREX_GREEN, 0);
         lv_obj_set_style_text_font(lbl_val, val_fonts[i], 0);
         lv_obj_set_style_bg_opa(lbl_val, LV_OPA_TRANSP, 0);
@@ -292,11 +331,6 @@ static void left_anchor_create(void)
             s_lbl_ndl = lbl_val;
         } else if (i == 2) {
             lv_label_set_text(lbl_val, "24'");
-            /* TTS 反色高亮 */
-            lv_obj_set_style_bg_color(lbl_val, AREX_GREEN, 0);
-            lv_obj_set_style_bg_opa(lbl_val, LV_OPA_COVER, 0);
-            lv_obj_set_style_text_color(lbl_val, AREX_BLACK, 0);
-            lv_obj_set_style_pad_hor(lbl_val, 4, 0);
             s_lbl_tts = lbl_val;
         } else if (i == 3) {
             lv_label_set_text(lbl_val, "210");
@@ -318,7 +352,7 @@ static void left_anchor_create(void)
             s_lbl_time = lbl_val;
         }
 
-        /* NEXT STOP 标签 (DEPTH 组件右侧空白区) */
+        /* NEXT STOP 标签 — 位置待重新规划，暂时隐藏 */
         if (i == 0) {
             lv_obj_t *lbl_ns = lv_label_create(s_left_anchor);
             lv_obj_set_pos(lbl_ns, AREX_LEFT_ANCHOR_W / 2 + 8, 132);
@@ -326,15 +360,17 @@ static void left_anchor_create(void)
             lv_obj_set_style_text_font(lbl_ns, AREX_FONT_SMALL, 0);
             lv_obj_set_style_bg_opa(lbl_ns, LV_OPA_TRANSP, 0);
             lv_label_set_text(lbl_ns, "NEXT STOP");
+            lv_obj_add_flag(lbl_ns, LV_OBJ_FLAG_HIDDEN);   /* 坐标待重新计算后再启用 */
             s_lbl_next_stop = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_lbl_next_stop, AREX_LEFT_ANCHOR_W / 2 + 8, 148);
             lv_obj_set_style_text_color(s_lbl_next_stop, AREX_LIGHT, 0);
             lv_obj_set_style_text_font(s_lbl_next_stop, AREX_FONT_MEDIUM, 0);
             lv_obj_set_style_bg_opa(s_lbl_next_stop, LV_OPA_TRANSP, 0);
             lv_label_set_text(s_lbl_next_stop, "21m 3'");
+            lv_obj_add_flag(s_lbl_next_stop, LV_OBJ_FLAG_HIDDEN);
         }
 
-        /* PO2 标签行 (DEPTH 组件右下角空白区) */
+        /* PO2 标签行 — 位置待重新规划，暂时隐藏 */
         if (i == 0) {
             lv_obj_t *lbl_po2_cap = lv_label_create(s_left_anchor);
             lv_obj_set_pos(lbl_po2_cap, AREX_LEFT_ANCHOR_W / 2 + 8, 192);
@@ -342,6 +378,7 @@ static void left_anchor_create(void)
             lv_obj_set_style_text_font(lbl_po2_cap, AREX_FONT_SMALL, 0);
             lv_obj_set_style_bg_opa(lbl_po2_cap, LV_OPA_TRANSP, 0);
             lv_label_set_text(lbl_po2_cap, "PO2");
+            lv_obj_add_flag(lbl_po2_cap, LV_OBJ_FLAG_HIDDEN);
 
             static const lv_coord_t ppo2_x[5] = {
                 AREX_LEFT_ANCHOR_W / 2 + 30,
@@ -357,6 +394,7 @@ static void left_anchor_create(void)
             lv_obj_set_style_text_font(s_ppo2_vals[0], AREX_FONT_SMALL, 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[0], LV_OPA_TRANSP, 0);
             lv_label_set_text(s_ppo2_vals[0], "1.2");
+            lv_obj_add_flag(s_ppo2_vals[0], LV_OBJ_FLAG_HIDDEN);
 
             s_ppo2_seps[0] = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_ppo2_seps[0], ppo2_x[1], 210);
@@ -365,6 +403,7 @@ static void left_anchor_create(void)
             lv_obj_set_style_text_opa(s_ppo2_seps[0], LV_OPA_30, 0);
             lv_obj_set_style_bg_opa(s_ppo2_seps[0], LV_OPA_TRANSP, 0);
             lv_label_set_text(s_ppo2_seps[0], "|");
+            lv_obj_add_flag(s_ppo2_seps[0], LV_OBJ_FLAG_HIDDEN);
 
             s_ppo2_vals[1] = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_ppo2_vals[1], ppo2_x[2], 210);
@@ -372,6 +411,7 @@ static void left_anchor_create(void)
             lv_obj_set_style_text_font(s_ppo2_vals[1], AREX_FONT_SMALL, 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[1], LV_OPA_TRANSP, 0);
             lv_label_set_text(s_ppo2_vals[1], "1.2");
+            lv_obj_add_flag(s_ppo2_vals[1], LV_OBJ_FLAG_HIDDEN);
 
             s_ppo2_seps[1] = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_ppo2_seps[1], ppo2_x[3], 210);
@@ -380,6 +420,7 @@ static void left_anchor_create(void)
             lv_obj_set_style_text_opa(s_ppo2_seps[1], LV_OPA_30, 0);
             lv_obj_set_style_bg_opa(s_ppo2_seps[1], LV_OPA_TRANSP, 0);
             lv_label_set_text(s_ppo2_seps[1], "|");
+            lv_obj_add_flag(s_ppo2_seps[1], LV_OBJ_FLAG_HIDDEN);
 
             s_ppo2_vals[2] = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_ppo2_vals[2], ppo2_x[4], 210);
@@ -387,14 +428,7 @@ static void left_anchor_create(void)
             lv_obj_set_style_text_font(s_ppo2_vals[2], AREX_FONT_SMALL, 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[2], LV_OPA_TRANSP, 0);
             lv_label_set_text(s_ppo2_vals[2], "1.3");
-        }
-
-        /* 双拼对齐引擎 */
-        if (c->split > 0 && g_sys_config.split_outward) {
-            if (c->split == 2) {
-                /* 右块靠右 */
-                lv_obj_set_style_text_align(lbl_val, LV_TEXT_ALIGN_RIGHT, 0);
-            }
+            lv_obj_add_flag(s_ppo2_vals[2], LV_OBJ_FLAG_HIDDEN);
         }
 
         s_anchor_titles[i] = title_zone;
@@ -403,17 +437,9 @@ static void left_anchor_create(void)
         if (i == 0) s_lbl_depth = lbl_val;
     }
 
-    /* DEPTH 特殊处理: 使用大字体 */
+    /* DEPTH 特殊处理: 负字间距让大字更紧凑 */
     if (s_lbl_depth) {
-        lv_obj_set_style_text_font(s_lbl_depth, AREX_FONT_HUGE, 0);
         lv_obj_set_style_text_letter_space(s_lbl_depth, -2, 0);
-    }
-
-    /* POD1/POD2 字号降级 (med -> title) */
-    if (s_lbl_pod1) lv_obj_set_style_text_font(s_lbl_pod1, AREX_FONT_TITLE, 0);
-    if (s_lbl_pod2) {
-        lv_obj_set_style_text_font(s_lbl_pod2, AREX_FONT_TITLE, 0);
-        lv_obj_set_style_text_color(s_lbl_pod2, AREX_LIGHT, 0);
     }
 
     /* NEXT STOP 独立标签 (不占锚点格子,放 DEPTH 下方) */
@@ -1009,14 +1035,17 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         lv_obj_set_style_border_color(item, AREX_DARK, 0);
         lv_obj_set_style_border_width(item, 2, 0);
         lv_obj_set_style_radius(item, 0, 0);
-        lv_obj_set_style_pad_ver(item, 12, 0);
-        lv_obj_set_style_pad_hor(item, 15, 0);
+        lv_obj_set_style_pad_all(item, 0, 0);          /* 零边距，防止撑高 */
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_style_clip_corner(item, false, 0);
+        lv_obj_set_style_clip_corner(item, true, 0);   /* 强制裁剪溢出内容 */
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
         lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
+        lv_obj_set_size(lbl, LV_PCT(100), 48);         /* 尺寸死锁 */
+        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);  /* 左侧 12px 呼吸空间 */
+        lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
+        lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
         lv_label_set_text(lbl, items[i]);
     }
     arex_screen_set_submenu_selection(0);
@@ -1592,8 +1621,10 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
     lv_obj_t *lbl = lv_label_create(parent);
     lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
-    lv_label_set_text(lbl, text);
     lv_obj_set_pos(lbl, 16, 12);
+    lv_obj_set_size(lbl, (s_cached_right_w > 0 ? s_cached_right_w : 420) - 32, 28);
+    lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
+    lv_label_set_text(lbl, text);
 
     lv_obj_t *line = lv_obj_create(parent);
     uint16_t right_w = s_cached_right_w > 0 ? s_cached_right_w : 420;

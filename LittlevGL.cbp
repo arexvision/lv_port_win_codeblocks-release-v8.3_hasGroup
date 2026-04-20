@@ -1804,6 +1804,10 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/arex_screen.h" />
+		<Unit filename="src/arex_ui/arex_ui_engine.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_ui_engine.h" />
 		<Unit filename="src/arex_ui/arex_ui_state.c">
 			<Option compilerVar="CC" />
 		</Unit>

@@ -39,8 +39,8 @@ void card_setup_create(lv_obj_t *parent)
     arex_screen_make_card_title(parent, "> DIVE SETUP");
 
     s_list = lv_obj_create(parent);
-    lv_obj_set_size(s_list, 428, SETUP_ITEM_COUNT * 48 + (SETUP_ITEM_COUNT - 1) * 8);
-    lv_obj_set_pos(s_list, 16, 50);
+    lv_obj_set_size(s_list, LV_PCT(100), SETUP_ITEM_COUNT * 48 + (SETUP_ITEM_COUNT - 1) * 8);
+    lv_obj_set_pos(s_list, 0, 50);
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_pad_all(s_list, 0, 0);
@@ -56,22 +56,28 @@ void card_setup_create(lv_obj_t *parent)
         lv_obj_set_style_border_color(item, AREX_DARK, 0);
         lv_obj_set_style_border_width(item, 2, 0);
         lv_obj_set_style_radius(item, 0, 0);
-        lv_obj_set_style_pad_ver(item, 12, 0);
-        lv_obj_set_style_pad_hor(item, 15, 0);
+        lv_obj_set_style_pad_all(item, 0, 0);          /* 零边距，防止撑高 */
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_style_clip_corner(item, false, 0);
+        lv_obj_set_style_clip_corner(item, true, 0);   /* 强制裁剪溢出内容 */
 
-        /* Title label (child 0) */
+        /* 标题 label (child 0) — 左侧 12px 呼吸空间，占左侧主体宽度 */
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
         lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
+        lv_obj_set_size(lbl, 280, 48);
+        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
+        lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
+        lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
         lv_label_set_text(lbl, s_setup_items[i]);
 
-        /* Badge label (child 1) — right-aligned, light color */
+        /* Badge label (child 1) — 右侧 12px 呼吸空间 */
         lv_obj_t *badge = lv_label_create(item);
         lv_obj_set_style_text_color(badge, AREX_LIGHT, 0);
         lv_obj_set_style_text_font(badge, AREX_FONT_SMALL, 0);
-        lv_obj_align(badge, LV_ALIGN_RIGHT_MID, -2, 0);
+        lv_obj_set_size(badge, 80, 28);
+        lv_obj_align(badge, LV_ALIGN_RIGHT_MID, -12, 0);
+        lv_obj_set_style_text_align(badge, LV_TEXT_ALIGN_RIGHT, 0);
+        lv_label_set_long_mode(badge, LV_LABEL_LONG_DOT);
         lv_label_set_text(badge, s_setup_badges[i] ? s_setup_badges[i] : "");
         s_badge_lbls[i] = badge;
     }
