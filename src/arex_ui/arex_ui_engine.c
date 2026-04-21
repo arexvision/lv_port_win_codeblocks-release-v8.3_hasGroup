@@ -45,9 +45,9 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->h_depth  = 8;   /* 80px  */
     cfg->h_ndl    = 6;   /* 60px  */
     cfg->h_pod    = 6;   /* 60px  */
-    cfg->h_batt   = 4;   /* 40px  */
+    cfg->h_batt   = 5;   /* 50px → val_h=30px，可放 SMALL(14px) 且有余量  */
     cfg->h_gas    = 6;   /* 60px  */
-    cfg->h_time   = 4;   /* 40px  */
+    cfg->h_time   = 5;   /* 50px → val_h=30px */
     cfg->gap_u    = 1;   /* 10px  */
     cfg->title_h_u = 2;  /* 20px  */
 

@@ -64,7 +64,7 @@ void card_setup_create(lv_obj_t *parent)
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
         lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
-        lv_obj_set_size(lbl, 280, 48);
+        lv_obj_set_size(lbl, 280, LV_SIZE_CONTENT);  /* 高度自适应，让 align 居中生效 */
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
@@ -87,17 +87,24 @@ void card_setup_create(lv_obj_t *parent)
 
 void card_setup_update(void)
 {
-    /* Sync badge text with live settings */
     if (!s_list) return;
 
     static const char *cons_str[] = { "LOW", "MED", "HIGH" };
     static const char *brt_str[]  = { "LOW", "MED", "HIGH", "MAX" };
 
+    /* dirty check：只在值真正变化时才调用 set_text，避免触发无效重绘 */
+    static uint8_t last_cons = 0xFF;
+    static uint8_t last_brt  = 0xFF;
+
     uint8_t cons = g_arex.settings.conservatism;
     uint8_t brt  = g_arex.settings.brightness;
 
-    if (s_badge_lbls[1] && cons < 3)
+    if (s_badge_lbls[1] && cons < 3 && cons != last_cons) {
         lv_label_set_text(s_badge_lbls[1], cons_str[cons]);
-    if (s_badge_lbls[2] && brt < 4)
+        last_cons = cons;
+    }
+    if (s_badge_lbls[2] && brt < 4 && brt != last_brt) {
         lv_label_set_text(s_badge_lbls[2], brt_str[brt]);
+        last_brt = brt;
+    }
 }
