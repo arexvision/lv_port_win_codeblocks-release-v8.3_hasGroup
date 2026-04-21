@@ -48,8 +48,11 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->h_batt   = 5;   /* 50px → val_h=30px，可放 SMALL(14px) 且有余量  */
     cfg->h_gas    = 6;   /* 60px  */
     cfg->h_time   = 5;   /* 50px → val_h=30px */
-    cfg->gap_u    = 1;   /* 10px  */
-    cfg->title_h_u = 2;  /* 20px  */
+    cfg->gap_u         = 1;   /* 10px  */
+    cfg->title_h_u     = 2;   /* 20px  */
+    cfg->h_menu_item   = 5;   /* 48px (取整，实际使用时硬用48) */
+    cfg->gap_menu      = 1;   /* 8px  (实际使用时硬用8) */
+    cfg->h_tissues_chart = 9; /* 90px */
 
     /* 默认 5F 网格布局 */
     cfg->widget_count = 6;

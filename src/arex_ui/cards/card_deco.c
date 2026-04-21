@@ -6,32 +6,18 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#define BAR_W   23
-#define BAR_H   80
-#define BAR_GAP 4
 #define GRID_X  16
-#define TISSUE_AREA_W    (16 * (BAR_W + BAR_GAP) - BAR_GAP)
 
-/* Tile content height — 运行时从配置读取，不依赖硬编码屏高 */
-/* BARS_Y / SEC_TITLE_Y 在 card_deco_create() 内作为局部变量计算 */
-/* 规范：组织区底部余白约 36px（从480px屏高减去bar区+标签+余白）
-   调整 BOTTOM_PAD 使 Section Title Y = 250（规范）*/
-#define BOTTOM_PAD       36
-#define BAR_LBL_GAP      4
-#define COMPARTMENT_LBL_H 14 /* AREX_FONT_SMALL line height */
-#define SEC_TITLE_GAP    6   /* HTML .tissue-section-title 与组织区的间距 */
-#define SEC_TITLE_H      14 /* AREX_FONT_SMALL(14px)，规范字体18px暂无 */
-
-/* 底部余白、标签间距等保持不变，BARS_Y 在函数内动态计算 */
-
-/* HTML: .t-fill.high for ~75–85%; .t-fill.danger (flashInvert) for top compartment ~95% */
 #define TISSUE_DANGER_PCT   90
 #define TISSUE_HIGH_MIN     70
-
-/* HTML --flash-speed default 0.3s → 300ms half-period for flashInvert */
 #define TISSUE_FLASH_MS     300
 
-static lv_obj_t *s_bars[16];
+/* 运行时从配置推算，card_deco_create 内局部变量 */
+static lv_obj_t *s_bars[16];       /* 每根柱子的 fill 块 */
+static int        s_chart_h;        /* 组织图高度（容器总高） */
+static int        s_bar_max_h;      /* 柱子最大高度（= chart_h - NUM_LBL_H，给编号留空间） */
+static int        s_bar_col_w;      /* 每列宽度（含间隙） */
+
 static lv_obj_t *s_lbl_gf99;
 static lv_obj_t *s_lbl_surf_gf;
 static lv_obj_t *s_lbl_cns;
@@ -57,7 +43,7 @@ static void tissue_danger_flash_cb(lv_timer_t *t)
     for (int i = 0; i < 16; i++) {
         if (g_sensor_data.tissue_pct[i] >= TISSUE_DANGER_PCT) {
             lv_color_t c = s_tissue_flash_phase ? AREX_GREEN : AREX_BLACK;
-            lv_obj_set_style_bg_color(s_bars[i], c, LV_PART_INDICATOR);
+            lv_obj_set_style_bg_color(s_bars[i], c, 0);
         }
     }
 }
@@ -77,13 +63,6 @@ static void tissue_flash_ensure(void)
     }
 }
 
-/* HTML .t-bar: rgba(0,51,0,0.5) — AREX_DARK is #003300 */
-static void bar_set_track_style(lv_obj_t *bar)
-{
-    lv_obj_set_style_bg_color(bar, AREX_DARK, LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(bar, LV_OPA_50, LV_PART_MAIN);
-}
-
 static lv_color_t tissue_fill_color(uint8_t pct)
 {
     if (pct >= TISSUE_DANGER_PCT)
@@ -93,7 +72,6 @@ static lv_color_t tissue_fill_color(uint8_t pct)
     return AREX_GREEN;
 }
 
-/* HTML .highlight-invert on SurfGF when over limit (145% demo): green bg, black text */
 static void surf_gf_apply_style(void)
 {
     if (g_sensor_data.cns_pct > 50) {
@@ -101,20 +79,17 @@ static void surf_gf_apply_style(void)
         lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_COVER, 0);
         lv_obj_set_style_text_color(s_lbl_surf_gf, AREX_BLACK, 0);
         lv_obj_set_style_pad_hor(s_lbl_surf_gf, 4, 0);
-        lv_obj_set_style_pad_ver(s_lbl_surf_gf, 0, 0);
     } else {
         lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_TRANSP, 0);
         lv_obj_set_style_text_color(s_lbl_surf_gf, AREX_GREEN, 0);
         lv_obj_set_style_pad_hor(s_lbl_surf_gf, 0, 0);
-        lv_obj_set_style_pad_ver(s_lbl_surf_gf, 0, 0);
     }
 }
 
-/* Helper: one deco-grid row (HTML .deco-grid) */
+/* 一行数据网格：caption + value，左右各一组 */
 static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
                            const char *left_cap, const char *left_val, lv_obj_t **left_ref,
-                           const char *right_cap, const char *right_val, lv_obj_t **right_ref,
-                           bool dashed_bottom)
+                           const char *right_cap, const char *right_val, lv_obj_t **right_ref)
 {
     lv_obj_t *lc = lv_label_create(parent);
     lv_obj_set_style_text_color(lc, AREX_LIGHT, 0);
@@ -141,94 +116,114 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
     lv_label_set_text(rv, right_val);
     lv_obj_set_pos(rv, 240, y + 16);
     if (right_ref) *right_ref = rv;
-
-    if (dashed_bottom) {
-        lv_obj_t *line = lv_obj_create(parent);
-        lv_obj_set_size(line, 428, 1);
-        lv_obj_set_pos(line, GRID_X, y + 40);
-        lv_obj_set_style_bg_color(line, AREX_DARK, 0);
-        lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(line, 0, 0);
-        lv_obj_set_style_pad_all(line, 0, 0);
-        lv_obj_set_style_radius(line, 0, 0);
-    }
 }
 
 void card_deco_create(lv_obj_t *parent)
 {
-    /* 运行时推算坐标，跟随 safe_zone_h，不依赖硬编码屏高 */
-    lv_coord_t tile_h       = (lv_coord_t)g_sys_config.safe_zone_h;
-    lv_coord_t bar_lbl_bot  = tile_h - BOTTOM_PAD;
-    lv_coord_t bars_y       = bar_lbl_bot - COMPARTMENT_LBL_H - BAR_LBL_GAP - BAR_H;
-    lv_coord_t sec_title_y  = bars_y - SEC_TITLE_GAP - SEC_TITLE_H;
+    /* 从配置总线推算右侧宽度和图表高度 */
+    int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                         - (g_sys_config.gap_u * AREX_BASE_U);
+    int chart_h = g_sys_config.h_tissues_chart * AREX_BASE_U; /* 默认 9U = 90px */
+    int chart_w = right_canvas_w - 15;
+
+    s_chart_h   = chart_h;
+    s_bar_col_w = chart_w / 16;
 
     arex_screen_make_card_title(parent, "2F: TISSUES & DECO");
 
-    /* HTML order: three .deco-grid rows under title
-       调整行间距：section title y=290，rows均匀分布 */
-    make_grid_row(parent, 60,                  /* 原 50 */
+    /* 三行数据网格，紧贴标题下方，行高约 40px（14px caption + 20px value + 6px gap） */
+    make_grid_row(parent, 55,
                   "ALGORITHM", "ZHL-16C", NULL,
-                  "GF LOW / HIGH", "30 / 70", NULL,
-                  true);
+                  "GF LOW / HIGH", "30 / 70", NULL);
 
-    make_grid_row(parent, 107,                 /* 原 97 */
+    make_grid_row(parent, 100,
                   "GF99", "--", &s_lbl_gf99,
-                  "SurfGF", "--", &s_lbl_surf_gf,
-                  true);
+                  "SurfGF", "--", &s_lbl_surf_gf);
 
-    make_grid_row(parent, 154,                /* 原 144 */
+    make_grid_row(parent, 145,
                   "CNS O2", "--%", &s_lbl_cns,
-                  "OTU", "--", &s_lbl_otu,
-                  false);
+                  "OTU", "--", &s_lbl_otu);
 
-    /* HTML .tissue-section-title — directly above .tissue-container, margin-top:auto on card */
+    /* 组织图容器：高度 = 柱子区 + 编号行，底部锁定，底部留 8px */
+#define NUM_LBL_H  16   /* 编号行高度，给底部数字预留 */
+    int total_chart_h = chart_h + NUM_LBL_H;
+    /* 柱子最大高度 = chart_h - NUM_LBL_H，给底部编号留出 16px 空间 */
+    int bar_max_h = chart_h - NUM_LBL_H;
+    s_bar_max_h = bar_max_h;
+
+    lv_obj_t *chart_cont = lv_obj_create(parent);
+    lv_obj_set_size(chart_cont, chart_w, total_chart_h);
+    lv_obj_align(chart_cont, LV_ALIGN_BOTTOM_LEFT, GRID_X, -8);
+    lv_obj_set_style_pad_all(chart_cont, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(chart_cont, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(chart_cont, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_clear_flag(chart_cont, LV_OBJ_FLAG_SCROLLABLE);
+
+    /* Section 标题，紧贴图表容器上方 8px */
     lv_obj_t *sec_lbl = lv_label_create(parent);
     lv_obj_set_style_text_color(sec_lbl, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(sec_lbl, AREX_FONT_SMALL, 0);
     lv_label_set_text(sec_lbl, "TISSUE SATURATION (16 COMPARTMENTS)");
-    lv_obj_set_pos(sec_lbl, GRID_X, sec_title_y);
+    lv_obj_align_to(sec_lbl, chart_cont, LV_ALIGN_OUT_TOP_LEFT, 0, -6);
 
-    for (int i = 0; i < 16; i++) {
-        lv_obj_t *bar = lv_bar_create(parent);
-        lv_bar_set_range(bar, 0, 110);
-        lv_obj_set_size(bar, BAR_W, BAR_H);
-        lv_obj_set_pos(bar, GRID_X + i * (BAR_W + BAR_GAP), bars_y);
-        lv_bar_set_start_value(bar, 0, LV_ANIM_OFF);
-        lv_bar_set_value(bar, 0, LV_ANIM_OFF);
-
-        bar_set_track_style(bar);
-        lv_obj_set_style_bg_color(bar, AREX_GREEN, LV_PART_INDICATOR);
-        lv_obj_set_style_radius(bar, 0, 0);
-        lv_obj_set_style_radius(bar, 0, LV_PART_INDICATOR);
-
-        s_bars[i] = bar;
-
-        lv_obj_t *lbl = lv_label_create(parent);
-        lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
-        lv_obj_set_style_text_font(lbl, AREX_FONT_SMALL, 0);
-        char buf[4];
-        snprintf(buf, sizeof(buf), "%d", i + 1);
-        lv_label_set_text(lbl, buf);
-        lv_obj_set_pos(lbl, GRID_X + i * (BAR_W + BAR_GAP), bars_y + BAR_H + BAR_LBL_GAP);
-    }
-
-    /* HTML .m-value-line at top 20% of 80px tissue-container */
-    lv_obj_t *mline = lv_obj_create(parent);
-    lv_obj_set_size(mline, TISSUE_AREA_W, 2);
-    lv_obj_set_pos(mline, GRID_X, bars_y + (lv_coord_t)(BAR_H * 0.2f));
+    /* M-VALUE 基准线（bar_max_h 的 top 20% 处） */
+    lv_coord_t mline_y = (lv_coord_t)(bar_max_h * 0.2f);
+    lv_obj_t *mline = lv_obj_create(chart_cont);
+    lv_obj_set_size(mline, chart_w, 2);
+    lv_obj_set_pos(mline, 0, mline_y);
     lv_obj_set_style_bg_color(mline, AREX_GREEN, 0);
     lv_obj_set_style_bg_opa(mline, LV_OPA_50, 0);
     lv_obj_set_style_border_width(mline, 0, 0);
     lv_obj_set_style_pad_all(mline, 0, 0);
     lv_obj_set_style_radius(mline, 0, 0);
 
-    lv_obj_t *mlbl = lv_label_create(parent);
+    /* M-VALUE 标签：黑底遮住后面柱子，像橡皮擦 */
+    lv_obj_t *mlbl = lv_label_create(chart_cont);
     lv_obj_set_style_text_color(mlbl, AREX_GREEN, 0);
     lv_obj_set_style_text_font(mlbl, AREX_FONT_SMALL, 0);
-    lv_obj_set_style_bg_opa(mlbl, LV_OPA_TRANSP, 0);
-    lv_label_set_text(mlbl, "M-VALUE");
-    lv_obj_set_pos(mlbl, GRID_X + TISSUE_AREA_W - 58,
-                   bars_y + (lv_coord_t)(BAR_H * 0.2f) - 12);
+    lv_obj_set_style_bg_color(mlbl, AREX_BLACK, 0);
+    lv_obj_set_style_bg_opa(mlbl, LV_OPA_COVER, 0);
+    lv_obj_set_style_pad_hor(mlbl, 3, 0);
+    lv_label_set_text(mlbl, "M-VAL");
+    lv_obj_set_pos(mlbl, chart_w - 52, mline_y - 12);
+
+    /* 16 根柱子：嵌套降高 — 柱子TOP对齐（留底部给编号），填充底部对齐 */
+    int col_w = s_bar_col_w;
+    for (int i = 0; i < 16; i++) {
+        /* 1. 柱子背景框：TOP_MID 悬空对齐，下方自动空出 16px 给编号 */
+        lv_obj_t *bar_bg = lv_obj_create(chart_cont);
+        lv_obj_set_pos(bar_bg, i * col_w, 0);
+        lv_obj_set_size(bar_bg, col_w - 4, bar_max_h);
+        lv_obj_align(bar_bg, LV_ALIGN_TOP_MID, 0, 0);
+        lv_obj_set_style_bg_color(bar_bg, AREX_DARK, 0);
+        lv_obj_set_style_bg_opa(bar_bg, LV_OPA_50, 0);
+        lv_obj_set_style_border_width(bar_bg, 0, 0);
+        lv_obj_set_style_pad_all(bar_bg, 0, 0);
+        lv_obj_set_style_radius(bar_bg, 0, 0);
+        lv_obj_clear_flag(bar_bg, LV_OBJ_FLAG_SCROLLABLE);
+
+        /* 2. 绿色填充：宽度撑满柱宽，底部对齐（bar_bg 内贴底生长） */
+        lv_obj_t *bar_fill = lv_obj_create(bar_bg);
+        lv_obj_set_size(bar_fill, LV_PCT(100), 0);
+        lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_set_style_bg_color(bar_fill, AREX_GREEN, 0);
+        lv_obj_set_style_bg_opa(bar_fill, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(bar_fill, 0, 0);
+        lv_obj_set_style_pad_all(bar_fill, 0, 0);
+        lv_obj_set_style_radius(bar_fill, 0, 0);
+        lv_obj_clear_flag(bar_fill, LV_OBJ_FLAG_SCROLLABLE);
+
+        s_bars[i] = bar_fill;
+
+        /* 3. 底部编号（1~16）：真正贴容器底部的元素 */
+        lv_obj_t *lbl = lv_label_create(chart_cont);
+        lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
+        lv_obj_set_style_text_font(lbl, AREX_FONT_SMALL, 0);
+        char buf[4];
+        lv_snprintf(buf, sizeof(buf), "%d", i + 1);
+        lv_label_set_text(lbl, buf);
+        lv_obj_align(lbl, LV_ALIGN_BOTTOM_MID, i * col_w + (col_w - 4) / 2 - 3, -16);
+    }
 
     card_deco_update();
 }
@@ -237,25 +232,28 @@ void card_deco_update(void)
 {
     char buf[16];
 
-    snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
+    lv_snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
     lv_label_set_text(s_lbl_gf99, buf);
 
-    snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
+    lv_snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
     lv_label_set_text(s_lbl_surf_gf, buf);
     surf_gf_apply_style();
 
-    snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
+    lv_snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
     lv_label_set_text(s_lbl_cns, buf);
 
-    snprintf(buf, sizeof(buf), "%d", g_sensor_data.otu);
+    lv_snprintf(buf, sizeof(buf), "%d", g_sensor_data.otu);
     lv_label_set_text(s_lbl_otu, buf);
 
     tissue_flash_ensure();
 
     for (int i = 0; i < 16; i++) {
         uint8_t pct = g_sensor_data.tissue_pct[i];
-        lv_bar_set_value(s_bars[i], pct, LV_ANIM_ON);
-        bar_set_track_style(s_bars[i]);
-        lv_obj_set_style_bg_color(s_bars[i], tissue_fill_color(pct), LV_PART_INDICATOR);
+        /* 从 0~110 映射到 s_bar_max_h（给底部编号留空间的实际柱子高度） */
+        int fill_h = (int)((pct > 110 ? 110 : pct) * s_bar_max_h / 110);
+        lv_obj_set_size(s_bars[i], LV_PCT(100), fill_h);
+        lv_obj_align(s_bars[i], LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_set_style_bg_color(s_bars[i], tissue_fill_color(pct), 0);
     }
 }
+

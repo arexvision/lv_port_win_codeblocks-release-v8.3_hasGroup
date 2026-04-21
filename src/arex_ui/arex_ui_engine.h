@@ -102,6 +102,9 @@ typedef struct {
     uint8_t  h_time;         /* DIVE TIME 底部 (默认 4U) */
     uint8_t  gap_u;          /* 模块间距 (默认 1U) */
     uint8_t  title_h_u;      /* 标题高度 (默认 2U) */
+    uint8_t  h_menu_item;    /* 菜单项高度 (默认 4.8U→取整5U=48px) */
+    uint8_t  gap_menu;       /* 菜单项间距 (默认 0.8U=8px) */
+    uint8_t  h_tissues_chart;/* 组织柱图高度 (默认 9U=90px) */
 
     /* --- 5F 自定义网格 (5x6 密集排版) --- */
     uint8_t  widget_count;    /* 当前装填的组件数量 (最多30) */

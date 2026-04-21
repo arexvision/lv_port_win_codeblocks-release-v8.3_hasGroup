@@ -20,50 +20,57 @@ void card_gas_create(lv_obj_t *parent)
 {
     arex_screen_make_card_title(parent, "3F: GAS SWITCH");
 
+    int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                         - (g_sys_config.gap_u * AREX_BASE_U);
+    int row_w = right_canvas_w - 15;   /* 右侧 15px 呼吸间隙 */
+
     for (int i = 0; i < AREX_GAS_COUNT; i++) {
         lv_coord_t row_y = 50 + i * (GAS_ROW_H + GAS_ROW_GAP);
 
         lv_obj_t *row = lv_obj_create(parent);
-        lv_obj_set_size(row, 428, GAS_ROW_H);
+        lv_obj_set_size(row, row_w, GAS_ROW_H);
         lv_obj_set_pos(row, 16, row_y);
         lv_obj_set_style_bg_color(row, lv_color_make(0,0,0), 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(row, AREX_DARK, 0);
         lv_obj_set_style_border_width(row, 2, 0);
         lv_obj_set_style_radius(row, 0, 0);
-        lv_obj_set_style_pad_ver(row, 12, 0); /* 规范：padding 上下 12px */
-        lv_obj_set_style_pad_hor(row, 15, 0);
+        lv_obj_set_style_pad_all(row, 0, LV_PART_MAIN);   /* 零边距，子元素绝对定位 */
         lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
         s_items[i] = row;
 
-        /* Gas name — left side */
+        /* Gas name — 左侧 12px 呼吸，垂直居中 */
         lv_obj_t *lbl_name = lv_label_create(row);
-        lv_obj_set_style_text_color(lbl_name, lv_color_make(0x00,0xFF,0x00), 0);
+        lv_obj_set_style_text_color(lbl_name, AREX_GREEN, 0);
         lv_obj_set_style_text_font(lbl_name, AREX_FONT_TITLE, 0);
         lv_label_set_text(lbl_name, AREX_GAS_NAMES[i]);
-        /* 规范：pad_ver=12px(上下)，行高49px → 内容区25px；字体20px垂直居中 */
-        lv_obj_set_pos(lbl_name, 0, 2);
+        lv_obj_set_size(lbl_name, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_align(lbl_name, LV_ALIGN_LEFT_MID, 12, 0);
 
-        /* MOD — right side, top */
+        /* MOD — 右侧，垂直偏上 */
         s_lbl_mod[i] = lv_label_create(row);
-        lv_obj_set_style_text_color(s_lbl_mod[i], lv_color_make(0x55,0xFF,0x55), 0);
+        lv_obj_set_style_text_color(s_lbl_mod[i], AREX_LIGHT, 0);
         lv_obj_set_style_text_font(s_lbl_mod[i], AREX_FONT_SMALL, 0);
         char buf[20];
         snprintf(buf, sizeof(buf), "MOD %dm", AREX_GAS_MOD_M[i]);
         lv_label_set_text(s_lbl_mod[i], buf);
-        lv_obj_set_pos(s_lbl_mod[i], 220, 0);
+        lv_obj_set_size(s_lbl_mod[i], LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_set_style_text_align(s_lbl_mod[i], LV_TEXT_ALIGN_RIGHT, 0);
+        lv_obj_align(s_lbl_mod[i], LV_ALIGN_RIGHT_MID, -25, -9);
 
-        /* PPO2 — right side, bottom */
+        /* PPO2 — 右侧，垂直偏下 */
         s_lbl_ppo2[i] = lv_label_create(row);
-        lv_obj_set_style_text_color(s_lbl_ppo2[i], lv_color_make(0x55,0xFF,0x55), 0);
+        lv_obj_set_style_text_color(s_lbl_ppo2[i], AREX_LIGHT, 0);
         lv_obj_set_style_text_font(s_lbl_ppo2[i], AREX_FONT_SMALL, 0);
         lv_label_set_text(s_lbl_ppo2[i], "PO2 -.-");
-        lv_obj_set_pos(s_lbl_ppo2[i], 220, 18);
+        lv_obj_set_size(s_lbl_ppo2[i], LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_set_style_text_align(s_lbl_ppo2[i], LV_TEXT_ALIGN_RIGHT, 0);
+        lv_obj_align(s_lbl_ppo2[i], LV_ALIGN_RIGHT_MID, -25, 9);
     }
 
     /* Hint text at bottom */
     s_hint = lv_label_create(parent);
-    lv_obj_set_style_text_color(s_hint, lv_color_make(0x55,0xFF,0x55), 0);
+    lv_obj_set_style_text_color(s_hint, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(s_hint, AREX_FONT_SMALL, 0);
     lv_label_set_text(s_hint, "[ PRESS TO SWITCH GAS ]");
     lv_obj_align(s_hint, LV_ALIGN_BOTTOM_MID, 0, -20);

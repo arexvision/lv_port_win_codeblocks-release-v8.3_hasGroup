@@ -38,41 +38,45 @@ void card_setup_create(lv_obj_t *parent)
 {
     arex_screen_make_card_title(parent, "> DIVE SETUP");
 
+    /* 从配置总线推算物理尺寸 */
+    int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                         - (g_sys_config.gap_u * AREX_BASE_U);
+    int item_h = 48;
+    int item_w = right_canvas_w - 15;
+    int gap_y  = 8;
+
     s_list = lv_obj_create(parent);
-    lv_obj_set_size(s_list, LV_PCT(100), SETUP_ITEM_COUNT * 48 + (SETUP_ITEM_COUNT - 1) * 8);
+    lv_obj_set_size(s_list, right_canvas_w,
+                    SETUP_ITEM_COUNT * item_h + (SETUP_ITEM_COUNT - 1) * gap_y);
     lv_obj_set_pos(s_list, 0, 50);
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_pad_all(s_list, 0, 0);
-    lv_obj_set_style_pad_left(s_list, 8, 0);
-    lv_obj_set_style_pad_right(s_list, 8, 0);
-    lv_obj_set_style_pad_row(s_list, 8, 0);
-    lv_obj_set_flex_flow(s_list, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_scrollbar_mode(s_list, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_clear_flag(s_list, LV_OBJ_FLAG_SCROLLABLE);
 
+    int current_y = 0;
     for (uint8_t i = 0; i < SETUP_ITEM_COUNT; i++) {
         lv_obj_t *item = lv_obj_create(s_list);
-        lv_obj_set_size(item, LV_PCT(100), 48);
+        lv_obj_set_pos(item, 0, current_y);
+        lv_obj_set_size(item, item_w, item_h);
         lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
         lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(item, AREX_DARK, 0);
-        lv_obj_set_style_border_width(item, 2, 0);
+        lv_obj_set_style_border_width(item, 2, LV_PART_MAIN);
         lv_obj_set_style_radius(item, 0, 0);
-        lv_obj_set_style_pad_all(item, 0, 0);          /* 零边距，防止撑高 */
+        lv_obj_set_style_pad_all(item, 0, LV_PART_MAIN);
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_set_style_clip_corner(item, true, 0);   /* 强制裁剪溢出内容 */
 
-        /* 标题 label (child 0) — 左侧 12px 呼吸空间，占左侧主体宽度 */
+        /* 标题 label (child 0) */
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
         lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
-        lv_obj_set_size(lbl, 280, LV_SIZE_CONTENT);  /* 高度自适应，让 align 居中生效 */
+        lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
-        lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
         lv_label_set_text(lbl, s_setup_items[i]);
 
-        /* Badge label (child 1) — 右侧 12px 呼吸空间 */
+        /* Badge label (child 1) */
         lv_obj_t *badge = lv_label_create(item);
         lv_obj_set_style_text_color(badge, AREX_LIGHT, 0);
         lv_obj_set_style_text_font(badge, AREX_FONT_SMALL, 0);
@@ -82,6 +86,8 @@ void card_setup_create(lv_obj_t *parent)
         lv_label_set_long_mode(badge, LV_LABEL_LONG_DOT);
         lv_label_set_text(badge, s_setup_badges[i] ? s_setup_badges[i] : "");
         s_badge_lbls[i] = badge;
+
+        current_y += item_h + gap_y;
     }
 
     arex_screen_register_setup_list(s_list);
