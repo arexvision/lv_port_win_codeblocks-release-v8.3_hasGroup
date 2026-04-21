@@ -12,9 +12,8 @@
 #define GRID_X  16
 #define TISSUE_AREA_W    (16 * (BAR_W + BAR_GAP) - BAR_GAP)
 
-/* Tile content height = AREX_SCREEN_H (480). HTML .card: flex column; .tissue-section-title
-   has margin-top:auto → tissue block sits on bottom. LVGL: pin bars from bottom upward. */
-#define TILE_H           AREX_SCREEN_H
+/* Tile content height — 运行时从配置读取，不依赖硬编码屏高 */
+/* BARS_Y / SEC_TITLE_Y 在 card_deco_create() 内作为局部变量计算 */
 /* 规范：组织区底部余白约 36px（从480px屏高减去bar区+标签+余白）
    调整 BOTTOM_PAD 使 Section Title Y = 250（规范）*/
 #define BOTTOM_PAD       36
@@ -23,9 +22,7 @@
 #define SEC_TITLE_GAP    6   /* HTML .tissue-section-title 与组织区的间距 */
 #define SEC_TITLE_H      14 /* AREX_FONT_SMALL(14px)，规范字体18px暂无 */
 
-#define BAR_LBL_BOTTOM   (TILE_H - BOTTOM_PAD)
-#define BARS_Y           (BAR_LBL_BOTTOM - COMPARTMENT_LBL_H - BAR_LBL_GAP - BAR_H)
-#define SEC_TITLE_Y      (BARS_Y - SEC_TITLE_GAP - SEC_TITLE_H)
+/* 底部余白、标签间距等保持不变，BARS_Y 在函数内动态计算 */
 
 /* HTML: .t-fill.high for ~75–85%; .t-fill.danger (flashInvert) for top compartment ~95% */
 #define TISSUE_DANGER_PCT   90
@@ -159,6 +156,12 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 
 void card_deco_create(lv_obj_t *parent)
 {
+    /* 运行时推算坐标，跟随 safe_zone_h，不依赖硬编码屏高 */
+    lv_coord_t tile_h       = (lv_coord_t)g_sys_config.safe_zone_h;
+    lv_coord_t bar_lbl_bot  = tile_h - BOTTOM_PAD;
+    lv_coord_t bars_y       = bar_lbl_bot - COMPARTMENT_LBL_H - BAR_LBL_GAP - BAR_H;
+    lv_coord_t sec_title_y  = bars_y - SEC_TITLE_GAP - SEC_TITLE_H;
+
     arex_screen_make_card_title(parent, "2F: TISSUES & DECO");
 
     /* HTML order: three .deco-grid rows under title
@@ -183,13 +186,13 @@ void card_deco_create(lv_obj_t *parent)
     lv_obj_set_style_text_color(sec_lbl, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(sec_lbl, AREX_FONT_SMALL, 0);
     lv_label_set_text(sec_lbl, "TISSUE SATURATION (16 COMPARTMENTS)");
-    lv_obj_set_pos(sec_lbl, GRID_X, SEC_TITLE_Y);
+    lv_obj_set_pos(sec_lbl, GRID_X, sec_title_y);
 
     for (int i = 0; i < 16; i++) {
         lv_obj_t *bar = lv_bar_create(parent);
         lv_bar_set_range(bar, 0, 110);
         lv_obj_set_size(bar, BAR_W, BAR_H);
-        lv_obj_set_pos(bar, GRID_X + i * (BAR_W + BAR_GAP), BARS_Y);
+        lv_obj_set_pos(bar, GRID_X + i * (BAR_W + BAR_GAP), bars_y);
         lv_bar_set_start_value(bar, 0, LV_ANIM_OFF);
         lv_bar_set_value(bar, 0, LV_ANIM_OFF);
 
@@ -206,13 +209,13 @@ void card_deco_create(lv_obj_t *parent)
         char buf[4];
         snprintf(buf, sizeof(buf), "%d", i + 1);
         lv_label_set_text(lbl, buf);
-        lv_obj_set_pos(lbl, GRID_X + i * (BAR_W + BAR_GAP), BARS_Y + BAR_H + BAR_LBL_GAP);
+        lv_obj_set_pos(lbl, GRID_X + i * (BAR_W + BAR_GAP), bars_y + BAR_H + BAR_LBL_GAP);
     }
 
     /* HTML .m-value-line at top 20% of 80px tissue-container */
     lv_obj_t *mline = lv_obj_create(parent);
     lv_obj_set_size(mline, TISSUE_AREA_W, 2);
-    lv_obj_set_pos(mline, GRID_X, BARS_Y + (lv_coord_t)(BAR_H * 0.2f));
+    lv_obj_set_pos(mline, GRID_X, bars_y + (lv_coord_t)(BAR_H * 0.2f));
     lv_obj_set_style_bg_color(mline, AREX_GREEN, 0);
     lv_obj_set_style_bg_opa(mline, LV_OPA_50, 0);
     lv_obj_set_style_border_width(mline, 0, 0);
@@ -224,9 +227,8 @@ void card_deco_create(lv_obj_t *parent)
     lv_obj_set_style_text_font(mlbl, AREX_FONT_SMALL, 0);
     lv_obj_set_style_bg_opa(mlbl, LV_OPA_TRANSP, 0);
     lv_label_set_text(mlbl, "M-VALUE");
-    /* HTML .m-value-label: right: 5px from tissue area edge, above dashed line */
     lv_obj_set_pos(mlbl, GRID_X + TISSUE_AREA_W - 58,
-                   BARS_Y + (lv_coord_t)(BAR_H * 0.2f) - 12);
+                   bars_y + (lv_coord_t)(BAR_H * 0.2f) - 12);
 
     card_deco_update();
 }

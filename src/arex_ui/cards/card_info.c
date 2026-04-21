@@ -31,6 +31,8 @@ void card_info_create(lv_obj_t *parent)
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_pad_all(s_list, 0, 0);
+    lv_obj_set_style_pad_left(s_list, 8, 0);    /* 左侧 8px 呼吸空间 */
+    lv_obj_set_style_pad_right(s_list, 8, 0);   /* 右侧 8px 呼吸空间，防止贴边 */
     lv_obj_set_style_pad_row(s_list, 8, 0);
     lv_obj_set_flex_flow(s_list, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_scrollbar_mode(s_list, LV_SCROLLBAR_MODE_OFF);
