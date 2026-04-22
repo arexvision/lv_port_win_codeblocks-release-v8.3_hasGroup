@@ -585,3 +585,58 @@ SETUP → SYSTEM SETUP（二级）
 | `arex_screen_update_setup_badge(item_idx, value)` | 更新 SETUP 菜单行的右侧 badge label |
 | `arex_screen_show_modal_act(action_text)` | 显示通用动作弹窗，1秒后自动关闭，状态回 `UI_SUB_MENU` |
 | `arex_screen_begin_edit_value(item_idx, value, min, max, step)` | 初始化 `edit_ctx`，进入 `UI_EDIT_VALUE` 状态；UI：行黑底+绿边框；整行 flex `space-between`（对齐 HTML 第 137 行）；数值 `X.X` 在绿底 badge 内居中；箭头 `^ v`；`s_edit_flash_timer` 600ms 切换 badge 背景（绿↔黑）与数值文字颜色（黑↔绿） |
+## 15. LVGL 绝对坐标排版标准（v2026-04-22）
+
+> 详细规范见 `UI_html_DOC/LVGL_LAYOUT_GUIDE.md`。本节为快速索引。
+
+### 15.1 物理参数与安全区
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `AREX_BASE_U` | 10px | 1U = 10px，所有尺寸必须是 10 的倍数 |
+| `AREX_PHYSICAL_W/H` | 640x480 | 物理屏幕锁死，不可逾越 |
+| `SAFE_ZONE` | 580x400 | 安全画布，offset_x/y 驱动物理位移 |
+| `AREX_LEFT_ANCHOR_W` | 160px | 左侧锚点固定宽度 |
+| `GLOBAL_GAP` | 20px | 左/右分区隔离间距 |
+
+### 15.2 Tech 模式布局推算
+
+```
+uint16_t gap = g_sys_config.gap_u * AREX_BASE_U;  // 20px
+uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - gap;  // 400px
+```
+
+### 15.3 渲染铁律（自查清单）
+
+| # | 规则 | 错误代码 |
+|---|------|----------|
+| 1 | `pad_all = 0` 所有容器零边距 | `pad_all = 8` |
+| 2 | `border_width = 0` 所有容器零边框 | `border_width = 2` |
+| 3 | 禁止 Flex 布局 | `lv_obj_set_layout(obj, LV_LAYOUT_FLEX)` |
+| 4 | label 尺寸锁死 | `lv_obj_set_size(lbl, LV_SIZE_CONTENT, ...)` |
+| 5 | `LV_LABEL_LONG_DOT` 防截断 | 无 `long_mode` |
+| 6 | 菜单项 x=0 与 INFO MENU 对齐 | `x=16`（溢出） |
+| 7 | `clip_corner=true` 防止子元素溢出 | 无裁剪 |
+
+### 15.4 气体选项宽度修复记录
+
+**问题**：`card_gas.c` 气体选项宽度溢出，右边缘超出 tile 边界。
+
+**根因**：行 x=16 起始，`row_w = right_canvas_w - 15`，导致右边缘到达 `16 + (right_canvas_w - 15) = right_canvas_w + 1`，超出 tile。
+
+**修复**：将 `lv_obj_set_pos(row, 16, row_y)` 改为 `lv_obj_set_pos(row, 0, row_y)`，与 `card_info.c` 的 x=0 对齐。
+
+```
+// 修复前 (card_gas.c:32)
+lv_obj_set_pos(row, 16, row_y);  // 溢出
+
+// 修复后
+lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
+```
+
+### 15.5 关键代码变更日志
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-04-22 | `card_gas.c` | 气体选项 x=16 到 x=0，与 INFO MENU 对齐 |
+| 2026-04-22 | `UI_html_DOC/LVGL_LAYOUT_GUIDE.md` | 新建排版落地指南 |
