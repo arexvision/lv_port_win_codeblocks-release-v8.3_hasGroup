@@ -87,7 +87,7 @@ static void styles_init(void)
 
     lv_style_init(&s_style_anchor_bg);
     lv_style_set_bg_color(&s_style_anchor_bg, AREX_BLACK);
-    lv_style_set_bg_opa(&s_style_anchor_bg, LV_OPA_20);
+    lv_style_set_bg_opa(&s_style_anchor_bg, LV_OPA_COVER);
     lv_style_set_border_color(&s_style_anchor_bg, AREX_DARK);
     lv_style_set_border_width(&s_style_anchor_bg, 1);
     lv_style_set_pad_all(&s_style_anchor_bg, 0);     /* 必须显式清零，否则 LVGL 默认 padding 会偏移所有子组件坐标 */
@@ -277,7 +277,7 @@ static void left_anchor_create(void)
         lv_obj_set_size(title_zone, c->w, c->title_h);
         lv_obj_set_style_bg_opa(title_zone, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(title_zone, 1, 0);
-        lv_obj_set_style_border_color(title_zone, lv_color_hex(0xFF0000), 0);
+        lv_obj_set_style_border_color(title_zone, AREX_DARK, 0);
         lv_obj_set_style_pad_all(title_zone, 0, 0);
         lv_obj_set_style_clip_corner(title_zone, true, 0);
         lv_obj_clear_flag(title_zone, LV_OBJ_FLAG_SCROLLABLE);
@@ -308,7 +308,7 @@ static void left_anchor_create(void)
         lv_obj_set_size(val_zone, c->w, c->val_h);
         lv_obj_set_style_bg_opa(val_zone, LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(val_zone, 1, 0);
-        lv_obj_set_style_border_color(val_zone, lv_color_hex(0x00FF00), 0);
+        lv_obj_set_style_border_color(val_zone, AREX_DARK, 0);
         lv_obj_set_style_pad_all(val_zone, 0, 0);
         lv_obj_set_style_clip_corner(val_zone, true, 0);
         lv_obj_clear_flag(val_zone, LV_OBJ_FLAG_SCROLLABLE);
@@ -332,6 +332,11 @@ static void left_anchor_create(void)
         } else if (i == 2) {
             lv_label_set_text(lbl_val, "24'");
             s_lbl_tts = lbl_val;
+            /* TTS: green bg + black text — 高亮状态，视觉上醒目 */
+            lv_obj_set_style_bg_color(s_lbl_tts, AREX_GREEN, 0);
+            lv_obj_set_style_bg_opa(s_lbl_tts, LV_OPA_COVER, 0);
+            lv_obj_set_style_text_color(s_lbl_tts, AREX_BLACK, 0);
+            lv_obj_set_style_pad_hor(s_lbl_tts, 4, 0);
         } else if (i == 3) {
             lv_label_set_text(lbl_val, "210");
             s_lbl_pod1 = lbl_val;

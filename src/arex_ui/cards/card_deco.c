@@ -144,7 +144,7 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 
     if (dashed_bottom) {
         lv_obj_t *line = lv_obj_create(parent);
-        lv_obj_set_size(line, 428, 1);
+        lv_obj_set_size(line, TISSUE_AREA_W, 1);
         lv_obj_set_pos(line, GRID_X, y + 40);
         lv_obj_set_style_bg_color(line, AREX_DARK, 0);
         lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);

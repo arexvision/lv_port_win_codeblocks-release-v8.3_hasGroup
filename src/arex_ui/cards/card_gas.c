@@ -29,7 +29,7 @@ void card_gas_create(lv_obj_t *parent)
 
         lv_obj_t *row = lv_obj_create(parent);
         lv_obj_set_size(row, row_w, GAS_ROW_H);
-        lv_obj_set_pos(row, 16, row_y);
+        lv_obj_set_pos(row, 0, row_y);
         lv_obj_set_style_bg_color(row, lv_color_make(0,0,0), 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(row, AREX_DARK, 0);
