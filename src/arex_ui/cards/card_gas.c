@@ -6,8 +6,8 @@
 #include "../fonts/arex_fonts.h"
 #include <stdio.h>
 
-#define GAS_ROW_H   49   /* 规范：约 49px（padding上下12px） */
-#define GAS_ROW_GAP  8
+/* GAS 行高按规范锁死 49px（不可改），行间距从 gap_menu 配置推算 */
+#define GAS_ROW_H   49
 
 static lv_obj_t *s_items[AREX_GAS_COUNT];
 static lv_obj_t *s_lbl_ppo2[AREX_GAS_COUNT];
@@ -21,11 +21,12 @@ void card_gas_create(lv_obj_t *parent)
     arex_screen_make_card_title(parent, "3F: GAS SWITCH");
 
     int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                         - (g_sys_config.gap_u * AREX_BASE_U);
+                       - ((int)g_sys_config.gap_u * AREX_BASE_U);
     int row_w = right_canvas_w - 15;   /* 右侧 15px 呼吸间隙 */
+    int gap_y = (int)g_sys_config.gap_menu * AREX_BASE_U;  /* 从配置推算 */
 
     for (int i = 0; i < AREX_GAS_COUNT; i++) {
-        lv_coord_t row_y = 50 + i * (GAS_ROW_H + GAS_ROW_GAP);
+        lv_coord_t row_y = 50 + i * (GAS_ROW_H + gap_y);
 
         lv_obj_t *row = lv_obj_create(parent);
         lv_obj_set_size(row, row_w, GAS_ROW_H);

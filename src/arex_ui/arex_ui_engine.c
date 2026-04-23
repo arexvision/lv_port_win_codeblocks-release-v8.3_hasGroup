@@ -542,6 +542,73 @@ uint8_t g_sys_card_order(uint8_t pos)
 }
 
 /* =========================================================
+ * 通用动态菜单工厂
+ * 所有尺寸从 g_sys_config 推算，不含硬编码像素值。
+ * ========================================================= */
+void arex_render_dynamic_menu(lv_obj_t *parent_card,
+                              const arex_menu_item_cfg_t *items,
+                              uint8_t item_count,
+                              int start_y,
+                              lv_obj_t **out_item_handles)
+{
+    if (!parent_card || !items || item_count == 0) return;
+
+    int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                       - ((int)g_sys_config.gap_u * AREX_BASE_U);
+    int item_w = right_canvas_w - 15;  /* 右侧 15px 呼吸距 */
+
+    int current_y = start_y;
+    for (uint8_t i = 0; i < item_count; i++) {
+        const arex_menu_item_cfg_t *item_cfg = &items[i];
+        /* height_u 默认 0 → 查 h_menu_item (单位 U) */
+        int item_h = (int)(item_cfg->height_u > 0 ? item_cfg->height_u : g_sys_config.h_menu_item)
+                   * AREX_BASE_U;
+        /* gap_y 从 gap_menu (单位 U) 推算 */
+        int gap_y = (int)g_sys_config.gap_menu * AREX_BASE_U;
+
+        lv_obj_t *item = lv_obj_create(parent_card);
+        lv_obj_set_pos(item, 0, current_y);
+        lv_obj_set_size(item, item_w, item_h);
+        lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
+        lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_color(item, AREX_DARK, 0);
+        lv_obj_set_style_border_width(item, item_cfg->border_width, LV_PART_MAIN);
+        lv_obj_set_style_radius(item, 0, 0);
+        lv_obj_set_style_pad_all(item, 0, LV_PART_MAIN);
+        lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
+
+        /* 标题 label */
+        if (item_cfg->title_text) {
+            lv_obj_t *title_lbl = lv_label_create(item);
+            lv_label_set_text(title_lbl, item_cfg->title_text);
+            lv_obj_set_style_text_font(title_lbl, arex_get_font(item_cfg->title_font_id), 0);
+            lv_obj_set_style_text_color(title_lbl, AREX_GREEN, 0);
+            lv_obj_set_size(title_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_align(title_lbl, LV_ALIGN_LEFT_MID, 12, 0);
+            lv_label_set_long_mode(title_lbl, LV_LABEL_LONG_DOT);
+        }
+
+        /* 右侧徽章 label */
+        if (item_cfg->value_badge) {
+            lv_obj_t *badge_lbl = lv_label_create(item);
+            lv_label_set_text(badge_lbl, item_cfg->value_badge);
+            lv_obj_set_style_text_font(badge_lbl, arex_get_font(item_cfg->value_font_id), 0);
+            lv_obj_set_style_text_color(badge_lbl, AREX_LIGHT, 0);
+            lv_obj_set_size(badge_lbl, 80, 28);
+            lv_obj_align(badge_lbl, LV_ALIGN_RIGHT_MID, -12, 0);
+            lv_obj_set_style_text_align(badge_lbl, LV_TEXT_ALIGN_RIGHT, 0);
+            lv_label_set_long_mode(badge_lbl, LV_LABEL_LONG_DOT);
+        }
+
+        if (out_item_handles) {
+            out_item_handles[i] = item;
+        }
+
+        current_y += item_h + gap_y;
+    }
+}
+
+/* =========================================================
  * 定时数据更新 (由 lv_timer 以 1Hz/2Hz 调用)
  * 仅更新 lv_label 文字，绝不触发排版重构
  * ========================================================= */

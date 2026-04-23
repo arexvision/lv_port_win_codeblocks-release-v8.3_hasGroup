@@ -7,15 +7,6 @@
 #include <stdbool.h>
 
 /* =========================================
-   Colours
-   ========================================= */
-#define AREX_GREEN   lv_color_make(0x00, 0xFF, 0x00)
-#define AREX_LIGHT   lv_color_make(0x55, 0xFF, 0x55)
-#define AREX_DARK    lv_color_make(0x00, 0x33, 0x00)
-#define AREX_BLACK   lv_color_make(0x00, 0x00, 0x00)
-#define AREX_BG      lv_color_make(0x05, 0x05, 0x05)
-
-/* =========================================
    Layout constants (legacy, kept for compatibility)
    ========================================= */
 #define AREX_SCREEN_W   640

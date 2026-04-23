@@ -4,9 +4,10 @@
 #include "lvgl/lvgl.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include "arex_card_registry.h"
 
 /* =========================================================
- * 1. 系统核心宏定义
+ * 系统核心宏定义
  * ========================================================= */
 #define AREX_BASE_U             10   /* 物理基准单位 1U = 10px */
 #define AREX_MIN_CLASSIC_TOP_H  200  /* Classic 模式下最小上区高度 px */
@@ -14,6 +15,15 @@
 #define AREX_PHYSICAL_W    640  /* 硬件屏幕极限宽 */
 #define AREX_PHYSICAL_H    480  /* 硬件屏幕极限高 */
 #define AREX_LEFT_ANCHOR_W  160  /* 左侧锚点固定宽度 */
+
+/* =========================================================
+ * 颜色宏 (统一集中管理)
+ * ========================================================= */
+#define AREX_GREEN   lv_color_make(0x00, 0xFF, 0x00)
+#define AREX_LIGHT   lv_color_make(0x55, 0xFF, 0x55)
+#define AREX_DARK    lv_color_make(0x00, 0x33, 0x00)
+#define AREX_BLACK   lv_color_make(0x00, 0x00, 0x00)
+#define AREX_BG      lv_color_make(0x05, 0x05, 0x05)
 
 /* Debug 配置: 左侧锚点 title_zone / val_zone 调试边框: 0=关闭(默认), 1=开启 */
 #define AREX_DEBUG_BORDER  0
@@ -35,8 +45,8 @@
 extern const char  *AREX_GAS_NAMES[AREX_GAS_COUNT];
 extern const uint8_t AREX_GAS_MOD_M[AREX_GAS_COUNT];
 
-/* 卡片数量常量（与 CARD_ID_* 枚举一致） */
-#define AREX_CARD_COUNT  6
+/* 卡片数量常量（与 CARD_ID_* 枚举一致，引用 arex_card_registry.h 中的枚举尾项） */
+#define AREX_CARD_COUNT  CARD_ID_COUNT
 
 /* 卡片顺序配置读取接口（供 arex_card_registry.c / arex_ui_state.c 使用） */
 extern uint8_t g_sys_card_order(uint8_t pos);
@@ -329,7 +339,29 @@ const lv_font_t *arex_get_font(uint8_t font_id);
  * 9. 布局矩形计算 (供 rebuild 调用)
  * ========================================================= */
 void arex_calc_layout_rect(int16_t *out_x, int16_t *out_y,
-                           uint16_t *out_w, uint16_t *out_h,
-                           int16_t anchor_offset_x, int16_t anchor_offset_y);
+                          uint16_t *out_w, uint16_t *out_h,
+                          int16_t anchor_offset_x, int16_t anchor_offset_y);
+
+/* =========================================================
+ * 9b. 右侧卡片动态菜单配置 (APP 同步核心)
+ *
+ * 每个菜单选项的描述结构体。APP 下发 JSON 即可改变菜单外观，
+ * 渲染引擎通过 arex_render_dynamic_menu() 统一遍历，不做硬编码判断。
+ * ========================================================= */
+typedef struct {
+    const char *title_text;      /* 左侧主文本 (可为空) */
+    const char *value_badge;     /* 右侧数值/状态徽章 (可为空) */
+    uint8_t     title_font_id;   /* 标题字体 ID: arex_font_id_t */
+    uint8_t     value_font_id;   /* 徽章字体 ID: arex_font_id_t */
+    uint8_t     border_width;    /* 边框粗细 px，0=无边框 */
+    uint8_t     height_u;        /* 该选项高度 (单位 U，默认 0=用 h_menu_item) */
+} arex_menu_item_cfg_t;
+
+/* 通用动态菜单工厂声明 */
+void arex_render_dynamic_menu(lv_obj_t *parent_card,
+                               const arex_menu_item_cfg_t *items,
+                               uint8_t item_count,
+                               int start_y,
+                               lv_obj_t **out_item_handles);
 
 #endif /* AREX_UI_ENGINE_H */
