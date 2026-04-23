@@ -80,17 +80,17 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * ===================================================== */
     static const arex_left_row_cfg_t def_layout[AREX_MAX_LEFT_ROWS] = {
         /* row 0: DEPTH 单栏全宽 */
-        { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 1: NDL + TTS 双拼 */
-        { AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 2: POD1 + POD2 双拼 */
-        { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 3: BATT + WTM 双拼 */
-        { AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 4: GAS 单栏全宽 */
-        { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 5: TIME 单栏全宽 */
-        { AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 6-7: EMPTY */
         { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, AREX_ALIGN_LEFT, AREX_SEP_NONE,   0 },
         { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, AREX_ALIGN_LEFT, AREX_SEP_NONE,   0 },
@@ -324,6 +324,8 @@ void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT],
             comps[out_idx].val_font   = val_font;
             comps[out_idx].title_align = AREX_ALIGN_LEFT;
             comps[out_idx].val_align  = val_align;
+            comps[out_idx].sep_style = g_sys_config.left_layout[row].sep_style;
+            comps[out_idx].sep_thick  = g_sys_config.left_layout[row].sep_thick;
             out_idx++;
         }
         /* 双拼：左右各占 80px */
@@ -340,6 +342,8 @@ void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT],
             comps[out_idx].val_font  = val_font;
             comps[out_idx].title_align = AREX_ALIGN_LEFT;
             comps[out_idx].val_align = AREX_ALIGN_LEFT;
+            comps[out_idx].sep_style = g_sys_config.left_layout[row].sep_style;
+            comps[out_idx].sep_thick  = g_sys_config.left_layout[row].sep_thick;
             out_idx++;
 
             /* 右块 */
@@ -355,6 +359,8 @@ void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT],
                 comps[out_idx].val_font   = val_font;
                 comps[out_idx].title_align = AREX_ALIGN_RIGHT;
                 comps[out_idx].val_align = AREX_ALIGN_RIGHT;
+                comps[out_idx].sep_style = g_sys_config.left_layout[row].sep_style;
+                comps[out_idx].sep_thick  = g_sys_config.left_layout[row].sep_thick;
                 out_idx++;
             }
         }

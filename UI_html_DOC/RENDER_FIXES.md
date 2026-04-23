@@ -301,16 +301,19 @@ lv_obj_set_style_text_color(s_edit_flash_val_lbl, fg, 0);
 
 ---
 
-## 七、Debug 边框（保留）
+## 七、Debug 边框（统一宏控制）
 
-左侧锚点的 `title_zone`（红框）和 `val_zone`（绿框）调试边框当前保持开启，用于辅助排版验证。关闭方式：
+左侧锚点的 `title_zone` 和 `val_zone` 调试边框通过 `AREX_DEBUG_BORDER` 宏统一控制：
 
 ```c
-// title_zone:
-lv_obj_set_style_border_width(title_zone, 0, 0);
-// val_zone:
-lv_obj_set_style_border_width(val_zone, 0, 0);
+// arex_screen.c 顶部
+#define AREX_DEBUG_BORDER 0  /* 0=关闭(默认), 1=开启 debug 边框 */
 ```
+
+| 值 | title_zone 边框 | val_zone 边框 |
+|----|-----------------|---------------|
+| `0` | 无边框 | 无边框 |
+| `1` | 1px AREX_DARK | 1px AREX_DARK |
 
 ---
 

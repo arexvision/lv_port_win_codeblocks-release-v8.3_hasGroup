@@ -8,6 +8,12 @@
 #include <string.h>
 
 /* =========================================================
+ * Debug 配置
+ * ========================================================= */
+/* 左侧锚点 title_zone / val_zone 调试边框: 0=关闭(默认), 1=开启 */
+#define AREX_DEBUG_BORDER 0
+
+/* =========================================================
  * 内部句柄
  * ========================================================= */
 static lv_obj_t *s_scr;
@@ -32,6 +38,20 @@ static lv_obj_t *s_lbl_batt;
 /* 左侧锚点组件句柄数组 (按 arex_anchor_comp_t 顺序) */
 static lv_obj_t *s_anchor_titles[ANCHOR_COMP_COUNT];
 static lv_obj_t *s_anchor_vals[ANCHOR_COMP_COUNT];
+static lv_obj_t *s_anchor_seps[ANCHOR_COMP_COUNT];  /* 分割线对象 (NULL=SEP_NONE) */
+
+/**
+ * 虚线点数组内存释放回调。
+ * 当 lv_line 被删除时，LVGL 会触发 LV_EVENT_DELETE，
+ * 我们的 user_data 传入了 pts 指针，此时释放它。
+ */
+static void line_delete_cb(lv_event_t * e)
+{
+    lv_point_t * pts = (lv_point_t *)lv_event_get_user_data(e);
+    if (pts) {
+        lv_mem_free(pts);
+    }
+}
 
 /* Wall indicators */
 static lv_obj_t *s_wall_top;
@@ -194,12 +214,83 @@ static void left_anchor_rebuild(void)
         lv_obj_set_pos(val_obj, comp_x, (lv_coord_t)(c->y + c->title_h));
         lv_obj_set_size(val_obj, c->w, c->val_h);
 
-        /* 分割线 */
-        uint8_t thick_px = g_sys_config.sep_thick;
-        lv_obj_t *sep = lv_obj_get_child(title_obj, 0);
-        if (sep) {
-            lv_obj_set_size(sep, c->w, thick_px);
-            lv_obj_set_pos(sep, 0, (lv_coord_t)(c->title_h - thick_px));
+        /* 分割线：rebuild 时按 sep_style 动态重建
+         * NONE   = 删除旧 sep
+         * SOLID  = lv_obj 实线色块
+         * DASHED / DOTTED = lv_line 原生虚线引擎
+         */
+        uint8_t sep_style = c->sep_style;
+        uint8_t sep_thick_px = (c->sep_thick > 0) ? c->sep_thick : g_sys_config.sep_thick;
+        lv_obj_t *sep = s_anchor_seps[i];
+
+        if (sep_style == AREX_SEP_NONE) {
+            /* 隐藏分割线 */
+            if (sep) {
+                if (lv_obj_check_type(sep, &lv_line_class)) {
+                    lv_point_t * pts = (lv_point_t *)lv_obj_get_user_data(sep);
+                    if (pts) lv_mem_free(pts);
+                }
+                lv_obj_del(sep);
+                sep = NULL;
+            }
+            s_anchor_seps[i] = NULL;
+        } else if (sep_style == AREX_SEP_SOLID) {
+            /* 实线：确保是 lv_obj 类型 */
+            if (!sep || !lv_obj_check_type(sep, &lv_obj_class)) {
+                if (sep) {
+                    if (lv_obj_check_type(sep, &lv_line_class)) {
+                        lv_point_t * pts = (lv_point_t *)lv_obj_get_user_data(sep);
+                        if (pts) lv_mem_free(pts);
+                    }
+                    lv_obj_del(sep);
+                }
+                sep = lv_obj_create(title_obj);
+                s_anchor_seps[i] = sep;
+            }
+            lv_obj_set_pos(sep, 0, (lv_coord_t)(c->title_h - sep_thick_px));
+            lv_obj_set_size(sep, c->w, sep_thick_px);
+            lv_obj_set_style_bg_color(sep, AREX_LIGHT, 0);
+            lv_obj_set_style_bg_opa(sep, g_sys_config.sep_alpha, 0);
+            lv_obj_set_style_border_width(sep, 0, 0);
+            lv_obj_set_style_pad_all(sep, 0, 0);
+        } else {
+            /* 虚线/点线：确保是 lv_line 类型 */
+            if (!sep || !lv_obj_check_type(sep, &lv_line_class)) {
+                /* 重建：先释放旧 lv_line 的点数组，再删除 */
+                if (sep) {
+                    lv_point_t * old_pts = (lv_point_t *)lv_obj_get_user_data(sep);
+                    if (old_pts) lv_mem_free(old_pts);
+                    lv_obj_del(sep);
+                }
+                sep = lv_line_create(title_obj);
+                s_anchor_seps[i] = sep;
+            }
+            lv_obj_set_pos(sep, 0, (lv_coord_t)(c->title_h - sep_thick_px));
+
+            /* 重新分配点数组 */
+            uint16_t line_w = (c->w > 8) ? (c->w - 8) : c->w;
+            lv_point_t * old_pts2 = (lv_point_t *)lv_obj_get_user_data(sep);
+            if (old_pts2) lv_mem_free(old_pts2);
+            lv_point_t * pts = lv_mem_alloc(sizeof(lv_point_t) * 2);
+            pts[0].x = 4;
+            pts[0].y = sep_thick_px / 2;
+            pts[1].x = 4 + line_w;
+            pts[1].y = sep_thick_px / 2;
+            lv_line_set_points(sep, pts, 2);
+            lv_obj_set_user_data(sep, (lv_point_t *)pts);
+            /* 回调在首次 lv_line_create 时已注册，后续重建只需更新 user_data */
+
+            /* 样式 */
+            lv_obj_set_style_line_width(sep, sep_thick_px, 0);
+            lv_obj_set_style_line_color(sep, AREX_LIGHT, 0);
+            lv_obj_set_style_line_opa(sep, g_sys_config.sep_alpha, 0);
+            if (sep_style == AREX_SEP_DASHED) {
+                lv_obj_set_style_line_dash_width(sep, 6, 0);
+                lv_obj_set_style_line_dash_gap(sep, 4, 0);
+            } else {
+                lv_obj_set_style_line_dash_width(sep, sep_thick_px, 0);
+                lv_obj_set_style_line_dash_gap(sep, sep_thick_px * 2, 0);
+            }
         }
 
         /* 数据驱动字体 */
@@ -245,7 +336,17 @@ static void left_anchor_create(void)
     uint8_t comp_count = 0;
     arex_calc_anchor_layout(comps, &total_h, &comp_count);
 
-    /* 清除旧子对象 (rebuild 时会用到) */
+    /* 清除旧子对象 (rebuild 时会用到)
+     * 注意：先清理 s_anchor_seps[] 中残留的点数组内存，再 lv_obj_clean
+     * （lv_obj_clean 不触发 LV_EVENT_DELETE，需要手动释放） */
+    for (uint8_t k = 0; k < ANCHOR_COMP_COUNT; k++) {
+        lv_obj_t *old_sep = s_anchor_seps[k];
+        if (old_sep && lv_obj_check_type(old_sep, &lv_line_class)) {
+            lv_point_t * old_pts = (lv_point_t *)lv_obj_get_user_data(old_sep);
+            if (old_pts) lv_mem_free(old_pts);
+        }
+        s_anchor_seps[k] = NULL;
+    }
     lv_obj_clean(s_left_anchor);
 
     /* 遍历 comps[]，按 module 枚举驱动工厂渲染，零索引硬编码 */
@@ -274,22 +375,70 @@ static void left_anchor_create(void)
         lv_obj_set_pos(title_zone, comp_x, c->y);
         lv_obj_set_size(title_zone, c->w, c->title_h);
         lv_obj_set_style_bg_opa(title_zone, LV_OPA_TRANSP, 0);
+#if AREX_DEBUG_BORDER
         lv_obj_set_style_border_width(title_zone, 1, 0);
         lv_obj_set_style_border_color(title_zone, AREX_DARK, 0);
+#else
+        lv_obj_set_style_border_width(title_zone, 0, 0);
+#endif
         lv_obj_set_style_pad_all(title_zone, 0, 0);
         lv_obj_set_style_clip_corner(title_zone, true, 0);
         lv_obj_clear_flag(title_zone, LV_OBJ_FLAG_SCROLLABLE);
 
-        /* 分割线 */
-        uint8_t sep_thick = g_sys_config.left_layout[0].sep_thick;
-        uint8_t sep_thick_px = (sep_thick > 0) ? sep_thick : g_sys_config.sep_thick;
-        lv_obj_t *sep = lv_obj_create(title_zone);
-        lv_obj_set_size(sep, c->w, sep_thick_px);
-        lv_obj_set_pos(sep, 0, (lv_coord_t)(c->title_h - sep_thick_px));
-        lv_obj_set_style_bg_color(sep, AREX_DARK, 0);
-        lv_obj_set_style_bg_opa(sep, g_sys_config.sep_alpha, 0);
-        lv_obj_set_style_border_width(sep, 0, 0);
-        lv_obj_set_style_pad_all(sep, 0, 0);
+        /* 分割线：数据驱动样式 (sep_style / sep_thick)
+         * NONE   = 不画
+         * SOLID  = lv_obj 实线色块
+         * DASHED = lv_line 原生虚线 (LVGL 8.3 line_dash_width/gap)
+         * DOTTED = lv_line 原生点线
+         */
+        uint8_t sep_style = c->sep_style;
+        uint8_t sep_thick_px = (c->sep_thick > 0) ? c->sep_thick : g_sys_config.sep_thick;
+        lv_obj_t *sep = NULL;
+
+        if (sep_style != AREX_SEP_NONE) {
+            if (sep_style == AREX_SEP_SOLID) {
+                /* 实线：lv_obj 纯色矩形 */
+                sep = lv_obj_create(title_zone);
+                lv_obj_set_pos(sep, 0, (lv_coord_t)(c->title_h - sep_thick_px));
+                lv_obj_set_size(sep, c->w, sep_thick_px);
+                lv_obj_set_style_bg_color(sep, AREX_LIGHT, 0);
+                lv_obj_set_style_bg_opa(sep, g_sys_config.sep_alpha, 0);
+                lv_obj_set_style_border_width(sep, 0, 0);
+                lv_obj_set_style_pad_all(sep, 0, 0);
+            } else {
+                /* 虚线/点线：lv_line + LVGL 原生 dash 引擎 */
+                sep = lv_line_create(title_zone);
+                lv_obj_set_pos(sep, 0, (lv_coord_t)(c->title_h - sep_thick_px));
+
+                /* 动态分配点数组，左右各留 4px 边距 */
+                uint16_t line_w = (c->w > 8) ? (c->w - 8) : c->w;
+                lv_point_t * pts = lv_mem_alloc(sizeof(lv_point_t) * 2);
+                pts[0].x = 4;
+                pts[0].y = sep_thick_px / 2;  /* 线在 title 底部中央 */
+                pts[1].x = 4 + line_w;
+                pts[1].y = sep_thick_px / 2;
+                lv_line_set_points(sep, pts, 2);
+
+                /* 绑定销毁回调：自动释放点数组内存，防止泄漏 */
+                lv_obj_add_event_cb(sep, line_delete_cb, LV_EVENT_DELETE, pts);
+
+                /* 基础线样式 */
+                lv_obj_set_style_line_width(sep, sep_thick_px, 0);
+                lv_obj_set_style_line_color(sep, AREX_LIGHT, 0);
+                lv_obj_set_style_line_opa(sep, g_sys_config.sep_alpha, 0);
+
+                /* LVGL 8.3 原生虚线引擎 */
+                if (sep_style == AREX_SEP_DASHED) {
+                    lv_obj_set_style_line_dash_width(sep, 6, 0);   /* 线段长 6px */
+                    lv_obj_set_style_line_dash_gap(sep, 4, 0);    /* 间隙长 4px */
+                } else { /* AREX_SEP_DOTTED */
+                    lv_obj_set_style_line_dash_width(sep, sep_thick_px, 0);     /* 短线=点 */
+                    lv_obj_set_style_line_dash_gap(sep, sep_thick_px * 2, 0);  /* 间隙 */
+                }
+            }
+        }
+
+        s_anchor_seps[i] = sep;  /* NULL 或对象指针，供 rebuild 使用 */
 
         /* 标题文字：按 module 枚举驱动 */
         lv_obj_t *lbl_title = lv_label_create(title_zone);
@@ -318,8 +467,12 @@ static void left_anchor_create(void)
         lv_obj_set_pos(val_zone, comp_x, (lv_coord_t)(c->y + c->title_h));
         lv_obj_set_size(val_zone, c->w, c->val_h);
         lv_obj_set_style_bg_opa(val_zone, LV_OPA_TRANSP, 0);
+#if AREX_DEBUG_BORDER
         lv_obj_set_style_border_width(val_zone, 1, 0);
         lv_obj_set_style_border_color(val_zone, AREX_DARK, 0);
+#else
+        lv_obj_set_style_border_width(val_zone, 0, 0);
+#endif
         lv_obj_set_style_pad_all(val_zone, 0, 0);
         lv_obj_set_style_clip_corner(val_zone, true, 0);
         lv_obj_clear_flag(val_zone, LV_OBJ_FLAG_SCROLLABLE);
@@ -458,9 +611,10 @@ static void left_anchor_create(void)
             lv_obj_add_flag(s_ppo2_vals[2], LV_OBJ_FLAG_HIDDEN);
         }
 
-        /* 保存句柄到 s_anchor_titles[] / s_anchor_vals[]（按 comps 顺序） */
+        /* 保存句柄到 s_anchor_titles[] / s_anchor_vals[] / s_anchor_seps[]（按 comps 顺序） */
         s_anchor_titles[i] = title_zone;
         s_anchor_vals[i] = lbl_val;
+        s_anchor_seps[i] = sep;   /* NULL=SEP_NONE，对象指针=已创建 */
     }
 }
 
@@ -786,15 +940,6 @@ void arex_screen_create(void)
     lv_obj_set_style_border_width(s_safe_zone, 0, 0);
     lv_obj_set_style_pad_all(s_safe_zone, 0, 0);
     lv_obj_clear_flag(s_safe_zone, LV_OBJ_FLAG_SCROLLABLE);
-
-    /* 安全区危险边框 */
-    if (arex_safe_zone_in_danger()) {
-        lv_obj_set_style_border_color(s_safe_zone, lv_color_make(255,0,0), 0);
-        lv_obj_set_style_border_width(s_safe_zone, 3, 0);
-    } else {
-        lv_obj_set_style_border_color(s_safe_zone, AREX_DARK, 0);
-        lv_obj_set_style_border_width(s_safe_zone, 1, 0);
-    }
 
     left_anchor_create();
     right_panel_create();

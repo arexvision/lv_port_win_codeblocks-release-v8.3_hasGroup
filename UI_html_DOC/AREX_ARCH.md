@@ -684,6 +684,7 @@ lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
 | 2026-04-23 | `card_setup.c` | 改为 `arex_get_font()` + dirty check badge 更新；badge 子 label 索引修正 |
 | 2026-04-23 | `UI_main.c` | 移除 `lv_timer_create`（已移至 `arex_screen_create`）；启动直接进入 INFO 卡 |
 | 2026-04-23 | `AREX_ARCH.md` | 新增 Section 18 重构变更日志；更新 Section 1/3/4/7/12/13 |
+|| 2026-04-23 | `arex_screen.c` | 新增 `AREX_DEBUG_BORDER` 宏(0=关闭/1=开启)，统一控制 title_zone/val_zone 调试边框；`RENDER_FIXES.md` Section 7 同步更新 |
 
 ---
 
@@ -765,6 +766,26 @@ arex_left_row_cfg_t left_layout[AREX_MAX_LEFT_ROWS];
 { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0,
   0, 0, AREX_ALIGN_LEFT, AREX_SEP_NONE, 0 },
 ```
+
+> **【零号铁律】LVGL 8.3 分割线实现规范**
+>
+> LVGL 8.3 的原生 `border`（边框）属性**不支持虚线**！绝对禁止使用 `lv_obj_set_style_border_*` 来画分割线。
+>
+> 分割线渲染规则（`arex_screen.c` 工厂函数）：
+>
+> | `sep_style` | 渲染对象 | 实现方式 |
+> |---|---|---|
+> | `AREX_SEP_NONE` (0) | 无 | 不创建任何对象 |
+> | `AREX_SEP_SOLID` (1) | `lv_obj` 实线色块 | 纯色矩形，背景色 + bg_opa |
+> | `AREX_SEP_DASHED` (2) | `lv_line` + 原生虚线引擎 | `line_dash_width=6` + `line_dash_gap=4` |
+> | `AREX_SEP_DOTTED` (3) | `lv_line` + 原生点线引擎 | `line_dash_width=thick` + `line_dash_gap=thick*2` |
+>
+> **内存管理铁律**：`lv_line_set_points()` 传入的 `lv_point_t[]` 指针由调用方托管，LVGL 不会自动释放。每次重建分割线时：
+> 1. 先通过 `lv_obj_get_user_data()` 取出旧 pts，调用 `lv_mem_free()` 释放
+> 2. `lv_line_create()` 时通过 `lv_obj_add_event_cb(sep, line_delete_cb, LV_EVENT_DELETE, pts)` 将 pts 绑定到事件回调
+> 3. `line_delete_cb` 在对象销毁时自动释放 pts，防止内存泄漏
+>
+> **关键数据结构**：`arex_anchor_comp_t` 新增 `sep_style`/`sep_thick` 字段，由 `arex_calc_anchor_layout()` 从 `left_layout[]` 填充。
 
 **APP 自由双拼示例**：将 BATT 和 GAS 拼在同一行：
 ```json

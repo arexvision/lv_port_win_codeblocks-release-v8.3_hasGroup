@@ -259,6 +259,8 @@ typedef struct {
     uint8_t  val_font;          /* arex_font_id_t */
     uint8_t  title_align;       /* 0=LEFT 1=CENTER 2=RIGHT */
     uint8_t  val_align;        /* 0=LEFT 1=CENTER 2=RIGHT */
+    uint8_t  sep_style;         /* arex_sep_style_t: 0=NONE 1=SOLID 2=DASHED 3=DOTTED */
+    uint8_t  sep_thick;         /* 分割线粗细 px（0=用全局 g_sys_config.sep_thick） */
 } arex_anchor_comp_t;
 
 /* =========================================================
