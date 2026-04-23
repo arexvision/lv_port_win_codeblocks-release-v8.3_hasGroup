@@ -232,7 +232,13 @@ static void left_anchor_create(void)
 {
     s_left_anchor = lv_obj_create(s_safe_zone);
     lv_obj_set_size(s_left_anchor, AREX_LEFT_ANCHOR_W, g_sys_config.safe_zone_h);
-    lv_obj_set_pos(s_left_anchor, 0, 0);
+    if (g_sys_config.layout_order == AREX_ORDER_NORMAL) {
+        lv_obj_set_pos(s_left_anchor, 0, 0);
+    } else {
+        uint16_t gap = g_sys_config.gap_u * AREX_BASE_U;
+        uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - gap;
+        lv_obj_set_pos(s_left_anchor, (lv_coord_t)(right_w + gap), 0);
+    }
     lv_obj_add_style(s_left_anchor, &s_style_anchor_bg, 0);
     lv_obj_set_style_pad_all(s_left_anchor, 0, 0);   /* 兜底：确保 theme 默认 padding 不干扰绝对坐标 */
     lv_obj_set_scrollbar_mode(s_left_anchor, LV_SCROLLBAR_MODE_OFF);
@@ -513,13 +519,19 @@ static void safe_zone_reposition(void)
  * ========================================================= */
 static void right_panel_create(void)
 {
-    uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                       - g_sys_config.gap_u * AREX_BASE_U;
+    /* 计算右侧容器宽度 */
+    uint16_t gap = g_sys_config.gap_u * AREX_BASE_U;
+    uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - gap;
     s_cached_right_w = right_w;
 
+    /* 创建右侧容器 — 根据 layout_order 决定左右位置 */
     s_right_cont = lv_obj_create(s_safe_zone);
     lv_obj_set_size(s_right_cont, right_w, g_sys_config.safe_zone_h);
-    lv_obj_set_pos(s_right_cont, (lv_coord_t)(AREX_LEFT_ANCHOR_W + g_sys_config.gap_u * AREX_BASE_U), 0);
+    if (g_sys_config.layout_order == AREX_ORDER_NORMAL) {
+        lv_obj_set_pos(s_right_cont, (lv_coord_t)(AREX_LEFT_ANCHOR_W + gap), 0);
+    } else {
+        lv_obj_set_pos(s_right_cont, 0, 0);
+    }
     lv_obj_set_style_bg_color(s_right_cont, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(s_right_cont, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(s_right_cont, 0, 0);
