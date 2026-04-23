@@ -105,7 +105,44 @@ typedef enum {
 } arex_sep_style_t;
 
 /* =========================================================
- * 2b. 左侧锚点模块枚举
+ * 2c. 5F 自定义网格组件 ID 枚举 (APP 同步核心)
+ *
+ * 全系统唯一组件类型字典。APP 下发 widget_id 即可指定组件类型，
+ * 渲染引擎通过 arex_widget_id_t → display name + unit string + data source
+ * 做数据绑定，绝不硬编码字号或排版。
+ *
+ * 注意：这些 ID 与左侧锚点 AREX_MODULE_* 共享同一个数据源！
+ * 告警同步引擎靠这个共享 ID 实现"左侧锚点 + 5F 组件同时闪烁"。
+ * ========================================================= */
+typedef enum {
+    AREX_WIDGET_EMPTY      = 0,   /* 空槽位 */
+    AREX_WIDGET_DEPTH      = 1,   /* DEPTH 深度 — 数据源: g_sensor_data.depth */
+    AREX_WIDGET_TEMP       = 2,   /* TEMP 水温 — 数据源: g_sensor_data.temp */
+    AREX_WIDGET_HEADING    = 3,   /* HEADING 航向 — 数据源: g_sensor_data.heading */
+    AREX_WIDGET_SAC_RATE   = 4,   /* SAC 呼吸速率 — 数据源: g_sensor_data.sac_rate */
+    AREX_WIDGET_BATTERY    = 5,   /* BATTERY 电池 — 数据源: g_sensor_data.battery_pct */
+    AREX_WIDGET_NDL        = 6,   /* NDL 免减压 — 数据源: g_sensor_data.ndl */
+    AREX_WIDGET_TTS        = 7,   /* TTS 回到水面 — 数据源: g_sensor_data.tts */
+    AREX_WIDGET_PPO2       = 8,   /* PPO2 — 数据源: g_sensor_data.ppo2[active_gas] */
+    AREX_WIDGET_CNS        = 9,   /* CNS — 数据源: g_sensor_data.cns_pct */
+    AREX_WIDGET_POD1       = 10,  /* POD1 气瓶1 — 数据源: g_sensor_data.pod1_bar */
+    AREX_WIDGET_POD2       = 11,  /* POD2 气瓶2 — 数据源: g_sensor_data.pod2_bar */
+    AREX_WIDGET_WTIME      = 12,  /* W.TIME 潜水总时 — 数据源: g_sensor_data.dive_time_s */
+    AREX_WIDGET_COUNT
+} arex_widget_id_t;
+
+/* =========================================================
+ * 2d. 告警级别枚举
+ * ========================================================= */
+typedef enum {
+    AREX_ALARM_NONE   = 0,
+    AREX_ALARM_INFO   = 1,   /* INFO: 提醒 */
+    AREX_ALARM_WARN   = 2,   /* WARN: 警告（1Hz 闪烁）*/
+    AREX_ALARM_CRIT   = 3,   /* CRITICAL: 危险（2Hz 快速闪烁）*/
+} arex_alarm_level_t;
+
+/* =========================================================
+ * 2e. 左侧锚点模块枚举
  * ========================================================= */
 typedef enum {
     AREX_MODULE_EMPTY  = 0,   /* 空槽位：不渲染任何模块 */
@@ -188,10 +225,13 @@ typedef struct {
     uint8_t  h_tissues_chart;/* 组织柱图高度 (默认 9U=90px) */
 
     /* --- 5F 自定义网格 (5x6 密集排版) --- */
+    /* APP 下发每个组件的: 类型ID, 起始行(0~5), 起始列(0~4), 列跨度(1~2), 行跨度(1~2) */
     uint8_t  widget_count;    /* 当前装填的组件数量 (最多30) */
-    uint8_t  widget_ids[AREX_MAX_WIDGETS];
-    uint8_t  widget_w[AREX_MAX_WIDGETS];
-    uint8_t  widget_h[AREX_MAX_WIDGETS];
+    uint8_t  widget_ids[AREX_MAX_WIDGETS];  /* 组件类型: arex_widget_id_t */
+    uint8_t  widget_r[AREX_MAX_WIDGETS];    /* 起始行 0~5 */
+    uint8_t  widget_c[AREX_MAX_WIDGETS];    /* 起始列 0~4 */
+    uint8_t  widget_w[AREX_MAX_WIDGETS];    /* 列跨度 1~2 */
+    uint8_t  widget_h[AREX_MAX_WIDGETS];    /* 行跨度 1~2 */
 
     /* --- 左侧锚点行配置 (APP 同步就绪 — 自由双拼) --- */
     /* APP 只需修改 left_layout[] 中任意行的 left/right_module 即可自由组合 */
@@ -359,9 +399,42 @@ typedef struct {
 
 /* 通用动态菜单工厂声明 */
 void arex_render_dynamic_menu(lv_obj_t *parent_card,
-                               const arex_menu_item_cfg_t *items,
-                               uint8_t item_count,
-                               int start_y,
-                               lv_obj_t **out_item_handles);
+                              const arex_menu_item_cfg_t *items,
+                              uint8_t item_count,
+                              int start_y,
+                              lv_obj_t **out_item_handles);
+
+/* =========================================================
+ * 10. 5F 自定义网格渲染引擎 (靶向告警同步核心)
+ * ========================================================= */
+
+/* 5F 网格总线渲染器：遍历 g_sys_config.widget_* 数组，
+ * 用纯数学行×列→绝对坐标映射渲染所有组件。
+ * left_anchor_obj 传入用于告警引擎跨区搜索烙印对象。 */
+void arex_render_5f_custom_grid(lv_obj_t *card_custom,
+                                 lv_obj_t *left_anchor_obj);
+
+/* 按 widget_id 设置数值（由 update 循环调用，绝不触发重绘） */
+void arex_widget_set_value(arex_widget_id_t id, float value);
+
+/* 靶向告警触发：全屏搜索所有打了 user_data 烙印的组件并同步闪烁。
+ * target_id = AREX_WIDGET_EMPTY 时仅弹出横幅，不做靶向同步。 */
+void arex_trigger_alarm(arex_alarm_level_t level,
+                        const char *eng_text,
+                        arex_widget_id_t target_id);
+
+/* 清除所有组件的告警样式（告警消失时调用） */
+void arex_clear_all_alarm_styles(void);
+
+/* 根据 widget_id 获取显示名称（供调试/横幅使用） */
+const char *arex_get_widget_name(arex_widget_id_t id);
+
+/* 告警横幅显示/隐藏（由 arex_trigger_alarm 调用） */
+void arex_show_alarm_banner(arex_alarm_level_t level, const char *eng_text);
+void arex_hide_alarm_banner(void);
+
+/* 外部告警状态容器（由 arex_screen.c 在创建锚点和卡片时注入） */
+extern lv_obj_t *g_left_anchor_obj;
+extern lv_obj_t *g_card_custom_obj;
 
 #endif /* AREX_UI_ENGINE_H */

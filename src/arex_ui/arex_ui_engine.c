@@ -99,14 +99,29 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
         cfg->left_layout[i] = def_layout[i];
     }
 
-    /* 默认 5F 网格布局 */
+    /* 默认 5F 网格布局
+     * 行 r(0~5) × 列 c(0~4)
+     * 跨度 w(1~2列) × h(1~2行)
+     *
+     *  5列布局示意（5列=10格，6行）：
+     *  col:  0  1  2  3  4
+     *  row0: [DEPTH 2x2 大块    ] [TEMP  ]
+     *  row2: [SAC 2x1           ] [WARN ]
+     *  row3: [POD1 2x2 大块       ]
+     *  row5: [POD2 2x1] [NDL 1x1]
+     *
+     *  widget_id → arex_widget_id_t:
+     *    0=EMPTY 1=DEPTH 2=TEMP 3=HEADING 4=SAC_RATE 5=BATTERY
+     *    6=NDL 7=TTS 8=PPO2 9=CNS 10=POD1 11=POD2 12=WTIME
+     */
     cfg->widget_count = 6;
-    cfg->widget_ids[0] = 0;  cfg->widget_w[0] = 2; cfg->widget_h[0] = 2;
-    cfg->widget_ids[1] = 1;  cfg->widget_w[1] = 2; cfg->widget_h[1] = 1;
-    cfg->widget_ids[2] = 2;  cfg->widget_w[2] = 1; cfg->widget_h[2] = 1;
-    cfg->widget_ids[3] = 3;  cfg->widget_w[3] = 2; cfg->widget_h[3] = 2;
-    cfg->widget_ids[4] = 4;  cfg->widget_w[4] = 2; cfg->widget_h[4] = 1;
-    cfg->widget_ids[5] = 5;  cfg->widget_w[5] = 1; cfg->widget_h[5] = 1;
+    /*  id     r  c  w  h */
+    cfg->widget_ids[0] = AREX_WIDGET_DEPTH;    cfg->widget_r[0] = 0; cfg->widget_c[0] = 0; cfg->widget_w[0] = 2; cfg->widget_h[0] = 2;
+    cfg->widget_ids[1] = AREX_WIDGET_TEMP;     cfg->widget_r[1] = 0; cfg->widget_c[1] = 2; cfg->widget_w[1] = 1; cfg->widget_h[1] = 1;
+    cfg->widget_ids[2] = AREX_WIDGET_HEADING;   cfg->widget_r[2] = 0; cfg->widget_c[2] = 3; cfg->widget_w[2] = 2; cfg->widget_h[2] = 1;
+    cfg->widget_ids[3] = AREX_WIDGET_SAC_RATE; cfg->widget_r[3] = 1; cfg->widget_c[3] = 0; cfg->widget_w[3] = 2; cfg->widget_h[3] = 1;
+    cfg->widget_ids[4] = AREX_WIDGET_BATTERY;   cfg->widget_r[4] = 1; cfg->widget_c[4] = 2; cfg->widget_w[4] = 2; cfg->widget_h[4] = 1;
+    cfg->widget_ids[5] = AREX_WIDGET_NDL;       cfg->widget_r[5] = 2; cfg->widget_c[5] = 2; cfg->widget_w[5] = 2; cfg->widget_h[5] = 1;
 
     /* 卡片顺序（INFO/SETUP 固定，中间 4 个可重排）
      * card_order[pos] = card_id
@@ -605,6 +620,483 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
         }
 
         current_y += item_h + gap_y;
+    }
+}
+
+/* =========================================================
+ * 5F 自定义网格组件外部容器（由 arex_screen.c 注入）
+ * ========================================================= */
+lv_obj_t *g_left_anchor_obj = NULL;
+lv_obj_t *g_card_custom_obj = NULL;
+
+/* 告警状态 */
+static arex_alarm_level_t s_alarm_level = AREX_ALARM_NONE;
+static char s_alarm_text[64] = {0};
+static lv_timer_t *s_alarm_blink_timer = NULL;
+static bool s_alarm_blink_on = false;
+static lv_obj_t *s_alarm_banner = NULL;
+
+/* 告警横幅静态样式（避免每次创建重复初始化） */
+static lv_style_t s_banner_style_warn;
+static lv_style_t s_banner_style_crit;
+
+/* =========================================================
+ * 5F 网格坐标推算（纯数学绝对映射，无 lv_grid）
+ *
+ * 核心公式：
+ *   cell_w = parent_w / 5
+ *   cell_h = parent_h / 6
+ *   abs_x  = col * cell_w + gap
+ *   abs_y  = row * cell_h + gap
+ *   abs_w  = span_w * cell_w - gap*2
+ *   abs_h  = span_h * cell_h - gap*2
+ * ========================================================= */
+#define WIDGET_GAP  2   /* 网格缝隙 px */
+
+void arex_calc_widget_grid(int16_t parent_x, int16_t parent_y,
+                            uint16_t parent_w, uint16_t parent_h,
+                            uint8_t row, uint8_t col,
+                            uint8_t span_w, uint8_t span_h,
+                            int16_t *out_x, int16_t *out_y,
+                            uint16_t *out_w, uint16_t *out_h)
+{
+    uint16_t cell_w = parent_w / AREX_WIDGET_COLS;   /* 5列 */
+    uint16_t cell_h = parent_h / AREX_WIDGET_ROWS;   /* 6行 */
+
+    *out_x = (int16_t)(parent_x + col * cell_w + WIDGET_GAP);
+    *out_y = (int16_t)(parent_y + row * cell_h + WIDGET_GAP);
+    *out_w = (uint16_t)(span_w * cell_w - WIDGET_GAP * 2);
+    *out_h = (uint16_t)(span_h * cell_h - WIDGET_GAP * 2);
+
+    /* 边界修正 */
+    if (*out_x + *out_w > parent_x + (int16_t)parent_w)
+        *out_w = (uint16_t)(parent_x + (int16_t)parent_w - *out_x);
+    if (*out_y + *out_h > parent_y + (int16_t)parent_h)
+        *out_h = (uint16_t)(parent_y + (int16_t)parent_h - *out_y);
+}
+
+/* =========================================================
+ * 字号自适应引擎
+ * 根据组件跨越的列数×行数，选用最合适的字体 ID。
+ *
+ * 规则：
+ *   span_w >= 2 && span_h >= 2 → 2x2 大块 → AREX_FONT_ID_HUGE (48px)
+ *   span_w >= 2 || span_h >= 2 → 长条 → AREX_FONT_ID_MEDIUM (28px)
+ *   span_w == 1 && span_h == 1 → 1x1 小块 → AREX_FONT_ID_SMALL (14px)
+ * ========================================================= */
+static arex_font_id_t span_to_font(uint8_t span_w, uint8_t span_h)
+{
+    if (span_w >= 2 && span_h >= 2) return AREX_FONT_ID_HUGE;
+    if (span_w >= 2 || span_h >= 2) return AREX_FONT_ID_MEDIUM;
+    return AREX_FONT_ID_SMALL;
+}
+
+/* =========================================================
+ * 组件元数据字典（按 arex_widget_id_t 索引）
+ * 渲染引擎只查此表，不做任何"如果是 DEPTH" 的硬编码判断。
+ * ========================================================= */
+typedef struct {
+    const char *title;     /* 显示标题（英文） */
+    const char *unit;     /* 单位字符串 */
+    arex_font_id_t title_font;
+    arex_font_id_t val_font;
+    arex_align_t   val_align;
+} widget_meta_t;
+
+static const widget_meta_t s_widget_meta[AREX_WIDGET_COUNT] = {
+    /* EMPTY */     { NULL,          NULL,   AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_CENTER },
+    /* DEPTH  */    { "DEPTH",      "m",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_CENTER },
+    /* TEMP   */    { "TEMP",       "C",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* HEADING */   { "HEADING",    "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* SAC    */    { "SAC",        "l/m",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* BATT   */    { "BATTERY",    "%",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* NDL    */    { "NDL",        "min",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* TTS    */    { "TTS",        "min",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* PPO2   */    { "PPO2",      "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* CNS    */    { "CNS",        "%",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* POD1   */    { "POD1",       "bar",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* POD2   */    { "POD2",       "bar",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* WTIME  */    { "W.TIME",     "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+};
+
+/* =========================================================
+ * 获取 widget 显示名称
+ * ========================================================= */
+const char *arex_get_widget_name(arex_widget_id_t id)
+{
+    if (id >= AREX_WIDGET_COUNT) return "???";
+    return s_widget_meta[id].title ? s_widget_meta[id].title : "";
+}
+
+/* =========================================================
+ * 创建单个自定义组件（组件工厂）
+ *
+ * 关键：每个组件的 lv_obj_set_user_data() 存储了 arex_widget_id_t，
+ * 告警引擎靠这个烙印实现"左侧锚点 + 5F 组件同时闪烁"。
+ *
+ * 字号由 span 自动决定，大块→Huge，中块→Medium，小块→Small。
+ * ========================================================= */
+static lv_obj_t *create_custom_widget(lv_obj_t *parent,
+                                      arex_widget_id_t w_id,
+                                      int16_t abs_x, int16_t abs_y,
+                                      uint16_t abs_w, uint16_t abs_h,
+                                      uint8_t span_w, uint8_t span_h)
+{
+    if (w_id >= AREX_WIDGET_COUNT) return NULL;
+
+    const widget_meta_t *meta = &s_widget_meta[w_id];
+
+    lv_obj_t *obj = lv_obj_create(parent);
+    lv_obj_set_pos(obj, abs_x, abs_y);
+    lv_obj_set_size(obj, abs_w, abs_h);
+    lv_obj_set_style_bg_color(obj, AREX_BLACK, 0);
+    lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(obj, AREX_DARK, 0);
+    lv_obj_set_style_border_width(obj, 1, 0);
+    lv_obj_set_style_radius(obj, 0, 0);
+    lv_obj_set_style_pad_all(obj, 2, 0);
+
+    /* ========== 靶向告警烙印 ========== */
+    /* 全系统唯一的身份烙印：存储 widget_id。
+     * 告警引擎搜索时会 lv_obj_get_user_data() 比对 target_id。
+     * 同时用于 arex_widget_set_value() 定位句柄。 */
+    lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
+
+    /* ========== 标题 label ========== */
+    if (meta->title) {
+        lv_obj_t *title_lbl = lv_label_create(obj);
+        lv_label_set_text(title_lbl, meta->title);
+        lv_obj_set_style_text_font(title_lbl, arex_get_font(meta->title_font), 0);
+        lv_obj_set_style_text_color(title_lbl, AREX_GREEN, 0);
+        lv_obj_set_size(title_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_align(title_lbl, LV_ALIGN_TOP_MID, 0, 2);
+        lv_label_set_long_mode(title_lbl, LV_LABEL_LONG_DOT);
+    }
+
+    /* ========== 数值 label（存储句柄供 update 循环更新文字）========== */
+    lv_obj_t *val_lbl = lv_label_create(obj);
+    lv_label_set_text(val_lbl, "--");
+    /* 字号由 span 自动决定 */
+    lv_obj_set_style_text_font(val_lbl, arex_get_font(span_to_font(span_w, span_h)), 0);
+    lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
+    lv_obj_set_size(val_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(val_lbl, LV_ALIGN_CENTER, 0, 0);
+    lv_label_set_long_mode(val_lbl, LV_LABEL_LONG_DOT);
+    lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
+
+    /* ========== 单位 label ========== */
+    if (meta->unit && meta->unit[0]) {
+        lv_obj_t *unit_lbl = lv_label_create(obj);
+        lv_label_set_text(unit_lbl, meta->unit);
+        lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
+        lv_obj_set_size(unit_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_align(unit_lbl, LV_ALIGN_BOTTOM_MID, 0, -2);
+        lv_label_set_long_mode(unit_lbl, LV_LABEL_LONG_DOT);
+    }
+
+    (void)meta; /* meta 仅用于 title/unit/font，布局已在 caller 中算好 */
+    return obj;
+}
+
+/* =========================================================
+ * 全局 widget 句柄表（按 arex_widget_id_t 索引，供 update 循环查找）
+ * 注意：一个 widget_id 可能有多个物理实例（左侧锚点1个 + 5F N个），
+ * 所以这是链表表头，实际使用时遍历子节点查找。
+ * ========================================================= */
+#define MAX_WIDGET_HANDLES 16
+static lv_obj_t *s_widget_handles[AREX_WIDGET_COUNT]; /* 仅记录 5F 区域的句柄 */
+static uint8_t   s_widget_handle_count = 0;
+
+/* 按 widget_id 在容器中查找第一个匹配的子节点 */
+static lv_obj_t *find_widget_in_container(lv_obj_t *container, arex_widget_id_t w_id)
+{
+    if (!container) return NULL;
+    int16_t child_cnt = lv_obj_get_child_cnt(container);
+    for (int16_t i = 0; i < child_cnt; i++) {
+        lv_obj_t *child = lv_obj_get_child(container, i);
+        if (child && (arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(child) == w_id) {
+            return child;
+        }
+    }
+    return NULL;
+}
+
+/* =========================================================
+ * 5F 网格总线渲染器
+ *
+ * 1. 从 g_sys_config.widget_* 读取所有组件配置
+ * 2. 逐一枚遍历，用纯数学行×列映射算出绝对坐标
+ * 3. 调用组件工厂渲染，注入 user_data 烙印
+ * 4. 注册外部容器到告警引擎
+ * ========================================================= */
+void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
+{
+    /* 注入外部容器 */
+    g_card_custom_obj = card_custom;
+    g_left_anchor_obj = left_anchor;
+
+    if (!card_custom) return;
+
+    /* 获取容器尺寸（扣标题区后为可用绘图区） */
+    uint16_t parent_w = lv_obj_get_content_width(card_custom);
+    uint16_t parent_h = lv_obj_get_content_height(card_custom);
+    int16_t  parent_x = lv_obj_get_x(card_custom);
+    int16_t  parent_y = lv_obj_get_y(card_custom);
+    (void)parent_x; (void)parent_y; /* arex_calc_widget_grid 已内嵌偏移 */
+
+    /* 清除旧 widget 句柄表 */
+    memset(s_widget_handles, 0, sizeof(s_widget_handles));
+    s_widget_handle_count = 0;
+
+    /* 清除容器中所有旧组件（rebuild 时） */
+    lv_obj_clean(card_custom);
+
+    /* 遍历所有组件 */
+    uint8_t count = g_sys_config.widget_count;
+    if (count > AREX_MAX_WIDGETS) count = AREX_MAX_WIDGETS;
+
+    for (uint8_t i = 0; i < count; i++) {
+        arex_widget_id_t w_id   = (arex_widget_id_t)g_sys_config.widget_ids[i];
+        uint8_t r       = g_sys_config.widget_r[i];
+        uint8_t c       = g_sys_config.widget_c[i];
+        uint8_t span_w  = g_sys_config.widget_w[i];
+        uint8_t span_h  = g_sys_config.widget_h[i];
+
+        if (w_id == AREX_WIDGET_EMPTY) continue;
+        if (r >= AREX_WIDGET_ROWS || c >= AREX_WIDGET_COLS) continue;
+        if (span_w == 0) span_w = 1;
+        if (span_h == 0) span_h = 1;
+
+        /* 纯数学绝对坐标映射 */
+        int16_t abs_x, abs_y;
+        uint16_t abs_w, abs_h;
+        arex_calc_widget_grid(parent_x, parent_y, parent_w, parent_h,
+                              r, c, span_w, span_h,
+                              &abs_x, &abs_y, &abs_w, &abs_h);
+
+        /* 调用组件工厂 */
+        lv_obj_t *w = create_custom_widget(card_custom, w_id,
+                                            abs_x, abs_y, abs_w, abs_h,
+                                            span_w, span_h);
+
+        /* 记录句柄（用于 update 循环） */
+        if (w && s_widget_handle_count < MAX_WIDGET_HANDLES) {
+            s_widget_handles[s_widget_handle_count++] = w;
+        }
+    }
+}
+
+/* =========================================================
+ * 按 widget_id 设置数值（由外部 update 循环调用）
+ *
+ * 算法：在 g_card_custom_obj 和 g_left_anchor_obj 两个容器中
+ * 遍历所有子节点，用 user_data 烙印匹配 target_id，
+ * 找到后定位其中的数值 label 并更新文字。
+ *
+ * 绝不触发任何重绘或排版重构！只更新 lv_label 文字。
+ * ========================================================= */
+void arex_widget_set_value(arex_widget_id_t id, float value)
+{
+    /* 搜索 5F 卡片区域 */
+    lv_obj_t *container = g_card_custom_obj;
+    if (!container) container = g_left_anchor_obj;
+    if (!container) return;
+
+    int16_t child_cnt = lv_obj_get_child_cnt(container);
+    for (int16_t i = 0; i < child_cnt; i++) {
+        lv_obj_t *child = lv_obj_get_child(container, i);
+        if (!child) continue;
+
+        /* user_data 烙印匹配 */
+        if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(child) == id) {
+            /* 在该 widget 的子节点中找数值 label */
+            int16_t sub_cnt = lv_obj_get_child_cnt(child);
+            for (int16_t j = 0; j < sub_cnt; j++) {
+                lv_obj_t *sub = lv_obj_get_child(child, j);
+                if (!sub) continue;
+                /* 数值 label 的 user_data 也存储了 widget_id */
+                if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(sub) == id) {
+                    /* 只对 lv_label 类型更新文字 */
+                    if (lv_obj_check_type(sub, &lv_label_class)) {
+                        char buf[32];
+                        /* 根据数据类型选择格式化 */
+                        if (id == AREX_WIDGET_DEPTH || id == AREX_WIDGET_TEMP) {
+                            snprintf(buf, sizeof(buf), "%.1f", (double)value);
+                        } else if (id == AREX_WIDGET_PPO2) {
+                            snprintf(buf, sizeof(buf), "%.2f", (double)value);
+                        } else if (id == AREX_WIDGET_POD1 || id == AREX_WIDGET_POD2) {
+                            snprintf(buf, sizeof(buf), "%.0f", (double)value);
+                        } else {
+                            snprintf(buf, sizeof(buf), "%.0f", (double)value);
+                        }
+                        lv_label_set_text(sub, buf);
+                    }
+                    break; /* 找到即停 */
+                }
+            }
+        }
+    }
+}
+
+/* =========================================================
+ * 告警闪烁定时器回调
+ * ========================================================= */
+static void alarm_blink_cb(lv_timer_t *timer)
+{
+    (void)timer;
+    s_alarm_blink_on = !s_alarm_blink_on;
+
+    /* 遍历所有注册的 widget 句柄应用/移除闪烁样式 */
+    for (uint8_t i = 0; i < s_widget_handle_count; i++) {
+        lv_obj_t *w = s_widget_handles[i];
+        if (!w) continue;
+
+        if (s_alarm_blink_on) {
+            lv_obj_set_style_bg_color(w, AREX_LIGHT, 0);
+            lv_obj_set_style_text_color(w, AREX_BLACK, 0);
+        } else {
+            lv_obj_set_style_bg_color(w, AREX_BLACK, 0);
+            lv_obj_set_style_text_color(w, AREX_GREEN, 0);
+        }
+    }
+}
+
+/* =========================================================
+ * 靶向告警触发引擎
+ *
+ * 1. 弹出顶部的纯英文告警横幅（永不显示图案）
+ * 2. 若 target_id != EMPTY，遍历所有子节点，
+ *    找到打了烙印的组件并加入闪烁队列
+ * 3. 启动/停止 blink 定时器
+ *
+ * 告警消失时调用 arex_clear_all_alarm_styles() 清除。
+ * ========================================================= */
+void arex_trigger_alarm(arex_alarm_level_t level,
+                        const char *eng_text,
+                        arex_widget_id_t target_id)
+{
+    /* 停止旧的 blink 定时器 */
+    if (s_alarm_blink_timer) {
+        lv_timer_pause(s_alarm_blink_timer);
+        s_alarm_blink_on = false;
+    }
+
+    /* 清除旧告警样式 */
+    arex_clear_all_alarm_styles();
+
+    /* 弹出告警横幅 */
+    arex_show_alarm_banner(level, eng_text);
+
+    if (target_id == AREX_WIDGET_EMPTY) {
+        /* 仅横幅告警，不做靶向 */
+        return;
+    }
+
+    /* 初始化告警样式到所有匹配的 widget（注册到闪烁队列） */
+    for (uint8_t i = 0; i < s_widget_handle_count; i++) {
+        lv_obj_t *w = s_widget_handles[i];
+        if (!w) continue;
+
+        if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(w) == target_id) {
+            /* 加入闪烁队列（已在 s_widget_handles 中） */
+            /* 立即应用一次 */
+            lv_obj_set_style_bg_color(w, AREX_LIGHT, 0);
+        }
+    }
+
+    /* 启动/重设 blink 定时器 */
+    if (level == AREX_ALARM_CRIT) {
+        /* CRITICAL: 2Hz 快速闪烁 */
+        if (!s_alarm_blink_timer) {
+            s_alarm_blink_timer = lv_timer_create(alarm_blink_cb, 500, NULL);
+        } else {
+            lv_timer_reset(s_alarm_blink_timer);
+            lv_timer_set_period(s_alarm_blink_timer, 500);
+        }
+        lv_timer_resume(s_alarm_blink_timer);
+    } else if (level == AREX_ALARM_WARN) {
+        /* WARN: 1Hz 慢闪烁 */
+        if (!s_alarm_blink_timer) {
+            s_alarm_blink_timer = lv_timer_create(alarm_blink_cb, 1000, NULL);
+        } else {
+            lv_timer_reset(s_alarm_blink_timer);
+            lv_timer_set_period(s_alarm_blink_timer, 1000);
+        }
+        lv_timer_resume(s_alarm_blink_timer);
+    }
+    /* INFO 级别不闪烁，仅横幅 */
+
+    s_alarm_level = level;
+}
+
+/* =========================================================
+ * 清除所有组件的告警样式，恢复正常显示
+ * ========================================================= */
+void arex_clear_all_alarm_styles(void)
+{
+    /* 停止 blink 定时器 */
+    if (s_alarm_blink_timer) {
+        lv_timer_pause(s_alarm_blink_timer);
+    }
+
+    /* 恢复所有 widget 句柄的正常样式 */
+    for (uint8_t i = 0; i < s_widget_handle_count; i++) {
+        lv_obj_t *w = s_widget_handles[i];
+        if (!w) continue;
+        lv_obj_set_style_bg_color(w, AREX_BLACK, 0);
+        lv_obj_set_style_text_color(w, AREX_GREEN, 0);
+    }
+
+    /* 隐藏横幅 */
+    arex_hide_alarm_banner();
+
+    s_alarm_level = AREX_ALARM_NONE;
+}
+
+/* =========================================================
+ * 告警横幅显示/隐藏
+ * 默认横幅显示在屏幕顶部（独立图层），永不显示图案，纯英文文字。
+ * ========================================================= */
+void arex_show_alarm_banner(arex_alarm_level_t level, const char *eng_text)
+{
+    arex_hide_alarm_banner();
+
+    if (!eng_text || !eng_text[0]) return;
+
+    /* 创建横幅（顶层 screen，避免被其他对象遮挡） */
+    lv_obj_t *screen = lv_scr_act();
+    s_alarm_banner = lv_obj_create(screen);
+    lv_obj_set_size(s_alarm_banner, AREX_PHYSICAL_W, 36);
+    lv_obj_set_pos(s_alarm_banner, 0, 0);
+    lv_obj_set_style_border_width(s_alarm_banner, 0, 0);
+    lv_obj_set_style_radius(s_alarm_banner, 0, 0);
+    lv_obj_set_style_pad_all(s_alarm_banner, 0, 0);
+
+    if (level == AREX_ALARM_CRIT) {
+        lv_obj_set_style_bg_color(s_alarm_banner, AREX_DARK, 0);
+    } else if (level == AREX_ALARM_WARN) {
+        lv_obj_set_style_bg_color(s_alarm_banner, AREX_DARK, 0);
+    } else {
+        lv_obj_set_style_bg_color(s_alarm_banner, AREX_BLACK, 0);
+    }
+    lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+
+    /* 告警文字 label */
+    lv_obj_t *lbl = lv_label_create(s_alarm_banner);
+    lv_label_set_text(lbl, eng_text);
+    lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
+    lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+    lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
+}
+
+void arex_hide_alarm_banner(void)
+{
+    if (s_alarm_banner) {
+        lv_obj_del(s_alarm_banner);
+        s_alarm_banner = NULL;
     }
 }
 
