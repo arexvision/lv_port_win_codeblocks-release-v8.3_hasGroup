@@ -123,16 +123,17 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->widget_ids[4] = AREX_WIDGET_BATTERY;   cfg->widget_r[4] = 1; cfg->widget_c[4] = 2; cfg->widget_w[4] = 2; cfg->widget_h[4] = 1;
     cfg->widget_ids[5] = AREX_WIDGET_NDL;       cfg->widget_r[5] = 2; cfg->widget_c[5] = 2; cfg->widget_w[5] = 2; cfg->widget_h[5] = 1;
 
-    /* 卡片顺序（INFO/SETUP 固定，中间 4 个可重排）
+    /* 卡片顺序（INFO/SETUP 固定，中间 5 个可重排）
      * card_order[pos] = card_id
-     * 固定: CARD_POS_INFO=0, CARD_POS_SETUP=5
-     * 可重排: CARD_POS_1 ~ CARD_POS_4 */
-    cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;//不可修改
+     * 固定: CARD_POS_INFO=0, CARD_POS_SETUP=6
+     * 可重排: CARD_POS_1 ~ CARD_POS_5 */
+    cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;         /* 不可修改 */
     cfg->card_order[CARD_POS_1]     = CARD_ID_DECO;
     cfg->card_order[CARD_POS_2]     = CARD_ID_COMPASS;
     cfg->card_order[CARD_POS_3]     = CARD_ID_GAS;
     cfg->card_order[CARD_POS_4]     = CARD_ID_PLAN;
-    cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;//不可修改
+    cfg->card_order[CARD_POS_5]     = CARD_ID_CUSTOM_GRID;  /* 5F 自定义网格卡片 */
+    cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;        /* 不可修改 */
 
     /* 用户设置默认值 */
     cfg->mod_ppo2       = 1.4f;

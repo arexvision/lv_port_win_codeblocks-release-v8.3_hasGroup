@@ -63,6 +63,16 @@ static arex_card_t g_cards[AREX_CARD_COUNT] = {
         .update_cb   = card_plan_update,
         .on_enter_cb = NULL,
     },
+    [CARD_ID_CUSTOM_GRID] = {
+        .id          = CARD_ID_CUSTOM_GRID,
+        .title       = "5F: CUSTOM WIDGETS",
+        .engine_type = CARD_ENGINE_GRID,
+        .config_data = NULL,
+        .tile_obj    = NULL,
+        .create_cb   = NULL,   /* GRID 引擎由 arex_screen.c switch 分支直接调度 */
+        .update_cb   = NULL,
+        .on_enter_cb = NULL,
+    },
     [CARD_ID_SETUP] = {
         .id          = CARD_ID_SETUP,
         .title       = "DIVE SETUP",

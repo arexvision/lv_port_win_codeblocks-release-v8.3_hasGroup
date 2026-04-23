@@ -8,12 +8,13 @@
    Card IDs — stable identifiers
    ========================================= */
 typedef enum {
-    CARD_ID_INFO    = 0,
-    CARD_ID_COMPASS = 1,
-    CARD_ID_DECO    = 2,
-    CARD_ID_GAS     = 3,
-    CARD_ID_PLAN    = 4,
-    CARD_ID_SETUP   = 5,
+    CARD_ID_INFO         = 0,
+    CARD_ID_COMPASS      = 1,
+    CARD_ID_DECO         = 2,
+    CARD_ID_GAS          = 3,
+    CARD_ID_PLAN         = 4,
+    CARD_ID_CUSTOM_GRID  = 5,   /* 5F 自定义网格卡片 */
+    CARD_ID_SETUP        = 6,
     CARD_ID_COUNT
 } arex_card_id_t;
 
@@ -21,8 +22,8 @@ typedef enum {
    Card Positions — tileview 中的显示位置
    card_order[pos] = card_id
 
-   INFO 固定在 tile 0，SETUP 固定在 tile 5。
-   只有 CARD_POS_1 ~ CARD_POS_4 这 4 个位置可重排。
+   INFO 固定在 tile 0，SETUP 固定在 tile 6。
+   只有 CARD_POS_1 ~ CARD_POS_5 这 5 个位置可重排。
    ========================================= */
 typedef enum {
     CARD_POS_INFO  = 0,
@@ -30,7 +31,8 @@ typedef enum {
     CARD_POS_2     = 2,
     CARD_POS_3     = 3,
     CARD_POS_4     = 4,
-    CARD_POS_SETUP = 5,
+    CARD_POS_5     = 5,
+    CARD_POS_SETUP = 6,
     CARD_POS_COUNT
 } arex_card_pos_t;
 
