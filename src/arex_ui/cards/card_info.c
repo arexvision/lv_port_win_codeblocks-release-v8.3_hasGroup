@@ -23,6 +23,11 @@ static const arex_menu_item_cfg_t s_info_items[] = {
 };
 #define INFO_ITEM_COUNT (sizeof(s_info_items) / sizeof(s_info_items[0]))
 
+const arex_menu_list_cfg_t info_menu_cfg = {
+    .items = s_info_items,
+    .count = INFO_ITEM_COUNT,
+};
+
 static lv_obj_t *s_list;
 
 void card_info_create(lv_obj_t *parent)

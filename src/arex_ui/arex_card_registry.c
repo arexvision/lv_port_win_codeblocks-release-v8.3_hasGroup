@@ -9,10 +9,63 @@ void card_gas_create(lv_obj_t *parent);     void card_gas_update(void);
 void card_plan_create(lv_obj_t *parent);    void card_plan_update(void);
 void card_setup_create(lv_obj_t *parent);   void card_setup_update(void);
 
+/* Config data exposed by menu cards */
+extern const arex_menu_list_cfg_t info_menu_cfg;
+extern const arex_menu_list_cfg_t setup_menu_cfg;
+
 /* =========================================
-   Master registry table
-   Order here is STABLE — display order is
-   controlled by g_sys_config.card_order[] (see g_sys_card_order())
+   Static descriptor table (ROM)
+   Drives engine dispatch in right_panel_create().
+   ========================================= */
+const arex_card_desc_t g_card_registry[] = {
+    [CARD_ID_INFO] = {
+        .card_id     = CARD_ID_INFO,
+        .title       = "> INFO MENU",
+        .engine_type = CARD_ENGINE_MENU,
+        .config_data = &info_menu_cfg,
+        .custom_cb   = NULL,
+    },
+    [CARD_ID_COMPASS] = {
+        .card_id     = CARD_ID_COMPASS,
+        .title       = "> NAV COMPASS",
+        .engine_type = CARD_ENGINE_CUSTOM,
+        .config_data = NULL,
+        .custom_cb   = card_compass_create,
+    },
+    [CARD_ID_DECO] = {
+        .card_id     = CARD_ID_DECO,
+        .title       = "> TISSUES & DECO",
+        .engine_type = CARD_ENGINE_CUSTOM,
+        .config_data = NULL,
+        .custom_cb   = card_deco_create,
+    },
+    [CARD_ID_GAS] = {
+        .card_id     = CARD_ID_GAS,
+        .title       = "> GAS SWITCH",
+        .engine_type = CARD_ENGINE_CUSTOM,
+        .config_data = NULL,
+        .custom_cb   = card_gas_create,
+    },
+    [CARD_ID_PLAN] = {
+        .card_id     = CARD_ID_PLAN,
+        .title       = "> DIVE PLAN TRACK",
+        .engine_type = CARD_ENGINE_CUSTOM,
+        .config_data = NULL,
+        .custom_cb   = card_plan_create,
+    },
+    [CARD_ID_SETUP] = {
+        .card_id     = CARD_ID_SETUP,
+        .title       = "> DIVE SETUP",
+        .engine_type = CARD_ENGINE_MENU,
+        .config_data = &setup_menu_cfg,
+        .custom_cb   = NULL,
+    },
+};
+const uint8_t g_card_registry_count = AREX_CARD_COUNT;
+
+/* =========================================
+   Runtime registry table (RAM)
+   Holds mutable state: tile_obj + update/enter callbacks.
    ========================================= */
 static arex_card_reg_t s_registry[AREX_CARD_COUNT] = {
     [CARD_ID_INFO] = {
@@ -91,3 +144,4 @@ arex_card_reg_t *arex_card_get_by_id(arex_card_id_t id)
     if (id >= AREX_CARD_COUNT) return NULL;
     return &s_registry[id];
 }
+

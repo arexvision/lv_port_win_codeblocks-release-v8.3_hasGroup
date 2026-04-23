@@ -397,6 +397,12 @@ typedef struct {
     uint8_t     height_u;        /* 该选项高度 (单位 U，默认 0=用 h_menu_item) */
 } arex_menu_item_cfg_t;
 
+/* 菜单列表包装体 — 作为 arex_card_desc_t.config_data 传入注册表 */
+typedef struct {
+    const arex_menu_item_cfg_t *items;
+    uint8_t                     count;
+} arex_menu_list_cfg_t;
+
 /* 通用动态菜单工厂声明 */
 void arex_render_dynamic_menu(lv_obj_t *parent_card,
                               const arex_menu_item_cfg_t *items,

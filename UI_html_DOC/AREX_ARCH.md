@@ -1325,3 +1325,88 @@ abs_h  = span_h * cell_h - WIDGET_GAP * 2
 | `arex_calc_widget_grid()` | 网格→绝对坐标数学推算 |
 | `arex_show_alarm_banner()` | 纯英文告警横幅 |
 
+---
+
+## 22. 卡片引擎分发系统 (Card Engine Dispatch)
+
+### 22.1 设计目标
+
+将"卡片描述"与"渲染实现"彻底解耦。新增卡片只需在 `g_card_registry[]` 中添加一行描述符，无需修改 `arex_screen.c` 的渲染循环。
+
+### 22.2 核心数据结构
+
+```c
+/* arex_card_registry.h */
+
+typedef enum {
+    CARD_ENGINE_MENU   = 0,  /* arex_render_dynamic_menu()   */
+    CARD_ENGINE_GRID   = 1,  /* arex_render_5f_custom_grid() */
+    CARD_ENGINE_CHART  = 2,  /* 预留 */
+    CARD_ENGINE_CUSTOM = 3,  /* custom_cb() 直接调用 */
+} arex_card_engine_t;
+
+typedef struct {
+    arex_card_id_t      card_id;
+    const char         *title;
+    arex_card_engine_t  engine_type;
+    const void         *config_data;       /* 类型由 engine_type 决定 */
+    void (*custom_cb)(lv_obj_t *parent);   /* CARD_ENGINE_CUSTOM 专用 */
+} arex_card_desc_t;
+```
+
+```c
+/* arex_ui_engine.h */
+
+typedef struct {
+    const arex_menu_item_cfg_t *items;
+    uint8_t                     count;
+} arex_menu_list_cfg_t;
+```
+
+### 22.3 引擎分发流程
+
+```
+right_panel_create()
+  └─ for each card in card_order[]
+       ├─ 查找 g_card_registry[card_id]
+       ├─ CARD_ENGINE_MENU   → card->create_cb(tile)  // 由各卡片自行完整创建（含 list 注册）
+       ├─ CARD_ENGINE_GRID   → make_title + render_5f_custom_grid()
+       └─ CARD_ENGINE_CUSTOM → desc->custom_cb(tile)
+```
+
+> **注意：** CARD_ENGINE_MENU 不在 `arex_screen.c` 内部创建 list，而是直接调用 `create_cb`。
+> 原因：`card_info_create` / `card_setup_create` 内部调用 `arex_screen_register_*_list()`，
+> 子菜单系统依赖这个注册句柄。若在 `arex_screen.c` 里重复创建 list，会导致双重控件 + 句柄错乱崩溃。
+
+### 22.4 文件职责
+
+| 文件 | 职责 |
+|------|------|
+| `arex_card_registry.h` | `arex_card_engine_t` + `arex_card_desc_t` + `arex_card_reg_t` 类型定义 |
+| `arex_card_registry.c` | `g_card_registry[]` ROM 表 + `s_registry[]` 运行时状态表 |
+| `arex_ui_engine.h` | `arex_menu_item_cfg_t` + `arex_menu_list_cfg_t` 配置结构体 |
+| `card_info.c` | 暴露 `info_menu_cfg`（`arex_menu_list_cfg_t`） |
+| `card_setup.c` | 暴露 `setup_menu_cfg`（`arex_menu_list_cfg_t`） |
+| `arex_screen.c` | `right_panel_create()` 引擎分发循环 |
+
+### 22.6 当前卡片引擎映射
+
+| 卡片 | engine_type | 说明 |
+|------|-------------|------|
+| `CARD_ID_INFO` | `CARD_ENGINE_MENU` | `card_info_create()` 完整创建，含 list 注册 |
+| `CARD_ID_COMPASS` | `CARD_ENGINE_CUSTOM` | `card_compass_create()` canvas 绘制 |
+| `CARD_ID_DECO` | `CARD_ENGINE_CUSTOM` | `card_deco_create()` 柱状图 + GF/CNS/OTU |
+| `CARD_ID_GAS` | `CARD_ENGINE_CUSTOM` | `card_gas_create()` 4 行气体行，含静态句柄 |
+| `CARD_ID_PLAN` | `CARD_ENGINE_CUSTOM` | `card_plan_create()` canvas 潜水剖面图 |
+| `CARD_ID_SETUP` | `CARD_ENGINE_MENU` | `card_setup_create()` 完整创建，含 list 注册 |
+
+> `CARD_ENGINE_GRID`（`arex_render_5f_custom_grid()`）目前无卡片使用，预留给未来 5F 网格卡片。
+
+### 22.7 新增卡片步骤
+
+1. 在 `arex_card_id_t` 枚举中添加新 ID
+2. 在 `g_card_registry[]` 中添加 `arex_card_desc_t` 条目
+3. 在 `s_registry[]` 中添加运行时状态条目
+4. 实现对应的 `card_xxx_create()` / `card_xxx_update()`
+5. 无需修改 `arex_screen.c`
+

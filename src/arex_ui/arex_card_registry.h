@@ -49,7 +49,31 @@ typedef enum {
 #define AREX_DASH_CARD_COUNT (AREX_CARD_COUNT - 2)
 
 /* =========================================
-   Card descriptor
+   Card engine type — controls which render factory is used
+   ========================================= */
+typedef enum {
+    CARD_ENGINE_MENU   = 0,   /* arex_render_dynamic_menu() — config_data = arex_menu_list_cfg_t* */
+    CARD_ENGINE_GRID   = 1,   /* arex_render_5f_custom_grid() — config_data unused */
+    CARD_ENGINE_CHART  = 2,   /* reserved for future chart engine */
+    CARD_ENGINE_CUSTOM = 3,   /* custom_cb() — full control */
+} arex_card_engine_t;
+
+/* =========================================
+   Static card descriptor (compile-time constant)
+   Describes WHAT to render and HOW (engine + config).
+   Lives in g_card_registry[] — never mutated at runtime.
+   ========================================= */
+typedef struct {
+    arex_card_id_t      card_id;
+    const char         *title;
+    arex_card_engine_t  engine_type;
+    const void         *config_data;              /* cast depends on engine_type */
+    void (*custom_cb)(lv_obj_t *parent);          /* only used when engine_type == CARD_ENGINE_CUSTOM */
+} arex_card_desc_t;
+
+/* =========================================
+   Runtime card state (mutable, one per card)
+   Tracks live LVGL objects and callbacks.
    ========================================= */
 typedef struct {
     arex_card_id_t  id;
@@ -70,7 +94,11 @@ typedef struct {
    Registry API
    ========================================= */
 
-/* Returns pointer to the full registry array */
+/* Global static descriptor table (compile-time constant) */
+extern const arex_card_desc_t g_card_registry[];
+extern const uint8_t          g_card_registry_count;
+
+/* Returns pointer to the full runtime registry array */
 arex_card_reg_t *arex_card_registry(void);
 
 /* Number of registered cards (always AREX_CARD_COUNT) */

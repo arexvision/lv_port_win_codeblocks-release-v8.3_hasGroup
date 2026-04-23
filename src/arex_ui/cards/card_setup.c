@@ -21,6 +21,11 @@ static const arex_menu_item_cfg_t s_setup_items[] = {
 };
 #define SETUP_ITEM_COUNT (sizeof(s_setup_items) / sizeof(s_setup_items[0]))
 
+const arex_menu_list_cfg_t setup_menu_cfg = {
+    .items = s_setup_items,
+    .count = SETUP_ITEM_COUNT,
+};
+
 static lv_obj_t *s_list;
 
 /* badge 句柄数组: 由工厂输出的 item handles 填充 */
