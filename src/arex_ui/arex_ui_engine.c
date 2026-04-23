@@ -57,7 +57,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     /* =====================================================
      * 左侧锚点行配置 (APP 同步就绪 — 自由双拼)
      *
-     * 每行定义: {左模块, 右模块, h_u, title_h_u, val_font, val_align, sep_style, sep_thick}
+     * 每行定义: {左模块, 右模块, h_u, title_h_u, title_font, val_font, val_align, sep_style, sep_thick}
      * right_module = AREX_MODULE_EMPTY → 左侧独占全宽(160px)
      * right_module != EMPTY → 双拼布局(各80px)
      *
@@ -67,15 +67,15 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * ===================================================== */
     static const arex_left_row_cfg_t def_layout[AREX_MAX_LEFT_ROWS] = {
         /* row 0: DEPTH 单栏全宽 */
-        { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2, 3, 0, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2, 0, 3, 0, AREX_SEP_DASHED, 0 },
         /* row 1: NDL + TTS 双拼 */
-        { AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, 1, 0, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, 0, 1, 0, AREX_SEP_DASHED, 0 },
         /* row 2: POD1 + POD2 双拼 */
-        { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, 2, 0, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, 0, 2, 0, AREX_SEP_DASHED, 0 },
         /* row 3: BATT + WTM 双拼 */
         { AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2, 0, 0, AREX_SEP_DASHED, 0 },
         /* row 4: GAS 单栏全宽 */
-        { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, 1, 0, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, 0, 1, 0, AREX_SEP_DASHED, 0 },
         /* row 5: TIME 单栏全宽 */
         { AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2, 0, 0, AREX_SEP_DASHED, 0 },
         /* row 6-7: EMPTY */
