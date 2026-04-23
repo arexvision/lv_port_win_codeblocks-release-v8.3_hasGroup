@@ -640,3 +640,116 @@ lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
 |------|------|------|
 | 2026-04-22 | `card_gas.c` | 气体选项 x=16 到 x=0，与 INFO MENU 对齐 |
 | 2026-04-22 | `UI_html_DOC/LVGL_LAYOUT_GUIDE.md` | 新建排版落地指南 |
+| 2026-04-23 | `arex_ui_engine.h` | 新增 `arex_left_module_t` 枚举、`left_order[]`、`left_mod_*` 属性表 |
+| 2026-04-23 | `arex_ui_engine.h` | 新增命名常量 `AREX_MIN_CLASSIC_TOP_H`、`AREX_MASK_EDGE_GUARD` |
+| 2026-04-23 | `arex_ui_engine.h` | 扩展 `arex_anchor_comp_t`：新增 `module`、`title_font`、`val_font`、`title_align`、`val_align` |
+| 2026-04-23 | `arex_ui_engine.c` | `arex_sys_config_defaults()` 填充所有新字段（left_order、per-module 属性表） |
+| 2026-04-23 | `arex_ui_engine.c` | `arex_calc_anchor_layout()` 完全数据驱动化，支持 left_order 遍历 |
+| 2026-04-23 | `arex_screen.c` | 移除所有残留硬编码像素：DEPTH 内 NEXT_STOP/PO2 Y 改为 U×10 计算，wall 高度改为 `h_tissues_chart×U`，submenu item_h 改为 `h_menu_item×U` |
+| 2026-04-23 | `arex_screen.c` | `left_anchor_create()` 使用 `comps[i].val_font`/`val_align` 替代 switch 硬编码 |
+| 2026-04-23 | `arex_screen.c` | `left_anchor_rebuild()` 同样接入数据驱动字体/对齐刷新 |
+
+---
+
+## 16. APP 同步就绪：全动态布局引擎（v2026-04-23）
+
+### 16.1 三大核心引擎状态
+
+| 引擎 | 状态 | 说明 |
+|------|------|------|
+| 左侧锚点枚举排序 | ✅ 已实现 | `left_order[]` + `arex_calc_anchor_layout()` 数据驱动遍历 |
+| 右侧卡片顺序 | ✅ 已实现 | `card_order[]` + `arex_card_get()` 双射映射 |
+| U 单位零硬编码 | ✅ 已实现 | 所有坐标基于 `× AREX_BASE_U`，无残留像素常数 |
+
+### 16.2 左侧锚点模块枚举
+
+```c
+typedef enum {
+    AREX_MODULE_NONE   = 0,  /* 占位/空白 */
+    AREX_MODULE_DEPTH  = 1,  /* DEPTH 大通栏 */
+    AREX_MODULE_NDL    = 2,  /* NDL 双拼左块 */
+    AREX_MODULE_TTS    = 3,  /* TTS 双拼右块 */
+    AREX_MODULE_POD1   = 4,  /* POD 1 双拼左块 */
+    AREX_MODULE_POD2   = 5,  /* POD 2 双拼右块 */
+    AREX_MODULE_BATT   = 6,  /* BATT 双拼左块 */
+    AREX_MODULE_WTM    = 7,  /* W.TIME 双拼右块 */
+    AREX_MODULE_GAS    = 8,  /* GAS 中通栏 */
+    AREX_MODULE_TIME   = 9,  /* DIVE TIME 底部通栏 */
+    AREX_MODULE_CUSTOM = 10,  /* 自定义预留 */
+} arex_left_module_t;
+```
+
+### 16.3 左侧锚点顺序数组
+
+```c
+// g_sys_config.left_order[] — 控制模块渲染顺序（默认）
+g_sys_config.left_order[0] = AREX_MODULE_DEPTH;  // DEPTH
+g_sys_config.left_order[1] = AREX_MODULE_NDL;  // NDL
+g_sys_config.left_order[2] = AREX_MODULE_TTS;  // TTS
+g_sys_config.left_order[3] = AREX_MODULE_POD1;  // POD1
+g_sys_config.left_order[4] = AREX_MODULE_POD2;  // POD2
+g_sys_config.left_order[5] = AREX_MODULE_BATT;  // BATT
+g_sys_config.left_order[6] = AREX_MODULE_WTM;   // W.TIME
+g_sys_config.left_order[7] = AREX_MODULE_GAS;   // GAS
+g_sys_config.left_order[8] = AREX_MODULE_TIME;  // TIME
+```
+
+**APP 同步示例**：将 DEPTH 移到最后，只需下发：
+```json
+{ "left_order": [2, 3, 4, 5, 6, 7, 8, 9, 1] }
+```
+单片机收到后调用 `arex_ui_apply_config()`，整个左侧面板自动重排，无需改任何 C 代码。
+
+### 16.4 per-module 属性映射表
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `left_mod_split[i]` | `uint8_t` | 0=单栏 1=双拼左 2=双拼右 |
+| `left_mod_title_font[i]` | `uint8_t` | 0=SMALL 1=MEDIUM 2=TITLE |
+| `left_mod_val_font[i]` | `uint8_t` | 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE |
+| `left_mod_title_align[i]` | `uint8_t` | 0=LEFT 1=CENTER 2=RIGHT |
+| `left_mod_val_align[i]` | `uint8_t` | 0=LEFT 1=CENTER 2=RIGHT |
+
+字号表（`font_cat[4]`）: `0=AREX_FONT_SMALL(14px)` `1=AREX_FONT_MEDIUM(28px)` `2=AREX_FONT_TITLE(20px)` `3=AREX_FONT_HUGE(48px)`
+
+### 16.5 布局引擎函数一览
+
+| 函数 | 文件 | 作用 |
+|------|------|------|
+| `arex_calc_anchor_layout()` | arex_ui_engine.c | 遍历 `left_order[]`，填 `arex_anchor_comp_t[9]`，所有尺寸基于 `× AREX_BASE_U` |
+| `arex_calc_tech_layout()` | arex_ui_engine.c | Tech 模式左右分区坐标：左锚点固定 160px，右区域 `= safe_zone_w - 160 - gap` |
+| `arex_calc_classic_layout()` | arex_ui_engine.c | Classic 模式上下分区，最小高度 `AREX_MIN_CLASSIC_TOP_H=200px` |
+| `arex_calc_widget_cell()` | arex_ui_engine.c | 5x6 网格单元格坐标，`unit_w = parent_w/5`，`unit_h = parent_h/6` |
+| `arex_calc_tissue_bars()` | arex_ui_engine.c | 16 柱组织图 X 坐标，`col_w = total_w/16` |
+| `left_anchor_create()` | arex_screen.c | 首次创建，使用 `comps[i].val_font` / `val_align` 数据驱动 |
+| `left_anchor_rebuild()` | arex_screen.c | 配置变更后重建，使用数据驱动字体/对齐刷新 |
+| `right_panel_create()` | arex_screen.c | 创建 tileview，按 `card_order[]` 顺序挂载卡片 |
+
+### 16.6 关键命名常量（防止硬编码）
+
+| 常量 | 值 | 用途 |
+|------|-----|------|
+| `AREX_BASE_U` | 10px | 所有 U 单位乘数 |
+| `AREX_MIN_CLASSIC_TOP_H` | 200px | Classic 模式最小上区高度 |
+| `AREX_MASK_EDGE_GUARD` | 80px | 面镜盲区掩膜底部警戒阈值 |
+| `AREX_LEFT_ANCHOR_W` | 160px | 左侧锚点固定宽度 |
+| `ANCHOR_COMP_COUNT` | 9 | 左侧组件固定槽位数 |
+| `ANCHOR_LEFT_MODULE_COUNT` | 9 | 左侧模块枚举/顺序数组长度 |
+
+### 16.7 right_w Fallback 公式
+
+所有右侧宽度 fallback 使用以下公式，不再使用硬编码 `420`：
+
+```c
+uint16_t right_w_fallback = g_sys_config.safe_zone_w
+                          - AREX_LEFT_ANCHOR_W          // 160px
+                          - g_sys_config.gap_u * AREX_BASE_U;  // gap
+// 例: 580 - 160 - 10 = 410px
+```
+
+### 16.8 APP 完整同步协议
+
+1. **APP 下发** JSON 配置（仅包含 `g_sys_config` 字段子集）
+2. **单片机解析** → 覆盖 `g_sys_config` 对应字段
+3. **调用** `arex_ui_apply_config()` → `left_anchor_rebuild()` + `arex_screen_rebuild_tileview()`
+4. **结果**：整个 UI 按新配置重排，无需重启，无需改 C 代码

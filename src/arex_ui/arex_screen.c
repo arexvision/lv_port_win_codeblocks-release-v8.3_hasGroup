@@ -172,6 +172,11 @@ static void left_anchor_rebuild(void)
     uint16_t anchor_h = g_sys_config.safe_zone_h;
     lv_obj_set_size(s_left_anchor, anchor_w, anchor_h);
 
+    /* 字号类别映射表: 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE */
+    const lv_font_t *font_cat[4] = {
+        AREX_FONT_SMALL, AREX_FONT_MEDIUM, AREX_FONT_TITLE, AREX_FONT_HUGE
+    };
+
     /* 重建每个组件 */
     for (uint8_t i = 0; i < ANCHOR_COMP_COUNT; i++) {
         arex_anchor_comp_t *c = &comps[i];
@@ -179,6 +184,9 @@ static void left_anchor_rebuild(void)
         lv_obj_t *val_obj   = s_anchor_vals[i];
 
         if (!title_obj || !val_obj) continue;
+
+        /* 跳过空槽位 */
+        if (c->module == 0 && c->h == 0) continue;
 
         /* 设置坐标和尺寸 */
         lv_obj_set_pos(title_obj, 0, c->y);
@@ -196,16 +204,21 @@ static void left_anchor_rebuild(void)
             lv_obj_set_style_bg_opa(sep, g_sys_config.sep_alpha, 0);
         }
 
-        /* 双拼对齐引擎 */
-        if (c->split > 0 && g_sys_config.split_outward) {
-            if (c->split == 1) {
-                /* 左块靠左 */
-                lv_obj_set_style_text_align(val_obj, LV_TEXT_ALIGN_LEFT, 0);
-            } else {
-                /* 右块靠右 */
-                lv_obj_set_style_text_align(val_obj, LV_TEXT_ALIGN_RIGHT, 0);
-            }
+        /* 数据驱动字体刷新 */
+        lv_obj_set_style_text_font(title_obj, font_cat[c->title_font], 0);
+        lv_obj_set_style_text_font(val_obj,   font_cat[c->val_font],   0);
+
+        /* 数据驱动对齐刷新 */
+        lv_text_align_t val_align;
+        if (g_sys_config.split_outward && c->split == 2) {
+            val_align = LV_TEXT_ALIGN_RIGHT;
+        } else if (g_sys_config.split_outward && c->split == 1) {
+            val_align = LV_TEXT_ALIGN_LEFT;
+        } else {
+            val_align = arex_align_to_lv(c->val_align);
         }
+        lv_obj_set_style_text_align(val_obj, val_align, 0);
+        lv_obj_set_style_text_align(title_obj, arex_align_to_lv(c->title_align), 0);
     }
 }
 
@@ -235,42 +248,41 @@ static void left_anchor_create(void)
      * i=0  DEPTH   → HUGE  (48px)，val_h = (8-2)*10 = 60px ✓
      * i=1  NDL     → MED   (28px)，val_h = (6-2)*10 = 40px ✓
      * i=2  TTS     → MED   (28px)，val_h = 40px ✓
-     * i=3  POD 1   → TITLE (20px)，val_h = 40px ✓
-     * i=4  POD 2   → TITLE (20px)，val_h = 40px ✓
-     * i=5  BATT    → SMALL (14px)，val_h = (4-2)*10 = 20px ✓
-     * i=6  W.TIME  → SMALL (14px)，val_h = 20px ✓
-     * i=7  GAS     → MED   (28px)，val_h = (6-2)*10 = 40px ✓
-     * i=8  TIME    → SMALL (14px)，val_h = (4-2)*10 = 20px ✓
+     * 字号楼数据驱动：使用 comps[i].val_font / title_font，不再硬编码 switch
      */
-    const lv_font_t *title_fonts[ANCHOR_COMP_COUNT];
-    const lv_font_t *val_fonts[ANCHOR_COMP_COUNT];
-    for (uint8_t i = 0; i < ANCHOR_COMP_COUNT; i++) {
-        title_fonts[i] = AREX_FONT_SMALL;
-        switch (i) {
-            case 0:                          val_fonts[i] = AREX_FONT_HUGE;   break;
-            case 1: case 2: case 7:          val_fonts[i] = AREX_FONT_MEDIUM; break;
-            case 3: case 4:                  val_fonts[i] = AREX_FONT_TITLE;  break;
-            default: /* 5,6,8 — val_h=20px */ val_fonts[i] = AREX_FONT_SMALL;  break;
-        }
-    }
+    /* 字号类别映射表: 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE */
+    const lv_font_t *font_cat[4] = {
+        AREX_FONT_SMALL, AREX_FONT_MEDIUM, AREX_FONT_TITLE, AREX_FONT_HUGE
+    };
 
     /* 清除旧子对象 (rebuild 时会用到) */
     lv_obj_clean(s_left_anchor);
 
+    /* PO2 标题行固定起始 Y：DEPTH 区块底部后紧接着 */
+    int16_t po2_start_y = 0;
+
     for (uint8_t i = 0; i < ANCHOR_COMP_COUNT; i++) {
         arex_anchor_comp_t *c = &comps[i];
+
+        /* 跳过未启用槽位（如被 left_order 标记为 NONE 的模块） */
+        if (c->module == 0 && c->h == 0) continue;
+
+        /* 记录 PO2 起始 Y（DEPTH 模块底部） */
+        if (c->module == AREX_MODULE_DEPTH) {
+            po2_start_y = c->y + c->h;
+        }
 
         /* 标题区：双拼右块 x = half_w，其余 x = 0 */
         lv_coord_t comp_x = (c->split == 2) ? (lv_coord_t)(AREX_LEFT_ANCHOR_W / 2) : 0;
 
-        /* 对齐方向：split_outward 时左块靠左、右块靠右；否则统一用全局对齐 */
+        /* 对齐方向：split_outward 时左块靠左、右块靠右；否则用 per-module val_align */
         lv_text_align_t comp_align;
         if (g_sys_config.split_outward && c->split == 2)
             comp_align = LV_TEXT_ALIGN_RIGHT;
         else if (g_sys_config.split_outward && c->split == 1)
             comp_align = LV_TEXT_ALIGN_LEFT;
         else
-            comp_align = arex_align_to_lv(g_sys_config.align_med);
+            comp_align = arex_align_to_lv(c->val_align);
 
         lv_obj_t *title_zone = lv_obj_create(s_left_anchor);
         lv_obj_set_pos(title_zone, comp_x, c->y);
@@ -298,7 +310,7 @@ static void left_anchor_create(void)
         lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_DOT);
         lv_obj_set_style_text_align(lbl_title, comp_align, 0);
         lv_obj_set_style_text_color(lbl_title, AREX_LIGHT, 0);
-        lv_obj_set_style_text_font(lbl_title, title_fonts[i], 0);
+        lv_obj_set_style_text_font(lbl_title, font_cat[c->title_font], 0);
         lv_obj_set_style_bg_opa(lbl_title, LV_OPA_TRANSP, 0);
         lv_label_set_text(lbl_title, title_texts[i]);
 
@@ -320,14 +332,14 @@ static void left_anchor_create(void)
         lv_label_set_long_mode(lbl_val, LV_LABEL_LONG_DOT);
         lv_obj_set_style_text_align(lbl_val, comp_align, 0);
         lv_obj_set_style_text_color(lbl_val, AREX_GREEN, 0);
-        lv_obj_set_style_text_font(lbl_val, val_fonts[i], 0);
+        lv_obj_set_style_text_font(lbl_val, font_cat[c->val_font], 0);
         lv_obj_set_style_bg_opa(lbl_val, LV_OPA_TRANSP, 0);
         if (i == 0) {
             /* DEPTH 大字 */
             lv_label_set_text(lbl_val, "45.2");
             lv_obj_set_style_text_letter_space(lbl_val, -2, 0);
         } else if (i == 1) {
-            lv_label_set_text(lbl_val, "0");
+            lv_label_set_text(lbl_val, "5");
             s_lbl_ndl = lbl_val;
         } else if (i == 2) {
             lv_label_set_text(lbl_val, "24'");
@@ -355,28 +367,36 @@ static void left_anchor_create(void)
             s_lbl_time = lbl_val;
         }
 
-        /* NEXT STOP 标签 — 位置待重新规划，暂时隐藏 */
+        /* NEXT STOP / PO2 覆盖层（仅在 DEPTH 模块内，右半侧）
+         * Y 坐标基于 DEPTH 模块高度动态计算，全部位于 DEPTH block 内部
+         * NEXT STOP cap: depth_val_y + 0U (紧跟 DEPTH 数值)
+         * NEXT STOP val:  depth_val_y + 2U
+         * PO2 cap:        depth_val_y + 5U
+         * PO2 vals:       depth_val_y + 7U
+         */
         if (i == 0) {
+            int16_t depth_val_y = c->y + c->title_h;
+            int16_t po2_cap_y  = depth_val_y + 5 * AREX_BASE_U;  /* PO2 标题 Y */
+            int16_t po2_val_y  = depth_val_y + 7 * AREX_BASE_U;  /* PO2 数值 Y */
+            lv_coord_t right_x = AREX_LEFT_ANCHOR_W / 2 + 8;      /* 右半侧起始 X */
+
             lv_obj_t *lbl_ns = lv_label_create(s_left_anchor);
-            lv_obj_set_pos(lbl_ns, AREX_LEFT_ANCHOR_W / 2 + 8, 132);
+            lv_obj_set_pos(lbl_ns, right_x, depth_val_y);
             lv_obj_set_style_text_color(lbl_ns, AREX_LIGHT, 0);
             lv_obj_set_style_text_font(lbl_ns, AREX_FONT_SMALL, 0);
             lv_obj_set_style_bg_opa(lbl_ns, LV_OPA_TRANSP, 0);
             lv_label_set_text(lbl_ns, "NEXT STOP");
-            lv_obj_add_flag(lbl_ns, LV_OBJ_FLAG_HIDDEN);   /* 坐标待重新计算后再启用 */
+            lv_obj_add_flag(lbl_ns, LV_OBJ_FLAG_HIDDEN);
             s_lbl_next_stop = lv_label_create(s_left_anchor);
-            lv_obj_set_pos(s_lbl_next_stop, AREX_LEFT_ANCHOR_W / 2 + 8, 148);
+            lv_obj_set_pos(s_lbl_next_stop, right_x, depth_val_y + 2 * AREX_BASE_U);
             lv_obj_set_style_text_color(s_lbl_next_stop, AREX_LIGHT, 0);
             lv_obj_set_style_text_font(s_lbl_next_stop, AREX_FONT_MEDIUM, 0);
             lv_obj_set_style_bg_opa(s_lbl_next_stop, LV_OPA_TRANSP, 0);
             lv_label_set_text(s_lbl_next_stop, "21m 3'");
             lv_obj_add_flag(s_lbl_next_stop, LV_OBJ_FLAG_HIDDEN);
-        }
 
-        /* PO2 标签行 — 位置待重新规划，暂时隐藏 */
-        if (i == 0) {
             lv_obj_t *lbl_po2_cap = lv_label_create(s_left_anchor);
-            lv_obj_set_pos(lbl_po2_cap, AREX_LEFT_ANCHOR_W / 2 + 8, 192);
+            lv_obj_set_pos(lbl_po2_cap, right_x, po2_cap_y);
             lv_obj_set_style_text_color(lbl_po2_cap, AREX_LIGHT, 0);
             lv_obj_set_style_text_font(lbl_po2_cap, AREX_FONT_SMALL, 0);
             lv_obj_set_style_bg_opa(lbl_po2_cap, LV_OPA_TRANSP, 0);
@@ -392,7 +412,7 @@ static void left_anchor_create(void)
             };
 
             s_ppo2_vals[0] = lv_label_create(s_left_anchor);
-            lv_obj_set_pos(s_ppo2_vals[0], ppo2_x[0], 210);
+            lv_obj_set_pos(s_ppo2_vals[0], ppo2_x[0], po2_val_y);
             lv_obj_set_style_text_color(s_ppo2_vals[0], AREX_GREEN, 0);
             lv_obj_set_style_text_font(s_ppo2_vals[0], AREX_FONT_SMALL, 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[0], LV_OPA_TRANSP, 0);
@@ -400,7 +420,7 @@ static void left_anchor_create(void)
             lv_obj_add_flag(s_ppo2_vals[0], LV_OBJ_FLAG_HIDDEN);
 
             s_ppo2_seps[0] = lv_label_create(s_left_anchor);
-            lv_obj_set_pos(s_ppo2_seps[0], ppo2_x[1], 210);
+            lv_obj_set_pos(s_ppo2_seps[0], ppo2_x[1], po2_val_y);
             lv_obj_set_style_text_color(s_ppo2_seps[0], AREX_GREEN, 0);
             lv_obj_set_style_text_font(s_ppo2_seps[0], AREX_FONT_SMALL, 0);
             lv_obj_set_style_text_opa(s_ppo2_seps[0], LV_OPA_30, 0);
@@ -409,7 +429,7 @@ static void left_anchor_create(void)
             lv_obj_add_flag(s_ppo2_seps[0], LV_OBJ_FLAG_HIDDEN);
 
             s_ppo2_vals[1] = lv_label_create(s_left_anchor);
-            lv_obj_set_pos(s_ppo2_vals[1], ppo2_x[2], 210);
+            lv_obj_set_pos(s_ppo2_vals[1], ppo2_x[2], po2_val_y);
             lv_obj_set_style_text_color(s_ppo2_vals[1], AREX_GREEN, 0);
             lv_obj_set_style_text_font(s_ppo2_vals[1], AREX_FONT_SMALL, 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[1], LV_OPA_TRANSP, 0);
@@ -417,7 +437,7 @@ static void left_anchor_create(void)
             lv_obj_add_flag(s_ppo2_vals[1], LV_OBJ_FLAG_HIDDEN);
 
             s_ppo2_seps[1] = lv_label_create(s_left_anchor);
-            lv_obj_set_pos(s_ppo2_seps[1], ppo2_x[3], 210);
+            lv_obj_set_pos(s_ppo2_seps[1], ppo2_x[3], po2_val_y);
             lv_obj_set_style_text_color(s_ppo2_seps[1], AREX_GREEN, 0);
             lv_obj_set_style_text_font(s_ppo2_seps[1], AREX_FONT_SMALL, 0);
             lv_obj_set_style_text_opa(s_ppo2_seps[1], LV_OPA_30, 0);
@@ -426,7 +446,7 @@ static void left_anchor_create(void)
             lv_obj_add_flag(s_ppo2_seps[1], LV_OBJ_FLAG_HIDDEN);
 
             s_ppo2_vals[2] = lv_label_create(s_left_anchor);
-            lv_obj_set_pos(s_ppo2_vals[2], ppo2_x[4], 210);
+            lv_obj_set_pos(s_ppo2_vals[2], ppo2_x[4], po2_val_y);
             lv_obj_set_style_text_color(s_ppo2_vals[2], AREX_GREEN, 0);
             lv_obj_set_style_text_font(s_ppo2_vals[2], AREX_FONT_SMALL, 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[2], LV_OPA_TRANSP, 0);
@@ -629,7 +649,10 @@ void arex_screen_rebuild_tileview(void)
 static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 {
     lv_obj_t *w = lv_obj_create(parent);
-    lv_obj_set_size(w, s_cached_right_w > 0 ? s_cached_right_w : 420, 90);
+    lv_coord_t wall_h = g_sys_config.h_tissues_chart * AREX_BASE_U;  /* 90px = 9U */
+    lv_coord_t wall_w = (s_cached_right_w > 0) ? s_cached_right_w
+                                                 : (lv_coord_t)(g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W);
+    lv_obj_set_size(w, wall_w, wall_h);
     lv_obj_set_pos(w, 0, y);
     lv_obj_set_style_bg_color(w, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(w, LV_OPA_COVER, 0);
@@ -643,7 +666,7 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
     lv_obj_t *txt = lv_label_create(w);
     lv_obj_set_style_text_color(txt, AREX_GREEN, 0);
     lv_obj_set_style_text_font(txt, AREX_FONT_TITLE, 0);
-    lv_obj_set_width(txt, s_cached_right_w > 0 ? s_cached_right_w : 420);
+    lv_obj_set_width(txt, wall_w);
     lv_obj_set_style_text_align(txt, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(txt, 0, 12);
     lv_label_set_text(txt, "");
@@ -651,7 +674,7 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
     lv_obj_t *blk = lv_label_create(w);
     lv_obj_set_style_text_color(blk, AREX_GREEN, 0);
     lv_obj_set_style_text_font(blk, AREX_FONT_MEDIUM, 0);
-    lv_obj_set_width(blk, s_cached_right_w > 0 ? s_cached_right_w : 420);
+    lv_obj_set_width(blk, wall_w);
     lv_obj_set_style_text_align(blk, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(blk, 0, 50);
     lv_label_set_text(blk, "");
@@ -661,7 +684,10 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 
 static void wall_create(void)
 {
-    uint16_t wall_y_bottom = g_sys_config.safe_zone_h > 0 ? g_sys_config.safe_zone_h - 90 : 390;
+    lv_coord_t wall_h = g_sys_config.h_tissues_chart * AREX_BASE_U;  /* 90px = 9U */
+    lv_coord_t wall_y_bottom = (g_sys_config.safe_zone_h > wall_h)
+                                ? (lv_coord_t)(g_sys_config.safe_zone_h - wall_h)
+                                : (lv_coord_t)(g_sys_config.safe_zone_h);
 
     s_wall_top    = make_wall(s_right_cont, 0);
     s_wall_bottom = make_wall(s_right_cont, wall_y_bottom);
@@ -677,7 +703,10 @@ static void wall_create(void)
 static void modal_create(void)
 {
     s_modal = lv_obj_create(s_right_cont);
-    lv_obj_set_size(s_modal, s_cached_right_w > 0 ? s_cached_right_w : 420,
+    uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                                - g_sys_config.gap_u * AREX_BASE_U;
+    uint16_t sub_w = s_cached_right_w > 0 ? s_cached_right_w : right_w_fallback;
+    lv_obj_set_size(s_modal, sub_w,
                      g_sys_config.safe_zone_h);
     lv_obj_set_pos(s_modal, 0, 0);
     lv_obj_set_style_bg_color(s_modal, lv_color_make(0,0,0), 0);
@@ -701,7 +730,9 @@ static void modal_create(void)
  * ========================================================= */
 static void submenu_layer_create(void)
 {
-    uint16_t sub_w = s_cached_right_w > 0 ? s_cached_right_w : 420;
+    uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                                - g_sys_config.gap_u * AREX_BASE_U;
+    uint16_t sub_w = s_cached_right_w > 0 ? s_cached_right_w : right_w_fallback;
 
     s_submenu_layer = lv_obj_create(s_right_cont);
     lv_obj_set_size(s_submenu_layer, sub_w, g_sys_config.safe_zone_h);
@@ -1009,8 +1040,14 @@ static void submenu_slide_in(void)
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, s_submenu_layer);
-    uint16_t sub_w = s_cached_right_w > 0 ? s_cached_right_w : 420;
-    lv_anim_set_values(&a, sub_w, 0);
+    uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                                - g_sys_config.gap_u * AREX_BASE_U;
+    uint16_t slide_w = s_cached_right_w > 0 ? s_cached_right_w : right_w_fallback;
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, s_submenu_layer);
+    lv_anim_set_values(&a, slide_w, 0);
     lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
     lv_anim_set_time(&a, 250);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
@@ -1019,11 +1056,14 @@ static void submenu_slide_in(void)
 
 static void submenu_slide_out(void)
 {
+    uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                                - g_sys_config.gap_u * AREX_BASE_U;
+    uint16_t slide_w = s_cached_right_w > 0 ? s_cached_right_w : right_w_fallback;
+
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, s_submenu_layer);
-    uint16_t sub_w = s_cached_right_w > 0 ? s_cached_right_w : 420;
-    lv_anim_set_values(&a, 0, sub_w);
+    lv_anim_set_values(&a, 0, slide_w);
     lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_x);
     lv_anim_set_time(&a, 250);
     lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
@@ -1035,10 +1075,14 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
     lv_label_set_text(s_submenu_title, title);
     lv_obj_clean(s_submenu_list);
 
-    uint16_t sub_w   = s_cached_right_w > 0 ? s_cached_right_w : 420;
-    int item_h = 48;
+    /* right_w 从缓存读取，fallback = safe_zone_w - left_anchor_w - gap */
+    uint16_t right_w = (s_cached_right_w > 0)
+        ? s_cached_right_w
+        : (g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - g_sys_config.gap_u * AREX_BASE_U);
+    uint16_t sub_w = right_w;
+    int item_h = (int)(g_sys_config.h_menu_item * AREX_BASE_U);  /* 5U=50px */
     int item_w = (int)sub_w - 15;
-    int gap_y  = 8;
+    int gap_y  = (int)(g_sys_config.gap_menu * AREX_BASE_U);   /* 1U=10px */
     int current_y = 0;
 
     for (uint8_t i = 0; i < count; i++) {
@@ -1625,16 +1669,19 @@ void arex_screen_cancel_edit_value(void)
  * ========================================================= */
 lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
 {
+    uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                                - g_sys_config.gap_u * AREX_BASE_U;
+    uint16_t right_w = (s_cached_right_w > 0) ? s_cached_right_w : right_w_fallback;
+
     lv_obj_t *lbl = lv_label_create(parent);
     lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
     lv_obj_set_pos(lbl, 16, 12);
-    lv_obj_set_size(lbl, (s_cached_right_w > 0 ? s_cached_right_w : 420) - 32, 28);
+    lv_obj_set_size(lbl, right_w - 32, 28);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
     lv_label_set_text(lbl, text);
 
     lv_obj_t *line = lv_obj_create(parent);
-    uint16_t right_w = s_cached_right_w > 0 ? s_cached_right_w : 420;
     lv_obj_set_size(line, right_w - 32, 2);
     lv_obj_set_pos(line, 16, 38);
     lv_obj_set_style_bg_color(line, AREX_DARK, 0);

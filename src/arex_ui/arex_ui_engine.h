@@ -8,7 +8,9 @@
 /* =========================================================
  * 1. 系统核心宏定义
  * ========================================================= */
-#define AREX_BASE_U         10   /* 物理基准单位 1U = 10px */
+#define AREX_BASE_U             10   /* 物理基准单位 1U = 10px */
+#define AREX_MIN_CLASSIC_TOP_H  200  /* Classic 模式下最小上区高度 px */
+#define AREX_MASK_EDGE_GUARD    80   /* 面镜盲区掩膜底部警戒阈值 px */
 #define AREX_PHYSICAL_W    640  /* 硬件屏幕极限宽 */
 #define AREX_PHYSICAL_H    480  /* 硬件屏幕极限高 */
 #define AREX_LEFT_ANCHOR_W  160  /* 左侧锚点固定宽度 */
@@ -20,6 +22,7 @@
 
 /* 10U 左侧锚点组件数量 */
 #define ANCHOR_COMP_COUNT   9
+#define ANCHOR_LEFT_MODULE_COUNT 9   /* DEPTH NDL TTS POD1 POD2 BATT WTM GAS TIME */
 
 /* =========================================================
  * 2. 枚举字典 (配置项映射)
@@ -59,6 +62,26 @@ typedef enum {
     AREX_SEP_DASHED,
     AREX_SEP_DOTTED
 } arex_sep_style_t;
+
+/* =========================================================
+ * 2b. 左侧锚点模块枚举 (模块类型标识)
+ *
+ * APP 通过修改 g_sys_config.left_order[] 中的枚举值，
+ * 即可自由调整左侧模块的显示顺序和组合。
+ * ========================================================= */
+typedef enum {
+    AREX_MODULE_NONE    = 0,   /* 占位/空白 */
+    AREX_MODULE_DEPTH   = 1,   /* DEPTH 大通栏 */
+    AREX_MODULE_NDL     = 2,   /* NDL 双拼左块 */
+    AREX_MODULE_TTS     = 3,   /* TTS 双拼右块 */
+    AREX_MODULE_POD1    = 4,   /* POD 1 双拼左块 */
+    AREX_MODULE_POD2    = 5,   /* POD 2 双拼右块 */
+    AREX_MODULE_BATT    = 6,   /* BATT 双拼左块 */
+    AREX_MODULE_WTM     = 7,   /* W.TIME 双拼右块 */
+    AREX_MODULE_GAS     = 8,   /* GAS 中通栏 */
+    AREX_MODULE_TIME    = 9,   /* DIVE TIME 底部通栏 */
+    AREX_MODULE_CUSTOM  = 10,  /* 自定义预留 */
+} arex_left_module_t;
 
 /* =========================================================
  * 3. NVDS 核心配置结构体 (字节对齐，用于持久化)
@@ -112,6 +135,20 @@ typedef struct {
     uint8_t  widget_w[AREX_MAX_WIDGETS];
     uint8_t  widget_h[AREX_MAX_WIDGETS];
 
+    /* --- 左侧锚点模块顺序 (APP 同步就绪) --- */
+    /* left_order[i] = arex_left_module_t，控制模块渲染顺序
+     * 例：{AREX_MODULE_DEPTH, AREX_MODULE_NDL, AREX_MODULE_TTS, ...}
+     * 默认 9 个模块依次排列。双拼块（NDL/TTS）必须成对出现。 */
+    uint8_t  left_order[ANCHOR_LEFT_MODULE_COUNT];
+
+    /* --- 左侧锚点模块属性表 (每模块独立样式配置) --- */
+    /* 每个模块可独立设置：分割类型、标题字体、数值字体、对齐方式 */
+    uint8_t  left_mod_split[ANCHOR_LEFT_MODULE_COUNT];    /* 0=单栏 1=双拼左 2=双拼右 */
+    uint8_t  left_mod_title_font[ANCHOR_LEFT_MODULE_COUNT];/* 0=SMALL 1=MEDIUM 2=TITLE */
+    uint8_t  left_mod_val_font[ANCHOR_LEFT_MODULE_COUNT];  /* 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE */
+    uint8_t  left_mod_title_align[ANCHOR_LEFT_MODULE_COUNT];/* arex_align_t */
+    uint8_t  left_mod_val_align[ANCHOR_LEFT_MODULE_COUNT];  /* arex_align_t */
+
 } arex_sys_config_t;
 #pragma pack(pop)
 
@@ -158,14 +195,22 @@ typedef struct {
 
 /* =========================================================
  * 5. 左侧锚点组件布局信息结构 (供 arex_screen.c 使用)
+ *
+ * 由 arex_calc_anchor_layout() 在运行时填充，
+ * 所有尺寸基于 AREX_BASE_U 推算，不含硬编码像素值。
  * ========================================================= */
 typedef struct {
-    int16_t  y;       /* Y 坐标 */
-    uint16_t h;        /* 高度 px */
-    uint16_t title_h;  /* 标题区高度 px */
-    uint16_t val_h;    /* 数值区高度 px */
-    uint16_t w;        /* 宽度 px */
-    uint8_t  split;    /* 0=单栏 1=双拼左 2=双拼右 */
+    arex_left_module_t module;  /* 模块类型枚举 */
+    int16_t  y;                /* Y 坐标 px */
+    uint16_t h;                /* 总高度 px */
+    uint16_t title_h;          /* 标题区高度 px */
+    uint16_t val_h;            /* 数值区高度 px */
+    uint16_t w;                /* 宽度 px */
+    uint8_t  split;            /* 0=单栏 1=双拼左 2=双拼右 */
+    uint8_t  title_font;       /* 0=SMALL 1=MEDIUM 2=TITLE */
+    uint8_t  val_font;         /* 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE */
+    uint8_t  title_align;      /* arex_align_t */
+    uint8_t  val_align;        /* arex_align_t */
 } arex_anchor_comp_t;
 
 /* =========================================================
