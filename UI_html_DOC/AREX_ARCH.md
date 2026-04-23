@@ -640,14 +640,13 @@ lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
 |------|------|------|
 | 2026-04-22 | `card_gas.c` | 气体选项 x=16 到 x=0，与 INFO MENU 对齐 |
 | 2026-04-22 | `UI_html_DOC/LVGL_LAYOUT_GUIDE.md` | 新建排版落地指南 |
-| 2026-04-23 | `arex_ui_engine.h` | 新增 `arex_left_module_t` 枚举、`left_order[]`、`left_mod_*` 属性表 |
-| 2026-04-23 | `arex_ui_engine.h` | 新增命名常量 `AREX_MIN_CLASSIC_TOP_H`、`AREX_MASK_EDGE_GUARD` |
-| 2026-04-23 | `arex_ui_engine.h` | 扩展 `arex_anchor_comp_t`：新增 `module`、`title_font`、`val_font`、`title_align`、`val_align` |
-| 2026-04-23 | `arex_ui_engine.c` | `arex_sys_config_defaults()` 填充所有新字段（left_order、per-module 属性表） |
-| 2026-04-23 | `arex_ui_engine.c` | `arex_calc_anchor_layout()` 完全数据驱动化，支持 left_order 遍历 |
-| 2026-04-23 | `arex_screen.c` | 移除所有残留硬编码像素：DEPTH 内 NEXT_STOP/PO2 Y 改为 U×10 计算，wall 高度改为 `h_tissues_chart×U`，submenu item_h 改为 `h_menu_item×U` |
-| 2026-04-23 | `arex_screen.c` | `left_anchor_create()` 使用 `comps[i].val_font`/`val_align` 替代 switch 硬编码 |
-| 2026-04-23 | `arex_screen.c` | `left_anchor_rebuild()` 同样接入数据驱动字体/对齐刷新 |
+| 2026-04-23 | `arex_ui_engine.h` | 删除 `left_order[]` 和 `left_mod_*[]`，替换为 `arex_left_row_cfg_t left_layout[8]` 行配置结构体 |
+| 2026-04-23 | `arex_ui_engine.h` | 新增 `AREX_MODULE_EMPTY=0`（替换旧 NONE），新增 `AREX_MAX_LEFT_ROWS=8`、`AREX_ROW_MAX_SLOTS=2`、`ANCHOR_COMP_COUNT=16` |
+| 2026-04-23 | `arex_ui_engine.c` | `arex_calc_anchor_layout()` 完全重写：遍历 `left_layout[]` 而非 `left_order[]`，单栏独占全宽(160px)，双拼各半宽(80px)，零双拼硬编码 |
+| 2026-04-23 | `arex_ui_engine.c` | `arex_sys_config_defaults()` 填充 `left_layout[]` 默认行配置（DEPTH/GA + NDL+TTS + POD1+POD2 + BATT+WTM + GAS + TIME） |
+| 2026-04-23 | `arex_screen.c` | `left_anchor_create()` 循环改为 `for (i < comp_count)`，标题和数值文字改为 `switch (c->module)` 枚举驱动 |
+| 2026-04-23 | `arex_screen.c` | `left_anchor_rebuild()` 同步更新为空模块检查和对齐处理 |
+| 2026-04-23 | `AREX_ARCH.md` | Section 16 全面升级：新增 16.3 `arex_left_row_cfg_t` 结构体、16.4 默认行布局、16.9 渲染流程图 |
 
 ---
 
@@ -657,7 +656,7 @@ lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
 
 | 引擎 | 状态 | 说明 |
 |------|------|------|
-| 左侧锚点枚举排序 | ✅ 已实现 | `left_order[]` + `arex_calc_anchor_layout()` 数据驱动遍历 |
+| 左侧锚点自由双拼 | ✅ 已实现 | `left_layout[]` 行配置，任意两模块可双拼或独占全宽 |
 | 右侧卡片顺序 | ✅ 已实现 | `card_order[]` + `arex_card_get()` 双射映射 |
 | U 单位零硬编码 | ✅ 已实现 | 所有坐标基于 `× AREX_BASE_U`，无残留像素常数 |
 
@@ -665,64 +664,85 @@ lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
 
 ```c
 typedef enum {
-    AREX_MODULE_NONE   = 0,  /* 占位/空白 */
-    AREX_MODULE_DEPTH  = 1,  /* DEPTH 大通栏 */
-    AREX_MODULE_NDL    = 2,  /* NDL 双拼左块 */
-    AREX_MODULE_TTS    = 3,  /* TTS 双拼右块 */
-    AREX_MODULE_POD1   = 4,  /* POD 1 双拼左块 */
-    AREX_MODULE_POD2   = 5,  /* POD 2 双拼右块 */
-    AREX_MODULE_BATT   = 6,  /* BATT 双拼左块 */
-    AREX_MODULE_WTM    = 7,  /* W.TIME 双拼右块 */
-    AREX_MODULE_GAS    = 8,  /* GAS 中通栏 */
-    AREX_MODULE_TIME   = 9,  /* DIVE TIME 底部通栏 */
-    AREX_MODULE_CUSTOM = 10,  /* 自定义预留 */
+    AREX_MODULE_EMPTY  = 0,  /* 空槽位：不渲染任何模块 */
+    AREX_MODULE_DEPTH  = 1,  /* DEPTH 大数字（独立一行，全宽） */
+    AREX_MODULE_NDL    = 2,  /* NDL 免减压时间 */
+    AREX_MODULE_TTS    = 3,  /* TTS 回到水面时间 */
+    AREX_MODULE_POD1  = 4,  /* POD1 气瓶1压力 */
+    AREX_MODULE_POD2  = 5,  /* POD2 气瓶2压力 */
+    AREX_MODULE_BATT  = 6,  /* BATT 电池 */
+    AREX_MODULE_WTM   = 7,  /* W.TIME 潜水总时间 */
+    AREX_MODULE_GAS   = 8,  /* GAS 当前气体 */
+    AREX_MODULE_TIME  = 9,  /* TIME 独立计时 */
 } arex_left_module_t;
 ```
 
-### 16.3 左侧锚点顺序数组
+### 16.3 左侧行配置结构体（APP 同步核心）
 
 ```c
-// g_sys_config.left_order[] — 控制模块渲染顺序（默认）
-g_sys_config.left_order[0] = AREX_MODULE_DEPTH;  // DEPTH
-g_sys_config.left_order[1] = AREX_MODULE_NDL;  // NDL
-g_sys_config.left_order[2] = AREX_MODULE_TTS;  // TTS
-g_sys_config.left_order[3] = AREX_MODULE_POD1;  // POD1
-g_sys_config.left_order[4] = AREX_MODULE_POD2;  // POD2
-g_sys_config.left_order[5] = AREX_MODULE_BATT;  // BATT
-g_sys_config.left_order[6] = AREX_MODULE_WTM;   // W.TIME
-g_sys_config.left_order[7] = AREX_MODULE_GAS;   // GAS
-g_sys_config.left_order[8] = AREX_MODULE_TIME;  // TIME
+#define AREX_MAX_LEFT_ROWS  8   /* 最大行数 */
+#define AREX_ROW_MAX_SLOTS  2   /* 每行最多 2 个模块槽 */
+
+typedef struct {
+    uint8_t left_module;   /* 左侧模块枚举 (AREX_MODULE_*) */
+    uint8_t right_module;  /* 右侧模块枚举 (AREX_MODULE_EMPTY=独占全宽) */
+    uint8_t h_u;           /* 该行总高度（单位 U，默认 0=查模块默认值） */
+    uint8_t title_h_u;     /* 标题区高度（默认 0=用全局 title_h_u） */
+    uint8_t title_font;    /* 标题字号: 0=SMALL 1=MEDIUM 2=TITLE */
+    uint8_t val_font;      /* 数值字号: 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE */
+    uint8_t val_align;     /* 数值对齐: 0=LEFT 1=CENTER 2=RIGHT */
+    uint8_t sep_style;     /* 分割线样式: 0=NONE 1=SOLID 2=DASHED 3=DOTTED */
+    uint8_t sep_thick;     /* 分割线粗细 px（0=用全局 sep_thick） */
+} arex_left_row_cfg_t;
+
+// g_sys_config.left_layout[] — APP 实际下发此数组
+arex_left_row_cfg_t left_layout[AREX_MAX_LEFT_ROWS];
 ```
 
-**APP 同步示例**：将 DEPTH 移到最后，只需下发：
+### 16.4 默认行布局（初始值）
+
+```c
+/* row 0: DEPTH 单栏全宽 */
+{ AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2, 0, 3, 0, AREX_SEP_DASHED, 0 },
+/* row 1: NDL + TTS 双拼 */
+{ AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, 0, 1, 0, AREX_SEP_DASHED, 0 },
+/* row 2: POD1 + POD2 双拼 */
+{ AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, 0, 2, 0, AREX_SEP_DASHED, 0 },
+/* row 3: BATT + WTM 双拼 */
+{ AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2, 0, 0, 0, AREX_SEP_DASHED, 0 },
+/* row 4: GAS 单栏全宽 */
+{ AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, 0, 1, 0, AREX_SEP_DASHED, 0 },
+/* row 5: TIME 单栏全宽 */
+{ AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2, 0, 0, 0, AREX_SEP_DASHED, 0 },
+/* row 6-7: EMPTY */
+{ AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, 0, AREX_SEP_NONE, 0 },
+{ AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, 0, AREX_SEP_NONE, 0 },
+```
+
+**APP 自由双拼示例**：将 BATT 和 GAS 拼在同一行：
 ```json
-{ "left_order": [2, 3, 4, 5, 6, 7, 8, 9, 1] }
+{
+  "left_layout": [
+    { "left_module": 1, "right_module": 0, "h_u": 8, ... },  // DEPTH
+    { "left_module": 2, "right_module": 3, "h_u": 6, ... },  // NDL+TTS
+    { "left_module": 6, "right_module": 8, "h_u": 5, ... },  // BATT+GAS ← 自由双拼！
+    ...
+  ]
+}
 ```
 单片机收到后调用 `arex_ui_apply_config()`，整个左侧面板自动重排，无需改任何 C 代码。
-
-### 16.4 per-module 属性映射表
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `left_mod_split[i]` | `uint8_t` | 0=单栏 1=双拼左 2=双拼右 |
-| `left_mod_title_font[i]` | `uint8_t` | 0=SMALL 1=MEDIUM 2=TITLE |
-| `left_mod_val_font[i]` | `uint8_t` | 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE |
-| `left_mod_title_align[i]` | `uint8_t` | 0=LEFT 1=CENTER 2=RIGHT |
-| `left_mod_val_align[i]` | `uint8_t` | 0=LEFT 1=CENTER 2=RIGHT |
-
-字号表（`font_cat[4]`）: `0=AREX_FONT_SMALL(14px)` `1=AREX_FONT_MEDIUM(28px)` `2=AREX_FONT_TITLE(20px)` `3=AREX_FONT_HUGE(48px)`
 
 ### 16.5 布局引擎函数一览
 
 | 函数 | 文件 | 作用 |
 |------|------|------|
-| `arex_calc_anchor_layout()` | arex_ui_engine.c | 遍历 `left_order[]`，填 `arex_anchor_comp_t[9]`，所有尺寸基于 `× AREX_BASE_U` |
+| `arex_calc_anchor_layout()` | arex_ui_engine.c | 遍历 `left_layout[]`，填 `arex_anchor_comp_t[]`（单栏1入口，双拼2入口），返回实际 count |
 | `arex_calc_tech_layout()` | arex_ui_engine.c | Tech 模式左右分区坐标：左锚点固定 160px，右区域 `= safe_zone_w - 160 - gap` |
 | `arex_calc_classic_layout()` | arex_ui_engine.c | Classic 模式上下分区，最小高度 `AREX_MIN_CLASSIC_TOP_H=200px` |
 | `arex_calc_widget_cell()` | arex_ui_engine.c | 5x6 网格单元格坐标，`unit_w = parent_w/5`，`unit_h = parent_h/6` |
 | `arex_calc_tissue_bars()` | arex_ui_engine.c | 16 柱组织图 X 坐标，`col_w = total_w/16` |
-| `left_anchor_create()` | arex_screen.c | 首次创建，使用 `comps[i].val_font` / `val_align` 数据驱动 |
-| `left_anchor_rebuild()` | arex_screen.c | 配置变更后重建，使用数据驱动字体/对齐刷新 |
+| `left_anchor_create()` | arex_screen.c | 首次创建，按 `c->module` 枚举驱动，无索引硬编码 |
+| `left_anchor_rebuild()` | arex_screen.c | 配置变更后重建，数据驱动字体/对齐刷新 |
 | `right_panel_create()` | arex_screen.c | 创建 tileview，按 `card_order[]` 顺序挂载卡片 |
 
 ### 16.6 关键命名常量（防止硬编码）
@@ -733,8 +753,8 @@ g_sys_config.left_order[8] = AREX_MODULE_TIME;  // TIME
 | `AREX_MIN_CLASSIC_TOP_H` | 200px | Classic 模式最小上区高度 |
 | `AREX_MASK_EDGE_GUARD` | 80px | 面镜盲区掩膜底部警戒阈值 |
 | `AREX_LEFT_ANCHOR_W` | 160px | 左侧锚点固定宽度 |
-| `ANCHOR_COMP_COUNT` | 9 | 左侧组件固定槽位数 |
-| `ANCHOR_LEFT_MODULE_COUNT` | 9 | 左侧模块枚举/顺序数组长度 |
+| `ANCHOR_COMP_COUNT` | 16 | 左侧组件最大句柄数（布局输出缓冲） |
+| `AREX_MAX_LEFT_ROWS` | 8 | 左侧最大行配置数 |
 
 ### 16.7 right_w Fallback 公式
 
@@ -753,3 +773,29 @@ uint16_t right_w_fallback = g_sys_config.safe_zone_w
 2. **单片机解析** → 覆盖 `g_sys_config` 对应字段
 3. **调用** `arex_ui_apply_config()` → `left_anchor_rebuild()` + `arex_screen_rebuild_tileview()`
 4. **结果**：整个 UI 按新配置重排，无需重启，无需改 C 代码
+
+### 16.9 渲染流程（自由双拼版）
+
+```
+arex_calc_anchor_layout()
+  for each row in left_layout[]:
+    left_mod  = left_layout[row].left_module
+    right_mod = left_layout[row].right_module
+    if left_mod == EMPTY: continue
+    if right_mod == EMPTY:
+      → 单栏: 填充 comps[out_idx++] (w=160px, split=0)
+    else:
+      → 双拼: 填充 comps[out_idx++] (w=80px, split=1)  // 左块
+              填充 comps[out_idx++] (w=80px, split=2)  // 右块
+    cur_y += h_px + gap
+
+left_anchor_create() / left_anchor_rebuild()
+  for i in 0..count-1:
+    c = comps[i]
+    switch (c->module):
+      case DEPTH:  render "DEPTH", "45.2" ...
+      case NDL:    render "NDL", "5" ...
+      case TTS:    render "TTS", "24'" ...
+      ...
+      // 零双拼硬编码：任意模块均可出现在任意行！
+```

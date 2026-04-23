@@ -55,84 +55,35 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->h_tissues_chart = 9; /* 组织柱图高度: 9U=90px */
 
     /* =====================================================
-     * 左侧锚点模块顺序 (APP 同步就绪)
-     * 仅需修改 left_order[]，即可自由重排所有模块！
-     * ===================================================== */
-    cfg->left_order[0] = AREX_MODULE_DEPTH;
-    cfg->left_order[1] = AREX_MODULE_NDL;
-    cfg->left_order[2] = AREX_MODULE_TTS;
-    cfg->left_order[3] = AREX_MODULE_POD1;
-    cfg->left_order[4] = AREX_MODULE_POD2;
-    cfg->left_order[5] = AREX_MODULE_BATT;
-    cfg->left_order[6] = AREX_MODULE_WTM;
-    cfg->left_order[7] = AREX_MODULE_GAS;
-    cfg->left_order[8] = AREX_MODULE_TIME;
-
-    /* =====================================================
-     * 左侧锚点 per-module 属性表
-     * APP 可独立修改每个模块的字体、对齐方式，无需动渲染代码。
+     * 左侧锚点行配置 (APP 同步就绪 — 自由双拼)
      *
-     * 字号类别: 0=SMALL(14px) 1=MEDIUM(28px) 2=TITLE(20px) 3=HUGE(48px)
+     * 每行定义: {左模块, 右模块, h_u, title_h_u, val_font, val_align, sep_style, sep_thick}
+     * right_module = AREX_MODULE_EMPTY → 左侧独占全宽(160px)
+     * right_module != EMPTY → 双拼布局(各80px)
+     *
+     * 字号: 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE
+     * 对齐: 0=LEFT 1=CENTER 2=RIGHT
+     *
      * ===================================================== */
-    /* split: 0=单栏 1=双拼左 2=双拼右 */
-    static const uint8_t def_split[ANCHOR_LEFT_MODULE_COUNT] = {
-        0, /* DEPTH  */
-        1, /* NDL    */
-        2, /* TTS    */
-        1, /* POD1   */
-        2, /* POD2   */
-        1, /* BATT   */
-        2, /* W.TIME */
-        0, /* GAS    */
-        0, /* TIME   */
+    static const arex_left_row_cfg_t def_layout[AREX_MAX_LEFT_ROWS] = {
+        /* row 0: DEPTH 单栏全宽 */
+        { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2, 3, 0, AREX_SEP_DASHED, 0 },
+        /* row 1: NDL + TTS 双拼 */
+        { AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, 1, 0, AREX_SEP_DASHED, 0 },
+        /* row 2: POD1 + POD2 双拼 */
+        { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, 2, 0, AREX_SEP_DASHED, 0 },
+        /* row 3: BATT + WTM 双拼 */
+        { AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2, 0, 0, AREX_SEP_DASHED, 0 },
+        /* row 4: GAS 单栏全宽 */
+        { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, 1, 0, AREX_SEP_DASHED, 0 },
+        /* row 5: TIME 单栏全宽 */
+        { AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2, 0, 0, AREX_SEP_DASHED, 0 },
+        /* row 6-7: EMPTY */
+        { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, AREX_SEP_NONE,   0 },
+        { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, AREX_SEP_NONE,   0 },
     };
-    /* 标题字体 */
-    static const uint8_t def_title_font[ANCHOR_LEFT_MODULE_COUNT] = {
-        0, 0, 0, 0, 0, 0, 0, 0, 0,  /* 全部 AREX_FONT_SMALL */
-    };
-    /* 数值字体 */
-    static const uint8_t def_val_font[ANCHOR_LEFT_MODULE_COUNT] = {
-        3, /* DEPTH  → HUGE  (48px) */
-        1, /* NDL    → MEDIUM(28px) */
-        1, /* TTS    → MEDIUM(28px) */
-        2, /* POD1   → TITLE (20px) */
-        2, /* POD2   → TITLE (20px) */
-        0, /* BATT   → SMALL (14px) */
-        0, /* W.TIME → SMALL (14px) */
-        1, /* GAS    → MEDIUM(28px) */
-        0, /* TIME   → SMALL (14px) */
-    };
-    /* 标题对齐 */
-    static const uint8_t def_title_align[ANCHOR_LEFT_MODULE_COUNT] = {
-        0, /* DEPTH  左对齐 */
-        0, /* NDL    左对齐 */
-        1, /* TTS    居中(双拼右块→右对齐由 split_outward 接管) */
-        0, /* POD1   左对齐 */
-        1, /* POD2   居中 */
-        0, /* BATT   左对齐 */
-        1, /* W.TIME 居中 */
-        0, /* GAS    左对齐 */
-        0, /* TIME   左对齐 */
-    };
-    /* 数值对齐 */
-    static const uint8_t def_val_align[ANCHOR_LEFT_MODULE_COUNT] = {
-        0, /* DEPTH  左对齐 */
-        0, /* NDL    左对齐 (双拼左→左对齐由 split_outward 接管) */
-        1, /* TTS    居中 */
-        0, /* POD1   左对齐 */
-        1, /* POD2   右对齐 */
-        0, /* BATT   左对齐 */
-        1, /* W.TIME 右对齐 */
-        0, /* GAS    左对齐 */
-        0, /* TIME   左对齐 */
-    };
-
-    for (uint8_t i = 0; i < ANCHOR_LEFT_MODULE_COUNT; i++) {
-        cfg->left_mod_split[i]        = def_split[i];
-        cfg->left_mod_title_font[i]    = def_title_font[i];
-        cfg->left_mod_val_font[i]      = def_val_font[i];
-        cfg->left_mod_title_align[i]   = def_title_align[i];
-        cfg->left_mod_val_align[i]     = def_val_align[i];
+    for (uint8_t i = 0; i < AREX_MAX_LEFT_ROWS; i++) {
+        cfg->left_layout[i] = def_layout[i];
     }
 
     /* 默认 5F 网格布局 */
@@ -266,136 +217,119 @@ void arex_calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
 }
 
 /* =========================================================
- * 10U 左侧锚点组件 Y 坐标推算 (数据驱动版本)
- *
- * 输出 comps[0..8] 对应固定模块：
- *   [0] DEPTH [1] NDL [2] TTS [3] POD1 [4] POD2
- *   [5] BATT  [6] WTM  [7] GAS  [8] TIME
+ * 10U 左侧锚点组件 Y 坐标推算 (自由双拼版本)
  *
  * 算法：
- *   1. 先清零所有 comps[0..8]
- *   2. 遍历 left_order[]，将每个模块填入固定槽位
- *   3. 计算每个模块的 Y 坐标（按 split 分组，共享同一 Y）
+ *   遍历 g_sys_config.left_layout[] 每一行
+ *   ├─ left_module == EMPTY：跳过该行（不留空洞）
+ *   ├─ right_module == EMPTY：单栏布局 → 1 个 comps 入口，w=160px
+ *   └─ right_module != EMPTY：双拼布局 → 2 个 comps 入口，w=80px，左块 split=1，右块 split=2
  *
- * 双拼块（split=1）占左右两个槽位，Y 坐标相同。
- * 仅需修改 g_sys_config.left_order[]，即可自由重排模块顺序。
+ * 输出 comps[] 有效入口数量由填充的 count 参数返回（最多 ANCHOR_COMP_COUNT）
+ *
+ * 绝对禁止在引擎代码里写任何 "如果是 NDL 就配 TTS" 的硬编码！
+ * 所有组合关系由 left_layout[] 数组决定。
  * ========================================================= */
 
-/* 模块枚举 → comps 固定槽位映射 */
-static uint8_t module_to_slot(arex_left_module_t mod)
+/* 模块枚举 → 默认高度(U) */
+static uint8_t module_default_hu(arex_left_module_t mod)
 {
     switch (mod) {
-        case AREX_MODULE_DEPTH:  return 0;
-        case AREX_MODULE_NDL:    return 1;
-        case AREX_MODULE_TTS:    return 2;
-        case AREX_MODULE_POD1:   return 3;
-        case AREX_MODULE_POD2:   return 4;
-        case AREX_MODULE_BATT:   return 5;
-        case AREX_MODULE_WTM:    return 6;
-        case AREX_MODULE_GAS:    return 7;
-        case AREX_MODULE_TIME:   return 8;
-        default:                 return 0xFF;
-    }
-}
-
-/* 模块枚举 → 高度(px) */
-static uint16_t module_height_px(arex_left_module_t mod)
-{
-    switch (mod) {
-        case AREX_MODULE_DEPTH:  return g_sys_config.h_depth * AREX_BASE_U;
+        case AREX_MODULE_DEPTH:  return 8;  /* DEPTH 默认 8U */
         case AREX_MODULE_NDL:
-        case AREX_MODULE_TTS:    return g_sys_config.h_ndl   * AREX_BASE_U;
+        case AREX_MODULE_TTS:
         case AREX_MODULE_POD1:
-        case AREX_MODULE_POD2:  return g_sys_config.h_pod   * AREX_BASE_U;
+        case AREX_MODULE_POD2: return 6;  /* 双拼默认 6U */
         case AREX_MODULE_BATT:
-        case AREX_MODULE_WTM:   return g_sys_config.h_batt  * AREX_BASE_U;
-        case AREX_MODULE_GAS:   return g_sys_config.h_gas   * AREX_BASE_U;
-        case AREX_MODULE_TIME:  return g_sys_config.h_time  * AREX_BASE_U;
-        default:                 return 0;
+        case AREX_MODULE_WTM:  return 5;  /* 双拼默认 5U */
+        case AREX_MODULE_GAS:   return 6;  /* GAS 默认 6U */
+        case AREX_MODULE_TIME:  return 5;  /* TIME 默认 5U */
+        default: return 0;
     }
 }
 
-void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT], uint16_t *out_total_h)
+void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT],
+                             uint16_t *out_total_h, uint8_t *out_count)
 {
-    uint16_t gap   = g_sys_config.gap_u * AREX_BASE_U;
-    uint16_t t_h   = g_sys_config.title_h_u * AREX_BASE_U;
-    uint16_t half_w = AREX_LEFT_ANCHOR_W / 2;
+    uint16_t gap       = g_sys_config.gap_u * AREX_BASE_U;
+    uint16_t half_w    = AREX_LEFT_ANCHOR_W / 2;   /* 80px */
+    int16_t  cur_y    = 0;
+    uint8_t  out_idx  = 0;
 
-    /* 步骤1：清零所有槽位 */
     memset(comps, 0, sizeof(arex_anchor_comp_t) * ANCHOR_COMP_COUNT);
 
-    /* 步骤2：遍历 left_order[]，将每个模块填入固定槽位 */
-    for (uint8_t i = 0; i < ANCHOR_LEFT_MODULE_COUNT; i++) {
-        arex_left_module_t mod = (arex_left_module_t)g_sys_config.left_order[i];
-        if (mod == AREX_MODULE_NONE) continue;
+    /* 遍历每一行配置 */
+    for (uint8_t row = 0; row < AREX_MAX_LEFT_ROWS && out_idx < ANCHOR_COMP_COUNT; row++) {
+        arex_left_module_t left_mod  = (arex_left_module_t)g_sys_config.left_layout[row].left_module;
+        arex_left_module_t right_mod = (arex_left_module_t)g_sys_config.left_layout[row].right_module;
 
-        uint8_t slot = module_to_slot(mod);
-        if (slot >= ANCHOR_COMP_COUNT) continue;
+        if (left_mod == AREX_MODULE_EMPTY) continue;
 
-        uint8_t split = g_sys_config.left_mod_split[i];
-        uint16_t h_px = module_height_px(mod);
+        /* 高度：优先用 row 配置的 h_u，否则查模块默认值 */
+        uint8_t h_u = g_sys_config.left_layout[row].h_u;
+        if (h_u == 0) h_u = module_default_hu(left_mod);
+        if (h_u == 0) h_u = 6; /* 保底 6U */
 
-        comps[slot].module      = mod;
-        comps[slot].h           = h_px;
-        comps[slot].title_h     = t_h;
-        comps[slot].val_h       = (h_px >= t_h) ? (h_px - t_h) : 0;
-        comps[slot].split       = split;
-        comps[slot].title_font  = g_sys_config.left_mod_title_font[i];
-        comps[slot].val_font    = g_sys_config.left_mod_val_font[i];
-        comps[slot].title_align = g_sys_config.left_mod_title_align[i];
-        comps[slot].val_align   = g_sys_config.left_mod_val_align[i];
+        uint16_t h_px  = h_u * AREX_BASE_U;
+        uint16_t t_h_u = (g_sys_config.left_layout[row].title_h_u > 0)
+                          ? g_sys_config.left_layout[row].title_h_u
+                          : g_sys_config.title_h_u;
+        uint16_t t_h   = t_h_u * AREX_BASE_U;
+        uint16_t v_h   = (h_px >= t_h) ? (h_px - t_h) : 0;
 
-        /* 设置宽度：单栏=全宽，双拼左=半宽，右块宽度后续处理 */
-        comps[slot].w = (split == 0) ? AREX_LEFT_ANCHOR_W : half_w;
-    }
+        /* 获取该行样式（优先 row 配置，否则用全局默认值） */
+        uint8_t val_font   = g_sys_config.left_layout[row].val_font;
+        uint8_t val_align  = g_sys_config.left_layout[row].val_align;
 
-    /* 步骤3：配对双拼块（NDL↔TTS, POD1↔POD2, BATT↔WTM）
-     * 扫描所有模块，将右侧配对块（如TTS）的 split 设为 2 */
-    for (uint8_t i = 0; i < ANCHOR_LEFT_MODULE_COUNT; i++) {
-        arex_left_module_t mod = (arex_left_module_t)g_sys_config.left_order[i];
-        if (mod == AREX_MODULE_NONE) continue;
-        if (g_sys_config.left_mod_split[i] != 1) continue;
-
-        /* 找对应的右块枚举 */
-        arex_left_module_t right_mod = AREX_MODULE_NONE;
-        if (mod == AREX_MODULE_NDL)   right_mod = AREX_MODULE_TTS;
-        if (mod == AREX_MODULE_POD1)  right_mod = AREX_MODULE_POD2;
-        if (mod == AREX_MODULE_BATT)  right_mod = AREX_MODULE_WTM;
-
-        uint8_t right_slot = module_to_slot(right_mod);
-        if (right_slot < ANCHOR_COMP_COUNT) {
-            comps[right_slot].split = 2;
-            comps[right_slot].w = half_w;
-            comps[right_slot].module = right_mod;
-            comps[right_slot].h = comps[module_to_slot(mod)].h;
-            comps[right_slot].title_h = t_h;
-            comps[right_slot].val_h = comps[module_to_slot(mod)].val_h;
-            comps[right_slot].title_font = g_sys_config.left_mod_title_font[right_slot];
-            comps[right_slot].val_font   = g_sys_config.left_mod_val_font[right_slot];
-            comps[right_slot].title_align = g_sys_config.left_mod_title_align[right_slot];
-            comps[right_slot].val_align   = g_sys_config.left_mod_val_align[right_slot];
+        /* 单栏：left_module 独占整行宽 160px */
+        if (right_mod == AREX_MODULE_EMPTY) {
+            comps[out_idx].module      = left_mod;
+            comps[out_idx].y          = cur_y;
+            comps[out_idx].h          = h_px;
+            comps[out_idx].title_h    = t_h;
+            comps[out_idx].val_h      = v_h;
+            comps[out_idx].w          = AREX_LEFT_ANCHOR_W;  /* 160px */
+            comps[out_idx].split      = 0;
+            comps[out_idx].val_font   = val_font;
+            comps[out_idx].val_align  = val_align;
+            out_idx++;
         }
-    }
+        /* 双拼：左右各占 80px */
+        else {
+            /* 左块 */
+            comps[out_idx].module     = left_mod;
+            comps[out_idx].y         = cur_y;
+            comps[out_idx].h         = h_px;
+            comps[out_idx].title_h   = t_h;
+            comps[out_idx].val_h     = v_h;
+            comps[out_idx].w         = half_w;   /* 80px */
+            comps[out_idx].split     = 1;        /* 双拼左 */
+            comps[out_idx].val_font  = val_font;
+            comps[out_idx].val_align = AREX_ALIGN_LEFT;
+            out_idx++;
 
-    /* 步骤4：计算 Y 坐标（按固定顺序 DEPTH→NDL→TTS→POD1→POD2→BATT→WTM→GAS→TIME） */
-    int16_t cur_y = 0;
-    for (uint8_t slot = 0; slot < ANCHOR_COMP_COUNT; slot++) {
-        if (comps[slot].module == AREX_MODULE_NONE) {
-            comps[slot].y = cur_y; /* 占位模块，保持 cur_y 不推进 */
-            continue;
+            /* 右块 */
+            if (out_idx < ANCHOR_COMP_COUNT) {
+                /* right_module 的字体从 left_layout 的下一个同名模块配置中找，
+                 * 这里简化处理：复用当前行的 val_font，右块靠右对齐 */
+                comps[out_idx].module     = right_mod;
+                comps[out_idx].y         = cur_y;
+                comps[out_idx].h         = h_px;
+                comps[out_idx].title_h   = t_h;
+                comps[out_idx].val_h      = v_h;
+                comps[out_idx].w         = half_w;   /* 80px */
+                comps[out_idx].split      = 2;        /* 双拼右 */
+                comps[out_idx].val_font   = val_font;
+                comps[out_idx].val_align = AREX_ALIGN_RIGHT;
+                out_idx++;
+            }
         }
 
-        /* 双拼右块与左块 Y 相同 */
-        if (comps[slot].split == 2) {
-            comps[slot].y = comps[slot - 1].y;
-            continue;
-        }
-
-        comps[slot].y = cur_y;
-        cur_y += comps[slot].h + gap;
+        cur_y += h_px + gap;
     }
 
     *out_total_h = cur_y;
+    if (out_count) *out_count = out_idx;
 }
 
 /* =========================================================
