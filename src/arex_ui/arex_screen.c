@@ -332,11 +332,9 @@ static void left_anchor_create(void)
         } else if (i == 2) {
             lv_label_set_text(lbl_val, "24'");
             s_lbl_tts = lbl_val;
-            /* TTS: green bg + black text — 高亮状态，视觉上醒目 */
-            lv_obj_set_style_bg_color(s_lbl_tts, AREX_GREEN, 0);
-            lv_obj_set_style_bg_opa(s_lbl_tts, LV_OPA_COVER, 0);
-            lv_obj_set_style_text_color(s_lbl_tts, AREX_BLACK, 0);
-            lv_obj_set_style_pad_hor(s_lbl_tts, 4, 0);
+            /* TTS 默认透明背景 + 绿色文字 */
+            lv_obj_set_style_bg_opa(s_lbl_tts, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_text_color(s_lbl_tts, AREX_GREEN, 0);
         } else if (i == 3) {
             lv_label_set_text(lbl_val, "210");
             s_lbl_pod1 = lbl_val;
@@ -812,7 +810,13 @@ void arex_screen_refresh_left_panel(void)
     if (s_lbl_ndl) lv_label_set_text(s_lbl_ndl, buf);
 
     snprintf(buf, sizeof(buf), "%d'", g_sensor_data.tts);
-    if (s_lbl_tts) lv_label_set_text(s_lbl_tts, buf);
+    if (s_lbl_tts) {
+        lv_label_set_text(s_lbl_tts, buf);
+        /* 正常态：透明背景 + 绿色文字
+         * 减压违规（deco_violation=true）时由减压引擎施放绿底黑字高亮 */
+        lv_obj_set_style_bg_opa(s_lbl_tts, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_text_color(s_lbl_tts, AREX_GREEN, 0);
+    }
 
     snprintf(buf, sizeof(buf), "%dm %d'", g_sensor_data.next_stop_m,
              g_sensor_data.next_stop_min);

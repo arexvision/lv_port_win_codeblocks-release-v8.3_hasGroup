@@ -39,7 +39,7 @@ void arex_data_init(void)
 {
     /* Dive */
     g_arex.dive.depth          = 45.2f;
-    g_arex.dive.ndl            = 0;
+    g_arex.dive.ndl            = 5;
     g_arex.dive.tts            = 24;
     g_arex.dive.next_stop_m    = 21;
     g_arex.dive.next_stop_min  = 3;

@@ -147,6 +147,9 @@ typedef struct {
     int16_t  next_stop_m;
     uint8_t  next_stop_min;
 
+    /* 减压违规标志：仅当真实减压引擎判断进入减压区时由业务逻辑置 true */
+    bool     deco_violation;
+
     /* 潜水曲线日志 */
     uint16_t deco_stops[8];
     uint8_t  deco_stop_count;

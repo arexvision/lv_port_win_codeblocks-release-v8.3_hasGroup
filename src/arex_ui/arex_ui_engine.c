@@ -388,7 +388,7 @@ void arex_ui_init(void)
 
     /* 初始化默认潜水数据 */
     g_sensor_data.depth = 45.2f;
-    g_sensor_data.ndl  = 0;
+    g_sensor_data.ndl  = 5;
     g_sensor_data.tts  = 24;
     g_sensor_data.pod1_bar = 210.0f;
     g_sensor_data.pod2_bar = 195.0f;
