@@ -684,7 +684,7 @@ lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
 | 2026-04-23 | `card_setup.c` | 改为 `arex_get_font()` + dirty check badge 更新；badge 子 label 索引修正 |
 | 2026-04-23 | `UI_main.c` | 移除 `lv_timer_create`（已移至 `arex_screen_create`）；启动直接进入 INFO 卡 |
 | 2026-04-23 | `AREX_ARCH.md` | 新增 Section 18 重构变更日志；更新 Section 1/3/4/7/12/13 |
-|| 2026-04-23 | `arex_screen.c` | 新增 `AREX_DEBUG_BORDER` 宏(0=关闭/1=开启)，统一控制 title_zone/val_zone 调试边框；`RENDER_FIXES.md` Section 7 同步更新 |
+|| 2026-04-23 | `arex_ui_engine.h` | 新增 `AREX_DEBUG_BORDER` 宏(0=关闭/1=开启)，统一控制 title_zone/val_zone 调试边框；`RENDER_FIXES.md` Section 7 同步更新 |
 
 ---
 

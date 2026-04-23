@@ -303,11 +303,11 @@ lv_obj_set_style_text_color(s_edit_flash_val_lbl, fg, 0);
 
 ## 七、Debug 边框（统一宏控制）
 
-左侧锚点的 `title_zone` 和 `val_zone` 调试边框通过 `AREX_DEBUG_BORDER` 宏统一控制：
+`AREX_DEBUG_BORDER` 宏定义于 `arex_ui_engine.h`，通过 `#include "arex_ui_engine.h"` 间接被所有源文件引用：
 
 ```c
-// arex_screen.c 顶部
-#define AREX_DEBUG_BORDER 0  /* 0=关闭(默认), 1=开启 debug 边框 */
+// arex_ui_engine.h
+#define AREX_DEBUG_BORDER  0  /* 0=关闭(默认), 1=开启 debug 边框 */
 ```
 
 | 值 | title_zone 边框 | val_zone 边框 |

@@ -15,6 +15,9 @@
 #define AREX_PHYSICAL_H    480  /* 硬件屏幕极限高 */
 #define AREX_LEFT_ANCHOR_W  160  /* 左侧锚点固定宽度 */
 
+/* Debug 配置: 左侧锚点 title_zone / val_zone 调试边框: 0=关闭(默认), 1=开启 */
+#define AREX_DEBUG_BORDER  0
+
 /* 5列x6行网格，最多装30个组件 */
 #define AREX_MAX_WIDGETS    30
 #define AREX_WIDGET_COLS    5
