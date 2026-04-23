@@ -3,58 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AREX Pro Optical Simulator v0.10 (w/ 10U Sandbox 2.5 + LVGL Notes)</title>
+<title>AREX Pro Optical Simulator v0.11 (Full Sync Alarm Engine)</title>
 <style>
     /* =========================================
        [LVGL_MAP_COLORS] 全局色彩字典
-       在 C 代码中，请统一使用这些十六进制颜色宏定义：
        ========================================= */
     :root {
-        /* 主强调色 (数值、高亮线、当前状态) -> lv_color_hex(0x00FF00) */
         --arex-green: #00FF00;  
-        
-        /* 次级文字色 (标题、单位、次要信息) -> lv_color_hex(0x55FF55) */
         --arex-light: #55FF55;  
-        
-        /* 暗背景/边框色 (分割线、进度条底色、模块边框) -> lv_color_hex(0x003300) */
         --arex-dark: #003300;   
-        
-        /* 纯黑背景/反色文字 -> lv_color_hex(0x000000) */
         --arex-black: #000000;  
         
-        /* [LVGL_MAP_TYPO] 动态排版与字体字典 
-           这些变量应绑定到 g_sys_config 结构体中。
-           LVGL 实现：lv_obj_set_style_text_font(obj, &lv_font_...)
-        */
         --arex-font: 'Courier New', Courier, monospace; 
-        --font-huge: 58px;    /* 映射: g_sys_config.font_sz_huge */
-        --font-medium: 28px;  /* 映射: g_sys_config.font_sz_med */
-        --font-small: 14px;   /* 映射: g_sys_config.font_sz_small */
-        --flash-speed: 0.3s;  /* LVGL 动画：lv_anim_t 用于报警闪烁，周期 300ms */
+        --font-huge: 58px;    
+        --font-medium: 28px;  
+        --font-small: 14px;   
+        --flash-speed: 0.3s;  
 
-        /* [LVGL_MAP_SAFE_ZONE] 安全区物理约束 */
-        --ui-w: 580px;        /* 映射: g_sys_config.safe_zone_w */
-        --ui-h: 400px;        /* 映射: g_sys_config.safe_zone_h */
-        --off-x: 0px;         /* 映射: g_sys_config.offset_x */
-        --off-y: 0px;         /* 映射: g_sys_config.offset_y */
+        --ui-w: 580px;        
+        --ui-h: 400px;        
+        --off-x: 0px;         
+        --off-y: 0px;         
 
-        /* [LVGL_MAP_ALIGN] 独立对齐与分割线变量 */
-        --align-title: flex-start; /* 映射: 标题 lv_label 的对齐方式 */
-        --align-huge: flex-start;  /* 映射: 大字数值 lv_label 的对齐方式 */
-        --align-med: flex-start;   /* 映射: 中字数值 lv_label 的对齐方式 */
-        --sep-thick: 1px;          /* 映射: 模块分隔线的厚度 */
-        --sep-style: dashed;       /* 映射: 分隔线的绘制样式(虚线、实线) */
-        --sep-alpha: 0.2;          /* 映射: 分隔线的透明度 */
+        --align-title: flex-start; 
+        --align-huge: flex-start;  
+        --align-med: flex-start;   
+        --sep-thick: 1px;          
+        --sep-style: dashed;       
+        --sep-alpha: 0.2;          
     }
 
     body { background-color: #050505; margin: 0; display: flex; height: 100vh; overflow: hidden; font-family: sans-serif; color: var(--arex-green); }
 
     /* =========================================
-       Sidebar Controls (网页端模拟器控制台，LVGL 无需实现)
+       Sidebar Controls (网页端模拟器控制台)
        ========================================= */
     #sidebar { width: 460px; background: #111; border-right: 1px solid #333; padding: 20px; box-sizing: border-box; transition: transform 0.3s ease; display: flex; flex-direction: column; position: relative; z-index: 100; overflow-y: auto; flex-shrink: 0;}
     #sidebar.collapsed { transform: translateX(-100%); }
-    .toggle-btn { position: absolute; right: -30px; top: 20px; width: 30px; height: 40px; background: #222; border: 1px solid #444; border-left: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 0 5px 5px 0; }
     .panel-section { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 15px; }
     .panel-title { font-size: 16px; color: #fff; margin-bottom: 15px; font-weight: bold; display: flex; align-items: center; justify-content: space-between;}
     .control-group { background: #1a1a1a; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px; }
@@ -73,6 +58,13 @@
     .btn-action:hover { background: var(--arex-green); color: #000; }
     .btn-secondary { background: #222; border-color: #555; color: #fff; }
     .btn-secondary:hover { background: #555; border-color: #fff; color: #fff;}
+    
+    .btn-alarm { background: #330000; border-color: #ff4444; color: #ff4444; margin-bottom: 5px;}
+    .btn-alarm:hover { background: #ff4444; color: #000; }
+    .btn-warn { background: #333300; border-color: #ffff00; color: #ffff00; margin-bottom: 5px;}
+    .btn-warn:hover { background: #ffff00; color: #000; }
+    .btn-info { background: #002233; border-color: #00ccff; color: #00ccff; margin-bottom: 5px;}
+    .btn-info:hover { background: #00ccff; color: #000; }
 
     /* =========================================
        AR Screen Core (Physical Limit & Safe Zone)
@@ -80,10 +72,6 @@
     #main-view { flex-grow: 1; display: flex; align-items: center; justify-content: center; position: relative; min-width: 0; overflow: hidden;}
     #device-bezel { padding: 40px; background: #0a0a0a; border-radius: 12px; box-shadow: 0 0 50px rgba(0, 255, 0, 0.05), inset 0 0 10px rgba(0,0,0,1); transition: transform 0.1s ease-out; transform-origin: center center; }
 
-    /* [LVGL_MAP_DISPLAY] The ultimate physical screen boundary (640x480 fixed)
-       LVGL实现: 对应底层的 lv_disp_get_scr_act(NULL)。
-       它的尺寸必须绝对写死为 640x480。底色必须是 0x000000。
-    */
     #ar-screen {
         width: 640px; height: 480px; background-color: var(--arex-black); color: var(--arex-green);
         font-family: var(--arex-font); display: flex; position: relative; overflow: hidden;
@@ -91,12 +79,6 @@
     }
     .screen-label { position: absolute; top: 5px; left: 5px; color: #666; font-family: monospace; font-size: 11px; z-index: 1;}
 
-    /* [LVGL_MAP_SAFE_ZONE] 动态可变安全区容器
-       LVGL实现: 这是建立在 screen 上的主节点：ui_safe_zone = lv_obj_create(lv_scr_act());
-       - 尺寸: lv_obj_set_size(ui, g_sys_config.safe_zone_w, g_sys_config.safe_zone_h);
-       - 偏移: lv_obj_align(ui, LV_ALIGN_CENTER, g_sys_config.offset_x, g_sys_config.offset_y);
-       - 样式: 必须清除默认的边框和背景 (背景色透明)。
-    */
     #ui-safe-zone {
         width: var(--ui-w); height: var(--ui-h);
         position: absolute; left: 50%; top: 50%;
@@ -107,21 +89,6 @@
     }
     #ui-safe-zone.danger { border-color: red; border-width: 3px; background: rgba(255, 0, 0, 0.1); box-shadow: 0 0 20px rgba(255,0,0,0.5) inset; }
 
-    /* [LVGL_MAP_ABSOLUTE_POS_LAYOUT] 绝对坐标排版引挈 (代替 Flex)
-       网页端使用 Flex 为了适配。但是在 LVGL 端，请 **拒绝使用 LV_FLEX**！
-       在 C 语言中，接收到 JSON 后，直接按区域推算坐标并调用 lv_obj_set_pos()。
-       
-       【极其重要：LVGL 相对坐标体系】
-       因为 left_canvas 和 right_canvas 的父对象是 ui_safe_zone，
-       所以它们的 (0,0) 原点就是 ui_safe_zone 的左上角！完全不受外层物理偏移的影响。
-       
-       Tech模式: 
-         左锚点: lv_obj_set_pos(left_canvas, 0, 0); lv_obj_set_size(left_canvas, 160, safe_zone_h);
-         右卡片: lv_obj_set_pos(right_canvas, 160 + gap, 0); lv_obj_set_size(right_canvas, safe_zone_w - 160 - gap, safe_zone_h);
-       Classic模式:
-         左锚点: lv_obj_set_pos(left_canvas, 0, 0); lv_obj_set_size(left_canvas, safe_zone_w, 算出的上区高度);
-         右卡片: lv_obj_set_pos(right_canvas, 0, 算出的上区高度 + gap); lv_obj_set_size(right_canvas, safe_zone_w, safe_zone_h - 算出的上区高度 - gap);
-    */
     #ui-safe-zone.theme-tech { flex-direction: row; }
     #ui-safe-zone.theme-tech.order-reverse { flex-direction: row-reverse; }
     #ui-safe-zone.theme-tech #left-anchor-canvas { width: 160px; height: 100%; flex-shrink: 0; }
@@ -137,14 +104,10 @@
         width: 100%; flex-grow: 1; height: auto; min-height: 0;
     }
 
-    /* 开发调试用背景，LVGL 中全透明处理即可 */
     .grid-bg { background-color: var(--arex-black); border: 1px dashed rgba(0,255,0,0.2); position: relative; overflow: hidden; box-sizing: border-box; display: flex; flex-direction: column; }
 
     /* =========================================
-       [LVGL_MAP_COMPONENTS] Left Anchor Sandbox 10U Blocks (模块级绝对坐标)
-       LVGL实现：完全抛弃 Flex！
-       每个子模块的 Y 坐标 = current_y。然后 current_y += height_u * 10 + gap_u * 10。
-       对于“双拼容器”(ar-row-split)：它自身高度为 H，内部放入两个元素，分别设为 width=50%。
+       [LVGL_MAP_COMPONENTS] Left Anchor Sandbox
        ========================================= */
     #left-anchor-canvas > .ar-component, 
     #left-anchor-canvas > .ar-row-split { width: 160px; flex-shrink: 0; }
@@ -154,28 +117,23 @@
     .ar-row-split .ar-component { width: 50%; border-left: none; border-right: none; }
     .ar-row-split .ar-component:first-child { border-right: 1px solid rgba(0, 255, 0, 0.3); }
 
-    /* 内部标签坐标推算：
-       标题 (Title)： lv_obj_set_pos(title_label, 0, 0); lv_obj_set_size(title_label, parent_w, titleH * 10);
-       数值 (Value)： lv_obj_set_pos(val_label, 0, titleH * 10); lv_obj_set_size(val_label, parent_w, parent_h - titleH * 10);
-    */
     .title-zone {
         width: 100%; box-sizing: border-box; font-family: var(--arex-font); font-size: var(--font-small);
         color: var(--arex-light); padding: 0 4px; display: flex; align-items: flex-end;
         justify-content: var(--align-title);
         border-bottom: var(--sep-thick) var(--sep-style) rgba(0, 255, 0, var(--sep-alpha));
-        overflow: hidden; white-space: nowrap;
+        overflow: hidden; white-space: nowrap; z-index: 2;
     }
     
     .value-zone {
         width: 100%; box-sizing: border-box; font-family: var(--arex-font); font-weight: bold;
         color: var(--arex-green); padding: 0 4px; display: flex; align-items: flex-end;
         justify-content: var(--align-med);
-        overflow: hidden; white-space: nowrap;
+        overflow: hidden; white-space: nowrap; z-index: 2;
     }
     .val-huge { font-size: var(--font-huge); justify-content: var(--align-huge); }
     .val-med { font-size: var(--font-medium); justify-content: var(--align-med); }
 
-    /* 向外展开排版引擎 (覆写对齐参数，由 JSON 驱动) */
     .split-outward .ar-row-split .ar-component:first-child .title-zone,
     .split-outward .ar-row-split .ar-component:first-child .value-zone { justify-content: flex-start !important; }
     .split-outward .ar-row-split .ar-component:last-child .title-zone,
@@ -184,18 +142,61 @@
     .clip-warning { background: rgba(255,0,0,0.2) !important; color: #ff4444 !important; border-color: #ff4444 !important; }
 
     /* =========================================
+       🚨 [ALARM_SYSTEM_STYLES] 告警系统动效字典
+       (现在兼容 .widget-slot 和 .ar-component 同步报警)
+       ========================================= */
+    #alarm-banner {
+        position: absolute; top: 0; left: 0; width: 100%; height: 60px;
+        z-index: 500; display: flex; align-items: center; justify-content: flex-start; padding: 0 20px;
+        box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+        transform: translateY(-100%); opacity: 0; font-family: var(--arex-font);
+    }
+    #alarm-banner.show { transform: translateY(0); opacity: 1; }
+    .banner-text { font-size: 22px; }
+
+    /* Level 3: CRITICAL (致命) - 1.5Hz脉冲反色 */
+    .alarm-banner.level-3 { animation: pulseL3 0.6s infinite; font-weight: bold; }
+    
+    .local-l3 { animation: pulseL3 0.6s infinite; }
+    /* 强制作子元素颜色继承以实现反色 */
+    .local-l3 .title-zone, .local-l3 .value-zone, .local-l3 .w-label, .local-l3 .w-val, .local-l3 .w-unit { 
+        color: inherit !important; border-color: inherit !important; 
+    }
+    
+    @keyframes pulseL3 {
+        0%, 66% { background-color: var(--arex-green); color: var(--arex-black); box-shadow: inset 0 0 0 2px var(--arex-green);}
+        67%, 100% { background-color: var(--arex-black); color: var(--arex-green); box-shadow: inset 0 0 0 2px var(--arex-green);}
+    }
+
+    /* Level 2: WARNING (警告) - 1Hz 呼吸外框，绿字透明底 */
+    .alarm-banner.level-2 { background-color: rgba(0, 255, 0, 0.2); color: var(--arex-green); font-weight: bold; box-shadow: inset 0 0 0 2px var(--arex-green); }
+    
+    .local-l2 { animation: breathL2 1s infinite alternate; background-color: rgba(0, 255, 0, 0.15); }
+    .local-l2 .title-zone, .local-l2 .value-zone, .local-l2 .w-label, .local-l2 .w-val, .local-l2 .w-unit { 
+        color: var(--arex-green) !important; 
+    }
+    
+    @keyframes breathL2 {
+        0% { box-shadow: inset 0 0 0 1px var(--arex-green); background-color: rgba(0, 255, 0, 0.05); }
+        100% { box-shadow: inset 0 0 0 4px var(--arex-green); background-color: rgba(0, 255, 0, 0.25); }
+    }
+
+    /* Level 1: INFO (通知) - 常规框，静态滑出 */
+    .alarm-banner.level-1 { background-color: rgba(0, 255, 0, 0.1); color: var(--arex-green); font-weight: normal; box-shadow: inset 0 0 0 1px var(--arex-green); font-size: 18px !important; }
+    .local-l1 { box-shadow: inset 0 0 0 1px var(--arex-green); background-color: rgba(0, 255, 0, 0.05); }
+
+    /* =========================================
        Right Canvas (Dynamic Cards)
-       [LVGL_MAP_TILEVIEW] 这一整个区域在 LVGL 中可以使用 lv_obj_set_y 来做页面滑动切换。
-       不需要复杂的 Layout，每张卡片绝对定位：
-       card[i].y = i * actualHeight;
        ========================================= */
     #right-card-canvas { position: relative; overflow: hidden; }
     #elevator-track { width: 100%; position: absolute; transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; }
     
     .card { width: 100%; padding: 10px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; }
-    .card-title { font-size: calc(var(--font-medium) * 0.75); color: var(--arex-light); text-transform: uppercase; border-bottom: 2px solid var(--arex-dark); padding-bottom: 8px; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;}
+    .card-title { font-size: calc(var(--font-medium) * 0.75); color: var(--arex-light); text-transform: uppercase; border-bottom: 2px solid var(--arex-dark); padding-bottom: 8px; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; transition: opacity 0.3s; }
     
-    /* [LVGL_MAP_SCROLL_DOTS] 右侧页面滚动圆点指示器 */
+    /* 告警激活时，隐藏下方的原卡片标题及分割线，防止在半透明横幅下穿帮 */
+    #right-card-canvas.alarm-active .card-title { opacity: 0; }
+    
     .elevator-dots { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 10; }
     .dots-right { right: 8px; left: auto; flex-direction: column;}
     .dots-left { left: 8px; right: auto; flex-direction: column;}
@@ -204,7 +205,6 @@
     .e-dot { width: 6px; height: 6px; background: rgba(0,255,0,0.2); }
     .e-dot.active { background: var(--arex-green); box-shadow: 0 0 8px var(--arex-green); } 
 
-    /* 面镜浮力盲区掩膜 (警告用) */
     #buoyancy-mask { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: repeating-linear-gradient(45deg, rgba(255,0,0,0.2), rgba(255,0,0,0.2) 10px, rgba(255,0,0,0.4) 10px, rgba(255,0,0,0.4) 20px); border-top: 2px solid red; display: none; z-index: 50; align-items: center; justify-content: center; color: #ff6666; font-weight: bold; font-family: sans-serif; pointer-events: none; font-size: 14px;}
     #status-bar { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: bold; color: var(--arex-green); padding: 8px 15px; background: #111; border-radius: 5px; border: 1px solid var(--arex-green); z-index: 1000; text-align: center; transition: 0.3s;}
     .error-text { color: #ff4444; font-size: 11px; display: block; margin-top: 5px; font-family: monospace;}
@@ -250,16 +250,11 @@
     .target-info-box { text-align: center; height: 20px; font-size: 14px; color: var(--arex-green); font-weight: bold;}
     .hint-text { margin-top: auto; text-align: center; font-size: 14px; color: var(--arex-light); opacity: 0.6; }
     
-    /* =========================================
-       [LVGL_MAP_2F_TISSUES] 2F Tissues 卡片
-       同样无需 Flex！由于有 16 根柱子，计算绝对宽度 w_bar = total_w / 16。
-       第 i 根的 X = i * w_bar。底部对齐即可。
-       ========================================= */
+    /* 2F Tissues */
     .deco-grid { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--arex-dark); padding-bottom: 5px; margin-bottom: 5px; flex-shrink: 0;}
     .deco-cell { display: flex; flex-direction: column; }
     .deco-cell.right { text-align: right; }
     .tissue-section-title { font-size: 11px; font-weight: bold; margin-bottom: 5px; color: var(--arex-light); margin-top: auto;}
-    /* 容器高度锁定 90px，防拉伸坍塌 */
     .tissue-container { position: relative; height: 90px; border-bottom: 2px solid var(--arex-dark); border-left: 2px solid var(--arex-dark); padding-bottom: 0; display: flex; align-items: flex-end; flex-shrink: 0;}
     .m-value-line { position: absolute; top: 20%; left: 0; width: 100%; border-top: 2px dashed var(--arex-green); opacity: 0.5; z-index: 2; }
     .tissue-grid { display: flex; align-items: flex-end; gap: 4px; width: 100%; height: 100%; padding-left: 4px;}
@@ -273,7 +268,6 @@
     .menu-item.static-active { border-color: var(--arex-green); }
     .menu-item.active { background: var(--arex-green) !important; color: var(--arex-black) !important; border-color: var(--arex-green) !important; }
     .menu-item.editing { border-color: var(--arex-green) !important; }
-    /* 重排抓起特效：略微缩小并增加内阴影 */
     .menu-item.reordering { background: var(--arex-green) !important; color: var(--arex-black) !important; transform: scale(0.95); box-shadow: inset 0 0 0 2px var(--arex-black); z-index: 10;}
     .status-badge { font-size: 12px; font-weight: normal; color: var(--arex-light); padding: 2px 6px;}
 
@@ -282,19 +276,12 @@
     .plan-chart-title { font-size: 14px; font-weight: bold; margin-bottom: 5px; display: flex; justify-content: space-between; opacity: 0.9; flex-shrink: 0;}
     .plan-chart-svg { width: 100%; flex-grow: 1; display: block; background: var(--arex-black); border: 1px solid var(--arex-dark); }
     .plan-axis-label { font-size: 11px; fill: var(--arex-green); opacity: 0.75; }
-    .plan-line-past { fill: none; stroke: var(--arex-green); stroke-width: 3; stroke-linejoin: round;} /* lv_chart 过去折线 (Solid) */
-    .plan-line-future { fill: none; stroke: var(--arex-green); stroke-width: 3; stroke-dasharray: 6 5; stroke-linejoin: round;} /* lv_chart 预测折线 (Dashed) */
+    .plan-line-past { fill: none; stroke: var(--arex-green); stroke-width: 3; stroke-linejoin: round;} 
+    .plan-line-future { fill: none; stroke: var(--arex-green); stroke-width: 3; stroke-dasharray: 6 5; stroke-linejoin: round;} 
     .plan-now { fill: var(--arex-green); }
     .plan-now-label { font-size: 12px; font-weight: bold; fill: var(--arex-black); background: var(--arex-green);}
 
-    /* =========================================
-       [LVGL_MAP_5F_CUSTOM_GRID] 5F Custom Widgets 绝对坐标化
-       虽然这里为了网页效果写了 CSS Grid (display: grid; dense)，
-       但我们在 C 端收到 JSON 数组时，它本质上已经描述了一个紧凑的 5x6 (总30格) 排列！
-       在LVGL中，不再需要 LV_GRID。直接根据 JSON 下发时的排列推导坐标：
-       每个基准单元格大小 = (parent_width / 5) * 80, (parent_height / 6) * 60。
-       只要收到 row (0~5) 和 col (0~4)，就可以直接算出 X/Y。
-       ========================================= */
+    /* 5F Custom Grid */
     .w-span-1x1 { grid-column: span 1; grid-row: span 1; }
     .w-span-2x1 { grid-column: span 2; grid-row: span 1; }
     .w-span-1x2 { grid-column: span 1; grid-row: span 2; }
@@ -311,10 +298,7 @@
     .modal-box { border: 4px solid var(--arex-green); background: var(--arex-black); padding: 25px; text-align: center; width: 80%; }
     #ghost-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--arex-black); z-index: 500; display: none; color: var(--arex-dark); align-items: center; justify-content: center; font-size: 12px; }
 
-    /* =========================================
-       战术配置窗口 (Modal Config Export)
-       网页端辅助功能，不在 LVGL 端实现。
-       ========================================= */
+    /* Config Modal */
     #config-modal {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
@@ -322,26 +306,14 @@
         opacity: 0; transition: opacity 0.3s ease;
     }
     #config-modal.show { display: flex; opacity: 1; }
-    .config-box {
-        background: #111; width: 600px; border: 2px solid var(--arex-green);
-        border-radius: 8px; display: flex; flex-direction: column;
-        box-shadow: 0 0 30px rgba(0, 255, 0, 0.15);
-    }
-    .config-header {
-        padding: 15px 20px; border-bottom: 1px solid #333;
-        display: flex; justify-content: space-between; align-items: center;
-        background: #1a1a1a; border-radius: 8px 8px 0 0;
-    }
+    .config-box { background: #111; width: 600px; border: 2px solid var(--arex-green); border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(0, 255, 0, 0.15); }
+    .config-header { padding: 15px 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; border-radius: 8px 8px 0 0; }
     .config-header h2 { margin: 0; font-size: 18px; color: var(--arex-light); font-family: monospace; text-transform: uppercase;}
     .close-btn { color: #888; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 1; }
     .close-btn:hover { color: #ff4444; }
     .config-body { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
     .config-body p { margin: 0; color: #aaa; font-size: 14px; }
-    textarea#config-json {
-        width: 100%; height: 250px; background: #050505; color: var(--arex-green);
-        border: 1px dashed #444; padding: 15px; font-family: monospace; font-size: 13px;
-        box-sizing: border-box; resize: none; outline: none; border-radius: 4px;
-    }
+    textarea#config-json { width: 100%; height: 250px; background: #050505; color: var(--arex-green); border: 1px dashed #444; padding: 15px; font-family: monospace; font-size: 13px; box-sizing: border-box; resize: none; outline: none; border-radius: 4px; }
     textarea#config-json:focus { border-color: var(--arex-green); }
     .config-footer { display: flex; gap: 10px; justify-content: flex-end; }
 
@@ -363,7 +335,7 @@
     .app-widget-lib { display: flex; flex-wrap: wrap; gap: 6px; }
     .app-drag-item { background: #222; border: 1px solid #555; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: grab; font-weight: bold; transition: 0.1s; display: flex; align-items: center;}
     
-    /* Wall UI (操作顶部/底部边界时的提示) */
+    /* Wall UI */
     .wall-ui { position: absolute; left: 0; width: 100%; text-align: center; font-weight: bold; z-index: 20; color: var(--arex-green); background: var(--arex-black); padding: 15px 0; border: 2px dashed var(--arex-dark); opacity: 0; transition: opacity 0.2s;}
     #top-wall-ui { top: 0; } #bottom-wall-ui { bottom: 0; }
     .charge-blocks { font-size: 32px; letter-spacing: 10px; margin-top: 10px; }
@@ -371,7 +343,7 @@
 </head>
 <body>
 
-<!-- 侧边栏结构，网页调试用，LVGL 中这些参数应全数放入 arex_sys_config_t -->
+<!-- 侧边栏结构 -->
 <div id="sidebar">
     <div class="panel-section">
         <div class="panel-title">🎛️ 基础状态模拟</div>
@@ -401,12 +373,36 @@
         </div>
     </div>
 
+    <!-- 🚨 告警系统控制引擎 (同步靶向测试) 🚨 -->
+    <div class="panel-section" style="border-color: #ff4444;">
+        <div class="panel-title" style="color: #ff4444;">🚨 告警同步引擎 (Alarm Target Sync)</div>
+        <p style="font-size:11px; color:#aaa; margin-top:-10px;">请划至 5F 卡片，点击下方按钮测试“固定区+自定义区”的同步反色闪烁效果。</p>
+        
+        <div class="control-group" style="border-color: #ff4444;">
+            <h3 style="color: #ff4444;">Level 3 (CRITICAL)</h3>
+            <button class="btn-action btn-alarm" onclick="triggerAlarm(3, 'CRIT_DEPTH', 'MAX DEPTH EXCEEDED', 'depth')">Test: 深度报警 (Target: Depth)</button>
+            <button class="btn-action btn-alarm" onclick="triggerAlarm(3, 'CRIT_BATT', 'BATTERY DEPLETED', 'battery')">Test: 电量耗尽 (Target: Battery)</button>
+        </div>
+
+        <div class="control-group" style="border-color: #ffff00;">
+            <h3 style="color: #ffff00;">Level 2 (WARNING)</h3>
+            <button class="btn-action btn-warn" onclick="triggerAlarm(2, 'WARN_PO2_ELEVATED', 'PO2 ELEVATED', 'gas')">Test: 氧分压偏高 (Target: Gas)</button>
+            <button class="btn-action btn-warn" onclick="triggerAlarm(2, 'WARN_NDL_LOW', 'NDL LOW', 'ndl')">Test: NDL 过低 (Target: NDL)</button>
+        </div>
+
+        <div class="control-group" style="border-color: #00ccff;">
+            <h3 style="color: #00ccff;">Level 1 (INFO)</h3>
+            <button class="btn-action btn-info" onclick="triggerAlarm(1, 'INFO_SAFETY_STOP', 'SAFETY STOP CLEARED', 'tts')">Test: 安全停留结束 (Target: TTS)</button>
+        </div>
+
+        <button class="btn-action btn-secondary" onclick="clearAlarms()" style="border-color:#fff;">✅ ACKNOWLEDGE ALARMS</button>
+    </div>
+
     <div class="panel-section" style="border-color: var(--arex-green);">
-        <div class="panel-title">📐 AREX 排版沙盒 2.5 (Left Anchor)</div>
+        <div class="panel-title">📐 AREX 排版沙盒 2.5</div>
         
         <div class="control-group" style="border-color: var(--arex-green);">
-            <h3 style="color: var(--arex-green);">1. 全局架构与安全区 (Architecture)</h3>
-            
+            <h3 style="color: var(--arex-green);">1. 全局架构与安全区</h3>
             <div class="control-row">
                 <label>UI 安全区约束 (SAFE ZONE)
                     <span class="limit-text" id="ui-safe-limit">Limit: ±30px</span>
@@ -469,11 +465,7 @@
                 <select id="sl-font" onchange="renderLeftAnchor()">
                     <option value="'Courier New', Courier, monospace">Courier New (标准等宽)</option>
                     <option value="'Consolas', monospace">Consolas (紧凑等宽)</option>
-                    <option value="'Monaco', monospace">Monaco (圆润等宽)</option>
-                    <option value="'Lucida Console', monospace">Lucida Console</option>
-                    <option value="'Trebuchet MS', sans-serif">Trebuchet MS (战术无衬线)</option>
                     <option value="sans-serif">System Sans-Serif</option>
-                    <option value="'Impact', sans-serif">Impact (粗犷极宽)</option>
                 </select>
             </div>
             
@@ -539,7 +531,6 @@
 
         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;">
             <button class="btn-action" onclick="openConfigModal()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 管理参数 / 导出配置
             </button>
         </div>
@@ -551,12 +542,14 @@
             <div class="app-mock-grid" id="app-mock-grid-container"></div>
         </div>
         <div class="app-widget-lib">
-            <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="max-depth">MAX DPTH</div>
+            <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="depth">DEPTH</div>
             <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="temp">TEMP</div>
             <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="heading">HEADING</div>
             <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="sac">SAC RATE</div>
             <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="battery">BATTERY</div>
             <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="ndl">NO DECO</div>
+            <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="ppo2">PPO2</div>
+            <div class="app-drag-item" draggable="true" ondragstart="handleDragStart(event)" data-widget="cns">CNS TOX</div>
         </div>
     </div>
 </div>
@@ -568,24 +561,28 @@
     <div id="status-bar">系统初始化...<span class="error-text" id="error-msg"></span></div>
     
     <div id="device-bezel">
-        <!-- [LVGL_MAP] Physical Screen (640x480) 对应底层画布，绝对锁定位置。 -->
         <div id="ar-screen">
             <div class="screen-label">PHYSICAL LIMIT (640x480)</div>
             <div id="buoyancy-mask">EYEBOX LOST DUE TO BUOYANCY</div>
 
-            <!-- [LVGL_MAP] Safe Zone。这是所有的 LVGL 组件挂载的根 lv_obj！-->
+            <!-- 安全区 -->
             <div id="ui-safe-zone">
-                <!-- [LVGL_MAP] Left Anchor (10U 沙盒渲染区) -->
-                <div id="left-anchor-canvas" class="grid-bg"></div>
+                <!-- 10U 左侧沙盒 -->
+                <div id="left-anchor-canvas" class="grid-bg split-outward"></div>
 
-                <!-- [LVGL_MAP] Right Canvas (对应多屏卡片的 lv_tileview 容器) -->
+                <!-- 右侧卡片区 -->
                 <div id="right-card-canvas" class="grid-bg">
+                    
+                    <!-- 🚨 告警横幅区 (纯文本纯英文设计) 🚨 -->
+                    <div id="alarm-banner" class="alarm-banner">
+                        <span class="banner-text" id="alarm-banner-text"></span>
+                    </div>
                     
                     <div id="top-wall-ui" class="wall-ui"><span id="top-wall-text"></span><br><div class="charge-blocks" id="top-blocks"></div></div>
                     <div id="bottom-wall-ui" class="wall-ui"><span id="bottom-wall-text"></span><br><div class="charge-blocks" id="bottom-blocks"></div></div>
-                    
+
                     <div id="elevator-track">
-                        <!-- [LVGL_MAP] 以下每个 .card 对应一页。 -->
+                        <!-- INFO MENU -->
                         <div class="card" id="menu-info">
                             <div class="card-title">> INFO MENU</div>
                             <div class="menu-list" id="info-list">
@@ -597,7 +594,7 @@
                             </div>
                         </div>
 
-                        <!-- 1F: 罗盘。包含两个 lv_label (标题/数值) 和一组动态刻度线 (lv_canvas) -->
+                        <!-- 1F: 罗盘 -->
                         <div class="card" id="card-compass">
                             <div class="card-title"><span>1F: NAV COMPASS</span></div>
                             <div style="text-align: center; font-size: 12px; color: var(--arex-green); font-weight: bold;" id="compass-target-text"></div>
@@ -623,7 +620,7 @@
                             </div>
                         </div>
 
-                        <!-- 2F: 组织与减压。底部的柱体建议由 16 个底层对齐的 lv_bar 组成。 -->
+                        <!-- 2F: Tissues -->
                         <div class="card" id="card-tissues">
                             <div class="card-title"><span>2F: TISSUES & DECO</span></div>
                             <div class="deco-grid">
@@ -637,7 +634,7 @@
 
                             <div class="tissue-section-title">TISSUE SATURATION</div>
                             <div class="tissue-container">
-                                <div class="m-value-line"></div><div class="m-value-label">M-VAL</div>
+                                <div class="m-value-line"></div><div style="position:absolute; right:-5px; top:2px; font-size:12px; background:#000;">M-VAL</div>
                                 <div class="tissue-grid">
                                     <div class="t-bar"><div class="t-fill danger" style="height: 95%;"></div></div>
                                     <div class="t-bar"><div class="t-fill high" style="height: 85%;"></div></div>
@@ -659,7 +656,7 @@
                             </div>
                         </div>
 
-                        <!-- 3F: 气体切换菜单。可用 lv_list 实现。 -->
+                        <!-- 3F: Gas -->
                         <div class="card" id="card-gas">
                             <div class="card-title">
                                 <span>3F: GAS SWITCH</span>
@@ -668,17 +665,17 @@
                             <div class="menu-list" id="gas-list"></div>
                         </div>
 
-                        <!-- 4F: 潜水曲线。必须采用 lv_chart，并设置两条 Series 数据流。 -->
+                        <!-- 4F: Plan -->
                         <div class="card" id="card-plan">
                             <div class="card-title"><span>4F: DIVE PLAN TRACK</span></div>
                             <div class="plan-chart-shell">
                                 <svg class="plan-chart-svg" id="dive-log-svg" viewBox="0 0 400 320" preserveAspectRatio="none">
-                                    <!-- Dynamic content rendered by JS -->
+                                    <!-- Dynamic content -->
                                 </svg>
                             </div>
                         </div>
 
-                        <!-- 5F: 自定义网格布局。在 LVGL 必须建立基于 lv_grid 的弹性数组，尺寸跨度必须严格按配置绑定 -->
+                        <!-- 5F: Custom -->
                         <div class="card" id="card-custom">
                             <div class="card-title">
                                 <span>5F: CUSTOM WIDGETS</span>
@@ -687,7 +684,7 @@
                             <div class="widget-grid" id="ar-widget-container"></div>
                         </div>
 
-                        <!-- 设置菜单。在LVGL中也是基于 lv_list。 -->
+                        <!-- SETUP MENU -->
                         <div class="card" id="menu-setup">
                             <div class="card-title">> DIVE SETUP</div>
                             <div class="menu-list" id="setup-list">
@@ -701,18 +698,18 @@
                         </div>
                     </div>
 
-                    <!-- 动态电梯指示器点。LVGL中是一组小巧的 lv_obj 小圆点容器。 -->
-                    <div class="elevator-dots" id="scroll-indicator">
+                    <!-- 动态电梯指示器点 -->
+                    <div class="elevator-dots dots-right" id="scroll-indicator">
                         <div class="e-dot active"></div><div class="e-dot"></div><div class="e-dot"></div><div class="e-dot"></div><div class="e-dot"></div>
                     </div>
 
-                    <!-- 子菜单。在LVGL中可能作为一个覆盖全屏的临时 lv_obj_create()。 -->
+                    <!-- 子菜单 -->
                     <div id="sub-menu-layer">
                         <div class="card-title" id="sub-menu-title">> SUB MENU</div>
                         <div class="menu-list" id="sub-menu-list"></div>
                     </div>
 
-                    <!-- 警告提示弹窗/覆盖层。同样使用高层级的 lv_obj。 -->
+                    <!-- 警告提示弹窗 -->
                     <div id="canvas-modal">
                         <div class="modal-box" id="modal-content-box"></div>
                     </div>
@@ -723,6 +720,7 @@
     </div>
 </div>
 
+<!-- Modal Config Export -->
 <div id="config-modal">
     <div class="config-box">
         <div class="config-header">
@@ -730,7 +728,7 @@
             <span class="close-btn" onclick="closeConfigModal()">&times;</span>
         </div>
         <div class="config-body">
-            <p>复制下方的 JSON 数据以导出您的自定义排版配置，或者粘贴已有的配置并点击“应用覆写”来加载他人分享的预设面板。</p>
+            <p>复制下方的 JSON 数据以导出您的自定义排版配置。</p>
             <textarea id="config-json" spellcheck="false"></textarea>
             <div class="config-footer">
                 <button class="btn-action btn-secondary" style="width: auto;" onclick="copyConfig()">📋 复制到剪贴板</button>
@@ -742,11 +740,8 @@
 
 <script>
     // ==========================================
-    // State Initialization (Hoisted for safety)
+    // State Initialization
     // ==========================================
-    /* [LVGL_MAP_DATA_BUS] 这个区域的所有变量，在底层 C 代码中对应 `arex_sensor_data_t` 结构体，
-       这属于 RAM 中的实时变量，由定时器负责不断刷新。
-    */
     let baseDepth = 0;
     let baseHeading = 265;
     let diveLog = [];
@@ -775,36 +770,29 @@
     let calibMsg = "";
     let layoutMsg = "";
 
-    /* [LVGL_MAP_APP_STATE] 以下这些用于记录当前在哪个屏幕/界面层级 */
     const STATE = { DASH: 0, INFO: 1, SETUP: 2, EDIT_GAS: 3, MODAL_GAS: 4, MODAL_COMPASS: 5, SUB_MENU: 6, MODAL_ACT: 7, EDIT_VALUE: 8 };
     let currentState = STATE.DASH;
     let currentDashCard = 0; const MAX_CARDS = 4; 
     let wallCharge = 0;
     
-    /* [LVGL_MAP_HARDWARE_REORDER] 这个数组存储的是卡片对象的指针排序，用于实时重排 (card_order[5]) */
     let cardOrder = ['card-compass', 'card-tissues', 'card-gas', 'card-plan', 'card-custom'];
-    
     let menuIndexInfo = 0; let menuIndexSetup = 0;
     let subMenuParent = null; let subMenuIndex = 0; let subMenuItems = []; let subMenuHistory = [];
 
-    /* [LVGL_MAP_GRID_ENGINE] 精确匹配四种比例的自适应渲染工厂
-       在 LVGL 中，这部分逻辑对应根据 widget_id 创建不同的 lv_obj，
-       并根据占据的行宽列宽 (w, h) 来决定加载的字体指针：
-       如果 w>1 且 h>1 (2x2 模块)，字体设为 42 号。否则依次缩小为 28 号或 18 号，防止文字越界。
-    */
+    // [WIDGET_DEFS] 更新：扩充了新的自定义组件库并优化排版
     const WIDGET_DEFS = {
-        'max-depth': { label: 'MAX DPTH', render: (w, h) => `<div class="w-val" id="widget-max-depth" style="font-size:${w>1&&h>1?42:w>1?28:18}px">0.0<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">m</span></div>` },
+        'depth': { label: 'DEPTH', render: (w, h) => `<div class="w-val" id="widget-depth" style="font-size:${w>1&&h>1?42:w>1?28:18}px">0.0<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">m</span></div>` },
         'temp': { label: 'TEMP', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?42:w>1?28:18}px">18<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">°C</span></div>` },
         'heading': { label: 'HEADING', render: (w, h) => `<div class="w-val" id="widget-heading" style="font-size:${w>1&&h>1?42:w>1?28:18}px">265°</div>` },
-        'sac': { label: 'SAC RATE', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?32:w>1?20:14}px;">14.2 <span class="w-unit">L/m</span></div>${h>1 || w>1 ? `<div class="w-bar-bg"><div class="w-bar-fill" style="width: 45%;"></div></div>` : ''}` },
+        'sac': { label: 'SAC RATE', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?32:w>1?20:14}px;">14.2 <span class="w-unit">L/m</span></div>${h>1 || w>1 ? `<div class="w-bar-bg" style="width:100%; height:4px; background:rgba(0,255,0,0.2); margin-top:2px;"><div class="w-bar-fill" style="width:45%; height:100%; background:var(--arex-green);"></div></div>` : ''}` },
         'battery': { label: 'BATTERY', render: (w, h) => `<div class="w-val" style="color:var(--arex-light); font-size:${w>1&&h>1?42:w>1?28:18}px">85<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">%</span></div>` },
-        'ndl': { label: 'NO DECO', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?42:w>1?28:18}px">99<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">m</span></div>` }
+        'ndl': { label: 'NO DECO', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?42:w>1?28:18}px">99<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">m</span></div>` },
+        'ppo2': { label: 'PPO2', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?42:w>1?28:18}px">1.40<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">ATA</span></div>` },
+        'cns': { label: 'CNS TOX', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?42:w>1?28:18}px">15<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">%</span></div>` }
     };
     
-    // 初始化完美装填的一个默认 5x6 (总30格) 排版组合
-    // [LVGL_MAP] 对应结构体数组 widget_ids, widget_w, widget_h。
     let currentWidgetLayout = [
-        { id: 'max-depth', w: 2, h: 2 }, { id: 'ndl', w: 2, h: 1 }, { id: 'temp', w: 1, h: 1 }, 
+        { id: 'depth', w: 2, h: 2 }, { id: 'ndl', w: 2, h: 1 }, { id: 'temp', w: 1, h: 1 }, 
         { id: 'sac', w: 2, h: 2 }, { id: 'heading', w: 2, h: 1 }, { id: 'battery', w: 1, h: 1 }
     ];
 
@@ -872,7 +860,6 @@
     // ==========================================
     // Config & Setup & Calibration
     // ==========================================
-
     function getVal(id) { return parseInt(document.getElementById(id).value) || 0; }
     function getStr(id) { return document.getElementById(id).value; }
 
@@ -945,21 +932,79 @@
         if(wrap) wrap.classList.add('active');
     }
 
+    /* ==========================================
+       🚨 同步靶向告警引擎逻辑 (Alarm Target Sync)
+       采用全局状态记录，确保布局重绘时告警不丢失
+       ========================================== */
+    let alarmTimeout = null;
+    let currentAlarmState = null; // 存储结构: { level: 3, targetId: 'depth' }
+
+    function triggerAlarm(level, eventId, text, targetId) {
+        clearAlarms(); 
+
+        const banner = document.getElementById('alarm-banner');
+        const bannerText = document.getElementById('alarm-banner-text');
+
+        // 纯英文纯文本告警
+        let prefix = "";
+        if (level === 3) prefix = "CRITICAL: ";
+        else if (level === 2) prefix = "WARNING: ";
+        else prefix = "INFO: ";
+
+        bannerText.innerText = prefix + text;
+        banner.className = `alarm-banner show level-${level}`;
+
+        // 隐藏右侧卡片原有的标题，避免文字重叠
+        document.getElementById('right-card-canvas').classList.add('alarm-active');
+
+        // 记录全局告警状态并立即应用靶向闪烁
+        currentAlarmState = { level: level, targetId: targetId };
+        applyAlarmStyles();
+
+        // Level 1: 5秒自动消失
+        if (level === 1) {
+            alarmTimeout = setTimeout(() => {
+                clearAlarms();
+            }, 5000);
+        }
+    }
+
+    function clearAlarms() {
+        if (alarmTimeout) {
+            clearTimeout(alarmTimeout);
+            alarmTimeout = null;
+        }
+        currentAlarmState = null;
+
+        const banner = document.getElementById('alarm-banner');
+        // 只移除 show 类，保留 level-x 类，使其在滑出期间保持原有的色彩
+        if (banner) banner.classList.remove('show'); 
+        
+        // 恢复卡片原有标题显示
+        const rightCanvas = document.getElementById('right-card-canvas');
+        if (rightCanvas) rightCanvas.classList.remove('alarm-active');
+
+        // 清理所有的告警类
+        document.querySelectorAll('[data-alarm-target]').forEach(el => {
+            el.classList.remove('local-l3', 'local-l2', 'local-l1');
+        });
+    }
+
+    // 重新应用告警样式 (用于每次 DOM 重建后调用)
+    function applyAlarmStyles() {
+        if (!currentAlarmState) return;
+        if (currentAlarmState.targetId) {
+            // 通过 data-alarm-target 属性，一键同时选中 Left Anchor 和 Right Custom Grid 中的模块！
+            document.querySelectorAll(`[data-alarm-target="${currentAlarmState.targetId}"]`).forEach(el => {
+                el.classList.add(`local-l${currentAlarmState.level}`);
+            });
+        }
+    }
+
+
     // ==========================================
     // Dynamic Left Anchor Engine (10U Sandbox)
     // ==========================================
-    /* [LVGL_MAP_BUILDER] 【绝对坐标计算映射 (Absolute Positioning)】
-       网页中使用了 Flex 方便渲染，但在固件端接收到 JSON 后，不需要使用 LV_FLEX！
-       直接遍历模块，依靠 U 和 gap 计算出每个模块的绝对 Y 坐标，并调用 lv_obj_set_pos()。
-       伪代码演示：
-       int current_y = 0;
-       for(int i=0; i<num_modules; i++) {
-           int h_px = modules[i].h_u * 10;
-           lv_obj_set_pos(obj, 0, current_y);
-           lv_obj_set_size(obj, 160, h_px);
-           current_y += h_px + (gap_u * 10);
-       }
-    */
     function renderLeftAnchor() {
         const theme = getStr('sl-theme');
         const order = getStr('sl-order');
@@ -988,7 +1033,6 @@
         document.getElementById('val-f-small').innerText = fSmall+'px'; document.getElementById('val-sep-thick').innerText = sepThick+'px';
         document.getElementById('val-gap').innerText = gap+'U'; document.getElementById('val-title-h').innerText = titleH+'U';
 
-        // Apply CSS Variables (Simulating applying styles to lv_obj_t)
         const root = document.documentElement;
         root.style.setProperty('--arex-font', fontFamily);
         root.style.setProperty('--font-huge', fHuge + 'px'); 
@@ -1028,13 +1072,14 @@
         layoutMsg = errors.join(' | ');
         updateStatusBar();
 
-        const buildComp = (name, totalHeightU, isHuge = false, customId = '', currentVal = '', extraHtml = '') => {
+        // 采用 data-alarm-target 替代原有的 id
+        const buildComp = (name, totalHeightU, isHuge = false, customId = '', currentVal = '', extraHtml = '', moduleId = '') => {
             const valHeightPx = (totalHeightU - titleH) * 10;
             const fontUsed = isHuge ? fHuge : fMed;
             const isValClipping = valHeightPx > 0 && checkClip(fontUsed, valHeightPx);
             
             return `
-                <div class="ar-component" style="height: ${totalHeightU * 10}px;">
+                <div class="ar-component" data-alarm-target="${moduleId}" style="height: ${totalHeightU * 10}px;">
                     <div class="title-zone ${titleClipping ? 'clip-warning' : ''}" style="height: ${titleH*10}px;">${name}</div>
                     ${valHeightPx > 0 ? `<div class="value-zone ${isHuge ? 'val-huge' : 'val-med'} ${isValClipping ? 'clip-warning' : ''}" style="height: ${valHeightPx}px;" id="${customId}">${currentVal}${extraHtml}</div>` : ''}
                 </div>
@@ -1046,14 +1091,17 @@
         let vGas = getV('ui-gas-name', gasData[breathingGasIndex].name);
 
         let html = '';
-        html += buildComp('DEPTH', hDepth, true, 'ui-depth', vDepth);
-        html += `<div class="ar-row-split" style="height: ${hNdl * 10}px; gap: 0;">${buildComp('NDL', hNdl, false, 'ui-ndl', '0')} ${buildComp('TTS', hNdl, false, 'ui-tts', '<span class="highlight-invert">24\'</span>')}</div>`;
-        html += `<div class="ar-row-split" style="height: ${hPod * 10}px; gap: 0;">${buildComp('POD 1', hPod, false, 'ui-pod1', '210', '<span class="po2-div">BAR</span>')} ${buildComp('POD 2', hPod, false, 'ui-pod2', '<span style="color:var(--arex-light)">195</span>', '<span class="po2-div">BAR</span>')}</div>`;
-        html += `<div class="ar-row-split" style="height: ${hBatt * 10}px; gap: 0;">${buildComp('BATT', hBatt, false, 'ui-batt', '85%')} ${buildComp('W.TIME', hBatt, false, 'ui-wtime', '10:45')}</div>`;
-        html += buildComp('GAS', hGas, false, 'ui-gas-name', vGas);
-        html += buildComp('DIVE TIME', hTime, false, 'ui-dive-time', '38:14');
+        html += buildComp('DEPTH', hDepth, true, 'ui-depth', vDepth, '', 'depth');
+        html += `<div class="ar-row-split" style="height: ${hNdl * 10}px; gap: 0;">${buildComp('NDL', hNdl, false, 'ui-ndl', '0', '', 'ndl')} ${buildComp('TTS', hNdl, false, 'ui-tts', '<span class="highlight-invert">24\'</span>', '', 'tts')}</div>`;
+        html += `<div class="ar-row-split" style="height: ${hPod * 10}px; gap: 0;">${buildComp('POD 1', hPod, false, 'ui-pod1', '210', '<span class="po2-div">BAR</span>', 'pod1')} ${buildComp('POD 2', hPod, false, 'ui-pod2', '<span style="color:var(--arex-light)">195</span>', '<span class="po2-div">BAR</span>', 'pod2')}</div>`;
+        html += `<div class="ar-row-split" style="height: ${hBatt * 10}px; gap: 0;">${buildComp('BATT', hBatt, false, 'ui-batt', '85%', '', 'battery')} ${buildComp('W.TIME', hBatt, false, 'ui-wtime', '10:45', '', 'wtime')}</div>`;
+        html += buildComp('GAS', hGas, false, 'ui-gas-name', vGas, '', 'gas');
+        html += buildComp('DIVE TIME', hTime, false, 'ui-dive-time', '38:14', '', 'time');
 
         canvas.innerHTML = html;
+
+        // 重新挂载告警状态
+        applyAlarmStyles();
     }
 
     // ==========================================
@@ -1157,11 +1205,19 @@
         const container = document.getElementById('ar-widget-container');
         if(!container) return;
         let html = '';
+        
+        // 【关键】赋予自定义组件对应的 data-alarm-target 以实现告警同步
         currentWidgetLayout.forEach((w, i) => {
             const def = WIDGET_DEFS[w.id];
-            html += `<div class="widget-slot w-span-${w.w}x${w.h}"><div class="w-label">${def.label}</div>${def.render(w.w, w.h)}</div>`;
+            html += `<div class="widget-slot w-span-${w.w}x${w.h}" data-alarm-target="${w.id}">
+                        <div class="w-label">${def.label}</div>${def.render(w.w, w.h)}
+                     </div>`;
         });
         container.innerHTML = html;
+        
+        // 重新挂载告警状态
+        applyAlarmStyles();
+
         const status = document.getElementById('custom-card-status');
         if(status) {
             status.style.color = '#fff'; status.style.opacity = '1'; status.innerText = '[SYNCING...]';
@@ -1333,36 +1389,7 @@
             const titleSpan = cardEl.querySelector('.card-title span:first-child');
             titleSpan.innerText = (i + 1) + 'F: ' + titleSpan.innerText.replace(/^\dF:\s*/, '');
         });
-        renderSorterUI();
         updateElevator();
-    }
-
-    function renderSorterUI() {
-        const container = document.getElementById('card-sorter-ui');
-        if(!container) return;
-        container.innerHTML = '';
-        cardOrder.forEach((id, i) => {
-            let coreName = getCardDisplayName(id);
-            container.innerHTML += `
-                <div class="sort-row">
-                    <span style="font-size:13px; color:#ddd; font-weight:bold;">${coreName}</span>
-                    <div class="sort-btns">
-                        <button onclick="moveCard(${i}, -1)" ${i===0?'disabled':''}>▲</button>
-                        <button onclick="moveCard(${i}, 1)" ${i===cardOrder.length-1?'disabled':''}>▼</button>
-                    </div>
-                </div>
-            `;
-        });
-    }
-
-    function moveCard(index, dir) {
-        if(index + dir < 0 || index + dir >= cardOrder.length) return;
-        const temp = cardOrder[index];
-        cardOrder[index] = cardOrder[index + dir];
-        cardOrder[index + dir] = temp;
-        
-        applyCardOrderToDOM();
-        currentDashCard = 0;
     }
 
     function updateListSelection(listId, activeIndex) {
@@ -1687,15 +1714,15 @@
     });
     window.addEventListener('contextmenu', e => e.preventDefault());
 
-    // Auto-Scale Bezel to fit smaller preview screens
+    // Auto-Scale Bezel
     function autoScaleBezel() {
         const mainView = document.getElementById('main-view');
         const bezel = document.getElementById('device-bezel');
         if(mainView && bezel) {
             const availableW = mainView.clientWidth - 40;
             const availableH = mainView.clientHeight - 80;
-            const baseW = 720; // 640 + 80px padding
-            const baseH = 560; // 480 + 80px padding
+            const baseW = 720;
+            const baseH = 560;
             const scale = Math.min(availableW / baseW, availableH / baseH, 1.1);
             bezel.style.transform = `scale(${Math.max(scale, 0.3)})`;
         }
@@ -1746,21 +1773,21 @@
         diveTimeElapsed += 2; 
         renderDiveLog();
         
-        const widgetMaxDepth = document.getElementById('widget-max-depth');
+        const widgetMaxDepth = document.getElementById('widget-depth');
         if(widgetMaxDepth) {
             const maxD = Math.max(...diveLog.map(p => p.depth));
-            widgetMaxDepth.innerHTML = maxD.toFixed(1) + '<span class="w-unit">m</span>';
+            widgetMaxDepth.innerHTML = maxD.toFixed(1) + '<span class="w-unit" style="font-size:inherit;">m</span>';
         }
     }, 2000); 
 
     // Init
-    updateCalibration(); // This triggers renderLeftAnchor internally
+    updateCalibration();
     updateCompassStyle();
     renderGasMenu();
-    renderSorterUI();
     renderAppMock(); 
     renderARWidgets();
-    autoScaleBezel(); // Initialize scaling on load
+    applyCardOrderToDOM();
+    autoScaleBezel();
     
     const ro = new ResizeObserver(() => updateElevator());
     const rightCardCanvas = document.getElementById('right-card-canvas');
