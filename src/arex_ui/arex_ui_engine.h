@@ -25,6 +25,20 @@
 #define ANCHOR_COMP_COUNT     16  /* 最大组件句柄数（兼容旧 API，UI 层用） */
 
 /* =========================================================
+ * 1b. 气体表常量 (供全局引用)
+ * ========================================================= */
+#define AREX_GAS_COUNT  4
+
+extern const char  *AREX_GAS_NAMES[AREX_GAS_COUNT];
+extern const uint8_t AREX_GAS_MOD_M[AREX_GAS_COUNT];
+
+/* 卡片数量常量（与 CARD_ID_* 枚举一致） */
+#define AREX_CARD_COUNT  6
+
+/* 卡片顺序配置读取接口（供 arex_card_registry.c / arex_ui_state.c 使用） */
+extern uint8_t g_sys_card_order(uint8_t pos);
+
+/* =========================================================
  * 2. 枚举字典 (配置项映射)
  * ========================================================= */
 
@@ -169,6 +183,16 @@ typedef struct {
     /* --- 左侧锚点行配置 (APP 同步就绪 — 自由双拼) --- */
     /* APP 只需修改 left_layout[] 中任意行的 left/right_module 即可自由组合 */
     arex_left_row_cfg_t left_layout[AREX_MAX_LEFT_ROWS];
+
+    /* --- 卡片顺序 (APP 同步就绪) ---
+     * card_order[i] = card_id（0=INFO 1=COMPASS 2=DECO 3=GAS 4=PLAN 5=SETUP）
+     * 控制 tileview 中各卡片的显示顺序，默认 {0,1,2,3,4,5} */
+    uint8_t card_order[AREX_CARD_COUNT];
+
+    /* --- 用户设置 (运行时可修改) --- */
+    float   mod_ppo2;           /* 默认 1.4f */
+    uint8_t conservatism;       /* 默认 1 (MED) */
+    uint8_t brightness;         /* 默认 2 (HIGH) */
 
 } arex_sys_config_t;
 #pragma pack(pop)

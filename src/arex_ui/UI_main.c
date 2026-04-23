@@ -1,4 +1,3 @@
-#include "arex_data.h"
 #include "arex_ui_engine.h"
 #include "arex_ui_state.h"
 #include "arex_screen.h"
@@ -31,23 +30,20 @@ static void sim_tick_cb(lv_timer_t *t)
 
 void UI_main(void)
 {
-    /* 1. 初始化旧版 g_arex 数据 */
-    arex_data_init();
-
-    /* 2. 初始化 UI 引擎 (加载默认配置) */
+    /* 1. 初始化 UI 引擎（加载默认配置 + 初始化潜水数据） */
     arex_ui_init();
 
-    /* 3. 创建 UI 界面 (安全区 + 左侧锚点 + 卡片) */
+    /* 2. 创建 UI 界面 (安全区 + 左侧锚点 + 卡片) */
     arex_screen_create();
 
-    /* 4. 初始化输入处理 */
+    /* 3. 初始化输入处理 */
     lv_obj_t *scr = lv_scr_act();
     arex_input_init(scr);
 
-    /* 5. 刷新左侧面板初始值 */
+    /* 4. 刷新左侧面板初始值 */
     arex_screen_refresh_left_panel();
 
-    /* 6. 初始化 UI 状态机 */
+    /* 5. 初始化 UI 状态机 */
     arex_ui_state_init();
 
     /* 7. 启动在 INFO 卡 (tile 0) */

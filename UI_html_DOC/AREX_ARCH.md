@@ -10,11 +10,12 @@
 ```
 src/arex_ui/
 ├── UI_main.c               # 入口，初始化序列 + 仿真 tick 定时器
-├── arex_data.h/c           # 全局状态数据模型（g_arex）
+├── arex_ui_engine.h/c      # 全局状态数据模型（g_sys_config + g_sensor_data）
 ├── arex_ui_state.h/c       # 状态机核心（g_ui），三个输入处理函数
 ├── arex_screen.h/c         # LVGL 控件树创建 + 所有屏幕操作 API
 ├── arex_input.h/c          # 输入事件捕获（键盘/编码器 → 状态机）
-├── arex_card_registry.h/c  # 卡片注册表（ID、title、create/update 回调）
+├── arex_card_registry.h/c # 卡片注册表（ID、title、create/update 回调）
+├── arex_data.h/c          # 数据总线头文件存根（arex_ui_engine.h 包含一切）
 └── cards/
     ├── card_info.c          # 0F: INFO MENU（5 条静态列表）
     ├── card_compass.c       # 1F: NAV COMPASS（canvas 绘制航向卷尺）
@@ -31,42 +32,35 @@ src/arex_ui/
 ```
 UI_main()
   │
-  ├─ arex_data_init()          → 用 demo 值填充 g_arex（深度45.2m，航向265°…）
-  ├─ arex_ui_state_init()      → 将 g_ui 清零，state=UI_DASH，dash_card=0
-  ├─ arex_screen_create()      → 创建整个 LVGL 控件树（左面板 + tileview + 弹窗 + 子菜单层）
+  ├─ arex_ui_init()             → 加载默认配置到 g_sys_config + 初始化 g_sensor_data 演示数据
+  ├─ arex_screen_create()        → 创建整个 LVGL 控件树（左面板 + tileview + 弹窗 + 子菜单层）
   │    ├── left_panel_create()
   │    ├── right_panel_create()  → 创建 tileview，按 card_order 调用 card_*_create()
   │    ├── wall_create()
   │    ├── modal_create()
   │    └── submenu_layer_create()
-  ├─ arex_input_init(scr)      → 注册键盘/编码器事件回调
+  ├─ arex_input_init(scr)        → 注册键盘/编码器事件回调
   ├─ arex_screen_refresh_left_panel()   → 左侧面板初始值填充
   ├─ arex_screen_scroll_to_card(0)      → 跳到 tile 0（INFO 卡）
   ├─ arex_screen_set_info_selection(0)  → 高亮第一条 LAST DIVE
+  ├─ arex_ui_state_init()       → 将 g_ui 清零，state=UI_INFO，dash_card=1
   └─ lv_timer_create(sim_tick_cb, 1000ms)  → 每秒仿真 tick
 ```
 
 **仿真 tick (`sim_tick_cb`) 每秒做：**
-1. `compass.heading += 1° % 360`（航向缓慢漂移）
-2. `dive.dive_time_s++`（潜水时间递增）
-3. `arex_screen_refresh_left_panel()` → 刷新左面板数值
-4. `arex_ui_refresh_all()` → 调用所有已注册卡片的 `update_cb()`
+1. `g_sensor_data.heading += 1° % 360`（航向缓慢漂移）+ `g_sensor_data.dive_time_s++`
+2. `arex_screen_refresh_left_panel()` → 刷新左面板数值
+3. `arex_ui_refresh_all()` → 遍历注册表，调用每个卡片的 `update_cb()`
 
 ---
 
-## 3. 数据模型：`arex_data.h/c`
+## 3. 数据模型：`arex_ui_engine.h/c`
 
-### 全局状态实例：`arex_state_t g_arex`
+### 核心数据结构体（两总线分离）
 
-```c
-typedef struct {
-    dive_data_t     dive;       // 深度/NDL/TTS/停留点/气瓶压力/潜水时间
-    compass_data_t  compass;    // 航向/是否标记/目标航向/罗盘风格
-    deco_data_t     deco;       // 16 隔室饱和度/GF99/SurfGF/CNS/OTU
-    gas_data_t      gas;        // 当前气体index/ppo2[3]
-    settings_data_t settings;   // mod_ppo2/保守度/亮度/card_order[6]
-} arex_state_t;
-```
+详见 Section 16 `arex_sys_config_t` 和 `arex_sensor_data_t` 定义。
+- 实时数据总线：`g_sensor_data` — UI 控件每 tick 读取
+- 配置总线：`g_sys_config` — 布局参数 + 用户设置（APP 可同步）
 
 ### 气体表（静态，4 种）
 
@@ -79,9 +73,14 @@ typedef struct {
 
 ### 关键设计点
 
-- `settings.card_order[6]`：控制 tileview 中卡片的显示顺序（indirection 层），默认 `{0,1,2,3,4,5}`
-- `deco.surf_gf > 100` 时，SurfGF 数值使用 HTML `.highlight-invert`：绿底黑字（非红色闪烁）；组织条 `≥90%` 使用与 HTML `.t-fill.danger` 相同的 `flashInvert` 节奏（300ms，对应 `--flash-speed 0.3s`）
-- `dive.depth` 是浮点数，左面板每秒更新
+- `g_sys_config.card_order[pos] = card_id`：控制 tileview 中卡片的显示顺序
+- **位置枚举 `arex_card_pos_t`**：`CARD_POS_INFO`=0（固定 tile 0）、`CARD_POS_1`~`CARD_POS_4`（中间 4 个可重排）、`CARD_POS_SETUP`=5（固定 tile 5）
+- **卡片 ID 枚举 `arex_card_id_t`**：`CARD_ID_INFO` ~ `CARD_ID_SETUP`，表示卡片固有身份
+- `g_sys_card_order(pos)`：统一入口，通过 `card_order[pos]` 查询卡片 ID
+- 用枚举显式赋值：`cfg->card_order[CARD_POS_INFO] = CARD_ID_INFO`（INFO/SETUP 固定，中间可重排）
+- 左侧锚点通过 `left_layout[]` 行配置驱动，任意两模块可自由双拼
+- 气体常量 `AREX_GAS_NAMES[]` / `AREX_GAS_MOD_M[]` 定义于 `arex_ui_engine.c`
+- `g_sensor_data.tissue_pct[]` 原始值由减压引擎计算，UI 层按百分比渲染
 
 ---
 
@@ -105,8 +104,8 @@ UI_EDIT_VALUE   (8)  — 数值内联编辑（例如 MOD PO2）
 
 ```c
 typedef struct {
-    arex_ui_state_t  state;           // 当前状态
-    uint8_t  dash_card;               // 当前卡片索引（0~5）
+    arex_ui_state_t  state;           // 当前状态（初始 UI_INFO）
+    uint8_t  dash_card;               // 当前卡片索引（初始 1，COMPASS）
     uint8_t  menu_info_idx;           // INFO 菜单光标
     uint8_t  menu_setup_idx;          // SETUP 菜单光标
     uint8_t  sub_menu_idx;            // 子菜单光标
@@ -122,6 +121,8 @@ typedef struct {
     arex_ui_state_t sub_parent;       // 进入子菜单时的父状态
 } arex_ui_ctx_t;
 ```
+
+> **启动行为：** `arex_ui_state_init()` 将 `state=UI_INFO`，`dash_card=1`，`menu_info_idx=0`，`wall_charge=0`。启动后直接显示 INFO 菜单（tile 0），等待用户操作。
 
 ### 三个公开输入处理函数
 
@@ -245,7 +246,7 @@ UI_SUB_MENU（DIVE SETUP 子菜单，"MOD PO2: X.X" 行高亮）
             arex_screen_refresh_edit_value() 更新 badge 内数值
             闪烁不中断（定时器继续）
   │
-  CLICK  → 提交：g_arex.settings.mod_ppo2 = edit_ctx.value
+  CLICK  → 提交：g_sys_config.mod_ppo2 = edit_ctx.value
             停止闪烁，清理 badge/arrows，恢复完整标签
             返回 UI_SUB_MENU（该行恢复选中态）
   ESC    → 取消：恢复 edit_ctx.original
@@ -307,12 +308,19 @@ UI_SUB_MENU（DIVE SETUP 子菜单，"MOD PO2: X.X" 行高亮）
 ```c
 typedef struct {
     arex_card_id_t  id;             // 稳定ID（0~5）
-    const char     *title;
-    lv_obj_t       *tile_obj;       // create 后填入
+    const char     *title;          // 卡片标题，英文
+    lv_obj_t       *tile_obj;       // create 后填入（NULL 直到 create 回调执行）
     void (*create_cb)(lv_obj_t *parent);   // 一次性建控件
     void (*update_cb)(void);               // 每 tick 刷新数据
-    void (*on_enter_cb)(void);             // 滚动到此卡时（可选）
+    void (*on_enter_cb)(void);             // 滚动到此卡时（可选，NULL 表示不处理）
 } arex_card_reg_t;
+```
+
+### 数量常量
+
+```c
+AREX_CARD_COUNT        = 6   // INFO+COMPASS+DECO+GAS+PLAN+SETUP
+AREX_DASH_CARD_COUNT   = 4   // DASH 可滑动范围（排除首尾 INFO/SETUP）
 ```
 
 ### 6张卡片一览
@@ -329,12 +337,26 @@ typedef struct {
 ### `arex_card_get(pos)` vs `arex_card_get_by_id(id)`
 
 ```c
-// 通过显示位置取（走 card_order 间接层）
-arex_card_get(0)  →  s_registry[ g_arex.settings.card_order[0] ]
+// 通过显示位置取（走 card_order[] 间接层）
+arex_card_get(CARD_POS_1)  →  s_registry[ card_order[CARD_POS_1] ] = s_registry[CARD_ID_COMPASS]
 
 // 通过稳定ID取（不走间接层）
-arex_card_get_by_id(CARD_ID_GAS)  →  s_registry[3]
+arex_card_get_by_id(CARD_ID_GAS)  →  s_registry[CARD_ID_GAS]
+
+// 卡片数量（统一入口）
+arex_card_count()  →  AREX_CARD_COUNT (=6)
 ```
+
+> **修改卡片顺序**（仅限中间 4 个，INFO/SETUP 固定）：
+> ```c
+> cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;     // 固定 tile 0
+> cfg->card_order[CARD_POS_1]     = CARD_ID_COMPASS; // 可重排
+> cfg->card_order[CARD_POS_2]     = CARD_ID_DECO;    // 可重排
+> cfg->card_order[CARD_POS_3]     = CARD_ID_GAS;     // 可重排
+> cfg->card_order[CARD_POS_4]     = CARD_ID_PLAN;    // 可重排
+> cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;    // 固定 tile 5
+> ```
+> `card_order[pos] = card_id`，pos 用 `CARD_POS_*`，card_id 用 `CARD_ID_*`，含义清晰、不易填反。
 
 ---
 
@@ -409,7 +431,7 @@ key_event_cb():
   - 坐标轴文字：`AREX_FONT_SMALL`(14px)，`LV_OPA_191`（透明度 75%）
   - 走势线：实线，粗细 **4px**，`AREX_GREEN`
   - 停留点：半径 **6px**，填充黑，描边 2px `AREX_GREEN`（仅水平段且停留≥3min 时绘制）
-- 当前位置：黄色圆点，动态由 `g_arex.dive.dive_time_s` 和 `g_arex.dive.depth` 计算，带 "NOW" 标签
+- 当前位置：黄色圆点，动态由 `g_sensor_data.dive_time_s` 和 `g_sensor_data.depth` 计算，带 "NOW" 标签
 
 ---
 
@@ -483,17 +505,18 @@ main.c (WinMain)
        ├─ 初始化序列（见第2节）
        └─ lv_timer(sim_tick_cb, 1000ms)
             │
-            ├─ 更新 g_arex（heading++, dive_time_s++）
-            ├─ arex_screen_refresh_left_panel()   [读 g_arex → 写 s_lbl_*]
+            ├─ 更新 g_sensor_data（heading++, dive_time_s++, depth浮动）
+            ├─ arex_screen_refresh_left_panel()   [读 g_sensor_data → 写 s_lbl_*]
             └─ arex_ui_refresh_all()
-                 └─ for each card: card->update_cb()
-                      └─ 读 g_arex / g_ui → 写 LVGL 控件
+                 for i in 0..arex_card_count()-1:
+                   card = arex_card_get(i)        // 通过 g_sys_card_order(i) 查 ID
+                   if (card->update_cb) card->update_cb()
 
 用户输入（键盘/编码器）
   └─ key_event_cb() / enc_click_cb()
        └─ ui_handle_rotate / click / back
             ├─ 修改 g_ui.state / g_ui.dash_card / g_ui.gas_cursor / …
-            ├─ 修改 g_arex.gas.active_idx / compass.marked / settings.mod_ppo2 / …
+            ├─ 修改 g_sensor_data / g_sys_config / …
             └─ 调用 arex_screen_* 函数更新控件外观
 ```
 
@@ -501,17 +524,19 @@ main.c (WinMain)
 
 ## 13. 重要设计约定
 
-1. **卡片不直接写状态**：card_*.c 只读 `g_arex` 和 `g_ui`，不修改它们。状态修改统一在 `arex_ui_state.c` 中进行。
+1. **卡片不直接写状态**：card_*.c 只读 `g_sensor_data` 和 `g_ui`，不修改它们。状态修改统一在 `arex_ui_state.c` 中进行。
 
 2. **screen 层是哑的**：`arex_screen.c` 的函数只负责操作控件，业务判断（如气体深度校验）在状态机里完成。
 
-3. **card_order 间接层**：tileview 的物理顺序在创建时固定，但用户可以通过修改 `g_arex.settings.card_order[]` 改变各卡片的逻辑位置，`arex_card_get(pos)` 负责解引用。
+3. **card_order 间接层**：tileview 的物理顺序在创建时固定，但用户可以通过修改 `g_sys_config.card_order[]` 改变各卡片的逻辑位置，`arex_card_get(pos)` 通过 `g_sys_card_order(pos)` 负责解引用。
 
 4. **注册回调**：card_info.c 和 card_setup.c 通过 `arex_screen_register_info_list()` / `arex_screen_register_setup_list()` 把它们内部创建的列表对象告知 screen 层，避免在 arex_screen.c 中重复创建控件。
 
 5. **Wall-charge 防误触**：连续3次才穿越边界，防止单次抖动误触进入菜单。
 
 6. **Modal 震动反馈**：气体切换超 MOD 时，`arex_screen_pulse_modal()` 用 lv_anim 做左右 ±6px 抖动（2次重复，80ms），对应 HTML 的 `scale(1.05)` 弹跳。
+
+7. **数据总线归一化**：`arex_data.h` 仅作存根（`#include "arex_ui_engine.h"`），所有数据总线（`g_sys_config`、`g_sensor_data`）、枚举、宏均统一在 `arex_ui_engine.h` 中定义，消除跨文件依赖。
 
 ---
 
@@ -523,9 +548,9 @@ main.c (WinMain)
 
 | 当前子菜单标题 | 选中项规则 | 执行动作 |
 |---|---|---|
-| `GAS SWITCH` | `SELECT XXX` | 更新 `g_arex.gas.active_idx`，刷新 gas 卡和左面板，关闭子菜单 |
-| `CONSERVATISM` | `LOW/MED/HIGH` 开头 | 更新 `g_arex.settings.conservatism`，更新 SETUP 菜单 badge，关闭子菜单 |
-| `BRIGHTNESS` | 精确匹配 `LOW/MED/HIGH/MAX` | 更新 `g_arex.settings.brightness`，更新 SETUP 菜单 badge，关闭子菜单 |
+| `GAS SWITCH` | `SELECT XXX` | 更新 `g_sensor_data.gas_active_idx`，刷新 gas 卡和左面板，关闭子菜单 |
+| `CONSERVATISM` | `LOW/MED/HIGH` 开头 | 更新 `g_sys_config.conservatism`，更新 SETUP 菜单 badge，关闭子菜单 |
+| `BRIGHTNESS` | 精确匹配 `LOW/MED/HIGH/MAX` | 更新 `g_sys_config.brightness`，更新 SETUP 菜单 badge，关闭子菜单 |
 | `DIVE SETUP`（嵌套） | `MOD PO2:` 开头 | 调用 `arex_screen_begin_edit_value()` → `UI_EDIT_VALUE` |
 | `DIVE SETUP`（嵌套） | 其他项 | `arex_screen_show_modal_act(text)` 通用动作弹窗 |
 | 任意标题 | 末尾含 `>` | 解析标题，调用 `arex_screen_open_nested_submenu()` 进入下一级 |
@@ -556,22 +581,22 @@ SETUP → SYSTEM SETUP（二级）
 - child 1：右侧 badge（`MED` / `HIGH` / 空）
 
 `arex_screen_update_setup_badge(item_idx, value)` 通过 `s_setup_list` 直接写 child 1。  
-`card_setup_update()` 每 tick 从 `g_arex.settings` 同步 CONSERVATISM / BRIGHTNESS 的 badge 文字。
+`card_setup_update()` 每 tick 从 `g_sys_config` 同步 CONSERVATISM / BRIGHTNESS 的 badge 文字。
 
 ### 14.4 INFO 子菜单动态数据
 
-`arex_screen_open_info_submenu()` 在打开前调用 `build_info_submenu(idx)` 从 `g_arex` 动态构建字符串：
+`arex_screen_open_info_submenu()` 在打开前调用 `build_info_submenu(idx)` 从 `g_sensor_data` 动态构建字符串：
 
 | 子菜单 | 动态字段来源 |
 |--------|-------------|
-| LAST DIVE | `g_arex.dive.depth`，`g_arex.dive.dive_time_s` |
-| TISSUE & TOX | `g_arex.deco.cns_pct`，`g_arex.deco.otu` |
-| GAS & CALC | `AREX_GAS_TABLE[g_arex.gas.active_idx].name` |
-| SENSOR & DEVICE | `g_arex.dive.pod1_bar`，`g_arex.dive.pod2_bar` |
+| LAST DIVE | `g_sensor_data.depth`，`g_sensor_data.dive_time_s` |
+| TISSUE & TOX | `g_sensor_data.cns_pct`，`g_sensor_data.otu` |
+| GAS & CALC | `AREX_GAS_TABLE[g_sensor_data.gas_active_idx].name` |
+| SENSOR & DEVICE | `g_sensor_data.pod1_bar`，`g_sensor_data.pod2_bar` |
 
 ### 14.5 DIVE SETUP 嵌套菜单中 MOD PO2 实时值
 
-`build_nested_dive_setup()` 在每次打开该子菜单前调用，将 `g_arex.settings.mod_ppo2` 格式化进 `s_modppo2_str[]`，保证显示最新值。编辑提交后 `arex_screen_commit_edit_value()` 直接更新同一 label。
+`build_nested_dive_setup()` 在每次打开该子菜单前调用，将 `g_sys_config.mod_ppo2` 格式化进 `s_modppo2_str[]`，保证显示最新值。编辑提交后 `arex_screen_commit_edit_value()` 直接更新同一 label。
 
 ### 14.6 新增 arex_screen.h 公开 API
 
@@ -649,6 +674,16 @@ lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
 | 2026-04-23 | `cards/*.c` | 全部 `AREX_FONT_*` 宏替换为 `arex_get_font(id)`（compass/setup/gas/deco/info/plan） |
 | 2026-04-23 | `arex_screen.h` | 旧 `AREX_FONT_*` 宏标记为废弃，附正确用法注释 |
 | 2026-04-23 | `AREX_ARCH.md` | 新增 Section 17 字体映射引擎文档；更新 Section 10/16 引用 |
+| 2026-04-23 | `arex_card_registry.c` | 重写：指定初始化器、`tile_obj=NULL` 初始化、`g_sys_card_order()` 间接查询、`arex_card_count()` API |
+| 2026-04-23 | `arex_card_registry.h` | 新增 `AREX_CARD_COUNT`、`AREX_DASH_CARD_COUNT`；`arex_card_reg_t` 新增 `on_enter_cb` |
+| 2026-04-23 | `arex_ui_engine.c` | 新增 `g_sys_card_order(pos)` 函数封装；`arex_sys_config_defaults()` 填充默认 `card_order[]` |
+| 2026-04-23 | `arex_ui_engine.h` | 新增 `g_sys_card_order()` 声明；新增 `arex_ui_update_data()` 空钩子 |
+| 2026-04-23 | `arex_ui_state.c` | `arex_ui_refresh_all()` 改为 `arex_card_count()` 循环；`AREX_CARD_COUNT - 2` 替换为 `AREX_DASH_CARD_COUNT` |
+| 2026-04-23 | `arex_data.h/c` | 新建数据总线头文件存根（`#include "arex_ui_engine.h"`），所有定义保留在 engine |
+| 2026-04-23 | `card_info.c` | 改为 `arex_get_font()` + `arex_data.h`；空 update 回调 |
+| 2026-04-23 | `card_setup.c` | 改为 `arex_get_font()` + dirty check badge 更新；badge 子 label 索引修正 |
+| 2026-04-23 | `UI_main.c` | 移除 `lv_timer_create`（已移至 `arex_screen_create`）；启动直接进入 INFO 卡 |
+| 2026-04-23 | `AREX_ARCH.md` | 新增 Section 18 重构变更日志；更新 Section 1/3/4/7/12/13 |
 
 ---
 
@@ -932,3 +967,116 @@ LV_FONT_DECLARE(lv_font_courier_48)
 | 2026-04-23 | `cards/*.c` | 所有卡片中 `AREX_FONT_*` 宏替换为 `arex_get_font(id)` |
 | 2026-04-23 | `arex_screen.h` | 旧宏标记为废弃，附正确用法注释 |
 | 2026-04-23 | `AREX_ARCH.md` | 新增 Section 17 字体映射引擎文档 |
+
+---
+
+## 18. 重构变更日志（v2026-04-23 第二阶段）
+
+### 18.1 文件变更总览
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `arex_card_registry.c` | 重写 | 卡片注册表重构：新增 `arex_card_count()`、`g_sys_card_order()` 间接查询、`tile_obj` 初始化流程 |
+| `arex_card_registry.h` | 重写 | 新增 `arex_card_pos_t` 位置枚举（INFO/SETUP 固定，中间 4 个可重排）；`arex_card_reg_t` 新增 `on_enter_cb`；`tile_obj` 初始为 NULL |
+| `arex_ui_engine.c` | 重写 | `arex_sys_config_defaults()` 用 `CARD_POS_*` / `CARD_ID_*` 枚举显式赋值 `card_order[]`，替代旧的 `for` 循环赋值 |
+| `arex_ui_engine.h` | 新增 | 新增 `g_sys_card_order()` 声明；新增 `arex_ui_update_data()` 空钩子 |
+| `arex_ui_state.c` | 重写 | `arex_ui_refresh_all()` 改为 `arex_card_count()` 循环；`ui_handle_rotate()` 中 `AREX_CARD_COUNT - 2` 改为 `AREX_DASH_CARD_COUNT` |
+| `arex_data.h/c` | 新建 | 数据总线头文件存根，所有定义保留在 `arex_ui_engine.h` |
+| `card_info.c` | 重写 | 改为 `arex_get_font()` + `arex_data.h`；空 update 回调 |
+| `card_setup.c` | 重写 | 改为 `arex_get_font()` + dirty check badge 更新；badge 子 label 索引修正 |
+| `UI_main.c` | 重写 | 移除 `lv_timer_create`（已在 `arex_screen_create` 中创建）；启动直接进入 INFO 卡 |
+| `AREX_ARCH.md` | 更新 | 本次重构写入文档 |
+
+### 18.2 `arex_card_registry.c` 重写要点
+
+#### 静态注册表使用指定初始化器
+
+```c
+static arex_card_reg_t s_registry[AREX_CARD_COUNT] = {
+    [CARD_ID_INFO] = {
+        .id          = CARD_ID_INFO,
+        .title       = "INFO MENU",
+        .tile_obj    = NULL,          // create 后才填入
+        .create_cb   = card_info_create,
+        .update_cb   = card_info_update,
+        .on_enter_cb = NULL,          // 可选，暂无实现
+    },
+    [CARD_ID_COMPASS] = { ... },
+    // ...
+};
+```
+
+#### `arex_card_get()` 通过 `g_sys_card_order()` 间接映射
+
+```c
+arex_card_reg_t *arex_card_get(uint8_t order_pos)
+{
+    if (order_pos >= AREX_CARD_COUNT) return NULL;
+    uint8_t id = g_sys_card_order(order_pos);   // 查 card_order[]
+    if (id >= AREX_CARD_COUNT) return NULL;
+    return &s_registry[id];
+}
+```
+
+#### `arex_ui_refresh_all()` 用 `arex_card_count()` 替代硬编码
+
+```c
+void arex_ui_refresh_all(void)
+{
+    for (uint8_t i = 0; i < arex_card_count(); i++) {
+        arex_card_reg_t *c = arex_card_get(i);
+        if (c && c->update_cb) c->update_cb();
+    }
+}
+```
+
+### 18.3 启动流程变更
+
+**重构前**（原版 `arex_ui_state.c`）：
+```
+arex_ui_state_init() -> state=UI_DASH, dash_card=0
+UI_main() -> lv_timer_create(sim_tick_cb, 1000ms)
+```
+启动直接进入 DASH（tile 0 = INFO，wall-charge 进入）。
+
+**重构后**（新版）：
+```
+arex_ui_state_init() -> state=UI_INFO, dash_card=1, menu_info_idx=0
+UI_main() -> arex_screen_scroll_to_card(0), arex_screen_set_info_selection(0)
+```
+启动直接进入 INFO 菜单（tile 0），等待用户操作。模拟定时器在 `arex_screen_create()` 中创建。
+
+### 18.4 `tile_obj` 生命周期
+
+```
+create 阶段:
+  arex_card_registry.c: s_registry[i].tile_obj = NULL（初始化）
+  card_*.c: create_cb() 创建 tile 控件 -> 返回 parent
+  right_panel_create(): 捕获 tile 对象 -> 填入 registry
+    -> registry[i].tile_obj = tile_obj;
+
+update 阶段:
+  任意模块通过 arex_card_get_by_id(id)->tile_obj 访问
+```
+
+
+### 18.5 新增 API / 枚举速查
+
+| 枚举 / 宏 | 文件 | 说明 |
+|------|------|------|
+| `arex_card_pos_t` | arex_card_registry.h | 位置枚举：CARD_POS_INFO=0(固定), CARD_POS_1~4(可重排), CARD_POS_SETUP=5(固定) |
+| `arex_card_id_t` | arex_card_registry.h | 卡片固有身份枚举：CARD_ID_INFO ~ CARD_ID_SETUP |
+| `AREX_CARD_COUNT` | arex_card_registry.h | 卡片总数 = 6 |
+| `AREX_DASH_CARD_COUNT` | arex_card_registry.h | DASH 可滑动数 = 4 |
+
+| 函数 | 文件 | 作用 |
+|------|------|------|
+| `arex_card_count()` | arex_card_registry.c | 返回卡片总数 |
+| `arex_card_get(pos)` | arex_card_registry.c | 按位置取卡片（走 card_order[] 间接层） |
+| `arex_card_get_by_id(id)` | arex_card_registry.c | 按 ID 取卡片（不走间接层） |
+| `g_sys_card_order(pos)` | arex_ui_engine.c | 通过 card_order[] 查询卡片 ID |
+| `arex_ui_refresh_all()` | arex_ui_state.c | 遍历所有卡片执行 update 回调 |
+| `arex_ui_update_data()` | arex_ui_engine.c | 空钩子，供未来扩展数据更新逻辑 |
+| `arex_ui_state_init()` | arex_ui_state.c | 初始化 UI 上下文，启动 state=UI_INFO |
+| `arex_screen_register_info_list()` | arex_screen.c | INFO 列表注册（由 card_info.c 调用） |
+| `arex_screen_register_setup_list()` | arex_screen.c | SETUP 列表注册（由 card_setup.c 调用） |

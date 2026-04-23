@@ -71,7 +71,7 @@ void card_info_create(lv_obj_t *parent)
 void card_info_update(void)
 {
     /* INFO sub-menu strings are built dynamically in arex_screen.c
-       from g_arex values each time the user opens a sub-menu.
+       from g_sensor_data values each time the user opens a sub-menu.
        This update callback is intentionally minimal — the static
        item titles never change. */
 }

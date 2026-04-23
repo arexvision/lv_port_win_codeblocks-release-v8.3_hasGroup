@@ -1,5 +1,4 @@
 #include "../arex_screen.h"
-#include "../arex_data.h"
 #include "../arex_ui_engine.h"
 #include "../arex_ui_state.h"
 #include "lvgl/lvgl.h"
@@ -104,8 +103,8 @@ void card_setup_update(void)
     static uint8_t last_cons = 0xFF;
     static uint8_t last_brt  = 0xFF;
 
-    uint8_t cons = g_arex.settings.conservatism;
-    uint8_t brt  = g_arex.settings.brightness;
+    uint8_t cons = g_sys_config.conservatism;
+    uint8_t brt  = g_sys_config.brightness;
 
     if (s_badge_lbls[1] && cons < 3 && cons != last_cons) {
         lv_label_set_text(s_badge_lbls[1], cons_str[cons]);

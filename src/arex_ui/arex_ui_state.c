@@ -1,5 +1,4 @@
 #include "arex_ui_state.h"
-#include "arex_data.h"
 #include "arex_ui_engine.h"
 #include "arex_card_registry.h"
 #include "arex_screen.h"
@@ -186,8 +185,7 @@ void ui_handle_click(void)
 
         case UI_DASH: {
             /* card_id 从 card_order[] 映射 */
-            extern uint8_t g_arex_card_order(uint8_t pos);
-            uint8_t card_id = g_arex_card_order(g_ui.dash_card);
+            uint8_t card_id = g_sys_card_order(g_ui.dash_card);
 
             if (card_id == CARD_ID_COMPASS) {
                 if (!g_sensor_data.heading_locked) {

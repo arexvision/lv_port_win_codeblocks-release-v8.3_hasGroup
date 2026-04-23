@@ -1,5 +1,5 @@
 #include "arex_card_registry.h"
-#include "arex_data.h"
+#include "arex_ui_engine.h"
 
 /* Forward declarations — each card's .c file implements these */
 void card_info_create(lv_obj_t *parent);    void card_info_update(void);
@@ -12,7 +12,7 @@ void card_setup_create(lv_obj_t *parent);   void card_setup_update(void);
 /* =========================================
    Master registry table
    Order here is STABLE — display order is
-   controlled by g_arex.settings.card_order[]
+   controlled by g_sys_config.card_order[] (see g_sys_card_order())
    ========================================= */
 static arex_card_reg_t s_registry[AREX_CARD_COUNT] = {
     [CARD_ID_INFO] = {
@@ -81,7 +81,7 @@ uint8_t arex_card_count(void)
 arex_card_reg_t *arex_card_get(uint8_t order_pos)
 {
     if (order_pos >= AREX_CARD_COUNT) return NULL;
-    uint8_t id = g_arex.settings.card_order[order_pos];
+    uint8_t id = g_sys_card_order(order_pos);
     if (id >= AREX_CARD_COUNT) return NULL;
     return &s_registry[id];
 }

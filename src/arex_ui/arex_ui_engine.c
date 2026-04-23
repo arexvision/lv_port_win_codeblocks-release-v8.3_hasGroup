@@ -1,13 +1,30 @@
 #include "arex_ui_engine.h"
-#include "arex_data.h"
+#include "arex_card_registry.h"
 #include "fonts/arex_fonts.h"
 #include <stdio.h>
 #include <string.h>
 
-/* 字体资源声明（由 arex_fonts.h 中的 LV_FONT_DECLARE 提供） */
+/* 气体名称表 (供全局引用) */
+const char *AREX_GAS_NAMES[AREX_GAS_COUNT] = {
+    "AIR",
+    "NX 32",
+    "TX 18/45",
+    "O2 100%"
+};
 
-/* g_sys_config 定义于此，g_sensor_data 定义于 arex_data.c */
-arex_sys_config_t g_sys_config;
+/* 气体 MOD 表 (单位: 米) */
+const uint8_t AREX_GAS_MOD_M[AREX_GAS_COUNT] = {
+    56,  /* AIR */
+    34,  /* NX 32 */
+    68,  /* TX 18/45 */
+    6    /* O2 100% */
+};
+
+/* =========================================================
+ * 全局单例定义
+ * ========================================================= */
+arex_sys_config_t  g_sys_config;
+arex_sensor_data_t g_sensor_data;
 
 /* =========================================================
  * 默认配置值 (全字段初始化 — APP 同步就绪)
@@ -90,6 +107,22 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->widget_ids[3] = 3;  cfg->widget_w[3] = 2; cfg->widget_h[3] = 2;
     cfg->widget_ids[4] = 4;  cfg->widget_w[4] = 2; cfg->widget_h[4] = 1;
     cfg->widget_ids[5] = 5;  cfg->widget_w[5] = 1; cfg->widget_h[5] = 1;
+
+    /* 卡片顺序（INFO/SETUP 固定，中间 4 个可重排）
+     * card_order[pos] = card_id
+     * 固定: CARD_POS_INFO=0, CARD_POS_SETUP=5
+     * 可重排: CARD_POS_1 ~ CARD_POS_4 */
+    cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;//不可修改
+    cfg->card_order[CARD_POS_1]     = CARD_ID_DECO;
+    cfg->card_order[CARD_POS_2]     = CARD_ID_COMPASS;
+    cfg->card_order[CARD_POS_3]     = CARD_ID_GAS;
+    cfg->card_order[CARD_POS_4]     = CARD_ID_PLAN;
+    cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;//不可修改
+
+    /* 用户设置默认值 */
+    cfg->mod_ppo2       = 1.4f;
+    cfg->conservatism   = 1;    /* MED */
+    cfg->brightness     = 2;    /* HIGH */
 }
 
 /* =========================================================
@@ -491,6 +524,15 @@ void arex_ui_apply_config(void)
     /* TODO: 触发 arex_screen_rebuild_layout() 重建排版
      * 这将在重构 arex_screen.c 时实现
      */
+}
+
+/* =========================================================
+ * 卡片顺序查询 (统一入口 — 替代旧的 g_arex_card_order)
+ * ========================================================= */
+uint8_t g_sys_card_order(uint8_t pos)
+{
+    if (pos >= AREX_CARD_COUNT) return 0;
+    return g_sys_config.card_order[pos];
 }
 
 /* =========================================================
