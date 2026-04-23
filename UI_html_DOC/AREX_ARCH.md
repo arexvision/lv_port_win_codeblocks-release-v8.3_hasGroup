@@ -1327,11 +1327,11 @@ abs_h  = span_h * cell_h - WIDGET_GAP * 2
 
 ---
 
-## 22. 卡片引擎分发系统 (Card Engine Dispatch)
+## 22. 卡片注册系统 (Card Registry)
 
 ### 22.1 设计目标
 
-将"卡片描述"与"渲染实现"彻底解耦。新增卡片只需在 `g_card_registry[]` 中添加一行描述符，无需修改 `arex_screen.c` 的渲染循环。
+单张表管理所有卡片信息，新增卡片只需在 `g_cards[]` 加一条，无需修改 `arex_screen.c`。
 
 ### 22.2 核心数据结构
 
@@ -1339,19 +1339,22 @@ abs_h  = span_h * cell_h - WIDGET_GAP * 2
 /* arex_card_registry.h */
 
 typedef enum {
-    CARD_ENGINE_MENU   = 0,  /* arex_render_dynamic_menu()   */
-    CARD_ENGINE_GRID   = 1,  /* arex_render_5f_custom_grid() */
-    CARD_ENGINE_CHART  = 2,  /* 预留 */
-    CARD_ENGINE_CUSTOM = 3,  /* custom_cb() 直接调用 */
+    CARD_ENGINE_MENU   = 0,   /* create_cb() 完整创建（含 list 注册） */
+    CARD_ENGINE_GRID   = 1,   /* arex_render_5f_custom_grid()         */
+    CARD_ENGINE_CHART  = 2,   /* 预留                                  */
+    CARD_ENGINE_CUSTOM = 3,   /* create_cb() 完整创建                  */
 } arex_card_engine_t;
 
 typedef struct {
-    arex_card_id_t      card_id;
+    arex_card_id_t      id;
     const char         *title;
     arex_card_engine_t  engine_type;
-    const void         *config_data;       /* 类型由 engine_type 决定 */
-    void (*custom_cb)(lv_obj_t *parent);   /* CARD_ENGINE_CUSTOM 专用 */
-} arex_card_desc_t;
+    const void         *config_data;   /* arex_menu_list_cfg_t* for MENU engine */
+    lv_obj_t           *tile_obj;      /* filled at runtime by right_panel_create() */
+    void (*create_cb)(lv_obj_t *parent);
+    void (*update_cb)(void);
+    void (*on_enter_cb)(void);
+} arex_card_t;
 ```
 
 ```c
@@ -1367,29 +1370,23 @@ typedef struct {
 
 ```
 right_panel_create()
-  └─ for each card in card_order[]
-       ├─ 查找 g_card_registry[card_id]
-       ├─ CARD_ENGINE_MENU   → card->create_cb(tile)  // 由各卡片自行完整创建（含 list 注册）
-       ├─ CARD_ENGINE_GRID   → make_title + render_5f_custom_grid()
-       └─ CARD_ENGINE_CUSTOM → desc->custom_cb(tile)
+  └─ for each card in g_cards[]
+       ├─ CARD_ENGINE_GRID → make_title + render_5f_custom_grid()
+       └─ 其余              → card->create_cb(tile)
 ```
-
-> **注意：** CARD_ENGINE_MENU 不在 `arex_screen.c` 内部创建 list，而是直接调用 `create_cb`。
-> 原因：`card_info_create` / `card_setup_create` 内部调用 `arex_screen_register_*_list()`，
-> 子菜单系统依赖这个注册句柄。若在 `arex_screen.c` 里重复创建 list，会导致双重控件 + 句柄错乱崩溃。
 
 ### 22.4 文件职责
 
 | 文件 | 职责 |
 |------|------|
-| `arex_card_registry.h` | `arex_card_engine_t` + `arex_card_desc_t` + `arex_card_reg_t` 类型定义 |
-| `arex_card_registry.c` | `g_card_registry[]` ROM 表 + `s_registry[]` 运行时状态表 |
+| `arex_card_registry.h` | `arex_card_engine_t` + `arex_card_t` 类型定义 + API 声明 |
+| `arex_card_registry.c` | `g_cards[]` 单张统一表（ROM 字段 + 运行时 tile_obj） |
 | `arex_ui_engine.h` | `arex_menu_item_cfg_t` + `arex_menu_list_cfg_t` 配置结构体 |
-| `card_info.c` | 暴露 `info_menu_cfg`（`arex_menu_list_cfg_t`） |
-| `card_setup.c` | 暴露 `setup_menu_cfg`（`arex_menu_list_cfg_t`） |
+| `card_info.c` | 暴露 `info_menu_cfg`，`create_cb` 内注册 `s_info_list` |
+| `card_setup.c` | 暴露 `setup_menu_cfg`，`create_cb` 内注册 `s_setup_list` |
 | `arex_screen.c` | `right_panel_create()` 引擎分发循环 |
 
-### 22.6 当前卡片引擎映射
+### 22.5 当前卡片引擎映射
 
 | 卡片 | engine_type | 说明 |
 |------|-------------|------|
@@ -1402,11 +1399,10 @@ right_panel_create()
 
 > `CARD_ENGINE_GRID`（`arex_render_5f_custom_grid()`）目前无卡片使用，预留给未来 5F 网格卡片。
 
-### 22.7 新增卡片步骤
+### 22.6 新增卡片步骤
 
 1. 在 `arex_card_id_t` 枚举中添加新 ID
-2. 在 `g_card_registry[]` 中添加 `arex_card_desc_t` 条目
-3. 在 `s_registry[]` 中添加运行时状态条目
-4. 实现对应的 `card_xxx_create()` / `card_xxx_update()`
-5. 无需修改 `arex_screen.c`
+2. 在 `g_cards[]` 中添加一条 `arex_card_t` 条目
+3. 实现 `card_xxx_create()` / `card_xxx_update()`
+4. 无需修改 `arex_screen.c`
 

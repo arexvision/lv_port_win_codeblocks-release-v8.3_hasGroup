@@ -28,7 +28,7 @@ void arex_ui_state_init(void)
 void arex_ui_refresh_all(void)
 {
     for (uint8_t i = 0; i < arex_card_count(); i++) {
-        arex_card_reg_t *c = arex_card_get(i);
+        arex_card_t *c = arex_card_get(i);
         if (c && c->update_cb) c->update_cb();
     }
 }

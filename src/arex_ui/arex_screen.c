@@ -686,20 +686,11 @@ static void right_panel_create(void)
     lv_obj_set_scrollbar_mode(s_tileview, LV_SCROLLBAR_MODE_OFF);
     lv_obj_clear_flag(s_tileview, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* 创建 tiles — 通过 g_card_registry 引擎分发 */
+    /* 创建 tiles */
     uint8_t count = arex_card_count();
     for (uint8_t i = 0; i < count; i++) {
-        arex_card_reg_t *card = arex_card_get(i);
+        arex_card_t *card = arex_card_get(i);
         if (!card) continue;
-
-        /* 查找对应的静态描述符 */
-        const arex_card_desc_t *desc = NULL;
-        for (uint8_t j = 0; j < g_card_registry_count; j++) {
-            if (g_card_registry[j].card_id == card->id) {
-                desc = &g_card_registry[j];
-                break;
-            }
-        }
 
         lv_obj_t *tile = lv_tileview_add_tile(s_tileview, 0, i,
                                                LV_DIR_TOP | LV_DIR_BOTTOM);
@@ -710,24 +701,13 @@ static void right_panel_create(void)
         lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
         card->tile_obj = tile;
 
-        if (!desc) {
-            /* 无描述符时回退到 create_cb */
-            if (card->create_cb) card->create_cb(tile);
-            continue;
-        }
-
-        switch (desc->engine_type) {
-            case CARD_ENGINE_MENU:
-                /* MENU 卡片由各自的 create_cb 负责完整创建（含 list 注册） */
-                if (card->create_cb) card->create_cb(tile);
-                break;
+        switch (card->engine_type) {
             case CARD_ENGINE_GRID:
-                arex_screen_make_card_title(tile, desc->title);
+                arex_screen_make_card_title(tile, card->title);
                 arex_render_5f_custom_grid(tile, g_left_anchor_obj);
                 break;
+            case CARD_ENGINE_MENU:
             case CARD_ENGINE_CUSTOM:
-                if (desc->custom_cb) desc->custom_cb(tile);
-                break;
             default:
                 if (card->create_cb) card->create_cb(tile);
                 break;
@@ -805,7 +785,7 @@ void arex_screen_rebuild_tileview(void)
 {
     uint8_t count = arex_card_count();
     for (uint8_t i = 0; i < count; i++) {
-        arex_card_reg_t *card = arex_card_get_by_id(i);
+        arex_card_t *card = arex_card_get_by_id(i);
         if (card) card->tile_obj = NULL;
     }
 
@@ -980,7 +960,7 @@ void arex_screen_create(void)
 void arex_screen_scroll_to_card(uint8_t tile_pos)
 {
     if (tile_pos >= AREX_CARD_COUNT) return;
-    arex_card_reg_t *card = arex_card_get(tile_pos);
+    arex_card_t *card = arex_card_get(tile_pos);
     if (!card || !card->tile_obj) return;
 
     if (tile_pos == 0) {
@@ -1682,13 +1662,13 @@ void arex_screen_hide_modal(void)
  * ========================================================= */
 void arex_screen_refresh_compass_target(void)
 {
-    arex_card_reg_t *c = arex_card_get_by_id(CARD_ID_COMPASS);
+    arex_card_t *c = arex_card_get_by_id(CARD_ID_COMPASS);
     if (c && c->update_cb) c->update_cb();
 }
 
 void arex_screen_refresh_gas_menu(void)
 {
-    arex_card_reg_t *c = arex_card_get_by_id(CARD_ID_GAS);
+    arex_card_t *c = arex_card_get_by_id(CARD_ID_GAS);
     if (c && c->update_cb) c->update_cb();
 }
 
