@@ -56,7 +56,7 @@ void card_info_create(lv_obj_t *parent)
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
-        lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
+        lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
         lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);

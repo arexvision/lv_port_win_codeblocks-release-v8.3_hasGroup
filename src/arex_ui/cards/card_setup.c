@@ -70,7 +70,7 @@ void card_setup_create(lv_obj_t *parent)
         /* 标题 label (child 0) */
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
-        lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
+        lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
         lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
@@ -79,7 +79,7 @@ void card_setup_create(lv_obj_t *parent)
         /* Badge label (child 1) */
         lv_obj_t *badge = lv_label_create(item);
         lv_obj_set_style_text_color(badge, AREX_LIGHT, 0);
-        lv_obj_set_style_text_font(badge, AREX_FONT_SMALL, 0);
+        lv_obj_set_style_text_font(badge, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_size(badge, 80, 28);
         lv_obj_align(badge, LV_ALIGN_RIGHT_MID, -12, 0);
         lv_obj_set_style_text_align(badge, LV_TEXT_ALIGN_RIGHT, 0);

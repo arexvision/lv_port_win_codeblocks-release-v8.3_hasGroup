@@ -27,6 +27,20 @@
 /* =========================================================
  * 2. 枚举字典 (配置项映射)
  * ========================================================= */
+
+/* ---- 字体 ID 枚举 (APP 同步核心) ----
+ *
+ * 全系统唯一字体 ID 字典。APP 通过下发数字 ID 来切换字体，
+ * 渲染引擎通过 arex_get_font(id) 映射为真实 lvgl 字体指针。
+ * 禁止在配置结构体中保存 lv_font_t*，只允许保存此枚举值！
+ */
+typedef enum {
+    AREX_FONT_ID_SMALL = 0,  /* 14px  标签/单位/Badge */
+    AREX_FONT_ID_TITLE,      /* 20px  菜单项/卡片标题 */
+    AREX_FONT_ID_MEDIUM,     /* 28px  数据值 */
+    AREX_FONT_ID_HUGE,       /* 48px  深度大数字 */
+} arex_font_id_t;
+
 typedef enum {
     AREX_THEME_TECH = 0,   /* 左右宽屏布局 */
     AREX_THEME_CLASSIC      /* 上下流式布局 */
@@ -98,9 +112,9 @@ typedef struct {
     uint8_t h_u;           /* 该行总高度（不含 gap） */
     uint8_t title_h_u;     /* 标题区高度（默认为全局 title_h_u） */
 
-    /* 样式 */
-    uint8_t title_font;    /* 标题字号: 0=SMALL 1=MEDIUM 2=TITLE */
-    uint8_t val_font;      /* 数值字号: 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE */
+    /* 样式 (字号字段已改为 arex_font_id_t) */
+    uint8_t title_font;    /* 标题字号: arex_font_id_t */
+    uint8_t val_font;      /* 数值字号: arex_font_id_t */
     uint8_t val_align;    /* 数值对齐: 0=LEFT 1=CENTER 2=RIGHT */
     uint8_t sep_style;     /* 分割线样式: 0=NONE 1=SOLID 2=DASHED 3=DOTTED */
     uint8_t sep_thick;     /* 分割线粗细 px（覆盖全局 sep_thick，0=用全局） */
@@ -125,13 +139,7 @@ typedef struct {
     uint8_t  flash_speed;    /* 动画闪烁速度 (0=慢, 1=中, 2=快) */
     bool     mask_enabled;   /* 面镜盲区掩膜开关 */
 
-    /* --- 样式与字体 --- */
-    uint8_t  font_sz_huge;   /* 大字号 (默认 58px) */
-    uint8_t  font_sz_med;    /* 中字号 (默认 28px) */
-    uint8_t  font_sz_small;  /* 小字号 (默认 14px) */
-    uint8_t  align_title;    /* arex_align_t */
-    uint8_t  align_huge;     /* arex_align_t */
-    uint8_t  align_med;      /* arex_align_t */
+    /* --- 样式与对齐 --- */
     bool     split_outward;  /* 双拼模块向外展开 */
 
     /* --- 分割线系统 --- */
@@ -223,8 +231,8 @@ typedef struct {
     uint16_t val_h;             /* 数值区高度 px */
     uint16_t w;                 /* 宽度 px */
     uint8_t  split;             /* 0=单栏 1=双拼左 2=双拼右 */
-    uint8_t  title_font;        /* 0=SMALL 1=MEDIUM 2=TITLE */
-    uint8_t  val_font;          /* 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE */
+    uint8_t  title_font;        /* arex_font_id_t */
+    uint8_t  val_font;          /* arex_font_id_t */
     uint8_t  title_align;       /* 0=LEFT 1=CENTER 2=RIGHT */
     uint8_t  val_align;        /* 0=LEFT 1=CENTER 2=RIGHT */
 } arex_anchor_comp_t;
@@ -284,6 +292,9 @@ void arex_calc_tissue_bars(uint16_t total_w, uint16_t bar_max_h,
 /* LVGL 辅助 */
 lv_text_align_t arex_align_to_lv(uint8_t align);
 lv_align_t arex_align_to_lv_align(uint8_t align);
+
+/* 字体映射器：唯一允许将字体 ID 转换为真实 lvgl 字体指针的地方 */
+const lv_font_t *arex_get_font(uint8_t font_id);
 
 /* =========================================================
  * 9. 布局矩形计算 (供 rebuild 调用)

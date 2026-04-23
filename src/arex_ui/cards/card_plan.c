@@ -54,7 +54,7 @@ static void draw_plan(void)
     lv_draw_line_dsc_init(&l);
     lv_draw_label_dsc_t t;
     lv_draw_label_dsc_init(&t);
-    t.font  = AREX_FONT_SMALL;
+    t.font  = arex_get_font(AREX_FONT_ID_SMALL);
     t.color = lv_color_make(0x00,0xFF,0x00);
     t.opa   = 191; /* 规范：透明度 75% */
 
@@ -126,7 +126,7 @@ static void draw_plan(void)
 
     /* "NOW" 标签 */
     lv_draw_label_dsc_t nl; lv_draw_label_dsc_init(&nl);
-    nl.font  = AREX_FONT_SMALL;
+    nl.font  = arex_get_font(AREX_FONT_ID_SMALL);
     nl.color = lv_color_make(0x00,0xFF,0x00);
     nl.opa   = 255;
     lv_canvas_draw_text(s_canvas, cx+8, cy-8, 40, &nl, "NOW");

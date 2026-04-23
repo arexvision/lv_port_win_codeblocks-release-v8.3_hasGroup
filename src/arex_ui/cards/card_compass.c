@@ -41,7 +41,7 @@ static void draw_tape(lv_coord_t heading)
     lv_draw_label_dsc_t lbl_dsc;
     lv_draw_label_dsc_init(&lbl_dsc);
     lbl_dsc.color = lv_color_make(0x00, 0xFF, 0x00);
-    lbl_dsc.font  = AREX_FONT_SMALL;
+    lbl_dsc.font  = arex_get_font(AREX_FONT_ID_SMALL);
 
     /* 滑动刻度带（-60° ~ +60°，每度 3px → 总宽 360px 覆盖动态宽度画布） */
     for (int deg = -60; deg <= 60; deg++) {
@@ -78,7 +78,7 @@ static void draw_tape(lv_coord_t heading)
     /* 航向数字 — 规范 46.4px，字库最接近 AREX_FONT_HUGE(48px)，居中显示 */
     char buf[12];
     snprintf(buf, sizeof(buf), "%03d\xC2\xB0", (int)heading);
-    lbl_dsc.font  = AREX_FONT_HUGE; /* 48px（规范 46.4px） */
+    lbl_dsc.font  = arex_get_font(AREX_FONT_ID_HUGE); /* 48px（规范 46.4px） */
     lbl_dsc.color = lv_color_make(0x00,0xFF,0x00);
     lv_canvas_draw_text(s_canvas, cx - 64, HEADING_Y, 128, &lbl_dsc, buf);
 
@@ -93,7 +93,7 @@ static void draw_tape(lv_coord_t heading)
             lv_canvas_draw_line(s_canvas, (lv_point_t[]){{tx,0},{tx,TAPE_H}}, 2, &line_dsc);
         }
 
-        lbl_dsc.font  = AREX_FONT_SMALL;
+        lbl_dsc.font  = arex_get_font(AREX_FONT_ID_SMALL);
         lbl_dsc.color = lv_color_make(0xFF,0xFF,0x00);
         char tbuf[16];
         snprintf(tbuf, sizeof(tbuf), "TARGET %03d\xC2\xB0", (int)g_sensor_data.heading_target);
@@ -101,7 +101,7 @@ static void draw_tape(lv_coord_t heading)
     }
 
     /* 底部 hint */
-    lbl_dsc.font  = AREX_FONT_SMALL;
+    lbl_dsc.font  = arex_get_font(AREX_FONT_ID_SMALL);
     lbl_dsc.color = lv_color_make(0x55,0xFF,0x55);
     lv_canvas_draw_text(s_canvas, 10, HINT_Y, 400, &lbl_dsc,
         g_sensor_data.heading_locked

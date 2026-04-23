@@ -31,6 +31,13 @@
 #define AREX_FONT_TITLE   (&lv_font_courier_20)
 
 /* =========================================
+   注意：上述宏已废弃！
+   正确做法：使用 arex_font_id_t 枚举 + arex_get_font(id)
+   示例：lv_obj_set_style_text_font(obj, arex_get_font(AREX_FONT_ID_HUGE), 0);
+   保留这些宏仅为兼容旧代码，新代码禁止使用！
+   ========================================= */
+
+/* =========================================
    Wall indicator side
    ========================================= */
 typedef enum {

@@ -118,26 +118,26 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 {
     lv_obj_t *lc = lv_label_create(parent);
     lv_obj_set_style_text_color(lc, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(lc, AREX_FONT_SMALL, 0);
+    lv_obj_set_style_text_font(lc, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_label_set_text(lc, left_cap);
     lv_obj_set_pos(lc, GRID_X, y);
 
     lv_obj_t *lv_ = lv_label_create(parent);
     lv_obj_set_style_text_color(lv_, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(lv_, AREX_FONT_TITLE, 0);
+    lv_obj_set_style_text_font(lv_, arex_get_font(AREX_FONT_ID_TITLE), 0);
     lv_label_set_text(lv_, left_val);
     lv_obj_set_pos(lv_, GRID_X, y + 16);
     if (left_ref) *left_ref = lv_;
 
     lv_obj_t *rc = lv_label_create(parent);
     lv_obj_set_style_text_color(rc, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(rc, AREX_FONT_SMALL, 0);
+    lv_obj_set_style_text_font(rc, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_label_set_text(rc, right_cap);
     lv_obj_set_pos(rc, 240, y);
 
     lv_obj_t *rv = lv_label_create(parent);
     lv_obj_set_style_text_color(rv, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(rv, AREX_FONT_TITLE, 0);
+    lv_obj_set_style_text_font(rv, arex_get_font(AREX_FONT_ID_TITLE), 0);
     lv_label_set_text(rv, right_val);
     lv_obj_set_pos(rv, 240, y + 16);
     if (right_ref) *right_ref = rv;
@@ -184,7 +184,7 @@ void card_deco_create(lv_obj_t *parent)
     /* HTML .tissue-section-title — directly above .tissue-container, margin-top:auto on card */
     lv_obj_t *sec_lbl = lv_label_create(parent);
     lv_obj_set_style_text_color(sec_lbl, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(sec_lbl, AREX_FONT_SMALL, 0);
+    lv_obj_set_style_text_font(sec_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_label_set_text(sec_lbl, "TISSUE SATURATION (16 COMPARTMENTS)");
     lv_obj_set_pos(sec_lbl, GRID_X, sec_title_y);
 
@@ -205,7 +205,7 @@ void card_deco_create(lv_obj_t *parent)
 
         lv_obj_t *lbl = lv_label_create(parent);
         lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
-        lv_obj_set_style_text_font(lbl, AREX_FONT_SMALL, 0);
+        lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
         char buf[4];
         snprintf(buf, sizeof(buf), "%d", i + 1);
         lv_label_set_text(lbl, buf);
@@ -224,7 +224,7 @@ void card_deco_create(lv_obj_t *parent)
 
     lv_obj_t *mlbl = lv_label_create(parent);
     lv_obj_set_style_text_color(mlbl, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(mlbl, AREX_FONT_SMALL, 0);
+    lv_obj_set_style_text_font(mlbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_obj_set_style_bg_opa(mlbl, LV_OPA_TRANSP, 0);
     lv_label_set_text(mlbl, "M-VALUE");
     lv_obj_set_pos(mlbl, GRID_X + TISSUE_AREA_W - 58,

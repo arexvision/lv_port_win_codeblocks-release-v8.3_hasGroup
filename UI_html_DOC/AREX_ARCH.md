@@ -422,14 +422,10 @@ AREX_LIGHT  = #55FF55   // 副色（标签、辅助文字、次要数值）
 AREX_DARK   = #003300   // 边框、刻度线、非激活背景
 AREX_BLACK  = #000000   // 卡片背景
 AREX_BG     = #050505   // 屏幕根背景
-
-/* 字体（Courier New Bold）*/
-AREX_FONT_SMALL    = 14px   // 标签/单位/Status Badge
-AREX_FONT_TITLE    = 20px   // 菜单项/卡片标题（规范21px最接近）
-AREX_FONT_MEDIUM   = 28px   // 数据值
-AREX_FONT_HUGE     = 48px   // 深度大数字（规范58px）
-AREX_FONT_DERIVED  = 20px   // 21px派生（规范0.75x≈21px）
 ```
+
+> **字体系统已全面重构，请参见 Section 17 字体 ID 映射引擎。**
+> 旧版 `AREX_FONT_*` 宏定义仅在 `arex_screen.h` 中保留兼容层，**禁止在新代码中使用**。
 
 ## 10.1 弹窗参数（规范值）
 
@@ -647,6 +643,12 @@ lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
 | 2026-04-23 | `arex_screen.c` | `left_anchor_create()` 循环改为 `for (i < comp_count)`，标题和数值文字改为 `switch (c->module)` 枚举驱动 |
 | 2026-04-23 | `arex_screen.c` | `left_anchor_rebuild()` 同步更新为空模块检查和对齐处理 |
 | 2026-04-23 | `AREX_ARCH.md` | Section 16 全面升级：新增 16.3 `arex_left_row_cfg_t` 结构体、16.4 默认行布局、16.9 渲染流程图 |
+| 2026-04-23 | `arex_ui_engine.h` | 新增 `arex_font_id_t` 枚举字典、`arex_get_font()` 声明；删除废弃的 `align_title/huge/med` 字段 |
+| 2026-04-23 | `arex_ui_engine.c` | 实现 `arex_get_font()` 字体映射器；删除废弃的 `font_sz_*` 默认值；更新 `def_layout[]` 使用 `AREX_FONT_ID_*` 枚举 |
+| 2026-04-23 | `arex_screen.c` | 全部 `AREX_FONT_*` 宏替换为 `arex_get_font(id)`；删除 `font_cat[]` 中间层数组（两处）；`left_anchor_rebuild()` 增加 `title_font`/`title_align` 填充 |
+| 2026-04-23 | `cards/*.c` | 全部 `AREX_FONT_*` 宏替换为 `arex_get_font(id)`（compass/setup/gas/deco/info/plan） |
+| 2026-04-23 | `arex_screen.h` | 旧 `AREX_FONT_*` 宏标记为废弃，附正确用法注释 |
+| 2026-04-23 | `AREX_ARCH.md` | 新增 Section 17 字体映射引擎文档；更新 Section 10/16 引用 |
 
 ---
 
@@ -688,8 +690,8 @@ typedef struct {
     uint8_t right_module;  /* 右侧模块枚举 (AREX_MODULE_EMPTY=独占全宽) */
     uint8_t h_u;           /* 该行总高度（单位 U，默认 0=查模块默认值） */
     uint8_t title_h_u;     /* 标题区高度（默认 0=用全局 title_h_u） */
-    uint8_t title_font;    /* 标题字号: 0=SMALL 1=MEDIUM 2=TITLE */
-    uint8_t val_font;      /* 数值字号: 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE */
+    uint8_t title_font;    /* 标题字号: arex_font_id_t (0~3) */
+    uint8_t val_font;      /* 数值字号: arex_font_id_t (0~3) */
     uint8_t val_align;     /* 数值对齐: 0=LEFT 1=CENTER 2=RIGHT */
     uint8_t sep_style;     /* 分割线样式: 0=NONE 1=SOLID 2=DASHED 3=DOTTED */
     uint8_t sep_thick;     /* 分割线粗细 px（0=用全局 sep_thick） */
@@ -701,22 +703,32 @@ arex_left_row_cfg_t left_layout[AREX_MAX_LEFT_ROWS];
 
 ### 16.4 默认行布局（初始值）
 
+> **字号 arex_font_id_t**: `0=SMALL(14px)` `1=TITLE(20px)` `2=MEDIUM(28px)` `3=HUGE(48px)`
+
 ```c
 /* row 0: DEPTH 单栏全宽 */
-{ AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2, 0, 3, 0, AREX_SEP_DASHED, 0 },
+{ AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2,
+  AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
 /* row 1: NDL + TTS 双拼 */
-{ AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, 0, 1, 0, AREX_SEP_DASHED, 0 },
+{ AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2,
+  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
 /* row 2: POD1 + POD2 双拼 */
-{ AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, 0, 2, 0, AREX_SEP_DASHED, 0 },
+{ AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2,
+  AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
 /* row 3: BATT + WTM 双拼 */
-{ AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2, 0, 0, 0, AREX_SEP_DASHED, 0 },
+{ AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2,
+  AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
 /* row 4: GAS 单栏全宽 */
-{ AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, 0, 1, 0, AREX_SEP_DASHED, 0 },
+{ AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2,
+  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
 /* row 5: TIME 单栏全宽 */
-{ AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2, 0, 0, 0, AREX_SEP_DASHED, 0 },
+{ AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2,
+  AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
 /* row 6-7: EMPTY */
-{ AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, 0, AREX_SEP_NONE, 0 },
-{ AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, 0, AREX_SEP_NONE, 0 },
+{ AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0,
+  0, 0, AREX_ALIGN_LEFT, AREX_SEP_NONE, 0 },
+{ AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0,
+  0, 0, AREX_ALIGN_LEFT, AREX_SEP_NONE, 0 },
 ```
 
 **APP 自由双拼示例**：将 BATT 和 GAS 拼在同一行：
@@ -799,3 +811,124 @@ left_anchor_create() / left_anchor_rebuild()
       ...
       // 零双拼硬编码：任意模块均可出现在任意行！
 ```
+
+---
+
+## 17. 字体系统：ID 映射引擎（v2026-04-23）
+
+### 17.1 核心铁律
+
+> **零号铁律**：所有配置结构体（`arex_left_row_cfg_t`、`arex_anchor_comp_t` 等）中只允许保存字体 ID（枚举值），禁止保存 `lv_font_t*` 指针！APP 只能下发数字 ID，渲染引擎通过 `arex_get_font(id)` 统一映射。
+
+### 17.2 字体 ID 枚举字典
+
+```c
+typedef enum {
+    AREX_FONT_ID_SMALL  = 0,  /* 14px  标签/单位/Badge */
+    AREX_FONT_ID_TITLE,       /* 20px  菜单项/卡片标题 */
+    AREX_FONT_ID_MEDIUM,      /* 28px  数据值 */
+    AREX_FONT_ID_HUGE,        /* 48px  深度大数字 */
+} arex_font_id_t;
+```
+
+### 17.3 字体映射表
+
+| ID 枚举 | 像素 | 用途 |
+|---------|------|------|
+| `AREX_FONT_ID_SMALL`  (0) | 14px | 标签/单位/Status Badge |
+| `AREX_FONT_ID_TITLE`  (1) | 20px | 菜单项/卡片标题 |
+| `AREX_FONT_ID_MEDIUM` (2) | 28px | 数据值 |
+| `AREX_FONT_ID_HUGE`   (3) | 48px | 深度大数字（规范 58px 最近） |
+
+### 17.4 `arex_get_font()` 映射器
+
+字体映射器是全系统中**唯一**允许将字体 ID 转换为真实 `lvgl` 字体指针的地方，位于 `arex_ui_engine.c`：
+
+```c
+/* 声明字体资源（由 arex_fonts.h 中的 LV_FONT_DECLARE 提供） */
+#include "fonts/arex_fonts.h"
+
+const lv_font_t *arex_get_font(uint8_t font_id)
+{
+    switch (font_id) {
+        case AREX_FONT_ID_SMALL:  return AREX_FONT_SMALL;   /* 14px */
+        case AREX_FONT_ID_TITLE:  return AREX_FONT_TITLE;   /* 20px */
+        case AREX_FONT_ID_MEDIUM: return AREX_FONT_MEDIUM;  /* 28px */
+        case AREX_FONT_ID_HUGE:   return AREX_FONT_HUGE;   /* 48px */
+        default:                   return AREX_FONT_SMALL;   /* 永不为 NULL */
+    }
+}
+```
+
+### 17.5 正确用法 vs 错误用法
+
+```c
+/* 正确：传 ID，运行时映射 */
+lv_obj_set_style_text_font(obj, arex_get_font(AREX_FONT_ID_HUGE), 0);
+lv_obj_set_style_text_font(obj, arex_get_font(row->val_font), 0);
+
+/* 错误：直接传指针（无法被 APP 同步） */
+lv_obj_set_style_text_font(obj, &lv_font_courier_48, 0);
+lv_obj_set_style_text_font(obj, AREX_FONT_HUGE, 0);
+```
+
+### 17.6 默认行配置中的字体 ID
+
+```c
+/* row 0: DEPTH — 标题 SMALL(0)，数值 HUGE(3) */
+{ AREX_MODULE_DEPTH, ..., AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   ... }
+/* row 1: NDL+TTS — 标题 SMALL(0)，数值 MEDIUM(2) */
+{ AREX_MODULE_NDL,  ..., AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, ... }
+/* row 2: POD1+POD2 — 标题 SMALL(0)，数值 TITLE(1) */
+{ AREX_MODULE_POD1, ..., AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE,  ... }
+/* row 3: BATT+WTM — 标题 SMALL(0)，数值 SMALL(0) */
+{ AREX_MODULE_BATT, ..., AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  ... }
+```
+
+### 17.7 字体声明来源
+
+所有字体资源声明统一在 `fonts/arex_fonts.h` 中：
+
+```c
+#include "lvgl/lvgl.h"
+
+#ifndef LV_FONT_COURIER_14
+#define LV_FONT_COURIER_14 1
+#endif
+/* LV_FONT_COURIER_20/28/48 同理 */
+
+LV_FONT_DECLARE(lv_font_courier_14)
+LV_FONT_DECLARE(lv_font_courier_20)
+LV_FONT_DECLARE(lv_font_courier_28)
+LV_FONT_DECLARE(lv_font_courier_48)
+
+/* 角色别名（仅在 arex_ui_engine.c 内部映射器引用） */
+#define AREX_FONT_SMALL    (&lv_font_courier_14)
+#define AREX_FONT_TITLE    (&lv_font_courier_20)
+#define AREX_FONT_MEDIUM   (&lv_font_courier_28)
+#define AREX_FONT_HUGE     (&lv_font_courier_48)
+```
+
+### 17.8 废弃宏（仅兼容旧代码）
+
+`arex_screen.h` 中保留了 4 个旧的 `AREX_FONT_*` 宏作为兼容层，**新代码禁止使用**：
+
+```c
+/* arex_screen.h — 已废弃，仅兼容旧代码 */
+#define AREX_FONT_HUGE    (&lv_font_courier_48)
+#define AREX_FONT_MEDIUM  (&lv_font_courier_28)
+#define AREX_FONT_SMALL   (&lv_font_courier_14)
+#define AREX_FONT_TITLE   (&lv_font_courier_20)
+```
+
+### 17.9 字体系统变更日志
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-04-23 | `arex_ui_engine.h` | 新增 `arex_font_id_t` 枚举字典；`arex_get_font()` 声明 |
+| 2026-04-23 | `arex_ui_engine.c` | 实现 `arex_get_font()` 映射器；引入 `fonts/arex_fonts.h`；删除废弃的 `font_sz_*` 字段和默认值 |
+| 2026-04-23 | `arex_ui_engine.h` | 删除 `arex_sys_config_t` 中废弃的 `align_title/huge/med` 字段 |
+| 2026-04-23 | `arex_screen.c` | 所有 `AREX_FONT_*` 宏替换为 `arex_get_font(id)`；删除 `font_cat[]` 中间层数组（两处） |
+| 2026-04-23 | `cards/*.c` | 所有卡片中 `AREX_FONT_*` 宏替换为 `arex_get_font(id)` |
+| 2026-04-23 | `arex_screen.h` | 旧宏标记为废弃，附正确用法注释 |
+| 2026-04-23 | `AREX_ARCH.md` | 新增 Section 17 字体映射引擎文档 |

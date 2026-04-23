@@ -42,7 +42,7 @@ void card_gas_create(lv_obj_t *parent)
         /* Gas name — 左侧 12px 呼吸，垂直居中 */
         lv_obj_t *lbl_name = lv_label_create(row);
         lv_obj_set_style_text_color(lbl_name, AREX_GREEN, 0);
-        lv_obj_set_style_text_font(lbl_name, AREX_FONT_TITLE, 0);
+        lv_obj_set_style_text_font(lbl_name, arex_get_font(AREX_FONT_ID_TITLE), 0);
         lv_label_set_text(lbl_name, AREX_GAS_NAMES[i]);
         lv_obj_set_size(lbl_name, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(lbl_name, LV_ALIGN_LEFT_MID, 12, 0);
@@ -50,7 +50,7 @@ void card_gas_create(lv_obj_t *parent)
         /* MOD — 右侧，垂直偏上 */
         s_lbl_mod[i] = lv_label_create(row);
         lv_obj_set_style_text_color(s_lbl_mod[i], AREX_LIGHT, 0);
-        lv_obj_set_style_text_font(s_lbl_mod[i], AREX_FONT_SMALL, 0);
+        lv_obj_set_style_text_font(s_lbl_mod[i], arex_get_font(AREX_FONT_ID_SMALL), 0);
         char buf[20];
         snprintf(buf, sizeof(buf), "MOD %dm", AREX_GAS_MOD_M[i]);
         lv_label_set_text(s_lbl_mod[i], buf);
@@ -61,7 +61,7 @@ void card_gas_create(lv_obj_t *parent)
         /* PPO2 — 右侧，垂直偏下 */
         s_lbl_ppo2[i] = lv_label_create(row);
         lv_obj_set_style_text_color(s_lbl_ppo2[i], AREX_LIGHT, 0);
-        lv_obj_set_style_text_font(s_lbl_ppo2[i], AREX_FONT_SMALL, 0);
+        lv_obj_set_style_text_font(s_lbl_ppo2[i], arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_label_set_text(s_lbl_ppo2[i], "PO2 -.-");
         lv_obj_set_size(s_lbl_ppo2[i], LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_set_style_text_align(s_lbl_ppo2[i], LV_TEXT_ALIGN_RIGHT, 0);
@@ -71,7 +71,7 @@ void card_gas_create(lv_obj_t *parent)
     /* Hint text at bottom */
     s_hint = lv_label_create(parent);
     lv_obj_set_style_text_color(s_hint, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(s_hint, AREX_FONT_SMALL, 0);
+    lv_obj_set_style_text_font(s_hint, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_label_set_text(s_hint, "[ PRESS TO SWITCH GAS ]");
     lv_obj_align(s_hint, LV_ALIGN_BOTTOM_MID, 0, -20);
 

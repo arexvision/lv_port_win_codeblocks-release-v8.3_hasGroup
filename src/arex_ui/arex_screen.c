@@ -101,19 +101,19 @@ static void styles_init(void)
 
     lv_style_init(&s_style_label_huge);
     lv_style_set_text_color(&s_style_label_huge, AREX_GREEN);
-    lv_style_set_text_font(&s_style_label_huge, AREX_FONT_HUGE);
+    lv_style_set_text_font(&s_style_label_huge, arex_get_font(AREX_FONT_ID_HUGE));
 
     lv_style_init(&s_style_label_med);
     lv_style_set_text_color(&s_style_label_med, AREX_GREEN);
-    lv_style_set_text_font(&s_style_label_med, AREX_FONT_MEDIUM);
+    lv_style_set_text_font(&s_style_label_med, arex_get_font(AREX_FONT_ID_MEDIUM));
 
     lv_style_init(&s_style_label_small);
     lv_style_set_text_color(&s_style_label_small, AREX_LIGHT);
-    lv_style_set_text_font(&s_style_label_small, AREX_FONT_SMALL);
+    lv_style_set_text_font(&s_style_label_small, arex_get_font(AREX_FONT_ID_SMALL));
 
     lv_style_init(&s_style_title_zone);
     lv_style_set_text_color(&s_style_title_zone, AREX_LIGHT);
-    lv_style_set_text_font(&s_style_title_zone, AREX_FONT_SMALL);
+    lv_style_set_text_font(&s_style_title_zone, arex_get_font(AREX_FONT_ID_SMALL));
     lv_style_set_bg_opa(&s_style_title_zone, LV_OPA_TRANSP);
 
     lv_style_init(&s_style_val_zone);
@@ -173,11 +173,6 @@ static void left_anchor_rebuild(void)
     uint16_t anchor_h = g_sys_config.safe_zone_h;
     lv_obj_set_size(s_left_anchor, anchor_w, anchor_h);
 
-    /* 字号类别映射表: 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE */
-    const lv_font_t *font_cat[4] = {
-        AREX_FONT_SMALL, AREX_FONT_MEDIUM, AREX_FONT_TITLE, AREX_FONT_HUGE
-    };
-
     /* 重建每个组件 */
     for (uint8_t i = 0; i < ANCHOR_COMP_COUNT; i++) {
         arex_anchor_comp_t *c = &comps[i];
@@ -208,8 +203,8 @@ static void left_anchor_rebuild(void)
         }
 
         /* 数据驱动字体 */
-        lv_obj_set_style_text_font(title_obj, font_cat[c->title_font], 0);
-        lv_obj_set_style_text_font(val_obj,   font_cat[c->val_font],   0);
+        lv_obj_set_style_text_font(title_obj, arex_get_font(c->title_font), 0);
+        lv_obj_set_style_text_font(val_obj,   arex_get_font(c->val_font),   0);
 
         /* 数据驱动对齐 */
         lv_text_align_t val_align;
@@ -249,11 +244,6 @@ static void left_anchor_create(void)
     uint16_t total_h = 0;
     uint8_t comp_count = 0;
     arex_calc_anchor_layout(comps, &total_h, &comp_count);
-
-    /* 字号类别映射表: 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE */
-    const lv_font_t *font_cat[4] = {
-        AREX_FONT_SMALL, AREX_FONT_MEDIUM, AREX_FONT_TITLE, AREX_FONT_HUGE
-    };
 
     /* 清除旧子对象 (rebuild 时会用到) */
     lv_obj_clean(s_left_anchor);
@@ -308,7 +298,7 @@ static void left_anchor_create(void)
         lv_label_set_long_mode(lbl_title, LV_LABEL_LONG_DOT);
         lv_obj_set_style_text_align(lbl_title, comp_align, 0);
         lv_obj_set_style_text_color(lbl_title, AREX_LIGHT, 0);
-        lv_obj_set_style_text_font(lbl_title, font_cat[c->title_font], 0);
+        lv_obj_set_style_text_font(lbl_title, arex_get_font(c->title_font), 0);
         lv_obj_set_style_bg_opa(lbl_title, LV_OPA_TRANSP, 0);
         switch (c->module) {
             case AREX_MODULE_DEPTH:  lv_label_set_text(lbl_title, "DEPTH");  break;
@@ -341,7 +331,7 @@ static void left_anchor_create(void)
         lv_label_set_long_mode(lbl_val, LV_LABEL_LONG_DOT);
         lv_obj_set_style_text_align(lbl_val, comp_align, 0);
         lv_obj_set_style_text_color(lbl_val, AREX_GREEN, 0);
-        lv_obj_set_style_text_font(lbl_val, font_cat[c->val_font], 0);
+        lv_obj_set_style_text_font(lbl_val, arex_get_font(c->val_font), 0);
         lv_obj_set_style_bg_opa(lbl_val, LV_OPA_TRANSP, 0);
 
         switch (c->module) {
@@ -398,7 +388,7 @@ static void left_anchor_create(void)
             lv_obj_t *lbl_ns = lv_label_create(s_left_anchor);
             lv_obj_set_pos(lbl_ns, right_x, depth_val_y);
             lv_obj_set_style_text_color(lbl_ns, AREX_LIGHT, 0);
-            lv_obj_set_style_text_font(lbl_ns, AREX_FONT_SMALL, 0);
+            lv_obj_set_style_text_font(lbl_ns, arex_get_font(AREX_FONT_ID_SMALL), 0);
             lv_obj_set_style_bg_opa(lbl_ns, LV_OPA_TRANSP, 0);
             lv_label_set_text(lbl_ns, "NEXT STOP");
             lv_obj_add_flag(lbl_ns, LV_OBJ_FLAG_HIDDEN);
@@ -406,7 +396,7 @@ static void left_anchor_create(void)
             s_lbl_next_stop = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_lbl_next_stop, right_x, (lv_coord_t)(depth_val_y + 2 * AREX_BASE_U));
             lv_obj_set_style_text_color(s_lbl_next_stop, AREX_LIGHT, 0);
-            lv_obj_set_style_text_font(s_lbl_next_stop, AREX_FONT_MEDIUM, 0);
+            lv_obj_set_style_text_font(s_lbl_next_stop, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
             lv_obj_set_style_bg_opa(s_lbl_next_stop, LV_OPA_TRANSP, 0);
             lv_label_set_text(s_lbl_next_stop, "21m 3'");
             lv_obj_add_flag(s_lbl_next_stop, LV_OBJ_FLAG_HIDDEN);
@@ -414,7 +404,7 @@ static void left_anchor_create(void)
             lv_obj_t *lbl_po2_cap = lv_label_create(s_left_anchor);
             lv_obj_set_pos(lbl_po2_cap, right_x, (lv_coord_t)po2_cap_y);
             lv_obj_set_style_text_color(lbl_po2_cap, AREX_LIGHT, 0);
-            lv_obj_set_style_text_font(lbl_po2_cap, AREX_FONT_SMALL, 0);
+            lv_obj_set_style_text_font(lbl_po2_cap, arex_get_font(AREX_FONT_ID_SMALL), 0);
             lv_obj_set_style_bg_opa(lbl_po2_cap, LV_OPA_TRANSP, 0);
             lv_label_set_text(lbl_po2_cap, "PO2");
             lv_obj_add_flag(lbl_po2_cap, LV_OBJ_FLAG_HIDDEN);
@@ -428,7 +418,7 @@ static void left_anchor_create(void)
             s_ppo2_vals[0] = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_ppo2_vals[0], ppo2_x[0], (lv_coord_t)po2_val_y);
             lv_obj_set_style_text_color(s_ppo2_vals[0], AREX_GREEN, 0);
-            lv_obj_set_style_text_font(s_ppo2_vals[0], AREX_FONT_SMALL, 0);
+            lv_obj_set_style_text_font(s_ppo2_vals[0], arex_get_font(AREX_FONT_ID_SMALL), 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[0], LV_OPA_TRANSP, 0);
             lv_label_set_text(s_ppo2_vals[0], "1.2");
             lv_obj_add_flag(s_ppo2_vals[0], LV_OBJ_FLAG_HIDDEN);
@@ -436,7 +426,7 @@ static void left_anchor_create(void)
             s_ppo2_seps[0] = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_ppo2_seps[0], ppo2_x[1], (lv_coord_t)po2_val_y);
             lv_obj_set_style_text_color(s_ppo2_seps[0], AREX_GREEN, 0);
-            lv_obj_set_style_text_font(s_ppo2_seps[0], AREX_FONT_SMALL, 0);
+            lv_obj_set_style_text_font(s_ppo2_seps[0], arex_get_font(AREX_FONT_ID_SMALL), 0);
             lv_obj_set_style_text_opa(s_ppo2_seps[0], LV_OPA_30, 0);
             lv_obj_set_style_bg_opa(s_ppo2_seps[0], LV_OPA_TRANSP, 0);
             lv_label_set_text(s_ppo2_seps[0], "|");
@@ -445,7 +435,7 @@ static void left_anchor_create(void)
             s_ppo2_vals[1] = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_ppo2_vals[1], ppo2_x[2], (lv_coord_t)po2_val_y);
             lv_obj_set_style_text_color(s_ppo2_vals[1], AREX_GREEN, 0);
-            lv_obj_set_style_text_font(s_ppo2_vals[1], AREX_FONT_SMALL, 0);
+            lv_obj_set_style_text_font(s_ppo2_vals[1], arex_get_font(AREX_FONT_ID_SMALL), 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[1], LV_OPA_TRANSP, 0);
             lv_label_set_text(s_ppo2_vals[1], "1.2");
             lv_obj_add_flag(s_ppo2_vals[1], LV_OBJ_FLAG_HIDDEN);
@@ -453,7 +443,7 @@ static void left_anchor_create(void)
             s_ppo2_seps[1] = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_ppo2_seps[1], ppo2_x[3], (lv_coord_t)po2_val_y);
             lv_obj_set_style_text_color(s_ppo2_seps[1], AREX_GREEN, 0);
-            lv_obj_set_style_text_font(s_ppo2_seps[1], AREX_FONT_SMALL, 0);
+            lv_obj_set_style_text_font(s_ppo2_seps[1], arex_get_font(AREX_FONT_ID_SMALL), 0);
             lv_obj_set_style_text_opa(s_ppo2_seps[1], LV_OPA_30, 0);
             lv_obj_set_style_bg_opa(s_ppo2_seps[1], LV_OPA_TRANSP, 0);
             lv_label_set_text(s_ppo2_seps[1], "|");
@@ -462,7 +452,7 @@ static void left_anchor_create(void)
             s_ppo2_vals[2] = lv_label_create(s_left_anchor);
             lv_obj_set_pos(s_ppo2_vals[2], ppo2_x[4], (lv_coord_t)po2_val_y);
             lv_obj_set_style_text_color(s_ppo2_vals[2], AREX_GREEN, 0);
-            lv_obj_set_style_text_font(s_ppo2_vals[2], AREX_FONT_SMALL, 0);
+            lv_obj_set_style_text_font(s_ppo2_vals[2], arex_get_font(AREX_FONT_ID_SMALL), 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[2], LV_OPA_TRANSP, 0);
             lv_label_set_text(s_ppo2_vals[2], "1.3");
             lv_obj_add_flag(s_ppo2_vals[2], LV_OBJ_FLAG_HIDDEN);
@@ -676,7 +666,7 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 
     lv_obj_t *txt = lv_label_create(w);
     lv_obj_set_style_text_color(txt, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(txt, AREX_FONT_TITLE, 0);
+    lv_obj_set_style_text_font(txt, arex_get_font(AREX_FONT_ID_TITLE), 0);
     lv_obj_set_width(txt, wall_w);
     lv_obj_set_style_text_align(txt, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(txt, 0, 12);
@@ -684,7 +674,7 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 
     lv_obj_t *blk = lv_label_create(w);
     lv_obj_set_style_text_color(blk, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(blk, AREX_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_font(blk, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
     lv_obj_set_width(blk, wall_w);
     lv_obj_set_style_text_align(blk, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(blk, 0, 50);
@@ -756,7 +746,7 @@ static void submenu_layer_create(void)
 
     s_submenu_title = lv_label_create(s_submenu_layer);
     lv_obj_set_style_text_color(s_submenu_title, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(s_submenu_title, AREX_FONT_TITLE, 0);
+    lv_obj_set_style_text_font(s_submenu_title, arex_get_font(AREX_FONT_ID_TITLE), 0);
     lv_obj_set_pos(s_submenu_title, 16, 12);
     lv_label_set_text(s_submenu_title, "> SUB MENU");
 
@@ -1107,7 +1097,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
 
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
-        lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
+        lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
         lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
@@ -1452,19 +1442,19 @@ static void modal_set_content(const char *title, const char *body, const char *h
 
     lv_obj_t *t = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(t, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(t, AREX_FONT_TITLE, 0);
+    lv_obj_set_style_text_font(t, arex_get_font(AREX_FONT_ID_TITLE), 0);
     lv_label_set_text(t, title);
     lv_obj_set_pos(t, 0, 0);
 
     lv_obj_t *b = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(b, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(b, AREX_FONT_MEDIUM, 0);
+    lv_obj_set_style_text_font(b, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
     lv_label_set_text(b, body);
     lv_obj_set_pos(b, 0, 40);
 
     lv_obj_t *h = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(h, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(h, AREX_FONT_SMALL, 0);
+    lv_obj_set_style_text_font(h, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_label_set_text(h, hint);
     lv_obj_set_pos(h, 0, 100);
 }
@@ -1623,7 +1613,7 @@ void arex_screen_begin_edit_value(uint8_t item_idx, float value,
     /* 创建右侧数值 + 箭头 label，透明背景，靠右居中 */
     lv_obj_t *val_lbl = lv_label_create(item);
     lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(val_lbl, AREX_FONT_TITLE, 0);
+    lv_obj_set_style_text_font(val_lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
     lv_obj_set_style_bg_opa(val_lbl, LV_OPA_TRANSP, 0);
     lv_obj_set_size(val_lbl, 120, LV_SIZE_CONTENT);
     lv_obj_align(val_lbl, LV_ALIGN_RIGHT_MID, -12, 0);
@@ -1683,7 +1673,7 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
 
     lv_obj_t *lbl = lv_label_create(parent);
     lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(lbl, AREX_FONT_TITLE, 0);
+    lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
     lv_obj_set_pos(lbl, 16, 12);
     lv_obj_set_size(lbl, right_w - 32, 28);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);

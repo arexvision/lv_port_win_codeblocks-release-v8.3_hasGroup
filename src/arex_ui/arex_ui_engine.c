@@ -1,7 +1,10 @@
 #include "arex_ui_engine.h"
 #include "arex_data.h"
+#include "fonts/arex_fonts.h"
 #include <stdio.h>
 #include <string.h>
+
+/* 字体资源声明（由 arex_fonts.h 中的 LV_FONT_DECLARE 提供） */
 
 /* g_sys_config 定义于此，g_sensor_data 定义于 arex_data.c */
 arex_sys_config_t g_sys_config;
@@ -27,13 +30,6 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->flash_speed   = 1;
     cfg->mask_enabled  = false;
 
-    /* 字体 */
-    cfg->font_sz_huge  = 58;
-    cfg->font_sz_med   = 28;
-    cfg->font_sz_small = 14;
-    cfg->align_title   = AREX_ALIGN_LEFT;
-    cfg->align_huge    = AREX_ALIGN_LEFT;
-    cfg->align_med     = AREX_ALIGN_LEFT;
     cfg->split_outward = true;
 
     /* 分割线 */
@@ -61,26 +57,26 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * right_module = AREX_MODULE_EMPTY → 左侧独占全宽(160px)
      * right_module != EMPTY → 双拼布局(各80px)
      *
-     * 字号: 0=SMALL 1=MEDIUM 2=TITLE 3=HUGE
-     * 对齐: 0=LEFT 1=CENTER 2=RIGHT
+     * 字号 arex_font_id_t: 0=SMALL(14px) 1=TITLE(20px) 2=MEDIUM(28px) 3=HUGE(48px)
+     * 对齐 arex_align_t: 0=LEFT 1=CENTER 2=RIGHT
      *
      * ===================================================== */
     static const arex_left_row_cfg_t def_layout[AREX_MAX_LEFT_ROWS] = {
         /* row 0: DEPTH 单栏全宽 */
-        { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2, 0, 3, 0, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
         /* row 1: NDL + TTS 双拼 */
-        { AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, 0, 1, 0, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
         /* row 2: POD1 + POD2 双拼 */
-        { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, 0, 2, 0, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
         /* row 3: BATT + WTM 双拼 */
-        { AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2, 0, 0, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
         /* row 4: GAS 单栏全宽 */
-        { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, 0, 1, 0, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
         /* row 5: TIME 单栏全宽 */
-        { AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2, 0, 0, AREX_SEP_DASHED, 0 },
+        { AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
         /* row 6-7: EMPTY */
-        { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, AREX_SEP_NONE,   0 },
-        { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, AREX_SEP_NONE,   0 },
+        { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, AREX_ALIGN_LEFT, AREX_SEP_NONE,   0 },
+        { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, AREX_ALIGN_LEFT, AREX_SEP_NONE,   0 },
     };
     for (uint8_t i = 0; i < AREX_MAX_LEFT_ROWS; i++) {
         cfg->left_layout[i] = def_layout[i];
@@ -278,6 +274,7 @@ void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT],
         uint16_t v_h   = (h_px >= t_h) ? (h_px - t_h) : 0;
 
         /* 获取该行样式（优先 row 配置，否则用全局默认值） */
+        uint8_t title_font  = g_sys_config.left_layout[row].title_font;
         uint8_t val_font   = g_sys_config.left_layout[row].val_font;
         uint8_t val_align  = g_sys_config.left_layout[row].val_align;
 
@@ -290,7 +287,9 @@ void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT],
             comps[out_idx].val_h      = v_h;
             comps[out_idx].w          = AREX_LEFT_ANCHOR_W;  /* 160px */
             comps[out_idx].split      = 0;
+            comps[out_idx].title_font = title_font;
             comps[out_idx].val_font   = val_font;
+            comps[out_idx].title_align = AREX_ALIGN_LEFT;
             comps[out_idx].val_align  = val_align;
             out_idx++;
         }
@@ -304,14 +303,14 @@ void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT],
             comps[out_idx].val_h     = v_h;
             comps[out_idx].w         = half_w;   /* 80px */
             comps[out_idx].split     = 1;        /* 双拼左 */
+            comps[out_idx].title_font = title_font;
             comps[out_idx].val_font  = val_font;
+            comps[out_idx].title_align = AREX_ALIGN_LEFT;
             comps[out_idx].val_align = AREX_ALIGN_LEFT;
             out_idx++;
 
             /* 右块 */
             if (out_idx < ANCHOR_COMP_COUNT) {
-                /* right_module 的字体从 left_layout 的下一个同名模块配置中找，
-                 * 这里简化处理：复用当前行的 val_font，右块靠右对齐 */
                 comps[out_idx].module     = right_mod;
                 comps[out_idx].y         = cur_y;
                 comps[out_idx].h         = h_px;
@@ -319,7 +318,9 @@ void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT],
                 comps[out_idx].val_h      = v_h;
                 comps[out_idx].w         = half_w;   /* 80px */
                 comps[out_idx].split      = 2;        /* 双拼右 */
+                comps[out_idx].title_font = title_font;
                 comps[out_idx].val_font   = val_font;
+                comps[out_idx].title_align = AREX_ALIGN_RIGHT;
                 comps[out_idx].val_align = AREX_ALIGN_RIGHT;
                 out_idx++;
             }
@@ -395,20 +396,26 @@ lv_align_t arex_align_to_lv_align(uint8_t align)
     return LV_ALIGN_RIGHT_MID;
 }
 
-/* 根据字号获取字体指针 */
-const lv_font_t *arex_get_font(uint8_t size_cat)
+/* =========================================================
+ * 字体映射器 (Font Mapper)
+ *
+ * 全系统唯一允许将字体 ID 转换为真实 lvgl 字体指针的地方。
+ * 所有配置结构体中保存的 title_font / val_font 均应为 arex_font_id_t 值。
+ *
+ * ID 映射表：
+ *   AREX_FONT_ID_SMALL  (0) → lv_font_courier_14  14px  标签/单位/Badge
+ *   AREX_FONT_ID_TITLE  (1) → lv_font_courier_20  20px  菜单项/卡片标题
+ *   AREX_FONT_ID_MEDIUM (2) → lv_font_courier_28  28px  数据值
+ *   AREX_FONT_ID_HUGE   (3) → lv_font_courier_48  48px  深度大数字
+ * ========================================================= */
+const lv_font_t *arex_get_font(uint8_t font_id)
 {
-    /* 静态声明字号，依赖 arex_fonts.h 中的字体 */
-    extern const lv_font_t lv_font_courier_48;
-    extern const lv_font_t lv_font_courier_28;
-    extern const lv_font_t lv_font_courier_20;
-    extern const lv_font_t lv_font_courier_14;
-
-    switch (size_cat) {
-        case 0: return &lv_font_courier_48; /* huge */
-        case 1: return &lv_font_courier_28; /* med  */
-        case 2: return &lv_font_courier_20; /* small */
-        default: return &lv_font_courier_14;
+    switch (font_id) {
+        case AREX_FONT_ID_SMALL:  return AREX_FONT_SMALL;   /* 14px */
+        case AREX_FONT_ID_TITLE:  return AREX_FONT_TITLE;   /* 20px */
+        case AREX_FONT_ID_MEDIUM: return AREX_FONT_MEDIUM;  /* 28px */
+        case AREX_FONT_ID_HUGE:   return AREX_FONT_HUGE;   /* 48px */
+        default:                   return AREX_FONT_SMALL;   /* 兜底：永不为 NULL */
     }
 }
 
