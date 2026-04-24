@@ -280,6 +280,7 @@ typedef struct {
 
     /* 潜水时间 */
     uint32_t dive_time_s;
+    uint32_t surface_time_s;   /* WTM 水面休息时间 */
 
     /* 减压/组织数据 */
     uint8_t  tissue_pct[16];

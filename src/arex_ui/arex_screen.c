@@ -27,6 +27,7 @@ static lv_obj_t *s_lbl_gas_name;
 static lv_obj_t *s_ppo2_vals[3];
 static lv_obj_t *s_ppo2_seps[2];
 static lv_obj_t *s_lbl_time;
+static lv_obj_t *s_lbl_wtm;
 static lv_obj_t *s_lbl_batt;
 
 /* 左侧锚点组件句柄数组 (按 arex_anchor_comp_t 顺序) */
@@ -501,42 +502,54 @@ static void left_anchor_create(void)
         lv_obj_set_style_bg_opa(lbl_val, LV_OPA_TRANSP, 0);
 
         switch (c->module) {
+            char buf[32];
             case AREX_MODULE_DEPTH:
-                lv_label_set_text(lbl_val, "45.2");
+                snprintf(buf, sizeof(buf), "%.1f", g_sensor_data.depth);
+                lv_label_set_text(lbl_val, buf);
+                s_lbl_depth = lbl_val;
                 lv_obj_set_style_text_letter_space(lbl_val, -2, 0);
                 break;
             case AREX_MODULE_NDL:
-                lv_label_set_text(lbl_val, "5");
+                snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl);
+                lv_label_set_text(lbl_val, buf);
                 s_lbl_ndl = lbl_val;
                 break;
             case AREX_MODULE_TTS:
-                lv_label_set_text(lbl_val, "24'");
+                snprintf(buf, sizeof(buf), "%d'", g_sensor_data.tts);
+                lv_label_set_text(lbl_val, buf);
                 s_lbl_tts = lbl_val;
                 lv_obj_set_style_bg_opa(s_lbl_tts, LV_OPA_TRANSP, 0);
                 lv_obj_set_style_text_color(s_lbl_tts, AREX_GREEN, 0);
                 break;
             case AREX_MODULE_POD1:
-                lv_label_set_text(lbl_val, "210");
+                snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod1_bar);
+                lv_label_set_text(lbl_val, buf);
                 s_lbl_pod1 = lbl_val;
                 break;
             case AREX_MODULE_POD2:
-                lv_label_set_text(lbl_val, "195");
+                snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod2_bar);
+                lv_label_set_text(lbl_val, buf);
                 lv_obj_set_style_text_color(lbl_val, AREX_LIGHT, 0);
                 s_lbl_pod2 = lbl_val;
                 break;
             case AREX_MODULE_BATT:
-                lv_label_set_text(lbl_val, "85%");
+                snprintf(buf, sizeof(buf), "%.0f%%", g_sensor_data.battery_pct);
+                lv_label_set_text(lbl_val, buf);
                 s_lbl_batt = lbl_val;
                 break;
             case AREX_MODULE_WTM:
-                lv_label_set_text(lbl_val, "10:45");
+                snprintf(buf, sizeof(buf), "%02d:%02d",
+                         g_sensor_data.surface_time_s / 60,
+                         g_sensor_data.surface_time_s % 60);
+                lv_label_set_text(lbl_val, buf);
+                s_lbl_wtm = lbl_val;
                 break;
             case AREX_MODULE_GAS:
-                lv_label_set_text(lbl_val, "TX 18/45");
+                lv_label_set_text(lbl_val, g_sensor_data.gas_name);
                 s_lbl_gas_name = lbl_val;
                 break;
             case AREX_MODULE_TIME:
-                lv_label_set_text(lbl_val, "38:14");
+                lv_label_set_text(lbl_val, "00:00");
                 s_lbl_time = lbl_val;
                 break;
             default:
@@ -1078,6 +1091,9 @@ void arex_screen_refresh_left_panel(void)
         lv_label_set_text(s_lbl_gas_name, g_sensor_data.gas_name);
     }
 
+    snprintf(buf, sizeof(buf), "%.0f%%", g_sensor_data.battery_pct);
+    if (s_lbl_batt) lv_label_set_text(s_lbl_batt, buf);
+
     if (s_ppo2_vals[0]) {
         char pbuf[8];
         snprintf(pbuf, sizeof(pbuf), "%.1f", g_sensor_data.ppo2[0]);
@@ -1091,6 +1107,10 @@ void arex_screen_refresh_left_panel(void)
     uint32_t s = g_sensor_data.dive_time_s;
     snprintf(buf, sizeof(buf), "%02d:%02d", s / 60, s % 60);
     if (s_lbl_time) lv_label_set_text(s_lbl_time, buf);
+
+    uint32_t wt = g_sensor_data.surface_time_s;
+    snprintf(buf, sizeof(buf), "%02d:%02d", wt / 60, wt % 60);
+    if (s_lbl_wtm) lv_label_set_text(s_lbl_wtm, buf);
 }
 
 /* =========================================================

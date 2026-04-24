@@ -515,6 +515,7 @@ void arex_ui_init(void)
     g_sensor_data.battery_pct = 85.0f;
     g_sensor_data.heading = 265;
     g_sensor_data.dive_time_s = 0; /* 38:14 */
+    g_sensor_data.surface_time_s = 10 * 60 + 45; /* WTM: 10:45 */
     g_sensor_data.gas_active_idx = 2;
     strcpy(g_sensor_data.gas_name, "AIR");
     g_sensor_data.ppo2[0] = 1.2f;
