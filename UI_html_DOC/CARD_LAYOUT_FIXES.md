@@ -53,11 +53,16 @@
 - Item height 72 → reduce to 48, pitch = 48+8 = 56
 - MOD/PPO2 labels inside row need repositioning (currently at x=200, y=8/28)
 
-### 4F: DIVE PLAN TRACK (`card_plan.c`) — NEEDS FIX
-- HTML: `plan-chart-shell` has `border: 2px solid #003300`, `padding: 10px`
-- SVG chart: 400×320 in a shell starting at y≈69
-- LVGL: canvas starts at (30, 60) → change to (16, 50)
-- Canvas: CHART_W=380, CHART_H=280 → can expand to ~400×310 to use more space
+### 4F: DIVE PLAN TRACK (`card_plan.c`) — DONE ✓
+- 外壳：`border: 2px solid AREX_DARK`，`padding: 10px`，`CHART_X=16`，`CHART_Y=50`
+- 画布：`CHART_W=400`，`CHART_H=320`（X轴45~385，Y轴15~295）
+- **零内存渲染引擎**：`LV_EVENT_DRAW_MAIN` 回调，无任何静态数组/RAM占用
+- **数据总线**：历史轨迹 `g_dive_log[]`，减压计划 `g_deco_stops[]`，与 HTML diveLog/mockStops 一一对应
+- **Auto-Scale**：X轴/Y轴根据当前时间、预测时间、最大深度动态推算上限
+- **色彩规范**：仅 AREX_GREEN / AREX_BLACK，绝对无黄色
+- NOW 标记：绿色实心圆 R=6px + 黑字绿底背景
+- 历史轨迹：实线 3px，实线段
+- 计划轨迹：虚线 dash=6 gap=5，实线段
 
 ---
 

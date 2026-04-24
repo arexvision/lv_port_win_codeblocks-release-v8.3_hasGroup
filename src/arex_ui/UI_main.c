@@ -14,9 +14,10 @@ static void sim_tick_cb(lv_timer_t *t)
 
     /* 航向缓慢顺时针旋转 */
     g_sensor_data.heading = (g_sensor_data.heading + 1) % 360;
-    g_sensor_data.dive_time_s++;
+    /* 倍速模拟: 1 秒真实时间 = 10 秒潜水时间 */
+    g_sensor_data.dive_time_s += 10;
     /* 深度: 每秒增加 0.2m，模拟下潜 */
-    g_sensor_data.depth += 0.2f;
+    g_sensor_data.depth += 0.5f;
     if (g_sensor_data.depth > 50) g_sensor_data.depth = 50;
 
     /* 刷新左侧面板 */

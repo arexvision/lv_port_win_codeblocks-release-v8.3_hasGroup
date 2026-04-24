@@ -317,7 +317,73 @@ lv_obj_set_style_text_color(s_edit_flash_val_lbl, fg, 0);
 
 ---
 
-## 八、待处理项
+## 八、4F 潜水曲线渲染引擎（`card_plan.c`）
+
+### 8.1 彻底废除硬编码假数据
+
+**文件**：`card_plan.c`
+
+**问题**：原实现使用固定 55 分钟的 `s_profile[]` 静态数组和黄色 NOW 标记，与 HTML 原型逻辑完全不符。
+
+**修复 — 数据总线**（与 HTML `diveLog` / `mockStops` 完全对应）：
+
+```c
+typedef struct { float time_min; float depth_m; } arex_dive_pt_t;
+typedef struct { float depth_m; float stay_min; } arex_deco_stop_t;
+
+arex_dive_pt_t   g_dive_log[MAX_DIVE_LOG];
+uint16_t         g_dive_log_count;
+
+arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
+uint16_t         g_deco_stop_count;
+```
+
+**修复 — 测试数据**：
+```c
+g_sensor_data.dive_time_s = 45;    // 下水刚 45 秒
+g_sensor_data.depth = 13.1f;       // 深度 13.1m
+g_dive_log_count = 2;              // 只有 2 个历史点，说明刚下水
+g_dive_log[0] = {0.0f, 0.0f};
+g_dive_log[1] = {0.5f, 10.0f};    // 0.5min 时在 10m
+g_deco_stop_count = 1;
+g_deco_stops[0] = {3.0f, 3.0f};  // 3m 停留 3 分钟
+```
+
+### 8.2 零内存高阶渲染引擎
+
+**文件**：`card_plan.c` → `plan_chart_draw_cb`
+
+**核心特性**：
+| 特性 | 说明 |
+|------|------|
+| Auto-Scale X轴 | 根据 `max(current_t, predicted_t) * 1.05` 动态推算，≥120min 时按 60 步进 |
+| Auto-Scale Y轴 | 初始 60m，超 90% 时按 20 的倍数扩展 |
+| 历史轨迹 | 实线 3px，`g_dive_log[]` 数据，`g_sensor_data.depth` 作为 NOW 点 |
+| 计划轨迹 | 虚线 dash=6 gap=5，`g_deco_stops[]` + 算法升水推演 |
+| NOW 标记 | 绿色实心圆 R=6px + 黑字绿底背景（**绝无黄色**） |
+| 减压停留点 | 空心圆 + "Xm Y'" 文字标注 |
+
+**坐标映射**（与 HTML 完全一致）：
+```c
+#define MAP_X(t)  (area->x1 + (lv_coord_t)(45.0f + ((t)/max_t_axis) * w))
+#define MAP_Y(d)  (area->y1 + (lv_coord_t)(15.0f + ((d)/max_d_axis) * h))
+```
+
+### 8.3 色彩铁律
+
+| 元素 | 颜色 |
+|------|------|
+| 网格线、文字 | `AREX_GREEN`，opa=38（网格）/191（文字） |
+| 历史轨迹 | `AREX_GREEN`，实线 3px |
+| 计划轨迹 | `AREX_GREEN`，虚线 dash=6 gap=5 |
+| NOW 圆点 | `AREX_GREEN` 实心圆 |
+| NOW 文字 | 黑字 `AREX_BLACK`，绿底背景 |
+| 停留点圆 | `AREX_BLACK` 填充，`AREX_GREEN` 边框 |
+| 停留点文字 | `AREX_GREEN` |
+
+---
+
+## 九、待处理项
 
 | 项目 | 文件 | 说明 |
 |------|------|------|
