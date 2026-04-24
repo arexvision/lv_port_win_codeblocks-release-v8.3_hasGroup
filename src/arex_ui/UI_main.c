@@ -2,13 +2,14 @@
 #include "arex_ui_state.h"
 #include "arex_screen.h"
 #include "arex_input.h"
+#include "arex_data.h"
 #include "../../lvgl/lvgl.h"
 #include <math.h>
 
 static lv_timer_t *s_sim_timer;
 
-    /* 模拟数据跳动回调 (1Hz)
-     * 仅更新 lv_label 文字，不触发排版重构。 */
+/* 模拟数据跳动回调 (1Hz)
+ * 仅更新 lv_label 文字，不触发排版重构。 */
 static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
@@ -23,13 +24,8 @@ static void sim_tick_cb(lv_timer_t *t)
     g_sensor_data.depth += 0.5f;
     if (g_sensor_data.depth > 50) g_sensor_data.depth = 50;
 
-    /* 追加历史轨迹点到曲线图 */
-    if (g_dive_log_count < MAX_DIVE_LOG) {
-        g_dive_log[g_dive_log_count++] = (arex_dive_pt_t){
-            (float)g_sensor_data.dive_time_s / 60.0f,
-            g_sensor_data.depth
-        };
-    }
+    /* 推流历史轨迹点到曲线图（秒级数据总线） */
+    arex_dive_log_append((float)g_sensor_data.dive_time_s, g_sensor_data.depth);
 
     /* 刷新左侧面板 */
     arex_screen_refresh_left_panel();

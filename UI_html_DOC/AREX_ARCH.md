@@ -1567,4 +1567,81 @@ else
 | 2026-04-24 | `arex_ui_engine.c` | `pod1_bar / pod2_bar` 初始值从 `210.0f/195.0f` 改为 `0.0f` |
 | 2026-04-24 | `arex_screen.c` | POD1/POD2 渲染（创建+刷新+INFO菜单）加 `0.0f = "--"` 判断 |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 24 记录本次修复 |
+| 2026-04-24 | `arex_ui_engine.h` | `arex_dive_pt_t.time_min` → `time_s`（统一秒级单位） |
+| 2026-04-24 | `card_plan.c` | 重写 `plan_chart_draw_cb` 为秒级坐标引擎；`init_test_data()` 清零 `g_dive_log_count`；新增 `arex_dive_log_append()` |
+| 2026-04-24 | `arex_data.h` | 新增 `arex_dive_log_append()` 声明 |
+| 2026-04-24 | `UI_main.c` | `sim_tick_cb` 改用 `arex_dive_log_append()` 推流 |
+| 2026-04-24 | `AREX_ARCH.md` | 新增 Section 25 |
+
+---
+
+## 25. 4F 曲线时间单位统一与历史轨迹推流 (v2026-04-24)
+
+### 25.1 问题描述
+
+**问题 1：X 轴单位错位**
+- 原代码底层以"分钟"为单位，但 X 轴网格标签在 `<120s` 时标 `"%ds"`，导致 20 分钟坐标系里 4 秒只占 0.33%，曲线像悬崖
+
+**问题 2：历史轨迹污染未来预测**
+- `g_dive_log[]` 的 `time_min` 字段被旧代码预填充未来大时间值，`g_dive_log_count` 初始化不为 0，导致预测虚线被历史数据实线覆盖
+
+**问题 3：无统一推流接口**
+- `UI_main.c` 直接操作 `g_dive_log[]` 数组，不符合数据总线统一管理原则
+
+### 25.2 修复方案
+
+**统一时间单位**：全系统以"秒"为唯一时间基准，消除分钟/秒混用
+
+```c
+// arex_ui_engine.h
+typedef struct { float time_s; float depth_m; } arex_dive_pt_t;  // 原 time_min → time_s
+```
+
+**历史轨迹推流接口**：
+
+```c
+// arex_data.h 声明
+void arex_dive_log_append(float current_time_s, float current_depth_m);
+
+// card_plan.c 实现
+void arex_dive_log_append(float current_time_s, float current_depth_m)
+{
+    if (g_dive_log_count < MAX_DIVE_LOG) {
+        g_dive_log[g_dive_log_count].time_s   = current_time_s;
+        g_dive_log[g_dive_log_count].depth_m  = current_depth_m;
+        g_dive_log_count++;
+    }
+}
+```
+
+**清零启动**：`init_test_data()` 中 `g_dive_log_count = 0`，轨迹从零生长
+
+**秒级坐标引擎**：`plan_chart_draw_cb` 核心改为：
+- 当前时间 `current_t_sec = g_sensor_data.dive_time_s`（秒）
+- 升水速度 `6.0f` 秒/米（对应 10m/min）
+- X 轴最小锁定 20 秒视口，`fmaxf` 动态扩展
+- 映射宏 `MAP_X(t_sec) = pad_x + (t_sec / max_t_axis_sec) * w`
+
+### 25.3 X 轴秒级步长表
+
+| 时间范围 | X 轴最大刻度 | 步长 |
+|---------|-------------|------|
+| 0~20s | 20s | 10s |
+| 20~60s | ceil/10*10 | 10s |
+| 60~120s | ceil/60*60 | 15s |
+| 2~5min | ceil/60*60 | 30s |
+| 5~10min | ceil/60*60 | 60s |
+| 10~20min | ceil/60*60 | 120s |
+| 20~60min | ceil/60*60 | 300s |
+
+### 25.4 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-04-24 | `arex_ui_engine.h` | `arex_dive_pt_t.time_min` → `time_s` |
+| 2026-04-24 | `card_plan.c` | 完全重写 `plan_chart_draw_cb` 为秒级引擎；清零 `g_dive_log_count` |
+| 2026-04-24 | `card_plan.c` | 新增 `arex_dive_log_append()` |
+| 2026-04-24 | `arex_data.h` | 新增 `arex_dive_log_append()` 声明 |
+| 2026-04-24 | `UI_main.c` | `sim_tick_cb` 改用 `arex_dive_log_append()` |
+| 2026-04-24 | `AREX_ARCH.md` | 新增 Section 25 |
 
