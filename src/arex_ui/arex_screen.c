@@ -33,6 +33,7 @@ static lv_obj_t *s_lbl_batt;
 static lv_obj_t *s_anchor_titles[ANCHOR_COMP_COUNT];
 static lv_obj_t *s_anchor_vals[ANCHOR_COMP_COUNT];
 static lv_obj_t *s_anchor_seps[ANCHOR_COMP_COUNT];  /* 分割线对象 (NULL=SEP_NONE) */
+static lv_obj_t *s_anchor_mod_seps[ANCHOR_COMP_COUNT];  /* 模块间分割线对象 */
 
 /**
  * 虚线点数组内存释放回调。
@@ -173,7 +174,7 @@ static void styles_init(void)
  *
  * Classic 模式下：使用同样逻辑，宽度扩展为 safe_zone_w
  * ========================================================= */
-static void left_anchor_rebuild(void)
+static void left_anchor_rebuild(uint8_t comp_count)
 {
     if (!s_left_anchor || !s_safe_zone) return;
 
@@ -302,6 +303,17 @@ static void left_anchor_rebuild(void)
         }
         lv_obj_set_style_text_align(val_obj,   val_align, 0);
         lv_obj_set_style_text_align(title_obj, arex_align_to_lv(c->title_align), 0);
+
+        /* 模块间分割线 rebuild：跳过最后一行 */
+        lv_obj_t *mod_sep = s_anchor_mod_seps[i];
+        if (c->split != 1 && i < (comp_count - 1)) {
+            lv_coord_t mod_sep_y = (lv_coord_t)(c->y + c->h - AREX_ANCHOR_SEP_THICK);
+            lv_coord_t mod_sep_x = 0;
+            if (mod_sep) {
+                lv_obj_set_pos(mod_sep, mod_sep_x, mod_sep_y);
+                lv_obj_set_size(mod_sep, (lv_coord_t)AREX_LEFT_ANCHOR_W, AREX_ANCHOR_SEP_THICK);
+            }
+        }
     }
 }
 
@@ -315,9 +327,9 @@ static void left_anchor_create(void)
     if (g_sys_config.layout_order == AREX_ORDER_NORMAL) {
         lv_obj_set_pos(s_left_anchor, 0, 0);
     } else {
-        uint16_t gap = g_sys_config.gap_u * AREX_BASE_U;
-        uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - gap;
-        lv_obj_set_pos(s_left_anchor, (lv_coord_t)(right_w + gap), 0);
+        uint16_t panel_gap = g_sys_config.panel_gap_u * AREX_BASE_U;
+        uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - panel_gap;
+        lv_obj_set_pos(s_left_anchor, (lv_coord_t)(right_w + panel_gap), 0);
     }
     lv_obj_add_style(s_left_anchor, &s_style_anchor_bg, 0);
     lv_obj_set_style_pad_all(s_left_anchor, 0, 0);   /* 兜底：确保 theme 默认 padding 不干扰绝对坐标 */
@@ -340,6 +352,13 @@ static void left_anchor_create(void)
             if (old_pts) lv_mem_free(old_pts);
         }
         s_anchor_seps[k] = NULL;
+
+        lv_obj_t *old_mod_sep = s_anchor_mod_seps[k];
+        if (old_mod_sep && lv_obj_check_type(old_mod_sep, &lv_line_class)) {
+            lv_point_t * old_pts = (lv_point_t *)lv_obj_get_user_data(old_mod_sep);
+            if (old_pts) lv_mem_free(old_pts);
+        }
+        s_anchor_mod_seps[k] = NULL;
     }
     lv_obj_clean(s_left_anchor);
 
@@ -609,6 +628,46 @@ static void left_anchor_create(void)
         s_anchor_titles[i] = title_zone;
         s_anchor_vals[i] = lbl_val;
         s_anchor_seps[i] = sep;   /* NULL=SEP_NONE，对象指针=已创建 */
+
+        /* 模块间分割线：单栏(slit=0)画全宽，双拼行只在右块(slit=2)画全宽，跳过最后一行 */
+        s_anchor_mod_seps[i] = NULL;
+        if (c->split != 1 && i < (comp_count - 1)) {
+            lv_coord_t mod_sep_y = (lv_coord_t)(c->y + c->h - AREX_ANCHOR_SEP_THICK);
+            lv_coord_t mod_sep_x = (c->split == 0) ? 0 : 0;  /* 统一从 x=0 画全宽 */
+            lv_coord_t mod_sep_w = (lv_coord_t)AREX_LEFT_ANCHOR_W;  /* 始终全宽 160px */
+
+            if (AREX_ANCHOR_SEP_STYLE == AREX_SEP_SOLID) {
+                lv_obj_t *mod_sep = lv_obj_create(s_left_anchor);
+                lv_obj_set_pos(mod_sep, mod_sep_x, mod_sep_y);
+                lv_obj_set_size(mod_sep, mod_sep_w, AREX_ANCHOR_SEP_THICK);
+                lv_obj_set_style_bg_color(mod_sep, AREX_LIGHT, 0);
+                lv_obj_set_style_bg_opa(mod_sep, g_sys_config.sep_alpha, 0);
+                lv_obj_set_style_border_width(mod_sep, 0, 0);
+                lv_obj_set_style_pad_all(mod_sep, 0, 0);
+                s_anchor_mod_seps[i] = mod_sep;
+            } else {
+                lv_obj_t *mod_sep = lv_line_create(s_left_anchor);
+                lv_obj_set_pos(mod_sep, mod_sep_x, mod_sep_y);
+                uint16_t line_w = (mod_sep_w > 8) ? (uint16_t)(mod_sep_w - 8) : (uint16_t)mod_sep_w;
+                lv_point_t * pts = lv_mem_alloc(sizeof(lv_point_t) * 2);
+                pts[0].x = 4;  pts[0].y = AREX_ANCHOR_SEP_THICK / 2;
+                pts[1].x = (int16_t)(4 + line_w);  pts[1].y = AREX_ANCHOR_SEP_THICK / 2;
+                lv_line_set_points(mod_sep, pts, 2);
+                lv_obj_set_user_data(mod_sep, (lv_point_t *)pts);
+                lv_obj_add_event_cb(mod_sep, line_delete_cb, LV_EVENT_DELETE, pts);
+                lv_obj_set_style_line_width(mod_sep, AREX_ANCHOR_SEP_THICK, 0);
+                lv_obj_set_style_line_color(mod_sep, AREX_LIGHT, 0);
+                lv_obj_set_style_line_opa(mod_sep, g_sys_config.sep_alpha, 0);
+                if (AREX_ANCHOR_SEP_STYLE == AREX_SEP_DASHED) {
+                    lv_obj_set_style_line_dash_width(mod_sep, 6, 0);
+                    lv_obj_set_style_line_dash_gap(mod_sep, 4, 0);
+                } else {
+                    lv_obj_set_style_line_dash_width(mod_sep, AREX_ANCHOR_SEP_THICK, 0);
+                    lv_obj_set_style_line_dash_gap(mod_sep, AREX_ANCHOR_SEP_THICK * 2, 0);
+                }
+                s_anchor_mod_seps[i] = mod_sep;
+            }
+        }
     }
 }
 
@@ -633,17 +692,17 @@ static void safe_zone_reposition(void)
                  g_sys_config.offset_x, g_sys_config.offset_y);
 
     /* 2. 计算左右分界线 */
-    uint16_t gap = g_sys_config.gap_u * AREX_BASE_U;
-    uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - gap;
+    uint16_t panel_gap = g_sys_config.panel_gap_u * AREX_BASE_U;
+    uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - panel_gap;
 
     /* 3. 定位左侧锚点 */
     if (g_sys_config.layout_order == AREX_ORDER_NORMAL) {
         lv_obj_set_pos(s_left_anchor, 0, 0);
-        lv_obj_set_pos(s_right_cont, (lv_coord_t)(AREX_LEFT_ANCHOR_W + gap), 0);
+        lv_obj_set_pos(s_right_cont, (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap), 0);
     } else {
         /* 翻转: 右侧容器放左边, 左侧锚点放右边 */
         lv_obj_set_pos(s_right_cont, 0, 0);
-        lv_obj_set_pos(s_left_anchor, (lv_coord_t)right_w + gap, 0);
+        lv_obj_set_pos(s_left_anchor, (lv_coord_t)right_w + panel_gap, 0);
     }
 
     /* 4. 设置右侧容器尺寸 */
@@ -658,15 +717,15 @@ static void safe_zone_reposition(void)
 static void right_panel_create(void)
 {
     /* 计算右侧容器宽度 */
-    uint16_t gap = g_sys_config.gap_u * AREX_BASE_U;
-    uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - gap;
+    uint16_t panel_gap = g_sys_config.panel_gap_u * AREX_BASE_U;
+    uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - panel_gap;
     s_cached_right_w = right_w;
 
     /* 创建右侧容器 — 根据 layout_order 决定左右位置 */
     s_right_cont = lv_obj_create(s_safe_zone);
     lv_obj_set_size(s_right_cont, right_w, g_sys_config.safe_zone_h);
     if (g_sys_config.layout_order == AREX_ORDER_NORMAL) {
-        lv_obj_set_pos(s_right_cont, (lv_coord_t)(AREX_LEFT_ANCHOR_W + gap), 0);
+        lv_obj_set_pos(s_right_cont, (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap), 0);
     } else {
         lv_obj_set_pos(s_right_cont, 0, 0);
     }
@@ -760,7 +819,11 @@ void arex_screen_rebuild_layout(void)
 {
     /* 重建左侧锚点排版 */
     if (s_left_anchor) {
-        left_anchor_rebuild();
+        arex_anchor_comp_t comps[ANCHOR_COMP_COUNT];
+        uint16_t total_h = 0;
+        uint8_t comp_count = 0;
+        arex_calc_anchor_layout(comps, &total_h, &comp_count);
+        left_anchor_rebuild(comp_count);
     }
 
     /* 重建 Safe Zone 内部定位 */
@@ -862,7 +925,7 @@ static void modal_create(void)
 {
     s_modal = lv_obj_create(s_right_cont);
     uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                                - g_sys_config.gap_u * AREX_BASE_U;
+                                - g_sys_config.panel_gap_u * AREX_BASE_U;
     uint16_t sub_w = s_cached_right_w > 0 ? s_cached_right_w : right_w_fallback;
     lv_obj_set_size(s_modal, sub_w,
                      g_sys_config.safe_zone_h);
@@ -889,7 +952,7 @@ static void modal_create(void)
 static void submenu_layer_create(void)
 {
     uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                                - g_sys_config.gap_u * AREX_BASE_U;
+                                - g_sys_config.panel_gap_u * AREX_BASE_U;
     uint16_t sub_w = s_cached_right_w > 0 ? s_cached_right_w : right_w_fallback;
 
     s_submenu_layer = lv_obj_create(s_right_cont);
@@ -1190,7 +1253,7 @@ void arex_screen_register_setup_list(lv_obj_t *list) { s_setup_list = list; }
 static void submenu_slide_in(void)
 {
     uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                                - g_sys_config.gap_u * AREX_BASE_U;
+                                - g_sys_config.panel_gap_u * AREX_BASE_U;
     uint16_t slide_w = s_cached_right_w > 0 ? s_cached_right_w : right_w_fallback;
 
     lv_anim_t a;
@@ -1206,7 +1269,7 @@ static void submenu_slide_in(void)
 static void submenu_slide_out(void)
 {
     uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                                - g_sys_config.gap_u * AREX_BASE_U;
+                                - g_sys_config.panel_gap_u * AREX_BASE_U;
     uint16_t slide_w = s_cached_right_w > 0 ? s_cached_right_w : right_w_fallback;
 
     lv_anim_t a;
@@ -1224,10 +1287,10 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
     lv_label_set_text(s_submenu_title, title);
     lv_obj_clean(s_submenu_list);
 
-    /* right_w 从缓存读取，fallback = safe_zone_w - left_anchor_w - gap */
+    /* right_w 从缓存读取，fallback = safe_zone_w - left_anchor_w - panel_gap */
     uint16_t right_w = (s_cached_right_w > 0)
         ? s_cached_right_w
-        : (g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - g_sys_config.gap_u * AREX_BASE_U);
+        : (g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - g_sys_config.panel_gap_u * AREX_BASE_U);
     uint16_t sub_w = right_w;
     int item_h = (int)(g_sys_config.h_menu_item * AREX_BASE_U);  /* 5U=50px */
     int item_w = (int)sub_w - 15;
@@ -1819,7 +1882,7 @@ void arex_screen_cancel_edit_value(void)
 lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
 {
     uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                                - g_sys_config.gap_u * AREX_BASE_U;
+                                - g_sys_config.panel_gap_u * AREX_BASE_U;
     uint16_t right_w = (s_cached_right_w > 0) ? s_cached_right_w : right_w_fallback;
 
     lv_obj_t *lbl = lv_label_create(parent);

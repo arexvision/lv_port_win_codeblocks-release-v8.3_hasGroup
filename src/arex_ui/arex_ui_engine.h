@@ -38,6 +38,10 @@
 #define AREX_MAX_LEFT_ROWS    8
 #define ANCHOR_COMP_COUNT     16  /* 最大组件句柄数（兼容旧 API，UI 层用） */
 
+/* 左侧锚点模块间分割线宏 */
+#define AREX_ANCHOR_SEP_THICK  3   /* 模块间分割线粗细 px */
+#define AREX_ANCHOR_SEP_STYLE  AREX_SEP_SOLID  /* 分割线样式: SOLID/DASHED/DOTTED */
+
 /* =========================================================
  * 1b. 气体表常量 (供全局引用)
  * ========================================================= */
@@ -220,6 +224,7 @@ typedef struct {
     uint8_t  h_gas;          /* GAS 中通栏 (默认 6U) */
     uint8_t  h_time;         /* DIVE TIME 底部 (默认 4U) */
     uint8_t  gap_u;          /* 模块间距 (默认 1U) */
+    uint8_t  panel_gap_u;     /* 左侧锚点与右侧面板间距 (默认 1U) */
     uint8_t  title_h_u;      /* 标题高度 (默认 2U) */
     uint8_t  h_menu_item;    /* 菜单项高度 (默认 4.8U→取整5U=48px) */
     uint8_t  gap_menu;       /* 菜单项间距 (默认 0.8U=8px) */

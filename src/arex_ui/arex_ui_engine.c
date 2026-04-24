@@ -51,7 +51,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
 
     /* 分割线 */
     cfg->sep_style  = AREX_SEP_DASHED;
-    cfg->sep_thick  = 1;
+    cfg->sep_thick  = 2;
     cfg->sep_alpha  = 51;   /* 20% of 255 */
 
     /* 10U 高度分配 (单位 U，1U = 10px) */
@@ -61,7 +61,8 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->h_batt   = 5;   /* BATT/W.TIME 双拼: 5U=50px */
     cfg->h_gas    = 6;   /* GAS 中通栏: 6U=60px */
     cfg->h_time   = 5;   /* DIVE TIME 底部: 5U=50px */
-    cfg->gap_u         = 1;   /* 模块间距: 1U=10px */
+    cfg->gap_u         = 0;   /* 模块间距: 0U=0px（由 sep_thick 负责分割线粗细） */
+    cfg->panel_gap_u   = 1;   /* 面板间距: 1U=10px */
     cfg->title_h_u     = 2;   /* 标题高度: 2U=20px */
     cfg->h_menu_item   = 5;   /* 菜单项高度: 5U=50px */
     cfg->gap_menu      = 1;   /* 菜单项间距: 1U=10px */
@@ -80,17 +81,17 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * ===================================================== */
     static const arex_left_row_cfg_t def_layout[AREX_MAX_LEFT_ROWS] = {
         /* row 0: DEPTH 单栏全宽 */
-        { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
+        { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 9, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 1: NDL + TTS 双拼 */
         { AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 2: POD1 + POD2 双拼 */
-        { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
+        { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 3: BATT + WTM 双拼 */
-        { AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
+        { AREX_MODULE_TIME, AREX_MODULE_EMPTY,  6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 4: GAS 单栏全宽 */
-        { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
+        { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 5: TIME 单栏全宽 */
-        { AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
+        { AREX_MODULE_BATT, AREX_MODULE_WTM, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 6-7: EMPTY */
         { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, AREX_ALIGN_LEFT, AREX_SEP_NONE,   0 },
         { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 0, 0, 0, 0, AREX_ALIGN_LEFT, AREX_SEP_NONE,   0 },
@@ -513,9 +514,9 @@ void arex_ui_init(void)
     g_sensor_data.pod2_bar = 195.0f;
     g_sensor_data.battery_pct = 85.0f;
     g_sensor_data.heading = 265;
-    g_sensor_data.dive_time_s = 2294; /* 38:14 */
+    g_sensor_data.dive_time_s = 0; /* 38:14 */
     g_sensor_data.gas_active_idx = 2;
-    strcpy(g_sensor_data.gas_name, "TX 18/45");
+    strcpy(g_sensor_data.gas_name, "AIR");
     g_sensor_data.ppo2[0] = 1.2f;
     g_sensor_data.ppo2[1] = 1.2f;
     g_sensor_data.ppo2[2] = 1.3f;
