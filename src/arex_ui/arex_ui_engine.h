@@ -296,7 +296,31 @@ typedef struct {
     uint16_t deco_stops[8];
     uint8_t  deco_stop_count;
 
+    /* =========================================================
+     * Data Bus 脏标记位域 (UI 消费任务专用)
+     * ========================================================= */
+    uint32_t dirty_mask;
+
 } arex_sensor_data_t;
+
+/* =========================================================
+ * Data Bus 脏标记位掩码枚举
+ * ========================================================= */
+typedef enum {
+    DIRTY_NONE      = 0,
+    DIRTY_DEPTH     = (1U << 0),   /* 深度数据 */
+    DIRTY_NDL       = (1U << 1),   /* 免减压时间 */
+    DIRTY_TTS       = (1U << 2),   /* 回到水面时间 */
+    DIRTY_POD       = (1U << 3),   /* 气瓶压力（pod1/pod2） */
+    DIRTY_BATT      = (1U << 4),   /* 电池电量 */
+    DIRTY_HEADING   = (1U << 5),   /* 罗盘航向 */
+    DIRTY_TIME      = (1U << 6),   /* 潜水时间 / W.TIME */
+    DIRTY_PPO2      = (1U << 7),   /* PO2 值 */
+    DIRTY_GAS       = (1U << 8),   /* 气体切换 */
+    DIRTY_DECO      = (1U << 9),   /* 减压数据（组织饱和/NDL 变化） */
+    DIRTY_CHART     = (1U << 10),  /* 4F 曲线图刷新 */
+    DIRTY_ALARM     = (1U << 11),  /* 告警状态 */
+} arex_dirty_bit_t;
 
 /* =========================================================
  * 5. 左侧锚点组件布局信息结构 (供 arex_screen.c 使用)
@@ -470,5 +494,34 @@ void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
                            uint8_t span_w, uint8_t span_h,
                            int16_t *out_x, int16_t *out_y,
                            uint16_t *out_w, uint16_t *out_h);
+
+/* =========================================================
+ * 11. Data Bus 硬件写入接口 + UI 消费任务
+ *
+ * 铁律：
+ *   - 硬件工程师：只能调用 arex_bus_set_*() 系列函数
+ *   - UI 工程师  ：只能修改 arex_ui_update_task() 消费者
+ *   - 两者通过 g_sensor_data.dirty_mask 完全解耦
+ * ========================================================= */
+
+/* Data Bus Setter — 硬件/模拟层专用接口（仅更新数值 + 打脏标记） */
+void arex_bus_set_depth(float depth_m);
+void arex_bus_set_ndl(int16_t ndl_min);
+void arex_bus_set_tts(uint16_t tts_min);
+void arex_bus_set_pod(uint8_t pod_idx, float bar);
+void arex_bus_set_battery(float pct);
+void arex_bus_set_heading(uint16_t heading_deg);
+void arex_bus_set_dive_time(uint32_t dive_s);
+void arex_bus_set_surface_time(uint32_t surface_s);
+void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val);
+void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name);
+void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min);
+void arex_bus_set_cns(uint8_t cns_pct);
+void arex_bus_set_otu(uint16_t otu_val);
+void arex_bus_set_chart_refresh(void);       /* 仅打 DIRTY_CHART */
+void arex_bus_clear_all_dirty(void);
+
+/* UI 消费任务 — 全系统唯一允许执行 lv_label_set_text 的地方（50ms 定时器驱动） */
+void arex_ui_update_task(lv_timer_t *timer);
 
 #endif /* AREX_UI_ENGINE_H */

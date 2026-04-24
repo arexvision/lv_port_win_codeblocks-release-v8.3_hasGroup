@@ -1644,4 +1644,117 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
 | 2026-04-24 | `arex_data.h` | 新增 `arex_dive_log_append()` 声明 |
 | 2026-04-24 | `UI_main.c` | `sim_tick_cb` 改用 `arex_dive_log_append()` |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 25 |
+| 2026-04-24 | `arex_ui_engine.h` | `arex_sensor_data_t` 增加 `dirty_mask` 字段；新增 `arex_dirty_bit_t` 脏标记枚举；声明 Data Bus Setter + UI Consumer |
+| 2026-04-24 | `arex_data.h` | 彻底重构为 Data Bus 硬件写入接口层；`arex_bus_set_*()` 系列声明 |
+| 2026-04-24 | `arex_data.c` | 新建文件；实现全部 `arex_bus_set_*()` Setter，含防抖阈值 |
+| 2026-04-24 | `arex_ui_engine.c` | 实现 `arex_ui_update_task()` 集中消费任务；`arex_screen.h` include |
+| 2026-04-24 | `UI_main.c` | `sim_tick_cb` 全部改用 `arex_bus_set_*()`；撤销直接 `g_sensor_data` 写入；撤销 `arex_ui_refresh_all()` |
+| 2026-04-24 | `UI_main.c` | `arex_ui_update_task(50ms)` 驱动 UI 渲染；`sim_tick_cb(1Hz)` 驱动数据写入 |
+| 2026-04-24 | `arex_card_registry.h` | 新增所有卡片 update forward 声明 |
+| 2026-04-24 | `AREX_ARCH.md` | 新增 Section 26 |
+
+---
+
+## 26. Data Bus 架构：硬件写入接口与 UI 消费任务 (v2026-04-24)
+
+### 26.1 架构铁律
+
+```
+硬件工程师 ──arex_bus_set_*()──▶ g_sensor_data (dirty_mask)
+                                          │
+                              arex_ui_update_task() (50ms lv_timer)
+                                          │
+                                按脏标记按需刷新 UI
+```
+
+- **硬件工程师**：只能调用 `arex_bus_set_*()` 系列函数。禁止直接写 `g_sensor_data`，禁止包含任何 LVGL 代码。
+- **UI 工程师**：只能修改 `arex_ui_update_task()` 消费者函数。禁止绕过消费任务直接操作 LVGL。
+- **两者通过 `g_sensor_data.dirty_mask` 完全解耦**。
+
+### 26.2 脏标记位枚举
+
+| 位 | 宏 | 含义 |
+|----|----|------|
+| 0 | `DIRTY_DEPTH` | 深度数据 |
+| 1 | `DIRTY_NDL` | 免减压时间 |
+| 2 | `DIRTY_TTS` | 回到水面时间 |
+| 3 | `DIRTY_POD` | 气瓶压力（pod1/pod2） |
+| 4 | `DIRTY_BATT` | 电池电量 |
+| 5 | `DIRTY_HEADING` | 罗盘航向 |
+| 6 | `DIRTY_TIME` | 潜水时间 / W.TIME |
+| 7 | `DIRTY_PPO2` | PO2 值 |
+| 8 | `DIRTY_GAS` | 气体切换 |
+| 9 | `DIRTY_DECO` | 减压数据 |
+| 10 | `DIRTY_CHART` | 4F 曲线图刷新 |
+| 11 | `DIRTY_ALARM` | 告警状态 |
+
+### 26.3 Data Bus Setter 接口（`arex_data.h / arex_data.c`）
+
+```c
+void arex_bus_set_depth(float depth_m);         // 防抖阈值 0.05m
+void arex_bus_set_ndl(int16_t ndl_min);
+void arex_bus_set_tts(uint16_t tts_min);
+void arex_bus_set_pod(uint8_t pod_idx, float bar); // pod_idx: 0=pod1, 1=pod2
+void arex_bus_set_battery(float pct);
+void arex_bus_set_heading(uint16_t heading_deg);
+void arex_bus_set_dive_time(uint32_t dive_s);   // 同时触发 DIRTY_TIME | DIRTY_CHART
+void arex_bus_set_surface_time(uint32_t surface_s);
+void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val);
+void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name);
+void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min);
+void arex_bus_set_cns(uint8_t cns_pct);
+void arex_bus_set_otu(uint16_t otu_val);
+void arex_bus_set_chart_refresh(void);            // 仅打 DIRTY_CHART
+void arex_bus_clear_all_dirty(void);
+```
+
+### 26.4 UI 消费任务（`arex_ui_engine.c`）
+
+```c
+// 由 lv_timer 驱动，50ms 周期（20 FPS）
+void arex_ui_update_task(lv_timer_t *timer)
+{
+    uint32_t mask = g_sensor_data.dirty_mask;
+    if (mask == DIRTY_NONE) return;
+
+    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_DECO)) {
+        arex_screen_refresh_left_panel();
+        card_deco_update();
+    }
+    if (mask & DIRTY_POD)    { arex_screen_refresh_left_panel(); }
+    if (mask & DIRTY_BATT)   { arex_screen_refresh_left_panel(); }
+    if (mask & DIRTY_HEADING){ arex_screen_refresh_compass_target(); }
+    if (mask & DIRTY_TIME)   { arex_screen_refresh_left_panel(); }
+    if (mask & DIRTY_PPO2)   { arex_screen_refresh_left_panel(); }
+    if (mask & DIRTY_GAS)    { arex_screen_refresh_gas_menu(); arex_screen_refresh_left_panel(); }
+    if (mask & DIRTY_CHART)  { card_plan_update(); }
+
+    arex_bus_clear_all_dirty();
+}
+```
+
+### 26.5 定时器分层
+
+| 定时器 | 周期 | 职责 |
+|-------|------|------|
+| `sim_tick_cb` | 1Hz | 硬件数据写入，通过 `arex_bus_set_*()` 打脏标记 |
+| `arex_ui_update_task` | 50ms | UI 消费任务，按脏标记按需刷新 LVGL |
+
+### 26.6 防抖策略
+
+- 深度 `arex_bus_set_depth`：变化超过 0.05m 才打脏标记
+- 电池 `arex_bus_set_battery`：变化超过 0.1 才打脏标记
+- 其余字段：任何变化均打脏标记
+
+### 26.7 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-04-24 | `arex_ui_engine.h` | `arex_sensor_data_t` 增加 `dirty_mask`；新增 `arex_dirty_bit_t` 枚举；声明 Setter + Consumer |
+| 2026-04-24 | `arex_data.h` | 彻底重构为 Data Bus 接口层头文件 |
+| 2026-04-24 | `arex_data.c` | 新建；全部 Setter 实现，含防抖逻辑 |
+| 2026-04-24 | `arex_ui_engine.c` | 实现 `arex_ui_update_task()` 集中消费任务 |
+| 2026-04-24 | `UI_main.c` | `sim_tick_cb` 全部改用 Setter；撤销直接写入；分离两定时器 |
+| 2026-04-24 | `arex_card_registry.h` | 卡片 update forward 声明 |
+| 2026-04-24 | `AREX_ARCH.md` | 新增 Section 26 |
 

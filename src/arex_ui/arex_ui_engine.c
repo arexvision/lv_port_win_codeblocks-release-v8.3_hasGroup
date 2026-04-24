@@ -1,5 +1,6 @@
 #include "arex_ui_engine.h"
 #include "arex_card_registry.h"
+#include "arex_screen.h"
 #include "fonts/arex_fonts.h"
 #include <stdio.h>
 #include <string.h>
@@ -1144,4 +1145,67 @@ void arex_ui_update_data(void)
     /* 由调用方在 arex_screen.c 中实现具体的 lv_label_set_text 调用
      * 此函数作为空钩子存在，供未来扩展
      */
+}
+
+/* =========================================================
+ * 11. Data Bus UI 消费任务 — 全系统唯一允许执行 lv_label_set_text 的地方
+ *
+ * 架构铁律：
+ *   - 硬件工程师：只能调用 arex_bus_set_*() 系列函数（仅写数据+打脏标记）
+ *   - UI 工程师  ：只能修改 arex_ui_update_task() 消费者
+ *   - 两者通过 g_sensor_data.dirty_mask 完全解耦
+ *
+ * 由 lv_timer 驱动，建议 50ms 周期（20 FPS 足够覆盖所有传感器变化）
+ * ========================================================= */
+void arex_ui_update_task(lv_timer_t *timer)
+{
+    (void)timer;
+
+    uint32_t mask = g_sensor_data.dirty_mask;
+    if (mask == DIRTY_NONE) return;
+
+    /* 深度 + NDL + TTS + 减压停留 —— 左侧面板全量刷新 + 3B Deco 卡片刷新 */
+    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_DECO)) {
+        arex_screen_refresh_left_panel();
+        card_deco_update();
+    }
+
+    /* 气瓶压力 —— 左侧面板 POD 刷新 */
+    if (mask & DIRTY_POD) {
+        arex_screen_refresh_left_panel();
+    }
+
+    /* 电池 —— 左侧面板刷新 */
+    if (mask & DIRTY_BATT) {
+        arex_screen_refresh_left_panel();
+    }
+
+    /* 罗盘航向 */
+    if (mask & DIRTY_HEADING) {
+        arex_screen_refresh_compass_target();
+    }
+
+    /* 潜水时间 + W.TIME —— 左侧面板 + 4F 曲线图 */
+    if (mask & DIRTY_TIME) {
+        arex_screen_refresh_left_panel();
+    }
+
+    /* PO2 值 —— 左侧面板 */
+    if (mask & DIRTY_PPO2) {
+        arex_screen_refresh_left_panel();
+    }
+
+    /* 气体切换 */
+    if (mask & DIRTY_GAS) {
+        arex_screen_refresh_gas_menu();
+        arex_screen_refresh_left_panel();
+    }
+
+    /* 4F 曲线图刷新 */
+    if (mask & DIRTY_CHART) {
+        card_plan_update();
+    }
+
+    /* 洗净所有脏标记 */
+    arex_bus_clear_all_dirty();
 }

@@ -72,4 +72,12 @@ uint8_t      arex_card_count(void);
 arex_card_t *arex_card_get(uint8_t order_pos);
 arex_card_t *arex_card_get_by_id(arex_card_id_t id);
 
+/* Card update forward declarations (defined in respective card_*.c) */
+void card_info_update(void);
+void card_compass_update(void);
+void card_deco_update(void);
+void card_gas_update(void);
+void card_plan_update(void);
+void card_setup_update(void);
+
 #endif /* AREX_CARD_REGISTRY_H */
