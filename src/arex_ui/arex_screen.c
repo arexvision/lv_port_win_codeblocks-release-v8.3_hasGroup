@@ -944,6 +944,9 @@ void arex_screen_create(void)
     lv_obj_set_style_pad_all(s_safe_zone, 0, 0);
     lv_obj_clear_flag(s_safe_zone, LV_OBJ_FLAG_SCROLLABLE);
 
+    lv_obj_set_style_border_color(s_safe_zone, AREX_DARK, 0);
+    lv_obj_set_style_border_width(s_safe_zone, 1, 0);
+    
     left_anchor_create();
     right_panel_create();
     wall_create();
