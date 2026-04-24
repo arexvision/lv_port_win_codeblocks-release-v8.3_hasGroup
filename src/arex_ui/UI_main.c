@@ -15,11 +15,9 @@ static void sim_tick_cb(lv_timer_t *t)
     /* 航向缓慢顺时针旋转 */
     g_sensor_data.heading = (g_sensor_data.heading + 1) % 360;
     g_sensor_data.dive_time_s++;
-    /* 深度轻微浮动 */
-    static float depth_base = 45.2f;
-    static int tick = 0;
-    tick++;
-    g_sensor_data.depth = depth_base + (tick % 10 < 5 ? 0.0f : 0.1f);
+    /* 深度: 每秒增加 0.2m，模拟下潜 */
+    g_sensor_data.depth += 0.2f;
+    if (g_sensor_data.depth > 50) g_sensor_data.depth = 50;
 
     /* 刷新左侧面板 */
     arex_screen_refresh_left_panel();
