@@ -522,12 +522,18 @@ static void left_anchor_create(void)
                 lv_obj_set_style_text_color(s_lbl_tts, AREX_GREEN, 0);
                 break;
             case AREX_MODULE_POD1:
-                snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod1_bar);
+                if (g_sensor_data.pod1_bar <= 0.0f)
+                    snprintf(buf, sizeof(buf), "--");
+                else
+                    snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod1_bar);
                 lv_label_set_text(lbl_val, buf);
                 s_lbl_pod1 = lbl_val;
                 break;
             case AREX_MODULE_POD2:
-                snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod2_bar);
+                if (g_sensor_data.pod2_bar <= 0.0f)
+                    snprintf(buf, sizeof(buf), "--");
+                else
+                    snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod2_bar);
                 lv_label_set_text(lbl_val, buf);
                 lv_obj_set_style_text_color(lbl_val, AREX_LIGHT, 0);
                 s_lbl_pod2 = lbl_val;
@@ -1084,10 +1090,16 @@ void arex_screen_refresh_left_panel(void)
              g_sensor_data.next_stop_min);
     if (s_lbl_next_stop) lv_label_set_text(s_lbl_next_stop, buf);
 
-    snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod1_bar);
+    if (g_sensor_data.pod1_bar <= 0.0f)
+        snprintf(buf, sizeof(buf), "--");
+    else
+        snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod1_bar);
     if (s_lbl_pod1) lv_label_set_text(s_lbl_pod1, buf);
 
-    snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod2_bar);
+    if (g_sensor_data.pod2_bar <= 0.0f)
+        snprintf(buf, sizeof(buf), "--");
+    else
+        snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod2_bar);
     if (s_lbl_pod2) lv_label_set_text(s_lbl_pod2, buf);
 
     if (s_lbl_gas_name) {
@@ -1407,8 +1419,14 @@ static void build_info_submenu(uint8_t idx)
             s_info_dyn[3][n++] = "< BACK";
             break;
         case 4:
-            snprintf(s_info_str[4][0], 32, "POD 1: %.0f BAR", g_sensor_data.pod1_bar);
-            snprintf(s_info_str[4][1], 32, "POD 2: %.0f BAR", g_sensor_data.pod2_bar);
+            if (g_sensor_data.pod1_bar <= 0.0f)
+                snprintf(s_info_str[4][0], 32, "POD 1: -- BAR");
+            else
+                snprintf(s_info_str[4][0], 32, "POD 1: %.0f BAR", g_sensor_data.pod1_bar);
+            if (g_sensor_data.pod2_bar <= 0.0f)
+                snprintf(s_info_str[4][1], 32, "POD 2: -- BAR");
+            else
+                snprintf(s_info_str[4][1], 32, "POD 2: %.0f BAR", g_sensor_data.pod2_bar);
             snprintf(s_info_str[4][2], 32, "BATTERY: %.0f%%", g_sensor_data.battery_pct);
             snprintf(s_info_str[4][3], 32, "TEMP: 24C");
             s_info_dyn[4][n++] = s_info_str[4][0];

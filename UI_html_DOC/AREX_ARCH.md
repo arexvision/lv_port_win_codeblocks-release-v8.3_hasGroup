@@ -1511,7 +1511,12 @@ arex_render_5f_custom_grid(tile, ...);            // 后画网格（row=0 的组
 - `AREX_MODULE_TIME` 的 label 在 `left_anchor_create()` 中创建时直接设置 `"00:00"`
 - 虽然 `arex_screen_refresh_left_panel()` 有正确的刷新逻辑，但初始值应为数据总线的当前值
 
-**问题 3：PO2 1 和 PO2 2 未显示 `"--"`**
+**问题 3：POD1/POD2 初始值显示为 `210` / `195` 而非 `"--"`**
+- `arex_ui_engine.c` 的 `arex_ui_init()` 中 `pod1_bar=210.0f`，`pod2_bar=195.0f` 为模拟值
+- 下水前 POD 未连接时应显示 `"--"`
+- 渲染层直接 `snprintf("%.0f")` 输出数字，无 0 值判断
+
+**问题 4：PO2 1 和 PO2 2 未显示 `"--"`**
 - 初始文本已在 `left_anchor_create()` 中改为 `"--"`，刷新函数中也改为固定 `"--"`
 - 需确认重编译后生效
 
@@ -1536,11 +1541,30 @@ case AREX_MODULE_TIME:
     break;
 ```
 
+**修复 3：POD1/POD2 初始值归零，渲染层按 0 = `"--"` 处理**
+
+统一约定：气压传感器 `pod1_bar / pod2_bar` 为 `0.0f` 代表"未连接"，渲染时显示 `"--"`。
+
+```c
+// arex_ui_engine.c:513-514 初始值归零
+g_sensor_data.pod1_bar = 0.0f;
+g_sensor_data.pod2_bar = 0.0f;
+
+// arex_screen.c left_anchor_create() / arex_screen_refresh_left_panel()
+// 渲染时判断 0 显示 "--"
+if (g_sensor_data.pod1_bar <= 0.0f)
+    snprintf(buf, sizeof(buf), "--");
+else
+    snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod1_bar);
+```
+
 ### 24.3 变更文件清单
 
 | 日期 | 文件 | 变更 |
 |------|------|------|
 | 2026-04-24 | `UI_main.c` | `sim_tick_cb` 增加 `g_sensor_data.surface_time_s += 1` |
 | 2026-04-24 | `arex_screen.c` | `AREX_MODULE_TIME` 创建时从硬编码 `"00:00"` 改为 `g_sensor_data.dive_time_s` |
+| 2026-04-24 | `arex_ui_engine.c` | `pod1_bar / pod2_bar` 初始值从 `210.0f/195.0f` 改为 `0.0f` |
+| 2026-04-24 | `arex_screen.c` | POD1/POD2 渲染（创建+刷新+INFO菜单）加 `0.0f = "--"` 判断 |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 24 记录本次修复 |
 

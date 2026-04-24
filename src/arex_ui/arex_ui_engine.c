@@ -510,8 +510,8 @@ void arex_ui_init(void)
     g_sensor_data.depth = 0.0f;
     g_sensor_data.ndl  = 5;
     g_sensor_data.tts  = 24;
-    g_sensor_data.pod1_bar = 210.0f;
-    g_sensor_data.pod2_bar = 195.0f;
+    g_sensor_data.pod1_bar = 0.0f;
+    g_sensor_data.pod2_bar = 0.0f;
     g_sensor_data.battery_pct = 85.0f;
     g_sensor_data.heading = 265;
     g_sensor_data.dive_time_s = 0; /* 38:14 */
