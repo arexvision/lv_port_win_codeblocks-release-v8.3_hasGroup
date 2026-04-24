@@ -3,11 +3,12 @@
 #include "arex_screen.h"
 #include "arex_input.h"
 #include "../../lvgl/lvgl.h"
+#include <math.h>
 
 static lv_timer_t *s_sim_timer;
 
-/* 模拟数据跳动回调 (1Hz)
- * 仅更新 lv_label 文字，不触发排版重构。 */
+    /* 模拟数据跳动回调 (1Hz)
+     * 仅更新 lv_label 文字，不触发排版重构。 */
 static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
@@ -15,10 +16,20 @@ static void sim_tick_cb(lv_timer_t *t)
     /* 航向缓慢顺时针旋转 */
     g_sensor_data.heading = (g_sensor_data.heading + 1) % 360;
     /* 倍速模拟: 1 秒真实时间 = 10 秒潜水时间 */
-    g_sensor_data.dive_time_s += 10;
-    /* 深度: 每秒增加 0.2m，模拟下潜 */
+    g_sensor_data.dive_time_s += 1;
+    /* 水面休息计时也同步递增（W.TIME 左侧面板显示） */
+    g_sensor_data.surface_time_s += 1;
+    /* 深度: 每秒增加 0.5m，模拟下潜 */
     g_sensor_data.depth += 0.5f;
     if (g_sensor_data.depth > 50) g_sensor_data.depth = 50;
+
+    /* 追加历史轨迹点到曲线图 */
+    if (g_dive_log_count < MAX_DIVE_LOG) {
+        g_dive_log[g_dive_log_count++] = (arex_dive_pt_t){
+            (float)g_sensor_data.dive_time_s / 60.0f,
+            g_sensor_data.depth
+        };
+    }
 
     /* 刷新左侧面板 */
     arex_screen_refresh_left_panel();

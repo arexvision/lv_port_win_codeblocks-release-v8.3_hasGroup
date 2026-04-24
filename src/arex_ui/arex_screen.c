@@ -549,7 +549,10 @@ static void left_anchor_create(void)
                 s_lbl_gas_name = lbl_val;
                 break;
             case AREX_MODULE_TIME:
-                lv_label_set_text(lbl_val, "00:00");
+                snprintf(buf, sizeof(buf), "%02d:%02d",
+                         g_sensor_data.dive_time_s / 60,
+                         g_sensor_data.dive_time_s % 60);
+                lv_label_set_text(lbl_val, buf);
                 s_lbl_time = lbl_val;
                 break;
             default:
@@ -599,7 +602,7 @@ static void left_anchor_create(void)
             lv_obj_set_style_text_color(s_ppo2_vals[0], AREX_GREEN, 0);
             lv_obj_set_style_text_font(s_ppo2_vals[0], arex_get_font(AREX_FONT_ID_SMALL), 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[0], LV_OPA_TRANSP, 0);
-            lv_label_set_text(s_ppo2_vals[0], "1.2");
+            lv_label_set_text(s_ppo2_vals[0], "--");
             lv_obj_add_flag(s_ppo2_vals[0], LV_OBJ_FLAG_HIDDEN);
 
             s_ppo2_seps[0] = lv_label_create(s_left_anchor);
@@ -616,7 +619,7 @@ static void left_anchor_create(void)
             lv_obj_set_style_text_color(s_ppo2_vals[1], AREX_GREEN, 0);
             lv_obj_set_style_text_font(s_ppo2_vals[1], arex_get_font(AREX_FONT_ID_SMALL), 0);
             lv_obj_set_style_bg_opa(s_ppo2_vals[1], LV_OPA_TRANSP, 0);
-            lv_label_set_text(s_ppo2_vals[1], "1.2");
+            lv_label_set_text(s_ppo2_vals[1], "--");
             lv_obj_add_flag(s_ppo2_vals[1], LV_OBJ_FLAG_HIDDEN);
 
             s_ppo2_seps[1] = lv_label_create(s_left_anchor);
@@ -1095,11 +1098,10 @@ void arex_screen_refresh_left_panel(void)
     if (s_lbl_batt) lv_label_set_text(s_lbl_batt, buf);
 
     if (s_ppo2_vals[0]) {
+        /* PO2 1 和 PO2 2 暂时显示 "--" */
+        lv_label_set_text(s_ppo2_vals[0], "--");
+        lv_label_set_text(s_ppo2_vals[1], "--");
         char pbuf[8];
-        snprintf(pbuf, sizeof(pbuf), "%.1f", g_sensor_data.ppo2[0]);
-        lv_label_set_text(s_ppo2_vals[0], pbuf);
-        snprintf(pbuf, sizeof(pbuf), "%.1f", g_sensor_data.ppo2[1]);
-        lv_label_set_text(s_ppo2_vals[1], pbuf);
         snprintf(pbuf, sizeof(pbuf), "%.1f", g_sensor_data.ppo2[2]);
         lv_label_set_text(s_ppo2_vals[2], pbuf);
     }

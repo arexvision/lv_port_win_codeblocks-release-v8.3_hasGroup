@@ -330,6 +330,20 @@ extern arex_sys_config_t  g_sys_config;
 extern arex_sensor_data_t g_sensor_data;
 
 /* =========================================================
+ * 6b. 潜水轨迹与减压停留（供 card_plan.c 和 UI_main.c 共享）
+ * ========================================================= */
+typedef struct { float time_min; float depth_m; } arex_dive_pt_t;
+typedef struct { float depth_m; float stay_min; }  arex_deco_stop_t;
+
+#define MAX_DIVE_LOG   100
+#define MAX_DECO_STOPS 10
+
+extern arex_dive_pt_t   g_dive_log[MAX_DIVE_LOG];
+extern uint16_t         g_dive_log_count;
+extern arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
+extern uint16_t         g_deco_stop_count;
+
+/* =========================================================
  * 7. API 接口
  * ========================================================= */
 void arex_ui_init(void);

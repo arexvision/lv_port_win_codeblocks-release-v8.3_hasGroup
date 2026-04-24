@@ -1497,3 +1497,50 @@ arex_render_5f_custom_grid(tile, ...);            // 后画网格（row=0 的组
 
 网格组件 Z-Order 在标题之后创建，自然覆盖标题区下方的黑色区域，不会覆盖标题文字和分割线。
 
+---
+
+## 24. 左侧面板数据修复 (v2026-04-24)
+
+### 24.1 问题描述
+
+**问题 1：W.TIME 始终显示 `00:00`**
+- `AREX_MODULE_WTM` 的数值 label 读取 `g_sensor_data.surface_time_s`，但 `sim_tick_cb` 中从未递增此字段
+- 根因：`UI_main.c` 的 `sim_tick_cb` 只更新了 `dive_time_s`，漏掉了 `surface_time_s`
+
+**问题 2：TIME 标签创建时硬编码 `00:00`**
+- `AREX_MODULE_TIME` 的 label 在 `left_anchor_create()` 中创建时直接设置 `"00:00"`
+- 虽然 `arex_screen_refresh_left_panel()` 有正确的刷新逻辑，但初始值应为数据总线的当前值
+
+**问题 3：PO2 1 和 PO2 2 未显示 `"--"`**
+- 初始文本已在 `left_anchor_create()` 中改为 `"--"`，刷新函数中也改为固定 `"--"`
+- 需确认重编译后生效
+
+### 24.2 修复方案
+
+**修复 1：`UI_main.c` 的 `sim_tick_cb` 中增加 `surface_time_s` 递增**
+
+```c
+g_sensor_data.dive_time_s += 1;
+g_sensor_data.surface_time_s += 1;  // 新增：水面休息计时同步递增
+```
+
+**修复 2：`arex_screen.c` 的 `left_anchor_create()` 中 `AREX_MODULE_TIME` 改用数据总线**
+
+```c
+case AREX_MODULE_TIME:
+    snprintf(buf, sizeof(buf), "%02d:%02d",
+             g_sensor_data.dive_time_s / 60,
+             g_sensor_data.dive_time_s % 60);
+    lv_label_set_text(lbl_val, buf);
+    s_lbl_time = lbl_val;
+    break;
+```
+
+### 24.3 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-04-24 | `UI_main.c` | `sim_tick_cb` 增加 `g_sensor_data.surface_time_s += 1` |
+| 2026-04-24 | `arex_screen.c` | `AREX_MODULE_TIME` 创建时从硬编码 `"00:00"` 改为 `g_sensor_data.dive_time_s` |
+| 2026-04-24 | `AREX_ARCH.md` | 新增 Section 24 记录本次修复 |
+

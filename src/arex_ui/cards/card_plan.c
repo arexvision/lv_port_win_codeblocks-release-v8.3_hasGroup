@@ -7,6 +7,14 @@
 #include <math.h>
 
 /* ============================================================
+ * 潜水轨迹与减压停留（定义，共享给 UI_main.c 追加点）
+ * ============================================================ */
+arex_dive_pt_t   g_dive_log[MAX_DIVE_LOG];
+uint16_t         g_dive_log_count;
+arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
+uint16_t         g_deco_stop_count;
+
+/* ============================================================
    4F: DIVE PLAN TRACK — Zero-RAM Renderer
    100% 像素级复刻 HTML 原型逻辑：
      外壳：2px 实线 AREX_DARK，Padding 10px
@@ -26,30 +34,14 @@
 #define CHART_Y     50
 
 /* ============================================================
- * 数据总线（与 HTML diveLog / mockStops 完全对应）
+ * 数据总线（与 arex_ui_engine.h 共享）
  * ============================================================ */
-typedef struct { float time_min; float depth_m; } arex_dive_pt_t;
-typedef struct { float depth_m; float stay_min; } arex_deco_stop_t;
-
-#define MAX_DIVE_LOG   100
-#define MAX_DECO_STOPS 10
-
-arex_dive_pt_t   g_dive_log[MAX_DIVE_LOG];
-uint16_t         g_dive_log_count;
-
-arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
-uint16_t         g_deco_stop_count;
 
 /* 初始化模拟数据：刚下水不久，在 13m 处 */
 static void init_test_data(void)
 {
     /* g_sensor_data.dive_time_s 和 g_sensor_data.depth
-     * 由 UI_main.c 的 sim_tick_cb 实时模拟，此处仅初始化曲线数据 */
-
-    /* 过去的日志：只存了 2 个点，说明刚下水 */
-    g_dive_log_count = 2;
-    g_dive_log[0] = (arex_dive_pt_t){0.0f,  0.0f};
-    g_dive_log[1] = (arex_dive_pt_t){0.5f, 10.0f}; /* 0.5 分钟时在 10m */
+     * 由 UI_main.c 的 sim_tick_cb 实时模拟，此处仅初始化减压停留数据 */
 
     /* 算法预测的未来减压路线：需要在 3m 停留 3 分钟 */
     g_deco_stop_count = 1;
