@@ -703,7 +703,6 @@ static void right_panel_create(void)
 
         switch (card->engine_type) {
             case CARD_ENGINE_GRID:
-                arex_screen_make_card_title(tile, card->title);
                 arex_render_5f_custom_grid(tile, g_left_anchor_obj);
                 break;
             case CARD_ENGINE_MENU:

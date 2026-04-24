@@ -652,28 +652,45 @@ static lv_style_t s_banner_style_crit;
  *   abs_w  = span_w * cell_w - gap*2
  *   abs_h  = span_h * cell_h - gap*2
  * ========================================================= */
-#define WIDGET_GAP  2   /* 网格缝隙 px */
+#define WIDGET_GAP  0   /* 网格缝隙 px */
 
-void arex_calc_widget_grid(int16_t parent_x, int16_t parent_y,
-                            uint16_t parent_w, uint16_t parent_h,
-                            uint8_t row, uint8_t col,
-                            uint8_t span_w, uint8_t span_h,
-                            int16_t *out_x, int16_t *out_y,
-                            uint16_t *out_w, uint16_t *out_h)
+/* =========================================================
+ * 5F 网格坐标推算（锁定 80x60 基准 + 40px 标题避让）
+ *
+ * parent_w/parent_h: 父容器总尺寸（用于边界修正）
+ * row/col: 网格行列索引(0~5 / 0~4)
+ * span_w/span_h: 跨越的列数/行数
+ * out_*: 输出绝对坐标
+ *
+ * 排版矩阵严格锁定 80x60 基准（完美整数）：
+ *   cell_w = 80px  (400 / 5)
+ *   cell_h = 60px  ((400-40) / 6)
+ * Y 坐标增加 AREX_CARD_TITLE_H=40px 偏移，确保第一行落在标题区下方。
+ * 宽高减 4px (2px 缝隙 x2) 制造四周 2px 物理留白。
+ * ========================================================= */
+void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
+                           uint8_t row, uint8_t col,
+                           uint8_t span_w, uint8_t span_h,
+                           int16_t *out_x, int16_t *out_y,
+                           uint16_t *out_w, uint16_t *out_h)
 {
-    uint16_t cell_w = parent_w / AREX_WIDGET_COLS;   /* 5列 */
-    uint16_t cell_h = parent_h / AREX_WIDGET_ROWS;   /* 6行 */
+    /* 锁定 80x60 基准网格 */
+    uint16_t cell_w = 80;   /* 5列 → 400/5 = 80px */
+    uint16_t cell_h = 60;   /* 6行 → (400-40)/6 = 60px */
 
-    *out_x = (int16_t)(parent_x + col * cell_w + WIDGET_GAP);
-    *out_y = (int16_t)(parent_y + row * cell_h + WIDGET_GAP);
+    /* X: 列偏移 + 缝隙(2px) */
+    *out_x = (int16_t)(col * cell_w + WIDGET_GAP);
+    /* Y: 标题区下方 + 行偏移 + 缝隙(2px) */
+    *out_y = (int16_t)(AREX_CARD_TITLE_H + row * cell_h + WIDGET_GAP);
+    /* 宽高: 跨距×基准 - 4px 缝隙(四周各 2px) */
     *out_w = (uint16_t)(span_w * cell_w - WIDGET_GAP * 2);
     *out_h = (uint16_t)(span_h * cell_h - WIDGET_GAP * 2);
 
-    /* 边界修正 */
-    if (*out_x + *out_w > parent_x + (int16_t)parent_w)
-        *out_w = (uint16_t)(parent_x + (int16_t)parent_w - *out_x);
-    if (*out_y + *out_h > parent_y + (int16_t)parent_h)
-        *out_h = (uint16_t)(parent_y + (int16_t)parent_h - *out_y);
+    /* 边界修正（以容器总尺寸为边界） */
+    if (*out_x + *out_w > (int16_t)parent_w)
+        *out_w = (uint16_t)((int16_t)parent_w - *out_x);
+    if (*out_y + *out_h > (int16_t)parent_h)
+        *out_h = (uint16_t)((int16_t)parent_h - *out_y);
 }
 
 /* =========================================================
@@ -839,12 +856,9 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
 
     if (!card_custom) return;
 
-    /* 获取容器尺寸（扣标题区后为可用绘图区） */
+    /* 获取容器总尺寸（标题区偏移由 arex_calc_widget_grid 内部处理） */
     uint16_t parent_w = lv_obj_get_content_width(card_custom);
     uint16_t parent_h = lv_obj_get_content_height(card_custom);
-    int16_t  parent_x = lv_obj_get_x(card_custom);
-    int16_t  parent_y = lv_obj_get_y(card_custom);
-    (void)parent_x; (void)parent_y; /* arex_calc_widget_grid 已内嵌偏移 */
 
     /* 清除旧 widget 句柄表 */
     memset(s_widget_handles, 0, sizeof(s_widget_handles));
@@ -852,6 +866,24 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
 
     /* 清除容器中所有旧组件（rebuild 时） */
     lv_obj_clean(card_custom);
+
+    /* ---- 创建卡片标题（与 arex_screen_make_card_title 风格一致） ---- */
+    lv_obj_t *lbl = lv_label_create(card_custom);
+    lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
+    lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_pos(lbl, 16, 12);
+    lv_obj_set_size(lbl, parent_w - 32, 28);
+    lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
+    lv_label_set_text(lbl, "5F: CUSTOM WIDGETS");
+
+    lv_obj_t *line = lv_obj_create(card_custom);
+    lv_obj_set_size(line, parent_w - 32, 2);
+    lv_obj_set_pos(line, 16, 38);
+    lv_obj_set_style_bg_color(line, AREX_DARK, 0);
+    lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(line, 0, 0);
+    lv_obj_set_style_pad_all(line, 0, 0);
+    lv_obj_set_style_radius(line, 0, 0);
 
     /* 遍历所有组件 */
     uint8_t count = g_sys_config.widget_count;
@@ -869,10 +901,10 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
         if (span_w == 0) span_w = 1;
         if (span_h == 0) span_h = 1;
 
-        /* 纯数学绝对坐标映射 */
+        /* 纯数学绝对坐标映射（含标题区50px避让偏移） */
         int16_t abs_x, abs_y;
         uint16_t abs_w, abs_h;
-        arex_calc_widget_grid(parent_x, parent_y, parent_w, parent_h,
+        arex_calc_widget_grid(parent_w, parent_h,
                               r, c, span_w, span_h,
                               &abs_x, &abs_y, &abs_w, &abs_h);
 

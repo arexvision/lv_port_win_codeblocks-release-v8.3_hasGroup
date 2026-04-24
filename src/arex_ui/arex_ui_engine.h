@@ -15,6 +15,7 @@
 #define AREX_PHYSICAL_W    640  /* 硬件屏幕极限宽 */
 #define AREX_PHYSICAL_H    480  /* 硬件屏幕极限高 */
 #define AREX_LEFT_ANCHOR_W  160  /* 左侧锚点固定宽度 */
+#define AREX_CARD_TITLE_H   40  /* 5F 自定义网格顶部标题避让高度(6U)，仅用于网格 Y 轴偏移计算 */
 
 /* =========================================================
  * 颜色宏 (统一集中管理)
@@ -442,5 +443,12 @@ void arex_hide_alarm_banner(void);
 /* 外部告警状态容器（由 arex_screen.c 在创建锚点和卡片时注入） */
 extern lv_obj_t *g_left_anchor_obj;
 extern lv_obj_t *g_card_custom_obj;
+
+/* 5F 网格坐标推算：支持 title_zone_h 避让偏移，确保网格落在标题区下方 */
+void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
+                           uint8_t row, uint8_t col,
+                           uint8_t span_w, uint8_t span_h,
+                           int16_t *out_x, int16_t *out_y,
+                           uint16_t *out_w, uint16_t *out_h);
 
 #endif /* AREX_UI_ENGINE_H */

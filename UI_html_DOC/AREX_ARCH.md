@@ -1,4 +1,4 @@
-﻿# AREX Pro Dive Computer UI 鈥?鏋舵瀯瑙ｈ鏂囨。
+# AREX Pro Dive Computer UI 鈥?鏋舵瀯瑙ｈ鏂囨。
 
 > 鍩轰簬 `UI_html/arex_ui_test_0.10.html` 鍘熷瀷锛岀Щ妞嶅埌 LVGL v8.3 (Windows/CodeBlocks)  
 > 鍏ュ彛锛歚UI_main()` in `src/arex_ui/UI_main.c`
@@ -1285,16 +1285,31 @@ APP 下发示例：
 | 11 | POD2 | `g_sensor_data.pod2_bar` |
 | 12 | W.TIME | `g_sensor_data.dive_time_s` |
 
-### 21.4 纯数学绝对坐标映射
+### 21.4 纯数学绝对坐标映射（含 40px 标题避让 + 锁定 80x60 基准）
+
+> **重要**：`AREX_CARD_TITLE_H = 40px`（4U），即常规卡片绿色大标题+分割线的占用高度。60px 的区域是**告警横幅悬浮覆盖层**，不属于常规标题。
 
 ```
-cell_w = parent_w / 5
-cell_h = parent_h / 6
-abs_x  = col * cell_w + WIDGET_GAP    (WIDGET_GAP = 2px 网格缝隙)
-abs_y  = row * cell_h + WIDGET_GAP
-abs_w  = span_w * cell_w - WIDGET_GAP * 2
-abs_h  = span_h * cell_h - WIDGET_GAP * 2
+排版矩阵严格锁定 80x60 基准（完美整数）：
+  cell_w = 80px  (tile_w=400 / 5列)
+  cell_h = 60px  ((tile_h=400 - AREX_CARD_TITLE_H=40) / 6行)
+
+abs_x  = col * 80 + WIDGET_GAP              (WIDGET_GAP=2px 缝隙)
+abs_y  = AREX_CARD_TITLE_H + row * 60 + WIDGET_GAP
+abs_w  = span_w * 80 - WIDGET_GAP * 2       (减4px制造四周2px物理留白)
+abs_h  = span_h * 60 - WIDGET_GAP * 2
 ```
+
+**物理尺寸对照**：
+
+| 跨度 | 逻辑尺寸 | 物理尺寸(含留白) |
+|------|----------|-----------------|
+| 1x1  | 80x60    | 76x56           |
+| 2x1  | 160x60   | 156x56          |
+| 1x2  | 80x120   | 76x116          |
+| 2x2  | 160x120  | 156x116         |
+
+> **关键**：row=0 时 abs_y = 40 + 0 + 2 = **42px**，确保第一排组件落在标题区（~40px）下方的黑色内容区内。
 
 ### 21.5 字号自适应引擎
 
@@ -1322,7 +1337,7 @@ abs_h  = span_h * cell_h - WIDGET_GAP * 2
 | `arex_trigger_alarm()` | 靶向告警触发 |
 | `arex_clear_all_alarm_styles()` | 清除所有告警样式 |
 | `arex_get_widget_name()` | 按 ID 获取显示名称 |
-| `arex_calc_widget_grid()` | 网格→绝对坐标数学推算 |
+| `arex_calc_widget_grid()` | 网格→绝对坐标（含TITLE_ZONE_H=40px避让偏移，锁定80x60基准） |
 | `arex_show_alarm_banner()` | 纯英文告警横幅 |
 
 ---
@@ -1397,7 +1412,7 @@ right_panel_create()
 | `CARD_ID_PLAN` | `CARD_ENGINE_CUSTOM` | `card_plan_create()` canvas 潜水剖面图 |
 | `CARD_ID_SETUP` | `CARD_ENGINE_MENU` | `card_setup_create()` 完整创建，含 list 注册 |
 
-> `CARD_ENGINE_GRID`（`arex_render_5f_custom_grid()`）目前无卡片使用，预留给未来 5F 网格卡片。
+> `CARD_ENGINE_GRID`（`arex_render_5f_custom_grid()`）目前由 5F 自定义卡片使用，详见 Section 23。
 
 ### 22.6 新增卡片步骤
 
@@ -1405,4 +1420,80 @@ right_panel_create()
 2. 在 `g_cards[]` 中添加一条 `arex_card_t` 条目
 3. 实现 `card_xxx_create()` / `card_xxx_update()`
 4. 无需修改 `arex_screen.c`
+
+---
+
+## 23. 5F 标题区保护与坐标避让修复 (v2026-04-24)
+
+### 23.1 问题描述
+
+**现象**：`CARD_ENGINE_GRID` 卡片渲染时，网格组件（DEPTH、TEMP 等）直接顶到 Y=0，顶部绿色标题文字和分割线完全被黑色网格背景覆盖。
+
+**根因**：`arex_calc_widget_grid()` 中 `out_y = parent_y + row * cell_h + WIDGET_GAP`，当 row=0 时 out_y=2。而 `arex_screen_make_card_title()` 渲染的标题 label 在 y=12、标题线在 y=38，整个黑色网格组件（黑色背景）完全覆盖了绿色标题。
+
+### 23.2 修复方案
+
+**增加标题区常量**：
+
+```c
+// arex_ui_engine.h
+#define AREX_CARD_TITLE_H   40  /* 卡片顶部标题区高度(4U)，包含绿色标题文字+分割线 */
+```
+
+> **注意**：视觉规范中 60px 的区域是**告警横幅悬浮覆盖层**，不属于常规卡片标题。常规卡片绿色大标题+分割线严格占用 **40px**。
+
+**重构 `arex_calc_widget_grid()` 签名与逻辑**：
+
+- 移除 `parent_x/parent_y` 参数（不再需要）
+- 锁定 80x60 基准网格：`cell_w=80px (400/5)`, `cell_h=60px ((400-40)/6)`
+- Y 坐标增加 `AREX_CARD_TITLE_H=40` 偏移量：`out_y = AREX_CARD_TITLE_H + row * 60 + WIDGET_GAP`
+- row=0 时 out_y = 40 + 0 + 2 = **42px**，恰好落在标题区下方
+
+**数学验证**（tile 高 400px）：
+
+```
+cell_w = 400 / 5 = 80px
+cell_h = (400 - 40) / 6 = 60px
+row=0:  out_y = 40 + 0*60 + 2 = 42  ← 超过标题线(y=38)，落入黑色区域 ✓
+row=5:  out_y = 40 + 5*60 + 2 = 342, out_h = 60-4 = 56, 底线 = 342+56 = 398 < 400 ✓
+```
+
+### 23.3 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-04-24 | `arex_ui_engine.h` | 新增 `AREX_CARD_TITLE_H` 常量(40px)；新增 `arex_calc_widget_grid()` 公开声明 |
+| 2026-04-24 | `arex_ui_engine.c` | 重构 `arex_calc_widget_grid()`：移除 parent_x/y，锁定 80x60 基准，增加40px标题避让偏移 |
+| 2026-04-24 | `AREX_ARCH.md` | 新增 Section 23 记录本次修复 |
+
+### 23.4 API 签名变更
+
+**旧签名**（已废弃）：
+```c
+void arex_calc_widget_grid(int16_t parent_x, int16_t parent_y,
+                            uint16_t parent_w, uint16_t parent_h,
+                            uint8_t row, uint8_t col,
+                            uint8_t span_w, uint8_t span_h,
+                            int16_t *out_x, int16_t *out_y,
+                            uint16_t *out_w, uint16_t *out_h);
+```
+
+**新签名**（当前）：
+```c
+void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
+                           uint8_t row, uint8_t col,
+                           uint8_t span_w, uint8_t span_h,
+                           int16_t *out_x, int16_t *out_y,
+                           uint16_t *out_w, uint16_t *out_h);
+```
+
+### 23.5 渲染层级保证
+
+路由中 `CARD_ENGINE_GRID` 分支的调用顺序：
+```c
+arex_screen_make_card_title(tile, card->title);  // 先画标题（label y=12, 线 y=38）
+arex_render_5f_custom_grid(tile, ...);            // 后画网格（row=0 的组件从 y=52 开始）
+```
+
+网格组件 Z-Order 在标题之后创建，自然覆盖标题区下方的黑色区域，不会覆盖标题文字和分割线。
 
