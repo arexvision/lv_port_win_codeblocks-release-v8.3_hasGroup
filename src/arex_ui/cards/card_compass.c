@@ -123,8 +123,8 @@ void card_compass_create(lv_obj_t *parent)
 
     s_canvas = lv_canvas_create(parent);
     lv_canvas_set_buffer(s_canvas, s_cbuf, s_comp_w, COMP_H, LV_IMG_CF_TRUE_COLOR);
-    /* 规范：canvas y=50（标题下方），高 140px */
-    lv_obj_set_pos(s_canvas, 0, 50);
+    /* 规范：canvas y=AREX_CARD_TITLE_H（标题下方），高 140px */
+    lv_obj_set_pos(s_canvas, 0, AREX_CARD_TITLE_H);
 
     draw_tape((lv_coord_t)g_sensor_data.heading);
     s_last_style = g_sys_config.compass_style;

@@ -989,20 +989,20 @@ static void submenu_layer_create(void)
     s_submenu_title = lv_label_create(s_submenu_layer);
     lv_obj_set_style_text_color(s_submenu_title, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(s_submenu_title, arex_get_font(AREX_FONT_ID_TITLE), 0);
-    lv_obj_set_pos(s_submenu_title, 16, 12);
+    lv_obj_set_pos(s_submenu_title, 16, 8);
     lv_label_set_text(s_submenu_title, "> SUB MENU");
 
     lv_obj_t *title_line = lv_obj_create(s_submenu_layer);
     lv_obj_set_size(title_line, sub_w - 32, 2);
-    lv_obj_set_pos(title_line, 16, 38);
+    lv_obj_set_pos(title_line, 16, AREX_CARD_TITLE_H - 2);
     lv_obj_set_style_bg_color(title_line, AREX_DARK, 0);
     lv_obj_set_style_bg_opa(title_line, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(title_line, 0, 0);
     lv_obj_set_style_pad_all(title_line, 0, 0);
 
     s_submenu_list = lv_obj_create(s_submenu_layer);
-    lv_obj_set_size(s_submenu_list, sub_w - 15, g_sys_config.safe_zone_h - 50);
-    lv_obj_set_pos(s_submenu_list, 0, 50);
+    lv_obj_set_size(s_submenu_list, sub_w - 15, g_sys_config.safe_zone_h - AREX_CARD_TITLE_H - 10);
+    lv_obj_set_pos(s_submenu_list, 0, AREX_CARD_TITLE_H);
     lv_obj_set_style_bg_opa(s_submenu_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_submenu_list, 0, 0);
     lv_obj_set_style_pad_all(s_submenu_list, 0, 0);
@@ -1928,14 +1928,14 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
     lv_obj_t *lbl = lv_label_create(parent);
     lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
-    lv_obj_set_pos(lbl, 16, 12);
-    lv_obj_set_size(lbl, right_w - 32, 28);
+    lv_obj_set_pos(lbl, 16, 8);
+    lv_obj_set_size(lbl, right_w - 32, AREX_CARD_TITLE_H - 10);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
     lv_label_set_text(lbl, text);
 
     lv_obj_t *line = lv_obj_create(parent);
     lv_obj_set_size(line, right_w - 32, 2);
-    lv_obj_set_pos(line, 16, 38);
+    lv_obj_set_pos(line, 16, AREX_CARD_TITLE_H - 2);
     lv_obj_set_style_bg_color(line, AREX_DARK, 0);
     lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(line, 0, 0);

@@ -46,7 +46,7 @@ void card_setup_create(lv_obj_t *parent)
 
     s_list = lv_obj_create(parent);
     lv_obj_set_size(s_list, right_canvas_w, list_h);
-    lv_obj_set_pos(s_list, 0, 50);
+    lv_obj_set_pos(s_list, 0, AREX_CARD_TITLE_H);
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_pad_all(s_list, 0, 0);

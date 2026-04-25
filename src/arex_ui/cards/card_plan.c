@@ -11,7 +11,7 @@
 #define CHART_W     400
 #define CHART_H     320
 #define CHART_X     16
-#define CHART_Y     50
+#define CHART_Y     AREX_CARD_TITLE_H  /* 标题区高度 = 40px */
 
 /* ============================================================
  * 潜水轨迹与减压停留（定义，共享给 arex_dive_log_append 追加点）
@@ -195,7 +195,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
         lv_draw_line(draw_ctx, &line_dsc, &pts[0], &pts[1]);
 
         char buf[8];
-        snprintf(buf, sizeof(buf), "%dm", d);
+        snprintf(buf, sizeof(buf), "%d", d);
         txt_dsc.opa = 191;
         lv_area_t t_area = {area->x1, y - 10, area->x1 + (lv_coord_t)pad_x - 5, y + 10};
         lv_draw_label(draw_ctx, &txt_dsc, &t_area, buf, NULL);
@@ -215,15 +215,32 @@ static void plan_chart_draw_cb(lv_event_t *e)
         char buf[16];
         if (max_t_axis_sec >= 120.0f) {
             if (t % 60 == 0)
-                snprintf(buf, sizeof(buf), "%dmin", t / 60);
+                snprintf(buf, sizeof(buf), "%d", t / 60);
             else
-                snprintf(buf, sizeof(buf), "%.1fmin", (float)t / 60.0f);
+                snprintf(buf, sizeof(buf), "%.1f", (float)t / 60.0f);
         } else {
-            snprintf(buf, sizeof(buf), "%ds", t);
+            snprintf(buf, sizeof(buf), "%d", t);
         }
         lv_area_t t_area = {x - 20, area->y2 - 18, x + 20, area->y2};
         lv_draw_label(draw_ctx, &txt_dsc, &t_area, buf, NULL);
     }
+
+    /* ==========================================
+     * 绘制左下角坐标系单位 (m/min)
+     * ========================================== */
+    lv_draw_label_dsc_t unit_dsc;
+    lv_draw_label_dsc_init(&unit_dsc);
+    unit_dsc.font = arex_get_font(AREX_FONT_ID_SMALL);
+    unit_dsc.color = AREX_LIGHT;
+    unit_dsc.opa = 191;
+
+    lv_area_t unit_area = {
+        area->x1 + 2,
+        area->y2 - 14,
+        area->x1 + 60,
+        area->y2 + 10
+    };
+    lv_draw_label(draw_ctx, &unit_dsc, &unit_area, "m/min", NULL);
 
     /* ==========================================
      * 绘制历史真实轨迹（实线）
