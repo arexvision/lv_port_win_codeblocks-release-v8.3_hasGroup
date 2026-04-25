@@ -601,6 +601,7 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
         int gap_y = (int)g_sys_config.gap_menu * AREX_BASE_U;
 
         lv_obj_t *item = lv_obj_create(parent_card);
+        lv_obj_remove_style_all(item);
         lv_obj_set_pos(item, 0, current_y);
         lv_obj_set_size(item, item_w, item_h);
         lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
@@ -643,6 +644,42 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
 }
 
 /* =========================================================
+ * 通用卡片标题渲染器
+ * 标题文字(Y=5)与分割线(Y=28)为视觉组合，绝对焊死在卡片顶部，不随 AREX_CARD_TITLE_H 变化。
+ * AREX_CARD_TITLE_H 仅作为下方"内容区(菜单/图表)的起始 Y 坐标偏移"。
+ *
+ * parent_card: 父容器（tile 对象）
+ * title_text:  标题文字
+ *
+ * 标题布局（焊死，绝对不跟随 AREX_CARD_TITLE_H）：
+ *   文字:   Y=5,  焊死高度防截断，AREX_LIGHT 色
+ *   分割线: Y=28, h=2px, AREX_DARK 色
+ * ========================================================= */
+void arex_render_card_title(lv_obj_t *parent_card, const char *title_text)
+{
+    uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                     - ((int)g_sys_config.gap_u * AREX_BASE_U);
+
+    /* 1. 标题文字：扒光默认样式 + 强制小字号/次级颜色 */
+    lv_obj_t *lbl = lv_label_create(parent_card);
+    lv_obj_remove_style_all(lbl);
+    lv_obj_set_pos(lbl, 16, 5);
+    lv_obj_set_size(lbl, right_w - 32, AREX_CARD_TITLE_H - 10);
+    lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
+    lv_label_set_text(lbl, title_text);
+    lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
+
+    /* 2. 分割线：绝对固定在文字下方（焊死 Y=28，绝不跟随 AREX_CARD_TITLE_H） */
+    lv_obj_t *line = lv_obj_create(parent_card);
+    lv_obj_remove_style_all(line);
+    lv_obj_set_size(line, right_w - 32, 2);
+    lv_obj_set_pos(line, 16, 28);
+    lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(line, AREX_DARK, 0);
+}
+
+/* =========================================================
  * 5F 自定义网格组件外部容器（由 arex_screen.c 注入）
  * ========================================================= */
 lv_obj_t *g_left_anchor_obj = NULL;
@@ -673,18 +710,19 @@ static lv_style_t s_banner_style_crit;
 #define WIDGET_GAP  0   /* 网格缝隙 px */
 
 /* =========================================================
- * 5F 网格坐标推算（锁定 80x60 基准 + 40px 标题避让）
+ * 5F 网格坐标推算（锁定 5 列 + 标题避让，动态 cell_h 自适应）
  *
- * parent_w/parent_h: 父容器总尺寸（用于边界修正）
+ * parent_w/parent_h: 父容器总尺寸（用于动态推算）
  * row/col: 网格行列索引(0~5 / 0~4)
  * span_w/span_h: 跨越的列数/行数
  * out_*: 输出绝对坐标
  *
- * 排版矩阵严格锁定 80x60 基准（完美整数）：
- *   cell_w = 80px  (400 / 5)
- *   cell_h = 60px  ((400-40) / 6)
+ * 排版矩阵严格锁定 5 列：
+ *   cell_w = parent_w / 5
+ *   cell_h = (parent_h - AREX_CARD_TITLE_H) / 6
  * Y 坐标增加 AREX_CARD_TITLE_H=40px 偏移，确保第一行落在标题区下方。
  * 宽高减 4px (2px 缝隙 x2) 制造四周 2px 物理留白。
+ * 如果标题高度改为其他值，cell_h 会自动重新计算，内容区完美自适应。
  * ========================================================= */
 void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
                            uint8_t row, uint8_t col,
@@ -692,9 +730,11 @@ void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
                            int16_t *out_x, int16_t *out_y,
                            uint16_t *out_w, uint16_t *out_h)
 {
-    /* 锁定 80x60 基准网格 */
-    uint16_t cell_w = 80;   /* 5列 → 400/5 = 80px */
-    uint16_t cell_h = 60;   /* 6行 → (400-40)/6 = 60px */
+    /* 锁定 5 列基准，动态计算 cell_h */
+    uint16_t cell_w = parent_w / 5;
+    uint16_t cell_h = (parent_h > AREX_CARD_TITLE_H)
+                      ? ((parent_h - AREX_CARD_TITLE_H) / AREX_WIDGET_ROWS)
+                      : 60;  /* 保底 fallback */
 
     /* X: 列偏移 + 缝隙(2px) */
     *out_x = (int16_t)(col * cell_w + WIDGET_GAP);
@@ -885,23 +925,8 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
     /* 清除容器中所有旧组件（rebuild 时） */
     lv_obj_clean(card_custom);
 
-    /* ---- 创建卡片标题（与 arex_screen_make_card_title 风格一致） ---- */
-    lv_obj_t *lbl = lv_label_create(card_custom);
-    lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
-    lv_obj_set_pos(lbl, 16, 8);
-    lv_obj_set_size(lbl, parent_w - 32, AREX_CARD_TITLE_H - 10);
-    lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
-    lv_label_set_text(lbl, "5F: CUSTOM WIDGETS");
-
-    lv_obj_t *line = lv_obj_create(card_custom);
-    lv_obj_set_size(line, parent_w - 32, 2);
-    lv_obj_set_pos(line, 16, AREX_CARD_TITLE_H - 2);
-    lv_obj_set_style_bg_color(line, AREX_DARK, 0);
-    lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(line, 0, 0);
-    lv_obj_set_style_pad_all(line, 0, 0);
-    lv_obj_set_style_radius(line, 0, 0);
+    /* ---- 创建卡片标题（使用通用引擎函数） ---- */
+    arex_render_card_title(card_custom, "5F: CUSTOM WIDGETS");
 
     /* 遍历所有组件 */
     uint8_t count = g_sys_config.widget_count;

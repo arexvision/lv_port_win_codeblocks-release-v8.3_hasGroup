@@ -6,7 +6,10 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#define SEC_TITLE_GAP        6
+/* deco 内容区 Y 起点 = 标题区下方（相对偏移，不依赖魔法数字） */
+#define DECO_CONTENT_Y  (AREX_CARD_TITLE_H + 20)   /* 首行标题距标题区底部 20px */
+#define DECO_ROW2_Y     (AREX_CARD_TITLE_H + 67)   /* 第2行 */
+#define DECO_ROW3_Y     (AREX_CARD_TITLE_H + 114)  /* 第3行 */
 #define GRID_X              16
 
 /* HTML: .t-fill.high for ~75–85%; .t-fill.danger (flashInvert) for top compartment ~95% */
@@ -125,6 +128,7 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 
     if (dashed_bottom) {
         lv_obj_t *line = lv_obj_create(parent);
+        lv_obj_remove_style_all(line);
         lv_obj_set_size(line, tissue_area_w, 1);
         lv_obj_set_pos(line, GRID_X, y + 40);
         lv_obj_set_style_bg_color(line, AREX_DARK, 0);
@@ -147,26 +151,25 @@ void card_deco_create(lv_obj_t *parent)
     int col_w   = chart_w / 16;
     int bar_w   = col_w - 4;
     if (bar_w < 4) bar_w = 4;
-    /* ================================================================
-     * 强制锁死 Y 坐标与最大高度
-     * ================================================================ */
-    int text_h   = 16;
-    int bars_y    = 220;
-    int bar_max_h = 144;
+    /* 16 根柱子：动态定位，内容区自适应剩余空间 */
+    int bars_y = DECO_ROW3_Y + 40;  /* 第3行下方 40px 开始 */
+    int bar_max_h = (int)g_sys_config.safe_zone_h - bars_y - 30;  /* 剩余空间 */
+    if (bar_max_h < 60) bar_max_h = 60;
+    int text_h = 16;  /* 底部编号标签高度 */
 
-    arex_screen_make_card_title(parent, "2F: TISSUES & DECO");
+    arex_render_card_title(parent, "2F: TISSUES & DECO");
 
-    make_grid_row(parent, 60,
+    make_grid_row(parent, DECO_CONTENT_Y,
                   "ALGORITHM", "ZHL-16C", NULL,
                   "GF LOW / HIGH", "30 / 70", NULL,
                   true, chart_w);
 
-    make_grid_row(parent, 107,
+    make_grid_row(parent, DECO_ROW2_Y,
                   "GF99", "--", &s_lbl_gf99,
                   "SurfGF", "--", &s_lbl_surf_gf,
                   true, chart_w);
 
-    make_grid_row(parent, 154,
+    make_grid_row(parent, DECO_ROW3_Y,
                   "CNS O2", "--%", &s_lbl_cns,
                   "OTU", "--", &s_lbl_otu,
                   false, chart_w);
@@ -175,7 +178,7 @@ void card_deco_create(lv_obj_t *parent)
     lv_obj_set_style_text_color(sec_lbl, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(sec_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_label_set_text(sec_lbl, "TISSUE SATURATION (16 COMPARTMENTS)");
-    lv_obj_set_pos(sec_lbl, GRID_X, bars_y - 20);
+    lv_obj_set_pos(sec_lbl, GRID_X, DECO_ROW3_Y + 26);
 
     /* ================================================================
      * 16 根柱子：严格绝对定位，使用除法均分
@@ -219,6 +222,7 @@ void card_deco_create(lv_obj_t *parent)
     int mline_y = bars_y + (int)(bar_max_h * 0.3f);
 
     lv_obj_t *mline = lv_obj_create(parent);
+    lv_obj_remove_style_all(mline);
     lv_obj_set_size(mline, chart_w - 40, 2);
     lv_obj_set_pos(mline, GRID_X, mline_y);
     lv_obj_set_style_bg_color(mline, AREX_GREEN, 0);

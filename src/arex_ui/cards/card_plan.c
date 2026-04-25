@@ -6,12 +6,12 @@
 #include <stdio.h>
 #include <math.h>
 
-/* 图表布局常量（外壳 + 画布定位） */
+/* 图表布局常量（完全动态化，以标题区为绝对 Y=0 起点）
+ * 宽高由 tile 尺寸动态推算，绝不使用魔法数字。
+ * 图表 Y 起点 = AREX_CARD_TITLE_H（标题下方）
+ * 图表高度 = tile_h - AREX_CARD_TITLE_H - 底部预留
+ * 图表宽度 = tile_w - 左右 padding */
 #define CHART_PAD   10
-#define CHART_W     400
-#define CHART_H     320
-#define CHART_X     16
-#define CHART_Y     AREX_CARD_TITLE_H  /* 标题区高度 = 40px */
 
 /* ============================================================
  * 潜水轨迹与减压停留（定义，共享给 arex_dive_log_append 追加点）
@@ -110,13 +110,13 @@ static void plan_chart_draw_cb(lv_event_t *e)
         return;
     }
 
-    /* 1. 同步 HTML 边距参数 */
+    /* 1. 同步 HTML 边距参数（基于实际画布尺寸动态计算） */
     float pad_x      = 45.0f;
     float pad_y_top  = 15.0f;
     float pad_y_bot  = 25.0f;
     float pad_right  = 15.0f;
-    float chart_w    = 400.0f;
-    float chart_h    = 320.0f;
+    float chart_w    = (float)(area->x2 - area->x1);
+    float chart_h    = (float)(area->y2 - area->y1);
     float w          = chart_w - pad_x - pad_right;
     float h          = chart_h - pad_y_top - pad_y_bot;
 
@@ -362,14 +362,23 @@ static lv_obj_t *s_chart_obj;
 
 void card_plan_create(lv_obj_t *parent)
 {
-    arex_screen_make_card_title(parent, "4F: DIVE PLAN TRACK");
+    arex_render_card_title(parent, "4F: DIVE PLAN TRACK");
 
     init_test_data();
 
-    /* 外壳边框 — 规范：2px 实线 AREX_DARK */
+    /* 动态推算图表尺寸：以标题区下方为 Y=0 起点 */
+    int right_w = (int)g_sys_config.safe_zone_w - (int)AREX_LEFT_ANCHOR_W
+                - (int)(g_sys_config.gap_u * AREX_BASE_U);
+    int tile_h  = (int)g_sys_config.safe_zone_h;
+    int chart_x = CHART_PAD;
+    int chart_y = AREX_CARD_TITLE_H;
+    int chart_w = right_w - CHART_PAD * 2;
+    int chart_h = tile_h - AREX_CARD_TITLE_H - CHART_PAD;  /* 剩余空间自适应 */
+    if (chart_h < 60) chart_h = 60;
     lv_obj_t *shell = lv_obj_create(parent);
-    lv_obj_set_size(shell, CHART_W + CHART_PAD * 2, CHART_H + CHART_PAD * 2);
-    lv_obj_set_pos(shell, CHART_X - CHART_PAD, CHART_Y - CHART_PAD);
+    lv_obj_remove_style_all(shell);
+    lv_obj_set_size(shell, chart_w + CHART_PAD * 2, chart_h + CHART_PAD * 2);
+    lv_obj_set_pos(shell, chart_x - CHART_PAD, chart_y - CHART_PAD);
     lv_obj_set_style_bg_color(shell, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(shell, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(shell, AREX_DARK, 0);
@@ -380,8 +389,8 @@ void card_plan_create(lv_obj_t *parent)
     /* 零 RAM 画板对象 */
     s_chart_obj = lv_obj_create(parent);
     lv_obj_remove_style_all(s_chart_obj);
-    lv_obj_set_size(s_chart_obj, CHART_W, CHART_H);
-    lv_obj_set_pos(s_chart_obj, CHART_X, CHART_Y);
+    lv_obj_set_size(s_chart_obj, chart_w, chart_h);
+    lv_obj_set_pos(s_chart_obj, chart_x, chart_y);
     lv_obj_add_event_cb(s_chart_obj, plan_chart_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
 }
 

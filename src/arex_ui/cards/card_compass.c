@@ -115,7 +115,7 @@ static lv_color_t s_cbuf[640 * COMP_H];
 
 void card_compass_create(lv_obj_t *parent)
 {
-    arex_screen_make_card_title(parent, "1F: NAV COMPASS");
+    arex_render_card_title(parent, "1F: NAV COMPASS");
 
     /* 动态计算 COMP_W = safe_zone_w - LEFT_ANCHOR - gap */
     s_comp_w = (int)g_sys_config.safe_zone_w - (int)AREX_LEFT_ANCHOR_W

@@ -18,7 +18,7 @@ void card_gas_update(void); /* forward declaration */
 
 void card_gas_create(lv_obj_t *parent)
 {
-    arex_screen_make_card_title(parent, "3F: GAS SWITCH");
+    arex_render_card_title(parent, "3F: GAS SWITCH");
 
     int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
                        - ((int)g_sys_config.gap_u * AREX_BASE_U);
@@ -26,9 +26,11 @@ void card_gas_create(lv_obj_t *parent)
     int gap_y = (int)g_sys_config.gap_menu * AREX_BASE_U;  /* 从配置推算 */
 
     for (int i = 0; i < AREX_GAS_COUNT; i++) {
-        lv_coord_t row_y = 50 + i * (GAS_ROW_H + gap_y);
+        /* 气体行：Y 起点紧贴标题区下方，内容区自适应 */
+        lv_coord_t row_y = AREX_CARD_TITLE_H + i * (GAS_ROW_H + gap_y);
 
         lv_obj_t *row = lv_obj_create(parent);
+        lv_obj_remove_style_all(row);
         lv_obj_set_size(row, row_w, GAS_ROW_H);
         lv_obj_set_pos(row, 0, row_y);
         lv_obj_set_style_bg_color(row, lv_color_make(0,0,0), 0);

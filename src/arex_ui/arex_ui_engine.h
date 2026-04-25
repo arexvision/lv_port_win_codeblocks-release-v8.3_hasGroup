@@ -16,7 +16,7 @@
 #define AREX_PHYSICAL_H    480  /* 硬件屏幕极限高 */
 #define AREX_LEFT_ANCHOR_W  160  /* 左侧锚点固定宽度 */
 /* 右侧卡片全局标题区高度分配（统一控制标题文字+分割线占用高度） */
-#define AREX_CARD_TITLE_H  40  /* 右侧卡片标题区高度：文字(8px) + 分割线(2px) + 留白(30px) = 40px */
+#define AREX_CARD_TITLE_H  42  /* 右侧卡片标题区高度：文字(8px) + 分割线(2px) + 留白(30px) = 40px */
 
 /* =========================================================
  * 颜色宏 (统一集中管理)
@@ -417,6 +417,10 @@ void arex_calc_tissue_bars(uint16_t total_w, uint16_t bar_max_h,
 /* LVGL 辅助 */
 lv_text_align_t arex_align_to_lv(uint8_t align);
 lv_align_t arex_align_to_lv_align(uint8_t align);
+
+/* 通用卡片标题渲染器：标题区固定 AREX_CARD_TITLE_H(40px)，
+ * 文字 Y=5，分割线 Y=AREX_CARD_TITLE_H-2。下方内容区以 AREX_CARD_TITLE_H 为 Y=0 起点。 */
+void arex_render_card_title(lv_obj_t *parent_card, const char *title_text);
 
 /* 字体映射器：唯一允许将字体 ID 转换为真实 lvgl 字体指针的地方 */
 const lv_font_t *arex_get_font(uint8_t font_id);

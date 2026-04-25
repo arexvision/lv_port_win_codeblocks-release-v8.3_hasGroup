@@ -32,7 +32,7 @@ static lv_obj_t *s_list;
 
 void card_info_create(lv_obj_t *parent)
 {
-    arex_screen_make_card_title(parent, "> INFO MENU");
+    arex_render_card_title(parent, "> INFO MENU");
 
     int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
                        - ((int)g_sys_config.gap_u * AREX_BASE_U);
@@ -44,6 +44,7 @@ void card_info_create(lv_obj_t *parent)
                     + (INFO_ITEM_COUNT - 1) * gap_y_px;
 
     s_list = lv_obj_create(parent);
+    lv_obj_remove_style_all(s_list);
     lv_obj_set_size(s_list, right_canvas_w, list_h);
     lv_obj_set_pos(s_list, 0, AREX_CARD_TITLE_H);
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, 0);

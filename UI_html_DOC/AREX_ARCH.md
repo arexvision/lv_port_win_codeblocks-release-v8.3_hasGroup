@@ -1857,3 +1857,130 @@ lv_draw_label(draw_ctx, &unit_dsc, &unit_area, "m/min", NULL);
 | 2026-04-25 | `card_deco.c` | 使用相对偏移（y+16/y+40），无需修改 |
 | 2026-04-25 | `card_gas.c` | 使用相对偏移，无需修改 |
 | 2026-04-25 | `AREX_ARCH.md` | 新增 Section 27 |
+
+---
+
+## 28. 4U 标题高度规范与全组件自适应降维 (v2026-04-26)
+
+### 28.1 核心设计原则
+
+**"彻底分离 + 高度自适应"**：
+- 右侧卡片区域的标题高度固定为 **4U (40px)**，由 `AREX_CARD_TITLE_H` 宏统一定义
+- 标题区域作为一个独立的盒子，它占用 40px，下方内容区自动捡剩余空间
+- 所有组件（菜单、网格、图表）的 Y=0 起点统一为 `AREX_CARD_TITLE_H`
+- 绝不允许任何硬编码的魔法数字 Y 坐标
+
+### 28.2 标题区宏定义
+
+```c
+// arex_ui_engine.h
+#define AREX_CARD_TITLE_H  40   /* 4U 标题高度：文字(5px) + 分割线(2px) + 留白(33px) = 40px */
+```
+
+**内部布局**：
+```
+标题区 (0 ~ 40px):
+  Y=5:      绿色标题文字
+  Y=38:     2px 分割线 (AREX_DARK 色)
+内容区 (40px ~ 400px):
+  Y=40:     内容区 Y=0 起点（各组件自适应）
+```
+
+### 28.3 通用卡片标题渲染器
+
+```c
+// arex_ui_engine.h 声明
+void arex_render_card_title(lv_obj_t *parent_card, const char *title_text);
+
+// arex_ui_engine.c 实现
+void arex_render_card_title(lv_obj_t *parent_card, const char *title_text)
+{
+    uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+                     - ((int)g_sys_config.gap_u * AREX_BASE_U);
+
+    // 标题文字: Y=5, h=30, AREX_LIGHT 色
+    lv_obj_t *lbl = lv_label_create(parent_card);
+    lv_obj_set_pos(lbl, 16, 5);
+    lv_obj_set_size(lbl, right_w - 32, AREX_CARD_TITLE_H - 10);
+    lv_label_set_text(lbl, title_text);
+
+    // 分割线: Y=38 (AREX_CARD_TITLE_H - 2), 2px, AREX_DARK 色
+    lv_obj_t *line = lv_obj_create(parent_card);
+    lv_obj_set_size(line, right_w - 32, 2);
+    lv_obj_set_pos(line, 16, AREX_CARD_TITLE_H - 2);
+    lv_obj_set_style_bg_color(line, AREX_DARK, 0);
+}
+```
+
+### 28.4 全组件自适应公式
+
+#### 5F 自定义网格 (动态 cell_h)
+
+```c
+void arex_calc_widget_grid(...)
+{
+    // 锁定 5 列，动态计算 cell_h
+    uint16_t cell_w = parent_w / 5;
+    uint16_t cell_h = (parent_h > AREX_CARD_TITLE_H)
+                      ? ((parent_h - AREX_CARD_TITLE_H) / 6)
+                      : 60;  // fallback
+
+    *out_x = col * cell_w;
+    *out_y = AREX_CARD_TITLE_H + row * cell_h;  // 标题避让偏移
+    *out_w = span_w * cell_w;
+    *out_h = span_h * cell_h;
+}
+```
+
+数学验证（tile=400px）：
+- `cell_h = (400 - 40) / 6 = 60px`
+- Row 0: `out_y = 40 + 0*60 = 40px` → 超过标题线 (38px)，落入内容区
+- Row 5: `out_y = 40 + 5*60 = 340px`，底线 `340 + 60 = 400px` → 刚好填满
+
+如果标题改为 60px：
+- `cell_h = (400 - 60) / 6 = 56px`
+- 网格自动重新切分，无需修改任何组件代码
+
+#### 动态菜单
+
+```c
+// 内容区 Y=0 = AREX_CARD_TITLE_H
+lv_obj_set_pos(menu_list, 0, AREX_CARD_TITLE_H);
+// 菜单内部 start_y=0，从标题下方开始排列
+arex_render_dynamic_menu(list, items, count, 0, NULL);
+```
+
+#### 4F 图表
+
+```c
+int tile_h  = g_sys_config.safe_zone_h;          // 400px
+int chart_y = AREX_CARD_TITLE_H;                  // 40px
+int chart_h = tile_h - AREX_CARD_TITLE_H - PAD; // 剩余空间自适应
+int chart_w = right_w - PAD * 2;                // 宽度自适应
+```
+
+#### 2F 组织图
+
+```c
+#define DECO_CONTENT_Y  (AREX_CARD_TITLE_H + 20)
+#define DECO_ROW2_Y     (AREX_CARD_TITLE_H + 67)
+#define DECO_ROW3_Y     (AREX_CARD_TITLE_H + 114)
+
+int bars_y    = DECO_ROW3_Y + 40;                          // 动态定位
+int bar_max_h = g_sys_config.safe_zone_h - bars_y - 30;   // 自适应剩余高度
+```
+
+### 28.5 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-04-26 | `arex_ui_engine.h` | 新增 `arex_render_card_title()` 声明 |
+| 2026-04-26 | `arex_ui_engine.c` | 实现 `arex_render_card_title()`；重构 `arex_calc_widget_grid()` 动态 cell_h |
+| 2026-04-26 | `arex_ui_engine.c` | `arex_render_5f_custom_grid()` 改用 `arex_render_card_title()` |
+| 2026-04-26 | `card_info.c` | 改用 `arex_render_card_title()` |
+| 2026-04-26 | `card_setup.c` | 改用 `arex_render_card_title()` |
+| 2026-04-26 | `card_compass.c` | 改用 `arex_render_card_title()` |
+| 2026-04-26 | `card_deco.c` | 改用 `arex_render_card_title()`；新增 `DECO_CONTENT_Y/ROW2/ROW3` 宏；bars 动态高度 |
+| 2026-04-26 | `card_gas.c` | 改用 `arex_render_card_title()`；气体行 Y 改用 `AREX_CARD_TITLE_H` 基准 |
+| 2026-04-26 | `card_plan.c` | 移除 `CHART_W/H/X/Y` 硬编码；改用 `arex_render_card_title()`；chart_w/h 动态计算；`plan_chart_draw_cb` 使用 `area->coords` 实际尺寸 |
+| 2026-04-26 | `AREX_ARCH.md` | 新增 Section 28 |
