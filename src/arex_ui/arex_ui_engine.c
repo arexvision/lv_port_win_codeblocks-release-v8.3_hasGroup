@@ -116,25 +116,40 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *    0=EMPTY 1=DEPTH 2=TEMP 3=HEADING 4=SAC_RATE 5=BATTERY
      *    6=NDL 7=TTS 8=PPO2 9=CNS 10=POD1 11=POD2 12=WTIME
      */
-    cfg->widget_count = 6;
-    /*  id     r  c  w  h */
-    cfg->widget_ids[0] = AREX_WIDGET_DEPTH;    cfg->widget_r[0] = 0; cfg->widget_c[0] = 0; cfg->widget_w[0] = 2; cfg->widget_h[0] = 2;
-    cfg->widget_ids[1] = AREX_WIDGET_TEMP;     cfg->widget_r[1] = 0; cfg->widget_c[1] = 2; cfg->widget_w[1] = 1; cfg->widget_h[1] = 1;
+    cfg->widget_count = 12;
+    /* 5x6 网格完全铺满布局：
+     * Row 0: DEPTH(2x2) | TEMP(1x1) | HEADING(2x1)
+     * Row 1: (DEPTH右)  | ---     | (HEADING右)
+     * Row 2: SAC(2x1)  | BATTERY(2x1) | PPO2(1x1)
+     * Row 3: NDL(2x1)  | TTS(2x1)    | CNS(1x1)
+     * Row 4: POD1(2x1) | POD2(2x1)    | (WTIME左)
+     * Row 5: (POD1右)  | (POD2右)     | WTIME(2x2)
+     */
+    /*  id              r  c  w  h */
+    cfg->widget_ids[0] = AREX_WIDGET_DEPTH;     cfg->widget_r[0] = 0; cfg->widget_c[0] = 0; cfg->widget_w[0] = 2; cfg->widget_h[0] = 2;
+    cfg->widget_ids[1] = AREX_WIDGET_TEMP;      cfg->widget_r[1] = 0; cfg->widget_c[1] = 2; cfg->widget_w[1] = 1; cfg->widget_h[1] = 1;
     cfg->widget_ids[2] = AREX_WIDGET_HEADING;   cfg->widget_r[2] = 0; cfg->widget_c[2] = 3; cfg->widget_w[2] = 2; cfg->widget_h[2] = 1;
-    cfg->widget_ids[3] = AREX_WIDGET_SAC_RATE; cfg->widget_r[3] = 1; cfg->widget_c[3] = 0; cfg->widget_w[3] = 2; cfg->widget_h[3] = 1;
-    cfg->widget_ids[4] = AREX_WIDGET_BATTERY;   cfg->widget_r[4] = 1; cfg->widget_c[4] = 2; cfg->widget_w[4] = 2; cfg->widget_h[4] = 1;
-    cfg->widget_ids[5] = AREX_WIDGET_NDL;       cfg->widget_r[5] = 2; cfg->widget_c[5] = 2; cfg->widget_w[5] = 2; cfg->widget_h[5] = 1;
+    cfg->widget_ids[3] = AREX_WIDGET_SAC_RATE;  cfg->widget_r[3] = 2; cfg->widget_c[3] = 0; cfg->widget_w[3] = 2; cfg->widget_h[3] = 1;
+    cfg->widget_ids[4] = AREX_WIDGET_BATTERY;   cfg->widget_r[4] = 2; cfg->widget_c[4] = 2; cfg->widget_w[4] = 2; cfg->widget_h[4] = 1;
+    cfg->widget_ids[5] = AREX_WIDGET_PPO2;       cfg->widget_r[5] = 2; cfg->widget_c[5] = 4; cfg->widget_w[5] = 1; cfg->widget_h[5] = 1;
+    cfg->widget_ids[6] = AREX_WIDGET_NDL;       cfg->widget_r[6] = 3; cfg->widget_c[6] = 0; cfg->widget_w[6] = 2; cfg->widget_h[6] = 1;
+    cfg->widget_ids[7] = AREX_WIDGET_TTS;        cfg->widget_r[7] = 3; cfg->widget_c[7] = 2; cfg->widget_w[7] = 2; cfg->widget_h[7] = 1;
+    cfg->widget_ids[8] = AREX_WIDGET_CNS;        cfg->widget_r[8] = 3; cfg->widget_c[8] = 4; cfg->widget_w[8] = 1; cfg->widget_h[8] = 1;
+    cfg->widget_ids[9] = AREX_WIDGET_POD1;      cfg->widget_r[9] = 4; cfg->widget_c[9] = 0; cfg->widget_w[9] = 2; cfg->widget_h[9] = 1;
+    cfg->widget_ids[10] = AREX_WIDGET_POD2;      cfg->widget_r[10] = 4; cfg->widget_c[10] = 2; cfg->widget_w[10] = 2; cfg->widget_h[10] = 1;
+    cfg->widget_ids[11] = AREX_WIDGET_WTIME;     cfg->widget_r[11] = 4; cfg->widget_c[11] = 4; cfg->widget_w[11] = 1; cfg->widget_h[11] = 1;
+    cfg->widget_ids[11] = AREX_WIDGET_WTIME;     cfg->widget_r[11] = 5; cfg->widget_c[11] = 0; cfg->widget_w[11] = 1; cfg->widget_h[11] = 1;
 
     /* 卡片顺序（INFO/SETUP 固定，中间 5 个可重排）
      * card_order[pos] = card_id
      * 固定: CARD_POS_INFO=0, CARD_POS_SETUP=6
      * 可重排: CARD_POS_1 ~ CARD_POS_5 */
     cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;         /* 不可修改 */
-    cfg->card_order[CARD_POS_1]     = CARD_ID_DECO;
-    cfg->card_order[CARD_POS_2]     = CARD_ID_COMPASS;
-    cfg->card_order[CARD_POS_3]     = CARD_ID_GAS;
-    cfg->card_order[CARD_POS_4]     = CARD_ID_PLAN;
-    cfg->card_order[CARD_POS_5]     = CARD_ID_CUSTOM_GRID;  /* 5F 自定义网格卡片 */
+    cfg->card_order[CARD_POS_1]     = CARD_ID_CUSTOM_GRID;  /* 5F 自定义网格 — 放在最前 */
+    cfg->card_order[CARD_POS_2]     = CARD_ID_DECO;
+    cfg->card_order[CARD_POS_3]     = CARD_ID_COMPASS;
+    cfg->card_order[CARD_POS_4]     = CARD_ID_GAS;
+    cfg->card_order[CARD_POS_5]     = CARD_ID_PLAN;
     cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;        /* 不可修改 */
 
     /* 用户设置默认值 */
