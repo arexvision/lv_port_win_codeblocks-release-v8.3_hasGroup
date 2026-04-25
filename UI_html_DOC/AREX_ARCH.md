@@ -1,68 +1,68 @@
-# AREX Pro Dive Computer UI �?鏋舵瀯瑙ｈ鏂囨�?
+# AREX Pro Dive Computer UI — 架构解读文档
 
-> 鍩轰�?`UI_html/arex_ui_test_0.10.html` 鍘熷瀷锛岀Щ妞嶅�?LVGL v8.3 (Windows/CodeBlocks)  
-> 鍏ュ彛锛歚UI_main()` in `src/arex_ui/UI_main.c`
+> 基于 `UI_html/arex_ui_test_0.10.html` 原型，移植到 LVGL v8.3 (Windows/CodeBlocks)  
+> 入口：`UI_main()` in `src/arex_ui/UI_main.c`
 
 ---
 
-## 1. 鏁翠綋鐩綍缁撴�?
+## 1. 整体目录结构
 
 ```
 src/arex_ui/
-鈹溾攢鈹�?UI_main.c               # 鍏ュ彛锛屽垵濮嬪寲搴忓垪 + 浠跨�?tick 瀹氭椂鍣?
-鈹溾攢鈹�?arex_ui_engine.h/c      # 鍏ㄥ眬鐘舵€佹暟鎹ā鍨嬶紙g_sys_config + g_sensor_data�?
-鈹溾攢鈹�?arex_ui_state.h/c       # 鐘舵€佹満鏍稿績锛坓_ui锛夛紝涓変釜杈撳叆澶勭悊鍑芥�?
-鈹溾攢鈹�?arex_screen.h/c         # LVGL 鎺т欢鏍戝垱寤?+ 鎵€鏈夊睆骞曟搷�?API
-鈹溾攢鈹�?arex_input.h/c          # 杈撳叆浜嬩欢鎹曡幏锛堥敭�?缂栫爜鍣?�?鐘舵€佹満�?
-鈹溾攢鈹�?arex_card_registry.h/c # 鍗＄墖娉ㄥ唽琛紙ID銆乼itle銆乧reate/update 鍥炶皟锛?
-鈹溾攢鈹�?arex_data.h/c          # 鏁版嵁鎬荤嚎澶存枃浠跺瓨鏍癸紙arex_ui_engine.h 鍖呭惈涓€鍒囷級
-鈹斺攢鈹�?cards/
-    鈹溾攢鈹�?card_info.c          # 0F: INFO MENU�? 鏉￠潤鎬佸垪琛�?
-    鈹溾攢鈹�?card_compass.c       # 1F: NAV COMPASS锛坈anvas 缁樺埗鑸悜鍗峰昂锛?
-    鈹溾攢鈹�?card_deco.c          # 2F: TISSUES & DECO�?6 闅斿鏌辩姸�?+ GF/CNS/OTU�?
-    鈹溾攢鈹�?card_gas.c           # 3F: GAS SWITCH�? 绉嶆皵浣擄紝MOD 鏍￠獙锛?
-    鈹溾攢鈹�?card_plan.c          # 4F: DIVE PLAN TRACK锛坈anvas 缁樺埗娼滄按鍓栭潰鍥撅級
-    鈹斺攢鈹�?card_setup.c         # 5F: DIVE SETUP�? 鏉￠潤鎬佸垪琛�?
+├── UI_main.c               # 入口，初始化序列 + 仿真 tick 定时器
+├── arex_ui_engine.h/c      # 全局状态数据模型（g_sys_config + g_sensor_data）
+├── arex_ui_state.h/c       # 状态机核心（g_ui），三个输入处理函数
+├── arex_screen.h/c         # LVGL 控件树创建 + 所有屏幕操作 API
+├── arex_input.h/c          # 输入事件捕获（键盘/编码器 → 状态机）
+├── arex_card_registry.h/c # 卡片注册表（ID、title、create/update 回调）
+├── arex_data.h/c          # 数据总线头文件存根（arex_ui_engine.h 包含一切）
+└── cards/
+    ├── card_info.c          # 0F: INFO MENU（5 条静态列表）
+    ├── card_compass.c       # 1F: NAV COMPASS（canvas 绘制航向卷尺）
+    ├── card_deco.c          # 2F: TISSUES & DECO（16 隔室柱状图 + GF/CNS/OTU）
+    ├── card_gas.c           # 3F: GAS SWITCH（4 种气体，MOD 校验）
+    ├── card_plan.c          # 4F: DIVE PLAN TRACK（canvas 绘制潜水剖面图）
+    └── card_setup.c         # 5F: DIVE SETUP（5 条静态列表）
 ```
 
 ---
 
-## 2. 鍚姩搴忓垪锛歚UI_main()`
+## 2. 启动序列：`UI_main()`
 
 ```
 UI_main()
-  �?
-  鈹溾�?arex_ui_init()             �?鍔犺浇榛樿閰嶇疆鍒?g_sys_config + 鍒濆鍖?g_sensor_data 婕旂ず鏁版嵁
-  鈹溾�?arex_screen_create()        �?鍒涘缓鏁翠釜 LVGL 鎺т欢鏍戯紙宸﹂潰�?+ tileview + 寮圭�?+ 瀛愯彍鍗曞眰�?
-  �?   鈹溾攢鈹�?left_panel_create()
-  �?   鈹溾攢鈹�?right_panel_create()  �?鍒涘�?tileview锛屾�?card_order 璋冪�?card_*_create()
-  �?   鈹溾攢鈹�?wall_create()
-  �?   鈹溾攢鈹�?modal_create()
-  �?   鈹斺攢鈹�?submenu_layer_create()
-  鈹溾�?arex_input_init(scr)        �?娉ㄥ唽閿洏/缂栫爜鍣ㄤ簨浠跺洖璋?
-  鈹溾�?arex_screen_refresh_left_panel()   �?宸︿晶闈㈡澘鍒濆鍊煎～�?
-  鈹溾�?arex_screen_scroll_to_card(0)      �?璺冲�?tile 0锛圛NFO 鍗★�?
-  鈹溾�?arex_screen_set_info_selection(0)  �?楂樹寒绗竴�?LAST DIVE
-  鈹溾�?arex_ui_state_init()       �?�?g_ui 娓呴浂锛宻tate=UI_INFO锛宒ash_card=1
-  鈹斺�?lv_timer_create(sim_tick_cb, 1000ms)  �?姣忕浠跨湡 tick
+  │
+  ├─ arex_ui_init()             → 加载默认配置到 g_sys_config + 初始化 g_sensor_data 演示数据
+  ├─ arex_screen_create()        → 创建整个 LVGL 控件树（左面板 + tileview + 弹窗 + 子菜单层）
+  │    ├── left_panel_create()
+  │    ├── right_panel_create()  → 创建 tileview，按 card_order 调用 card_*_create()
+  │    ├── wall_create()
+  │    ├── modal_create()
+  │    └── submenu_layer_create()
+  ├─ arex_input_init(scr)        → 注册键盘/编码器事件回调
+  ├─ arex_screen_refresh_left_panel()   → 左侧面板初始值填充
+  ├─ arex_screen_scroll_to_card(0)      → 跳到 tile 0（INFO 卡）
+  ├─ arex_screen_set_info_selection(0)  → 高亮第一条 LAST DIVE
+  ├─ arex_ui_state_init()       → 将 g_ui 清零，state=UI_INFO，dash_card=1
+  └─ lv_timer_create(sim_tick_cb, 1000ms)  → 每秒仿真 tick
 ```
 
-**浠跨�?tick (`sim_tick_cb`) 姣忕鍋氾細**
-1. `g_sensor_data.heading += 1�?% 360`锛堣埅鍚戠紦鎱㈡紓绉伙級+ `g_sensor_data.dive_time_s++`
-2. `arex_screen_refresh_left_panel()` �?鍒锋柊宸﹂潰鏉挎暟鍊?
-3. `arex_ui_refresh_all()` �?閬嶅巻娉ㄥ唽琛紝璋冪敤姣忎釜鍗＄墖�?`update_cb()`
+**仿真 tick (`sim_tick_cb`) 每秒做：**
+1. `g_sensor_data.heading += 1° % 360`（航向缓慢漂移）+ `g_sensor_data.dive_time_s++`
+2. `arex_screen_refresh_left_panel()` → 刷新左面板数值
+3. `arex_ui_refresh_all()` → 遍历注册表，调用每个卡片的 `update_cb()`
 
 ---
 
-## 3. 鏁版嵁妯″瀷锛歚arex_ui_engine.h/c`
+## 3. 数据模型：`arex_ui_engine.h/c`
 
-### 鏍稿績鏁版嵁缁撴瀯浣擄紙涓ゆ€荤嚎鍒嗙�?
+### 核心数据结构体（两总线分离）
 
-璇﹁�?Section 16 `arex_sys_config_t` �?`arex_sensor_data_t` 瀹氫箟銆?
-- 瀹炴椂鏁版嵁鎬荤嚎锛歚g_sensor_data` �?UI 鎺т欢�?tick 璇诲�?
-- 閰嶇疆鎬荤嚎锛歚g_sys_config` �?甯冨眬鍙傛暟 + 鐢ㄦ埛璁剧疆锛圓PP 鍙悓姝ワ級
+详见 Section 16 `arex_sys_config_t` 和 `arex_sensor_data_t` 定义。
+- 实时数据总线：`g_sensor_data` — UI 控件每 tick 读取
+- 配置总线：`g_sys_config` — 布局参数 + 用户设置（APP 可同步）
 
-### 姘斾綋琛紙闈欐€侊�? 绉嶏�?
+### 气体表（静态，4 种）
 
 | Index | name | MOD(m) |
 |-------|------|--------|
@@ -71,699 +71,699 @@ UI_main()
 | 2 | TX 18/45 | 68 |
 | 3 | O2 100% | 6 |
 
-### 鍏抽敭璁捐�?
+### 关键设计点
 
-- `g_sys_config.card_order[pos] = card_id`锛氭帶鍒?tileview 涓崱鐗囩殑鏄剧ず椤哄簭
-- **浣嶇疆鏋氫妇 `arex_card_pos_t`**锛歚CARD_POS_INFO`=0锛堝浐�?tile 0锛夈€乣CARD_POS_1`~`CARD_POS_4`锛堜腑闂?4 涓彲閲嶆帓锛夈€乣CARD_POS_SETUP`=5锛堝浐�?tile 5�?
-- **鍗＄�?ID 鏋氫�?`arex_card_id_t`**锛歚CARD_ID_INFO` ~ `CARD_ID_SETUP`锛岃〃绀哄崱鐗囧浐鏈夎韩�?
-- `g_sys_card_order(pos)`锛氱粺涓€鍏ュ彛锛岄€氳�?`card_order[pos]` 鏌ヨ鍗＄墖 ID
-- 鐢ㄦ灇涓炬樉寮忚祴鍊硷細`cfg->card_order[CARD_POS_INFO] = CARD_ID_INFO`锛圛NFO/SETUP 鍥哄畾锛屼腑闂村彲閲嶆帓�?
-- 宸︿晶閿氱偣閫氳�?`left_layout[]` 琛岄厤缃┍鍔紝浠绘剰涓ゆā鍧楀彲鑷敱鍙屾�?
-- 姘斾綋甯搁噺 `AREX_GAS_NAMES[]` / `AREX_GAS_MOD_M[]` 瀹氫箟浜?`arex_ui_engine.c`
-- `g_sensor_data.tissue_pct[]` 鍘熷鍊肩敱鍑忓帇寮曟搸璁＄畻锛孶I 灞傛寜鐧惧垎姣旀覆鏌?
+- `g_sys_config.card_order[pos] = card_id`：控制 tileview 中卡片的显示顺序
+- **位置枚举 `arex_card_pos_t`**：`CARD_POS_INFO`=0（固定 tile 0）、`CARD_POS_1`~`CARD_POS_4`（中间 4 个可重排）、`CARD_POS_SETUP`=5（固定 tile 5）
+- **卡片 ID 枚举 `arex_card_id_t`**：`CARD_ID_INFO` ~ `CARD_ID_SETUP`，表示卡片固有身份
+- `g_sys_card_order(pos)`：统一入口，通过 `card_order[pos]` 查询卡片 ID
+- 用枚举显式赋值：`cfg->card_order[CARD_POS_INFO] = CARD_ID_INFO`（INFO/SETUP 固定，中间可重排）
+- 左侧锚点通过 `left_layout[]` 行配置驱动，任意两模块可自由双拼
+- 气体常量 `AREX_GAS_NAMES[]` / `AREX_GAS_MOD_M[]` 定义于 `arex_ui_engine.c`
+- `g_sensor_data.tissue_pct[]` 原始值由减压引擎计算，UI 层按百分比渲染
 
 ---
 
-## 4. 鐘舵€佹満锛歚arex_ui_state.h/c`
+## 4. 状态机：`arex_ui_state.h/c`
 
-### 鐘舵€佹灇涓?
+### 状态枚举
 
 ```
-UI_DASH         (0)  �?涓诲崱鐗囨粴鍔ㄦā�?
-UI_INFO         (1)  �?INFO 鑿滃崟鍒楄〃婵€娲?
-UI_SETUP        (2)  �?SETUP 鑿滃崟鍒楄〃婵€娲?
-UI_EDIT_GAS     (3)  �?3F 姘斾綋閫夋嫨鍏夋爣绉诲姩�?
-UI_MODAL_GAS    (4)  �?姘斾綋鍒囨崲纭寮圭獥宸叉墦寮�?
-UI_MODAL_COMPASS(5)  �?娓呴櫎缃楃洏鐩爣纭寮圭�?
-UI_SUB_MENU     (6)  �?瀛愯彍鍗曞眰宸插脊鍑猴紙浠庡彸渚ф粦鍏ワ級
-UI_MODAL_ACT    (7)  �?閫氱敤鍔ㄤ綔寮圭獥锛?绉掕嚜鍔ㄥ叧闂�?
-UI_EDIT_VALUE   (8)  �?鏁板€煎唴鑱旂紪杈戯紙渚嬪 MOD PO2�?
+UI_DASH         (0)  — 主卡片滚动模式
+UI_INFO         (1)  — INFO 菜单列表激活
+UI_SETUP        (2)  — SETUP 菜单列表激活
+UI_EDIT_GAS     (3)  — 3F 气体选择光标移动中
+UI_MODAL_GAS    (4)  — 气体切换确认弹窗已打开
+UI_MODAL_COMPASS(5)  — 清除罗盘目标确认弹窗
+UI_SUB_MENU     (6)  — 子菜单层已弹出（从右侧滑入）
+UI_MODAL_ACT    (7)  — 通用动作弹窗（1秒自动关闭）
+UI_EDIT_VALUE   (8)  — 数值内联编辑（例如 MOD PO2）
 ```
 
-### 鍏ㄥ�?UI 涓婁笅鏂囷細`arex_ui_ctx_t g_ui`
+### 全局 UI 上下文：`arex_ui_ctx_t g_ui`
 
 ```c
 typedef struct {
-    arex_ui_state_t  state;           // 褰撳墠鐘舵€侊紙鍒濆�?UI_INFO�?
-    uint8_t  dash_card;               // 褰撳墠鍗＄墖绱㈠紩锛堝垵�?1锛孋OMPASS�?
-    uint8_t  menu_info_idx;           // INFO 鑿滃崟鍏夋爣
-    uint8_t  menu_setup_idx;          // SETUP 鑿滃崟鍏夋爣
-    uint8_t  sub_menu_idx;            // 瀛愯彍鍗曞厜�?
-    uint8_t  gas_cursor;              // 姘斾綋鍒楄〃鍏夋爣锛圲I_EDIT_GAS 鏈熼棿锛?
-    uint8_t  wall_charge;             // 杈圭晫纰版挒璁℃暟锛?~3锛屽�?鎵嶇┛瓒婏級
-    int8_t   wall_dir;                // +1=搴曢�? -1=椤堕�?
-    arex_sub_history_t sub_history[4];// 瀛愯彍鍗曞鑸�?
+    arex_ui_state_t  state;           // 当前状态（初始 UI_INFO）
+    uint8_t  dash_card;               // 当前卡片索引（初始 1，COMPASS）
+    uint8_t  menu_info_idx;           // INFO 菜单光标
+    uint8_t  menu_setup_idx;          // SETUP 菜单光标
+    uint8_t  sub_menu_idx;            // 子菜单光标
+    uint8_t  gas_cursor;              // 气体列表光标（UI_EDIT_GAS 期间）
+    uint8_t  wall_charge;             // 边界碰撞计数（0~3，到3才穿越）
+    int8_t   wall_dir;                // +1=底部  -1=顶部
+    arex_sub_history_t sub_history[4];// 子菜单导航栈
     uint8_t  sub_history_depth;
     struct { float value,min,max,step,original; uint8_t item_index; bool active; } edit_ctx;
     const char *sub_title;
     const char *sub_items[8];
     uint8_t     sub_item_count;
-    arex_ui_state_t sub_parent;       // 杩涘叆瀛愯彍鍗曟椂鐨勭埗鐘舵€?
+    arex_ui_state_t sub_parent;       // 进入子菜单时的父状态
 } arex_ui_ctx_t;
 ```
 
-> **鍚姩琛屼负�?* `arex_ui_state_init()` �?`state=UI_INFO`锛宍dash_card=1`锛宍menu_info_idx=0`锛宍wall_charge=0`銆傚惎鍔ㄥ悗鐩存帴鏄剧ず INFO 鑿滃崟锛坱ile 0锛夛紝绛夊緟鐢ㄦ埛鎿嶄綔�?
+> **启动行为：** `arex_ui_state_init()` 将 `state=UI_INFO`，`dash_card=1`，`menu_info_idx=0`，`wall_charge=0`。启动后直接显示 INFO 菜单（tile 0），等待用户操作。
 
-### 涓変釜鍏紑杈撳叆澶勭悊鍑芥暟
+### 三个公开输入处理函数
 
-| 鍑芥�?| 瑙﹀�?| 浣滅�?|
+| 函数 | 触发 | 作用 |
 |------|------|------|
-| `ui_handle_rotate(int8_t dir)` | 涓婁笅閿?缂栫爜鍣ㄦ棆�?| 鍗＄墖婊氬姩銆佽彍鍗曠Щ鍔ㄣ€佹暟鍊艰皟鏁?|
-| `ui_handle_click()` | Enter/缂栫爜鍣ㄦ寜�?| 纭閫夋嫨銆佽繘鍏ュ瓙鑿滃崟銆佹爣璁拌埅鍚?|
-| `ui_handle_back()` | ESC/Backspace | 鍙栨�?閫€�?鍏抽棴寮圭獥 |
+| `ui_handle_rotate(int8_t dir)` | 上下键/编码器旋转 | 卡片滚动、菜单移动、数值调整 |
+| `ui_handle_click()` | Enter/编码器按下 | 确认选择、进入子菜单、标记航向 |
+| `ui_handle_back()` | ESC/Backspace | 取消/退出/关闭弹窗 |
 
 ---
 
-## 5. 鏍稿績浜や簰娴佺�?
+## 5. 核心交互流程
 
-### 5.1 Wall-Charge 杈圭晫绌胯秺鏈哄�?
+### 5.1 Wall-Charge 边界穿越机制
 
-**`dash_card` 璇箟锛堜笌 HTML 涓€鑷达級锛?*
-- `dash_card` = card �?`card_order[]` 涓殑浣嶇疆�?~5�?
-- `dash_card=0` �?INFO锛堜�?wall-charge 鍙繘锛夛紝`dash_card=1` �?COMPASS锛宍dash_card=2` �?DECO锛宍dash_card=3` �?GAS锛宍dash_card=4` �?PLAN锛宍dash_card=5` �?SETUP锛堜�?wall-charge 鍙繘锛?
-
-```
-card_order 甯冨眬锛�?]=INFO  [1]=COMPASS  [2]=DECO  [3]=GAS  [4]=PLAN  [5]=SETUP
-                  �?wall-charge 鎵嶈兘杩?                           �?wall-charge 鎵嶈兘杩?
-
-DASH 鍙粴鍔ㄨ寖鍥达細dash_card �?[1, AREX_CARD_COUNT-2]锛堝彲閰嶇疆�?
-
-�?UI_DASH 涓嬶�?
-  dash_card==1 涓旂户缁悜�?�?wall_charge++锛屾樉绀洪《閮ㄥ "[#][ ][ ]"
-                            �?tileview 鍚戜笅鍋忕�?charge�?0px 鐒跺悗寮瑰洖锛堟鐨瓔鎰燂�?
-  杩炵�?�?�?绌胯秺鍒?UI_INFO锛堟粴鍔ㄥ埌 tile_pos=0锛夛紝wall_charge 娓呴�?
-
-  dash_card==AREX_CARD_COUNT-2 涓旂户缁悜�?�?wall_charge++锛屾樉绀哄簳閮ㄥ�?
-                            �?tileview 鍚戜笂鍋忕�?charge�?0px 鐒跺悗寮瑰洖
-  杩炵�?�?�?绌胯秺鍒?UI_SETUP锛堟粴鍔ㄥ埌 tile_pos=AREX_CARD_COUNT-1�?
-
-  浠讳綍涓€旀敼鍙樻柟�?�?wall_charge = 0锛屽UI闅愯棌锛宼ileview 绔嬪嵆褰掍綅
-```
-
-**姗＄毊绛嬪姩鐢诲疄鐜帮紙`wall_nudge_tileview`锛夛�?*
-�?`s_tileview` �?`lv_obj_set_y` 鍔ㄧ敾锛?50ms ease-out 骞虫粦鎺ㄥ埌 `charge�?0px`锛屽仠鍦ㄩ偅閲岀洿鍒?wall 娓呴浂銆?
-`arex_screen_hide_walls` 鏃剁珛鍗?`set_y(0)` 褰掍綅銆?
-瀵瑰�?HTML �?`transition: 0.35s cubic-bezier(0.2,0.8,0.2,1)` + `updateElevator(wallCharge * 20)`锛屾棤鍥炲脊�?
-
-UI_INFO 閫€鍑猴紙wall-charge �?ESC锛夆�?杩斿�?DASH锛宒ash_card=1锛圕OMPASS�?
-UI_SETUP 閫€鍑猴紙wall-charge �?ESC锛夆�?杩斿�?DASH锛宒ash_card=AREX_CARD_COUNT-2锛圥LAN�?
-
-> **鍚姩琛屼负璇存槑锛?* 鍚姩鐩存帴杩涘�?`UI_INFO` 鐘舵€侊紝鏄剧ず INFO 鍗★紙tile 0锛夛紝鍏夋爣鑱氱劍绗竴�?LAST DIVE�?
-> �?INFO 鑿滃崟搴曢儴 wall-charge锛堣繛缁?娆″悜涓嬶級鈫?杩涘�?`UI_DASH`锛屼�?COMPASS锛坱ile 1锛夊紑濮嬨€?
-> �?DASH 椤堕�?wall-charge锛圕OMPASS 澶勮繛缁?娆″悜涓婏級鈫?杩斿�?`UI_INFO`�?
-
-### 5.2 姘斾綋鍒囨崲娴佺▼锛?F 鍗＄墖锛?
-
-> **銆愰噸鐐?�?CONFIG GAS 閫€鍑鸿鍒欍€?*  
-> **姘斾綋鍦ㄥ綋鍓嶆繁搴︿笉鍙�?*锛坄dive.depth >` 璇ユ皵浣撶殑 **MOD**锛屼笉閫傜敤娣卞害锛夋椂�?*涓嶈�?*鐢ㄧ‘璁ら敭瀹屾垚鍒囨崲锛氬脊绐楀�?**Enter/鐐瑰�?* 浠呰Е�?`arex_screen_pulse_modal()` 闇囧姩锛?*涓嶄�?*鏀?`active_idx`�?*涓嶄�?*鍥炲埌浠〃鐩樸€? 
-> 姝ゆ�?*蹇呴�?*閫氳�?**杩斿洖閿紙Back / ESC�?* 閫€�?CONFIG GAS锛歚UI_MODAL_GAS` 鍏堝洖鍒?`UI_EDIT_GAS`锛屽啀鎸変竴娆¤繑鍥炴墠鍥炲�?`UI_DASH`�? 
-> **涓嶅彲鐢ㄦ皵浣撴椂锛屼笉寰椾互銆岀‘璁ゅ垏鎹€嶇殑鏂瑰紡绂诲紑姘斾綋閰嶇疆娴佺▼�?*
+**`dash_card` 语义（与 HTML 一致）：**
+- `dash_card` = card 在 `card_order[]` 中的位置（0~5）
+- `dash_card=0` → INFO（仅 wall-charge 可进），`dash_card=1` → COMPASS，`dash_card=2` → DECO，`dash_card=3` → GAS，`dash_card=4` → PLAN，`dash_card=5` → SETUP（仅 wall-charge 可进）
 
 ```
-UI_DASH锛堝綋鍓嶅崱鐗囦�?GAS锛宑ard_order index=3�?
-  �?
-  CLICK �?UI_EDIT_GAS锛実as_cursor = active_idx
-  �?       card_gas_update() 楂樹寒褰撳墠鍏夋爣琛?
-  �?
-  ROTATE �?gas_cursor 寰幆绉诲姩�?�?�?�?�?鈥︼�?
-  �?       card_gas_update() 閲嶇�?
-  �?
-  CLICK �?UI_MODAL_GAS锛宎rex_screen_show_modal_gas()
-  �?
-  鈹溾�?娣卞�?�?MOD �?CLICK 纭锛歛ctive_idx = gas_cursor锛岃繑鍥?UI_DASH
-  鈹斺�?娣卞�?> MOD锛堟皵浣撲笉鍙敤锛夆啋 CLICK 鏃犳晥锛歮odal 闇囧姩锛涗粎鑳介€氳�?BACK 閫€鍑猴紙瑙佷笂鏂囬噸鐐癸級
+card_order 布局：[0]=INFO  [1]=COMPASS  [2]=DECO  [3]=GAS  [4]=PLAN  [5]=SETUP
+                  ↑ wall-charge 才能进                            ↑ wall-charge 才能进
+
+DASH 可滚动范围：dash_card ∈ [1, AREX_CARD_COUNT-2]（可配置）
+
+在 UI_DASH 下：
+  dash_card==1 且继续向上 → wall_charge++，显示顶部墙 "[#][ ][ ]"
+                            → tileview 向下偏移 charge×20px 然后弹回（橡皮筋感）
+  连续3次 → 穿越到 UI_INFO（滚动到 tile_pos=0），wall_charge 清零
+
+  dash_card==AREX_CARD_COUNT-2 且继续向下 → wall_charge++，显示底部墙
+                            → tileview 向上偏移 charge×20px 然后弹回
+  连续3次 → 穿越到 UI_SETUP（滚动到 tile_pos=AREX_CARD_COUNT-1）
+
+  任何中途改变方向 → wall_charge = 0，墙UI隐藏，tileview 立即归位
+```
+
+**橡皮筋动画实现（`wall_nudge_tileview`）：**
+对 `s_tileview` 做 `lv_obj_set_y` 动画：350ms ease-out 平滑推到 `charge×20px`，停在那里直到 wall 清零。
+`arex_screen_hide_walls` 时立即 `set_y(0)` 归位。
+对应 HTML 的 `transition: 0.35s cubic-bezier(0.2,0.8,0.2,1)` + `updateElevator(wallCharge * 20)`，无回弹。
+
+UI_INFO 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=1（COMPASS）
+UI_SETUP 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=AREX_CARD_COUNT-2（PLAN）
+
+> **启动行为说明：** 启动直接进入 `UI_INFO` 状态，显示 INFO 卡（tile 0），光标聚焦第一条 LAST DIVE。
+> 在 INFO 菜单底部 wall-charge（连续3次向下）→ 进入 `UI_DASH`，从 COMPASS（tile 1）开始。
+> 在 DASH 顶部 wall-charge（COMPASS 处连续3次向上）→ 返回 `UI_INFO`。
+
+### 5.2 气体切换流程（3F 卡片）
+
+> **【重点 · CONFIG GAS 退出规则】**  
+> **气体在当前深度不可用**（`dive.depth >` 该气体的 **MOD**，不适用深度）时，**不能**用确认键完成切换：弹窗内 **Enter/点击** 仅触发 `arex_screen_pulse_modal()` 震动，**不会**改 `active_idx`、**不会**回到仪表盘。  
+> 此时**必须**通过 **返回键（Back / ESC）** 退出 CONFIG GAS：`UI_MODAL_GAS` 先回到 `UI_EDIT_GAS`，再按一次返回才回到 `UI_DASH`。  
+> **不可用气体时，不得以「确认切换」的方式离开气体配置流程。**
+
+```
+UI_DASH（当前卡片为 GAS，card_order index=3）
+  │
+  CLICK → UI_EDIT_GAS，gas_cursor = active_idx
+  │        card_gas_update() 高亮当前光标行
+  │
+  ROTATE → gas_cursor 循环移动（0→1→2→3→0…）
+  │        card_gas_update() 重绘
+  │
+  CLICK → UI_MODAL_GAS，arex_screen_show_modal_gas()
+  │
+  ├─ 深度 ≤ MOD → CLICK 确认：active_idx = gas_cursor，返回 UI_DASH
+  └─ 深度 > MOD（气体不可用）→ CLICK 无效：modal 震动；仅能通过 BACK 退出（见上文重点）
   
   BACK / ESC:
-    UI_MODAL_GAS �?UI_EDIT_GAS锛堝叧寮圭獥锛岀暀鍦ㄦ皵浣撶紪杈戯�?
-    UI_EDIT_GAS  �?UI_DASH锛堥€€�?CONFIG GAS�?
+    UI_MODAL_GAS → UI_EDIT_GAS（关弹窗，留在气体编辑）
+    UI_EDIT_GAS  → UI_DASH（退出 CONFIG GAS）
 ```
 
-### 5.3 缃楃洏鏍囪娴佺▼锛?F 鍗＄墖锛?
+### 5.3 罗盘标记流程（1F 卡片）
 
 ```
-UI_DASH锛堝綋鍓嶅崱鐗囦�?COMPASS�?
-  �?
-  CLICK锛堟湭鏍囪锛夆�?compass.marked=true锛宼arget=heading锛宑anvas 鐢婚粍鑹茬珫�?
-  �?
-  CLICK锛堝凡鏍囪锛夆�?UI_MODAL_COMPASS 寮圭�?
-  �?
-  CLICK 纭�?�?compass.marked=false锛屾竻闄ゆ爣璁帮紝杩斿洖 UI_DASH
-  ESC      �?鍙栨秷锛岃繑�?UI_DASH
+UI_DASH（当前卡片为 COMPASS）
+  │
+  CLICK（未标记）→ compass.marked=true，target=heading，canvas 画黄色竖线
+  │
+  CLICK（已标记）→ UI_MODAL_COMPASS 弹窗
+  │
+  CLICK 确认 → compass.marked=false，清除标记，返回 UI_DASH
+  ESC      → 取消，返回 UI_DASH
 ```
 
-### 5.4 瀛愯彍鍗曟祦绋嬶紙INFO/SETUP 鑿滃崟锛?
+### 5.4 子菜单流程（INFO/SETUP 菜单）
 
 ```
 UI_INFO / UI_SETUP
-  �?
-  CLICK �?arex_screen_open_info/setup_submenu(item_idx)
-           - 鐢ㄥ唴缃瓧绗︿覆琛ㄥ～�?sub_items[]
-           - submenu_slide_in()锛氫粠鍙充晶婊戝叆锛坙v_anim 250ms ease-out�?
-           - state �?UI_SUB_MENU锛宻ub_parent = UI_INFO/UI_SETUP
-  �?
+  │
+  CLICK → arex_screen_open_info/setup_submenu(item_idx)
+           - 用内置字符串表填充 sub_items[]
+           - submenu_slide_in()：从右侧滑入（lv_anim 250ms ease-out）
+           - state → UI_SUB_MENU，sub_parent = UI_INFO/UI_SETUP
+  │
   UI_SUB_MENU
-    ROTATE �?sub_menu_idx 绉诲�?
-    CLICK �?arex_screen_handle_submenu_select()
-             "< BACK" �?arex_screen_close_submenu()锛坰lide out锛屾仮澶?sub_parent 鐘舵€侊�?
-             鍏朵�?    �?锛堟墿灞曞疄鐜颁腑锛?
-    ESC �?arex_screen_close_submenu()
+    ROTATE → sub_menu_idx 移动
+    CLICK → arex_screen_handle_submenu_select()
+             "< BACK" → arex_screen_close_submenu()（slide out，恢复 sub_parent 状态）
+             其他     → （扩展实现中）
+    ESC → arex_screen_close_submenu()
 ```
 
-### 5.5 鏁板€煎唴鑱旂紪杈戯紙MOD PO2�?
+### 5.5 数值内联编辑（MOD PO2）
 
 ```
-UI_SUB_MENU锛圖IVE SETUP 瀛愯彍鍗曪紝"MOD PO2: X.X" 琛岄珮浜級
-  �?
-  CLICK "MOD PO2: X.X" �?arex_screen_begin_edit_value()
-    - edit_ctx = {value=褰撳墠鍊? min=1.0, max=1.6, step=0.1, original=鏃у€�?
-    - UI 鍙樺寲锛氳浠庣豢搴曢粦瀛楁仮澶嶄负榛戝簳缁垮瓧 + 缁胯竟妗?
-    - 甯冨眬锛氫笌 HTML `.menu-item` 涓€�?�?`display:flex; justify-content:space-between; align-items:center`锛圠VGL锛歚LV_LAYOUT_FLEX` + `LV_FLEX_ALIGN_SPACE_BETWEEN`锛夛紝涓夊垪锛歚MOD PO2: ` | 缁垮簳鏁板€?| `^ v`
-    - value badge锛氱豢搴?AREX_GREEN) + 榛戝�?AREX_BLACK)
-    - 鈻测�?绠ご锛欰REX_LIGHT 鐏拌壊锛岃创�?
-    - 鍚�?600ms 瀹氭椂鍣?toggle 闂�?
-  �?
-  ROTATE �?edit_ctx.value �?step锛坈lamp �?min/max�?
-            arex_screen_refresh_edit_value() 鏇存�?badge 鍐呮暟鍊?
-            闂儊涓嶄腑鏂紙瀹氭椂鍣ㄧ户缁�?
-  �?
-  CLICK  �?鎻愪氦锛歡_sys_config.mod_ppo2 = edit_ctx.value
-            鍋滄闂儊锛屾竻鐞?badge/arrows锛屾仮澶嶅畬鏁存爣绛?
-            杩斿�?UI_SUB_MENU锛堣琛屾仮澶嶉€変腑鎬侊級
-  ESC    �?鍙栨秷锛氭仮�?edit_ctx.original
-            鍋滄闂儊锛屾竻鐞?badge/arrows锛屾仮澶嶆棫�?
-            杩斿�?UI_SUB_MENU
+UI_SUB_MENU（DIVE SETUP 子菜单，"MOD PO2: X.X" 行高亮）
+  │
+  CLICK "MOD PO2: X.X" → arex_screen_begin_edit_value()
+    - edit_ctx = {value=当前值, min=1.0, max=1.6, step=0.1, original=旧值}
+    - UI 变化：行从绿底黑字恢复为黑底绿字 + 绿边框
+    - 布局：与 HTML `.menu-item` 一致 — `display:flex; justify-content:space-between; align-items:center`（LVGL：`LV_LAYOUT_FLEX` + `LV_FLEX_ALIGN_SPACE_BETWEEN`），三列：`MOD PO2: ` | 绿底数值 | `^ v`
+    - value badge：绿底(AREX_GREEN) + 黑字(AREX_BLACK)
+    - ▲▼ 箭头：AREX_LIGHT 灰色，贴右
+    - 启动 600ms 定时器 toggle 闪烁
+  │
+  ROTATE → edit_ctx.value ± step（clamp 到 min/max）
+            arex_screen_refresh_edit_value() 更新 badge 内数值
+            闪烁不中断（定时器继续）
+  │
+  CLICK  → 提交：g_sys_config.mod_ppo2 = edit_ctx.value
+            停止闪烁，清理 badge/arrows，恢复完整标签
+            返回 UI_SUB_MENU（该行恢复选中态）
+  ESC    → 取消：恢复 edit_ctx.original
+            停止闪烁，清理 badge/arrows，恢复旧值
+            返回 UI_SUB_MENU
 ```
 
-> **瀹炵幇缁嗚妭�?* `s_edit_flash_timer`锛坄lv_timer`�?00ms锛夋寔缁垏�?badge 鑳屾櫙鑹诧紙缁库啍榛戯級涓庢暟鍊?label 鏂囧瓧鑹诧紙榛戔啍缁匡級锛宍edit_flash_start()` 涓嶆竻绌?`s_edit_flash_badge`/`s_edit_flash_val_lbl`锛岀‘淇濆畾鏃跺櫒鍥炶皟鏈夋晥銆?
+> **实现细节：** `s_edit_flash_timer`（`lv_timer`，600ms）持续切换 badge 背景色（绿↔黑）与数值 label 文字色（黑↔绿），`edit_flash_start()` 不清空 `s_edit_flash_badge`/`s_edit_flash_val_lbl`，确保定时器回调有效。
 
 ---
 
-## 6. 灞忓箷甯冨眬锛歚arex_screen.h/c`
+## 6. 屏幕布局：`arex_screen.h/c`
 
-### 鏁翠綋甯冨眬�?40�?80px�?
+### 整体布局（640×480px）
 
 ```
-鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
-�? Left Panel 180px  �?     Right Canvas 460px         �?
-�?                   �? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?  �?
-�? DEPTH  45.2       �? �? Tileview锛堝瀭鐩?鍗＄墖锛?   �?  �?
-�? NDL 0  TTS 24'    �? �? card_order[0] �?tile 0  �?  �?
-�? NEXT STOP 21m 3'  �? �? card_order[1] �?tile 1  �?  �?
-�? POD1 210  POD2195 �? �? ...                     �?  �?
-�? GAS TX18/45       �? �? card_order[5] �?tile 5  �?  �?
-�? PO2 1.2|1.2|1.3   �? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?  �?
-�? TIME 38:14        �? [澧橴I top/bottom 闅愯棌鍙犲姞]     �?
-�?                   �? [瀛愯彍鍗曞眰 浠庡彸渚ф帹鍏�?         �?
-�?                   �? [寮圭獥閬僵�?hidden]            �?
-�?                   �? [scroll dots 鍙充�?6涓偣]       �?
-鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+┌──────────────────────────────────────────────────────┐
+│  Left Panel 180px  │      Right Canvas 460px         │
+│                    │  ┌──────────────────────────┐   │
+│  DEPTH  45.2       │  │  Tileview（垂直6卡片）    │   │
+│  NDL 0  TTS 24'    │  │  card_order[0] → tile 0  │   │
+│  NEXT STOP 21m 3'  │  │  card_order[1] → tile 1  │   │
+│  POD1 210  POD2195 │  │  ...                     │   │
+│  GAS TX18/45       │  │  card_order[5] → tile 5  │   │
+│  PO2 1.2|1.2|1.3   │  └──────────────────────────┘   │
+│  TIME 38:14        │  [墙UI top/bottom 隐藏叠加]     │
+│                    │  [子菜单层 从右侧推入]          │
+│                    │  [弹窗遮罩层 hidden]            │
+│                    │  [scroll dots 右侧 6个点]       │
+└──────────────────────────────────────────────────────┘
 ```
 
-### 鍐呴儴闈欐€佹帶浠跺彞鏌勶紙鍏ㄩ�?`static` �?arex_screen.c�?
+### 内部静态控件句柄（全部 `static` 在 arex_screen.c）
 
-| 鍙ユ�?| 璇存�?|
+| 句柄 | 说明 |
 |------|------|
-| `s_scr` | �?screen 瀵硅�?|
-| `s_left_panel` | 宸﹂潰鏉垮�?|
-| `s_tileview` | 鍙充晶鍗＄墖 tileview |
-| `s_lbl_depth/ndl/tts/鈥 | 宸﹂潰鏉垮悇鏁板€兼爣绛?|
-| `s_wall_top/bottom` | 杈圭晫鎸囩ず澧欙紙榛樿 HIDDEN�?|
-| `s_scroll_dots[6]` | 鍙充晶婊氬姩�?|
-| `s_modal / s_modal_box` | 寮圭獥閬僵 + 鍐呭妗?|
-| `s_submenu_layer` | 瀛愯彍鍗曞叏灞忓眰锛堥粯�?x=460 闅愯棌鍦ㄥ彸渚у睆澶栵級|
-| `s_info_list / s_setup_list` | �?card_info.c/card_setup.c 娉ㄥ�?|
+| `s_scr` | 根 screen 对象 |
+| `s_left_panel` | 左面板容器 |
+| `s_tileview` | 右侧卡片 tileview |
+| `s_lbl_depth/ndl/tts/…` | 左面板各数值标签 |
+| `s_wall_top/bottom` | 边界指示墙（默认 HIDDEN） |
+| `s_scroll_dots[6]` | 右侧滚动点 |
+| `s_modal / s_modal_box` | 弹窗遮罩 + 内容框 |
+| `s_submenu_layer` | 子菜单全屏层（默认 x=460 隐藏在右侧屏外）|
+| `s_info_list / s_setup_list` | 由 card_info.c/card_setup.c 注册 |
 
-### Tileview 宸ヤ綔鏂瑰紡
+### Tileview 工作方式
 
-- 鍒涘缓鏃舵寜 `card_order[]` 椤哄簭閫愪釜璋冪�?`lv_tileview_add_tile()`
-- 绂佺敤鑷韩 touch/scroll锛坄LV_OBJ_FLAG_SCROLLABLE` 宸叉竻闄わ級
-- 鍒囨崲鐢?`arex_screen_scroll_to_card()` 璋冪�?`lv_obj_set_tile()` 甯﹀姩鐢?
+- 创建时按 `card_order[]` 顺序逐个调用 `lv_tileview_add_tile()`
+- 禁用自身 touch/scroll（`LV_OBJ_FLAG_SCROLLABLE` 已清除）
+- 切换由 `arex_screen_scroll_to_card()` 调用 `lv_obj_set_tile()` 带动画
 
 ---
 
-## 7. 鍗＄墖绯荤粺锛歚arex_card_registry.h/c`
+## 7. 卡片系统：`arex_card_registry.h/c`
 
-### 鍗＄墖鎻忚堪�?
+### 卡片描述符
 
 ```c
 typedef struct {
-    arex_card_id_t  id;             // 绋冲畾ID�?~5�?
-    const char     *title;          // 鍗＄墖鏍囬锛岃嫳鏂?
-    lv_obj_t       *tile_obj;       // create 鍚庡～鍏ワ紙NULL 鐩村�?create 鍥炶皟鎵ц锛?
-    void (*create_cb)(lv_obj_t *parent);   // 涓€娆℃€у缓鎺т欢
-    void (*update_cb)(void);               // �?tick 鍒锋柊鏁版嵁
-    void (*on_enter_cb)(void);             // 婊氬姩鍒版鍗℃椂锛堝彲閫夛紝NULL 琛ㄧず涓嶅鐞嗭�?
+    arex_card_id_t  id;             // 稳定ID（0~5）
+    const char     *title;          // 卡片标题，英文
+    lv_obj_t       *tile_obj;       // create 后填入（NULL 直到 create 回调执行）
+    void (*create_cb)(lv_obj_t *parent);   // 一次性建控件
+    void (*update_cb)(void);               // 每 tick 刷新数据
+    void (*on_enter_cb)(void);             // 滚动到此卡时（可选，NULL 表示不处理）
 } arex_card_reg_t;
 ```
 
-### 鏁伴噺甯搁噺
+### 数量常量
 
 ```c
 AREX_CARD_COUNT        = 6   // INFO+COMPASS+DECO+GAS+PLAN+SETUP
-AREX_DASH_CARD_COUNT   = 4   // DASH 鍙粦鍔ㄨ寖鍥达紙鎺掗櫎棣栧�?INFO/SETUP�?
+AREX_DASH_CARD_COUNT   = 4   // DASH 可滑动范围（排除首尾 INFO/SETUP）
 ```
 
-### 6寮犲崱鐗囦竴�?
+### 6张卡片一览
 
-| ID | 鏂囦�?| 鏍囬�?| 鏍稿績瀹炵�?|
+| ID | 文件 | 标题 | 核心实现 |
 |----|------|------|----------|
-| 0 CARD_ID_INFO | card_info.c | INFO MENU | `arex_render_dynamic_menu()` 娓叉煋锛宍arex_menu_item_cfg_t[]` 閰嶇疆鏁版嵁 |
-| 1 CARD_ID_COMPASS | card_compass.c | NAV COMPASS | 420�?80 canvas锛宍draw_tape()` 姣忓抚閲嶇粯锛岀洰鏍囪埅鍚戦粍绾?|
-| 2 CARD_ID_DECO | card_deco.c | TISSUES & DECO | 16 绔栨潯璐村崱鐗囧簳锛堝�?HTML `margin-top:auto`锛夛紱鏉℃�?`AREX_DARK` 鍗婇€忔槑锛涘～鍏呯�?/ `>70%` 娴呯�?/ `�?0%` 鍙嶈壊闂儊锛汼urfGF>100 缁垮簳榛戝瓧 |
-| 3 CARD_ID_GAS | card_gas.c | GAS SWITCH | 4�?`lv_obj` 瀹瑰櫒锛屽厜�?婵€�?瓒匨OD涓夋€侀鑹诧紝瀹炴�?PPO2 璁＄�?|
-| 4 CARD_ID_PLAN | card_plan.c | DIVE PLAN TRACK | 380�?80 canvas锛岀綉鏍?鎶樼�?褰撳墠浣嶇疆榛勭�?|
-| 5 CARD_ID_SETUP | card_setup.c | DIVE SETUP | `arex_render_dynamic_menu()` 娓叉煋锛宍arex_menu_item_cfg_t[]` �?badge 寰界�?|
+| 0 CARD_ID_INFO | card_info.c | INFO MENU | `arex_render_dynamic_menu()` 渲染，`arex_menu_item_cfg_t[]` 配置数据 |
+| 1 CARD_ID_COMPASS | card_compass.c | NAV COMPASS | 420×380 canvas，`draw_tape()` 每帧重绘，目标航向黄线 |
+| 2 CARD_ID_DECO | card_deco.c | TISSUES & DECO | 16 竖条贴卡片底（对齐 HTML `margin-top:auto`）；条槽 `AREX_DARK` 半透明；填充绿 / `>70%` 浅绿 / `≥90%` 反色闪烁；SurfGF>100 绿底黑字 |
+| 3 CARD_ID_GAS | card_gas.c | GAS SWITCH | 4行 `lv_obj` 容器，光标/激活/超MOD三态颜色，实时 PPO2 计算 |
+| 4 CARD_ID_PLAN | card_plan.c | DIVE PLAN TRACK | 380×280 canvas，网格+折线+当前位置黄点 |
+| 5 CARD_ID_SETUP | card_setup.c | DIVE SETUP | `arex_render_dynamic_menu()` 渲染，`arex_menu_item_cfg_t[]` 含 badge 徽章 |
 
 ### `arex_card_get(pos)` vs `arex_card_get_by_id(id)`
 
 ```c
-// 閫氳繃鏄剧ず浣嶇疆鍙栵紙�?card_order[] 闂存帴灞傦級
-arex_card_get(CARD_POS_1)  �? s_registry[ card_order[CARD_POS_1] ] = s_registry[CARD_ID_COMPASS]
+// 通过显示位置取（走 card_order[] 间接层）
+arex_card_get(CARD_POS_1)  →  s_registry[ card_order[CARD_POS_1] ] = s_registry[CARD_ID_COMPASS]
 
-// 閫氳繃绋冲畾ID鍙栵紙涓嶈蛋闂存帴灞傦級
-arex_card_get_by_id(CARD_ID_GAS)  �? s_registry[CARD_ID_GAS]
+// 通过稳定ID取（不走间接层）
+arex_card_get_by_id(CARD_ID_GAS)  →  s_registry[CARD_ID_GAS]
 
-// 鍗＄墖鏁伴噺锛堢粺涓€鍏ュ彛�?
-arex_card_count()  �? AREX_CARD_COUNT (=6)
+// 卡片数量（统一入口）
+arex_card_count()  →  AREX_CARD_COUNT (=6)
 ```
 
-> **淇敼鍗＄墖椤哄�?*锛堜粎闄愪腑�?4 涓紝INFO/SETUP 鍥哄畾锛夛細
+> **修改卡片顺序**（仅限中间 4 个，INFO/SETUP 固定）：
 > ```c
-> cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;     // 鍥哄�?tile 0
-> cfg->card_order[CARD_POS_1]     = CARD_ID_COMPASS; // 鍙噸鎺?
-> cfg->card_order[CARD_POS_2]     = CARD_ID_DECO;    // 鍙噸鎺?
-> cfg->card_order[CARD_POS_3]     = CARD_ID_GAS;     // 鍙噸鎺?
-> cfg->card_order[CARD_POS_4]     = CARD_ID_PLAN;    // 鍙噸鎺?
-> cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;    // 鍥哄�?tile 5
+> cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;     // 固定 tile 0
+> cfg->card_order[CARD_POS_1]     = CARD_ID_COMPASS; // 可重排
+> cfg->card_order[CARD_POS_2]     = CARD_ID_DECO;    // 可重排
+> cfg->card_order[CARD_POS_3]     = CARD_ID_GAS;     // 可重排
+> cfg->card_order[CARD_POS_4]     = CARD_ID_PLAN;    // 可重排
+> cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;    // 固定 tile 5
 > ```
-> `card_order[pos] = card_id`锛宲os �?`CARD_POS_*`锛宑ard_id �?`CARD_ID_*`锛屽惈涔夋竻鏅般€佷笉鏄撳～鍙嶃�?
+> `card_order[pos] = card_id`，pos 用 `CARD_POS_*`，card_id 用 `CARD_ID_*`，含义清晰、不易填反。
 
 ---
 
-## 8. 杈撳叆澶勭悊锛歚arex_input.c`
+## 8. 输入处理：`arex_input.c`
 
 ```
 arex_input_init()
-  �?
-  鈹溾�?鍒涘�?1�?px 閫忔�?btn锛坈atcher锛夛紝鎸傚湪 scr �?
-  鈹溾�?group_kbd锛歬eypad �?KEY 浜嬩�?�?key_event_cb()
-  鈹斺�?group_enc锛歟ncoder锛屽浐�?editing=true �?enc_diff �?LEFT/RIGHT �?key_event_cb()
-                encoder 鎸変�?�?enc_click_cb() �?ui_handle_click()
+  │
+  ├─ 创建 1×1px 透明 btn（catcher），挂在 scr 上
+  ├─ group_kbd：keypad → KEY 事件 → key_event_cb()
+  └─ group_enc：encoder，固定 editing=true → enc_diff → LEFT/RIGHT → key_event_cb()
+                encoder 按下 → enc_click_cb() → ui_handle_click()
 
 key_event_cb():
-  LV_KEY_UP / LV_KEY_LEFT    �?ui_handle_rotate(-1)
-  LV_KEY_DOWN / LV_KEY_RIGHT �?ui_handle_rotate(+1)
-  LV_KEY_ENTER               �?ui_handle_click()
-  LV_KEY_ESC / LV_KEY_BACKSPACE �?ui_handle_back()
+  LV_KEY_UP / LV_KEY_LEFT    → ui_handle_rotate(-1)
+  LV_KEY_DOWN / LV_KEY_RIGHT → ui_handle_rotate(+1)
+  LV_KEY_ENTER               → ui_handle_click()
+  LV_KEY_ESC / LV_KEY_BACKSPACE → ui_handle_back()
 ```
 
-**娉ㄦ剰锛?* 缂栫爜鍣ㄧ粍寮哄�?`editing=true`锛岃繖鎰忓懗鐫€缂栫爜鍣ㄦ棆杞�?LVGL 鍐呴儴浼氬彂�?`LV_KEY_LEFT/RIGHT`锛堣€岄�?`LV_KEY_UP/DOWN`锛夛紝涓庨敭鐩樼粍鍏辩敤鍚屼竴涓?`key_event_cb`�?
+**注意：** 编码器组强制 `editing=true`，这意味着编码器旋转在 LVGL 内部会发出 `LV_KEY_LEFT/RIGHT`（而非 `LV_KEY_UP/DOWN`），与键盘组共用同一个 `key_event_cb`。
 
 ---
 
-## 9. 鍚勫崱鐗囪缁嗗疄鐜?
+## 9. 各卡片详细实现
 
-### 9.1 card_compass.c�?F�?
+### 9.1 card_compass.c（1F）
 
-- 涓庤鑼冨榻愶細Canvas **420�?40**px锛屾爣棰樹笅 y=50�?
-  - 婊戝姩妗?Tape)锛氶�?**60px**�?px `AREX_DARK` 杈规�?
-  - 鑸悜鏁板瓧锛氭渶鎺ヨ繎瑙勮�?46.4px锛屽瓧搴撶敤 `AREX_FONT_HUGE`(48px)锛屽眳涓?
-  - 涓績娓告爣�?*�?4px**锛岄�?60px锛宍AREX_GREEN`
-- `draw_tape(heading)` 姣忔瀹屾暣娓呭睆閲嶇粯锛?
-  - �?heading 涓轰腑蹇冿紝�?0�?鑼冨洿鐢诲埢搴︾嚎锛屾瘡�?3px
-  - major锛堟�?5掳锛夌敾楂樺埢搴?鏂逛綅瀛楁瘝锛�?NE/E/SE/S/SW/W/NW�?
-  - minor锛堟�?5掳锛夌敾涓埢搴︼紱鍏朵綑鐢荤煭鍒诲�?
-  - **涓嶈緭鍑?`掳` 瀛楃�?* �?`lv_font_courier_*` 浠呭�?ASCII `0x20-0x7E`锛宍U+00B0` 浼氭樉绀轰负鏂规�?
-  - �?`compass.marked`锛氬湪鐩爣鑸悜瀵瑰簲浣嶇疆鐢婚粍鑹茬珫绾匡紝涓嬫柟鏄剧�?`TARGET 265`锛堝悓涓婃棤搴︾鍙凤級
-- 姣忕閫氳繃 `card_compass_update()` 瑙﹀彂閲嶇粯
+- 与规范对齐：Canvas **420×140**px，标题下 y=50：
+  - 滑动框(Tape)：高 **60px**，2px `AREX_DARK` 边框
+  - 航向数字：最接近规范 46.4px，字库用 `AREX_FONT_HUGE`(48px)，居中
+  - 中心游标：**宽 4px**，高 60px，`AREX_GREEN`
+- `draw_tape(heading)` 每次完整清屏重绘：
+  - 以 heading 为中心，±60° 范围画刻度线，每度 3px
+  - major（每45°）画高刻度+方位字母（N/NE/E/SE/S/SW/W/NW）
+  - minor（每15°）画中刻度；其余画短刻度
+  - **不输出 `°` 字符** — `lv_font_courier_*` 仅含 ASCII `0x20-0x7E`，`U+00B0` 会显示为方框
+  - 若 `compass.marked`：在目标航向对应位置画黄色竖线，下方显示 `TARGET 265`（同上无度符号）
+- 每秒通过 `card_compass_update()` 触发重绘
 
-### 9.2 card_deco.c�?F�?
+### 9.2 card_deco.c（2F）
 
-- 甯冨眬锛氫笌 `arex_ui_test_0.10.html` 涓€�?�?`.card` 涓哄�?flex锛宍.tissue-section-title` 浣跨�?`margin-top:auto`锛岄殧瀹ゅ浘鍦ㄥ崱�?*鏈€涓嬫�?*锛汱VGL �?`BARS_Y` �?`TILE_H` 鍚戜笂鍙嶇畻锛涜鑼?Section Title Y�?50锛宍BOTTOM_PAD=36`�?
-- 椤堕儴涓夎 `.deco-grid`锛坹=60/107/154锛夛細鏂囨 `SurfGF`銆乣GF LOW / HIGH` 绛変�?HTML 涓€鑷淬�?
-- **SurfGF**锛歚surf_gf > 100` 鏃朵�?`.highlight-invert`锛坄AREX_GREEN` �?+ `AREX_BLACK` �?+ 姘村�?padding 4锛夛紝鏃犵孩瀛楅棯鐑併€?
-- 16 �?`lv_bar`锛堣鑼冿細闂磋�?4px锛屾Ы `AREX_DARK`+`LV_OPA_50`锛屽～鍏呪墹70%�?>70%娴呯�?�?0%鍗遍櫓闂儊锛夛�?
-  - 妲介亾锛�?t-bar` 瀵瑰�?`AREX_DARK` + `LV_OPA_50`�?
-  - 濉厖锛歚鈮?0%` �?`AREX_GREEN`锛沗>70%` �?`<90%` �?`AREX_LIGHT`锛坄.t-fill.high`锛夛紱`�?0%` �?`.t-fill.danger` 寮忓弽鑹查棯鐑侊�?*300ms** 瀹氭椂鍣紝�?榛戝垏鎹級�?
-- M 鍊艰櫄绾匡細瀹瑰櫒楂樺害 80px �?**top 20%**锛宍LV_OPA_50`锛涘彸渚?`M-VALUE` 灏忓瓧鏍囩�?
+- 布局：与 `arex_ui_test_0.10.html` 一致 — `.card` 为列 flex，`.tissue-section-title` 使用 `margin-top:auto`，隔室图在卡片**最下方**；LVGL 用 `BARS_Y` 从 `TILE_H` 向上反算；规范 Section Title Y≈250，`BOTTOM_PAD=36`。
+- 顶部三行 `.deco-grid`（y=60/107/154）：文案 `SurfGF`、`GF LOW / HIGH` 等与 HTML 一致。
+- **SurfGF**：`surf_gf > 100` 时为 `.highlight-invert`（`AREX_GREEN` 底 + `AREX_BLACK` 字 + 水平 padding 4），无红字闪烁。
+- 16 个 `lv_bar`（规范：间距 4px，槽 `AREX_DARK`+`LV_OPA_50`，填充≤70%绿/>70%浅绿/≥90%危险闪烁）：
+  - 槽道：`.t-bar` 对应 `AREX_DARK` + `LV_OPA_50`。
+  - 填充：`≤70%` → `AREX_GREEN`；`>70%` 且 `<90%` → `AREX_LIGHT`（`.t-fill.high`）；`≥90%` → `.t-fill.danger` 式反色闪烁（**300ms** 定时器，绿/黑切换）。
+- M 值虚线：容器高度 80px 的 **top 20%**，`LV_OPA_50`；右侧 `M-VALUE` 小字标签。
 
-### 9.3 card_gas.c�?F�?
+### 9.3 card_gas.c（3F）
 
-> **銆愪�?�?.2 涓€鑷淬�?* 褰撳墠娣卞害瓒呰繃鏌愯 MOD銆佽姘斾綋涓嶅彲鐢ㄦ椂锛岀‘璁ゅ垏鎹㈡棤鏁堬紝**椤荤敤杩斿洖閿€€�?CONFIG GAS**锛堣�?�?.2 閲嶇偣璇存槑锛夈�?
+> **【与 §5.2 一致】** 当前深度超过某行 MOD、该气体不可用时，确认切换无效，**须用返回键退出 CONFIG GAS**（见 §5.2 重点说明）。
 
-- 瑙勮寖锛氳�?**49px**锛岄棿璺?8锛宲adding 涓婁�?**12px**锛屽乏鍙?**15px**锛涘瓧浣?`AREX_FONT_TITLE`(20px)�?
-- �?HTML `.menu-list` / `.menu-item` / `.static-active` / `.active` / `.hint-text` / `#gas-card-status` 瀵归綈锛?
-  - 姘斾綋鍚嶏細`AREX_GREEN` 宸﹀榻愶紱MOD/PO2锛歚AREX_LIGHT`锛屽彸涓?鍙充笅瀵归綈銆?
-  - 鍏夋爣琛岋紙`UI_EDIT_GAS && gas_cursor==i`锛夛細`.active` �?缁垮簳銆侀粦瀛椼€佺豢杈规�?
-  - 褰撳墠鍛煎惛姘旓紙`active_idx==i`锛岄潪鍏夋爣锛夛細`.static-active` �?**榛戝�?*銆佺豢杈规銆佹皵浣撳悕 `AREX_GREEN`�?
-  - 鏅€氳锛氶粦搴曘€佺豢瀛椼€乣AREX_DARK` 杈规銆?
-  - `#gas-card-status`锛氬彸涓婅 `[EDIT MODE]`锛坄AREX_FONT_SMALL`锛宍AREX_GREEN`锛夈�?
-  - `.hint-text`锛氬簳閮ㄦ彁绀猴紝`AREX_LIGHT` + `LV_OPA_60`锛涚紪杈?绌洪棽鏂囨�?HTML 涓€鑷淬�?
-- **�?MOD**锛坄depth > MOD`锛夛細绾㈣竟妗嗭紱鑻ヨ琛屽悓鏃朵负缂栬緫鍏夋爣锛岃竟妗嗕繚鎸佺豢鑹层€?
-- PPO2 绠€鍖栬绠楋細`depth/10 * 0.21`锛屾枃妗?`PO2 %.2f`�?
+- 规范：行高 **49px**，间距 8，padding 上下 **12px**，左右 **15px**；字体 `AREX_FONT_TITLE`(20px)。
+- 与 HTML `.menu-list` / `.menu-item` / `.static-active` / `.active` / `.hint-text` / `#gas-card-status` 对齐：
+  - 气体名：`AREX_GREEN` 左对齐；MOD/PO2：`AREX_LIGHT`，右上/右下对齐。
+  - 光标行（`UI_EDIT_GAS && gas_cursor==i`）：`.active` — 绿底、黑字、绿边框。
+  - 当前呼吸气（`active_idx==i`，非光标）：`.static-active` — **黑底**、绿边框、气体名 `AREX_GREEN`。
+  - 普通行：黑底、绿字、`AREX_DARK` 边框。
+  - `#gas-card-status`：右上角 `[EDIT MODE]`（`AREX_FONT_SMALL`，`AREX_GREEN`）。
+  - `.hint-text`：底部提示，`AREX_LIGHT` + `LV_OPA_60`；编辑/空闲文案与 HTML 一致。
+- **超 MOD**（`depth > MOD`）：红边框；若该行同时为编辑光标，边框保持绿色。
+- PPO2 简化计算：`depth/10 * 0.21`，文案 `PO2 %.2f`。
 
-### 9.4 card_plan.c�?F�?
+### 9.4 card_plan.c（4F）
 
-- 瑙勮寖鍙傛暟锛堝凡瀵归綈锛夛細
-  - 澶栧３锛?px 瀹炵�?`AREX_DARK`锛孭adding 10px
-  - 鐢诲竷锛?*400�?20px**锛坄CHART_W`/`CHART_H`�?
-  - 鑳屾櫙缃戞牸锛氭í闂磋窛鎸?CHART_W/53px 姝ヨ繘锛岀旱闂磋窛�?CHART_H/64px 姝ヨ繘锛涚嚎�?1px锛宍LV_OPA_51`锛堥€忔槑搴?20%�?
-  - 鍧愭爣杞存枃瀛楋細`AREX_FONT_SMALL`(14px)锛宍LV_OPA_191`锛堥€忔槑搴?75%�?
-  - 璧板娍绾匡細瀹炵嚎锛岀矖缁?**4px**锛宍AREX_GREEN`
-  - 鍋滅暀鐐癸細鍗婂緞 **6px**锛屽～鍏呴粦锛屾弿杈?2px `AREX_GREEN`锛堜粎姘村钩娈典笖鍋滅暀�?min 鏃剁粯鍒讹級
-- 褰撳墠浣嶇疆锛氶粍鑹插渾鐐癸紝鍔ㄦ€佺敱 `g_sensor_data.dive_time_s` �?`g_sensor_data.depth` 璁＄畻锛屽甫 "NOW" 鏍囩�?
+- 规范参数（已对齐）：
+  - 外壳：2px 实线 `AREX_DARK`，Padding 10px
+  - 画布：**400×320px**（`CHART_W`/`CHART_H`）
+  - 背景网格：横间距按 CHART_W/53px 步进，纵间距按 CHART_H/64px 步进；线宽 1px，`LV_OPA_51`（透明度 20%）
+  - 坐标轴文字：`AREX_FONT_SMALL`(14px)，`LV_OPA_191`（透明度 75%）
+  - 走势线：实线，粗细 **4px**，`AREX_GREEN`
+  - 停留点：半径 **6px**，填充黑，描边 2px `AREX_GREEN`（仅水平段且停留≥3min 时绘制）
+- 当前位置：黄色圆点，动态由 `g_sensor_data.dive_time_s` 和 `g_sensor_data.depth` 计算，带 "NOW" 标签
 
 ---
 
-## 10. 棰滆壊甯搁噺涓庡瓧浣?
+## 10. 颜色常量与字体
 
 ```c
-/* 棰滆�?*/
-AREX_GREEN  = #00FF00   // 涓昏壊锛堟枃瀛椼€佹寚閽堛€佹縺娲绘€侊�?
-AREX_LIGHT  = #55FF55   // 鍓壊锛堟爣绛俱€佽緟鍔╂枃瀛椼€佹瑕佹暟鍊硷�?
-AREX_DARK   = #003300   // 杈规銆佸埢搴︾嚎銆侀潪婵€娲昏儗�?
-AREX_BLACK  = #000000   // 鍗＄墖鑳屾櫙
-AREX_BG     = #050505   // 灞忓箷鏍硅儗�?
+/* 颜色 */
+AREX_GREEN  = #00FF00   // 主色（文字、指针、激活态）
+AREX_LIGHT  = #55FF55   // 副色（标签、辅助文字、次要数值）
+AREX_DARK   = #003300   // 边框、刻度线、非激活背景
+AREX_BLACK  = #000000   // 卡片背景
+AREX_BG     = #050505   // 屏幕根背景
 ```
 
-> **瀛椾綋绯荤粺宸插叏闈㈤噸鏋勶紝璇峰弬�?Section 17 瀛椾�?ID 鏄犲皠寮曟搸�?*
-> 鏃х増 `AREX_FONT_*` 瀹忓畾涔変粎�?`arex_screen.h` 涓繚鐣欏吋瀹瑰眰锛?*绂佹鍦ㄦ柊浠ｇ爜涓娇�?*�?
+> **字体系统已全面重构，请参见 Section 17 字体 ID 映射引擎。**
+> 旧版 `AREX_FONT_*` 宏定义仅在 `arex_screen.h` 中保留兼容层，**禁止在新代码中使用**。
 
-## 10.1 寮圭獥鍙傛暟锛堣鑼冨€硷級
+## 10.1 弹窗参数（规范值）
 
 ```c
 modal_overlay:  bg #000000, opacity 95% (LVGL opa=242)
-modal_box:      400�? px, bg #000000, border 4px #00FF00, padding 30px
+modal_box:      400×? px, bg #000000, border 4px #00FF00, padding 30px
 ```
 
-## 10.2 婊氬姩鎸囩ず鍣紙瑙勮寖鍊硷�?
+## 10.2 滚动指示器（规范值）
 
 ```c
-浣嶇�? 鍙充�?8px锛屽瀭鐩村眳涓紙LV_ALIGN_RIGHT_MID�?
-澶у皬: 6�?px锛坆order-radius:0 �?姝ｆ柟褰級
-闂磋�? 绾靛�?gap 8px
-榛樿�? #003300 (AREX_DARK)
-婵€�? #00FF00 (AREX_GREEN) + shadow_width=8, shadow_color=#00FF00
+位置: 右侧 8px，垂直居中（LV_ALIGN_RIGHT_MID）
+大小: 6×6px（border-radius:0 → 正方形）
+间距: 纵向 gap 8px
+默认: #003300 (AREX_DARK)
+激活: #00FF00 (AREX_GREEN) + shadow_width=8, shadow_color=#00FF00
 ```
 
-## 10.3 宸︿晶闈㈡澘 PO2锛堣鑼冨€硷級
+## 10.3 左侧面板 PO2（规范值）
 
 ```c
-PO2 鏍囩�? AREX_FONT_SMALL(14px), AREX_LIGHT
-涓変釜鍊兼 + 涓や�?| 鍒嗛殧绗︼紝x=30/66/102, 闂磋窛鈮?8px
-| 鍒嗛殧绗? 閫忔槑搴?30% (LV_OPA_30)
-DEPTH 澶ф暟�? AREX_FONT_HUGE(48px), AREX_GREEN, 瀛楅棿璺?-2px, y=24
-DEPTH 鏍囩�?  AREX_FONT_SMALL(14px), AREX_LIGHT, y=10
+PO2 标签: AREX_FONT_SMALL(14px), AREX_LIGHT
+三个值段 + 两个 | 分隔符，x=30/66/102, 间距≈28px
+| 分隔符: 透明度 30% (LV_OPA_30)
+DEPTH 大数字: AREX_FONT_HUGE(48px), AREX_GREEN, 字间距 -2px, y=24
+DEPTH 标签:  AREX_FONT_SMALL(14px), AREX_LIGHT, y=10
 ```
 
 ---
 
-## 11. HTML 鍘熷�?�?LVGL 瀵瑰簲鍏崇郴
+## 11. HTML 原型 → LVGL 对应关系
 
-| HTML 鍏冪�?| LVGL 瀹炵�?|
+| HTML 元素 | LVGL 实现 |
 |-----------|-----------|
-| `#left-anchor` | `s_left_panel`�?80px 缁濆瀹氫綅瀹瑰櫒锛?|
-| `#elevator-track`锛坱ranslateY 鍔ㄧ敾锛?| `s_tileview`锛坄lv_obj_set_tile` 甯﹀姩鐢伙級 |
-| `.card`�?�?div�?| 6�?tileview tile + card_*_create |
-| `#top-wall-ui / #bottom-wall-ui` | `s_wall_top / s_wall_bottom`锛圚IDDENFlag 鍒囨崲锛?|
+| `#left-anchor` | `s_left_panel`（180px 绝对定位容器） |
+| `#elevator-track`（translateY 动画） | `s_tileview`（`lv_obj_set_tile` 带动画） |
+| `.card`（6个 div） | 6个 tileview tile + card_*_create |
+| `#top-wall-ui / #bottom-wall-ui` | `s_wall_top / s_wall_bottom`（HIDDENFlag 切换） |
 | `#canvas-modal` | `s_modal + s_modal_box` |
-| `#sub-menu-layer`锛坱ranslateX 鍔ㄧ敾锛�?`s_submenu_layer`锛坙v_anim 姘村钩婊戝叆/婊戝嚭锛?|
-| `#scroll-indicator` | `s_scroll_dots[6]`锛堟縺娲绘椂 shadow_width=8, shadow_color=AREX_GREEN�?|
-| `.menu-list`/`.menu-item`/`.static-active`/`.active` | `card_gas.c`锛堣�?428�?9銆侀棿璺?銆乸adding 12/15px銆佷笁鎬侀鑹诧級 |
+| `#sub-menu-layer`（translateX 动画）| `s_submenu_layer`（lv_anim 水平滑入/滑出） |
+| `#scroll-indicator` | `s_scroll_dots[6]`（激活时 shadow_width=8, shadow_color=AREX_GREEN） |
+| `.menu-list`/`.menu-item`/`.static-active`/`.active` | `card_gas.c`（行 428×49、间距8、padding 12/15px、三态颜色） |
 | JS `gasData[]` | `AREX_GAS_TABLE[]` |
-| JS `setInterval 150ms`锛堢綏鐩橈級 | `sim_tick_cb` 1000ms + `card_compass_update` |
-| JS `flashInvert`锛坄.t-fill.danger`�?| `tissue_danger_flash_cb` 300ms锛坈ard_deco.c锛屼�?`pct�?0` 鐨勬潯锛?|
-| JS `renderModal('GAS')` MOD 璀﹀�?| `arex_screen_show_modal_gas()` hint 瀛楃涓插垏�?|
+| JS `setInterval 150ms`（罗盘） | `sim_tick_cb` 1000ms + `card_compass_update` |
+| JS `flashInvert`（`.t-fill.danger`） | `tissue_danger_flash_cb` 300ms（card_deco.c，仅 `pct≥90` 的条） |
+| JS `renderModal('GAS')` MOD 警告 | `arex_screen_show_modal_gas()` hint 字符串切换 |
 
 ---
 
-## 12. 鏁版嵁娴佹€昏
+## 12. 数据流总览
 
 ```
 main.c (WinMain)
-  鈹斺�?UI_main()
-       鈹溾�?鍒濆鍖栧簭鍒楋紙瑙佺2鑺傦�?
-       鈹斺�?lv_timer(sim_tick_cb, 1000ms)
-            �?
-            鈹溾�?鏇存�?g_sensor_data锛坔eading++, dive_time_s++, depth娴姩锛?
-            鈹溾�?arex_screen_refresh_left_panel()   [�?g_sensor_data �?�?s_lbl_*]
-            鈹斺�?arex_ui_refresh_all()
+  └─ UI_main()
+       ├─ 初始化序列（见第2节）
+       └─ lv_timer(sim_tick_cb, 1000ms)
+            │
+            ├─ 更新 g_sensor_data（heading++, dive_time_s++, depth浮动）
+            ├─ arex_screen_refresh_left_panel()   [读 g_sensor_data → 写 s_lbl_*]
+            └─ arex_ui_refresh_all()
                  for i in 0..arex_card_count()-1:
-                   card = arex_card_get(i)        // 閫氳�?g_sys_card_order(i) �?ID
+                   card = arex_card_get(i)        // 通过 g_sys_card_order(i) 查 ID
                    if (card->update_cb) card->update_cb()
 
-鐢ㄦ埛杈撳叆锛堥敭鐩?缂栫爜鍣級
-  鈹斺�?key_event_cb() / enc_click_cb()
-       鈹斺�?ui_handle_rotate / click / back
-            鈹溾�?淇�?g_ui.state / g_ui.dash_card / g_ui.gas_cursor / �?
-            鈹溾�?淇�?g_sensor_data / g_sys_config / �?
-            鈹斺�?璋冪�?arex_screen_* 鍑芥暟鏇存柊鎺т欢澶栬�?
+用户输入（键盘/编码器）
+  └─ key_event_cb() / enc_click_cb()
+       └─ ui_handle_rotate / click / back
+            ├─ 修改 g_ui.state / g_ui.dash_card / g_ui.gas_cursor / …
+            ├─ 修改 g_sensor_data / g_sys_config / …
+            └─ 调用 arex_screen_* 函数更新控件外观
 ```
 
 ---
 
-## 13. 閲嶈璁捐绾﹀�?
+## 13. 重要设计约定
 
-1. **鍗＄墖涓嶇洿鎺ュ啓鐘舵€?*锛歝ard_*.c 鍙�?`g_sensor_data` �?`g_ui`锛屼笉淇敼瀹冧滑銆傜姸鎬佷慨鏀圭粺涓€�?`arex_ui_state.c` 涓繘琛屻€?
+1. **卡片不直接写状态**：card_*.c 只读 `g_sensor_data` 和 `g_ui`，不修改它们。状态修改统一在 `arex_ui_state.c` 中进行。
 
-2. **screen 灞傛槸鍝戠殑**锛歚arex_screen.c` 鐨勫嚱鏁板彧璐熻矗鎿嶄綔鎺т欢锛屼笟鍔″垽鏂紙濡傛皵浣撴繁搴︽牎楠岋級鍦ㄧ姸鎬佹満閲屽畬鎴愩€?
+2. **screen 层是哑的**：`arex_screen.c` 的函数只负责操作控件，业务判断（如气体深度校验）在状态机里完成。
 
-3. **card_order 闂存帴灞?*锛歵ileview 鐨勭墿鐞嗛『搴忓湪鍒涘缓鏃跺浐瀹氾紝浣嗙敤鎴峰彲浠ラ€氳繃淇�?`g_sys_config.card_order[]` 鏀瑰彉鍚勫崱鐗囩殑閫昏緫浣嶇疆锛宍arex_card_get(pos)` 閫氳�?`g_sys_card_order(pos)` 璐熻矗瑙ｅ紩鐢ㄣ�?
+3. **card_order 间接层**：tileview 的物理顺序在创建时固定，但用户可以通过修改 `g_sys_config.card_order[]` 改变各卡片的逻辑位置，`arex_card_get(pos)` 通过 `g_sys_card_order(pos)` 负责解引用。
 
-4. **娉ㄥ唽鍥炶皟**锛歝ard_info.c �?card_setup.c 閫氳�?`arex_screen_register_info_list()` / `arex_screen_register_setup_list()` 鎶婂畠浠唴閮ㄥ垱寤虹殑鍒楄〃瀵硅薄鍛婄煡 screen 灞傦紝閬垮厤�?arex_screen.c 涓噸澶嶅垱寤烘帶浠躲€?
+4. **注册回调**：card_info.c 和 card_setup.c 通过 `arex_screen_register_info_list()` / `arex_screen_register_setup_list()` 把它们内部创建的列表对象告知 screen 层，避免在 arex_screen.c 中重复创建控件。
 
-5. **Wall-charge 闃茶瑙?*锛氳繛缁?娆℃墠绌胯秺杈圭晫锛岄槻姝㈠崟娆℃姈鍔ㄨ瑙﹁繘鍏ヨ彍鍗曘€?
+5. **Wall-charge 防误触**：连续3次才穿越边界，防止单次抖动误触进入菜单。
 
-6. **Modal 闇囧姩鍙嶉**锛氭皵浣撳垏鎹㈣�?MOD 鏃讹紝`arex_screen_pulse_modal()` �?lv_anim 鍋氬乏鍙?�?px 鎶栧姩锛?娆￠噸澶嶏紝80ms锛夛紝瀵瑰�?HTML �?`scale(1.05)` 寮硅烦銆?
+6. **Modal 震动反馈**：气体切换超 MOD 时，`arex_screen_pulse_modal()` 用 lv_anim 做左右 ±6px 抖动（2次重复，80ms），对应 HTML 的 `scale(1.05)` 弹跳。
 
-7. **鏁版嵁鎬荤嚎褰掍竴鍖?*锛歚arex_data.h` 浠呬綔瀛樻牴锛�?include "arex_ui_engine.h"`锛夛紝鎵€鏈夋暟鎹€荤嚎锛坄g_sys_config`銆乣g_sensor_data`锛夈€佹灇涓俱€佸畯鍧囩粺涓€鍦?`arex_ui_engine.h` 涓畾涔夛紝娑堥櫎璺ㄦ枃浠朵緷璧栥€?
+7. **数据总线归一化**：`arex_data.h` 仅作存根（`#include "arex_ui_engine.h"`），所有数据总线（`g_sys_config`、`g_sensor_data`）、枚举、宏均统一在 `arex_ui_engine.h` 中定义，消除跨文件依赖。
 
 ---
 
-## 14. 瀛愯彍鍗曞姩浣滆矾鐢憋紙v0.10 鏂板锛?
+## 14. 子菜单动作路由（v0.10 新增）
 
-`arex_screen_handle_submenu_select()` �?`arex_screen.c` 涓叏闈㈠疄鐜帮紝鎸?`cur_title` 鍒嗘敮璺敱�?
+`arex_screen_handle_submenu_select()` 在 `arex_screen.c` 中全面实现，按 `cur_title` 分支路由：
 
-### 14.1 鍔ㄤ綔璺敱�?
+### 14.1 动作路由表
 
-| 褰撳墠瀛愯彍鍗曟爣�?| 閫変腑椤硅�?| 鎵ц鍔ㄤ�?|
+| 当前子菜单标题 | 选中项规则 | 执行动作 |
 |---|---|---|
-| `GAS SWITCH` | `SELECT XXX` | 鏇存�?`g_sensor_data.gas_active_idx`锛屽埛鏂?gas 鍗″拰宸﹂潰鏉匡紝鍏抽棴瀛愯彍鍗?|
-| `CONSERVATISM` | `LOW/MED/HIGH` 寮€�?| 鏇存�?`g_sys_config.conservatism`锛屾洿鏂?SETUP 鑿滃�?badge锛屽叧闂瓙鑿滃�?|
-| `BRIGHTNESS` | 绮剧‘鍖归厤 `LOW/MED/HIGH/MAX` | 鏇存�?`g_sys_config.brightness`锛屾洿鏂?SETUP 鑿滃�?badge锛屽叧闂瓙鑿滃�?|
-| `DIVE SETUP`锛堝祵濂楋級 | `MOD PO2:` 寮€�?| 璋冪�?`arex_screen_begin_edit_value()` �?`UI_EDIT_VALUE` |
-| `DIVE SETUP`锛堝祵濂楋級 | 鍏朵粬椤?| `arex_screen_show_modal_act(text)` 閫氱敤鍔ㄤ綔寮圭�?|
-| 浠绘剰鏍囬 | 鏈熬鍚?`>` | 瑙ｆ瀽鏍囬锛岃皟鐢?`arex_screen_open_nested_submenu()` 杩涘叆涓嬩竴�?|
-| 浠绘剰鏍囬 | `< BACK` | `arex_screen_close_submenu()` 閫€�?鍥炰笂绾?|
-| 鍏朵粬鎵€鏈?| 浠绘�?| `arex_screen_show_modal_act(text)` 閫氱敤鍔ㄤ綔寮圭獥锛?绉掕嚜鍔ㄥ叧闂�?|
+| `GAS SWITCH` | `SELECT XXX` | 更新 `g_sensor_data.gas_active_idx`，刷新 gas 卡和左面板，关闭子菜单 |
+| `CONSERVATISM` | `LOW/MED/HIGH` 开头 | 更新 `g_sys_config.conservatism`，更新 SETUP 菜单 badge，关闭子菜单 |
+| `BRIGHTNESS` | 精确匹配 `LOW/MED/HIGH/MAX` | 更新 `g_sys_config.brightness`，更新 SETUP 菜单 badge，关闭子菜单 |
+| `DIVE SETUP`（嵌套） | `MOD PO2:` 开头 | 调用 `arex_screen_begin_edit_value()` → `UI_EDIT_VALUE` |
+| `DIVE SETUP`（嵌套） | 其他项 | `arex_screen_show_modal_act(text)` 通用动作弹窗 |
+| 任意标题 | 末尾含 `>` | 解析标题，调用 `arex_screen_open_nested_submenu()` 进入下一级 |
+| 任意标题 | `< BACK` | `arex_screen_close_submenu()` 退出/回上级 |
+| 其他所有 | 任意 | `arex_screen_show_modal_act(text)` 通用动作弹窗（1秒自动关闭） |
 
-### 14.2 宓屽瀛愯彍鍗曪紙涓夌骇锛?
+### 14.2 嵌套子菜单（三级）
 
 ```
-SETUP �?SYSTEM SETUP锛堜簩绾э�?
-           鈹溾�?MODE SETUP >   �?[AIR / NITROX / 3 GAS NX / GAUGE]
-           鈹溾�?DIVE SETUP >   �?[SALINITY / MOD PO2 / SAFETY STOP / ALTITUDE]
-           �?                     鈹斺�?MOD PO2 �?UI_EDIT_VALUE锛堝唴鑱旀暟鍊肩紪杈戯�?
-           鈹溾�?AI SETUP >     �?[PAIR T1 / PAIR T2 / GTR MODE: ON]
-           鈹溾�?ALERTS SETUP > �?[DEPTH ALARM / TIME ALARM / LOW NDL / TEST VIB]
-           鈹斺�?DISPLAY / SYS >�?[UNITS / DATE & CLOCK / LOG RATE / BLUETOOTH / RESET]
+SETUP → SYSTEM SETUP（二级）
+           ├─ MODE SETUP >   → [AIR / NITROX / 3 GAS NX / GAUGE]
+           ├─ DIVE SETUP >   → [SALINITY / MOD PO2 / SAFETY STOP / ALTITUDE]
+           │                      └─ MOD PO2 → UI_EDIT_VALUE（内联数值编辑）
+           ├─ AI SETUP >     → [PAIR T1 / PAIR T2 / GTR MODE: ON]
+           ├─ ALERTS SETUP > → [DEPTH ALARM / TIME ALARM / LOW NDL / TEST VIB]
+           └─ DISPLAY / SYS >→ [UNITS / DATE & CLOCK / LOG RATE / BLUETOOTH / RESET]
 ```
 
-**瀵艰埅鏍?* (`g_ui.sub_history[]`, 鏈€�?4 �?�?
-- 杩涘叆宓屽�?`submenu_history_push()` 淇濆瓨褰撳墠鏍囬鍜屽厜鏍囦綅缃?
-- `arex_screen_close_submenu()` 妫€�?`sub_history_depth > 0` 鏃舵墽琛?pop锛岄噸鏂?populate 涓婁竴绾у唴�?
-- `sub_history_depth == 0` 鏃舵墽琛?`submenu_slide_out()`锛岃繑鍥?`sub_parent` 鐘舵�?
+**导航栈** (`g_ui.sub_history[]`, 最深 4 层)：
+- 进入嵌套时 `submenu_history_push()` 保存当前标题和光标位置
+- `arex_screen_close_submenu()` 检测 `sub_history_depth > 0` 时执行 pop，重新 populate 上一级内容
+- `sub_history_depth == 0` 时执行 `submenu_slide_out()`，返回 `sub_parent` 状态
 
-### 14.3 SETUP badge 鏇存�?
+### 14.3 SETUP badge 更新
 
-`card_setup.c` 姣忎釜鑿滃崟椤规湁涓や釜�?label�?
-- child 0锛氭爣棰樻枃瀛楋紙`> GAS SWITCH` 绛夛�?
-- child 1锛氬彸渚?badge锛坄MED` / `HIGH` / 绌猴�?
+`card_setup.c` 每个菜单项有两个子 label：
+- child 0：标题文字（`> GAS SWITCH` 等）
+- child 1：右侧 badge（`MED` / `HIGH` / 空）
 
-`arex_screen_update_setup_badge(item_idx, value)` 閫氳�?`s_setup_list` 鐩存帴鍐?child 1�? 
-`card_setup_update()` �?tick �?`g_sys_config` 鍚屾�?CONSERVATISM / BRIGHTNESS �?badge 鏂囧瓧銆?
+`arex_screen_update_setup_badge(item_idx, value)` 通过 `s_setup_list` 直接写 child 1。  
+`card_setup_update()` 每 tick 从 `g_sys_config` 同步 CONSERVATISM / BRIGHTNESS 的 badge 文字。
 
-### 14.4 INFO 瀛愯彍鍗曞姩鎬佹暟鎹?
+### 14.4 INFO 子菜单动态数据
 
-`arex_screen_open_info_submenu()` 鍦ㄦ墦寮€鍓嶈皟�?`build_info_submenu(idx)` �?`g_sensor_data` 鍔ㄦ€佹瀯寤哄瓧绗︿覆锛?
+`arex_screen_open_info_submenu()` 在打开前调用 `build_info_submenu(idx)` 从 `g_sensor_data` 动态构建字符串：
 
-| 瀛愯彍鍗?| 鍔ㄦ€佸瓧娈垫潵�?|
+| 子菜单 | 动态字段来源 |
 |--------|-------------|
-| LAST DIVE | `g_sensor_data.depth`锛宍g_sensor_data.dive_time_s` |
-| TISSUE & TOX | `g_sensor_data.cns_pct`锛宍g_sensor_data.otu` |
+| LAST DIVE | `g_sensor_data.depth`，`g_sensor_data.dive_time_s` |
+| TISSUE & TOX | `g_sensor_data.cns_pct`，`g_sensor_data.otu` |
 | GAS & CALC | `AREX_GAS_TABLE[g_sensor_data.gas_active_idx].name` |
-| SENSOR & DEVICE | `g_sensor_data.pod1_bar`锛宍g_sensor_data.pod2_bar` |
+| SENSOR & DEVICE | `g_sensor_data.pod1_bar`，`g_sensor_data.pod2_bar` |
 
-### 14.5 DIVE SETUP 宓屽鑿滃崟�?MOD PO2 瀹炴椂鍊?
+### 14.5 DIVE SETUP 嵌套菜单中 MOD PO2 实时值
 
-`build_nested_dive_setup()` 鍦ㄦ瘡娆℃墦寮€璇ュ瓙鑿滃崟鍓嶈皟鐢紝�?`g_sys_config.mod_ppo2` 鏍煎紡鍖栬繘 `s_modppo2_str[]`锛屼繚璇佹樉绀烘渶鏂板€笺€傜紪杈戞彁浜ゅ�?`arex_screen_commit_edit_value()` 鐩存帴鏇存柊鍚屼�?label�?
+`build_nested_dive_setup()` 在每次打开该子菜单前调用，将 `g_sys_config.mod_ppo2` 格式化进 `s_modppo2_str[]`，保证显示最新值。编辑提交后 `arex_screen_commit_edit_value()` 直接更新同一 label。
 
-### 14.6 鏂板�?arex_screen.h 鍏�?API
+### 14.6 新增 arex_screen.h 公开 API
 
-| 鍑芥暟绛惧悕 | 浣滅�?|
+| 函数签名 | 作用 |
 |----------|------|
-| `arex_screen_open_nested_submenu(title, items, count)` | 鎶婂綋鍓嶇姸鎬佸帇鏍堬紝鍘熷湴鏇挎崲瀛愯彍鍗曞唴瀹癸紙鏃犳粦鍔ㄥ姩鐢伙級 |
-| `arex_screen_update_setup_badge(item_idx, value)` | 鏇存�?SETUP 鑿滃崟琛岀殑鍙充晶 badge label |
-| `arex_screen_show_modal_act(action_text)` | 鏄剧ず閫氱敤鍔ㄤ綔寮圭獥�?绉掑悗鑷姩鍏抽棴锛岀姸鎬佸洖 `UI_SUB_MENU` |
-| `arex_screen_begin_edit_value(item_idx, value, min, max, step)` | 鍒濆鍖?`edit_ctx`锛岃繘鍏?`UI_EDIT_VALUE` 鐘舵€侊紱UI锛氳榛戝簳+缁胯竟妗嗭紱鏁磋�?flex `space-between`锛堝榻?HTML �?137 琛岋級锛涙暟�?`X.X` 鍦ㄧ豢搴?badge 鍐呭眳涓紱绠�?`^ v`锛沗s_edit_flash_timer` 600ms 鍒囨�?badge 鑳屾櫙锛堢豢鈫旈粦锛変笌鏁板€兼枃瀛楅鑹诧紙榛戔啍缁匡級 |
-## 15. LVGL 缁濆鍧愭爣鎺掔増鏍囧噯锛坴2026-04-22�?
+| `arex_screen_open_nested_submenu(title, items, count)` | 把当前状态压栈，原地替换子菜单内容（无滑动动画） |
+| `arex_screen_update_setup_badge(item_idx, value)` | 更新 SETUP 菜单行的右侧 badge label |
+| `arex_screen_show_modal_act(action_text)` | 显示通用动作弹窗，1秒后自动关闭，状态回 `UI_SUB_MENU` |
+| `arex_screen_begin_edit_value(item_idx, value, min, max, step)` | 初始化 `edit_ctx`，进入 `UI_EDIT_VALUE` 状态；UI：行黑底+绿边框；整行 flex `space-between`（对齐 HTML 第 137 行）；数值 `X.X` 在绿底 badge 内居中；箭头 `^ v`；`s_edit_flash_timer` 600ms 切换 badge 背景（绿↔黑）与数值文字颜色（黑↔绿） |
+## 15. LVGL 绝对坐标排版标准（v2026-04-22）
 
-> 璇︾粏瑙勮寖�?`UI_html_DOC/LVGL_LAYOUT_GUIDE.md`銆傛湰鑺備负蹇€熺储寮曘€?
+> 详细规范见 `UI_html_DOC/LVGL_LAYOUT_GUIDE.md`。本节为快速索引。
 
-### 15.1 鐗╃悊鍙傛暟涓庡畨鍏ㄥ尯
+### 15.1 物理参数与安全区
 
-| 鍙傛�?| �?| 璇存�?|
+| 参数 | 值 | 说明 |
 |------|-----|------|
-| `AREX_BASE_U` | 10px | 1U = 10px锛屾墍鏈夊昂瀵稿繀椤绘�?10 鐨勫€嶆�?|
-| `AREX_PHYSICAL_W/H` | 640x480 | 鐗╃悊灞忓箷閿佹锛屼笉鍙€捐�?|
-| `SAFE_ZONE` | 580x400 | 瀹夊叏鐢诲竷锛宱ffset_x/y 椹卞姩鐗╃悊浣嶇Щ |
-| `AREX_LEFT_ANCHOR_W` | 160px | 宸︿晶閿氱偣鍥哄畾瀹藉�?|
-| `GLOBAL_GAP` | 20px | �?鍙冲垎鍖洪殧绂婚棿璺?|
+| `AREX_BASE_U` | 10px | 1U = 10px，所有尺寸必须是 10 的倍数 |
+| `AREX_PHYSICAL_W/H` | 640x480 | 物理屏幕锁死，不可逾越 |
+| `SAFE_ZONE` | 580x400 | 安全画布，offset_x/y 驱动物理位移 |
+| `AREX_LEFT_ANCHOR_W` | 160px | 左侧锚点固定宽度 |
+| `GLOBAL_GAP` | 20px | 左/右分区隔离间距 |
 
-### 15.2 Tech 妯″紡甯冨眬鎺ㄧ畻
+### 15.2 Tech 模式布局推算
 
 ```
 uint16_t gap = g_sys_config.gap_u * AREX_BASE_U;  // 20px
 uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - gap;  // 400px
 ```
 
-### 15.3 娓叉煋閾佸緥锛堣嚜鏌ユ竻鍗曪�?
+### 15.3 渲染铁律（自查清单）
 
-| # | 瑙勫�?| 閿欒浠ｇ爜 |
+| # | 规则 | 错误代码 |
 |---|------|----------|
-| 1 | `pad_all = 0` 鎵€鏈夊鍣ㄩ浂杈硅�?| `pad_all = 8` |
-| 2 | `border_width = 0` 鎵€鏈夊鍣ㄩ浂杈规�?| `border_width = 2` |
-| 3 | 绂佹�?Flex 甯冨�?| `lv_obj_set_layout(obj, LV_LAYOUT_FLEX)` |
-| 4 | label 灏哄閿佹 | `lv_obj_set_size(lbl, LV_SIZE_CONTENT, ...)` |
-| 5 | `LV_LABEL_LONG_DOT` 闃叉埅鏂?| �?`long_mode` |
-| 6 | 鑿滃崟椤?x=0 �?INFO MENU 瀵归�?| `x=16`锛堟孩鍑猴級 |
-| 7 | `clip_corner=true` 闃叉瀛愬厓绱犳孩�?| 鏃犺鍓?|
+| 1 | `pad_all = 0` 所有容器零边距 | `pad_all = 8` |
+| 2 | `border_width = 0` 所有容器零边框 | `border_width = 2` |
+| 3 | 禁止 Flex 布局 | `lv_obj_set_layout(obj, LV_LAYOUT_FLEX)` |
+| 4 | label 尺寸锁死 | `lv_obj_set_size(lbl, LV_SIZE_CONTENT, ...)` |
+| 5 | `LV_LABEL_LONG_DOT` 防截断 | 无 `long_mode` |
+| 6 | 菜单项 x=0 与 INFO MENU 对齐 | `x=16`（溢出） |
+| 7 | `clip_corner=true` 防止子元素溢出 | 无裁剪 |
 
-### 15.4 姘斾綋閫夐」瀹藉害淇璁板�?
+### 15.4 气体选项宽度修复记录
 
-**闂�?*锛歚card_gas.c` 姘斾綋閫夐」瀹藉害婧㈠嚭锛屽彸杈圭紭瓒呭�?tile 杈圭晫銆?
+**问题**：`card_gas.c` 气体选项宽度溢出，右边缘超出 tile 边界。
 
-**鏍瑰�?*锛氳�?x=16 璧峰锛宍row_w = right_canvas_w - 15`锛屽鑷村彸杈圭紭鍒拌揪 `16 + (right_canvas_w - 15) = right_canvas_w + 1`锛岃秴鍑?tile�?
+**根因**：行 x=16 起始，`row_w = right_canvas_w - 15`，导致右边缘到达 `16 + (right_canvas_w - 15) = right_canvas_w + 1`，超出 tile。
 
-**淇�?*锛氬�?`lv_obj_set_pos(row, 16, row_y)` 鏀逛负 `lv_obj_set_pos(row, 0, row_y)`锛屼�?`card_info.c` �?x=0 瀵归綈銆?
+**修复**：将 `lv_obj_set_pos(row, 16, row_y)` 改为 `lv_obj_set_pos(row, 0, row_y)`，与 `card_info.c` 的 x=0 对齐。
 
 ```
-// 淇鍓?(card_gas.c:32)
-lv_obj_set_pos(row, 16, row_y);  // 婧㈠�?
+// 修复前 (card_gas.c:32)
+lv_obj_set_pos(row, 16, row_y);  // 溢出
 
-// 淇鍚?
-lv_obj_set_pos(row, 0, row_y);   // �?INFO MENU 瀵归�?
+// 修复后
+lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
 ```
 
-### 15.5 鍏抽敭浠ｇ爜鍙樻洿鏃ュ織
+### 15.5 关键代码变更日志
 
-| 鏃ユ�?| 鏂囦�?| 鍙樻�?|
+| 日期 | 文件 | 变更 |
 |------|------|------|
-| 2026-04-22 | `card_gas.c` | 姘斾綋閫夐�?x=16 �?x=0锛屼�?INFO MENU 瀵归�?|
-| 2026-04-22 | `UI_html_DOC/LVGL_LAYOUT_GUIDE.md` | 鏂板缓鎺掔増钀藉湴鎸囧�?|
-| 2026-04-23 | `arex_ui_engine.h` | 鍒犻�?`left_order[]` �?`left_mod_*[]`锛屾浛鎹负 `arex_left_row_cfg_t left_layout[8]` 琛岄厤缃粨鏋勪�?|
-| 2026-04-23 | `arex_ui_engine.h` | 鏂板�?`AREX_MODULE_EMPTY=0`锛堟浛鎹㈡棫 NONE锛夛紝鏂板 `AREX_MAX_LEFT_ROWS=8`銆乣AREX_ROW_MAX_SLOTS=2`銆乣ANCHOR_COMP_COUNT=16` |
-| 2026-04-23 | `arex_ui_engine.c` | `arex_calc_anchor_layout()` 瀹屽叏閲嶅啓锛氶亶鍘?`left_layout[]` 鑰岄�?`left_order[]`锛屽崟鏍忕嫭鍗犲叏�?160px)锛屽弻鎷煎悇鍗婂�?80px)锛岄浂鍙屾嫾纭紪鐮?|
-| 2026-04-23 | `arex_ui_engine.c` | `arex_sys_config_defaults()` 濉�?`left_layout[]` 榛樿琛岄厤缃紙DEPTH/GA + NDL+TTS + POD1+POD2 + BATT+WTM + GAS + TIME�?|
-| 2026-04-23 | `arex_screen.c` | `left_anchor_create()` 寰幆鏀逛负 `for (i < comp_count)`锛屾爣棰樺拰鏁板€兼枃瀛楁敼涓?`switch (c->module)` 鏋氫妇椹卞姩 |
-| 2026-04-23 | `arex_screen.c` | `left_anchor_rebuild()` 鍚屾鏇存柊涓虹┖妯″潡妫€鏌ュ拰瀵归綈澶勭悊 |
-| 2026-04-23 | `AREX_ARCH.md` | Section 16 鍏ㄩ潰鍗囩骇锛氭柊澧?16.3 `arex_left_row_cfg_t` 缁撴瀯浣撱€?6.4 榛樿琛屽竷灞€�?6.9 娓叉煋娴佺▼�?|
-| 2026-04-23 | `arex_ui_engine.h` | 鏂板�?`arex_font_id_t` 鏋氫妇瀛楀吀銆乣arex_get_font()` 澹版槑锛涘垹闄ゅ簾寮冪殑 `align_title/huge/med` 瀛楁�?|
-| 2026-04-23 | `arex_ui_engine.c` | 瀹炵�?`arex_get_font()` 瀛椾綋鏄犲皠鍣紱鍒犻櫎搴熷純鐨?`font_sz_*` 榛樿鍊硷紱鏇存�?`def_layout[]` 浣跨�?`AREX_FONT_ID_*` 鏋氫�?|
-| 2026-04-23 | `arex_screen.c` | 鍏ㄩ�?`AREX_FONT_*` 瀹忔浛鎹负 `arex_get_font(id)`锛涘垹闄?`font_cat[]` 涓棿灞傛暟缁勶紙涓ゅ锛夛紱`left_anchor_rebuild()` 澧炲�?`title_font`/`title_align` 濉�?|
-| 2026-04-23 | `cards/*.c` | 鍏ㄩ�?`AREX_FONT_*` 瀹忔浛鎹负 `arex_get_font(id)`锛坈ompass/setup/gas/deco/info/plan�?|
-| 2026-04-23 | `arex_screen.h` | �?`AREX_FONT_*` 瀹忔爣璁颁负搴熷純锛岄檮姝ｇ‘鐢ㄦ硶娉ㄩ�?|
-| 2026-04-23 | `AREX_ARCH.md` | 鏂板�?Section 17 瀛椾綋鏄犲皠寮曟搸鏂囨。锛涙洿�?Section 10/16 寮曠�?|
-| 2026-04-23 | `arex_ui_engine.h` | 鏂板�?`arex_menu_item_cfg_t` �?`arex_render_dynamic_menu()` 澹版�?|
-| 2026-04-23 | `arex_ui_engine.c` | 瀹炵幇宸ュ巶鍑芥暟锛宧eight/gap 鍏ㄧ▼浠?`g_sys_config` 鎺ㄧ�?|
-| 2026-04-23 | `card_info.c` | 瀹屽叏閲嶆瀯锛氶厤缃暟缁?+ 1 琛屽伐鍘傝皟�?|
-| 2026-04-23 | `card_setup.c` | 瀹屽叏閲嶆瀯锛歜adge 鍒锋柊閫昏緫淇濈暀锛屽彞鏌勬暟缁勬敼涓哄伐鍘傝緭鍑?|
-| 2026-04-23 | `card_gas.c` | `GAS_ROW_GAP` 瀹忓垹闄わ紝`gap_y` 鏀逛负閰嶇疆鎺ㄧ畻 |
-| 2026-04-23 | `AREX_ARCH.md` | 鏂板�?Section 19/20 鍙充晶鍗＄墖鍔ㄦ€佽彍鍗曞紩鎿庢枃妗?|
-| 2026-04-23 | `arex_card_registry.c` | 閲嶅啓锛氭寚瀹氬垵濮嬪寲鍣ㄣ€乣tile_obj=NULL` 鍒濆鍖栥€乣g_sys_card_order()` 闂存帴鏌ヨ銆乣arex_card_count()` API |
-| 2026-04-23 | `arex_card_registry.h` | 鏂板�?`AREX_CARD_COUNT`銆乣AREX_DASH_CARD_COUNT`锛沗arex_card_reg_t` 鏂板�?`on_enter_cb` |
-| 2026-04-23 | `arex_ui_engine.c` | 鏂板�?`g_sys_card_order(pos)` 鍑芥暟灏佽锛沗arex_sys_config_defaults()` 濉厖榛樿 `card_order[]` |
-| 2026-04-23 | `arex_ui_engine.h` | 鏂板�?`g_sys_card_order()` 澹版槑锛涙柊�?`arex_ui_update_data()` 绌洪挬�?|
-| 2026-04-23 | `arex_ui_state.c` | `arex_ui_refresh_all()` 鏀逛负 `arex_card_count()` 寰幆锛沗AREX_CARD_COUNT - 2` 鏇挎崲涓?`AREX_DASH_CARD_COUNT` |
-| 2026-04-23 | `arex_data.h/c` | 鏂板缓鏁版嵁鎬荤嚎澶存枃浠跺瓨鏍癸紙`#include "arex_ui_engine.h"`锛夛紝鎵€鏈夊畾涔変繚鐣欏湪 engine |
-| 2026-04-23 | `card_info.c` | 鏀逛负 `arex_get_font()` + `arex_data.h`锛涚�?update 鍥炶�?|
-| 2026-04-23 | `card_setup.c` | 鏀逛负 `arex_get_font()` + dirty check badge 鏇存柊锛沚adge �?label 绱㈠紩淇 |
-| 2026-04-23 | `UI_main.c` | 绉婚�?`lv_timer_create`锛堝凡绉昏嚦 `arex_screen_create`锛夛紱鍚姩鐩存帴杩涘叆 INFO �?|
-| 2026-04-23 | `AREX_ARCH.md` | 鏂板�?Section 18 閲嶆瀯鍙樻洿鏃ュ織锛涙洿�?Section 1/3/4/7/12/13 |
-|| 2026-04-23 | `arex_ui_engine.h` | 鏂板�?`AREX_DEBUG_BORDER` �?0=鍏抽�?1=寮€�?锛岀粺涓€鎺у�?title_zone/val_zone 璋冭瘯杈规锛沗RENDER_FIXES.md` Section 7 鍚屾鏇存柊 |
+| 2026-04-22 | `card_gas.c` | 气体选项 x=16 到 x=0，与 INFO MENU 对齐 |
+| 2026-04-22 | `UI_html_DOC/LVGL_LAYOUT_GUIDE.md` | 新建排版落地指南 |
+| 2026-04-23 | `arex_ui_engine.h` | 删除 `left_order[]` 和 `left_mod_*[]`，替换为 `arex_left_row_cfg_t left_layout[8]` 行配置结构体 |
+| 2026-04-23 | `arex_ui_engine.h` | 新增 `AREX_MODULE_EMPTY=0`（替换旧 NONE），新增 `AREX_MAX_LEFT_ROWS=8`、`AREX_ROW_MAX_SLOTS=2`、`ANCHOR_COMP_COUNT=16` |
+| 2026-04-23 | `arex_ui_engine.c` | `arex_calc_anchor_layout()` 完全重写：遍历 `left_layout[]` 而非 `left_order[]`，单栏独占全宽(160px)，双拼各半宽(80px)，零双拼硬编码 |
+| 2026-04-23 | `arex_ui_engine.c` | `arex_sys_config_defaults()` 填充 `left_layout[]` 默认行配置（DEPTH/GA + NDL+TTS + POD1+POD2 + BATT+WTM + GAS + TIME） |
+| 2026-04-23 | `arex_screen.c` | `left_anchor_create()` 循环改为 `for (i < comp_count)`，标题和数值文字改为 `switch (c->module)` 枚举驱动 |
+| 2026-04-23 | `arex_screen.c` | `left_anchor_rebuild()` 同步更新为空模块检查和对齐处理 |
+| 2026-04-23 | `AREX_ARCH.md` | Section 16 全面升级：新增 16.3 `arex_left_row_cfg_t` 结构体、16.4 默认行布局、16.9 渲染流程图 |
+| 2026-04-23 | `arex_ui_engine.h` | 新增 `arex_font_id_t` 枚举字典、`arex_get_font()` 声明；删除废弃的 `align_title/huge/med` 字段 |
+| 2026-04-23 | `arex_ui_engine.c` | 实现 `arex_get_font()` 字体映射器；删除废弃的 `font_sz_*` 默认值；更新 `def_layout[]` 使用 `AREX_FONT_ID_*` 枚举 |
+| 2026-04-23 | `arex_screen.c` | 全部 `AREX_FONT_*` 宏替换为 `arex_get_font(id)`；删除 `font_cat[]` 中间层数组（两处）；`left_anchor_rebuild()` 增加 `title_font`/`title_align` 填充 |
+| 2026-04-23 | `cards/*.c` | 全部 `AREX_FONT_*` 宏替换为 `arex_get_font(id)`（compass/setup/gas/deco/info/plan） |
+| 2026-04-23 | `arex_screen.h` | 旧 `AREX_FONT_*` 宏标记为废弃，附正确用法注释 |
+| 2026-04-23 | `AREX_ARCH.md` | 新增 Section 17 字体映射引擎文档；更新 Section 10/16 引用 |
+| 2026-04-23 | `arex_ui_engine.h` | 新增 `arex_menu_item_cfg_t` 及 `arex_render_dynamic_menu()` 声明 |
+| 2026-04-23 | `arex_ui_engine.c` | 实现工厂函数，height/gap 全程从 `g_sys_config` 推算 |
+| 2026-04-23 | `card_info.c` | 完全重构：配置数组 + 1 行工厂调用 |
+| 2026-04-23 | `card_setup.c` | 完全重构：badge 刷新逻辑保留，句柄数组改为工厂输出 |
+| 2026-04-23 | `card_gas.c` | `GAS_ROW_GAP` 宏删除，`gap_y` 改为配置推算 |
+| 2026-04-23 | `AREX_ARCH.md` | 新增 Section 19/20 右侧卡片动态菜单引擎文档 |
+| 2026-04-23 | `arex_card_registry.c` | 重写：指定初始化器、`tile_obj=NULL` 初始化、`g_sys_card_order()` 间接查询、`arex_card_count()` API |
+| 2026-04-23 | `arex_card_registry.h` | 新增 `AREX_CARD_COUNT`、`AREX_DASH_CARD_COUNT`；`arex_card_reg_t` 新增 `on_enter_cb` |
+| 2026-04-23 | `arex_ui_engine.c` | 新增 `g_sys_card_order(pos)` 函数封装；`arex_sys_config_defaults()` 填充默认 `card_order[]` |
+| 2026-04-23 | `arex_ui_engine.h` | 新增 `g_sys_card_order()` 声明；新增 `arex_ui_update_data()` 空钩子 |
+| 2026-04-23 | `arex_ui_state.c` | `arex_ui_refresh_all()` 改为 `arex_card_count()` 循环；`AREX_CARD_COUNT - 2` 替换为 `AREX_DASH_CARD_COUNT` |
+| 2026-04-23 | `arex_data.h/c` | 新建数据总线头文件存根（`#include "arex_ui_engine.h"`），所有定义保留在 engine |
+| 2026-04-23 | `card_info.c` | 改为 `arex_get_font()` + `arex_data.h`；空 update 回调 |
+| 2026-04-23 | `card_setup.c` | 改为 `arex_get_font()` + dirty check badge 更新；badge 子 label 索引修正 |
+| 2026-04-23 | `UI_main.c` | 移除 `lv_timer_create`（已移至 `arex_screen_create`）；启动直接进入 INFO 卡 |
+| 2026-04-23 | `AREX_ARCH.md` | 新增 Section 18 重构变更日志；更新 Section 1/3/4/7/12/13 |
+|| 2026-04-23 | `arex_ui_engine.h` | 新增 `AREX_DEBUG_BORDER` 宏(0=关闭/1=开启)，统一控制 title_zone/val_zone 调试边框；`RENDER_FIXES.md` Section 7 同步更新 |
 
 ---
 
-## 16. APP 鍚屾灏辩华锛氬叏鍔ㄦ€佸竷灞€寮曟搸锛�?026-04-23�?
+## 16. APP 同步就绪：全动态布局引擎（v2026-04-23）
 
-### 16.1 涓夊ぇ鏍稿績寮曟搸鐘舵€?
+### 16.1 三大核心引擎状态
 
-| 寮曟�?| 鐘舵�?| 璇存�?|
+| 引擎 | 状态 | 说明 |
 |------|------|------|
-| 宸︿晶閿氱偣鑷敱鍙屾嫾 | �?宸插疄鐜?| `left_layout[]` 琛岄厤缃紝浠绘剰涓ゆā鍧楀彲鍙屾嫾鎴栫嫭鍗犲叏�?|
-| 鍙充晶鍗＄墖椤哄�?| �?宸插疄鐜?| `card_order[]` + `arex_card_get()` 鍙屽皠鏄犲皠 |
-| U 鍗曚綅闆剁‖缂栫爜 | �?宸插疄鐜?| 鎵€鏈夊潗鏍囧熀�?`�?AREX_BASE_U`锛屾棤娈嬬暀鍍忕礌甯告暟 |
+| 左侧锚点自由双拼 | ✅ 已实现 | `left_layout[]` 行配置，任意两模块可双拼或独占全宽 |
+| 右侧卡片顺序 | ✅ 已实现 | `card_order[]` + `arex_card_get()` 双射映射 |
+| U 单位零硬编码 | ✅ 已实现 | 所有坐标基于 `× AREX_BASE_U`，无残留像素常数 |
 
-### 16.2 宸︿晶閿氱偣妯″潡鏋氫�?
+### 16.2 左侧锚点模块枚举
 
 ```c
 typedef enum {
-    AREX_MODULE_EMPTY  = 0,  /* 绌烘Ы浣嶏細涓嶆覆鏌撲换浣曟ā鍧?*/
-    AREX_MODULE_DEPTH  = 1,  /* DEPTH 澶ф暟瀛楋紙鐙珛涓€琛岋紝鍏ㄥ�?*/
-    AREX_MODULE_NDL    = 2,  /* NDL 鍏嶅噺鍘嬫椂�?*/
-    AREX_MODULE_TTS    = 3,  /* TTS 鍥炲埌姘撮潰鏃堕�?*/
-    AREX_MODULE_POD1  = 4,  /* POD1 姘旂�?鍘嬪�?*/
-    AREX_MODULE_POD2  = 5,  /* POD2 姘旂�?鍘嬪�?*/
-    AREX_MODULE_BATT  = 6,  /* BATT 鐢垫�?*/
-    AREX_MODULE_WTM   = 7,  /* W.TIME 娼滄按鎬绘椂�?*/
-    AREX_MODULE_GAS   = 8,  /* GAS 褰撳墠姘斾綋 */
-    AREX_MODULE_TIME  = 9,  /* TIME 鐙珛璁℃椂 */
+    AREX_MODULE_EMPTY  = 0,  /* 空槽位：不渲染任何模块 */
+    AREX_MODULE_DEPTH  = 1,  /* DEPTH 大数字（独立一行，全宽） */
+    AREX_MODULE_NDL    = 2,  /* NDL 免减压时间 */
+    AREX_MODULE_TTS    = 3,  /* TTS 回到水面时间 */
+    AREX_MODULE_POD1  = 4,  /* POD1 气瓶1压力 */
+    AREX_MODULE_POD2  = 5,  /* POD2 气瓶2压力 */
+    AREX_MODULE_BATT  = 6,  /* BATT 电池 */
+    AREX_MODULE_WTM   = 7,  /* W.TIME 潜水总时间 */
+    AREX_MODULE_GAS   = 8,  /* GAS 当前气体 */
+    AREX_MODULE_TIME  = 9,  /* TIME 独立计时 */
 } arex_left_module_t;
 ```
 
-### 16.3 宸︿晶琛岄厤缃粨鏋勪綋锛圓PP 鍚屾鏍稿績�?
+### 16.3 左侧行配置结构体（APP 同步核心）
 
 ```c
-#define AREX_MAX_LEFT_ROWS  8   /* 鏈€澶ц�?*/
-#define AREX_ROW_MAX_SLOTS  2   /* 姣忚鏈€澶?2 涓ā鍧楁Ы */
+#define AREX_MAX_LEFT_ROWS  8   /* 最大行数 */
+#define AREX_ROW_MAX_SLOTS  2   /* 每行最多 2 个模块槽 */
 
 typedef struct {
-    uint8_t left_module;   /* 宸︿晶妯″潡鏋氫�?(AREX_MODULE_*) */
-    uint8_t right_module;  /* 鍙充晶妯″潡鏋氫�?(AREX_MODULE_EMPTY=鐙崰鍏ㄥ) */
-    uint8_t h_u;           /* 璇ヨ鎬婚珮搴︼紙鍗曚綅 U锛岄粯璁?0=鏌ユā鍧楅粯璁ゅ€硷級 */
-    uint8_t title_h_u;     /* 鏍囬鍖洪珮搴︼紙榛樿 0=鐢ㄥ叏灞�?title_h_u�?*/
-    uint8_t title_font;    /* 鏍囬瀛楀�? arex_font_id_t (0~3) */
-    uint8_t val_font;      /* 鏁板€煎瓧鍙? arex_font_id_t (0~3) */
-    uint8_t val_align;     /* 鏁板€煎榻? 0=LEFT 1=CENTER 2=RIGHT */
-    uint8_t sep_style;     /* 鍒嗗壊绾挎牱�? 0=NONE 1=SOLID 2=DASHED 3=DOTTED */
-    uint8_t sep_thick;     /* 鍒嗗壊绾跨矖�?px�?=鐢ㄥ叏灞�?sep_thick�?*/
+    uint8_t left_module;   /* 左侧模块枚举 (AREX_MODULE_*) */
+    uint8_t right_module;  /* 右侧模块枚举 (AREX_MODULE_EMPTY=独占全宽) */
+    uint8_t h_u;           /* 该行总高度（单位 U，默认 0=查模块默认值） */
+    uint8_t title_h_u;     /* 标题区高度（默认 0=用全局 title_h_u） */
+    uint8_t title_font;    /* 标题字号: arex_font_id_t (0~3) */
+    uint8_t val_font;      /* 数值字号: arex_font_id_t (0~3) */
+    uint8_t val_align;     /* 数值对齐: 0=LEFT 1=CENTER 2=RIGHT */
+    uint8_t sep_style;     /* 分割线样式: 0=NONE 1=SOLID 2=DASHED 3=DOTTED */
+    uint8_t sep_thick;     /* 分割线粗细 px（0=用全局 sep_thick） */
 } arex_left_row_cfg_t;
 
-// g_sys_config.left_layout[] �?APP 瀹為檯涓嬪彂姝ゆ暟缁?
+// g_sys_config.left_layout[] — APP 实际下发此数组
 arex_left_row_cfg_t left_layout[AREX_MAX_LEFT_ROWS];
 ```
 
-### 16.4 榛樿琛屽竷灞€锛堝垵濮嬪€硷級
+### 16.4 默认行布局（初始值）
 
-> **瀛楀�?arex_font_id_t**: `0=SMALL(14px)` `1=TITLE(20px)` `2=MEDIUM(28px)` `3=HUGE(48px)`
+> **字号 arex_font_id_t**: `0=SMALL(14px)` `1=TITLE(20px)` `2=MEDIUM(28px)` `3=HUGE(48px)`
 
 ```c
-/* row 0: DEPTH 鍗曟爮鍏ㄥ */
+/* row 0: DEPTH 单栏全宽 */
 { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 8, 2,
   AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
-/* row 1: NDL + TTS 鍙屾�?*/
+/* row 1: NDL + TTS 双拼 */
 { AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2,
   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
-/* row 2: POD1 + POD2 鍙屾�?*/
+/* row 2: POD1 + POD2 双拼 */
 { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2,
   AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
-/* row 3: BATT + WTM 鍙屾�?*/
+/* row 3: BATT + WTM 双拼 */
 { AREX_MODULE_BATT, AREX_MODULE_WTM,  5, 2,
   AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
-/* row 4: GAS 鍗曟爮鍏ㄥ */
+/* row 4: GAS 单栏全宽 */
 { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2,
   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
-/* row 5: TIME 鍗曟爮鍏ㄥ */
+/* row 5: TIME 单栏全宽 */
 { AREX_MODULE_TIME, AREX_MODULE_EMPTY, 5, 2,
   AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 0 },
 /* row 6-7: EMPTY */
@@ -773,82 +773,82 @@ arex_left_row_cfg_t left_layout[AREX_MAX_LEFT_ROWS];
   0, 0, AREX_ALIGN_LEFT, AREX_SEP_NONE, 0 },
 ```
 
-> **銆愰浂鍙烽搧寰嬨€慙VGL 8.3 鍒嗗壊绾垮疄鐜拌鑼?*
+> **【零号铁律】LVGL 8.3 分割线实现规范**
 >
-> LVGL 8.3 鐨勫師鐢?`border`锛堣竟妗嗭級灞炴�?*涓嶆敮鎸佽櫄�?*锛佺粷瀵圭姝娇�?`lv_obj_set_style_border_*` 鏉ョ敾鍒嗗壊绾裤�?
+> LVGL 8.3 的原生 `border`（边框）属性**不支持虚线**！绝对禁止使用 `lv_obj_set_style_border_*` 来画分割线。
 >
-> 鍒嗗壊绾挎覆鏌撹鍒欙紙`arex_screen.c` 宸ュ巶鍑芥暟锛夛�?
+> 分割线渲染规则（`arex_screen.c` 工厂函数）：
 >
-> | `sep_style` | 娓叉煋瀵硅�?| 瀹炵幇鏂瑰紡 |
+> | `sep_style` | 渲染对象 | 实现方式 |
 > |---|---|---|
-> | `AREX_SEP_NONE` (0) | �?| 涓嶅垱寤轰换浣曞璞?|
-> | `AREX_SEP_SOLID` (1) | `lv_obj` 瀹炵嚎鑹插潡 | 绾壊鐭╁舰锛岃儗鏅壊 + bg_opa |
-> | `AREX_SEP_DASHED` (2) | `lv_line` + 鍘熺敓铏氱嚎寮曟�?| `line_dash_width=6` + `line_dash_gap=4` |
-> | `AREX_SEP_DOTTED` (3) | `lv_line` + 鍘熺敓鐐圭嚎寮曟�?| `line_dash_width=thick` + `line_dash_gap=thick*2` |
+> | `AREX_SEP_NONE` (0) | 无 | 不创建任何对象 |
+> | `AREX_SEP_SOLID` (1) | `lv_obj` 实线色块 | 纯色矩形，背景色 + bg_opa |
+> | `AREX_SEP_DASHED` (2) | `lv_line` + 原生虚线引擎 | `line_dash_width=6` + `line_dash_gap=4` |
+> | `AREX_SEP_DOTTED` (3) | `lv_line` + 原生点线引擎 | `line_dash_width=thick` + `line_dash_gap=thick*2` |
 >
-> **鍐呭瓨绠＄悊閾佸�?*锛歚lv_line_set_points()` 浼犲叆鐨?`lv_point_t[]` 鎸囬拡鐢辫皟鐢ㄦ柟鎵樼锛孡VGL 涓嶄細鑷姩閲婃斁銆傛瘡娆￠噸寤哄垎鍓茬嚎鏃讹細
-> 1. 鍏堥€氳�?`lv_obj_get_user_data()` 鍙栧嚭鏃?pts锛岃皟鐢?`lv_mem_free()` 閲婃�?
-> 2. `lv_line_create()` 鏃堕€氳�?`lv_obj_add_event_cb(sep, line_delete_cb, LV_EVENT_DELETE, pts)` �?pts 缁戝畾鍒颁簨浠跺洖璋?
-> 3. `line_delete_cb` 鍦ㄥ璞￠攢姣佹椂鑷姩閲婃�?pts锛岄槻姝㈠唴瀛樻硠婕?
+> **内存管理铁律**：`lv_line_set_points()` 传入的 `lv_point_t[]` 指针由调用方托管，LVGL 不会自动释放。每次重建分割线时：
+> 1. 先通过 `lv_obj_get_user_data()` 取出旧 pts，调用 `lv_mem_free()` 释放
+> 2. `lv_line_create()` 时通过 `lv_obj_add_event_cb(sep, line_delete_cb, LV_EVENT_DELETE, pts)` 将 pts 绑定到事件回调
+> 3. `line_delete_cb` 在对象销毁时自动释放 pts，防止内存泄漏
 >
-> **鍏抽敭鏁版嵁缁撴�?*锛歚arex_anchor_comp_t` 鏂板�?`sep_style`/`sep_thick` 瀛楁锛岀�?`arex_calc_anchor_layout()` �?`left_layout[]` 濉厖銆?
+> **关键数据结构**：`arex_anchor_comp_t` 新增 `sep_style`/`sep_thick` 字段，由 `arex_calc_anchor_layout()` 从 `left_layout[]` 填充。
 
-**APP 鑷敱鍙屾嫾绀轰緥**锛氬�?BATT �?GAS 鎷煎湪鍚屼竴琛岋�?
+**APP 自由双拼示例**：将 BATT 和 GAS 拼在同一行：
 ```json
 {
   "left_layout": [
     { "left_module": 1, "right_module": 0, "h_u": 8, ... },  // DEPTH
     { "left_module": 2, "right_module": 3, "h_u": 6, ... },  // NDL+TTS
-    { "left_module": 6, "right_module": 8, "h_u": 5, ... },  // BATT+GAS �?鑷敱鍙屾嫾�?
+    { "left_module": 6, "right_module": 8, "h_u": 5, ... },  // BATT+GAS ← 自由双拼！
     ...
   ]
 }
 ```
-鍗曠墖鏈烘敹鍒板悗璋冪敤 `arex_ui_apply_config()`锛屾暣涓乏渚ч潰鏉胯嚜鍔ㄩ噸鎺掞紝鏃犻渶鏀逛换�?C 浠ｇ爜銆?
+单片机收到后调用 `arex_ui_apply_config()`，整个左侧面板自动重排，无需改任何 C 代码。
 
-### 16.5 甯冨眬寮曟搸鍑芥暟涓€瑙?
+### 16.5 布局引擎函数一览
 
-| 鍑芥�?| 鏂囦�?| 浣滅�?|
+| 函数 | 文件 | 作用 |
 |------|------|------|
-| `arex_calc_anchor_layout()` | arex_ui_engine.c | 閬嶅�?`left_layout[]`锛屽�?`arex_anchor_comp_t[]`锛堝崟鏍?鍏ュ彛锛屽弻�?鍏ュ彛锛夛紝杩斿洖瀹為�?count |
-| `arex_calc_tech_layout()` | arex_ui_engine.c | Tech 妯″紡宸﹀彸鍒嗗尯鍧愭爣锛氬乏閿氱偣鍥哄畾 160px锛屽彸鍖哄煙 `= safe_zone_w - 160 - gap` |
-| `arex_calc_classic_layout()` | arex_ui_engine.c | Classic 妯″紡涓婁笅鍒嗗尯锛屾渶灏忛珮�?`AREX_MIN_CLASSIC_TOP_H=200px` |
-| `arex_calc_widget_cell()` | arex_ui_engine.c | 5x6 缃戞牸鍗曞厓鏍煎潗鏍囷紝`unit_w = parent_w/5`锛宍unit_h = parent_h/6` |
-| `arex_calc_tissue_bars()` | arex_ui_engine.c | 16 鏌辩粍缁囧浘 X 鍧愭爣锛宍col_w = total_w/16` |
-| `left_anchor_create()` | arex_screen.c | 棣栨鍒涘缓锛屾�?`c->module` 鏋氫妇椹卞姩锛屾棤绱㈠紩纭紪鐮?|
-| `left_anchor_rebuild()` | arex_screen.c | 閰嶇疆鍙樻洿鍚庨噸寤猴紝鏁版嵁椹卞姩瀛椾�?瀵归綈鍒锋柊 |
-| `right_panel_create()` | arex_screen.c | 鍒涘�?tileview锛屾�?`card_order[]` 椤哄簭鎸傝浇鍗＄�?|
+| `arex_calc_anchor_layout()` | arex_ui_engine.c | 遍历 `left_layout[]`，填 `arex_anchor_comp_t[]`（单栏1入口，双拼2入口），返回实际 count |
+| `arex_calc_tech_layout()` | arex_ui_engine.c | Tech 模式左右分区坐标：左锚点固定 160px，右区域 `= safe_zone_w - 160 - gap` |
+| `arex_calc_classic_layout()` | arex_ui_engine.c | Classic 模式上下分区，最小高度 `AREX_MIN_CLASSIC_TOP_H=200px` |
+| `arex_calc_widget_cell()` | arex_ui_engine.c | 5x6 网格单元格坐标，`unit_w = parent_w/5`，`unit_h = parent_h/6` |
+| `arex_calc_tissue_bars()` | arex_ui_engine.c | 16 柱组织图 X 坐标，`col_w = total_w/16` |
+| `left_anchor_create()` | arex_screen.c | 首次创建，按 `c->module` 枚举驱动，无索引硬编码 |
+| `left_anchor_rebuild()` | arex_screen.c | 配置变更后重建，数据驱动字体/对齐刷新 |
+| `right_panel_create()` | arex_screen.c | 创建 tileview，按 `card_order[]` 顺序挂载卡片 |
 
-### 16.6 鍏抽敭鍛藉悕甯搁噺锛堥槻姝㈢‖缂栫爜�?
+### 16.6 关键命名常量（防止硬编码）
 
-| 甯搁�?| �?| 鐢ㄩ�?|
+| 常量 | 值 | 用途 |
 |------|-----|------|
-| `AREX_BASE_U` | 10px | 鎵€�?U 鍗曚綅涔樻暟 |
-| `AREX_MIN_CLASSIC_TOP_H` | 200px | Classic 妯″紡鏈€灏忎笂鍖洪珮�?|
-| `AREX_MASK_EDGE_GUARD` | 80px | 闈㈤暅鐩插尯鎺╄啘搴曢儴璀︽垝闃堝�?|
-| `AREX_LEFT_ANCHOR_W` | 160px | 宸︿晶閿氱偣鍥哄畾瀹藉�?|
-| `ANCHOR_COMP_COUNT` | 16 | 宸︿晶缁勪欢鏈€澶у彞鏌勬暟锛堝竷灞€杈撳嚭缂撳啿�?|
-| `AREX_MAX_LEFT_ROWS` | 8 | 宸︿晶鏈€澶ц閰嶇疆�?|
+| `AREX_BASE_U` | 10px | 所有 U 单位乘数 |
+| `AREX_MIN_CLASSIC_TOP_H` | 200px | Classic 模式最小上区高度 |
+| `AREX_MASK_EDGE_GUARD` | 80px | 面镜盲区掩膜底部警戒阈值 |
+| `AREX_LEFT_ANCHOR_W` | 160px | 左侧锚点固定宽度 |
+| `ANCHOR_COMP_COUNT` | 16 | 左侧组件最大句柄数（布局输出缓冲） |
+| `AREX_MAX_LEFT_ROWS` | 8 | 左侧最大行配置数 |
 
-### 16.7 right_w Fallback 鍏�?
+### 16.7 right_w Fallback 公式
 
-鎵€鏈夊彸渚у搴?fallback 浣跨敤浠ヤ笅鍏紡锛屼笉鍐嶄娇鐢ㄧ‖缂栫爜 `420`�?
+所有右侧宽度 fallback 使用以下公式，不再使用硬编码 `420`：
 
 ```c
 uint16_t right_w_fallback = g_sys_config.safe_zone_w
                           - AREX_LEFT_ANCHOR_W          // 160px
                           - g_sys_config.gap_u * AREX_BASE_U;  // gap
-// �? 580 - 160 - 10 = 410px
+// 例: 580 - 160 - 10 = 410px
 ```
 
-### 16.8 APP 瀹屾暣鍚屾鍗忚�?
+### 16.8 APP 完整同步协议
 
-1. **APP 涓嬪�?* JSON 閰嶇疆锛堜粎鍖呭�?`g_sys_config` 瀛楁瀛愰泦锛?
-2. **鍗曠墖鏈鸿В鏋?* �?瑕嗙�?`g_sys_config` 瀵瑰簲瀛楁�?
-3. **璋冪�?* `arex_ui_apply_config()` �?`left_anchor_rebuild()` + `arex_screen_rebuild_tileview()`
-4. **缁撴�?*锛氭暣涓?UI 鎸夋柊閰嶇疆閲嶆帓锛屾棤闇€閲嶅惎锛屾棤闇€鏀?C 浠ｇ�?
+1. **APP 下发** JSON 配置（仅包含 `g_sys_config` 字段子集）
+2. **单片机解析** → 覆盖 `g_sys_config` 对应字段
+3. **调用** `arex_ui_apply_config()` → `left_anchor_rebuild()` + `arex_screen_rebuild_tileview()`
+4. **结果**：整个 UI 按新配置重排，无需重启，无需改 C 代码
 
-### 16.9 娓叉煋娴佺▼锛堣嚜鐢卞弻鎷肩増锛?
+### 16.9 渲染流程（自由双拼版）
 
 ```
 arex_calc_anchor_layout()
@@ -857,10 +857,10 @@ arex_calc_anchor_layout()
     right_mod = left_layout[row].right_module
     if left_mod == EMPTY: continue
     if right_mod == EMPTY:
-      �?鍗曟�? 濉�?comps[out_idx++] (w=160px, split=0)
+      → 单栏: 填充 comps[out_idx++] (w=160px, split=0)
     else:
-      �?鍙屾�? 濉�?comps[out_idx++] (w=80px, split=1)  // 宸﹀�?
-              濉�?comps[out_idx++] (w=80px, split=2)  // 鍙冲�?
+      → 双拼: 填充 comps[out_idx++] (w=80px, split=1)  // 左块
+              填充 comps[out_idx++] (w=80px, split=2)  // 右块
     cur_y += h_px + gap
 
 left_anchor_create() / left_anchor_rebuild()
@@ -871,43 +871,43 @@ left_anchor_create() / left_anchor_rebuild()
       case NDL:    render "NDL", "5" ...
       case TTS:    render "TTS", "24'" ...
       ...
-      // 闆跺弻鎷肩‖缂栫爜锛氫换鎰忔ā鍧楀潎鍙嚭鐜板湪浠绘剰琛岋�?
+      // 零双拼硬编码：任意模块均可出现在任意行！
 ```
 
 ---
 
-## 17. 瀛椾綋绯荤粺锛欼D 鏄犲皠寮曟搸锛坴2026-04-23�?
+## 17. 字体系统：ID 映射引擎（v2026-04-23）
 
-### 17.1 鏍稿績閾佸緥
+### 17.1 核心铁律
 
-> **闆跺彿閾佸緥**锛氭墍鏈夐厤缃粨鏋勪綋锛坄arex_left_row_cfg_t`銆乣arex_anchor_comp_t` 绛夛級涓彧鍏佽淇濆瓨瀛椾�?ID锛堟灇涓惧€硷級锛岀姝繚�?`lv_font_t*` 鎸囬拡锛丄PP 鍙兘涓嬪彂鏁板�?ID锛屾覆鏌撳紩鎿庨€氳�?`arex_get_font(id)` 缁熶竴鏄犲皠�?
+> **零号铁律**：所有配置结构体（`arex_left_row_cfg_t`、`arex_anchor_comp_t` 等）中只允许保存字体 ID（枚举值），禁止保存 `lv_font_t*` 指针！APP 只能下发数字 ID，渲染引擎通过 `arex_get_font(id)` 统一映射。
 
-### 17.2 瀛椾�?ID 鏋氫妇瀛楀吀
+### 17.2 字体 ID 枚举字典
 
 ```c
 typedef enum {
-    AREX_FONT_ID_SMALL  = 0,  /* 14px  鏍囩�?鍗曚�?Badge */
-    AREX_FONT_ID_TITLE,       /* 20px  鑿滃崟椤?鍗＄墖鏍囬 */
-    AREX_FONT_ID_MEDIUM,      /* 28px  鏁版嵁鍊?*/
-    AREX_FONT_ID_HUGE,        /* 48px  娣卞害澶ф暟�?*/
+    AREX_FONT_ID_SMALL  = 0,  /* 14px  标签/单位/Badge */
+    AREX_FONT_ID_TITLE,       /* 20px  菜单项/卡片标题 */
+    AREX_FONT_ID_MEDIUM,      /* 28px  数据值 */
+    AREX_FONT_ID_HUGE,        /* 48px  深度大数字 */
 } arex_font_id_t;
 ```
 
-### 17.3 瀛椾綋鏄犲皠�?
+### 17.3 字体映射表
 
-| ID 鏋氫�?| 鍍忕�?| 鐢ㄩ�?|
+| ID 枚举 | 像素 | 用途 |
 |---------|------|------|
-| `AREX_FONT_ID_SMALL`  (0) | 14px | 鏍囩�?鍗曚�?Status Badge |
-| `AREX_FONT_ID_TITLE`  (1) | 20px | 鑿滃崟椤?鍗＄墖鏍囬 |
-| `AREX_FONT_ID_MEDIUM` (2) | 28px | 鏁版嵁鍊?|
-| `AREX_FONT_ID_HUGE`   (3) | 48px | 娣卞害澶ф暟瀛楋紙瑙勮寖 58px 鏈€杩戯�?|
+| `AREX_FONT_ID_SMALL`  (0) | 14px | 标签/单位/Status Badge |
+| `AREX_FONT_ID_TITLE`  (1) | 20px | 菜单项/卡片标题 |
+| `AREX_FONT_ID_MEDIUM` (2) | 28px | 数据值 |
+| `AREX_FONT_ID_HUGE`   (3) | 48px | 深度大数字（规范 58px 最近） |
 
-### 17.4 `arex_get_font()` 鏄犲皠鍣?
+### 17.4 `arex_get_font()` 映射器
 
-瀛椾綋鏄犲皠鍣ㄦ槸鍏ㄧ郴缁熶�?*鍞�?*鍏佽灏嗗瓧�?ID 杞崲涓虹湡�?`lvgl` 瀛椾綋鎸囬拡鐨勫湴鏂癸紝浣嶄�?`arex_ui_engine.c`�?
+字体映射器是全系统中**唯一**允许将字体 ID 转换为真实 `lvgl` 字体指针的地方，位于 `arex_ui_engine.c`：
 
 ```c
-/* 澹版槑瀛椾綋璧勬簮锛堢�?arex_fonts.h 涓�?LV_FONT_DECLARE 鎻愪緵锛?*/
+/* 声明字体资源（由 arex_fonts.h 中的 LV_FONT_DECLARE 提供） */
 #include "fonts/arex_fonts.h"
 
 const lv_font_t *arex_get_font(uint8_t font_id)
@@ -917,39 +917,39 @@ const lv_font_t *arex_get_font(uint8_t font_id)
         case AREX_FONT_ID_TITLE:  return AREX_FONT_TITLE;   /* 20px */
         case AREX_FONT_ID_MEDIUM: return AREX_FONT_MEDIUM;  /* 28px */
         case AREX_FONT_ID_HUGE:   return AREX_FONT_HUGE;   /* 48px */
-        default:                   return AREX_FONT_SMALL;   /* 姘镐笉涓?NULL */
+        default:                   return AREX_FONT_SMALL;   /* 永不为 NULL */
     }
 }
 ```
 
-### 17.5 姝ｇ‘鐢ㄦ硶 vs 閿欒鐢ㄦ硶
+### 17.5 正确用法 vs 错误用法
 
 ```c
-/* 姝ｇ‘锛氫紶 ID锛岃繍琛屾椂鏄犲�?*/
+/* 正确：传 ID，运行时映射 */
 lv_obj_set_style_text_font(obj, arex_get_font(AREX_FONT_ID_HUGE), 0);
 lv_obj_set_style_text_font(obj, arex_get_font(row->val_font), 0);
 
-/* 閿欒锛氱洿鎺ヤ紶鎸囬拡锛堟棤娉曡 APP 鍚屾锛?*/
+/* 错误：直接传指针（无法被 APP 同步） */
 lv_obj_set_style_text_font(obj, &lv_font_courier_48, 0);
 lv_obj_set_style_text_font(obj, AREX_FONT_HUGE, 0);
 ```
 
-### 17.6 榛樿琛岄厤缃腑鐨勫瓧�?ID
+### 17.6 默认行配置中的字体 ID
 
 ```c
-/* row 0: DEPTH �?鏍囬�?SMALL(0)锛屾暟鍊?HUGE(3) */
+/* row 0: DEPTH — 标题 SMALL(0)，数值 HUGE(3) */
 { AREX_MODULE_DEPTH, ..., AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   ... }
-/* row 1: NDL+TTS �?鏍囬�?SMALL(0)锛屾暟鍊?MEDIUM(2) */
+/* row 1: NDL+TTS — 标题 SMALL(0)，数值 MEDIUM(2) */
 { AREX_MODULE_NDL,  ..., AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, ... }
-/* row 2: POD1+POD2 �?鏍囬�?SMALL(0)锛屾暟鍊?TITLE(1) */
+/* row 2: POD1+POD2 — 标题 SMALL(0)，数值 TITLE(1) */
 { AREX_MODULE_POD1, ..., AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE,  ... }
-/* row 3: BATT+WTM �?鏍囬�?SMALL(0)锛屾暟鍊?SMALL(0) */
+/* row 3: BATT+WTM — 标题 SMALL(0)，数值 SMALL(0) */
 { AREX_MODULE_BATT, ..., AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  ... }
 ```
 
-### 17.7 瀛椾綋澹版槑鏉ユ�?
+### 17.7 字体声明来源
 
-鎵€鏈夊瓧浣撹祫婧愬０鏄庣粺涓€�?`fonts/arex_fonts.h` 涓�?
+所有字体资源声明统一在 `fonts/arex_fonts.h` 中：
 
 ```c
 #include "lvgl/lvgl.h"
@@ -957,96 +957,96 @@ lv_obj_set_style_text_font(obj, AREX_FONT_HUGE, 0);
 #ifndef LV_FONT_COURIER_14
 #define LV_FONT_COURIER_14 1
 #endif
-/* LV_FONT_COURIER_20/28/48 鍚岀�?*/
+/* LV_FONT_COURIER_20/28/48 同理 */
 
 LV_FONT_DECLARE(lv_font_courier_14)
 LV_FONT_DECLARE(lv_font_courier_20)
 LV_FONT_DECLARE(lv_font_courier_28)
 LV_FONT_DECLARE(lv_font_courier_48)
 
-/* 瑙掕壊鍒悕锛堜粎鍦?arex_ui_engine.c 鍐呴儴鏄犲皠鍣ㄥ紩鐢級 */
+/* 角色别名（仅在 arex_ui_engine.c 内部映射器引用） */
 #define AREX_FONT_SMALL    (&lv_font_courier_14)
 #define AREX_FONT_TITLE    (&lv_font_courier_20)
 #define AREX_FONT_MEDIUM   (&lv_font_courier_28)
 #define AREX_FONT_HUGE     (&lv_font_courier_48)
 ```
 
-### 17.8 搴熷純瀹忥紙浠呭吋瀹规棫浠ｇ爜�?
+### 17.8 废弃宏（仅兼容旧代码）
 
-`arex_screen.h` 涓繚鐣欎簡 4 涓棫鐨?`AREX_FONT_*` 瀹忎綔涓哄吋瀹瑰眰锛?*鏂颁唬鐮佺姝娇鐢?*�?
+`arex_screen.h` 中保留了 4 个旧的 `AREX_FONT_*` 宏作为兼容层，**新代码禁止使用**：
 
 ```c
-/* arex_screen.h �?宸插簾寮冿紝浠呭吋瀹规棫浠ｇ爜 */
+/* arex_screen.h — 已废弃，仅兼容旧代码 */
 #define AREX_FONT_HUGE    (&lv_font_courier_48)
 #define AREX_FONT_MEDIUM  (&lv_font_courier_28)
 #define AREX_FONT_SMALL   (&lv_font_courier_14)
 #define AREX_FONT_TITLE   (&lv_font_courier_20)
 ```
 
-### 17.9 瀛椾綋绯荤粺鍙樻洿鏃ュ織
+### 17.9 字体系统变更日志
 
-| 鏃ユ�?| 鏂囦�?| 鍙樻�?|
+| 日期 | 文件 | 变更 |
 |------|------|------|
-| 2026-04-23 | `arex_ui_engine.h` | 鏂板�?`arex_font_id_t` 鏋氫妇瀛楀吀锛沗arex_get_font()` 澹版�?|
-| 2026-04-23 | `arex_ui_engine.c` | 瀹炵�?`arex_get_font()` 鏄犲皠鍣紱寮曞�?`fonts/arex_fonts.h`锛涘垹闄ゅ簾寮冪�?`font_sz_*` 瀛楁鍜岄粯璁ゅ�?|
-| 2026-04-23 | `arex_ui_engine.h` | 鍒犻�?`arex_sys_config_t` 涓簾寮冪殑 `align_title/huge/med` 瀛楁�?|
-| 2026-04-23 | `arex_screen.c` | 鎵€�?`AREX_FONT_*` 瀹忔浛鎹负 `arex_get_font(id)`锛涘垹闄?`font_cat[]` 涓棿灞傛暟缁勶紙涓ゅ�?|
-| 2026-04-23 | `cards/*.c` | 鎵€鏈夊崱鐗囦腑 `AREX_FONT_*` 瀹忔浛鎹负 `arex_get_font(id)` |
-| 2026-04-23 | `arex_screen.h` | 鏃у畯鏍囪涓哄簾寮冿紝闄勬纭敤娉曟敞�?|
-| 2026-04-23 | `AREX_ARCH.md` | 鏂板�?Section 17 瀛椾綋鏄犲皠寮曟搸鏂囨�?|
+| 2026-04-23 | `arex_ui_engine.h` | 新增 `arex_font_id_t` 枚举字典；`arex_get_font()` 声明 |
+| 2026-04-23 | `arex_ui_engine.c` | 实现 `arex_get_font()` 映射器；引入 `fonts/arex_fonts.h`；删除废弃的 `font_sz_*` 字段和默认值 |
+| 2026-04-23 | `arex_ui_engine.h` | 删除 `arex_sys_config_t` 中废弃的 `align_title/huge/med` 字段 |
+| 2026-04-23 | `arex_screen.c` | 所有 `AREX_FONT_*` 宏替换为 `arex_get_font(id)`；删除 `font_cat[]` 中间层数组（两处） |
+| 2026-04-23 | `cards/*.c` | 所有卡片中 `AREX_FONT_*` 宏替换为 `arex_get_font(id)` |
+| 2026-04-23 | `arex_screen.h` | 旧宏标记为废弃，附正确用法注释 |
+| 2026-04-23 | `AREX_ARCH.md` | 新增 Section 17 字体映射引擎文档 |
 
 ---
 
-## 18. 閲嶆瀯鍙樻洿鏃ュ織锛�?026-04-23 绗簩闃舵�?
+## 18. 重构变更日志（v2026-04-23 第二阶段）
 
-### 18.1 鏂囦欢鍙樻洿鎬昏�?
+### 18.1 文件变更总览
 
-| 鏂囦�?| 鎿嶄�?| 璇存�?|
+| 文件 | 操作 | 说明 |
 |------|------|------|
-| `arex_card_registry.c` | 閲嶅�?| 鍗＄墖娉ㄥ唽琛ㄩ噸鏋勶細鏂板�?`arex_card_count()`銆乣g_sys_card_order()` 闂存帴鏌ヨ銆乣tile_obj` 鍒濆鍖栨祦�?|
-| `arex_card_registry.h` | 閲嶅�?| 鏂板�?`arex_card_pos_t` 浣嶇疆鏋氫妇锛圛NFO/SETUP 鍥哄畾锛屼腑�?4 涓彲閲嶆帓锛夛紱`arex_card_reg_t` 鏂板�?`on_enter_cb`锛沗tile_obj` 鍒濆涓?NULL |
-| `arex_ui_engine.c` | 閲嶅�?| `arex_sys_config_defaults()` �?`CARD_POS_*` / `CARD_ID_*` 鏋氫妇鏄惧紡璧嬪�?`card_order[]`锛屾浛浠ｆ棫�?`for` 寰幆璧嬪€?|
-| `arex_ui_engine.h` | 鏂板�?| 鏂板�?`g_sys_card_order()` 澹版槑锛涙柊�?`arex_ui_update_data()` 绌洪挬�?|
-| `arex_ui_state.c` | 閲嶅�?| `arex_ui_refresh_all()` 鏀逛负 `arex_card_count()` 寰幆锛沗ui_handle_rotate()` �?`AREX_CARD_COUNT - 2` 鏀逛负 `AREX_DASH_CARD_COUNT` |
-| `arex_data.h/c` | 鏂板�?| 鏁版嵁鎬荤嚎澶存枃浠跺瓨鏍癸紝鎵€鏈夊畾涔変繚鐣欏湪 `arex_ui_engine.h` |
-| `card_info.c` | 閲嶅�?| 鏀逛负 `arex_get_font()` + `arex_data.h`锛涘紩鍏?`arex_render_dynamic_menu()` 鍔ㄦ€佽彍鍗曞伐�?|
-| `card_setup.c` | 閲嶅�?| badge 鍒锋柊閫昏緫淇濈暀锛屽彞鏌勬暟缁勬敼涓哄伐鍘傝緭鍑?|
-| `card_gas.c` | 娓呯�?| `GAS_ROW_GAP` 鍒犻櫎锛宍gap_y` 鏀逛负 `gap_menu` 閰嶇疆鎺ㄧ畻 |
-| `UI_main.c` | 閲嶅�?| 绉婚�?`lv_timer_create`锛堝凡鍦?`arex_screen_create` 涓垱寤猴級锛涘惎鍔ㄧ洿鎺ヨ繘鍏?INFO �?|
-| `AREX_ARCH.md` | 鏇存�?| 鏈閲嶆瀯鍐欏叆鏂囨�?|
+| `arex_card_registry.c` | 重写 | 卡片注册表重构：新增 `arex_card_count()`、`g_sys_card_order()` 间接查询、`tile_obj` 初始化流程 |
+| `arex_card_registry.h` | 重写 | 新增 `arex_card_pos_t` 位置枚举（INFO/SETUP 固定，中间 4 个可重排）；`arex_card_reg_t` 新增 `on_enter_cb`；`tile_obj` 初始为 NULL |
+| `arex_ui_engine.c` | 重写 | `arex_sys_config_defaults()` 用 `CARD_POS_*` / `CARD_ID_*` 枚举显式赋值 `card_order[]`，替代旧的 `for` 循环赋值 |
+| `arex_ui_engine.h` | 新增 | 新增 `g_sys_card_order()` 声明；新增 `arex_ui_update_data()` 空钩子 |
+| `arex_ui_state.c` | 重写 | `arex_ui_refresh_all()` 改为 `arex_card_count()` 循环；`ui_handle_rotate()` 中 `AREX_CARD_COUNT - 2` 改为 `AREX_DASH_CARD_COUNT` |
+| `arex_data.h/c` | 新建 | 数据总线头文件存根，所有定义保留在 `arex_ui_engine.h` |
+| `card_info.c` | 重写 | 改为 `arex_get_font()` + `arex_data.h`；引入 `arex_render_dynamic_menu()` 动态菜单工厂 |
+| `card_setup.c` | 重写 | badge 刷新逻辑保留，句柄数组改为工厂输出 |
+| `card_gas.c` | 清理 | `GAS_ROW_GAP` 删除，`gap_y` 改为 `gap_menu` 配置推算 |
+| `UI_main.c` | 重写 | 移除 `lv_timer_create`（已在 `arex_screen_create` 中创建）；启动直接进入 INFO 卡 |
+| `AREX_ARCH.md` | 更新 | 本次重构写入文档 |
 
-### 18.2 `arex_card_registry.c` 閲嶅啓瑕佺偣
+### 18.2 `arex_card_registry.c` 重写要点
 
-#### 闈欐€佹敞鍐岃〃浣跨敤鎸囧畾鍒濆鍖栧�?
+#### 静态注册表使用指定初始化器
 
 ```c
 static arex_card_reg_t s_registry[AREX_CARD_COUNT] = {
     [CARD_ID_INFO] = {
         .id          = CARD_ID_INFO,
         .title       = "INFO MENU",
-        .tile_obj    = NULL,          // create 鍚庢墠濉叆
+        .tile_obj    = NULL,          // create 后才填入
         .create_cb   = card_info_create,
         .update_cb   = card_info_update,
-        .on_enter_cb = NULL,          // 鍙€夛紝鏆傛棤瀹炵�?
+        .on_enter_cb = NULL,          // 可选，暂无实现
     },
     [CARD_ID_COMPASS] = { ... },
     // ...
 };
 ```
 
-#### `arex_card_get()` 閫氳�?`g_sys_card_order()` 闂存帴鏄犲皠
+#### `arex_card_get()` 通过 `g_sys_card_order()` 间接映射
 
 ```c
 arex_card_reg_t *arex_card_get(uint8_t order_pos)
 {
     if (order_pos >= AREX_CARD_COUNT) return NULL;
-    uint8_t id = g_sys_card_order(order_pos);   // �?card_order[]
+    uint8_t id = g_sys_card_order(order_pos);   // 查 card_order[]
     if (id >= AREX_CARD_COUNT) return NULL;
     return &s_registry[id];
 }
 ```
 
-#### `arex_ui_refresh_all()` �?`arex_card_count()` 鏇夸唬纭紪�?
+#### `arex_ui_refresh_all()` 用 `arex_card_count()` 替代硬编码
 
 ```c
 void arex_ui_refresh_all(void)
@@ -1058,77 +1058,77 @@ void arex_ui_refresh_all(void)
 }
 ```
 
-### 18.3 鍚姩娴佺▼鍙樻�?
+### 18.3 启动流程变更
 
-**閲嶆瀯鍓?*锛堝師鐗?`arex_ui_state.c`锛夛�?
+**重构前**（原版 `arex_ui_state.c`）：
 ```
 arex_ui_state_init() -> state=UI_DASH, dash_card=0
 UI_main() -> lv_timer_create(sim_tick_cb, 1000ms)
 ```
-鍚姩鐩存帴杩涘�?DASH锛坱ile 0 = INFO锛寃all-charge 杩涘叆锛夈€?
+启动直接进入 DASH（tile 0 = INFO，wall-charge 进入）。
 
-**閲嶆瀯鍚?*锛堟柊鐗堬級�?
+**重构后**（新版）：
 ```
 arex_ui_state_init() -> state=UI_INFO, dash_card=1, menu_info_idx=0
 UI_main() -> arex_screen_scroll_to_card(0), arex_screen_set_info_selection(0)
 ```
-鍚姩鐩存帴杩涘�?INFO 鑿滃崟锛坱ile 0锛夛紝绛夊緟鐢ㄦ埛鎿嶄綔銆傛ā鎷熷畾鏃跺櫒�?`arex_screen_create()` 涓垱寤恒€?
+启动直接进入 INFO 菜单（tile 0），等待用户操作。模拟定时器在 `arex_screen_create()` 中创建。
 
-### 18.4 `tile_obj` 鐢熷懡鍛ㄦ湡
+### 18.4 `tile_obj` 生命周期
 
 ```
-create 闃舵�?
-  arex_card_registry.c: s_registry[i].tile_obj = NULL锛堝垵濮嬪寲�?
-  card_*.c: create_cb() 鍒涘�?tile 鎺т欢 -> 杩斿�?parent
-  right_panel_create(): 鎹曡�?tile 瀵硅�?-> 濉�?registry
+create 阶段:
+  arex_card_registry.c: s_registry[i].tile_obj = NULL（初始化）
+  card_*.c: create_cb() 创建 tile 控件 -> 返回 parent
+  right_panel_create(): 捕获 tile 对象 -> 填入 registry
     -> registry[i].tile_obj = tile_obj;
 
-update 闃舵�?
-  浠绘剰妯″潡閫氳�?arex_card_get_by_id(id)->tile_obj 璁块�?
+update 阶段:
+  任意模块通过 arex_card_get_by_id(id)->tile_obj 访问
 ```
 
 
-### 18.5 鏂板�?API / 鏋氫妇閫熸煡
+### 18.5 新增 API / 枚举速查
 
-| 鏋氫�?/ �?| 鏂囦�?| 璇存�?|
+| 枚举 / 宏 | 文件 | 说明 |
 |------|------|------|
-| `arex_card_pos_t` | arex_card_registry.h | 浣嶇疆鏋氫妇锛欳ARD_POS_INFO=0(鍥哄�?, CARD_POS_1~4(鍙噸鎺?, CARD_POS_SETUP=5(鍥哄�? |
-| `arex_card_id_t` | arex_card_registry.h | 鍗＄墖鍥烘湁韬唤鏋氫妇锛欳ARD_ID_INFO ~ CARD_ID_SETUP |
-| `AREX_CARD_COUNT` | arex_card_registry.h | 鍗＄墖鎬绘暟 = 6 |
-| `AREX_DASH_CARD_COUNT` | arex_card_registry.h | DASH 鍙粦鍔ㄦ暟 = 4 |
+| `arex_card_pos_t` | arex_card_registry.h | 位置枚举：CARD_POS_INFO=0(固定), CARD_POS_1~4(可重排), CARD_POS_SETUP=5(固定) |
+| `arex_card_id_t` | arex_card_registry.h | 卡片固有身份枚举：CARD_ID_INFO ~ CARD_ID_SETUP |
+| `AREX_CARD_COUNT` | arex_card_registry.h | 卡片总数 = 6 |
+| `AREX_DASH_CARD_COUNT` | arex_card_registry.h | DASH 可滑动数 = 4 |
 
-| 鍑芥�?| 鏂囦�?| 浣滅�?|
+| 函数 | 文件 | 作用 |
 |------|------|------|
-| `arex_card_count()` | arex_card_registry.c | 杩斿洖鍗＄墖鎬绘�?|
-| `arex_card_get(pos)` | arex_card_registry.c | 鎸変綅缃彇鍗＄墖锛堣蛋 card_order[] 闂存帴灞傦級 |
-| `arex_card_get_by_id(id)` | arex_card_registry.c | �?ID 鍙栧崱鐗囷紙涓嶈蛋闂存帴灞傦�?|
-| `g_sys_card_order(pos)` | arex_ui_engine.c | 閫氳�?card_order[] 鏌ヨ鍗＄墖 ID |
-| `arex_ui_refresh_all()` | arex_ui_state.c | 閬嶅巻鎵€鏈夊崱鐗囨墽琛?update 鍥炶�?|
-| `arex_ui_update_data()` | arex_ui_engine.c | 绌洪挬瀛愶紝渚涙湭鏉ユ墿灞曟暟鎹洿鏂伴€昏緫 |
-| `arex_ui_state_init()` | arex_ui_state.c | 鍒濆鍖?UI 涓婁笅鏂囷紝鍚�?state=UI_INFO |
-| `arex_screen_register_info_list()` | arex_screen.c | INFO 鍒楄〃娉ㄥ唽锛堢�?card_info.c 璋冪敤锛?|
-| `arex_screen_register_setup_list()` | arex_screen.c | SETUP 鍒楄〃娉ㄥ唽锛堢�?card_setup.c 璋冪敤锛?|
+| `arex_card_count()` | arex_card_registry.c | 返回卡片总数 |
+| `arex_card_get(pos)` | arex_card_registry.c | 按位置取卡片（走 card_order[] 间接层） |
+| `arex_card_get_by_id(id)` | arex_card_registry.c | 按 ID 取卡片（不走间接层） |
+| `g_sys_card_order(pos)` | arex_ui_engine.c | 通过 card_order[] 查询卡片 ID |
+| `arex_ui_refresh_all()` | arex_ui_state.c | 遍历所有卡片执行 update 回调 |
+| `arex_ui_update_data()` | arex_ui_engine.c | 空钩子，供未来扩展数据更新逻辑 |
+| `arex_ui_state_init()` | arex_ui_state.c | 初始化 UI 上下文，启动 state=UI_INFO |
+| `arex_screen_register_info_list()` | arex_screen.c | INFO 列表注册（由 card_info.c 调用） |
+| `arex_screen_register_setup_list()` | arex_screen.c | SETUP 列表注册（由 card_setup.c 调用） |
 
 ---
 
-## 19. 鍙充晶鍗＄墖鍔ㄦ€佽彍鍗曞紩鎿庯紙v2026-04-23�?
+## 19. 右侧卡片动态菜单引擎（v2026-04-23）
 
-### 19.1 鏍稿績鐩爣
+### 19.1 核心目标
 
-褰诲簳娑堢伃 `card_info.c` / `card_setup.c` 涓啓姝荤殑 `lv_obj_create` 寰幆銆傛墍鏈夎彍鍗曠殑閫夐」鏁伴噺銆佹枃鏈€佸瓧浣撱€佽竟妗嗗叏閮ㄨВ鑰﹁嚦閰嶇疆缁撴瀯浣撴暟缁勶紝鐢?APP 閫氳�?JSON/缁撴瀯浣撳姩鎬佷笅鍙戙€?
+彻底消灭 `card_info.c` / `card_setup.c` 中写死的 `lv_obj_create` 循环。所有菜单的选项数量、文本、字体、边框全部解耦至配置结构体数组，由 APP 通过 JSON/结构体动态下发。
 
-### 19.2 閰嶇疆缁撴瀯浣?
+### 19.2 配置结构体
 
-**`arex_ui_engine.h`** 涓柊澧烇細
+**`arex_ui_engine.h`** 中新增：
 
 ```c
 typedef struct {
-    const char *title_text;      /* 宸︿晶涓绘枃�?(鍙负绌? */
-    const char *value_badge;     /* 鍙充晶鏁板€?鐘舵€佸窘绔?(鍙负绌? */
-    uint8_t     title_font_id;   /* 鏍囬瀛椾�?ID: arex_font_id_t */
-    uint8_t     value_font_id;   /* 寰界珷瀛椾�?ID: arex_font_id_t */
-    uint8_t     border_width;    /* 杈规绮楃粏 px�?=鏃犺竟妗?*/
-    uint8_t     height_u;        /* 楂樺�?(鍗曚�?U�?=�?h_menu_item 榛樿鍊? */
+    const char *title_text;      /* 左侧主文本 (可为空) */
+    const char *value_badge;     /* 右侧数值/状态徽章 (可为空) */
+    uint8_t     title_font_id;   /* 标题字体 ID: arex_font_id_t */
+    uint8_t     value_font_id;   /* 徽章字体 ID: arex_font_id_t */
+    uint8_t     border_width;    /* 边框粗细 px，0=无边框 */
+    uint8_t     height_u;        /* 高度 (单位 U，0=用 h_menu_item 默认值) */
 } arex_menu_item_cfg_t;
 
 void arex_render_dynamic_menu(lv_obj_t *parent_card,
@@ -1138,23 +1138,23 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
                               lv_obj_t **out_item_handles);
 ```
 
-### 19.3 宸ュ巶鍑芥暟灏哄鎺ㄧ畻瑙勫�?
+### 19.3 工厂函数尺寸推算规则
 
-`arex_render_dynamic_menu()` 鍐呴儴鎵€鏈夊昂瀵稿叏閮ㄤ粠 `g_sys_config` 鎺ㄧ畻锛屾棤纭紪鐮佸儚绱狅�?
+`arex_render_dynamic_menu()` 内部所有尺寸全部从 `g_sys_config` 推算，无硬编码像素：
 
-| 鍙傛�?| 鏉ユ�?|
+| 参数 | 来源 |
 |------|------|
-| `item_h` | `height_u > 0 ? height_u : h_menu_item` �?`AREX_BASE_U` |
-| `gap_y` | `g_sys_config.gap_menu �?AREX_BASE_U` |
-| `item_w` | `safe_zone_w - LEFT_ANCHOR_W - gap_u脳AREX_BASE_U - 15` |
+| `item_h` | `height_u > 0 ? height_u : h_menu_item` × `AREX_BASE_U` |
+| `gap_y` | `g_sys_config.gap_menu × AREX_BASE_U` |
+| `item_w` | `safe_zone_w - LEFT_ANCHOR_W - gap_u×AREX_BASE_U - 15` |
 
-### 19.4 涓氬姟浠ｇ爜閲嶆瀯瀵圭�?
+### 19.4 业务代码重构对照
 
 #### card_info.c
 
-**閲嶆瀯鍓?*�?6 琛岀‖缂栫爜寰幆锛宍item_h=48` 鍐欐銆?
+**重构前**：66 行硬编码循环，`item_h=48` 写死。
 
-**閲嶆瀯鍚?*锛氶厤缃暟�?+ 1 琛屽伐鍘傝皟鐢�?
+**重构后**：配置数组 + 1 行工厂调用：
 
 ```c
 static const arex_menu_item_cfg_t s_info_items[] = {
@@ -1166,7 +1166,7 @@ static const arex_menu_item_cfg_t s_info_items[] = {
 };
 #define INFO_ITEM_COUNT (sizeof(s_info_items) / sizeof(s_info_items[0]))
 
-/* 鍒楄〃鎬婚珮搴︿�?h_menu_item �?gap_menu 鎺ㄧ�?*/
+/* 列表总高度从 h_menu_item 和 gap_menu 推算 */
 uint16_t item_h_px = (uint16_t)g_sys_config.h_menu_item * AREX_BASE_U;
 uint16_t gap_y_px  = (uint16_t)g_sys_config.gap_menu * AREX_BASE_U;
 uint16_t list_h = INFO_ITEM_COUNT * item_h_px
@@ -1177,7 +1177,7 @@ arex_render_dynamic_menu(s_list, s_info_items, INFO_ITEM_COUNT, 0, NULL);
 
 #### card_setup.c
 
-badge 鍒锋柊閫昏緫瀹屾暣淇濈暀锛屽彞鏌勬暟缁勬敼涓哄伐鍘傝緭鍑猴細
+badge 刷新逻辑完整保留，句柄数组改为工厂输出：
 
 ```c
 arex_render_dynamic_menu(s_list, s_setup_items, SETUP_ITEM_COUNT, 0, s_setup_item_objs);
@@ -1187,13 +1187,13 @@ for (uint8_t i = 0; i < SETUP_ITEM_COUNT; i++) {
 }
 ```
 
-### 19.5 card_gas.c 鐗规畩澶勭悊
+### 19.5 card_gas.c 特殊处理
 
-GAS 鍗＄墖姣忚鍖呭惈涓変釜 label锛堟皵浣撳悕 + MOD + PPO2锛夛紝瓒呭嚭閫氱敤鑿滃崟宸ュ巶鑳藉姏鑼冨洿锛屼繚鐣欏師鏈夊鏍囩琛屾覆鏌撻€昏緫銆備粎�?`GAS_ROW_GAP` 浠庣‖缂栫爜 `8` 鏀逛负 `g_sys_config.gap_menu �?AREX_BASE_U`�?
+GAS 卡片每行包含三个 label（气体名 + MOD + PPO2），超出通用菜单工厂能力范围，保留原有多标签行渲染逻辑。仅将 `GAS_ROW_GAP` 从硬编码 `8` 改为 `g_sys_config.gap_menu × AREX_BASE_U`。
 
-### 19.6 APP 鍚屾鍗忚鎵╁�?
+### 19.6 APP 同步协议扩展
 
-APP 鍔ㄦ€佷笅鍙戣彍鍗曢厤缃ず渚嬶�?
+APP 动态下发菜单配置示例：
 
 ```json
 {
@@ -1209,52 +1209,40 @@ APP 鍔ㄦ€佷笅鍙戣彍鍗曢厤缃ず渚嬶�?
 
 ---
 
-## 20. Section 19 鍙樻洿鏃ュ織锛坴2026-04-23�?
+## 20. Section 19 变更日志（v2026-04-23）
 
-|| 鏃ユ�?| 鏂囦�?| 鍙樻�?|
+|| 日期 | 文件 | 变更 |
 ||------|------|------|
-|| 2026-04-23 | `arex_ui_engine.h` | 鏂板�?`arex_menu_item_cfg_t` �?`arex_render_dynamic_menu()` 澹版�?|
-|| 2026-04-23 | `arex_ui_engine.c` | 瀹炵幇宸ュ巶鍑芥暟锛宧eight/gap 鍏ㄧ▼浠?`g_sys_config` 鎺ㄧ�?|
-|| 2026-04-23 | `card_info.c` | 瀹屽叏閲嶆瀯锛氶厤缃暟缁?+ 1 琛屽伐鍘傝皟�?|
-|| 2026-04-23 | `card_setup.c` | 瀹屽叏閲嶆瀯锛歜adge 鍒锋柊閫昏緫淇濈暀锛屽彞鏌勬暟缁勬敼涓哄伐鍘傝緭鍑?|
-|| 2026-04-23 | `card_gas.c` | `GAS_ROW_GAP` 瀹忓垹闄わ紝`gap_y` 鏀逛负閰嶇疆鎺ㄧ畻 |
-|| 2026-04-23 | `AREX_ARCH.md` | 鏂板�?Section 19/20 |
-||| 2026-04-23 | `AREX_ARCH.md` | 新增 Section 19/20 |
-||| 2026-04-23 | `arex_ui_engine.h` | 新增 arex_widget_id_t、arex_alarm_level_t 枚举；widget_r[]/widget_c[] 字段 |
-||| 2026-04-23 | `arex_ui_engine.h` | 新增 Section 10 5F 引擎 API 声明 |
-||| 2026-04-23 | `arex_ui_engine.c` | 新增 arex_render_5f_custom_grid() 总线渲染器（纯数学行×列→绝对坐标�?|
-||| 2026-04-23 | `arex_ui_engine.c` | 新增 arex_calc_widget_grid() 绝对坐标推算（WIDGET_GAP=2px�?|
-||| 2026-04-23 | `arex_ui_engine.c` | 新增 create_custom_widget() 组件工厂（span→font自适应，user_data靶向烙印�?|
-||| 2026-04-23 | `arex_ui_engine.c` | 新增 arex_widget_set_value()（遍历定位label，仅更新文字�?|
-||| 2026-04-23 | `arex_ui_engine.c` | 新增 arex_trigger_alarm() / arex_clear_all_alarm_styles() 靶向告警同步 |
-||| 2026-04-23 | `arex_ui_engine.c` | 新增 arex_show/hide_alarm_banner() 纯英文横幅；s_widget_meta[]元数据字�?|
-||| 2026-04-23 | `arex_ui_engine.c` | 新增 span_to_font() 字号自适应 |
-||| 2026-04-23 | `AREX_ARCH.md` | 新增 Section 21 |
+|| 2026-04-23 | `arex_ui_engine.h` | 新增 `arex_menu_item_cfg_t` 及 `arex_render_dynamic_menu()` 声明 |
+|| 2026-04-23 | `arex_ui_engine.c` | 实现工厂函数，height/gap 全程从 `g_sys_config` 推算 |
+|| 2026-04-23 | `card_info.c` | 完全重构：配置数组 + 1 行工厂调用 |
+|| 2026-04-23 | `card_setup.c` | 完全重构：badge 刷新逻辑保留，句柄数组改为工厂输出 |
+|| 2026-04-23 | `card_gas.c` | `GAS_ROW_GAP` 宏删除，`gap_y` 改为配置推算 |
+|| 2026-04-23 | `AREX_ARCH.md` | 新增 Section 19/20 |
 
----
 
-## 21. 5F 自定义网格引�?(v2026-04-23)
+## 21. 5F 自定义网格引擎 (v2026-04-23)
 
 ### 21.1 核心设计原则
 
-**�?lv_grid**：MCU 资源受限，动态重�?lv_grid 极耗内存和性能�?F 渲染完全采用"行×列相乘→绝对物理坐�?纯数学映射�?
+**lv_grid**：MCU 资源受限，动态重建 lv_grid 极耗内存和性能。F 渲染完全采用"行×列相乘→绝对物理坐标"纯数学映射。
 
-**零硬编码字号**：字号由组件跨度自动决定，渲染器只查元数据表，不�?`if(w_id==DEPTH)` 判断�?
+**零硬编码字号**：字号由组件跨度自动决定，渲染器只查元数据表，不靠 `if(w_id==DEPTH)` 判断。
 
-**靶向告警烙印**：每个组件创建时 `lv_obj_set_user_data(obj, (void*)(uintptr_t)widget_id)` 打上全系统唯一身份烙印，告警引擎靠此烙印实�?左侧锚点 + 5F 组件同时反色闪烁"�?
+**靶向告警烙印**：每个组件创建时 `lv_obj_set_user_data(obj, (void*)(uintptr_t)widget_id)` 打上全系统唯一身份烙印，告警引擎靠此烙印实现"左侧锚点 + 5F 组件同时反色闪烁"。
 
-### 21.2 配置数据（来�?g_sys_config�?
+### 21.2 配置数据（来自 g_sys_config）
 
 ```
-uint8_t  widget_count;    /* 当前装填的组件数�?(最�?0) */
+uint8_t  widget_count;    /* 当前装填的组件数量 (最大 30) */
 uint8_t  widget_ids[30];  /* 组件类型: arex_widget_id_t */
-uint8_t  widget_r[30];    /* 起始�?0~5 */
-uint8_t  widget_c[30];    /* 起始�?0~4 */
-uint8_t  widget_w[30];    /* 列跨�?1~2 */
-uint8_t  widget_h[30];    /* 行跨�?1~2 */
+uint8_t  widget_r[30];    /* 起始行 0~5 */
+uint8_t  widget_c[30];    /* 起始列 0~4 */
+uint8_t  widget_w[30];    /* 列跨度 1~2 */
+uint8_t  widget_h[30];    /* 行跨度 1~2 */
 ```
 
-APP 下发示例�?
+APP 下发示例：
 
 ```json
 {
@@ -1269,7 +1257,7 @@ APP 下发示例�?
 
 ### 21.3 组件 ID 枚举
 
-| ID | 组件 | 数据�?|
+| ID | 组件 | 数据源 |
 |----|------|--------|
 | 0 | EMPTY | - |
 | 1 | DEPTH | `g_sensor_data.depth` |
@@ -1285,31 +1273,31 @@ APP 下发示例�?
 | 11 | POD2 | `g_sensor_data.pod2_bar` |
 | 12 | W.TIME | `g_sensor_data.dive_time_s` |
 
-### 21.4 纯数学绝对坐标映射（�?40px 标题避让 + 锁定 80x60 基准�?
+### 21.4 纯数学绝对坐标映射（含 40px 标题避让 + 锁定 80x60 基准）
 
-> **重要**：`AREX_CARD_TITLE_H = 40px`�?U），即常规卡片绿色大标题+分割线的占用高度�?0px 的区域是**告警横幅悬浮覆盖�?*，不属于常规标题�?
+> **重要**：`AREX_CARD_TITLE_H = 40px`（4U），即常规卡片绿色大标题+分割线的占用高度。60px 的区域是**告警横幅悬浮覆盖区**，不属于常规标题区。
 
 ```
-排版矩阵严格锁定 80x60 基准（完美整数）�?
-  cell_w = 80px  (tile_w=400 / 5�?
-  cell_h = 60px  ((tile_h=400 - AREX_CARD_TITLE_H=40) / 6�?
+排版矩阵严格锁定 80x60 基准（完美整数）:
+  cell_w = 80px  (tile_w=400 / 5 列)
+  cell_h = 60px  ((tile_h=400 - AREX_CARD_TITLE_H=40) / 6 行)
 
 abs_x  = col * 80 + WIDGET_GAP              (WIDGET_GAP=2px 缝隙)
 abs_y  = AREX_CARD_TITLE_H + row * 60 + WIDGET_GAP
-abs_w  = span_w * 80 - WIDGET_GAP * 2       (�?px制造四�?px物理留白)
+abs_w  = span_w * 80 - WIDGET_GAP * 2       (留2px制造4px物理留白)
 abs_h  = span_h * 60 - WIDGET_GAP * 2
 ```
 
-**物理尺寸对照**�?
+**物理尺寸对照**：
 
-| 跨度 | 逻辑尺寸 | 物理尺寸(含留�? |
+| 跨度 | 逻辑尺寸 | 物理尺寸(含留白) |
 |------|----------|-----------------|
 | 1x1  | 80x60    | 76x56           |
 | 2x1  | 160x60   | 156x56          |
 | 1x2  | 80x120   | 76x116          |
 | 2x2  | 160x120  | 156x116         |
 
-> **关键**：row=0 �?abs_y = 40 + 0 + 2 = **42px**，确保第一排组件落在标题区（~40px）下方的黑色内容区内�?
+> **关键**：row=0 时 `abs_y = 40 + 0 + 2 = 42px`，确保第一排组件落在标题区（~40px）下方的黑色内容区内。
 
 ### 21.5 字号自适应引擎
 
@@ -1321,24 +1309,24 @@ abs_h  = span_h * 60 - WIDGET_GAP * 2
 
 ### 21.6 靶向告警同步引擎
 
-�?`arex_trigger_alarm(level, text, target_id)` 调用时：
+当 `arex_trigger_alarm(level, text, target_id)` 调用时：
 
 1. 弹出横幅（纯英文，永不显示图案）
 2. 遍历所有容器子节点，`lv_obj_get_user_data()` 匹配 `target_id`
-3. 同步闪烁：`CRIT` �?2Hz(500ms) / `WARN` �?1Hz(1000ms) / `INFO` �?仅横�?
-4. 消失时调�?`arex_clear_all_alarm_styles()`
+3. 同步闪烁：`CRIT` ~2Hz(500ms) / `WARN` ~1Hz(1000ms) / `INFO` 仅横向
+4. 消失时调用 `arex_clear_all_alarm_styles()`
 
 ### 21.7 核心 API
 
 | 函数 | 说明 |
 |------|------|
-| `arex_render_5f_custom_grid()` | 总线渲染器，遍历配置数组渲染所有组�?|
-| `arex_widget_set_value()` | �?ID 更新数�?label，绝不触发重�?|
+| `arex_render_5f_custom_grid()` | 总线渲染器，遍历配置数组渲染所有组件 |
+| `arex_widget_set_value()` | 按 ID 更新数据 label，绝不触发重建 |
 | `arex_trigger_alarm()` | 靶向告警触发 |
-| `arex_clear_all_alarm_styles()` | 清除所有告警样�?|
-| `arex_get_widget_name()` | �?ID 获取显示名称 |
-| `arex_calc_widget_grid()` | 网格→绝对坐标（含TITLE_ZONE_H=40px避让偏移，锁�?0x60基准�?|
-| `arex_show_alarm_banner()` | 纯英文告警横�?|
+| `arex_clear_all_alarm_styles()` | 清除所有告警样式 |
+| `arex_get_widget_name()` | 按 ID 获取显示名称 |
+| `arex_calc_widget_grid()` | 网格→绝对坐标（含TITLE_ZONE_H=40px避让偏移，锁定 80x60 基准） |
+| `arex_show_alarm_banner()` | 纯英文告警横幅 |
 
 ---
 
@@ -1346,7 +1334,7 @@ abs_h  = span_h * 60 - WIDGET_GAP * 2
 
 ### 22.1 设计目标
 
-单张表管理所有卡片信息，新增卡片只需�?`g_cards[]` 加一条，无需修改 `arex_screen.c`�?
+单张表管理所有卡片信息，新增卡片只需在 `g_cards[]` 加一条，无需修改 `arex_screen.c`。
 
 ### 22.2 核心数据结构
 
@@ -1354,7 +1342,7 @@ abs_h  = span_h * 60 - WIDGET_GAP * 2
 /* arex_card_registry.h */
 
 typedef enum {
-    CARD_ENGINE_MENU   = 0,   /* create_cb() 完整创建（含 list 注册�?*/
+    CARD_ENGINE_MENU   = 0,   /* create_cb() 完整创建（含 list 注册） */
     CARD_ENGINE_GRID   = 1,   /* arex_render_5f_custom_grid()         */
     CARD_ENGINE_CHART  = 2,   /* 预留                                  */
     CARD_ENGINE_CUSTOM = 3,   /* create_cb() 完整创建                  */
@@ -1386,8 +1374,8 @@ typedef struct {
 ```
 right_panel_create()
   └─ for each card in g_cards[]
-       ├─ CARD_ENGINE_GRID �?make_title + render_5f_custom_grid()
-       └─ 其余              �?card->create_cb(tile)
+       ├─ CARD_ENGINE_GRID → make_title + render_5f_custom_grid()
+       └─ 其余              → card->create_cb(tile)
 ```
 
 ### 22.4 文件职责
@@ -1395,10 +1383,10 @@ right_panel_create()
 | 文件 | 职责 |
 |------|------|
 | `arex_card_registry.h` | `arex_card_engine_t` + `arex_card_t` 类型定义 + API 声明 |
-| `arex_card_registry.c` | `g_cards[]` 单张统一表（ROM 字段 + 运行�?tile_obj�?|
-| `arex_ui_engine.h` | `arex_menu_item_cfg_t` + `arex_menu_list_cfg_t` 配置结构�?|
-| `card_info.c` | 暴露 `info_menu_cfg`，`create_cb` 内注�?`s_info_list` |
-| `card_setup.c` | 暴露 `setup_menu_cfg`，`create_cb` 内注�?`s_setup_list` |
+| `arex_card_registry.c` | `g_cards[]` 单张统一表（ROM 字段 + 运行时 tile_obj） |
+| `arex_ui_engine.h` | `arex_menu_item_cfg_t` + `arex_menu_list_cfg_t` 配置结构体 |
+| `card_info.c` | 暴露 `info_menu_cfg`，`create_cb` 内注册 `s_info_list` |
+| `card_setup.c` | 暴露 `setup_menu_cfg`，`create_cb` 内注册 `s_setup_list` |
 | `arex_screen.c` | `right_panel_create()` 引擎分发循环 |
 
 ### 22.5 当前卡片引擎映射
@@ -1407,17 +1395,17 @@ right_panel_create()
 |------|-------------|------|
 | `CARD_ID_INFO` | `CARD_ENGINE_MENU` | `card_info_create()` 完整创建，含 list 注册 |
 | `CARD_ID_COMPASS` | `CARD_ENGINE_CUSTOM` | `card_compass_create()` canvas 绘制 |
-| `CARD_ID_DECO` | `CARD_ENGINE_CUSTOM` | `card_deco_create()` 柱状�?+ GF/CNS/OTU |
-| `CARD_ID_GAS` | `CARD_ENGINE_CUSTOM` | `card_gas_create()` 4 行气体行，含静态句�?|
-| `CARD_ID_PLAN` | `CARD_ENGINE_CUSTOM` | `card_plan_create()` canvas 潜水剖面�?|
+| `CARD_ID_DECO` | `CARD_ENGINE_CUSTOM` | `card_deco_create()` 柱状图 + GF/CNS/OTU |
+| `CARD_ID_GAS` | `CARD_ENGINE_CUSTOM` | `card_gas_create()` 4 行气体行，含静态句柄 |
+| `CARD_ID_PLAN` | `CARD_ENGINE_CUSTOM` | `card_plan_create()` canvas 潜水剖面图 |
 | `CARD_ID_SETUP` | `CARD_ENGINE_MENU` | `card_setup_create()` 完整创建，含 list 注册 |
 
-> `CARD_ENGINE_GRID`（`arex_render_5f_custom_grid()`）目前由 5F 自定义卡片使用，详见 Section 23�?
+> `CARD_ENGINE_GRID`（`arex_render_5f_custom_grid()`）目前由 5F 自定义卡片使用，详见 Section 23。
 
 ### 22.6 新增卡片步骤
 
-1. �?`arex_card_id_t` 枚举中添加新 ID
-2. �?`g_cards[]` 中添加一�?`arex_card_t` 条目
+1. 在 `arex_card_id_t` 枚举中添加新 ID
+2. 在 `g_cards[]` 中添加一条 `arex_card_t` 条目
 3. 实现 `card_xxx_create()` / `card_xxx_update()`
 4. 无需修改 `arex_screen.c`
 
@@ -1427,48 +1415,48 @@ right_panel_create()
 
 ### 23.1 问题描述
 
-**现象**：`CARD_ENGINE_GRID` 卡片渲染时，网格组件（DEPTH、TEMP 等）直接顶到 Y=0，顶部绿色标题文字和分割线完全被黑色网格背景覆盖�?
+**现象**：`CARD_ENGINE_GRID` 卡片渲染时，网格组件（DEPTH、TEMP 等）直接顶到 Y=0，顶部绿色标题文字和分割线完全被黑色网格背景覆盖。
 
-**根因**：`arex_calc_widget_grid()` �?`out_y = parent_y + row * cell_h + WIDGET_GAP`，当 row=0 �?out_y=2。�?`arex_screen_make_card_title()` 渲染的标�?label �?y=12、标题线�?y=38，整个黑色网格组件（黑色背景）完全覆盖了绿色标题�?
+**根因**：`arex_calc_widget_grid()` 中 `out_y = parent_y + row * cell_h + WIDGET_GAP`，当 row=0 时 `out_y=2`。而 `arex_screen_make_card_title()` 渲染的标题 label 在 y=12、标题线在 y=38，整个黑色网格组件（黑色背景）完全覆盖了绿色标题。
 
 ### 23.2 修复方案
 
-**增加标题区常�?*�?
+**增加标题区常量**：
 
 ```c
 // arex_ui_engine.h
-#define AREX_CARD_TITLE_H   40  /* 卡片顶部标题区高�?4U)，包含绿色标题文�?分割�?*/
+#define AREX_CARD_TITLE_H   40  /* 卡片顶部标题区高度(4U)，包含绿色标题文字+分割线 */
 ```
 
-> **注意**：视觉规范中 60px 的区域是**告警横幅悬浮覆盖�?*，不属于常规卡片标题。常规卡片绿色大标题+分割线严格占�?**40px**�?
+> **注意**：视觉规范中 60px 的区域是**告警横幅悬浮覆盖区**，不属于常规卡片标题。常规卡片绿色大标题+分割线严格占用 **40px**。
 
-**重构 `arex_calc_widget_grid()` 签名与逻辑**�?
+**重构 `arex_calc_widget_grid()` 签名与逻辑**：
 
 - 移除 `parent_x/parent_y` 参数（不再需要）
 - 锁定 80x60 基准网格：`cell_w=80px (400/5)`, `cell_h=60px ((400-40)/6)`
 - Y 坐标增加 `AREX_CARD_TITLE_H=40` 偏移量：`out_y = AREX_CARD_TITLE_H + row * 60 + WIDGET_GAP`
-- row=0 �?out_y = 40 + 0 + 2 = **42px**，恰好落在标题区下方
+- row=0 时 `out_y = 40 + 0 + 2 = 42px`，恰好落在标题区下方
 
-**数学验证**（tile �?400px）：
+**数学验证**（tile 为 400px）：
 
 ```
 cell_w = 400 / 5 = 80px
 cell_h = (400 - 40) / 6 = 60px
-row=0:  out_y = 40 + 0*60 + 2 = 42  �?超过标题�?y=38)，落入黑色区�?�?
-row=5:  out_y = 40 + 5*60 + 2 = 342, out_h = 60-4 = 56, 底线 = 342+56 = 398 < 400 �?
+row=0:  out_y = 40 + 0*60 + 2 = 42  → 超过标题线 (y=38)，落入黑色区域 ✓
+row=5:  out_y = 40 + 5*60 + 2 = 342, out_h = 60-4 = 56, 底线 = 342+56 = 398 < 400 ✓
 ```
 
 ### 23.3 变更文件清单
 
 | 日期 | 文件 | 变更 |
 |------|------|------|
-| 2026-04-24 | `arex_ui_engine.h` | 新增 `AREX_CARD_TITLE_H` 常量(40px)；新�?`arex_calc_widget_grid()` 公开声明 |
-| 2026-04-24 | `arex_ui_engine.c` | 重构 `arex_calc_widget_grid()`：移�?parent_x/y，锁�?80x60 基准，增�?0px标题避让偏移 |
+| 2026-04-24 | `arex_ui_engine.h` | 新增 `AREX_CARD_TITLE_H` 常量(40px)；新增 `arex_calc_widget_grid()` 公开声明 |
+| 2026-04-24 | `arex_ui_engine.c` | 重构 `arex_calc_widget_grid()`：移除 parent_x/y，锁定 80x60 基准，增加 40px 标题避让偏移 |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 23 记录本次修复 |
 
 ### 23.4 API 签名变更
 
-**旧签�?*（已废弃）：
+**旧签名**（已废弃）：
 ```c
 void arex_calc_widget_grid(int16_t parent_x, int16_t parent_y,
                             uint16_t parent_w, uint16_t parent_h,
@@ -1478,7 +1466,7 @@ void arex_calc_widget_grid(int16_t parent_x, int16_t parent_y,
                             uint16_t *out_w, uint16_t *out_h);
 ```
 
-**新签�?*（当前）�?
+**新签名**（当前）：
 ```c
 void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
                            uint8_t row, uint8_t col,
@@ -1489,13 +1477,13 @@ void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
 
 ### 23.5 渲染层级保证
 
-路由�?`CARD_ENGINE_GRID` 分支的调用顺序：
+路由到 `CARD_ENGINE_GRID` 分支的调用顺序：
 ```c
-arex_screen_make_card_title(tile, card->title);  // 先画标题（label y=12, �?y=38�?
+arex_screen_make_card_title(tile, card->title);  // 先画标题（label y=12, 线 y=38）
 arex_render_5f_custom_grid(tile, ...);            // 后画网格（row=0 的组件从 y=52 开始）
 ```
 
-网格组件 Z-Order 在标题之后创建，自然覆盖标题区下方的黑色区域，不会覆盖标题文字和分割线�?
+网格组件 Z-Order 在标题之后创建，自然覆盖标题区下方的黑色区域，不会覆盖标题文字和分割线。
 
 ---
 
@@ -1504,32 +1492,32 @@ arex_render_5f_custom_grid(tile, ...);            // 后画网格（row=0 的组
 ### 24.1 问题描述
 
 **问题 1：W.TIME 始终显示 `00:00`**
-- `AREX_MODULE_WTM` 的数�?label 读取 `g_sensor_data.surface_time_s`，但 `sim_tick_cb` 中从未递增此字�?
-- 根因：`UI_main.c` �?`sim_tick_cb` 只更新了 `dive_time_s`，漏掉了 `surface_time_s`
+- `AREX_MODULE_WTM` 的数据 label 读取 `g_sensor_data.surface_time_s`，但 `sim_tick_cb` 中从未递增此字段
+- 根因：`UI_main.c` 中 `sim_tick_cb` 只更新了 `dive_time_s`，漏掉了 `surface_time_s`
 
 **问题 2：TIME 标签创建时硬编码 `00:00`**
-- `AREX_MODULE_TIME` �?label �?`left_anchor_create()` 中创建时直接设置 `"00:00"`
-- 虽然 `arex_screen_refresh_left_panel()` 有正确的刷新逻辑，但初始值应为数据总线的当前�?
+- `AREX_MODULE_TIME` 的 label 在 `left_anchor_create()` 中创建时直接设置 `"00:00"`
+- 虽然 `arex_screen_refresh_left_panel()` 有正确的刷新逻辑，但初始值应为数据总线的当前值
 
 **问题 3：POD1/POD2 初始值显示为 `210` / `195` 而非 `"--"`**
-- `arex_ui_engine.c` �?`arex_ui_init()` �?`pod1_bar=210.0f`，`pod2_bar=195.0f` 为模拟�?
-- 下水�?POD 未连接时应显�?`"--"`
-- 渲染层直�?`snprintf("%.0f")` 输出数字，无 0 值判�?
+- `arex_ui_engine.c` 中 `arex_ui_init()` 中 `pod1_bar=210.0f`，`pod2_bar=195.0f` 为模拟值
+- 下水后 POD 未连接时应显示 `"--"`
+- 渲染层直接 `snprintf("%.0f")` 输出数字，无 0 值判断
 
-**问题 4：PO2 1 �?PO2 2 未显�?`"--"`**
-- 初始文本已在 `left_anchor_create()` 中改�?`"--"`，刷新函数中也改为固�?`"--"`
+**问题 4：PO2 1 和 PO2 2 未显示 `"--"`**
+- 初始文本已在 `left_anchor_create()` 中改为 `"--"`，刷新函数中也改为固定 `"--"`
 - 需确认重编译后生效
 
 ### 24.2 修复方案
 
-**修复 1：`UI_main.c` �?`sim_tick_cb` 中增�?`surface_time_s` 递增**
+**修复 1：`UI_main.c` 中 `sim_tick_cb` 中增加 `surface_time_s` 递增**
 
 ```c
 g_sensor_data.dive_time_s += 1;
 g_sensor_data.surface_time_s += 1;  // 新增：水面休息计时同步递增
 ```
 
-**修复 2：`arex_screen.c` �?`left_anchor_create()` �?`AREX_MODULE_TIME` 改用数据总线**
+**修复 2：`arex_screen.c` 中 `left_anchor_create()` 中 `AREX_MODULE_TIME` 改用数据总线**
 
 ```c
 case AREX_MODULE_TIME:
@@ -1543,15 +1531,15 @@ case AREX_MODULE_TIME:
 
 **修复 3：POD1/POD2 初始值归零，渲染层按 0 = `"--"` 处理**
 
-统一约定：气压传感器 `pod1_bar / pod2_bar` �?`0.0f` 代表"未连�?，渲染时显示 `"--"`�?
+统一约定：气压传感器 `pod1_bar / pod2_bar` 为 `0.0f` 代表"未连接"，渲染时显示 `"--"`。
 
 ```c
-// arex_ui_engine.c:513-514 初始值归�?
+// arex_ui_engine.c:513-514 初始值归零
 g_sensor_data.pod1_bar = 0.0f;
 g_sensor_data.pod2_bar = 0.0f;
 
 // arex_screen.c left_anchor_create() / arex_screen_refresh_left_panel()
-// 渲染时判�?0 显示 "--"
+// 渲染时判断 0 显示 "--"
 if (g_sensor_data.pod1_bar <= 0.0f)
     snprintf(buf, sizeof(buf), "--");
 else
@@ -1563,41 +1551,41 @@ else
 | 日期 | 文件 | 变更 |
 |------|------|------|
 | 2026-04-24 | `UI_main.c` | `sim_tick_cb` 增加 `g_sensor_data.surface_time_s += 1` |
-| 2026-04-24 | `arex_screen.c` | `AREX_MODULE_TIME` 创建时从硬编�?`"00:00"` 改为 `g_sensor_data.dive_time_s` |
+| 2026-04-24 | `arex_screen.c` | `AREX_MODULE_TIME` 创建时从硬编码 `"00:00"` 改为 `g_sensor_data.dive_time_s` |
 | 2026-04-24 | `arex_ui_engine.c` | `pod1_bar / pod2_bar` 初始值从 `210.0f/195.0f` 改为 `0.0f` |
-| 2026-04-24 | `arex_screen.c` | POD1/POD2 渲染（创�?刷新+INFO菜单）加 `0.0f = "--"` 判断 |
+| 2026-04-24 | `arex_screen.c` | POD1/POD2 渲染（创建+刷新+INFO菜单）加 `0.0f = "--"` 判断 |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 24 记录本次修复 |
-| 2026-04-24 | `arex_ui_engine.h` | `arex_dive_pt_t.time_min` �?`time_s`（统一秒级单位�?|
-| 2026-04-24 | `card_plan.c` | 重写 `plan_chart_draw_cb` 为秒级坐标引擎；`init_test_data()` 清零 `g_dive_log_count`；新�?`arex_dive_log_append()` |
+| 2026-04-24 | `arex_ui_engine.h` | `arex_dive_pt_t.time_min` 改为 `time_s`（统一秒级单位） |
+| 2026-04-24 | `card_plan.c` | 重写 `plan_chart_draw_cb` 为秒级坐标引擎；`init_test_data()` 清零 `g_dive_log_count`；新增 `arex_dive_log_append()` |
 | 2026-04-24 | `arex_data.h` | 新增 `arex_dive_log_append()` 声明 |
 | 2026-04-24 | `UI_main.c` | `sim_tick_cb` 改用 `arex_dive_log_append()` 推流 |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 25 |
 
 ---
 
-## 25. 4F 曲线时间单位统一与历史轨迹推�?(v2026-04-24)
+## 25. 4F 曲线时间单位统一与历史轨迹推送 (v2026-04-24)
 
 ### 25.1 问题描述
 
-**问题 1：X 轴单位错�?*
-- 原代码底层以"分钟"为单位，�?X 轴网格标签在 `<120s` 时标 `"%ds"`，导�?20 分钟坐标系里 4 秒只�?0.33%，曲线像悬崖
+**问题 1：X 轴单位错误**
+- 原代码底层以"分钟"为单位，但 X 轴网格标签在 `<120s` 时标 `"%ds"`，导致 20 分钟坐标系里 4 秒只占 0.33%，曲线像悬崖
 
-**问题 2：历史轨迹污染未来预�?*
-- `g_dive_log[]` �?`time_min` 字段被旧代码预填充未来大时间值，`g_dive_log_count` 初始化不�?0，导致预测虚线被历史数据实线覆盖
+**问题 2：历史轨迹污染未来预测**
+- `g_dive_log[]` 的 `time_min` 字段被旧代码预填充未来大时间值，`g_dive_log_count` 初始化不为 0，导致预测虚线被历史数据实线覆盖
 
 **问题 3：无统一推流接口**
 - `UI_main.c` 直接操作 `g_dive_log[]` 数组，不符合数据总线统一管理原则
 
 ### 25.2 修复方案
 
-**统一时间单位**：全系统�?�?为唯一时间基准，消除分�?秒混�?
+**统一时间单位**：全系统以秒为唯一时间基准，消除分钟/秒混用。
 
 ```c
 // arex_ui_engine.h
-typedef struct { float time_s; float depth_m; } arex_dive_pt_t;  // �?time_min �?time_s
+typedef struct { float time_s; float depth_m; } arex_dive_pt_t;  // 改 time_min 为 time_s
 ```
 
-**历史轨迹推流接口**�?
+**历史轨迹推流接口**：
 
 ```c
 // arex_data.h 声明
@@ -1614,17 +1602,17 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
 }
 ```
 
-**清零启动**：`init_test_data()` �?`g_dive_log_count = 0`，轨迹从零生�?
+**清零启动**：`init_test_data()` 中 `g_dive_log_count = 0`，轨迹从零生成。
 
-**秒级坐标引擎**：`plan_chart_draw_cb` 核心改为�?
-- 当前时间 `current_t_sec = g_sensor_data.dive_time_s`（秒�?
-- 升水速度 `6.0f` �?米（对应 10m/min�?
-- X 轴最小锁�?20 秒视口，`fmaxf` 动态扩�?
-- 映射�?`MAP_X(t_sec) = pad_x + (t_sec / max_t_axis_sec) * w`
+**秒级坐标引擎**：`plan_chart_draw_cb` 核心改为：
+- 当前时间 `current_t_sec = g_sensor_data.dive_time_s`（秒级）
+- 升水速度 `6.0f` 米/分（对应 10m/min）
+- X 轴最小锁定 20 秒视口，`fmaxf` 动态扩展
+- 映射公式 `MAP_X(t_sec) = pad_x + (t_sec / max_t_axis_sec) * w`
 
 ### 25.3 X 轴秒级步长表
 
-| 时间范围 | X 轴最大刻�?| 步长 |
+| 时间范围 | X 轴最大刻度 | 步长 |
 |---------|-------------|------|
 | 0~20s | 20s | 10s |
 | 20~60s | ceil/10*10 | 10s |
@@ -1638,19 +1626,19 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
 
 | 日期 | 文件 | 变更 |
 |------|------|------|
-| 2026-04-24 | `arex_ui_engine.h` | `arex_dive_pt_t.time_min` �?`time_s` |
+| 2026-04-24 | `arex_ui_engine.h` | `arex_dive_pt_t.time_min` 改为 `time_s` |
 | 2026-04-24 | `card_plan.c` | 完全重写 `plan_chart_draw_cb` 为秒级引擎；清零 `g_dive_log_count` |
 | 2026-04-24 | `card_plan.c` | 新增 `arex_dive_log_append()` |
 | 2026-04-24 | `arex_data.h` | 新增 `arex_dive_log_append()` 声明 |
 | 2026-04-24 | `UI_main.c` | `sim_tick_cb` 改用 `arex_dive_log_append()` |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 25 |
-| 2026-04-24 | `arex_ui_engine.h` | `arex_sensor_data_t` 增加 `dirty_mask` 字段；新�?`arex_dirty_bit_t` 脏标记枚举；声明 Data Bus Setter + UI Consumer |
-| 2026-04-24 | `arex_data.h` | 彻底重构�?Data Bus 硬件写入接口层；`arex_bus_set_*()` 系列声明 |
-| 2026-04-24 | `arex_data.c` | 新建文件；实现全�?`arex_bus_set_*()` Setter，含防抖阈�?|
+| 2026-04-24 | `arex_ui_engine.h` | `arex_sensor_data_t` 增加 `dirty_mask` 字段；新增 `arex_dirty_bit_t` 脏标记枚举；声明 Data Bus Setter + UI Consumer |
+| 2026-04-24 | `arex_data.h` | 彻底重构为 Data Bus 硬件写入接口层；`arex_bus_set_*()` 系列声明 |
+| 2026-04-24 | `arex_data.c` | 新建文件；实现全部 `arex_bus_set_*()` Setter，含防抖阈值 |
 | 2026-04-24 | `arex_ui_engine.c` | 实现 `arex_ui_update_task()` 集中消费任务；`arex_screen.h` include |
 | 2026-04-24 | `UI_main.c` | `sim_tick_cb` 全部改用 `arex_bus_set_*()`；撤销直接 `g_sensor_data` 写入；撤销 `arex_ui_refresh_all()` |
 | 2026-04-24 | `UI_main.c` | `arex_ui_update_task(50ms)` 驱动 UI 渲染；`sim_tick_cb(1Hz)` 驱动数据写入 |
-| 2026-04-24 | `arex_card_registry.h` | 新增所有卡�?update forward 声明 |
+| 2026-04-24 | `arex_card_registry.h` | 新增所有卡片 update forward 声明 |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 26 |
 
 ---
@@ -1660,38 +1648,38 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
 ### 26.1 架构铁律
 
 ```
-硬件工程�?──arex_bus_set_*()──�?g_sensor_data (dirty_mask)
-                                          �?
+硬件工程  ──arex_bus_set_*()──→  g_sensor_data (dirty_mask)
+                                          │
                               arex_ui_update_task() (50ms lv_timer)
-                                          �?
+                                          │
                                 按脏标记按需刷新 UI
 ```
 
-- **硬件工程�?*：只能调�?`arex_bus_set_*()` 系列函数。禁止直接写 `g_sensor_data`，禁止包含任�?LVGL 代码�?
-- **UI 工程�?*：只能修�?`arex_ui_update_task()` 消费者函数。禁止绕过消费任务直接操�?LVGL�?
-- **两者通过 `g_sensor_data.dirty_mask` 完全解�?*�?
+- **硬件工程层**：只能调用 `arex_bus_set_*()` 系列函数。禁止直接写 `g_sensor_data`，禁止包含任何 LVGL 代码头
+- **UI 工程层**：只能修改 `arex_ui_update_task()` 消费者函数。禁止绕过消费任务直接操作 LVGL
+- **两者通过 `g_sensor_data.dirty_mask` 完全解耦**。
 
 ### 26.2 脏标记位枚举
 
-| �?| �?| 含义 |
+| 位 | 名 | 含义 |
 |----|----|------|
 | 0 | `DIRTY_DEPTH` | 深度数据 |
-| 1 | `DIRTY_NDL` | 免减压时�?|
+| 1 | `DIRTY_NDL` | 免减压时间 |
 | 2 | `DIRTY_TTS` | 回到水面时间 |
-| 3 | `DIRTY_POD` | 气瓶压力（pod1/pod2�?|
+| 3 | `DIRTY_POD` | 气瓶压力（pod1/pod2） |
 | 4 | `DIRTY_BATT` | 电池电量 |
 | 5 | `DIRTY_HEADING` | 罗盘航向 |
 | 6 | `DIRTY_TIME` | 潜水时间 / W.TIME |
-| 7 | `DIRTY_PPO2` | PO2 �?|
+| 7 | `DIRTY_PPO2` | PO2 数据 |
 | 8 | `DIRTY_GAS` | 气体切换 |
 | 9 | `DIRTY_DECO` | 减压数据 |
-| 10 | `DIRTY_CHART` | 4F 曲线图刷�?|
-| 11 | `DIRTY_ALARM` | 告警状�?|
+| 10 | `DIRTY_CHART` | 4F 曲线图刷新 |
+| 11 | `DIRTY_ALARM` | 告警状态 |
 
-### 26.3 Data Bus Setter 接口（`arex_data.h / arex_data.c`�?
+### 26.3 Data Bus Setter 接口（`arex_data.h / arex_data.c`）
 
 ```c
-void arex_bus_set_depth(float depth_m);         // 防抖阈�?0.05m
+void arex_bus_set_depth(float depth_m);         // 防抖阈值 0.05m
 void arex_bus_set_ndl(int16_t ndl_min);
 void arex_bus_set_tts(uint16_t tts_min);
 void arex_bus_set_pod(uint8_t pod_idx, float bar); // pod_idx: 0=pod1, 1=pod2
@@ -1708,10 +1696,10 @@ void arex_bus_set_chart_refresh(void);            // 仅打 DIRTY_CHART
 void arex_bus_clear_all_dirty(void);
 ```
 
-### 26.4 UI 消费任务（`arex_ui_engine.c`�?
+### 26.4 UI 消费任务（`arex_ui_engine.c`）
 
 ```c
-// �?lv_timer 驱动�?0ms 周期�?0 FPS�?
+// 由 lv_timer 驱动，50ms 周期，~20 FPS
 void arex_ui_update_task(lv_timer_t *timer)
 {
     uint32_t mask = g_sensor_data.dirty_mask;
@@ -1733,28 +1721,28 @@ void arex_ui_update_task(lv_timer_t *timer)
 }
 ```
 
-### 26.5 定时器分�?
+### 26.5 定时器分工
 
-| 定时�?| 周期 | 职责 |
+| 定时器 | 周期 | 职责 |
 |-------|------|------|
 | `sim_tick_cb` | 1Hz | 硬件数据写入，通过 `arex_bus_set_*()` 打脏标记 |
 | `arex_ui_update_task` | 50ms | UI 消费任务，按脏标记按需刷新 LVGL |
 
 ### 26.6 防抖策略
 
-- 深度 `arex_bus_set_depth`：变化超�?0.05m 才打脏标�?
-- 电池 `arex_bus_set_battery`：变化超�?0.1 才打脏标�?
+- 深度 `arex_bus_set_depth`：变化超过 0.05m 才打脏标记
+- 电池 `arex_bus_set_battery`：变化超过 0.1 才打脏标记
 - 其余字段：任何变化均打脏标记
 
 ### 26.7 变更文件清单
 
 | 日期 | 文件 | 变更 |
 |------|------|------|
-| 2026-04-24 | `arex_ui_engine.h` | `arex_sensor_data_t` 增加 `dirty_mask`；新�?`arex_dirty_bit_t` 枚举；声�?Setter + Consumer |
-| 2026-04-24 | `arex_data.h` | 彻底重构�?Data Bus 接口层头文件 |
-| 2026-04-24 | `arex_data.c` | 新建；全�?Setter 实现，含防抖逻辑 |
+| 2026-04-24 | `arex_ui_engine.h` | `arex_sensor_data_t` 增加 `dirty_mask`；新增 `arex_dirty_bit_t` 枚举；声明 Setter + Consumer |
+| 2026-04-24 | `arex_data.h` | 彻底重构为 Data Bus 接口层头文件 |
+| 2026-04-24 | `arex_data.c` | 新建；全部 Setter 实现，含防抖逻辑 |
 | 2026-04-24 | `arex_ui_engine.c` | 实现 `arex_ui_update_task()` 集中消费任务 |
-| 2026-04-24 | `UI_main.c` | `sim_tick_cb` 全部改用 Setter；撤销直接写入；分离两定时�?|
+| 2026-04-24 | `UI_main.c` | `sim_tick_cb` 全部改用 Setter；撤销直接写入；分离两定时器 |
 | 2026-04-24 | `arex_card_registry.h` | 卡片 update forward 声明 |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 26 |
 
@@ -1963,8 +1951,8 @@ int chart_w = right_w - PAD * 2;                // 宽度自适应
 
 ```c
 #define DECO_CONTENT_Y  (AREX_CARD_TITLE_H + 20)
-#define DECO_ROW2_Y     (AREX_CARD_TITLE_H + 67)
-#define DECO_ROW3_Y     (AREX_CARD_TITLE_H + 114)
+#define DECO_ROW2_Y    (AREX_CARD_TITLE_H + 67)
+#define DECO_ROW3_Y    (AREX_CARD_TITLE_H + 114)
 
 int bars_y    = DECO_ROW3_Y + 40;                          // 动态定位
 int bar_max_h = g_sys_config.safe_zone_h - bars_y - 30;   // 自适应剩余高度
