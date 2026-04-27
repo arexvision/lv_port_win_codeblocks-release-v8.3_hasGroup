@@ -82,15 +82,15 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * ===================================================== */
     static const arex_left_row_cfg_t def_layout[AREX_MAX_LEFT_ROWS] = {
         /* row 0: DEPTH 单栏全宽 */
-        { AREX_MODULE_DEPTH, AREX_MODULE_EMPTY, 9, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
+        { AREX_MODULE_NDL, AREX_MODULE_EMPTY, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 1: NDL + TTS 双拼 */
-        { AREX_MODULE_NDL,  AREX_MODULE_TTS,  6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
+        { AREX_MODULE_DEPTH,  AREX_MODULE_EMPTY,  6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 2: POD1 + POD2 双拼 */
-        { AREX_MODULE_POD1, AREX_MODULE_POD2, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
+        { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 3: BATT + WTM 双拼 */
-        { AREX_MODULE_TIME, AREX_MODULE_EMPTY,  6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
+        { AREX_MODULE_EMPTY, AREX_MODULE_EMPTY,  6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 4: GAS 单栏全宽 */
-        { AREX_MODULE_GAS,  AREX_MODULE_EMPTY, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
+        { AREX_MODULE_EMPTY,  AREX_MODULE_EMPTY, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE, AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 5: TIME 单栏全宽 */
         { AREX_MODULE_BATT, AREX_MODULE_WTM, 6, 2, AREX_FONT_ID_SMALL,  AREX_FONT_ID_TITLE,  AREX_ALIGN_LEFT, AREX_SEP_DASHED, 2 },
         /* row 6-7: EMPTY */
@@ -325,7 +325,13 @@ void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT],
         arex_left_module_t left_mod  = (arex_left_module_t)g_sys_config.left_layout[row].left_module;
         arex_left_module_t right_mod = (arex_left_module_t)g_sys_config.left_layout[row].right_module;
 
-        if (left_mod == AREX_MODULE_EMPTY) continue;
+        /* 两边都空 → 保留行位但不渲染 */
+        if (left_mod == AREX_MODULE_EMPTY && right_mod == AREX_MODULE_EMPTY) {
+            uint8_t h_u = g_sys_config.left_layout[row].h_u;
+            if (h_u == 0) h_u = 6;
+            cur_y += h_u * AREX_BASE_U + gap;
+            continue;
+        }
 
         /* 高度：优先用 row 配置的 h_u，否则查模块默认值 */
         uint8_t h_u = g_sys_config.left_layout[row].h_u;
