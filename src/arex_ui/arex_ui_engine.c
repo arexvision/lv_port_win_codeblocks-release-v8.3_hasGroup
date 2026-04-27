@@ -36,9 +36,9 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
 
     /* 安全区 */
     cfg->safe_zone_w  = 580;
-    cfg->safe_zone_h  = 400;
-    cfg->offset_x     = 0;
-    cfg->offset_y     = 0;
+    cfg->safe_zone_h  = 420;
+    cfg->offset_x     = 0;           //默认情况x,y为0，表示中心点(上下，左右都是留白3U)
+    cfg->offset_y     = -10;        //睿哥需求默认上面留白2U，下面留白4U。所以要往上挪（对应LVGL的Y-1U）
 
     /* 架构 */
     cfg->theme_mode    = AREX_THEME_TECH;
@@ -645,15 +645,15 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
 
 /* =========================================================
  * 通用卡片标题渲染器
- * 标题文字(Y=5)与分割线(Y=28)为视觉组合，绝对焊死在卡片顶部，不随 AREX_CARD_TITLE_H 变化。
+ * 标题文字(Y=8)与分割线(Y=48)为视觉组合，绝对焊死在卡片顶部。
  * AREX_CARD_TITLE_H 仅作为下方"内容区(菜单/图表)的起始 Y 坐标偏移"。
  *
  * parent_card: 父容器（tile 对象）
  * title_text:  标题文字
  *
  * 标题布局（焊死，绝对不跟随 AREX_CARD_TITLE_H）：
- *   文字:   Y=5,  焊死高度防截断，AREX_LIGHT 色
- *   分割线: Y=28, h=2px, AREX_DARK 色
+ *   文字:   Y=8,  高度 40px，AREX_LIGHT 色
+ *   分割线: Y=48, h=2px, AREX_DARK 色
  * ========================================================= */
 void arex_render_card_title(lv_obj_t *parent_card, const char *title_text)
 {
@@ -663,18 +663,18 @@ void arex_render_card_title(lv_obj_t *parent_card, const char *title_text)
     /* 1. 标题文字：扒光默认样式 + 强制小字号/次级颜色 */
     lv_obj_t *lbl = lv_label_create(parent_card);
     lv_obj_remove_style_all(lbl);
-    lv_obj_set_pos(lbl, 16, 5);
-    lv_obj_set_size(lbl, right_w - 32, AREX_CARD_TITLE_H - 10);
+    lv_obj_set_pos(lbl, 16, 8);
+    lv_obj_set_size(lbl, right_w - 32, 40);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
     lv_label_set_text(lbl, title_text);
     lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
     lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
 
-    /* 2. 分割线：绝对固定在文字下方（焊死 Y=28，绝不跟随 AREX_CARD_TITLE_H） */
+    /* 2. 分割线：绝对固定在文字下方（焊死 Y=48） */
     lv_obj_t *line = lv_obj_create(parent_card);
     lv_obj_remove_style_all(line);
     lv_obj_set_size(line, right_w - 32, 2);
-    lv_obj_set_pos(line, 16, 28);
+    lv_obj_set_pos(line, 16, 48);
     lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(line, AREX_DARK, 0);
 }
@@ -720,7 +720,7 @@ static lv_style_t s_banner_style_crit;
  * 排版矩阵严格锁定 5 列：
  *   cell_w = parent_w / 5
  *   cell_h = (parent_h - AREX_CARD_TITLE_H) / 6
- * Y 坐标增加 AREX_CARD_TITLE_H=40px 偏移，确保第一行落在标题区下方。
+ * Y 坐标增加 AREX_CARD_TITLE_H=60px 偏移，确保第一行落在标题区下方。
  * 宽高减 4px (2px 缝隙 x2) 制造四周 2px 物理留白。
  * 如果标题高度改为其他值，cell_h 会自动重新计算，内容区完美自适应。
  * ========================================================= */

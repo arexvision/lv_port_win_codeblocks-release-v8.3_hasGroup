@@ -16,7 +16,7 @@
 #define AREX_PHYSICAL_H    480  /* 硬件屏幕极限高 */
 #define AREX_LEFT_ANCHOR_W  160  /* 左侧锚点固定宽度 */
 /* 右侧卡片全局标题区高度分配（统一控制标题文字+分割线占用高度） */
-#define AREX_CARD_TITLE_H  42  /* 右侧卡片标题区高度：文字(8px) + 分割线(2px) + 留白(30px) = 40px */
+#define AREX_CARD_TITLE_H  60  /* 标题区高度：文字(Y=8) + 分隔线(Y=48) + 下方留白，视觉底边焊死 Y=48 */
 
 /* =========================================================
  * 颜色宏 (统一集中管理)
@@ -197,7 +197,7 @@ typedef struct {
 typedef struct {
     /* --- 光学与安全区 (Safe Zone) --- */
     uint16_t safe_zone_w;    /* 默认 580 */
-    uint16_t safe_zone_h;    /* 默认 400 */
+    uint16_t safe_zone_h;    /* 默认 420 */
     int16_t  offset_x;      /* 瞳距校准 (IPD) */
     int16_t  offset_y;      /* 浮力盲区校准 */
 
