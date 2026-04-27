@@ -1785,7 +1785,10 @@
 		<Unit filename="my_.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/UI_main.c">
+		<Unit filename="src/arex_hal_sim/UI_main.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_hal_sim/arex_input_pc.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/arex_card_registry.c">
@@ -1796,9 +1799,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/arex_data.h" />
-		<Unit filename="src/arex_ui/arex_input.c">
-			<Option compilerVar="CC" />
-		</Unit>
 		<Unit filename="src/arex_ui/arex_input.h" />
 		<Unit filename="src/arex_ui/arex_screen.c">
 			<Option compilerVar="CC" />
