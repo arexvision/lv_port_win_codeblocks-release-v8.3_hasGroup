@@ -29,9 +29,19 @@ static void sim_tick_cb(lv_timer_t *t)
     arex_bus_set_surface_time(g_sensor_data.surface_time_s + 1);
 
     /* 深度模拟：每秒增加 0.5m */
-    float new_depth = g_sensor_data.depth + 0.5f;
+    float new_depth = g_sensor_data.depth + 2.5f;
     if (new_depth > 50.0f) new_depth = 50.0f;
     arex_bus_set_depth(new_depth);
+
+    /* 深度超过 12m 时，推送模拟减压站序列 */
+    if (new_depth > 12.0f) {
+        arex_deco_stop_t sim_stops[] = {
+            { .depth_m = 9.0f, .stay_min = 2.0f },
+            { .depth_m = 6.0f, .stay_min = 3.0f },
+            { .depth_m = 3.0f, .stay_min = 1.0f },
+        };
+        arex_bus_set_deco_plan(sim_stops, 3);
+    }
 
     /* 模拟 NDL 递减 */
     if (g_sensor_data.ndl > 0) {
