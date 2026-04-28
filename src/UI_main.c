@@ -2,8 +2,8 @@
 #include "../arex_ui/arex_ui_state.h"
 #include "../arex_ui/arex_screen.h"
 #include "../arex_ui/arex_data.h"
-#include "../../lvgl/lvgl.h"
-#include "arex_input_pc.h"
+#include "../lvgl/lvgl.h"
+#include "arex_hal_sim/arex_input_pc.h"
 #include <math.h>
 
 static lv_timer_t *s_update_task_timer;  /* 50ms UI 消费定时器 */
