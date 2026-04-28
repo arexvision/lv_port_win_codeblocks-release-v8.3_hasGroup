@@ -202,8 +202,9 @@ static void plan_chart_draw_cb(lv_event_t *e)
     }
 
     /* ==========================================
-     * 绘制 X 轴网格（时间：秒）
+     * 绘制 X 轴网格（时间：秒，居中对齐刻度数字）
      * ========================================== */
+    txt_dsc.align = LV_TEXT_ALIGN_CENTER;
     for (int t = 0; t <= (int)max_t_axis_sec; t += x_step) {
         lv_coord_t x = MAP_X((float)t);
         lv_point_t pts[2] = {
@@ -224,6 +225,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
         lv_area_t t_area = {x - 20, area->y2 - 18, x + 20, area->y2};
         lv_draw_label(draw_ctx, &txt_dsc, &t_area, buf, NULL);
     }
+    txt_dsc.align = LV_TEXT_ALIGN_LEFT;
 
     /* ==========================================
      * 绘制左下角坐标系单位 (m/min)
