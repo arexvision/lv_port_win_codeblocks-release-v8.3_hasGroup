@@ -514,34 +514,43 @@ static void left_anchor_create(void)
         switch (c->module) {
             char buf[32];
             case AREX_MODULE_DEPTH:
-                snprintf(buf, sizeof(buf), "%.1f", g_sensor_data.depth);
+                if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+                    strcpy(buf, "--");
+                else
+                    snprintf(buf, sizeof(buf), "%.1f", g_sensor_data.depth);
                 lv_label_set_text(lbl_val, buf);
                 s_lbl_depth = lbl_val;
                 lv_obj_set_style_text_letter_space(lbl_val, -2, 0);
                 break;
             case AREX_MODULE_NDL:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl);
+                if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+                    strcpy(buf, "--");
+                else
+                    snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl);
                 lv_label_set_text(lbl_val, buf);
                 s_lbl_ndl = lbl_val;
                 break;
             case AREX_MODULE_TTS:
-                snprintf(buf, sizeof(buf), "%d'", g_sensor_data.tts);
+                if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+                    strcpy(buf, "--");
+                else
+                    snprintf(buf, sizeof(buf), "%d'", g_sensor_data.tts);
                 lv_label_set_text(lbl_val, buf);
                 s_lbl_tts = lbl_val;
                 lv_obj_set_style_bg_opa(s_lbl_tts, LV_OPA_TRANSP, 0);
                 lv_obj_set_style_text_color(s_lbl_tts, AREX_GREEN, 0);
                 break;
             case AREX_MODULE_POD1:
-                if (g_sensor_data.pod1_bar <= 0.0f)
-                    snprintf(buf, sizeof(buf), "--");
+                if (g_sensor_data.pod1_bar <= 0.0f || AREX_SHOW_PLACEHOLDER_ON_INIT)
+                    strcpy(buf, "--");
                 else
                     snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod1_bar);
                 lv_label_set_text(lbl_val, buf);
                 s_lbl_pod1 = lbl_val;
                 break;
             case AREX_MODULE_POD2:
-                if (g_sensor_data.pod2_bar <= 0.0f)
-                    snprintf(buf, sizeof(buf), "--");
+                if (g_sensor_data.pod2_bar <= 0.0f || AREX_SHOW_PLACEHOLDER_ON_INIT)
+                    strcpy(buf, "--");
                 else
                     snprintf(buf, sizeof(buf), "%.0f", g_sensor_data.pod2_bar);
                 lv_label_set_text(lbl_val, buf);
@@ -549,25 +558,37 @@ static void left_anchor_create(void)
                 s_lbl_pod2 = lbl_val;
                 break;
             case AREX_MODULE_BATT:
-                snprintf(buf, sizeof(buf), "%.0f%%", g_sensor_data.battery_pct);
+                if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+                    strcpy(buf, "--");
+                else
+                    snprintf(buf, sizeof(buf), "%.0f%%", g_sensor_data.battery_pct);
                 lv_label_set_text(lbl_val, buf);
                 s_lbl_batt = lbl_val;
                 break;
             case AREX_MODULE_WTM:
-                snprintf(buf, sizeof(buf), "%02d:%02d",
-                         g_sensor_data.surface_time_s / 60,
-                         g_sensor_data.surface_time_s % 60);
+                if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+                    strcpy(buf, "--:--");
+                else
+                    snprintf(buf, sizeof(buf), "%02d:%02d",
+                             g_sensor_data.surface_time_s / 60,
+                             g_sensor_data.surface_time_s % 60);
                 lv_label_set_text(lbl_val, buf);
                 s_lbl_wtm = lbl_val;
                 break;
             case AREX_MODULE_GAS:
-                lv_label_set_text(lbl_val, g_sensor_data.gas_name);
+                if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+                    lv_label_set_text(lbl_val, "--");
+                else
+                    lv_label_set_text(lbl_val, g_sensor_data.gas_name);
                 s_lbl_gas_name = lbl_val;
                 break;
             case AREX_MODULE_TIME:
-                snprintf(buf, sizeof(buf), "%02d:%02d",
-                         g_sensor_data.dive_time_s / 60,
-                         g_sensor_data.dive_time_s % 60);
+                if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+                    strcpy(buf, "--:--");
+                else
+                    snprintf(buf, sizeof(buf), "%02d:%02d",
+                             g_sensor_data.dive_time_s / 60,
+                             g_sensor_data.dive_time_s % 60);
                 lv_label_set_text(lbl_val, buf);
                 s_lbl_time = lbl_val;
                 break;
@@ -738,19 +759,31 @@ void arex_render_system_data(lv_obj_t *parent)
     lv_obj_set_style_pad_all(top_sep, 0, 0);
 
     /* ==========================================
-     * 左半部分 (电量与温度) - 强制小字号！
+     * 左半部分 (电量与温度)
      * ========================================== */
     s_lbl_sys_batt = lv_label_create(sys_container);
     lv_obj_set_style_text_font(s_lbl_sys_batt, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(s_lbl_sys_batt, AREX_GREEN, 0);
     lv_obj_align(s_lbl_sys_batt, LV_ALIGN_TOP_LEFT, 10, 8);
-    lv_label_set_text(s_lbl_sys_batt, "--%");
+    if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+        lv_label_set_text(s_lbl_sys_batt, "--%");
+    else {
+        char tmp[16];
+        snprintf(tmp, sizeof(tmp), "%.0f%%", g_sensor_data.battery_pct);
+        lv_label_set_text(s_lbl_sys_batt, tmp);
+    }
 
     s_lbl_sys_temp = lv_label_create(sys_container);
     lv_obj_set_style_text_font(s_lbl_sys_temp, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(s_lbl_sys_temp, AREX_GREEN, 0);
     lv_obj_align(s_lbl_sys_temp, LV_ALIGN_BOTTOM_LEFT, 10, -8);
-    lv_label_set_text(s_lbl_sys_temp, "--°C");
+    if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+        lv_label_set_text(s_lbl_sys_temp, "--°C");
+    else {
+        char tmp[16];
+        snprintf(tmp, sizeof(tmp), "%d°C", (int)g_sensor_data.temperature_c);
+        lv_label_set_text(s_lbl_sys_temp, tmp);
+    }
 
     /* ==========================================
      * 右半部分 (设备状态图标) - 坐标微调
@@ -773,7 +806,13 @@ void arex_render_system_data(lv_obj_t *parent)
     lv_obj_set_style_text_font(s_lbl_cylinders, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(s_lbl_cylinders, AREX_GREEN, 0);
     lv_obj_align(s_lbl_cylinders, LV_ALIGN_TOP_LEFT, 125, 33);
-    lv_label_set_text(s_lbl_cylinders, "x0");
+    if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+        lv_label_set_text(s_lbl_cylinders, "--");
+    else {
+        char tmp[16];
+        snprintf(tmp, sizeof(tmp), "x%d", g_sensor_data.cylinder_count);
+        lv_label_set_text(s_lbl_cylinders, tmp);
+    }
 }
 
 /* =========================================================
