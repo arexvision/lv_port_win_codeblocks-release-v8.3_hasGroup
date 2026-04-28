@@ -150,6 +150,16 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * GAS: 占据 2x1 长条
      * POD 1 & POD 2: 各占 1x1 (80x60 双拼，正好塞满第 6 行)
      */
+
+    /*typedef struct {
+        arex_widget_id_t widget_id;  组件类型 ID
+        uint8_t x;                  列索引 0~1
+        uint8_t y;                  行索引 0~5
+        uint8_t w;                  跨越列数 1~2
+        uint8_t h;                  跨越行数 1~2
+        uint8_t font_id;            字号: arex_font_id_t
+    } arex_custom_widget_cfg_t;
+    */
     g_left_widget_count = 6;
     g_left_widgets[0] = (arex_custom_widget_cfg_t){ AREX_WIDGET_NDL,    0, 0, 2, 1, AREX_FONT_ID_MEDIUM };
     g_left_widgets[1] = (arex_custom_widget_cfg_t){ AREX_WIDGET_DEPTH,  0, 1, 2, 2, AREX_FONT_ID_HUGE   };
@@ -741,32 +751,35 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
     /* ========== 第二步：DEPTH 专属渲染（整数+小数+单位分离） ========== */
     if (w_id == AREX_WIDGET_DEPTH) {
-        int depth_int = (int)g_sensor_data.depth;
-        int depth_dec = (int)((g_sensor_data.depth - depth_int) * 10 + 0.5f);
-
+        /* child[0] 整数，Huge 字体，靠左（初始 "--" 等待刷新） */
         lv_obj_t *int_lbl = lv_label_create(obj);
-        lv_label_set_text_fmt(int_lbl, "%d", depth_int);
+        lv_label_set_text(int_lbl, "--");
         lv_obj_set_style_text_font(int_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
         lv_obj_set_style_text_color(int_lbl, AREX_GREEN, 0);
         lv_obj_align(int_lbl, LV_ALIGN_LEFT_MID, 8, 0);
 
+        /* child[1] 小数，Medium 字体，贴整数右上角 */
         lv_obj_t *dec_lbl = lv_label_create(obj);
-        lv_label_set_text_fmt(dec_lbl, ".%d", depth_dec);
+        lv_label_set_text_fmt(dec_lbl, ".%d", (int)((g_sensor_data.depth - (int)g_sensor_data.depth) * 10 + 0.5f));
         lv_obj_set_style_text_font(dec_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(dec_lbl, AREX_GREEN, 0);
         lv_obj_align_to(dec_lbl, int_lbl, LV_ALIGN_OUT_RIGHT_TOP, 2, 5);
 
+        /* child[2] 单位m，Small 字体，贴小数正下方 */
         lv_obj_t *unit_lbl = lv_label_create(obj);
         lv_label_set_text(unit_lbl, "m");
         lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
         lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, 0, 2);
 
+        /* child[3] 速率箭头，贴右边缘 */
         LV_IMG_DECLARE(sudu);
         lv_obj_t *sudu_img = lv_img_create(obj);
         lv_img_set_src(sudu_img, &sudu);
         lv_obj_align(sudu_img, LV_ALIGN_RIGHT_MID, -5, 0);
 
+        /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
+        lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
         return obj;
     }
 
@@ -789,7 +802,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_radius(bar_fill, 2, 0);
 
         lv_obj_t *val_lbl = lv_label_create(obj);
-        lv_label_set_text_fmt(val_lbl, "%d", g_sensor_data.ndl);
+        lv_label_set_text(val_lbl, "--");
         lv_obj_set_style_text_font(val_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
         lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
         lv_obj_align_to(val_lbl, bar_bg, LV_ALIGN_OUT_RIGHT_MID, 10, 0);
@@ -801,6 +814,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_text_color(title_lbl, AREX_GREEN, 0);
         lv_obj_align_to(title_lbl, val_lbl, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, -8);
 
+        /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
+        lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
         return obj;
     }
 
@@ -954,42 +969,52 @@ void arex_widget_set_value(arex_widget_id_t id, float value)
             lv_obj_t *child = lv_obj_get_child(container, i);
             if (!child) continue;
 
-            /* user_data 烙印匹配 */
+            /* user_data 烙印匹配：找到 widget 容器 */
             if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(child) == id) {
-                /* 在该 widget 的子节点中找数值 label */
+                /* DEPTH 专属：整数/小数用 child[0]/child[1] 下标访问，不走通用子 label 路由 */
+                if (id == AREX_WIDGET_DEPTH) {
+                    int di = (int)value;
+                    int dd = (int)((value - di) * 10 + 0.5f);
+                    lv_obj_t *part0 = lv_obj_get_child(child, 0);
+                    lv_obj_t *part1 = lv_obj_get_child(child, 1);
+                    if (part0 && lv_obj_check_type(part0, &lv_label_class)) {
+                        lv_label_set_text_fmt(part0, "%d", di);
+                    }
+                    if (part1 && lv_obj_check_type(part1, &lv_label_class)) {
+                        lv_label_set_text_fmt(part1, ".%d", dd);
+                    }
+                    break;
+                }
+
+                /* 通用 widget：在子节点中找 user_data == id 的数值 label */
                 int16_t sub_cnt = lv_obj_get_child_cnt(child);
                 for (int16_t j = 0; j < sub_cnt; j++) {
                     lv_obj_t *sub = lv_obj_get_child(child, j);
                     if (!sub) continue;
-                    /* 数值 label 的 user_data 也存储了 widget_id */
                     if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(sub) == id) {
-                        /* 只对 lv_label 类型更新文字 */
                         if (lv_obj_check_type(sub, &lv_label_class)) {
                             char buf[32];
-                            /* 根据数据类型选择格式化 */
-                            if (id == AREX_WIDGET_DEPTH || id == AREX_WIDGET_TEMP) {
+                            if (id == AREX_WIDGET_TEMP) {
                                 snprintf(buf, sizeof(buf), "%.1f", (double)value);
+                                lv_label_set_text(sub, buf);
                             } else if (id == AREX_WIDGET_PPO2) {
                                 snprintf(buf, sizeof(buf), "%.2f", (double)value);
                             } else if (id == AREX_WIDGET_POD1 || id == AREX_WIDGET_POD2) {
                                 snprintf(buf, sizeof(buf), "%.0f", (double)value);
                             } else if (id == AREX_WIDGET_WTIME) {
-                                /* W.TIME: 秒 → MM:SS 格式 */
                                 snprintf(buf, sizeof(buf), "%02d:%02d",
                                          ((uint32_t)value) / 60,
                                          ((uint32_t)value) % 60);
                             } else if (id == AREX_WIDGET_BATTERY) {
-                                /* BATTERY: 百分比 */
                                 snprintf(buf, sizeof(buf), "%.0f%%", (double)value);
                             } else if (id == AREX_WIDGET_TTS || id == AREX_WIDGET_NDL) {
-                                /* TTS / NDL: 整数分钟 */
                                 snprintf(buf, sizeof(buf), "%d", (int)value);
                             } else {
                                 snprintf(buf, sizeof(buf), "%.0f", (double)value);
                             }
                             lv_label_set_text(sub, buf);
                         }
-                        break; /* 找到即停 */
+                        break;
                     }
                 }
             }
