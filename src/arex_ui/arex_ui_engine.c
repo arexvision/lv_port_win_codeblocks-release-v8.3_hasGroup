@@ -732,10 +732,81 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     lv_obj_set_style_radius(obj, 0, 0);
     lv_obj_set_style_pad_all(obj, 2, 0);
 
+    /* ========== 第一步：封杀所有滚动条 ========== */
+    lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);
+
     /* ========== 靶向告警烙印 ========== */
     lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
 
-    /* ========== 标题 label ========== */
+    /* ========== 第二步：DEPTH 专属渲染（整数+小数+单位分离） ========== */
+    if (w_id == AREX_WIDGET_DEPTH) {
+        int depth_int = (int)g_sensor_data.depth;
+        int depth_dec = (int)((g_sensor_data.depth - depth_int) * 10 + 0.5f);
+
+        lv_obj_t *int_lbl = lv_label_create(obj);
+        lv_label_set_text_fmt(int_lbl, "%d", depth_int);
+        lv_obj_set_style_text_font(int_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
+        lv_obj_set_style_text_color(int_lbl, AREX_GREEN, 0);
+        lv_obj_align(int_lbl, LV_ALIGN_LEFT_MID, 8, 0);
+
+        lv_obj_t *dec_lbl = lv_label_create(obj);
+        lv_label_set_text_fmt(dec_lbl, ".%d", depth_dec);
+        lv_obj_set_style_text_font(dec_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_color(dec_lbl, AREX_GREEN, 0);
+        lv_obj_align_to(dec_lbl, int_lbl, LV_ALIGN_OUT_RIGHT_TOP, 2, 5);
+
+        lv_obj_t *unit_lbl = lv_label_create(obj);
+        lv_label_set_text(unit_lbl, "m");
+        lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
+        lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, 0, 2);
+
+        LV_IMG_DECLARE(sudu);
+        lv_obj_t *sudu_img = lv_img_create(obj);
+        lv_img_set_src(sudu_img, &sudu);
+        lv_obj_align(sudu_img, LV_ALIGN_RIGHT_MID, -5, 0);
+
+        return obj;
+    }
+
+    /* ========== 第三步：NDL 专属渲染（电池型 Bar + 数值 + 标签） ========== */
+    if (w_id == AREX_WIDGET_NDL) {
+        lv_obj_t *bar_bg = lv_obj_create(obj);
+        lv_obj_remove_style_all(bar_bg);
+        lv_obj_set_size(bar_bg, 14, 40);
+        lv_obj_align(bar_bg, LV_ALIGN_LEFT_MID, 10, 0);
+        lv_obj_set_style_border_width(bar_bg, 2, 0);
+        lv_obj_set_style_border_color(bar_bg, AREX_GREEN, 0);
+        lv_obj_set_style_radius(bar_bg, 4, 0);
+
+        lv_obj_t *bar_fill = lv_obj_create(bar_bg);
+        lv_obj_remove_style_all(bar_fill);
+        lv_obj_set_size(bar_fill, LV_PCT(100), LV_PCT(60));
+        lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_set_style_bg_color(bar_fill, AREX_GREEN, 0);
+        lv_obj_set_style_bg_opa(bar_fill, LV_OPA_COVER, 0);
+        lv_obj_set_style_radius(bar_fill, 2, 0);
+
+        lv_obj_t *val_lbl = lv_label_create(obj);
+        lv_label_set_text_fmt(val_lbl, "%d", g_sensor_data.ndl);
+        lv_obj_set_style_text_font(val_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
+        lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
+        lv_obj_align_to(val_lbl, bar_bg, LV_ALIGN_OUT_RIGHT_MID, 10, 0);
+        lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)AREX_WIDGET_NDL);
+
+        lv_obj_t *title_lbl = lv_label_create(obj);
+        lv_label_set_text(title_lbl, "NDL");
+        lv_obj_set_style_text_font(title_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_color(title_lbl, AREX_GREEN, 0);
+        lv_obj_align_to(title_lbl, val_lbl, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, -8);
+
+        return obj;
+    }
+
+    /* ========== 通用渲染（标题 + 数值 + 单位）========== */
+
+    /* 标题 label */
     if (meta->title) {
         lv_obj_t *title_lbl = lv_label_create(obj);
         lv_label_set_text(title_lbl, meta->title);
@@ -746,7 +817,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_label_set_long_mode(title_lbl, LV_LABEL_LONG_DOT);
     }
 
-    /* ========== 数值 label（存储句柄供 update 循环更新文字）========== */
+    /* 数值 label（存储句柄供 update 循环更新文字）*/
     lv_obj_t *val_lbl = lv_label_create(obj);
     lv_label_set_text(val_lbl, "--");
     lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
@@ -756,16 +827,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     lv_label_set_long_mode(val_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
 
-    /* DEPTH 模块专属挂载速率图标（sudu 箭头） */
-    if (is_depth_icon && w_id == AREX_WIDGET_DEPTH) {
-        LV_IMG_DECLARE(sudu);
-        lv_obj_t *sudu_img = lv_img_create(obj);
-        lv_img_set_src(sudu_img, &sudu);
-        /* 靠右侧对齐，在数字旁边居中，略微 Y 轴偏移 */
-        lv_obj_align(sudu_img, LV_ALIGN_RIGHT_MID, -5, 10);
-    }
-
-    /* ========== 单位 label ========== */
+    /* 单位 label */
     if (meta->unit && meta->unit[0]) {
         lv_obj_t *unit_lbl = lv_label_create(obj);
         lv_label_set_text(unit_lbl, meta->unit);
@@ -777,6 +839,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     }
 
     (void)meta;
+    (void)is_depth_icon;
     return obj;
 }
 

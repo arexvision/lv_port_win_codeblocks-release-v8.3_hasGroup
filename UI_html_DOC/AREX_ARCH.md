@@ -2226,3 +2226,4 @@ for (c = 0; c < 2; c++) {
 | 2026-04-28 | `arex_ui_engine.h` | `AREX_WIDGET_GAS = 13` 新增；`AREX_WIDGET_WTIME` 注释改为 TIME，数据源改为 `dive_time_s` |
 | 2026-04-28 | `arex_ui_engine.c` | `s_widget_meta[]` 新增 GAS 条目；WTIME title 改为 "TIME" |
 | 2026-04-28 | `arex_screen.c` | `arex_screen_refresh_left_panel()` 重构为 switch-case 路由，遍历 `g_left_widgets[]` 自动推导数据源；移除 TTS；新增 GAS 字符串刷新 |
+| 2026-04-28 | `arex_ui_engine.c` | `render_widget_by_id()` 新增三大改进：(1) `LV_OBJ_FLAG_SCROLLABLE` + `LV_SCROLLBAR_MODE_OFF` 封杀滚动条；(2) `AREX_WIDGET_DEPTH` 专属渲染：整数(HUGE)+小数(MEDIUM)+单位(SMALL)+箭头四层分离排版；(3) `AREX_WIDGET_NDL` 专属渲染：电池型 Bar(左)+巨型数值(中)+NDL标签(右)横向布局 |
