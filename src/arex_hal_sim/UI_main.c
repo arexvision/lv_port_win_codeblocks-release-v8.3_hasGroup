@@ -104,5 +104,5 @@ void UI_main(void)
     s_update_task_timer = lv_timer_create(arex_ui_update_task, 50, NULL);
 
     /* 8. 启动模拟数据定时器：1Hz */
-    // lv_timer_create(sim_tick_cb, 1000, NULL);
+    lv_timer_create(sim_tick_cb, 1000, NULL);
 }

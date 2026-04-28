@@ -448,16 +448,10 @@ void arex_ui_init(void)
     g_sensor_data.next_stop_m = 21;
     g_sensor_data.next_stop_min = 3;
     /* System Data — 设备基础数据 */
-    g_sensor_data.temperature_c = 25.0f;      /* 设备/水温 摄氏度 */
-    g_sensor_data.strobe_on = true;         /* 留转灯（频闪灯）开关状态 */
-    g_sensor_data.flashlight_on = true;      /* 手电筒开关状态 */
-    g_sensor_data.cylinder_count = 1;   /* 气瓶连接数量 (x0, x1...) */
-    
-
-    /* 模拟组织饱和度数据 */
-    for (uint8_t i = 0; i < 16; i++) {
-        g_sensor_data.tissue_pct[i] = (i < 8) ? (95 - i * 10) : (i - 7);
-    }
+    g_sensor_data.temperature_c = 25.0f;
+    g_sensor_data.strobe_on = true;
+    g_sensor_data.flashlight_on = true;
+    g_sensor_data.cylinder_count = 1;
 }
 
 /* =========================================================

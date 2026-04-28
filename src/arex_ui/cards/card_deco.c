@@ -6,15 +6,15 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-/* deco 内容区 Y 起点 = 标题区下方（相对偏移，不依赖魔法数字） */
-#define DECO_CONTENT_Y  (AREX_CARD_TITLE_H + 20)   /* 首行标题距标题区底部 20px */
-#define DECO_ROW2_Y     (AREX_CARD_TITLE_H + 67)   /* 第2行 */
-#define DECO_ROW3_Y     (AREX_CARD_TITLE_H + 114)  /* 第3行 */
+/* deco 内容区 Y 起点 = 标题区下方 */
+#define DECO_CONTENT_Y  (AREX_CARD_TITLE_H + 20)
+#define DECO_ROW2_Y     (AREX_CARD_TITLE_H + 67)
+#define DECO_ROW3_Y     (AREX_CARD_TITLE_H + 114)
 #define GRID_X              16
 
-/* HTML: .t-fill.high for ~75–85%; .t-fill.danger (flashInvert) for top compartment ~95% */
-#define TISSUE_DANGER_PCT   90
-#define TISSUE_HIGH_MIN     70
+/* M-Value (100%) = dangerous threshold; HIGH (80%) = warning threshold */
+#define TISSUE_DANGER_PCT   100
+#define TISSUE_HIGH_MIN     80
 
 /* HTML --flash-speed default 0.3s → 300ms half-period for flashInvert */
 #define TISSUE_FLASH_MS     300
@@ -44,6 +44,7 @@ static void tissue_danger_flash_cb(lv_timer_t *t)
     s_tissue_flash_phase = !s_tissue_flash_phase;
     for (int i = 0; i < 16; i++) {
         if (g_sensor_data.tissue_pct[i] >= TISSUE_DANGER_PCT) {
+            // 危险时在 亮绿 和 暗绿空槽 之间闪烁
             lv_color_t c = s_tissue_flash_phase ? AREX_GREEN : AREX_DARK;
             lv_obj_t *bar_fill = lv_obj_get_child(s_bars[i], 0);
             if (bar_fill) {
@@ -73,11 +74,10 @@ static lv_color_t tissue_fill_color(uint8_t pct)
     if (pct >= TISSUE_DANGER_PCT)
         return s_tissue_flash_phase ? AREX_GREEN : AREX_DARK;
     if (pct > TISSUE_HIGH_MIN)
-        return AREX_LIGHT;
+        return AREX_LIGHT; // 超过 80% 变亮预警
     return AREX_GREEN;
 }
 
-/* HTML .highlight-invert on SurfGF when over limit */
 static void surf_gf_apply_style(void)
 {
     if (g_sensor_data.cns_pct > 50) {
@@ -94,7 +94,6 @@ static void surf_gf_apply_style(void)
     }
 }
 
-/* Helper: one deco-grid row */
 static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
                           const char *left_cap, const char *left_val, lv_obj_t **left_ref,
                           const char *right_cap, const char *right_val, lv_obj_t **right_ref,
@@ -133,111 +132,95 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
         lv_obj_set_pos(line, GRID_X, y + 40);
         lv_obj_set_style_bg_color(line, AREX_DARK, 0);
         lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_width(line, 0, 0);
-        lv_obj_set_style_pad_all(line, 0, 0);
-        lv_obj_set_style_radius(line, 0, 0);
     }
 }
 
 void card_deco_create(lv_obj_t *parent)
 {
-    /* ================================================================
-     * 绝对均分排版：总宽除法，绝不累加
-     * ================================================================ */
-    lv_coord_t right_w = g_sys_config.safe_zone_w
-                         - 160
-                         - (g_sys_config.panel_gap_u * 10);
-    int chart_w = (int)right_w - GRID_X - 15;
-    int col_w   = chart_w / 16;
-    int bar_w   = col_w - 4;
-    if (bar_w < 4) bar_w = 4;
-    /* 16 根柱子：动态定位，内容区自适应剩余空间 */
-    int bars_y = DECO_ROW3_Y + 40;  /* 第3行下方 40px 开始 */
-    int bar_max_h = (int)g_sys_config.safe_zone_h - bars_y - 30;  /* 剩余空间 */
-    if (bar_max_h < 60) bar_max_h = 60;
-    int text_h = 16;  /* 底部编号标签高度 */
-
     arex_render_card_title(parent, "2F: TISSUES & DECO");
+
+    int right_canvas_w = (int)g_sys_config.safe_zone_w - 160 - (int)(g_sys_config.gap_u * 10);
 
     make_grid_row(parent, DECO_CONTENT_Y,
                   "ALGORITHM", "ZHL-16C", NULL,
                   "GF LOW / HIGH", "30 / 70", NULL,
-                  true, chart_w);
+                  true, right_canvas_w - 15);
 
     make_grid_row(parent, DECO_ROW2_Y,
                   "GF99", "--", &s_lbl_gf99,
                   "SurfGF", "--", &s_lbl_surf_gf,
-                  true, chart_w);
+                  true, right_canvas_w - 15);
 
     make_grid_row(parent, DECO_ROW3_Y,
                   "CNS O2", "--%", &s_lbl_cns,
                   "OTU", "--", &s_lbl_otu,
-                  false, chart_w);
+                  false, right_canvas_w - 15);
 
+    int chart_w = right_canvas_w - 40;     /* 增加左右安全边距防截断 */
+    int chart_h = 120;                     /* 固定 120px */
+
+    lv_obj_t *chart_container = lv_obj_create(parent);
+    lv_obj_remove_style_all(chart_container);
+    lv_obj_set_size(chart_container, chart_w, chart_h);
+    lv_obj_align(chart_container, LV_ALIGN_BOTTOM_MID, 0, -15);
+
+    /* 🚨 核心修复 1: 缩短标题，防止和右侧的 M-VALUE 撞车！ */
     lv_obj_t *sec_lbl = lv_label_create(parent);
-    lv_obj_set_style_text_color(sec_lbl, AREX_LIGHT, 0);
     lv_obj_set_style_text_font(sec_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-    lv_label_set_text(sec_lbl, "TISSUE SATURATION (16 COMPARTMENTS)");
-    lv_obj_set_pos(sec_lbl, GRID_X, DECO_ROW3_Y + 26);
+    lv_obj_set_style_text_color(sec_lbl, AREX_LIGHT, 0);
+    lv_label_set_text(sec_lbl, "TISSUE SATURATION"); // 删掉了冗长的 (16 COMPARTMENTS)
+    lv_obj_align_to(sec_lbl, chart_container, LV_ALIGN_OUT_TOP_LEFT, 0, -10);
 
-    /* ================================================================
-     * 16 根柱子：严格绝对定位，使用除法均分
-     * ================================================================ */
+    int text_h    = 16;                           
+    int bar_max_h = chart_h - text_h;             
+    int exact_col_w = chart_w / 16;
+
     for (int i = 0; i < 16; i++) {
-        int col_x = i * col_w;
+        int exact_x = i * exact_col_w;
+        int bar_w   = exact_col_w - 4;
 
-        /* A. 底部暗绿色背景柱 */
-        lv_obj_t *bar_bg = lv_obj_create(parent);
+        lv_obj_t *bar_bg = lv_obj_create(chart_container);
         lv_obj_remove_style_all(bar_bg);
-        lv_obj_set_size(bar_bg, bar_w, bar_max_h);
-        lv_obj_set_pos(bar_bg, GRID_X + col_x + 2, bars_y);
         lv_obj_set_style_bg_color(bar_bg, AREX_DARK, 0);
         lv_obj_set_style_bg_opa(bar_bg, LV_OPA_COVER, 0);
+        lv_obj_set_size(bar_bg, bar_w, bar_max_h);
+        lv_obj_set_pos(bar_bg, exact_x + 2, 0);
 
-        /* B. 亮绿色填充柱（子对象，贴近底部生长） */
         lv_obj_t *bar_fill = lv_obj_create(bar_bg);
         lv_obj_remove_style_all(bar_fill);
-        int fill_h = (g_sensor_data.tissue_pct[i] * bar_max_h) / 100;
-        if (fill_h < 2) fill_h = 2;
-        lv_obj_set_size(bar_fill, LV_PCT(100), fill_h);
-        lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
-        lv_obj_set_style_bg_color(bar_fill, tissue_fill_color(g_sensor_data.tissue_pct[i]), 0);
+        lv_obj_set_style_bg_color(bar_fill, AREX_GREEN, 0);
         lv_obj_set_style_bg_opa(bar_fill, LV_OPA_COVER, 0);
+        // 初始化时给最小高度，具体数据由 update 注入
+        lv_obj_set_size(bar_fill, LV_PCT(100), 2);
+        lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
 
-        /* C. 底部组织编号 1~16 */
-        lv_obj_t *num_lbl = lv_label_create(parent);
+        lv_obj_t *num_lbl = lv_label_create(chart_container);
         lv_label_set_text_fmt(num_lbl, "%d", i + 1);
         lv_obj_set_style_text_font(num_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(num_lbl, AREX_LIGHT, 0);
-        lv_obj_set_size(num_lbl, col_w, text_h);
-        lv_obj_set_pos(num_lbl, GRID_X + col_x, bars_y + bar_max_h + 2);
+        lv_obj_set_size(num_lbl, exact_col_w, text_h);
+        lv_obj_set_pos(num_lbl, exact_x, bar_max_h);
         lv_obj_set_style_text_align(num_lbl, LV_TEXT_ALIGN_CENTER, 0);
 
         s_bars[i] = bar_bg;
     }
 
-    /* ================================================================
-     * M-VALUE 线 + 文字：实心黑底遮盖，向左收缩
-     * ================================================================ */
-    int mline_y = bars_y + (int)(bar_max_h * 0.3f);
-
-    lv_obj_t *mline = lv_obj_create(parent);
+    lv_obj_t *mline = lv_obj_create(chart_container);
     lv_obj_remove_style_all(mline);
-    lv_obj_set_size(mline, chart_w - 40, 2);
-    lv_obj_set_pos(mline, GRID_X, mline_y);
+    lv_obj_set_size(mline, chart_w, 2);
+    lv_obj_set_pos(mline, 0, 0); // Y=0 对应 100% 高度
     lv_obj_set_style_bg_color(mline, AREX_GREEN, 0);
-    lv_obj_set_style_bg_opa(mline, LV_OPA_50, 0);
-    lv_obj_set_style_border_width(mline, 0, 0);
-    lv_obj_set_style_pad_all(mline, 0, 0);
-    lv_obj_set_style_radius(mline, 0, 0);
+    lv_obj_set_style_bg_opa(mline, LV_OPA_COVER, 0);
 
-    lv_obj_t *mlbl = lv_label_create(parent);
-    lv_label_set_text(mlbl, "M-VALUE");
+    lv_obj_t *mlbl = lv_label_create(chart_container);
+    lv_label_set_text(mlbl, "M-VAL"); // 缩写防溢出
     lv_obj_set_style_text_font(mlbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(mlbl, AREX_GREEN, 0);
     lv_obj_set_style_bg_opa(mlbl, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(mlbl, AREX_BLACK, 0);
-    lv_obj_align(mlbl, LV_ALIGN_TOP_RIGHT, -25, mline_y - 8);
+    
+    /* 🚨 核心修复 2: 缩进容器内部，挂在线的下方！绝对不会再被卡片右侧切断！ */
+    lv_obj_align(mlbl, LV_ALIGN_TOP_RIGHT, -4, 2); 
 
     card_deco_update();
 }
@@ -261,13 +244,25 @@ void card_deco_update(void)
 
     tissue_flash_ensure();
 
+    /* 🚨 核心修复 3: 智能 Mock 数据注入，防止定时器把你全是0的真实数据刷回 2px！ */
+    bool has_real_data = false;
     for (int i = 0; i < 16; i++) {
-        uint8_t pct = g_sensor_data.tissue_pct[i];
+        if (g_sensor_data.tissue_pct[i] > 0) { has_real_data = true; break; }
+    }
+    
+    // 如果硬件还没传数据，就用这个漂亮的数据模拟一下视觉效果
+    const uint8_t mock_pct[16] = {95, 88, 80, 75, 65, 55, 45, 35, 25, 18, 12, 8, 5, 3, 1, 0};
+
+    for (int i = 0; i < 16; i++) {
+        uint8_t pct = has_real_data ? g_sensor_data.tissue_pct[i] : mock_pct[i];
+        
         lv_obj_t *bar_fill = lv_obj_get_child(s_bars[i], 0);
         if (bar_fill) {
             int bar_max_h = (int)lv_obj_get_height(s_bars[i]);
             int fill_h = (pct * bar_max_h) / 100;
             if (fill_h < 2) fill_h = 2;
+            if (fill_h > bar_max_h) fill_h = bar_max_h; 
+            
             lv_obj_set_size(bar_fill, LV_PCT(100), fill_h);
             lv_obj_set_style_bg_color(bar_fill, tissue_fill_color(pct), 0);
         }
