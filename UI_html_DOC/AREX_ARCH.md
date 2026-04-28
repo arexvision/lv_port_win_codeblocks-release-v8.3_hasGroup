@@ -2275,3 +2275,152 @@ for (c = 0; c < 2; c++) {
 | 2026-04-28 | `arex_ui_engine.c` | `s_widget_meta[]` 新增 GAS 条目；WTIME title 改为 "TIME" |
 | 2026-04-28 | `arex_screen.c` | `arex_screen_refresh_left_panel()` 重构为 switch-case 路由，遍历 `g_left_widgets[]` 自动推导数据源；移除 TTS；新增 GAS 字符串刷新 |
 | 2026-04-28 | `arex_ui_engine.c` | `render_widget_by_id()` 新增三大改进：(1) `LV_OBJ_FLAG_SCROLLABLE` + `LV_SCROLLBAR_MODE_OFF` 封杀滚动条；(2) `AREX_WIDGET_DEPTH` 专属渲染：整数(HUGE)+小数(MEDIUM)+单位(SMALL)+箭头四层分离排版；(3) `AREX_WIDGET_NDL` 专属渲染：电池型 Bar(左)+巨型数值(中)+NDL标签(右)横向布局 |
+
+---
+
+## 30. 硬件移植指南 (v2026-04-28)
+
+### 30.1 平台兼容层 — 两行代码切换真机/仿真
+
+所有跨平台代码集中在 `arex_data.h` 顶部：
+
+```c
+// =========================================================
+// 平台兼容层 — 必须在所有 include 之前
+//
+// 真机 (RT-Thread): 使用 rt_hw_interrupt_disable/enable 临界区
+// PC 仿真器:        替换为空操作，防止编译报错
+// =========================================================
+#define PC_SIMULATOR  //移植硬件后需要注释此行！！！
+#ifdef PC_SIMULATOR
+    typedef int rt_base_t;
+    #define rt_hw_interrupt_disable()   ((rt_base_t)0)  //假代码
+    #define rt_hw_interrupt_enable(lvl) ((void)(lvl))   //假代码
+#else
+    #include <rtthread.h>
+#endif
+```
+
+**移植步骤**：将 `arex_data.h` 中 `#define PC_SIMULATOR` 整行注释或删除，然后引入 `#include <rtthread.h>`，即可切换到真机模式。`arex_data.c` 和所有调用方**无需修改任何代码**，临界区自动启用。
+
+---
+
+### 30.2 硬件工程师的 API — 只能调用这 18 个函数
+
+硬件工程师（传感器驱动、潜水算法）**绝对禁止**直接写入 `g_sensor_data`，**绝对禁止**调用任何 LVGL 函数。唯一合法入口是以下 `arex_bus_set_*()` 系列：
+
+| 函数 | 参数 | 触发脏标记 | 备注 |
+|------|------|-----------|------|
+| `arex_bus_set_depth(float)` | 深度 m | `DIRTY_DEPTH \| DIRTY_DECO` | 内置 0.05m 防抖 |
+| `arex_bus_set_ndl(int16_t)` | NDL 分钟 | `DIRTY_NDL` | — |
+| `arex_bus_set_tts(uint16_t)` | TTS 分钟 | `DIRTY_TTS` | — |
+| `arex_bus_set_pod(uint8_t idx, float)` | idx=0/1, 气压 bar | `DIRTY_POD` | — |
+| `arex_bus_set_battery(float)` | 百分比 | `DIRTY_BATT` | 内置 0.1f 防抖 |
+| `arex_bus_set_heading(uint16_t)` | 航向 0~359° | `DIRTY_HEADING` | — |
+| `arex_bus_set_dive_time(uint32_t)` | 潜水秒数 | `DIRTY_TIME` | — |
+| `arex_bus_set_surface_time(uint32_t)` | 水面休息秒数 | `DIRTY_TIME` | — |
+| `arex_bus_set_ppo2(uint8_t idx, float)` | idx=0~2, PO2 值 | `DIRTY_PPO2` | — |
+| `arex_bus_set_gas(uint8_t, const char*)` | 气体索引+名称 | `DIRTY_GAS` | — |
+| `arex_bus_set_deco(int16_t, uint8_t)` | 下一站深度/分钟 | `DIRTY_DECO` | — |
+| `arex_bus_set_cns(uint8_t)` | CNS 百分比 | `DIRTY_CNS` | — |
+| `arex_bus_set_otu(uint16_t)` | OTU 值 | `DIRTY_OTU` | — |
+| `arex_bus_set_tissues(const uint8_t[16])` | 16 隔室饱和度数组 | `DIRTY_TISSUES` | **临界区保护** |
+| `arex_bus_set_deco_plan(const arex_deco_stop_t*, uint8_t)` | 减压站序列 | `DIRTY_DECO` | **临界区保护** |
+| `arex_bus_set_temperature(float)` | 温度 °C | `DIRTY_TEMP` | 内置 0.1f 防抖 |
+| `arex_bus_set_device_status(bool, bool, uint8_t)` | 频闪/手电/气瓶数 | `DIRTY_DEVICES` | — |
+| `arex_bus_clear_all_dirty(void)` | — | 清零 dirty_mask | 仅由 UI 层调用 |
+
+**数据流铁律**：
+
+```
+硬件传感器/潜水算法 ──arex_bus_set_*()──▶ g_sensor_data (dirty_mask)
+                                              │
+                              arex_ui_update_task() (50ms lv_timer)
+                                              │
+                                    按脏标记按需刷新 LVGL UI
+```
+
+---
+
+### 30.3 临界区保护 — 为什么数组写入需要包关中断
+
+`tissue_pct[16]` 和 `deco_stops[]` 每次写入 16~320 字节，超过单条汇编指令的 32bit 原子边界。在多线程/RTOS 环境下，不包临界区会导致 UI 消费任务读到撕裂数据（一半新一半旧）。
+
+```c
+void arex_bus_set_tissues(const uint8_t tissue_pct[16])
+{
+    rt_base_t level = rt_hw_interrupt_disable();  // 真机：关中断；仿真：无操作
+    memcpy(g_sensor_data.tissue_pct, tissue_pct, 16);
+    g_sensor_data.dirty_mask |= DIRTY_TISSUES;
+    rt_hw_interrupt_enable(level);               // 真机：开中断；仿真：无操作
+}
+```
+
+---
+
+### 30.4 两定时器架构 — 生产者与消费者彻底分离
+
+真机上有两个定时器，各自独立，**绝不互相调用**：
+
+| 定时器 | 来源 | 周期 | 职责 | 唯一合法操作 |
+|--------|------|------|------|-------------|
+| 硬件数据写入 | RT-Thread 定时器线程 / 传感器 DMA 中断 | **1Hz** | 读取传感器，计算潜水算法，推送数据 | 调用 `arex_bus_set_*()` |
+| UI 消费任务 | LVGL `lv_timer_create` | **50ms（20FPS）** | 按 dirty_mask 刷新 LVGL 界面 | 调用 `lv_label_set_text()` 等 |
+
+```
+┌─────────────────┐       arex_bus_set_*()        ┌─────────────────┐
+│  硬件传感器 ISR   │ ─────────────────────────▶ │  g_sensor_data  │
+│  1Hz 定时器线程  │        (写数据+打脏标记)    │   (RAM 数据总线) │
+└─────────────────┘                               └────────┬────────┘
+                                                           │ dirty_mask
+                                                           ▼
+                                                  ┌─────────────────┐
+                                                  │ arex_ui_update_  │
+                                                  │ task() lv_timer  │
+                                                  │ 50ms            │
+                                                  └────────┬────────┘
+                                                           │ lv_label_set_text()
+                                                           ▼
+                                                  ┌─────────────────┐
+                                                  │   LVGL 界面     │
+                                                  │   (绝不反向触碰)  │
+                                                  └─────────────────┘
+```
+
+---
+
+### 30.5 移植检查清单
+
+**Step 1：切换平台宏**（`arex_data.h`）
+- [ ] 注释掉 `#define PC_SIMULATOR`
+- [ ] 确认 `#include <rtthread.h>` 正常引入
+
+**Step 2：确保 rtthread 环境提供以下符号**
+- [ ] `rt_base_t` 类型定义
+- [ ] `rt_hw_interrupt_disable()` 函数
+- [ ] `rt_hw_interrupt_enable(rt_base_t)` 函数
+
+**Step 3：挂接传感器驱动**
+- [ ] 在传感器数据就绪的 ISR 或 DMA callback 中，调用对应的 `arex_bus_set_*()`
+- [ ] 组织饱和度（16 隔室）数组写入 `arex_bus_set_tissues()`
+- [ ] 减压站序列写入 `arex_bus_set_deco_plan()`
+
+**Step 4：挂接 1Hz 定时器**（可选，传感器可自行触发写入）
+- [ ] 创建 RT-Thread 定时器，周期 1000ms
+- [ ] 定时器回调中调用 `arex_bus_set_dive_time()`、`arex_bus_set_depth()` 等
+
+**Step 5：确认 UI 消费任务正常运行**
+- [ ] `lv_timer_create(arex_ui_update_task, 50, NULL)` 在 `UI_main()` 中已启动（已实现）
+- [ ] `AREX_SHOW_PLACEHOLDER_ON_INIT` 行为符合预期（上电显示 "--" 等传感器数据）
+
+**Step 6：验证临界区**
+- [ ] 用示波器/调试器确认 `tissue_pct[]` 读取时无撕裂
+- [ ] 确认 `rt_hw_interrupt_disable()` 耗时 < 0.1us（RT-Thread CPSR 操作极快）
+
+---
+
+### 30.6 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-04-28 | `AREX_ARCH.md` | 新增 Section 30 — 硬件移植指南 |
