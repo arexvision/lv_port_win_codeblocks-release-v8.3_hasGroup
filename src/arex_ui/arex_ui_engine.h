@@ -500,6 +500,33 @@ const char *arex_get_widget_name(arex_widget_id_t id);
 void arex_show_alarm_banner(arex_alarm_level_t level, const char *eng_text);
 void arex_hide_alarm_banner(void);
 
+/* =========================================================
+ * 2c. 左侧 2x6 绝对网格配置结构体 (APP 同步核心)
+ *
+ * 左侧 160x360 区域（不含底部 60px SystemData）被划分为 2列(80px) x 6行(60px)。
+ * 每行列/列/跨度完全复用 AREX_WIDGET_* 枚举（共享同一数据源）。
+ * ========================================================= */
+#define AREX_LEFT_COLS   2
+#define AREX_LEFT_ROWS   6
+#define AREX_LEFT_CELL_W 80
+#define AREX_LEFT_CELL_H 60
+#define AREX_LEFT_GRID_W (AREX_LEFT_COLS * AREX_LEFT_CELL_W)  /* 160px */
+#define AREX_LEFT_GRID_H (AREX_LEFT_ROWS * AREX_LEFT_CELL_H)  /* 360px */
+
+typedef struct {
+    arex_widget_id_t widget_id;  /* 组件类型 ID */
+    uint8_t x;                  /* 列索引 0~1 */
+    uint8_t y;                  /* 行索引 0~5 */
+    uint8_t w;                  /* 跨越列数 1~2 */
+    uint8_t h;                  /* 跨越行数 1~2 */
+    uint8_t font_id;            /* 字号: arex_font_id_t */
+} arex_custom_widget_cfg_t;
+
+/* 左侧网格组件数组声明（最多 12 个组件覆盖 2x6 网格） */
+#define AREX_LEFT_MAX_WIDGETS 12
+extern arex_custom_widget_cfg_t g_left_widgets[AREX_LEFT_MAX_WIDGETS];
+extern uint8_t g_left_widget_count;
+
 /* 外部告警状态容器（由 arex_screen.c 在创建锚点和卡片时注入） */
 extern lv_obj_t *g_left_anchor_obj;
 extern lv_obj_t *g_card_custom_obj;
@@ -510,6 +537,31 @@ void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
                            uint8_t span_w, uint8_t span_h,
                            int16_t *out_x, int16_t *out_y,
                            uint16_t *out_w, uint16_t *out_h);
+
+/* =========================================================
+ * 12. 左侧 2x6 绝对网格渲染引擎
+ *
+ * 严格将 160x360 区域划分为 2列(80px) x 6行(60px) 的绝对网格矩阵，
+ * 彻底废弃 current_y 累加排版，改用 x*y*w*h 纯数学坐标推演。
+ * 内部调用 render_widget_by_id 工厂函数，兼容 arex_widget_id_t 体系。
+ * SystemData 底部 60px 由 arex_render_system_data() 独立渲染。
+ * ========================================================= */
+
+/* 左侧网格总线渲染器：遍历 g_left_widgets[] 数组，
+ * 用纯数学 cell_w * cell_h 推算绝对坐标并渲染所有组件。
+ * left_anchor 传入用于告警引擎跨区搜索烙印对象。 */
+void arex_render_left_anchor_grid(lv_obj_t *left_anchor);
+
+/* 通用组件工厂（左侧网格 + 5F 共用）：
+ * 接收绝对物理坐标，生成标准化组件容器。
+ * is_depth_icon == true 时，在 DEPTH 模块内挂载 sudu 速率图标。
+ * 返回组件容器对象句柄。 */
+lv_obj_t *render_widget_by_id(lv_obj_t *parent,
+                               arex_widget_id_t w_id,
+                               int16_t abs_x, int16_t abs_y,
+                               uint16_t abs_w, uint16_t abs_h,
+                               uint8_t span_w, uint8_t span_h,
+                               bool is_depth_icon);
 
 /* =========================================================
  * 11. Data Bus 硬件写入接口 + UI 消费任务
