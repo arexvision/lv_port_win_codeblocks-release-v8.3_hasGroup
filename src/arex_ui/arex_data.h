@@ -32,6 +32,11 @@
  * ========================================================= */
 #include "arex_ui_engine.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /* --- 传感器数据写入接口 --- */
 void arex_bus_set_depth(float depth_m);               /* 防抖阈值 0.05m */
 void arex_bus_set_ndl(int16_t ndl_min);
@@ -62,5 +67,10 @@ void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cyli
 
 /* --- 历史轨迹推流（已在 card_plan.c 中实现，此处声明导出） --- */
 void arex_dive_log_append(float current_time_s, float current_depth_m);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif /* AREX_DATA_H */

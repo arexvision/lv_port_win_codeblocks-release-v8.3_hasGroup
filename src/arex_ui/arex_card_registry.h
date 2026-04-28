@@ -3,6 +3,10 @@
 
 #include "lvgl/lvgl.h"
 #include <stdint.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 /* =========================================
    Card IDs — stable identifiers
@@ -79,5 +83,10 @@ void card_deco_update(void);
 void card_gas_update(void);
 void card_plan_update(void);
 void card_setup_update(void);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif /* AREX_CARD_REGISTRY_H */

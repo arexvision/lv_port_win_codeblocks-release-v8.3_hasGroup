@@ -1,6 +1,10 @@
 #ifndef AREX_UI_MAIN_H
 #define AREX_UI_MAIN_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * @file UI_main.h
  * @brief AREX UI entry point & simulation HAL
@@ -16,5 +20,9 @@
 
 /* Forward declare — no heavy includes here, keep header lightweight */
 void UI_main(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* AREX_UI_MAIN_H */

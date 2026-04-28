@@ -6,6 +6,11 @@
 #include <stdbool.h>
 #include "arex_card_registry.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /* =========================================================
  * 系统核心宏定义
  * ========================================================= */
@@ -491,5 +496,9 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
 /* UI 消费任务 — 全系统唯一允许执行 lv_label_set_text 的地方（50ms 定时器驱动） */
 void arex_ui_update_task(lv_timer_t *timer);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* AREX_UI_ENGINE_H */

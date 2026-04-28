@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* =========================================
    UI State Machine — mirrors HTML STATE obj
    ========================================= */
@@ -92,5 +96,9 @@ void arex_ui_refresh_all(void);
 
 /* Scroll the tileview to the given card index (0-based, follows card_order) */
 void arex_ui_go_to_card(uint8_t idx);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* AREX_UI_STATE_H */

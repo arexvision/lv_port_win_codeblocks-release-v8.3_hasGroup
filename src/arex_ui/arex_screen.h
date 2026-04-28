@@ -6,6 +6,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /* =========================================
    Layout constants (legacy, kept for compatibility)
    ========================================= */
@@ -134,5 +139,9 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text);
    ========================================= */
 void arex_screen_register_info_list(lv_obj_t *list);
 void arex_screen_register_setup_list(lv_obj_t *list);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* AREX_SCREEN_HDR */
