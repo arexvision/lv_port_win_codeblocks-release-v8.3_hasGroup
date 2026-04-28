@@ -40,7 +40,6 @@
 
 /* 10U 左侧锚点最大行数（布局数组长度） */
 #define AREX_MAX_LEFT_ROWS    8
-#define ANCHOR_COMP_COUNT     16  /* 最大组件句柄数（兼容旧 API，UI 层用） */
 
 /* 左侧锚点模块间分割线宏 */
 #define AREX_ANCHOR_SEP_THICK  3   /* 模块间分割线粗细 px */
@@ -151,49 +150,6 @@ typedef enum {
 } arex_alarm_level_t;
 
 /* =========================================================
- * 2e. 左侧锚点模块枚举
- * ========================================================= */
-typedef enum {
-    AREX_MODULE_EMPTY  = 0,   /* 空槽位：不渲染任何模块 */
-    AREX_MODULE_DEPTH  = 1,   /* DEPTH 大数字（独立一行，全宽） */
-    AREX_MODULE_NDL    = 2,   /* NDL 免减压时间 */
-    AREX_MODULE_TTS    = 3,   /* TTS 回到水面时间 */
-    AREX_MODULE_POD1  = 4,   /* POD1 气瓶1压力 */
-    AREX_MODULE_POD2  = 5,   /* POD2 气瓶2压力 */
-    AREX_MODULE_BATT  = 6,   /* BATT 电池 */
-    AREX_MODULE_WTM   = 7,   /* W.TIME 潜水总时间 */
-    AREX_MODULE_GAS   = 8,   /* GAS 当前气体 */
-    AREX_MODULE_TIME  = 9,   /* TIME 独立计时 */
-} arex_left_module_t;
-
-/* =========================================================
- * 2c. 左侧行配置结构体（APP 同步核心）
- *
- * 每行描述一行模块布局。APP 通过修改 left_layout[] 即可
- * 自由组合任意两个模块为双拼，或让某一模块独占全宽。
- *
- * 渲染引擎只遍历 left_layout[]，不做任何"如果是 NDL 就配 TTS" 的硬编码判断。
- * ========================================================= */
-#define AREX_ROW_MAX_SLOTS  2   /* 每行最多 2 个模块槽（左+右） */
-
-typedef struct {
-    /* 该行包含的模块（AREX_MODULE_*），AREX_MODULE_EMPTY 表示空槽 */
-    uint8_t left_module;   /* 左侧模块枚举 */
-    uint8_t right_module;  /* 右侧模块枚举（可为 EMPTY 使左侧独占全宽） */
-
-    /* 尺寸：全部以 U 为单位，由渲染引擎乘以 AREX_BASE_U */
-    uint8_t h_u;           /* 该行总高度（不含 gap） */
-    uint8_t title_h_u;     /* 标题区高度（默认为全局 title_h_u） */
-
-    /* 样式 (字号字段已改为 arex_font_id_t) */
-    uint8_t title_font;    /* 标题字号: arex_font_id_t */
-    uint8_t val_font;      /* 数值字号: arex_font_id_t */
-    uint8_t val_align;    /* 数值对齐: 0=LEFT 1=CENTER 2=RIGHT */
-    uint8_t sep_style;     /* 分割线样式: 0=NONE 1=SOLID 2=DASHED 3=DOTTED */
-    uint8_t sep_thick;     /* 分割线粗细 px（覆盖全局 sep_thick，0=用全局） */
-} arex_left_row_cfg_t;
-
-/* =========================================================
  * 3. NVDS 核心配置结构体 (字节对齐，用于持久化)
  * ========================================================= */
 #pragma pack(push, 1)
@@ -242,10 +198,6 @@ typedef struct {
     uint8_t  widget_c[AREX_MAX_WIDGETS];    /* 起始列 0~4 */
     uint8_t  widget_w[AREX_MAX_WIDGETS];    /* 列跨度 1~2 */
     uint8_t  widget_h[AREX_MAX_WIDGETS];    /* 行跨度 1~2 */
-
-    /* --- 左侧锚点行配置 (APP 同步就绪 — 自由双拼) --- */
-    /* APP 只需修改 left_layout[] 中任意行的 left/right_module 即可自由组合 */
-    arex_left_row_cfg_t left_layout[AREX_MAX_LEFT_ROWS];
 
     /* --- 卡片顺序 (APP 同步就绪) ---
      * card_order[i] = card_id（0=INFO 1=COMPASS 2=DECO 3=GAS 4=PLAN 5=SETUP）
@@ -335,32 +287,7 @@ typedef enum {
 } arex_dirty_bit_t;
 
 /* =========================================================
- * 5. 左侧锚点组件布局信息结构 (供 arex_screen.c 使用)
- *
- * 由 arex_calc_anchor_layout() 在运行时填充，
- * 所有尺寸基于 AREX_BASE_U 推算，不含硬编码像素值。
- *
- * 该结构由 arex_calc_anchor_layout() 按 left_layout[] 遍历填充，
- * 单栏块有 1 个入口，双拼块有 2 个入口（split=1 和 split=2）。
- * ========================================================= */
-typedef struct {
-    arex_left_module_t module;   /* 模块类型枚举 */
-    int16_t  y;                 /* Y 坐标 px */
-    uint16_t h;                 /* 总高度 px */
-    uint16_t title_h;            /* 标题区高度 px */
-    uint16_t val_h;             /* 数值区高度 px */
-    uint16_t w;                 /* 宽度 px */
-    uint8_t  split;             /* 0=单栏 1=双拼左 2=双拼右 */
-    uint8_t  title_font;        /* arex_font_id_t */
-    uint8_t  val_font;          /* arex_font_id_t */
-    uint8_t  title_align;       /* 0=LEFT 1=CENTER 2=RIGHT */
-    uint8_t  val_align;        /* 0=LEFT 1=CENTER 2=RIGHT */
-    uint8_t  sep_style;         /* arex_sep_style_t: 0=NONE 1=SOLID 2=DASHED 3=DOTTED */
-    uint8_t  sep_thick;         /* 分割线粗细 px（0=用全局 g_sys_config.sep_thick） */
-} arex_anchor_comp_t;
-
-/* =========================================================
- * 6. 全局单例
+ * 5. 全局单例
  * ========================================================= */
 extern arex_sys_config_t  g_sys_config;
 extern arex_sensor_data_t g_sensor_data;
@@ -407,12 +334,6 @@ void arex_calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
                               uint16_t *out_top_w, uint16_t *out_top_h,
                               int16_t *out_bot_x, int16_t *out_bot_y,
                               uint16_t *out_bot_w, uint16_t *out_bot_h);
-
-/* 左侧锚点组件布局推算（自由双拼版）
- * 遍历 left_layout[]，填充 comps[]（单栏1入口，双拼2入口）
- * out_count 返回实际填充的入口数量 */
-void arex_calc_anchor_layout(arex_anchor_comp_t comps[ANCHOR_COMP_COUNT],
-                             uint16_t *out_total_h, uint8_t *out_count);
 
 /* 5x6 网格坐标推算 */
 void arex_calc_widget_cell(uint16_t parent_w, uint16_t parent_h,

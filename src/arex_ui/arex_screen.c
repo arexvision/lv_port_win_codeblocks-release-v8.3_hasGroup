@@ -16,32 +16,12 @@ static lv_obj_t *s_left_anchor;      /* 左侧锚点 (10U 沙盒) */
 static lv_obj_t *s_right_cont;       /* clip container */
 static lv_obj_t *s_tileview;
 
-/* Left anchor labels */
-static lv_obj_t *s_lbl_depth;
-static lv_obj_t *s_lbl_ndl;
-static lv_obj_t *s_lbl_tts;
-static lv_obj_t *s_lbl_next_stop;
-static lv_obj_t *s_lbl_pod1;
-static lv_obj_t *s_lbl_pod2;
-static lv_obj_t *s_lbl_gas_name;
-static lv_obj_t *s_ppo2_vals[3];
-static lv_obj_t *s_ppo2_seps[2];
-static lv_obj_t *s_lbl_time;
-static lv_obj_t *s_lbl_wtm;
-static lv_obj_t *s_lbl_batt;
-
 /* System Data 专属物理防区句柄 */
 static lv_obj_t *s_lbl_sys_batt;
 static lv_obj_t *s_lbl_sys_temp;
 static lv_obj_t *s_img_strobe;
 static lv_obj_t *s_img_flash;
 static lv_obj_t *s_lbl_cylinders;
-
-/* 左侧锚点组件句柄数组 (按 arex_anchor_comp_t 顺序) */
-static lv_obj_t *s_anchor_titles[ANCHOR_COMP_COUNT];
-static lv_obj_t *s_anchor_vals[ANCHOR_COMP_COUNT];
-static lv_obj_t *s_anchor_seps[ANCHOR_COMP_COUNT];  /* 分割线对象 (NULL=SEP_NONE) */
-static lv_obj_t *s_anchor_mod_seps[ANCHOR_COMP_COUNT];  /* 模块间分割线对象 */
 
 /* SystemData 物理防区渲染函数前向声明 */
 static void arex_render_system_data(lv_obj_t *parent);
@@ -189,7 +169,6 @@ static void styles_init(void)
  * 左侧锚点重建 (配置变更时调用)
  *
  * 2x6 绝对网格版本：直接调用网格渲染引擎重建。
- * 不再维护 s_anchor_titles/s_anchor_vals 等旧句柄表。
  * ========================================================= */
 static void left_anchor_rebuild(uint8_t comp_count)
 {
@@ -238,37 +217,6 @@ static void left_anchor_create(void)
     lv_obj_set_style_pad_all(s_left_anchor, 0, 0);
     lv_obj_set_scrollbar_mode(s_left_anchor, LV_SCROLLBAR_MODE_OFF);
     lv_obj_clear_flag(s_left_anchor, LV_OBJ_FLAG_SCROLLABLE);
-
-    /* 清除旧句柄 */
-    for (uint8_t k = 0; k < ANCHOR_COMP_COUNT; k++) {
-        lv_obj_t *old_sep = s_anchor_seps[k];
-        if (old_sep && lv_obj_check_type(old_sep, &lv_line_class)) {
-            lv_point_t * old_pts = (lv_point_t *)lv_obj_get_user_data(old_sep);
-            if (old_pts) lv_mem_free(old_pts);
-        }
-        s_anchor_seps[k] = NULL;
-        lv_obj_t *old_mod_sep = s_anchor_mod_seps[k];
-        if (old_mod_sep && lv_obj_check_type(old_mod_sep, &lv_line_class)) {
-            lv_point_t * old_pts = (lv_point_t *)lv_obj_get_user_data(old_mod_sep);
-            if (old_pts) lv_mem_free(old_pts);
-        }
-        s_anchor_mod_seps[k] = NULL;
-        s_anchor_titles[k] = NULL;
-        s_anchor_vals[k] = NULL;
-    }
-    /* 清除旧标签句柄 */
-    s_lbl_depth = NULL;
-    s_lbl_ndl = NULL;
-    s_lbl_tts = NULL;
-    s_lbl_pod1 = NULL;
-    s_lbl_pod2 = NULL;
-    s_lbl_gas_name = NULL;
-    s_lbl_time = NULL;
-    s_lbl_wtm = NULL;
-    s_lbl_batt = NULL;
-    s_lbl_next_stop = NULL;
-    for (uint8_t i = 0; i < 3; i++) s_ppo2_vals[i] = NULL;
-    for (uint8_t i = 0; i < 2; i++) s_ppo2_seps[i] = NULL;
 
     lv_obj_clean(s_left_anchor);
 
@@ -797,21 +745,6 @@ void arex_screen_refresh_left_panel(void)
     arex_widget_set_value(AREX_WIDGET_BATTERY, g_sensor_data.battery_pct);
     /* TTS 回到水面时间 */
     arex_widget_set_value(AREX_WIDGET_TTS, (float)g_sensor_data.tts);
-
-    /* NEXT STOP — 暂时保留直接句柄更新 */
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%dm %d'",
-             g_sensor_data.next_stop_m, g_sensor_data.next_stop_min);
-    if (s_lbl_next_stop) lv_label_set_text(s_lbl_next_stop, buf);
-
-    /* PPO2 三个传感器 — 暂时保留直接句柄更新 */
-    if (s_ppo2_vals[0]) {
-        lv_label_set_text(s_ppo2_vals[0], "--");
-        lv_label_set_text(s_ppo2_vals[1], "--");
-        char pbuf[8];
-        snprintf(pbuf, sizeof(pbuf), "%.1f", g_sensor_data.ppo2[2]);
-        if (s_ppo2_vals[2]) lv_label_set_text(s_ppo2_vals[2], pbuf);
-    }
 }
 
 /* =========================================================
