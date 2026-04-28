@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <string.h>
 
+/* 减压跟踪节流时间戳（由 arex_ui_update_task 使用） */
+static uint32_t _deco_last_refresh_ms = 0;
+
 /* 气体名称表 (供全局引用) */
 const char *AREX_GAS_NAMES[AREX_GAS_COUNT] = {
     "AIR",
@@ -1286,9 +1289,18 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_screen_refresh_left_panel();
     }
 
-    /* 4F 曲线图 + 减压站序列刷新（轨迹追加 + 减压站重绘） */
+    /* 4F 曲线图 + 减压站序列刷新（轨迹追加 + 减压站重绘，节流保护） */
     if (mask & DIRTY_DECO) {
+        uint32_t now = lv_tick_get();
+#if AREX_DECO_REFRESH_MS > 0 //相当于刷新的间隔（这个决定了刷新的点，但是和真正的采样频率有区别（一般要对应上））
+        if (now - _deco_last_refresh_ms >= AREX_DECO_REFRESH_MS) {
+            _deco_last_refresh_ms = now;
+            card_plan_update();
+        }
+#else
+        (void)_deco_last_refresh_ms;
         card_plan_update();
+#endif
     }
 
     /* CNS 氧中毒 —— 2F Deco 卡片 */
