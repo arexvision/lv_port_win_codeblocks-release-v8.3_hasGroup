@@ -1766,11 +1766,42 @@ void arex_ui_update_task(lv_timer_t *timer)
 | `sim_tick_cb` | 1Hz | 硬件数据写入，通过 `arex_bus_set_*()` 打脏标记 |
 | `arex_ui_update_task` | 50ms | UI 消费任务，按脏标记按需刷新 LVGL |
 
-### 26.6 防抖策略
+### 26.6 Placeholder 占位符机制
 
-- 深度 `arex_bus_set_depth`：变化超过 0.05m 才打脏标记
-- 电池 `arex_bus_set_battery`：变化超过 0.1 才打脏标记
-- 其余字段：任何变化均打脏标记
+所有 widget 初始化时显示 `"--"` 占位符，等硬件数据首次推送后替换为真实值。
+
+#### 统一开关
+
+```c
+// arex_ui_engine.h
+#define AREX_SHOW_PLACEHOLDER_ON_INIT  1  // 1=显示"--"，0=直接显示初始值
+```
+
+- 设为 `1`：`render_widget_by_id()` 中所有数值 label 初始化为 `"--"`
+- 设为 `0`：`render_widget_by_id()` 中所有数值 label 用 `g_sensor_data` 初始值填充
+
+#### 受控位置（`arex_ui_engine.c`）
+
+| 位置 | widget | 宏控制 |
+|------|--------|--------|
+| DEPTH 专属分支 | DEPTH | ✅ |
+| NDL 专属分支 | NDL | ✅ |
+| 通用渲染分支 | TTS/HEADING/SAC/BATTERY/PPO2/CNS/POD1/POD2/WTIME/TEMP | ✅ |
+
+#### 补充铁律：防抖阈值 + 首次强制打脏
+
+带阈值防抖的 Setter（`battery`、`temperature`）首次调用时即便值相同也会打脏标记，保证 placeholder 能被替换：
+
+```c
+// arex_data.c — 铁律模板
+if (fabsf(g_sensor_data.xxx - val) > threshold
+    || (g_sensor_data.dirty_mask & DIRTY_XXX) == 0) {
+    g_sensor_data.xxx = val;
+    g_sensor_data.dirty_mask |= DIRTY_XXX;
+}
+```
+
+> 后续新增带阈值的 Setter 时，必须追加 `|| (dirty_mask & DIRTY_XXX) == 0` 条件。
 
 ### 26.7 变更文件清单
 
@@ -1783,6 +1814,9 @@ void arex_ui_update_task(lv_timer_t *timer)
 | 2026-04-24 | `UI_main.c` | `sim_tick_cb` 全部改用 Setter；撤销直接写入；分离两定时器 |
 | 2026-04-24 | `arex_card_registry.h` | 卡片 update forward 声明 |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 26 |
+| 2026-04-28 | `arex_data.c` | `arex_bus_set_battery/temperature` 加首次强制打脏逻辑，防止 placeholder "--" 无法被替换 |
+| 2026-04-28 | `arex_ui_engine.h` | `AREX_SHOW_PLACEHOLDER_ON_INIT` 宏声明 |
+| 2026-04-28 | `arex_ui_engine.c` | `render_widget_by_id` 中 DEPTH/NDL/通用渲染分支全部加 `AREX_SHOW_PLACEHOLDER_ON_INIT` 统一控制 |
 
 
 ## 27. 标题区宏统一 + 图表坐标精修 (v2026-04-25)

@@ -755,16 +755,24 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
     /* ========== 第二步：DEPTH 专属渲染（整数+小数+单位分离） ========== */
     if (w_id == AREX_WIDGET_DEPTH) {
-        /* child[0] 整数，Huge 字体，靠左（初始 "--" 等待刷新） */
+        /* child[0] 整数，Huge 字体，靠左 */
         lv_obj_t *int_lbl = lv_label_create(obj);
-        lv_label_set_text(int_lbl, "--");
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
+            lv_label_set_text(int_lbl, "--");
+        } else {
+            lv_label_set_text_fmt(int_lbl, "%d", (int)g_sensor_data.depth);
+        }
         lv_obj_set_style_text_font(int_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
         lv_obj_set_style_text_color(int_lbl, AREX_GREEN, 0);
         lv_obj_align(int_lbl, LV_ALIGN_LEFT_MID, 8, 0);
 
         /* child[1] 小数，Medium 字体，贴整数右上角 */
         lv_obj_t *dec_lbl = lv_label_create(obj);
-        lv_label_set_text_fmt(dec_lbl, ".%d", (int)((g_sensor_data.depth - (int)g_sensor_data.depth) * 10 + 0.5f));
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
+            lv_label_set_text(dec_lbl, ".-");
+        } else {
+            lv_label_set_text_fmt(dec_lbl, ".%d", (int)((g_sensor_data.depth - (int)g_sensor_data.depth) * 10 + 0.5f));
+        }
         lv_obj_set_style_text_font(dec_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(dec_lbl, AREX_GREEN, 0);
         lv_obj_align_to(dec_lbl, int_lbl, LV_ALIGN_OUT_RIGHT_TOP, 2, 5);
@@ -806,7 +814,11 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_radius(bar_fill, 2, 0);
 
         lv_obj_t *val_lbl = lv_label_create(obj);
-        lv_label_set_text(val_lbl, "--");
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
+            lv_label_set_text(val_lbl, "--");
+        } else {
+            lv_label_set_text_fmt(val_lbl, "%d", g_sensor_data.ndl);
+        }
         lv_obj_set_style_text_font(val_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
         lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
         lv_obj_align_to(val_lbl, bar_bg, LV_ALIGN_OUT_RIGHT_MID, 10, 0);
@@ -838,7 +850,32 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
     /* 数值 label（存储句柄供 update 循环更新文字）*/
     lv_obj_t *val_lbl = lv_label_create(obj);
-    lv_label_set_text(val_lbl, "--");
+    if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
+        lv_label_set_text(val_lbl, "--");
+    } else {
+        /* 取对应字段的初始值，与 arex_widget_set_value() 格式保持一致 */
+        char buf[32];        if (w_id == AREX_WIDGET_TTS || w_id == AREX_WIDGET_NDL)
+            snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl);
+        else if (w_id == AREX_WIDGET_HEADING)
+            snprintf(buf, sizeof(buf), "%d", g_sensor_data.heading);
+        else if (w_id == AREX_WIDGET_CNS)
+            snprintf(buf, sizeof(buf), "%d", g_sensor_data.cns_pct);
+        else if (w_id == AREX_WIDGET_PPO2)
+            snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
+        else if (w_id == AREX_WIDGET_POD1)
+            snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod1_bar);
+        else if (w_id == AREX_WIDGET_POD2)
+            snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod2_bar);
+        else if (w_id == AREX_WIDGET_BATTERY)
+            snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.battery_pct);
+        else if (w_id == AREX_WIDGET_WTIME)
+            snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.dive_time_s / 60, g_sensor_data.dive_time_s % 60);
+        else if (w_id == AREX_WIDGET_TEMP)
+            snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.temperature_c);
+        else
+            snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.depth);
+        lv_label_set_text(val_lbl, buf);
+    }
     lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
     lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
     lv_obj_set_size(val_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
