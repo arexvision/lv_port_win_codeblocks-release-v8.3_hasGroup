@@ -136,6 +136,7 @@ typedef enum {
     AREX_WIDGET_POD1       = 10,  /* POD1 气瓶1 — 数据源: g_sensor_data.pod1_bar */
     AREX_WIDGET_POD2       = 11,  /* POD2 气瓶2 — 数据源: g_sensor_data.pod2_bar */
     AREX_WIDGET_WTIME      = 12,  /* W.TIME 潜水总时 — 数据源: g_sensor_data.dive_time_s */
+    AREX_WIDGET_GAS        = 13,  /* GAS 当前气体 — 数据源: g_sensor_data.gas_name */
     AREX_WIDGET_COUNT
 } arex_widget_id_t;
 
@@ -404,6 +405,9 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom,
 
 /* 按 widget_id 设置数值（由 update 循环调用，绝不触发重绘） */
 void arex_widget_set_value(arex_widget_id_t id, float value);
+
+/* 按 widget_id 设置字符串（用于 GAS 等非数值组件） */
+void arex_widget_set_text(arex_widget_id_t id, const char *text);
 
 /* 靶向告警触发：全屏搜索所有打了 user_data 烙印的组件并同步闪烁。
  * target_id = AREX_WIDGET_EMPTY 时仅弹出横幅，不做靶向同步。 */

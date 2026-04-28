@@ -725,26 +725,63 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
  * 2x6 网格布局:
  *   Row 0: NDL      | (2x1)
  *   Row 1-2: DEPTH  | (2x2, 带 sudu 速率图标)
- *   Row 3: POD1     | POD2   (各 1x1)
- *   Row 4: W.TIME   | (2x1, 水面休息时间)
- *   Row 5: BATT     | (2x1, 电池电量)
+ *   Row 3: TIME     | (2x1, 潜水时间 MM:SS)
+ *   Row 4: GAS      | (2x1, 当前气体名称)
+ *   Row 5: POD1     | POD2   (各 1x1)
+ * ========================================================= */
+/* =========================================================
+ * 左侧面板刷新 — 数据源自动推导引擎
+ *
+ * 铁律：只读 g_left_widgets[] 数组，根据 widget_id 路由到对应的 g_sensor_data 字段。
+ * 每次修改布局（调整 g_left_widgets[] 顺序/类型）后，此函数自动同步，无需手动维护。
  * ========================================================= */
 void arex_screen_refresh_left_panel(void)
 {
-    /* NDL 免减压时间 */
-    arex_widget_set_value(AREX_WIDGET_NDL, (float)g_sensor_data.ndl);
-    /* DEPTH 深度 */
-    arex_widget_set_value(AREX_WIDGET_DEPTH, g_sensor_data.depth);
-    /* POD1 气瓶1 */
-    arex_widget_set_value(AREX_WIDGET_POD1, g_sensor_data.pod1_bar);
-    /* POD2 气瓶2 */
-    arex_widget_set_value(AREX_WIDGET_POD2, g_sensor_data.pod2_bar);
-    /* W.TIME 水面休息时间 */
-    arex_widget_set_value(AREX_WIDGET_WTIME, (float)g_sensor_data.surface_time_s);
-    /* BATT 电池 */
-    arex_widget_set_value(AREX_WIDGET_BATTERY, g_sensor_data.battery_pct);
-    /* TTS 回到水面时间 */
-    arex_widget_set_value(AREX_WIDGET_TTS, (float)g_sensor_data.tts);
+    for (uint8_t i = 0; i < g_left_widget_count; i++) {
+        arex_widget_id_t w_id = g_left_widgets[i].widget_id;
+
+        switch (w_id) {
+            case AREX_WIDGET_NDL:
+                arex_widget_set_value(AREX_WIDGET_NDL, (float)g_sensor_data.ndl);
+                break;
+            case AREX_WIDGET_DEPTH:
+                arex_widget_set_value(AREX_WIDGET_DEPTH, g_sensor_data.depth);
+                break;
+            case AREX_WIDGET_TEMP:
+                arex_widget_set_value(AREX_WIDGET_TEMP, g_sensor_data.temperature_c);
+                break;
+            case AREX_WIDGET_HEADING:
+                arex_widget_set_value(AREX_WIDGET_HEADING, (float)g_sensor_data.heading);
+                break;
+            case AREX_WIDGET_BATTERY:
+                arex_widget_set_value(AREX_WIDGET_BATTERY, g_sensor_data.battery_pct);
+                break;
+            case AREX_WIDGET_TTS:
+                arex_widget_set_value(AREX_WIDGET_TTS, (float)g_sensor_data.tts);
+                break;
+            case AREX_WIDGET_PPO2:
+                arex_widget_set_value(AREX_WIDGET_PPO2, g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
+                break;
+            case AREX_WIDGET_CNS:
+                arex_widget_set_value(AREX_WIDGET_CNS, (float)g_sensor_data.cns_pct);
+                break;
+            case AREX_WIDGET_POD1:
+                arex_widget_set_value(AREX_WIDGET_POD1, g_sensor_data.pod1_bar);
+                break;
+            case AREX_WIDGET_POD2:
+                arex_widget_set_value(AREX_WIDGET_POD2, g_sensor_data.pod2_bar);
+                break;
+            case AREX_WIDGET_WTIME:
+                arex_widget_set_value(AREX_WIDGET_WTIME, (float)g_sensor_data.dive_time_s);
+                break;
+            case AREX_WIDGET_GAS:
+                arex_widget_set_text(AREX_WIDGET_GAS, g_sensor_data.gas_name);
+                break;
+            case AREX_WIDGET_EMPTY:
+            default:
+                break;
+        }
+    }
 }
 
 /* =========================================================

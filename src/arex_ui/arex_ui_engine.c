@@ -140,23 +140,23 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * Grid Layout:
      *   Row 0: NDL      | (2x1 → 160x60)
      *   Row 1-2: DEPTH  | (2x2 → 160x120，带 sudu 速率图标)
-     *   Row 3: POD1     | POD2    (各 1x1 → 80x60)
-     *   Row 4: TIME     | (2x1 → 160x60)
-     *   Row 5: GAS      | (2x1 → 160x60，塞满第 6 行)
+     *   Row 3: TIME     | (2x1 → 160x60)
+     *   Row 4: GAS      | (2x1 → 160x60)
+     *   Row 5: POD1     | POD2    (各 1x1 → 80x60，塞满第 6 行)
      * ===================================================== */
 
     /* DEPTH: 固定 160x120 (即 w=2, h=2 -> 占用 2列x2行)
-     * POD 1 & POD 2: 各种占 1x1 (80x60 双拼)
      * TIME: 占据 2x1 长条
-     * GAS: 占据 2x1 长条 (正好塞满第 5 行，总共 6 行满了)
+     * GAS: 占据 2x1 长条
+     * POD 1 & POD 2: 各占 1x1 (80x60 双拼，正好塞满第 6 行)
      */
     g_left_widget_count = 6;
     g_left_widgets[0] = (arex_custom_widget_cfg_t){ AREX_WIDGET_NDL,    0, 0, 2, 1, AREX_FONT_ID_MEDIUM };
     g_left_widgets[1] = (arex_custom_widget_cfg_t){ AREX_WIDGET_DEPTH,  0, 1, 2, 2, AREX_FONT_ID_HUGE   };
-    g_left_widgets[2] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD1,   0, 3, 1, 1, AREX_FONT_ID_SMALL  };
-    g_left_widgets[3] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD2,   1, 3, 1, 1, AREX_FONT_ID_SMALL  };
-    g_left_widgets[4] = (arex_custom_widget_cfg_t){ AREX_WIDGET_WTIME,  0, 4, 2, 1, AREX_FONT_ID_MEDIUM };
-    g_left_widgets[5] = (arex_custom_widget_cfg_t){ AREX_WIDGET_TTS,    0, 5, 2, 1, AREX_FONT_ID_MEDIUM };
+    g_left_widgets[2] = (arex_custom_widget_cfg_t){ AREX_WIDGET_WTIME,  0, 3, 2, 1, AREX_FONT_ID_MEDIUM };
+    g_left_widgets[3] = (arex_custom_widget_cfg_t){ AREX_WIDGET_GAS,    0, 4, 2, 1, AREX_FONT_ID_MEDIUM };
+    g_left_widgets[4] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD1,   0, 5, 1, 1, AREX_FONT_ID_SMALL  };
+    g_left_widgets[5] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD2,   1, 5, 1, 1, AREX_FONT_ID_SMALL  };
 
     /* 卡片顺序（INFO/SETUP 固定，中间 5 个可重排）
      * card_order[pos] = card_id
@@ -676,7 +676,8 @@ static const widget_meta_t s_widget_meta[AREX_WIDGET_COUNT] = {
     /* CNS    */    { "CNS",        "%",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
     /* POD1   */    { "POD1",       "bar",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
     /* POD2   */    { "POD2",       "bar",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* WTIME  */    { "W.TIME",     "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* WTIME  */    { "TIME",       "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* GAS    */    { "GAS",        "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
 };
 
 /* =========================================================
@@ -926,6 +927,42 @@ void arex_widget_set_value(arex_widget_id_t id, float value)
                             lv_label_set_text(sub, buf);
                         }
                         break; /* 找到即停 */
+                    }
+                }
+            }
+        }
+    }
+}
+
+/* =========================================================
+ * 按 widget_id 设置字符串（用于 GAS 等非数值组件）
+ * ========================================================= */
+void arex_widget_set_text(arex_widget_id_t id, const char *text)
+{
+    if (!text) return;
+
+    /* 遍历两个容器（5F 卡片 + 左侧锚点） */
+    lv_obj_t *containers[2] = { g_card_custom_obj, g_left_anchor_obj };
+
+    for (uint8_t c = 0; c < 2; c++) {
+        lv_obj_t *container = containers[c];
+        if (!container) continue;
+
+        int16_t child_cnt = lv_obj_get_child_cnt(container);
+        for (int16_t i = 0; i < child_cnt; i++) {
+            lv_obj_t *child = lv_obj_get_child(container, i);
+            if (!child) continue;
+
+            if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(child) == id) {
+                int16_t sub_cnt = lv_obj_get_child_cnt(child);
+                for (int16_t j = 0; j < sub_cnt; j++) {
+                    lv_obj_t *sub = lv_obj_get_child(child, j);
+                    if (!sub) continue;
+                    if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(sub) == id) {
+                        if (lv_obj_check_type(sub, &lv_label_class)) {
+                            lv_label_set_text(sub, text);
+                        }
+                        break;
                     }
                 }
             }
