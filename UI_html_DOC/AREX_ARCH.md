@@ -1696,9 +1696,15 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
 | 6 | `DIRTY_TIME` | 潜水时间 / W.TIME |
 | 7 | `DIRTY_PPO2` | PO2 数据 |
 | 8 | `DIRTY_GAS` | 气体切换 |
-| 9 | `DIRTY_DECO` | 减压数据 |
-| 10 | `DIRTY_CHART` | 4F 曲线图刷新 |
-| 11 | `DIRTY_ALARM` | 告警状态 |
+| 9 | `DIRTY_ALARM` | 告警状态 |
+| 10 | `DIRTY_DECO` | 减压站序列 + 站点时间（临界区保护） |
+| 11 | `DIRTY_TEMP` | 温度数据 |
+| 12 | `DIRTY_DEVICES` | 外设状态（灯、气瓶数量） |
+| 13 | `DIRTY_TISSUES` | **16 组织舱饱和度数组**（临界区保护） |
+| 14 | `DIRTY_CNS` | CNS 氧中毒百分比 |
+| 15 | `DIRTY_OTU` | OTU 氧中毒剂量单位 |
+
+> **临界区铁律**：>`32bit` 的数组拷贝必须包在 `rt_hw_interrupt_disable/enable` 临界区里，防止多线程数据撕裂。PC 仿真器下 `rt_hw_interrupt_*` 宏替换为空操作，真机 RT-Thread 下触发真实关中断。
 
 ### 26.3 Data Bus Setter 接口（`arex_data.h / arex_data.c`）
 
@@ -1709,14 +1715,18 @@ void arex_bus_set_tts(uint16_t tts_min);
 void arex_bus_set_pod(uint8_t pod_idx, float bar); // pod_idx: 0=pod1, 1=pod2
 void arex_bus_set_battery(float pct);
 void arex_bus_set_heading(uint16_t heading_deg);
-void arex_bus_set_dive_time(uint32_t dive_s);   // 同时触发 DIRTY_TIME | DIRTY_CHART
+void arex_bus_set_dive_time(uint32_t dive_s);   // 触发 DIRTY_TIME
 void arex_bus_set_surface_time(uint32_t surface_s);
 void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val);
 void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name);
 void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min);
 void arex_bus_set_cns(uint8_t cns_pct);
 void arex_bus_set_otu(uint16_t otu_val);
-void arex_bus_set_chart_refresh(void);            // 仅打 DIRTY_CHART
+
+/* 临界区保护的数组写入（>32bit，必须包 rt_hw_interrupt_disable/enable） */
+void arex_bus_set_tissues(const uint8_t tissue_pct[16]);           // DIRTY_TISSUES
+void arex_bus_set_deco_plan(const arex_deco_stop_t *stops, uint8_t count); // DIRTY_DECO
+
 void arex_bus_clear_all_dirty(void);
 ```
 
@@ -1729,17 +1739,21 @@ void arex_ui_update_task(lv_timer_t *timer)
     uint32_t mask = g_sensor_data.dirty_mask;
     if (mask == DIRTY_NONE) return;
 
-    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_DECO)) {
+    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES)) {
         arex_screen_refresh_left_panel();
         card_deco_update();
     }
     if (mask & DIRTY_POD)    { arex_screen_refresh_left_panel(); }
-    if (mask & DIRTY_BATT)   { arex_screen_refresh_left_panel(); }
+    if (mask & DIRTY_BATT)   { arex_screen_refresh_left_panel(); arex_screen_refresh_system_data(); }
     if (mask & DIRTY_HEADING){ arex_screen_refresh_compass_target(); }
     if (mask & DIRTY_TIME)   { arex_screen_refresh_left_panel(); }
     if (mask & DIRTY_PPO2)   { arex_screen_refresh_left_panel(); }
     if (mask & DIRTY_GAS)    { arex_screen_refresh_gas_menu(); arex_screen_refresh_left_panel(); }
-    if (mask & DIRTY_CHART)  { card_plan_update(); }
+    if (mask & DIRTY_DECO)   { card_plan_update(); }
+    if (mask & DIRTY_CNS)    { card_deco_update(); }
+    if (mask & DIRTY_OTU)    { card_deco_update(); }
+    if (mask & DIRTY_TEMP)   { arex_screen_refresh_system_data(); }
+    if (mask & DIRTY_DEVICES){ arex_screen_refresh_system_data(); }
 
     arex_bus_clear_all_dirty();
 }

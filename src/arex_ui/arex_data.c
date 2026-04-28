@@ -2,6 +2,10 @@
 #include <math.h>
 #include <string.h>
 
+/* card_plan.c 中的减压站序列全局数组（由减压引擎写入，UI 消费） */
+extern arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
+extern uint16_t         g_deco_stop_count;
+
 /* =========================================================
  * Data Bus Setter 实现 — 硬件/模拟层专用
  * 铁律：仅更新数值 + 打脏标记，绝不碰 LVGL！
@@ -12,7 +16,7 @@ void arex_bus_set_depth(float depth_m)
     /* 防抖：只有变化超过 0.05m 才触发 UI 刷新，极大节省 CPU */
     if (fabsf(g_sensor_data.depth - depth_m) > 0.05f) {
         g_sensor_data.depth = depth_m;
-        g_sensor_data.dirty_mask |= DIRTY_DEPTH;
+        g_sensor_data.dirty_mask |= DIRTY_DEPTH | DIRTY_DECO;
     }
 }
 
@@ -20,7 +24,7 @@ void arex_bus_set_ndl(int16_t ndl_min)
 {
     if (g_sensor_data.ndl != ndl_min) {
         g_sensor_data.ndl = ndl_min;
-        g_sensor_data.dirty_mask |= DIRTY_NDL | DIRTY_DECO;
+        g_sensor_data.dirty_mask |= DIRTY_NDL;
     }
 }
 
@@ -28,7 +32,7 @@ void arex_bus_set_tts(uint16_t tts_min)
 {
     if (g_sensor_data.tts != tts_min) {
         g_sensor_data.tts = tts_min;
-        g_sensor_data.dirty_mask |= DIRTY_TTS | DIRTY_DECO;
+        g_sensor_data.dirty_mask |= DIRTY_TTS;
     }
 }
 
@@ -63,7 +67,7 @@ void arex_bus_set_dive_time(uint32_t dive_s)
 {
     if (g_sensor_data.dive_time_s != dive_s) {
         g_sensor_data.dive_time_s = dive_s;
-        g_sensor_data.dirty_mask |= DIRTY_TIME | DIRTY_CHART;
+        g_sensor_data.dirty_mask |= DIRTY_TIME;
     }
 }
 
@@ -108,7 +112,7 @@ void arex_bus_set_cns(uint8_t cns_pct)
 {
     if (g_sensor_data.cns_pct != cns_pct) {
         g_sensor_data.cns_pct = cns_pct;
-        g_sensor_data.dirty_mask |= DIRTY_DECO;
+        g_sensor_data.dirty_mask |= DIRTY_CNS;
     }
 }
 
@@ -116,13 +120,40 @@ void arex_bus_set_otu(uint16_t otu_val)
 {
     if (g_sensor_data.otu != otu_val) {
         g_sensor_data.otu = otu_val;
-        g_sensor_data.dirty_mask |= DIRTY_DECO;
+        g_sensor_data.dirty_mask |= DIRTY_OTU;
     }
 }
 
-void arex_bus_set_chart_refresh(void)
+/* =========================================================
+ * 临界区保护的数组写入 — 防止多线程数据撕裂
+ *
+ * 铁律：> 32bit 的数据块拷贝必须包在关中断临界区里。
+ *   - PC 仿真器: rt_hw_interrupt_disable/enable 替换为空操作
+ *   - 真机 RT-Thread: 触发底层 cpsr 关中断，耗时 < 0.1us
+ * ========================================================= */
+
+/* 16 组织舱饱和度数组写入（16 字节，必须包临界区） */
+void arex_bus_set_tissues(const uint8_t tissue_pct[16])
 {
-    g_sensor_data.dirty_mask |= DIRTY_CHART;
+    rt_base_t level = rt_hw_interrupt_disable();
+    memcpy(g_sensor_data.tissue_pct, tissue_pct, 16);
+    g_sensor_data.dirty_mask |= DIRTY_TISSUES;
+    rt_hw_interrupt_enable(level);
+}
+
+/* 完整减压站序列写入（可变长度，必须包临界区） */
+void arex_bus_set_deco_plan(const arex_deco_stop_t *stops, uint8_t count)
+{
+    if (count > MAX_DECO_STOPS) {
+        count = MAX_DECO_STOPS;
+    }
+    rt_base_t level = rt_hw_interrupt_disable();
+    g_deco_stop_count = count;
+    if (count > 0 && stops != NULL) {
+        memcpy(g_deco_stops, stops, count * sizeof(arex_deco_stop_t));
+    }
+    g_sensor_data.dirty_mask |= DIRTY_DECO;
+    rt_hw_interrupt_enable(level);
 }
 
 void arex_bus_clear_all_dirty(void)

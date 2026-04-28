@@ -255,10 +255,6 @@ typedef struct {
     bool     flashlight_on;      /* 手电筒开关状态 */
     uint8_t  cylinder_count;   /* 气瓶连接数量 (x0, x1...) */
 
-    /* 潜水曲线日志 */
-    uint16_t deco_stops[8];
-    uint8_t  deco_stop_count;
-
     /* =========================================================
      * Data Bus 脏标记位域 (UI 消费任务专用)
      * ========================================================= */
@@ -280,11 +276,13 @@ typedef enum {
     DIRTY_TIME      = (1U << 6),   /* 潜水时间 / W.TIME */
     DIRTY_PPO2      = (1U << 7),   /* PO2 值 */
     DIRTY_GAS       = (1U << 8),   /* 气体切换 */
-    DIRTY_DECO      = (1U << 9),   /* 减压数据（组织饱和/NDL 变化） */
-    DIRTY_CHART     = (1U << 10),  /* 4F 曲线图刷新 */
-    DIRTY_ALARM     = (1U << 11),  /* 告警状态 */
-    DIRTY_TEMP      = (1U << 12),  /* 温度数据 */
-    DIRTY_DEVICES   = (1U << 13),  /* 外设状态（灯、气瓶数量） */
+    DIRTY_ALARM     = (1U << 9),   /* 告警状态 */
+    DIRTY_DECO      = (1U << 10),  /* 减压站序列 + 站点时间（临界区保护） */
+    DIRTY_TEMP      = (1U << 11),  /* 温度数据 */
+    DIRTY_DEVICES   = (1U << 12),  /* 外设状态（灯、气瓶数量） */
+    DIRTY_TISSUES   = (1U << 13),  /* 16 组织舱饱和度数组（临界区保护） */
+    DIRTY_CNS       = (1U << 14),  /* CNS 氧中毒百分比 */
+    DIRTY_OTU       = (1U << 15),  /* OTU 氧中毒剂量单位 */
 } arex_dirty_bit_t;
 
 /* =========================================================
@@ -487,32 +485,6 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                                uint16_t abs_w, uint16_t abs_h,
                                uint8_t span_w, uint8_t span_h,
                                bool is_depth_icon);
-
-/* =========================================================
- * 11. Data Bus 硬件写入接口 + UI 消费任务
- *
- * 铁律：
- *   - 硬件工程师：只能调用 arex_bus_set_*() 系列函数
- *   - UI 工程师  ：只能修改 arex_ui_update_task() 消费者
- *   - 两者通过 g_sensor_data.dirty_mask 完全解耦
- * ========================================================= */
-
-/* Data Bus Setter — 硬件/模拟层专用接口（仅更新数值 + 打脏标记） */
-void arex_bus_set_depth(float depth_m);
-void arex_bus_set_ndl(int16_t ndl_min);
-void arex_bus_set_tts(uint16_t tts_min);
-void arex_bus_set_pod(uint8_t pod_idx, float bar);
-void arex_bus_set_battery(float pct);
-void arex_bus_set_heading(uint16_t heading_deg);
-void arex_bus_set_dive_time(uint32_t dive_s);
-void arex_bus_set_surface_time(uint32_t surface_s);
-void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val);
-void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name);
-void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min);
-void arex_bus_set_cns(uint8_t cns_pct);
-void arex_bus_set_otu(uint16_t otu_val);
-void arex_bus_set_chart_refresh(void);       /* 仅打 DIRTY_CHART */
-void arex_bus_clear_all_dirty(void);
 
 /* UI 消费任务 — 全系统唯一允许执行 lv_label_set_text 的地方（50ms 定时器驱动） */
 void arex_ui_update_task(lv_timer_t *timer);

@@ -2,6 +2,7 @@
 #include "arex_card_registry.h"
 #include "arex_screen.h"
 #include "fonts/arex_fonts.h"
+#include "arex_data.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -1247,8 +1248,8 @@ void arex_ui_update_task(lv_timer_t *timer)
     uint32_t mask = g_sensor_data.dirty_mask;
     if (mask == DIRTY_NONE) return;
 
-    /* 深度 + NDL + TTS + 减压停留 —— 左侧面板全量刷新 + 3B Deco 卡片刷新 */
-    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_DECO)) {
+    /* 深度 + NDL + TTS + 组织舱 —— 左侧面板全量刷新 + 2F Deco 卡片刷新 */
+    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES)) {
         arex_screen_refresh_left_panel();
         card_deco_update();
     }
@@ -1285,9 +1286,19 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_screen_refresh_left_panel();
     }
 
-    /* 4F 曲线图刷新 */
-    if (mask & DIRTY_CHART) {
+    /* 4F 曲线图 + 减压站序列刷新（轨迹追加 + 减压站重绘） */
+    if (mask & DIRTY_DECO) {
         card_plan_update();
+    }
+
+    /* CNS 氧中毒 —— 2F Deco 卡片 */
+    if (mask & DIRTY_CNS) {
+        card_deco_update();
+    }
+
+    /* OTU 氧中毒 —— 2F Deco 卡片 */
+    if (mask & DIRTY_OTU) {
+        card_deco_update();
     }
 
     /* 温度刷新 — SystemData 专属物理防区 */

@@ -2,6 +2,21 @@
 #define AREX_DATA_H
 
 /* =========================================================
+ * 平台兼容层 — 必须在所有 include 之前
+ *
+ * 真机 (RT-Thread): 使用 rt_hw_interrupt_disable/enable 临界区
+ * PC 仿真器:        替换为空操作，防止编译报错
+ * ========================================================= */
+#define PC_SIMULATOR  //移植硬件后需要注释
+#ifdef PC_SIMULATOR
+    typedef int rt_base_t;
+    #define rt_hw_interrupt_disable()   ((rt_base_t)0)  //假代码
+    #define rt_hw_interrupt_enable(lvl) ((void)(lvl))   //假代码
+#else
+    #include <rtthread.h>
+#endif
+
+/* =========================================================
  * AREX Data Bus — 硬件写入接口层
  *
  * 铁律：硬件工程师 / 模拟层 只能调用以下 arex_bus_set_* 函数。
@@ -31,9 +46,14 @@ void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min);
 void arex_bus_set_cns(uint8_t cns_pct);
 void arex_bus_set_otu(uint16_t otu_val);
 
-/* --- 专用标记接口 --- */
-void arex_bus_set_chart_refresh(void);   /* 仅打 DIRTY_CHART，不改数据 */
-void arex_bus_clear_all_dirty(void);     /* 消费任务调用，清洗脏标记 */
+/* 清除所有脏标记 */
+void arex_bus_clear_all_dirty(void);
+
+/* --- 临界区保护的数组写入接口 --- */
+/* 16 组织舱饱和度数组（>32bit，必须包临界区防止数据撕裂） */
+void arex_bus_set_tissues(const uint8_t tissue_pct[16]);
+/* 完整减压站序列（>32bit，必须包临界区） */
+void arex_bus_set_deco_plan(const arex_deco_stop_t *stops, uint8_t count);
 
 /* --- System Data 接口 --- */
 void arex_bus_set_temperature(float temp_c);
