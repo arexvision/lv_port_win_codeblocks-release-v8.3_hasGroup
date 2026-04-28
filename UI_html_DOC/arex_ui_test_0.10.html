@@ -143,7 +143,6 @@
 
     /* =========================================
        🚨 [ALARM_SYSTEM_STYLES] 告警系统动效字典
-       (现在兼容 .widget-slot 和 .ar-component 同步报警)
        ========================================= */
     #alarm-banner {
         position: absolute; top: 0; left: 0; width: 100%; height: 60px;
@@ -154,11 +153,8 @@
     #alarm-banner.show { transform: translateY(0); opacity: 1; }
     .banner-text { font-size: 22px; }
 
-    /* Level 3: CRITICAL (致命) - 1.5Hz脉冲反色 */
     .alarm-banner.level-3 { animation: pulseL3 0.6s infinite; font-weight: bold; }
-    
     .local-l3 { animation: pulseL3 0.6s infinite; }
-    /* 强制作子元素颜色继承以实现反色 */
     .local-l3 .title-zone, .local-l3 .value-zone, .local-l3 .w-label, .local-l3 .w-val, .local-l3 .w-unit { 
         color: inherit !important; border-color: inherit !important; 
     }
@@ -168,9 +164,7 @@
         67%, 100% { background-color: var(--arex-black); color: var(--arex-green); box-shadow: inset 0 0 0 2px var(--arex-green);}
     }
 
-    /* Level 2: WARNING (警告) - 1Hz 呼吸外框，绿字透明底 */
     .alarm-banner.level-2 { background-color: rgba(0, 255, 0, 0.2); color: var(--arex-green); font-weight: bold; box-shadow: inset 0 0 0 2px var(--arex-green); }
-    
     .local-l2 { animation: breathL2 1s infinite alternate; background-color: rgba(0, 255, 0, 0.15); }
     .local-l2 .title-zone, .local-l2 .value-zone, .local-l2 .w-label, .local-l2 .w-val, .local-l2 .w-unit { 
         color: var(--arex-green) !important; 
@@ -181,7 +175,6 @@
         100% { box-shadow: inset 0 0 0 4px var(--arex-green); background-color: rgba(0, 255, 0, 0.25); }
     }
 
-    /* Level 1: INFO (通知) - 常规框，静态滑出 */
     .alarm-banner.level-1 { background-color: rgba(0, 255, 0, 0.1); color: var(--arex-green); font-weight: normal; box-shadow: inset 0 0 0 1px var(--arex-green); font-size: 18px !important; }
     .local-l1 { box-shadow: inset 0 0 0 1px var(--arex-green); background-color: rgba(0, 255, 0, 0.05); }
 
@@ -191,10 +184,28 @@
     #right-card-canvas { position: relative; overflow: hidden; }
     #elevator-track { width: 100%; position: absolute; transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; }
     
-    .card { width: 100%; padding: 10px; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; }
-    .card-title { font-size: calc(var(--font-medium) * 0.75); color: var(--arex-light); text-transform: uppercase; border-bottom: 2px solid var(--arex-dark); padding-bottom: 8px; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; transition: opacity 0.3s; }
+    .card { width: 100%; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; padding-top: 10px; }
     
-    /* 告警激活时，隐藏下方的原卡片标题及分割线，防止在半透明横幅下穿帮 */
+    /* 修复 2：将卡片标题固定为 400x60，并且移除字体依赖 */
+    .card-title { 
+        width: 400px;
+        max-width: 100%;
+        height: 60px;
+        box-sizing: border-box;
+        padding: 0 10px;
+        font-size: 20px; 
+        color: var(--arex-light); 
+        text-transform: uppercase; 
+        border-bottom: 2px solid var(--arex-dark); 
+        margin-bottom: 10px; 
+        font-weight: bold; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        flex-shrink: 0; 
+        transition: opacity 0.3s; 
+    }
+    
     #right-card-canvas.alarm-active .card-title { opacity: 0; }
     
     .elevator-dots { position: absolute; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 10; }
@@ -216,14 +227,14 @@
     /* =========================================
        Card Internals (1F - 5F)
        ========================================= */
-    #sub-menu-layer { position: absolute; top: 0; left: 100%; width: 100%; height: 100%; background: var(--arex-black); z-index: 30; padding: 15px; box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column;}
+    #sub-menu-layer { position: absolute; top: 0; left: 100%; width: 100%; height: 100%; background: var(--arex-black); z-index: 30; padding-top: 10px; box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column;}
     
     /* 1F Compass */
     .compass-wrapper { display: none; flex-direction: column; align-items: center; justify-content: center; flex-grow: 1; margin-bottom: 5px; position: relative;}
     .compass-wrapper.active { display: flex; }
-    .comp-classic-heading { font-size: calc(var(--font-huge)*0.8); font-weight: bold; margin-bottom: 10px; }
+    .comp-classic-heading { font-size: 46px; font-weight: bold; margin-bottom: 10px; }
     .comp-classic-box { width: 100%; height: 50px; border: 2px solid var(--arex-dark); position: relative; overflow: hidden; display: flex; align-items: flex-end; flex-shrink: 0;}
-    .comp-classic-tape { position: relative; width: 100%; height: 100%; font-size: calc(var(--font-medium)*0.8); }
+    .comp-classic-tape { position: relative; width: 100%; height: 100%; font-size: 22px; }
     .comp-classic-tape span { position: absolute; bottom: 5px; left: 50%; font-weight: bold; }
     .comp-classic-center { position: absolute; left: 50%; top: 0; width: 4px; height: 100%; background: var(--arex-green); transform: translateX(-50%); z-index: 5;}
     
@@ -236,7 +247,7 @@
     .comp-aero-crosshair { flex-grow: 1; width: 100%; display: flex; align-items: center; justify-content: center; position: relative;}
     .aero-ch-line { width: 40px; height: 4px; background: var(--arex-green); }
     .aero-ch-center { margin: 0 15px; font-size: 24px; font-weight: bold; }
-    .comp-aero-heading { font-size: calc(var(--font-medium)*1.2); font-weight: bold; position: absolute; bottom: 10px; right: -20px; background: var(--arex-black); padding: 2px 5px; border: 1px solid var(--arex-green);}
+    .comp-aero-heading { font-size: 32px; font-weight: bold; position: absolute; bottom: 10px; right: -20px; background: var(--arex-black); padding: 2px 5px; border: 1px solid var(--arex-green);}
 
     .comp-sub-box { width: 130px; height: 130px; border: 2px dashed var(--arex-dark); border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;}
     .comp-sub-dial { width: 100%; height: 100%; position: absolute; border-radius: 50%; border: 4px solid var(--arex-green); transition: transform 0.1s linear;}
@@ -244,18 +255,18 @@
     .comp-sub-dial::after { content:'N'; position:absolute; top:12px;left:50%; font-size:16px; font-weight:bold; transform:translateX(-50%);}
     .comp-sub-cross { position: absolute; width: 100%; height: 1px; background: rgba(0,255,0,0.3); }
     .comp-sub-cross.v { transform: rotate(90deg); }
-    .comp-sub-heading { position: absolute; bottom: -20px; font-size: var(--font-medium); font-weight: bold; background: var(--arex-black); padding: 2px 8px;}
+    .comp-sub-heading { position: absolute; bottom: -20px; font-size: 28px; font-weight: bold; background: var(--arex-black); padding: 2px 8px;}
     .comp-sub-ship { position: absolute; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 20px solid var(--arex-green); z-index: 5;}
 
     .target-info-box { text-align: center; height: 20px; font-size: 14px; color: var(--arex-green); font-weight: bold;}
     .hint-text { margin-top: auto; text-align: center; font-size: 14px; color: var(--arex-light); opacity: 0.6; }
     
     /* 2F Tissues */
-    .deco-grid { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--arex-dark); padding-bottom: 5px; margin-bottom: 5px; flex-shrink: 0;}
+    .deco-grid { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--arex-dark); padding-bottom: 5px; margin-bottom: 5px; flex-shrink: 0; padding: 0 10px;}
     .deco-cell { display: flex; flex-direction: column; }
     .deco-cell.right { text-align: right; }
-    .tissue-section-title { font-size: 11px; font-weight: bold; margin-bottom: 5px; color: var(--arex-light); margin-top: auto;}
-    .tissue-container { position: relative; height: 90px; border-bottom: 2px solid var(--arex-dark); border-left: 2px solid var(--arex-dark); padding-bottom: 0; display: flex; align-items: flex-end; flex-shrink: 0;}
+    .tissue-section-title { font-size: 11px; font-weight: bold; margin-bottom: 5px; color: var(--arex-light); margin-top: auto; padding: 0 10px;}
+    .tissue-container { position: relative; height: 90px; border-bottom: 2px solid var(--arex-dark); border-left: 2px solid var(--arex-dark); padding-bottom: 0; display: flex; align-items: flex-end; flex-shrink: 0; margin: 0 10px;}
     .m-value-line { position: absolute; top: 20%; left: 0; width: 100%; border-top: 2px dashed var(--arex-green); opacity: 0.5; z-index: 2; }
     .tissue-grid { display: flex; align-items: flex-end; gap: 4px; width: 100%; height: 100%; padding-left: 4px;}
     .t-bar { flex: 1; background: rgba(0,51,0,0.5); position: relative; height: 100%; } 
@@ -263,8 +274,9 @@
     .t-fill.danger { animation: flashInvert var(--flash-speed) infinite alternate; }
 
     /* 3F & Menus */
-    .menu-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding-right: 5px; flex-grow: 1;}
-    .menu-item { padding: 8px 12px; border: 2px solid var(--arex-dark); font-size: calc(var(--font-medium) * 0.7); font-weight: bold; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;}
+    .menu-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding: 0 10px 5px 10px; flex-grow: 1;}
+    /* 修复 1：将 .menu-item 字体大小独立为固定值 */
+    .menu-item { padding: 8px 12px; border: 2px solid var(--arex-dark); font-size: 18px; font-weight: bold; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;}
     .menu-item.static-active { border-color: var(--arex-green); }
     .menu-item.active { background: var(--arex-green) !important; color: var(--arex-black) !important; border-color: var(--arex-green) !important; }
     .menu-item.editing { border-color: var(--arex-green) !important; }
@@ -272,7 +284,7 @@
     .status-badge { font-size: 12px; font-weight: normal; color: var(--arex-light); padding: 2px 6px;}
 
     /* 4F Dive Plan */
-    .plan-chart-shell { border: 2px solid var(--arex-dark); padding: 8px; margin-top: 0px; flex-grow: 1; display: flex; flex-direction: column;}
+    .plan-chart-shell { border: 2px solid var(--arex-dark); padding: 8px; margin: 0 10px 10px 10px; flex-grow: 1; display: flex; flex-direction: column;}
     .plan-chart-title { font-size: 14px; font-weight: bold; margin-bottom: 5px; display: flex; justify-content: space-between; opacity: 0.9; flex-shrink: 0;}
     .plan-chart-svg { width: 100%; flex-grow: 1; display: block; background: var(--arex-black); border: 1px solid var(--arex-dark); }
     .plan-axis-label { font-size: 11px; fill: var(--arex-green); opacity: 0.75; }
@@ -287,10 +299,10 @@
     .w-span-1x2 { grid-column: span 1; grid-row: span 2; }
     .w-span-2x2 { grid-column: span 2; grid-row: span 2; }
     
-    .widget-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); grid-auto-flow: dense; gap: 4px; flex-grow: 1; padding-bottom: 5px; height: 100%; align-content: stretch; overflow: hidden; }
+    .widget-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); grid-auto-flow: dense; gap: 4px; flex-grow: 1; padding: 0 10px 10px 10px; height: 100%; align-content: stretch; overflow: hidden; }
     .widget-slot { border: 2px dashed var(--arex-dark); display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,51,0,0.2); position: relative; transition: all 0.3s; }
     .w-label { font-size: 9px; color: var(--arex-light); font-weight: bold; position: absolute; top: 4px; left: 6px; opacity: 0.8; line-height: 1;}
-    .w-val { font-size: calc(var(--font-medium)*0.8); font-weight: bold; }
+    .w-val { font-size: 22px; font-weight: bold; } /* 字体固定为22px，不挂钩 --font-medium */
     .w-unit { font-size: 11px; font-weight: normal; margin-left: 2px; color: var(--arex-light); }
 
     /* Modals & Interactivity */
@@ -494,7 +506,7 @@
 
             <div style="border-top: 1px solid #333; margin-top:10px; padding-top:10px;">
                 <div class="control-row flex-row"><label style="margin:0;">大字号 (Huge) <span class="val-display" id="val-f-huge">58px</span></label><input type="range" id="sl-f-huge" min="40" max="80" step="1" value="58" oninput="renderLeftAnchor()" style="width:50%;"></div>
-                <div class="control-row flex-row"><label style="margin:0;">中字号 (Medium) <span class="val-display" id="val-f-med">28px</span></label><input type="range" id="sl-f-med" min="16" max="40" step="1" value="28" oninput="renderLeftAnchor()" style="width:50%;"></div>
+                <div class="control-row flex-row"><label style="margin:0;">中字号 (仅左侧关联) <span class="val-display" id="val-f-med">28px</span></label><input type="range" id="sl-f-med" min="16" max="40" step="1" value="28" oninput="renderLeftAnchor()" style="width:50%;"></div>
                 <div class="control-row flex-row"><label style="margin:0;">小字号 (Small) <span class="val-display" id="val-f-small">14px</span></label><input type="range" id="sl-f-small" min="10" max="24" step="1" value="14" oninput="renderLeftAnchor()" style="width:50%;"></div>
             </div>
         </div>
@@ -624,12 +636,12 @@
                         <div class="card" id="card-tissues">
                             <div class="card-title"><span>2F: TISSUES & DECO</span></div>
                             <div class="deco-grid">
-                                <div class="deco-cell"><span class="data-label" style="font-size:10px;">ALGORITHM</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.6);">ZHL-16C</span></div>
-                                <div class="deco-cell right"><span class="data-label" style="font-size:10px;">GF L/H</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.6);">30 / 70</span></div>
+                                <div class="deco-cell"><span class="data-label" style="font-size:10px;">ALGORITHM</span><span class="data-value" style="font-size: 16px;">ZHL-16C</span></div>
+                                <div class="deco-cell right"><span class="data-label" style="font-size:10px;">GF L/H</span><span class="data-value" style="font-size: 16px;">30 / 70</span></div>
                             </div>
                             <div class="deco-grid" style="border:none;">
-                                <div class="deco-cell"><span class="data-label" style="font-size:10px;">CNS</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.6);">15%</span></div>
-                                <div class="deco-cell right"><span class="data-label" style="font-size:10px;">OTU</span><span class="data-value" style="font-size:calc(var(--font-medium)*0.6);">22</span></div>
+                                <div class="deco-cell"><span class="data-label" style="font-size:10px;">CNS</span><span class="data-value" style="font-size: 16px;">15%</span></div>
+                                <div class="deco-cell right"><span class="data-label" style="font-size:10px;">OTU</span><span class="data-value" style="font-size: 16px;">22</span></div>
                             </div>
 
                             <div class="tissue-section-title">TISSUE SATURATION</div>
@@ -779,7 +791,7 @@
     let menuIndexInfo = 0; let menuIndexSetup = 0;
     let subMenuParent = null; let subMenuIndex = 0; let subMenuItems = []; let subMenuHistory = [];
 
-    // [WIDGET_DEFS] 更新：扩充了新的自定义组件库并优化排版
+    // [WIDGET_DEFS]
     const WIDGET_DEFS = {
         'depth': { label: 'DEPTH', render: (w, h) => `<div class="w-val" id="widget-depth" style="font-size:${w>1&&h>1?42:w>1?28:18}px">0.0<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">m</span></div>` },
         'temp': { label: 'TEMP', render: (w, h) => `<div class="w-val" style="font-size:${w>1&&h>1?42:w>1?28:18}px">18<span class="w-unit" style="font-size:${w>1&&h>1?14:11}px">°C</span></div>` },
@@ -934,10 +946,9 @@
 
     /* ==========================================
        🚨 同步靶向告警引擎逻辑 (Alarm Target Sync)
-       采用全局状态记录，确保布局重绘时告警不丢失
        ========================================== */
     let alarmTimeout = null;
-    let currentAlarmState = null; // 存储结构: { level: 3, targetId: 'depth' }
+    let currentAlarmState = null; 
 
     function triggerAlarm(level, eventId, text, targetId) {
         clearAlarms(); 
@@ -945,7 +956,6 @@
         const banner = document.getElementById('alarm-banner');
         const bannerText = document.getElementById('alarm-banner-text');
 
-        // 纯英文纯文本告警
         let prefix = "";
         if (level === 3) prefix = "CRITICAL: ";
         else if (level === 2) prefix = "WARNING: ";
@@ -954,14 +964,11 @@
         bannerText.innerText = prefix + text;
         banner.className = `alarm-banner show level-${level}`;
 
-        // 隐藏右侧卡片原有的标题，避免文字重叠
         document.getElementById('right-card-canvas').classList.add('alarm-active');
 
-        // 记录全局告警状态并立即应用靶向闪烁
         currentAlarmState = { level: level, targetId: targetId };
         applyAlarmStyles();
 
-        // Level 1: 5秒自动消失
         if (level === 1) {
             alarmTimeout = setTimeout(() => {
                 clearAlarms();
@@ -977,24 +984,19 @@
         currentAlarmState = null;
 
         const banner = document.getElementById('alarm-banner');
-        // 只移除 show 类，保留 level-x 类，使其在滑出期间保持原有的色彩
         if (banner) banner.classList.remove('show'); 
         
-        // 恢复卡片原有标题显示
         const rightCanvas = document.getElementById('right-card-canvas');
         if (rightCanvas) rightCanvas.classList.remove('alarm-active');
 
-        // 清理所有的告警类
         document.querySelectorAll('[data-alarm-target]').forEach(el => {
             el.classList.remove('local-l3', 'local-l2', 'local-l1');
         });
     }
 
-    // 重新应用告警样式 (用于每次 DOM 重建后调用)
     function applyAlarmStyles() {
         if (!currentAlarmState) return;
         if (currentAlarmState.targetId) {
-            // 通过 data-alarm-target 属性，一键同时选中 Left Anchor 和 Right Custom Grid 中的模块！
             document.querySelectorAll(`[data-alarm-target="${currentAlarmState.targetId}"]`).forEach(el => {
                 el.classList.add(`local-l${currentAlarmState.level}`);
             });
@@ -1072,7 +1074,6 @@
         layoutMsg = errors.join(' | ');
         updateStatusBar();
 
-        // 采用 data-alarm-target 替代原有的 id
         const buildComp = (name, totalHeightU, isHuge = false, customId = '', currentVal = '', extraHtml = '', moduleId = '') => {
             const valHeightPx = (totalHeightU - titleH) * 10;
             const fontUsed = isHuge ? fHuge : fMed;
@@ -1100,7 +1101,6 @@
 
         canvas.innerHTML = html;
 
-        // 重新挂载告警状态
         applyAlarmStyles();
     }
 
@@ -1206,7 +1206,6 @@
         if(!container) return;
         let html = '';
         
-        // 【关键】赋予自定义组件对应的 data-alarm-target 以实现告警同步
         currentWidgetLayout.forEach((w, i) => {
             const def = WIDGET_DEFS[w.id];
             html += `<div class="widget-slot w-span-${w.w}x${w.h}" data-alarm-target="${w.id}">
@@ -1215,7 +1214,6 @@
         });
         container.innerHTML = html;
         
-        // 重新挂载告警状态
         applyAlarmStyles();
 
         const status = document.getElementById('custom-card-status');
@@ -1480,23 +1478,23 @@
         box.className = "modal-box";
         if (type === 'GAS') {
             const gas = gasData[gasCursorIndex];
-            let html = `<div style="font-size:var(--font-medium); font-weight:bold; margin-bottom:15px; border-bottom:2px solid var(--arex-dark); padding-bottom:5px;">CONFIRM GAS</div>
-                        <div style="font-size:calc(var(--font-huge)*0.8); font-weight:bold; margin-bottom:10px;">${gas.name}</div>
-                        <div style="font-size:var(--font-medium); margin-bottom:30px; color:var(--arex-light);">MOD: ${gas.mod}m</div>`;
-            if (baseDepth > gas.mod) { box.className = "modal-box flash-danger"; html += `<div style="font-size:var(--font-medium); font-weight:bold;">[ FATAL: OVER MOD ]</div>`; } 
-            else { html += `<div style="font-size:calc(var(--font-medium)*0.8); color:var(--arex-light);">[ ENTER TO CONFIRM ]<br><br>[ ESC TO CANCEL ]</div>`; }
+            let html = `<div style="font-size: 28px; font-weight:bold; margin-bottom:15px; border-bottom:2px solid var(--arex-dark); padding-bottom:5px;">CONFIRM GAS</div>
+                        <div style="font-size: 46px; font-weight:bold; margin-bottom:10px;">${gas.name}</div>
+                        <div style="font-size: 28px; margin-bottom:30px; color:var(--arex-light);">MOD: ${gas.mod}m</div>`;
+            if (baseDepth > gas.mod) { box.className = "modal-box flash-danger"; html += `<div style="font-size: 28px; font-weight:bold;">[ FATAL: OVER MOD ]</div>`; } 
+            else { html += `<div style="font-size: 22px; color:var(--arex-light);">[ ENTER TO CONFIRM ]<br><br>[ ESC TO CANCEL ]</div>`; }
             box.innerHTML = html;
         } 
         else if (type === 'COMPASS') {
-            box.innerHTML = `<div style="font-size:var(--font-medium); font-weight:bold; margin-bottom:15px; border-bottom:2px solid var(--arex-dark); padding-bottom:5px;">CLEAR TARGET?</div>
-                             <div style="font-size:calc(var(--font-medium)*1.2); font-weight:bold; margin-bottom:30px;">REMOVE HEADING MARKER?</div>
-                             <div style="font-size:calc(var(--font-medium)*0.8); color:var(--arex-light);">[ ENTER TO CONFIRM ]<br><br>[ ESC TO CANCEL ]</div>`;
+            box.innerHTML = `<div style="font-size: 28px; font-weight:bold; margin-bottom:15px; border-bottom:2px solid var(--arex-dark); padding-bottom:5px;">CLEAR TARGET?</div>
+                             <div style="font-size: 32px; font-weight:bold; margin-bottom:30px;">REMOVE HEADING MARKER?</div>
+                             <div style="font-size: 22px; color:var(--arex-light);">[ ENTER TO CONFIRM ]<br><br>[ ESC TO CANCEL ]</div>`;
         }
         else if (type === 'MENU_ACT') {
             box.className = "modal-box";
-            box.innerHTML = `<div style="font-size:var(--font-medium); font-weight:bold; margin-bottom:15px; border-bottom:2px solid var(--arex-dark); padding-bottom:5px;">ACTION</div>
-                             <div style="font-size:calc(var(--font-medium)*1.2); font-weight:bold;">${extra || ''}</div>
-                             <div style="font-size:calc(var(--font-medium)*0.8); color:var(--arex-light); margin-top:20px;">[ ESC TO BACK ]</div>`;
+            box.innerHTML = `<div style="font-size: 28px; font-weight:bold; margin-bottom:15px; border-bottom:2px solid var(--arex-dark); padding-bottom:5px;">ACTION</div>
+                             <div style="font-size: 32px; font-weight:bold;">${extra || ''}</div>
+                             <div style="font-size: 22px; color:var(--arex-light); margin-top:20px;">[ ESC TO BACK ]</div>`;
             setTimeout(() => { if(currentState === STATE.MODAL_ACT) { document.getElementById('canvas-modal').style.display = 'none'; currentState = STATE.SUB_MENU; } }, 1000);
         }
     }
