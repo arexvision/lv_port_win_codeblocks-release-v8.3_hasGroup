@@ -1812,6 +1812,15 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/arex_ui_state.h" />
+		<Unit filename="src/arex_ui/picture/liuzhuandeng.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/qiping.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/Shoudiantong.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="src/arex_ui/cards/card_compass.c">
 			<Option compilerVar="CC" />
 		</Unit>

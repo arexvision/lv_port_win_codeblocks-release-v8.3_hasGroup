@@ -129,3 +129,23 @@ void arex_bus_clear_all_dirty(void)
 {
     g_sensor_data.dirty_mask = DIRTY_NONE;
 }
+
+void arex_bus_set_temperature(float temp_c)
+{
+    if (fabsf(g_sensor_data.temperature_c - temp_c) > 0.1f) {
+        g_sensor_data.temperature_c = temp_c;
+        g_sensor_data.dirty_mask |= DIRTY_TEMP;
+    }
+}
+
+void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count)
+{
+    if (g_sensor_data.strobe_on != strobe_on ||
+        g_sensor_data.flashlight_on != flashlight_on ||
+        g_sensor_data.cylinder_count != cylinder_count) {
+        g_sensor_data.strobe_on = strobe_on;
+        g_sensor_data.flashlight_on = flashlight_on;
+        g_sensor_data.cylinder_count = cylinder_count;
+        g_sensor_data.dirty_mask |= DIRTY_DEVICES;
+    }
+}

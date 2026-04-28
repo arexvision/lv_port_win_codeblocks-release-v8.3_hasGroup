@@ -57,6 +57,7 @@ void arex_screen_rebuild_tileview(void);
    Left panel refresh (仅更新文字)
    ========================================= */
 void arex_screen_refresh_left_panel(void);
+void arex_screen_refresh_system_data(void);
 
 /* =========================================
    Wall charge indicators

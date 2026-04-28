@@ -1,9 +1,9 @@
 #include "../arex_ui/arex_ui_engine.h"
 #include "../arex_ui/arex_ui_state.h"
 #include "../arex_ui/arex_screen.h"
-#include "../arex_ui/arex_input.h"
 #include "../arex_ui/arex_data.h"
 #include "../../lvgl/lvgl.h"
+#include "arex_input_pc.h"
 #include <math.h>
 
 static lv_timer_t *s_update_task_timer;  /* 50ms UI 消费定时器 */
@@ -57,6 +57,12 @@ static void sim_tick_cb(lv_timer_t *t)
 
     /* 推流历史轨迹点到 4F 曲线图 */
     arex_dive_log_append((float)g_sensor_data.dive_time_s, g_sensor_data.depth);
+
+    /* 模拟温度缓慢变化 */
+    static float s_temp_offset = 0.0f;
+    s_temp_offset += 1.0f;
+    if (s_temp_offset > 5.0f) s_temp_offset = -5.0f;
+    arex_bus_set_temperature(25.0f + s_temp_offset);
 }
 
 /* =========================================================

@@ -53,6 +53,11 @@
         "cstdbool": "c",
         "typeinfo": "c",
         "variant": "c",
-        "arex_ui_engine.h": "c"
+        "arex_ui_engine.h": "c",
+        "lvgl.h": "c",
+        "arex_data.h": "c",
+        "arex_ui_state.h": "c",
+        "math.h": "c",
+        "win32drv.h": "c"
     }
 }

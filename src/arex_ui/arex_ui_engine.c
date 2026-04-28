@@ -555,6 +555,12 @@ void arex_ui_init(void)
     g_sensor_data.otu = 22;
     g_sensor_data.next_stop_m = 21;
     g_sensor_data.next_stop_min = 3;
+    /* System Data — 设备基础数据 */
+    g_sensor_data.temperature_c = 25.0f;      /* 设备/水温 摄氏度 */
+    g_sensor_data.strobe_on = true;         /* 留转灯（频闪灯）开关状态 */
+    g_sensor_data.flashlight_on = true;      /* 手电筒开关状态 */
+    g_sensor_data.cylinder_count = 1;   /* 气瓶连接数量 (x0, x1...) */
+    
 
     /* 模拟组织饱和度数据 */
     for (uint8_t i = 0; i < 16; i++) {
@@ -1229,9 +1235,10 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_screen_refresh_left_panel();
     }
 
-    /* 电池 —— 左侧面板刷新 */
+    /* 电池 —— 左侧面板刷新 + SystemData 专属物理防区 */
     if (mask & DIRTY_BATT) {
         arex_screen_refresh_left_panel();
+        arex_screen_refresh_system_data();
     }
 
     /* 罗盘航向 */
@@ -1258,6 +1265,16 @@ void arex_ui_update_task(lv_timer_t *timer)
     /* 4F 曲线图刷新 */
     if (mask & DIRTY_CHART) {
         card_plan_update();
+    }
+
+    /* 温度刷新 — SystemData 专属物理防区 */
+    if (mask & DIRTY_TEMP) {
+        arex_screen_refresh_system_data();
+    }
+
+    /* 外设状态刷新（灯、气瓶数量） — SystemData 专属物理防区 */
+    if (mask & DIRTY_DEVICES) {
+        arex_screen_refresh_system_data();
     }
 
     /* 洗净所有脏标记 */

@@ -30,11 +30,21 @@ static lv_obj_t *s_lbl_time;
 static lv_obj_t *s_lbl_wtm;
 static lv_obj_t *s_lbl_batt;
 
+/* System Data 专属物理防区句柄 */
+static lv_obj_t *s_lbl_sys_batt;
+static lv_obj_t *s_lbl_sys_temp;
+static lv_obj_t *s_img_strobe;
+static lv_obj_t *s_img_flash;
+static lv_obj_t *s_lbl_cylinders;
+
 /* 左侧锚点组件句柄数组 (按 arex_anchor_comp_t 顺序) */
 static lv_obj_t *s_anchor_titles[ANCHOR_COMP_COUNT];
 static lv_obj_t *s_anchor_vals[ANCHOR_COMP_COUNT];
 static lv_obj_t *s_anchor_seps[ANCHOR_COMP_COUNT];  /* 分割线对象 (NULL=SEP_NONE) */
 static lv_obj_t *s_anchor_mod_seps[ANCHOR_COMP_COUNT];  /* 模块间分割线对象 */
+
+/* SystemData 物理防区渲染函数前向声明 */
+static void arex_render_system_data(lv_obj_t *parent);
 
 /**
  * 虚线点数组内存释放回调。
@@ -691,6 +701,112 @@ static void left_anchor_create(void)
             }
         }
     }
+
+    /* System Data 专属物理防区 — 追加在 left_anchor 底部 */
+    arex_render_system_data(s_left_anchor);
+}
+
+/* =========================================================
+ * System Data 专属物理防区构建
+ *
+ * 位置：左侧锚点 (s_left_anchor) 最下方
+ * 左半：电量百分比 + 温度
+ * 右半：留转灯 + 手电筒 + 气瓶图标
+ * ========================================================= */
+void arex_render_system_data(lv_obj_t *parent)
+{
+    /* 声明外部图片数组 */
+    LV_IMG_DECLARE(liuzhuandeng);
+    LV_IMG_DECLARE(Shoudiantong);
+    LV_IMG_DECLARE(qiping);
+
+    /* SystemData 容器：无边框无背景，固定在左侧锚点最底部 */
+    lv_obj_t *sys_container = lv_obj_create(parent);
+    lv_obj_remove_style_all(sys_container);
+    lv_obj_set_size(sys_container, AREX_LEFT_ANCHOR_W, 60);
+    lv_obj_set_pos(sys_container, 0, g_sys_config.safe_zone_h - 60);
+    lv_obj_set_style_clip_corner(sys_container, true, 0);
+
+    /* 上分割线：粗线分隔 SystemData 与上方锚点数据 */
+    lv_obj_t *top_sep = lv_obj_create(sys_container);
+    lv_obj_remove_style_all(top_sep);
+    lv_obj_set_size(top_sep, AREX_LEFT_ANCHOR_W, AREX_ANCHOR_SEP_THICK);
+    lv_obj_set_pos(top_sep, 0, 0);
+    lv_obj_set_style_bg_color(top_sep, AREX_LIGHT, 0);
+    lv_obj_set_style_bg_opa(top_sep, g_sys_config.sep_alpha, 0);
+    lv_obj_set_style_border_width(top_sep, 0, 0);
+    lv_obj_set_style_pad_all(top_sep, 0, 0);
+
+    /* ==========================================
+     * 左半部分 (电量与温度) - 强制小字号！
+     * ========================================== */
+    s_lbl_sys_batt = lv_label_create(sys_container);
+    lv_obj_set_style_text_font(s_lbl_sys_batt, arex_get_font(AREX_FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(s_lbl_sys_batt, AREX_GREEN, 0);
+    lv_obj_align(s_lbl_sys_batt, LV_ALIGN_TOP_LEFT, 10, 8);
+    lv_label_set_text(s_lbl_sys_batt, "--%");
+
+    s_lbl_sys_temp = lv_label_create(sys_container);
+    lv_obj_set_style_text_font(s_lbl_sys_temp, arex_get_font(AREX_FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(s_lbl_sys_temp, AREX_GREEN, 0);
+    lv_obj_align(s_lbl_sys_temp, LV_ALIGN_BOTTOM_LEFT, 10, -8);
+    lv_label_set_text(s_lbl_sys_temp, "--°C");
+
+    /* ==========================================
+     * 右半部分 (设备状态图标) - 坐标微调
+     * ========================================== */
+    s_img_strobe = lv_img_create(sys_container);
+    lv_img_set_src(s_img_strobe, &liuzhuandeng);
+    lv_obj_align(s_img_strobe, LV_ALIGN_TOP_LEFT, 90, 0);
+    lv_obj_set_style_img_opa(s_img_strobe, LV_OPA_40, 0);
+
+    s_img_flash = lv_img_create(sys_container);
+    lv_img_set_src(s_img_flash, &Shoudiantong);
+    lv_obj_align(s_img_flash, LV_ALIGN_TOP_LEFT, 120, 4);
+    lv_obj_set_style_img_opa(s_img_flash, LV_OPA_40, 0);
+
+    lv_obj_t *img_cyl = lv_img_create(sys_container);
+    lv_img_set_src(img_cyl, &qiping);
+    lv_obj_align(img_cyl, LV_ALIGN_TOP_LEFT, 98, 30);
+
+    s_lbl_cylinders = lv_label_create(sys_container);
+    lv_obj_set_style_text_font(s_lbl_cylinders, arex_get_font(AREX_FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(s_lbl_cylinders, AREX_GREEN, 0);
+    lv_obj_align(s_lbl_cylinders, LV_ALIGN_TOP_LEFT, 125, 33);
+    lv_label_set_text(s_lbl_cylinders, "x0");
+}
+
+/* =========================================================
+ * SystemData 专属物理防区刷新 (仅更新文字/图标，不重建布局)
+ * 由 arex_ui_update_task() 中 DIRTY_TEMP / DIRTY_DEVICES 驱动
+ * ========================================================= */
+void arex_screen_refresh_system_data(void)
+{
+    char buf[16];
+
+    /* 电量百分比 — SystemData 专属防区 */
+    snprintf(buf, sizeof(buf), "%.0f%%", g_sensor_data.battery_pct);
+    if (s_lbl_sys_batt) lv_label_set_text(s_lbl_sys_batt, buf);
+
+    /* 温度 */
+    snprintf(buf, sizeof(buf), "%d°C", (int)g_sensor_data.temperature_c);
+    if (s_lbl_sys_temp) lv_label_set_text(s_lbl_sys_temp, buf);
+
+    /* 留转灯点亮/熄灭 */
+    if (s_img_strobe) {
+        lv_obj_set_style_img_opa(s_img_strobe,
+            g_sensor_data.strobe_on ? LV_OPA_COVER : LV_OPA_40, 0);
+    }
+
+    /* 手电筒点亮/熄灭 */
+    if (s_img_flash) {
+        lv_obj_set_style_img_opa(s_img_flash,
+            g_sensor_data.flashlight_on ? LV_OPA_COVER : LV_OPA_40, 0);
+    }
+
+    /* 气瓶数量 */
+    snprintf(buf, sizeof(buf), "x%d", g_sensor_data.cylinder_count);
+    if (s_lbl_cylinders) lv_label_set_text(s_lbl_cylinders, buf);
 }
 
 /* =========================================================

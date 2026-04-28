@@ -35,6 +35,10 @@ void arex_bus_set_otu(uint16_t otu_val);
 void arex_bus_set_chart_refresh(void);   /* 仅打 DIRTY_CHART，不改数据 */
 void arex_bus_clear_all_dirty(void);     /* 消费任务调用，清洗脏标记 */
 
+/* --- System Data 接口 --- */
+void arex_bus_set_temperature(float temp_c);
+void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
+
 /* --- 历史轨迹推流（已在 card_plan.c 中实现，此处声明导出） --- */
 void arex_dive_log_append(float current_time_s, float current_depth_m);
 

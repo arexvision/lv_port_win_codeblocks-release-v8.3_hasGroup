@@ -293,6 +293,12 @@ typedef struct {
     /* 减压违规标志：仅当真实减压引擎判断进入减压区时由业务逻辑置 true */
     bool     deco_violation;
 
+    /* System Data — 设备基础数据 */
+    float    temperature_c;      /* 设备/水温 摄氏度 */
+    bool     strobe_on;         /* 留转灯（频闪灯）开关状态 */
+    bool     flashlight_on;      /* 手电筒开关状态 */
+    uint8_t  cylinder_count;   /* 气瓶连接数量 (x0, x1...) */
+
     /* 潜水曲线日志 */
     uint16_t deco_stops[8];
     uint8_t  deco_stop_count;
@@ -321,6 +327,8 @@ typedef enum {
     DIRTY_DECO      = (1U << 9),   /* 减压数据（组织饱和/NDL 变化） */
     DIRTY_CHART     = (1U << 10),  /* 4F 曲线图刷新 */
     DIRTY_ALARM     = (1U << 11),  /* 告警状态 */
+    DIRTY_TEMP      = (1U << 12),  /* 温度数据 */
+    DIRTY_DEVICES   = (1U << 13),  /* 外设状态（灯、气瓶数量） */
 } arex_dirty_bit_t;
 
 /* =========================================================
