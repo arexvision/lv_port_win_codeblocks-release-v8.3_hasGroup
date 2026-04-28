@@ -14,6 +14,7 @@
     #define rt_hw_interrupt_enable(lvl) ((void)(lvl))   //假代码
 #else
     #include <rtthread.h>
+    #include <rthw.h>
 #endif
 
 /* =========================================================
