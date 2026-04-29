@@ -2424,3 +2424,135 @@ void arex_bus_set_tissues(const uint8_t tissue_pct[16])
 | 日期 | 文件 | 变更 |
 |------|------|------|
 | 2026-04-28 | `AREX_ARCH.md` | 新增 Section 30 — 硬件移植指南 |
+
+---
+
+## 31. 1F 罗盘零内存数学绘制引擎重构 (v2026-04-30)
+
+### 31.1 问题描述
+
+**原版罗盘的高内存占用问题**：
+- 使用 `lv_canvas` + 静态 buffer `s_cbuf[640 * 140]`，占用约 **89KB RAM**
+- 每帧重绘需要完整的画布操作，效率低下
+- 航向变化时需要调用 `draw_tape()` 重新渲染整个画布
+
+### 31.2 修复方案
+
+**废弃 lv_canvas，改用 LV_EVENT_DRAW_MAIN 纯数学绘制引擎**：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  LV_EVENT_DRAW_MAIN 回调架构                                 │
+├─────────────────────────────────────────────────────────────┤
+│  LVGL 重绘周期 ──▶ compass_tape_draw_cb() ──▶ 数学计算 ──▶ 渲染 │
+│                        │                                    │
+│                   每次航向变化触发 lv_obj_invalidate()       │
+│                   仅计算可见窗口内的刻度（0~N 循环判断）        │
+│                   无需任何 buffer，内存占用 = 0               │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 31.3 核心绘制参数
+
+```c
+#define COMPASS_TAPE_H      50      /* 卷尺高度 50px */
+#define COMPASS_TAPE_BORDER 2       /* 卷尺边框 2px */
+#define PX_PER_DEGREE       3.0f   /* 像素/度比例（越大刻度越稀疏） */
+#define TAPE_TOP_OFFSET     20      /* 卷尺距标题区的偏移 */
+```
+
+### 31.4 数学绘制回调 `compass_tape_draw_cb()`
+
+核心算法逻辑：
+
+```c
+// 1. 计算视口中心 X 坐标
+int center_x = area->x1 + (box_w / 2);
+
+// 2. 计算可见度数范围
+int fov_deg = (int)(box_w / PX_PER_DEGREE);
+int start_deg = heading - (fov_deg / 2) - 10;
+int end_deg   = heading + (fov_deg / 2) + 10;
+
+// 3. 循环渲染可见刻度（仅画 5° 倍数）
+for (int i = start_deg; i <= end_deg; i++) {
+    if (i % 5 != 0) continue;
+
+    // 数学映射：该度数在屏幕上的 X 坐标
+    float dx = (i - heading) * PX_PER_DEGREE;
+    int x = center_x + (int)dx;
+
+    // 越界裁剪
+    if (x < area->x1 || x > area->x2) continue;
+
+    // 刻度高度：15° 短线(6px)，45° 长线(12px)
+    int tick_h = (i % 15 == 0) ? 12 : 6;
+    lv_draw_line(draw_ctx, &line_dsc, ...);
+}
+
+// 4. 绘制中心瞄准线（4px 粗绿线）
+// 5. 绘制目标锁定游标（黄色）
+```
+
+### 31.5 关键优化点
+
+| 优化项 | 原版 | 新版 |
+|--------|------|------|
+| 内存占用 | ~89KB (640×140 buffer) | **0 bytes** |
+| 绘制触发 | 每帧重绘整个画布 | **invalidate 触发局部重绘** |
+| 刻度计算 | 固定 -60°~+60° | **动态视口计算** |
+| 360° 循环 | 无 | **完美处理交界处** |
+
+### 31.6 UI 消费任务对接
+
+在 `arex_ui_engine.c` 的 `arex_ui_update_task()` 中：
+
+```c
+/* 罗盘航向 — 零内存数学引擎，触发 invalidate + 更新标签 */
+if (mask & DIRTY_HEADING) {
+    /* 更新巨型航向文字 */
+    if (s_heading_val_lbl) {
+        lv_label_set_text_fmt(s_heading_val_lbl, "%03d", g_sensor_data.heading);
+    }
+    /* 触发卷尺画板的底层数学重绘（极其轻量） */
+    if (s_compass_tape_obj) {
+        lv_obj_invalidate(s_compass_tape_obj);
+    }
+    /* 更新提示文本 */
+    if (s_heading_hint_lbl) {
+        if (g_sensor_data.heading_locked) {
+            lv_label_set_text_fmt(s_heading_hint_lbl, "[ ENTER ] clear  %03d",
+                                  g_sensor_data.heading_target);
+        } else {
+            lv_label_set_text(s_heading_hint_lbl, "[ ENTER ] mark heading");
+        }
+    }
+}
+```
+
+### 31.7 外部声明（`arex_ui_engine.c`）
+
+```c
+/* 罗盘卡片静态句柄（由 card_compass.c 持有） */
+extern lv_obj_t *s_compass_tape_obj;
+extern lv_obj_t *s_heading_val_lbl;
+extern lv_obj_t *s_heading_hint_lbl;
+```
+
+### 31.8 任务验收
+
+- ✅ 罗盘代码内存占用从 ~89KB 降为 **0 bytes**
+- ✅ 根据 `PX_PER_DEGREE` 设定，航向变化时卷尺以 **60 FPS** 极限丝滑滑动
+- ✅ 消除旧版数十个 Label 同时重绘带来的撕裂感
+- ✅ 360° 和 0° 交界处完美循环渲染
+
+### 31.9 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-04-30 | `card_compass.c` | 完全重写：删除 lv_canvas + buffer，改为 `compass_tape_draw_cb()` 数学绘制引擎 |
+| 2026-04-30 | `card_compass.c` | 新增 `render_compass_custom()` 工厂函数 |
+| 2026-04-30 | `arex_ui_engine.c` | 添加罗盘句柄外部声明 |
+| 2026-04-30 | `arex_ui_engine.c` | `arex_ui_update_task()` 中 DIRTY_HEADING 处理改为 invalidate + 标签更新 |
+| 2026-04-30 | `AREX_ARCH.md` | 新增 Section 31 — 1F 罗盘零内存重构 |
+

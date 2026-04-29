@@ -297,15 +297,14 @@ void arex_bus_toggle_split_outward(void)
  * 配置持久化接口
  * 由具体平台（PC 模拟器 / 真机）提供 weak 实现覆盖
  * ========================================================= */
-__attribute__((weak))
 bool arex_config_load(arex_sys_config_t *cfg)
 {
     (void)cfg;
     return false;
 }
 
-__attribute__((weak))
 bool arex_config_save(const arex_sys_config_t *cfg)
 {
     (void)cfg;
+    return false;
 }

@@ -6,6 +6,14 @@
 #include <stdio.h>
 #include <string.h>
 
+/* ============================================================
+ * 罗盘卡片静态句柄（由 card_compass.c 持有）
+ * 用于 arex_ui_update_task 中的零内存引擎刷新
+ * ============================================================ */
+extern lv_obj_t *s_compass_tape_obj;
+extern lv_obj_t *s_heading_val_lbl;
+extern lv_obj_t *s_heading_hint_lbl;
+
 /* 减压跟踪节流时间戳（由 arex_ui_update_task 使用） */
 static uint32_t _deco_last_refresh_ms = 0;
 
@@ -80,7 +88,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->offset_y     = -10;          /* y=-10 向上偏移（上面留白 2U，下面留白 4U） */
 
     /* ========== [A] 架构 ========== */
-    cfg->layout_order  = AREX_ORDER_REVERSE;  /* 0=标准(左锚右卡)，1=翻转(右锚左卡) */
+    cfg->layout_order  = AREX_ORDER_NORMAL;  /* 0=标准(左锚右卡)，1=翻转(右锚左卡) */
     cfg->dots_position = AREX_DOTS_RIGHT;    /* tileview 指示点位置 */
     cfg->compass_style = AREX_COMPASS_CLASSIC;
     cfg->mask_enabled  = false;
@@ -175,11 +183,11 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * INFO(0) / SETUP(6) 固定，中间 5 张可由 APP 重排
      */
     cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;
-    cfg->card_order[CARD_POS_1]     = CARD_ID_CUSTOM_GRID;  /* 5F 自定义网格 — 默认最前 */
+    cfg->card_order[CARD_POS_1]     = CARD_ID_COMPASS;  /* 5F 自定义网格 — 默认最前 */
     cfg->card_order[CARD_POS_2]     = CARD_ID_DECO;
-    cfg->card_order[CARD_POS_3]     = CARD_ID_COMPASS;
+    cfg->card_order[CARD_POS_3]     = CARD_ID_PLAN;
     cfg->card_order[CARD_POS_4]     = CARD_ID_GAS;
-    cfg->card_order[CARD_POS_5]     = CARD_ID_PLAN;
+    cfg->card_order[CARD_POS_5]     = CARD_ID_CUSTOM_GRID;
     cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;
 
     /* ========== [A] 用户设置默认值 ========== */
@@ -641,7 +649,7 @@ void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
         *out_h = (uint16_t)((int16_t)parent_h - *out_y);
 }
 
-/* 字号自适应引擎（已内联到 render_widget_by_id，保留函数体供未来扩展）
+/* 字号自适应引擎（已内联到 render_widget_by_id，保留函数体供未来扩展） */
 
 /* =========================================================
  * 组件元数据字典（按 arex_widget_id_t 索引）
@@ -1296,9 +1304,24 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_screen_refresh_system_data();
     }
 
-    /* 罗盘航向 */
+    /* 罗盘航向 — 零内存数学引擎，触发 invalidate + 更新标签 */
     if (mask & DIRTY_HEADING) {
-        arex_screen_refresh_compass_target();
+        /* 更新卷尺下方的巨型文字 */
+        if (s_heading_val_lbl) {
+            lv_label_set_text_fmt(s_heading_val_lbl, "%03d", g_sensor_data.heading);
+        }
+        /* 触发卷尺画板的底层数学重绘（极其轻量） */
+        if (s_compass_tape_obj) {
+            lv_obj_invalidate(s_compass_tape_obj);
+        }
+        /* 如果有锁定，更新提示文本 */
+        if (s_heading_hint_lbl) {
+            if (g_sensor_data.heading_locked) {
+                lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d° ]", g_sensor_data.heading_target);
+            } else {
+                lv_label_set_text(s_heading_hint_lbl, "[ ENTER ] mark heading");
+            }
+        }
     }
 
     /* 潜水时间 + W.TIME —— 左侧面板 + 4F 曲线图 */

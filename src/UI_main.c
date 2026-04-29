@@ -96,13 +96,13 @@ static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
 
-    static uint16_t s_layout_tick = 0;
-    s_layout_tick++;
-    if (s_layout_tick % 2 == 0) {
-        static uint8_t phase = 0;
-        arex_test_set_ui_layout(phase);
-        phase = (phase + 1) % 2;
-    }
+    // static uint16_t s_layout_tick = 0;
+    // s_layout_tick++;
+    // if (s_layout_tick % 2 == 0) {
+    //     static uint8_t phase = 0;
+    //     arex_test_set_ui_layout(phase);
+    //     phase = (phase + 1) % 2;
+    // }
 
     /* 航向缓慢顺时针旋转 */
     uint16_t new_heading = (g_sensor_data.heading + 1) % 360;
@@ -189,10 +189,9 @@ void UI_main(void)
     /* 6. 启动在 INFO 卡 (tile 0) */
     arex_screen_scroll_to_card(0);
     arex_screen_set_info_selection(0);
-
     /* 7. 启动 UI 消费任务定时器：50ms 周期（20 FPS） */
     s_update_task_timer = lv_timer_create(arex_ui_update_task, 50, NULL);
 
     /* 8. 启动模拟数据定时器：1Hz */
-    lv_timer_create(sim_tick_cb, 1000, NULL);
+    lv_timer_create(sim_tick_cb, 100, NULL);
 }
