@@ -259,6 +259,7 @@ typedef struct {
 
     /* System Data — 设备基础数据 */
     float    temperature_c;      /* 设备/水温 摄氏度 */
+    float    ascent_rate;        /* 上升速率 m/min (正=上升，负=下潜) */
     bool     strobe_on;         /* 留转灯（频闪灯）开关状态 */
     bool     flashlight_on;      /* 手电筒开关状态 */
     uint8_t  cylinder_count;   /* 气瓶连接数量 (x0, x1...) */

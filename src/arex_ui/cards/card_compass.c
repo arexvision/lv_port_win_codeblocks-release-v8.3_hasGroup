@@ -15,7 +15,7 @@
  * 完美复刻 HTML 原型中顺滑的"战术卷尺（Tactical Tape）"效果。
  *
  * 规范参数：
- *   卷尺高度：50px
+ *   卷尺高度：60px
  *   像素/度比例：3.0（刻度更密集紧凑）
  *   每 3 度一根密集短线，每 15 度一根中线，每 45 度显示纯方位字母
  *   上下极简边框（OPA_30），中心瞄准基线 3px 绿色
@@ -24,8 +24,8 @@
 /* ============================================================
  * 罗盘卷尺绘制参数
  * ============================================================ */
-#define COMPASS_TAPE_H      50      /* 卷尺高度 50px */
-#define PX_PER_DEGREE       3.0f   /* 像素/度比例（改回 3.0，刻度更密集） */
+#define COMPASS_TAPE_H      60      /* 卷尺高度 60px */
+#define PX_PER_DEGREE       3.0f   /* 像素/度比例 */
 #define TAPE_TOP_OFFSET     10      /* 卷尺距标题区顶部的偏移 */
 
 /* ============================================================
@@ -162,13 +162,15 @@ static void compass_tape_draw_cb(lv_event_t *e)
  * ============================================================ */
 lv_obj_t *s_compass_tape_obj = NULL;   /* 卷尺绘制对象 */
 lv_obj_t *s_heading_val_lbl = NULL;    /* 巨型航向文本 */
-lv_obj_t *s_heading_hint_lbl = NULL;   /* 底部操作提示 */
+lv_obj_t *s_heading_hint_lbl = NULL;   /* 顶部操作提示 */
 
 /* ============================================================
  * 罗盘卡片工厂渲染函数
  *
- * 使用零内存数学绘制引擎创建罗盘卡片。
- * 度数符号使用物理画圆法（解决字库缺失导致的乱码问题）
+ * 天地反转布局（完美对齐 HTML 原型）：
+ *   1. 顶部操作提示区
+ *   2. 居中巨型度数（视觉中心）
+ *   3. 底部钉死卷尺
  * ============================================================ */
 void render_compass_custom(lv_obj_t *parent_card)
 {
@@ -179,60 +181,53 @@ void render_compass_custom(lv_obj_t *parent_card)
     int right_canvas_w = (int)g_sys_config.safe_zone_w - (int)AREX_LEFT_ANCHOR_W
                          - (int)(g_sys_config.gap_u * AREX_BASE_U);
 
-    /* 排版精修：让卷尺紧贴着标题下方出现 */
-    int current_y = AREX_CARD_TITLE_H + TAPE_TOP_OFFSET;
-
-    /* ---- 2. 创建零内存罗盘卷尺 (Tape) ---- */
-    s_compass_tape_obj = lv_obj_create(parent_card);
-    lv_obj_remove_style_all(s_compass_tape_obj);  /* 彻底扒光样式！ */
-
-    /* 锁死尺寸和位置 (高度定为 50px) */
-    lv_obj_set_size(s_compass_tape_obj, right_canvas_w - 20, COMPASS_TAPE_H);
-    lv_obj_align(s_compass_tape_obj, LV_ALIGN_TOP_MID, 0, current_y);
-
-    /* 挂载数学绘制引擎 */
-    lv_obj_add_event_cb(s_compass_tape_obj, compass_tape_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
-
-    /* 排版精修：加大卷尺与大数字之间的距离 */
-    current_y += COMPASS_TAPE_H + 25;  /* Tape_H(50) + Gap(25) = 75 */
-
-    /* ---- 3. 巨型当前航向文本 (只输出纯数字，绝对不要带符号) ---- */
-    s_heading_val_lbl = lv_label_create(parent_card);
-    lv_obj_set_style_text_font(s_heading_val_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);  /* 48px */
-    lv_obj_set_style_text_color(s_heading_val_lbl, AREX_GREEN, 0);
-    lv_obj_align(s_heading_val_lbl, LV_ALIGN_TOP_MID, 0, current_y);
-    lv_label_set_text_fmt(s_heading_val_lbl, "%03d", g_sensor_data.heading);
-
     /* ========================================================
-     * 终极绝杀：用空心 UI 组件冒充度数符号，永远告别乱码！
-     * 画一个 10x10 的空心圆，当做度数符号
+     * 1. 顶部操作提示区 (Target Locked / Enter mark)
+     * 挂载在大标题下方
      * ======================================================== */
-    lv_obj_t *degree_circle = lv_obj_create(parent_card);
-    lv_obj_remove_style_all(degree_circle);
-    lv_obj_set_size(degree_circle, 10, 10);  /* 画一个 10x10 px 的方框 */
-
-    /* 设置 2px 的绿色边框，并把圆角拉满，方框瞬间变成完美的圆圈！ */
-    lv_obj_set_style_border_width(degree_circle, 2, 0);
-    lv_obj_set_style_border_color(degree_circle, AREX_GREEN, 0);
-    lv_obj_set_style_radius(degree_circle, LV_RADIUS_CIRCLE, 0);
-
-    /* 定位到大数字的右上角 */
-    lv_obj_align_to(degree_circle, s_heading_val_lbl, LV_ALIGN_OUT_RIGHT_TOP, 4, 8);
-
-    /* 排版精修：大幅推开底部提示文字的距离 */
-    current_y += 60 + 35;  /* 字体高度(约60) + Gap(35) */
-
-    /* ---- 4. 底部操作提示 ---- */
     s_heading_hint_lbl = lv_label_create(parent_card);
     lv_obj_set_style_text_font(s_heading_hint_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(s_heading_hint_lbl, AREX_LIGHT, 0);
-    lv_obj_align(s_heading_hint_lbl, LV_ALIGN_TOP_LEFT, 15, current_y);
+    lv_obj_align(s_heading_hint_lbl, LV_ALIGN_TOP_MID, 0, AREX_CARD_TITLE_H + 20);
 
     if (g_sensor_data.heading_locked) {
-        lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d° ]", g_sensor_data.heading_target);
+        lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d ]", g_sensor_data.heading_target);
     } else {
         lv_label_set_text(s_heading_hint_lbl, "[ ENTER ] mark heading");
     }
+
+    /* ========================================================
+     * 2. 居中巨型当前航向文本 (绝对视觉中心)
+     * ======================================================== */
+    s_heading_val_lbl = lv_label_create(parent_card);
+    lv_obj_set_style_text_font(s_heading_val_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);  /* 48px */
+    lv_obj_set_style_text_color(s_heading_val_lbl, AREX_GREEN, 0);
+    /* 核心修复：绝对居中，并稍微往上抬一点点 */
+    lv_obj_align(s_heading_val_lbl, LV_ALIGN_CENTER, 0, -10);
+    lv_label_set_text_fmt(s_heading_val_lbl, "%03d", g_sensor_data.heading);
+
+    /* 度数空心小圆圈 */
+    lv_obj_t *degree_circle = lv_obj_create(parent_card);
+    lv_obj_remove_style_all(degree_circle);
+    lv_obj_set_size(degree_circle, 10, 10);
+    lv_obj_set_style_border_width(degree_circle, 2, 0);
+    lv_obj_set_style_border_color(degree_circle, AREX_GREEN, 0);
+    lv_obj_set_style_radius(degree_circle, LV_RADIUS_CIRCLE, 0);
+    lv_obj_align_to(degree_circle, s_heading_val_lbl, LV_ALIGN_OUT_RIGHT_TOP, 4, 8);
+
+    /* ========================================================
+     * 3. 零内存罗盘卷尺 (Tape) -> 钉死在最底部！
+     * ======================================================== */
+    s_compass_tape_obj = lv_obj_create(parent_card);
+    lv_obj_remove_style_all(s_compass_tape_obj);
+
+    /* 宽度留边，高度 60px */
+    lv_obj_set_size(s_compass_tape_obj, right_canvas_w - 20, COMPASS_TAPE_H);
+    /* 核心修复：钉在卡片最底部，往上偏移 20px 防贴边 */
+    lv_obj_align(s_compass_tape_obj, LV_ALIGN_BOTTOM_MID, 0, -20);
+
+    /* 挂载数学绘制引擎 */
+    lv_obj_add_event_cb(s_compass_tape_obj, compass_tape_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
 }
 
 /* ============================================================
