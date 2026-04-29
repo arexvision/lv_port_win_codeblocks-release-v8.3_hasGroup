@@ -132,6 +132,10 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload);
 /* 清除所有脏标记 */
 void arex_bus_clear_all_dirty(void);
 
+/* --- 配置持久化（weak 实现由具体平台覆盖） --- */
+bool arex_config_load(arex_sys_config_t *cfg);
+bool arex_config_save(const arex_sys_config_t *cfg);
+
 #ifdef __cplusplus
 }
 #endif

@@ -56,34 +56,7 @@ arex_custom_widget_cfg_t g_left_widgets[AREX_LEFT_MAX_WIDGETS] = {0};
 uint8_t g_left_widget_count = 0;
 
 
-/* =========================================================
- * 从 KV 持久化存储加载配置
- *
- * 模拟实现（PC 端 / 调试用）：
- *   - 直接返回 false，强制走 arex_sys_config_defaults() 默认值
- * 真机实现（替换为本函数体）：
- *   - 从 Flash/NVDS 读取 arex_sys_config_t 二进制块
- *   - 做 CRC 校验，数据损坏则返回 false
- *   - 成功返回 true，失败返回 false
- * ========================================================= */
-static bool arex_config_load(arex_sys_config_t *cfg)
-{
-    /* TODO(真机): 替换为实际的 KV 读取实现
-     *
-     * 示例（伪代码）：
-     *   uint8_t buf[sizeof(arex_sys_config_t)];
-     *   if (nvds_get(NVDS_TAG_UI_CONFIG, sizeof(buf), buf)) {
-     *       if (crc16_check(buf, sizeof(buf) - 2)) {
-     *           memcpy(cfg, buf, sizeof(arex_sys_config_t));
-     *           return true;
-     *       }
-     *   }
-     *   return false;
-     */
-    return false;
-}
-
-
+/* 从 KV 持久化存储加载配置（weak 实现由具体平台覆盖） */
 /* =========================================================
  * 默认配置值
  *
