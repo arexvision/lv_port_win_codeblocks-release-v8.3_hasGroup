@@ -759,7 +759,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
 
     /* ========== 第二步：DEPTH 专属渲染（整数+小数+单位分离） ========== */
-    if (w_id == AREX_WIDGET_DEPTH) {
+    bool is_2x2 = (span_w >= 2 && span_h >= 2);
+    if (w_id == AREX_WIDGET_DEPTH && is_2x2) {
         /* child[0] 整数，Huge 字体，靠左 */
         lv_obj_t *int_lbl = lv_label_create(obj);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
@@ -789,7 +790,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
         lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, 0, 2);
 
-        /* child[3] 速率箭头，贴右边缘 */
+        /* child[3] 速率箭头，贴右边缘（仅 2x2 大块显示） */
         LV_IMG_DECLARE(sudu);
         lv_obj_t *sudu_img = lv_img_create(obj);
         lv_img_set_src(sudu_img, &sudu);
@@ -798,10 +799,9 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
         lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
         return obj;
-    }
-
-    /* ========== 第三步：NDL 专属渲染（电池型 Bar + 数值 + 标签） ========== */
-    if (w_id == AREX_WIDGET_NDL) {
+    } else if (w_id == AREX_WIDGET_DEPTH) {
+        /* 单格 DEPTH（1x1 等）：走通用单标签渲染，不显示速度图标 */
+    } else if (w_id == AREX_WIDGET_NDL) {
         lv_obj_t *bar_bg = lv_obj_create(obj);
         lv_obj_remove_style_all(bar_bg);
         lv_obj_set_size(bar_bg, 14, 40);
