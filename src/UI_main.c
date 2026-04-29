@@ -6,8 +6,85 @@
 #include "arex_hal_sim/arex_input_pc.h"
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 static lv_timer_t *s_update_task_timer;  /* 50ms UI 消费定时器 */
+
+/* =========================================================
+ * arex_test_set_ui_layout — 构造 BLE 同步帧，模拟 APP 下发布局配置
+ *
+ * 测试布局 A (phase=0): 标准 2x6 锚点 + 默认卡片顺序
+ * 测试布局 B (phase=1): 翻转 2x6 锚点 + 翻转卡片顺序
+ * ========================================================= */
+static void arex_test_set_ui_layout(uint8_t phase)
+{
+    static arex_ble_ui_sync_payload_t s_payload;
+
+    memset(&s_payload, 0, sizeof(s_payload));
+    s_payload.version = AREX_BLE_CFG_VERSION;
+
+    if (phase == 0) {
+        /* 标准布局 */
+        uint8_t left_def[][6] = {
+            /* id,   x,  y,  w,  h,  font_id */
+            { AREX_WIDGET_DEPTH,    0, 0, 2, 1, AREX_FONT_ID_HUGE },   /* 深度占满顶行 */
+            { AREX_WIDGET_NDL,     0, 1, 1, 1, AREX_FONT_ID_MEDIUM },   /* NDL 左 */
+            { AREX_WIDGET_TTS,     1, 1, 1, 1, AREX_FONT_ID_MEDIUM },   /* TTS 右 */
+            { AREX_WIDGET_POD1,    0, 2, 1, 1, AREX_FONT_ID_MEDIUM }, /* POD1 左 */
+            { AREX_WIDGET_POD2,    1, 2, 1, 1, AREX_FONT_ID_MEDIUM }, /* POD2 右 */
+            { AREX_WIDGET_PPO2,    0, 3, 1, 1, AREX_FONT_ID_MEDIUM }, /* PPO2 左 */
+            { AREX_WIDGET_GAS,     1, 3, 1, 1, AREX_FONT_ID_MEDIUM }, /* GAS 右 */
+            { AREX_WIDGET_WTIME,   0, 4, 1, 1, AREX_FONT_ID_MEDIUM }, /* W.TIME 左 */
+            { AREX_WIDGET_BATTERY, 1, 4, 1, 1, AREX_FONT_ID_MEDIUM }, /* BATTERY 右 */
+            { AREX_WIDGET_TEMP,    0, 5, 2, 1, AREX_FONT_ID_SMALL  }, /* TEMP 底行 */
+        };
+        s_payload.left_count = sizeof(left_def) / sizeof(left_def[0]);
+        for (uint8_t i = 0; i < s_payload.left_count; i++) {
+            s_payload.left_widgets[i].id      = left_def[i][0];
+            s_payload.left_widgets[i].x      = left_def[i][1];
+            s_payload.left_widgets[i].y      = left_def[i][2];
+            s_payload.left_widgets[i].w      = left_def[i][3];
+            s_payload.left_widgets[i].h      = left_def[i][4];
+            s_payload.left_widgets[i].font_id = left_def[i][5];
+        }
+        /* 默认卡片顺序 */
+        uint8_t card_order_default[] = { 0, 1, 2, 3, 4, 5 };
+        memcpy(s_payload.card_order, card_order_default, sizeof(card_order_default));
+        s_payload.custom_5f_count = 0;
+    } else {
+        /* 翻转布局：交换 x 列索引，左右对调 */
+        uint8_t left_rev[][6] = {
+            /* id,   x,  y,  w,  h,  font_id */
+            { AREX_WIDGET_HEADING,  0, 0, 2, 1, AREX_FONT_ID_HUGE },   /* 航向顶行 */
+            { AREX_WIDGET_CNS,     1, 1, 1, 1, AREX_FONT_ID_MEDIUM },  /* CNS 左 */
+            { AREX_WIDGET_SAC_RATE,0, 1, 1, 1, AREX_FONT_ID_MEDIUM },  /* SAC 右 */
+            { AREX_WIDGET_BATTERY, 1, 2, 1, 1, AREX_FONT_ID_MEDIUM }, /* BATTERY 左 */
+            { AREX_WIDGET_TEMP,    0, 2, 1, 1, AREX_FONT_ID_MEDIUM }, /* TEMP 右 */
+            { AREX_WIDGET_WTIME,   1, 3, 1, 1, AREX_FONT_ID_MEDIUM }, /* W.TIME 左 */
+            { AREX_WIDGET_DEPTH,   0, 3, 1, 1, AREX_FONT_ID_MEDIUM }, /* DEPTH 右 */
+            { AREX_WIDGET_PPO2,    0, 4, 2, 1, AREX_FONT_ID_MEDIUM }, /* PPO2 双列 */
+            { AREX_WIDGET_NDL,     0, 5, 1, 1, AREX_FONT_ID_SMALL  }, /* NDL 底 */
+            { AREX_WIDGET_TTS,     1, 5, 1, 1, AREX_FONT_ID_SMALL  }, /* TTS 底 */
+        };
+        s_payload.left_count = sizeof(left_rev) / sizeof(left_rev[0]);
+        for (uint8_t i = 0; i < s_payload.left_count; i++) {
+            s_payload.left_widgets[i].id      = left_rev[i][0];
+            s_payload.left_widgets[i].x      = 1 - left_rev[i][1]; /* 列索引翻转 */
+            s_payload.left_widgets[i].y      = left_rev[i][2];
+            s_payload.left_widgets[i].w      = left_rev[i][3];
+            s_payload.left_widgets[i].h      = left_rev[i][4];
+            s_payload.left_widgets[i].font_id = left_rev[i][5];
+        }
+        /* 翻转卡片顺序 */
+        uint8_t card_order_rev[] = { 5, 4, 3, 2, 1, 0 };
+        memcpy(s_payload.card_order, card_order_rev, sizeof(card_order_rev));
+        s_payload.custom_5f_count = 0;
+    }
+
+    printf("[TEST] Calling arex_bus_set_ui_layout(phase=%u, left_count=%u)\r\n",
+           phase, s_payload.left_count);
+    arex_bus_set_ui_layout(&s_payload);
+}
 
 /* =========================================================
  * sim_tick_cb — 模拟硬件数据源
@@ -19,11 +96,12 @@ static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
 
-    /* 每 10 秒切换一次布局（左右/右左），用于测试 */
     static uint16_t s_layout_tick = 0;
     s_layout_tick++;
-    if (s_layout_tick % 5 == 0) {
-        arex_bus_toggle_layout_order();
+    if (s_layout_tick % 2 == 0) {
+        static uint8_t phase = 0;
+        arex_test_set_ui_layout(phase);
+        phase = (phase + 1) % 2;
     }
 
     /* 航向缓慢顺时针旋转 */
@@ -79,6 +157,7 @@ static void sim_tick_cb(lv_timer_t *t)
     /* 推流历史轨迹点到 4F 曲线图 */
     arex_dive_log_append((float)g_sensor_data.dive_time_s, g_sensor_data.depth);
 
+    arex_bus_set_battery(g_sensor_data.battery_pct + 1);
     /* 模拟温度缓慢变化 */
     static float s_temp_offset = 0.0f;
     s_temp_offset += 1.0f;

@@ -239,3 +239,56 @@ void arex_bus_toggle_layout_order(void)
                                 : AREX_ORDER_NORMAL;
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 }
+
+void arex_bus_toggle_theme(void)
+{
+    g_sys_config.theme_mode = (g_sys_config.theme_mode == AREX_THEME_TECH)
+                              ? AREX_THEME_CLASSIC
+                              : AREX_THEME_TECH;
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+}
+
+void arex_bus_toggle_dots_position(void)
+{
+    static const uint8_t seq[] = { AREX_DOTS_RIGHT, AREX_DOTS_LEFT, AREX_DOTS_BOTTOM, AREX_DOTS_NONE };
+    static uint8_t idx = 0;
+    idx = (idx + 1) % (sizeof(seq) / sizeof(seq[0]));
+    g_sys_config.dots_position = seq[idx];
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+}
+
+void arex_bus_toggle_compass_style(void)
+{
+    static const uint8_t seq[] = { AREX_COMPASS_CLASSIC, AREX_COMPASS_AERO, AREX_COMPASS_SUB };
+    static uint8_t idx = 0;
+    idx = (idx + 1) % (sizeof(seq) / sizeof(seq[0]));
+    g_sys_config.compass_style = seq[idx];
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+}
+
+void arex_bus_toggle_sep_style(void)
+{
+    static const uint8_t seq[] = { AREX_SEP_NONE, AREX_SEP_SOLID, AREX_SEP_DASHED, AREX_SEP_DOTTED };
+    static uint8_t idx = 0;
+    idx = (idx + 1) % (sizeof(seq) / sizeof(seq[0]));
+    g_sys_config.sep_style = seq[idx];
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+}
+
+void arex_bus_toggle_flash_speed(void)
+{
+    g_sys_config.flash_speed = (g_sys_config.flash_speed + 1) % 3;
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+}
+
+void arex_bus_toggle_mask(void)
+{
+    g_sys_config.mask_enabled = !g_sys_config.mask_enabled;
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+}
+
+void arex_bus_toggle_split_outward(void)
+{
+    g_sys_config.split_outward = !g_sys_config.split_outward;
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+}

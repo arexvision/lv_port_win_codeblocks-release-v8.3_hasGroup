@@ -103,6 +103,9 @@ void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name);
 void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min);
 void arex_bus_set_cns(uint8_t cns_pct);
 void arex_bus_set_otu(uint16_t otu_val);
+void arex_bus_set_temperature(float temp_c);
+/* --- System Data 接口[状态参数] --- */
+void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
 
 /* --- 临界区保护的数组写入接口 --- */
 /* 16 组织舱饱和度数组（>32bit，必须包临界区防止数据撕裂） */
@@ -110,10 +113,15 @@ void arex_bus_set_tissues(const uint8_t tissue_pct[16]);
 /* 完整减压站序列（>32bit，必须包临界区） */
 void arex_bus_set_deco_plan(const arex_deco_stop_t *stops, uint8_t count);
 
-/* --- System Data 接口 --- */
-void arex_bus_set_temperature(float temp_c);
-void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
+/* --- 布局参数切换测试接口[扩展功能]展会不用--- */
 void arex_bus_toggle_layout_order(void);
+void arex_bus_toggle_theme(void);
+void arex_bus_toggle_dots_position(void);
+void arex_bus_toggle_compass_style(void);
+void arex_bus_toggle_sep_style(void);
+void arex_bus_toggle_flash_speed(void);
+void arex_bus_toggle_mask(void);
+void arex_bus_toggle_split_outward(void);
 
 /* --- 历史轨迹推流（已在 card_plan.c 中实现，此处声明导出） --- */
 void arex_dive_log_append(float current_time_s, float current_depth_m);
