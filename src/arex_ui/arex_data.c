@@ -169,6 +169,57 @@ void arex_bus_set_temperature(float temp_c)
     }
 }
 
+void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
+{
+    if (payload == NULL || payload->version != AREX_BLE_CFG_VERSION) {
+        return;
+    }
+
+    /* 临界区保护，防止 UI 任务在中途读到撕裂的数据 */
+#ifndef PC_SIMULATOR
+    rt_base_t level = rt_hw_interrupt_disable();
+#else
+    volatile rt_base_t level = 0;
+#endif
+
+    /* 2. 拷贝右侧卡片滑动顺序 */
+    memcpy(g_sys_config.card_order, payload->card_order, sizeof(g_sys_config.card_order));
+
+    /* 3. 映射左侧 2x6 锚点配置 */
+    g_left_widget_count = (payload->left_count > AREX_LEFT_MAX_WIDGETS)
+                          ? AREX_LEFT_MAX_WIDGETS
+                          : payload->left_count;
+    for (int i = 0; i < g_left_widget_count; i++) {
+        g_left_widgets[i].widget_id = (arex_widget_id_t)payload->left_widgets[i].id;
+        g_left_widgets[i].x         = payload->left_widgets[i].x;
+        g_left_widgets[i].y         = payload->left_widgets[i].y;
+        g_left_widgets[i].w         = payload->left_widgets[i].w;
+        g_left_widgets[i].h         = payload->left_widgets[i].h;
+        g_left_widgets[i].font_id   = (arex_font_id_t)payload->left_widgets[i].font_id;
+    }
+
+    /* 4. 映射 5F 自定义网格配置 */
+    g_sys_config.widget_count = (payload->custom_5f_count > 30)
+                                 ? 30
+                                 : payload->custom_5f_count;
+    for (int i = 0; i < g_sys_config.widget_count; i++) {
+        g_sys_config.widget_ids[i] = (arex_widget_id_t)payload->custom_5f_widgets[i].id;
+        g_sys_config.widget_r[i]  = payload->custom_5f_widgets[i].r;
+        g_sys_config.widget_c[i]  = payload->custom_5f_widgets[i].c;
+        g_sys_config.widget_w[i]  = payload->custom_5f_widgets[i].w;
+        g_sys_config.widget_h[i]  = payload->custom_5f_widgets[i].h;
+    }
+
+    /* 5. 打上终极脏标记，通知 UI 推倒重建 */
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+
+#ifndef PC_SIMULATOR
+    rt_hw_interrupt_enable(level);
+#else
+    (void)level;
+#endif
+}
+
 void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count)
 {
     if (g_sensor_data.strobe_on != strobe_on ||

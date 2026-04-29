@@ -80,13 +80,13 @@ static void sim_tick_cb(lv_timer_t *t)
  * ========================================================= */
 void UI_main(void)
 {
-    /* 1. 初始化 UI 引擎（加载默认配置 + 初始化潜水数据） */
+    /* 1. 初始化 UI 引擎（加载默认配置 + 初始化传感器数据） */
     arex_ui_init();
 
     /* 2. 创建 UI 界面 (安全区 + 左侧锚点 + 卡片) */
     arex_screen_create();
 
-    /* 3. 初始化输入处理[!!!注意：只有PC模拟器需要这个，真机不需要，真机输入直接调用UI_handle_rotate()/UI_handle_click()/UI_handle_back()] */ 
+    /* 3. 初始化输入处理[!!!注意：只有PC模拟器需要这个，真机不需要，真机输入直接调用UI_handle_rotate()/UI_handle_click()/UI_handle_back()] */
     lv_obj_t *scr = lv_scr_act();
     arex_input_init(scr);
 

@@ -291,6 +291,7 @@ typedef enum {
     DIRTY_TISSUES   = (1U << 13),  /* 16 组织舱饱和度数组（临界区保护） */
     DIRTY_CNS       = (1U << 14),  /* CNS 氧中毒百分比 */
     DIRTY_OTU       = (1U << 15),  /* OTU 氧中毒剂量单位 */
+    DIRTY_UI_LAYOUT = (1U << 16),  /* UI 布局重建（BLE 配置同步触发） */
 } arex_dirty_bit_t;
 
 /* =========================================================

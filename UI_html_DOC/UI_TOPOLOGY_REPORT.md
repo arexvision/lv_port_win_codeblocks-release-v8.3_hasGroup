@@ -1,7 +1,7 @@
 # AREX UI 架构现状拓扑报告
 
 > 生成日期：2026-04-29
-> 用途：BLE 二进制协议设计与 Config Manager 解耦架构规划
+> 用途：BLE 二进制协议设计与 Data Bus 极简解耦架构
 
 ---
 
@@ -511,8 +511,169 @@ arex_bus_set_dive_time(g_sensor_data.dive_time_s);
 
 ---
 
+## 附录 B：BLE 布局同步 — Data Bus 极简解耦（v2026-04-29）
+
+### B.1 设计目标与边界铁律
+
+UI 文件夹作为**100% 纯净的渲染黑盒**，禁止包含任何 KV、Flash 读写或 CRC 校验逻辑。
+
+```
+┌─────────────────────┐     arex_bus_set_ui_layout()      ┌─────────────────────┐
+│     BLE 任务侧      │ ─────────────────────────────────▶ │      UI 引擎侧       │
+│  (真机 MCU / 模拟器) │                                    │   (arex_data.c)     │
+└─────────┬───────────┘                                    └──────────┬──────────┘
+          │                                                          │
+          │ 1. CRC-16 校验                                           │ 4. 临界区 memcpy
+          │ 2. Flash/KV 持久化                                        │ 5. DIRTY_UI_LAYOUT
+          │ 3. 调用 arex_bus_set_ui_layout()                          │ 6. arex_ui_update_task()
+          │                                                          │    重建布局
+          ▼                                                          ▼
+   Flash / KV 持久化                                    arex_screen_rebuild_layout()
+```
+
+| 模块 | 职责 | 禁止操作 |
+|------|------|----------|
+| BLE 任务 | 接收帧、CRC 校验、写入 Flash/KV、调用 Data Bus | 禁止调用 LVGL |
+| Data Bus (`arex_data.c`) | 临界区 memcpy + 打脏标记 | 禁止调用 LVGL / Flash |
+| UI 消费任务 (`arex_ui_update_task`) | 接收 `DIRTY_UI_LAYOUT` + 调用 `arex_screen_rebuild_layout()` | 禁止读 Flash |
+
+### B.2 BLE 二进制帧结构体
+
+**文件：** `src/arex_ui/arex_data.h`
+
+```c
+#pragma pack(push, 1)
+
+/* 左侧 2x6 组件描述 (6 Bytes) */
+typedef struct {
+    uint8_t id;         /* arex_widget_id_t (0~13) */
+    uint8_t x;          /* 列索引 0~1 */
+    uint8_t y;          /* 行索引 0~5 */
+    uint8_t w;          /* 列跨度 1~2 */
+    uint8_t h;          /* 行跨度 1~2 */
+    uint8_t font_id;    /* arex_font_id_t (0~3) */
+} ble_sync_left_widget_t;
+
+/* 5F 自定义组件描述 (5 Bytes) */
+typedef struct {
+    uint8_t id;         /* arex_widget_id_t (0~13) */
+    uint8_t r;          /* 起始行 0~5 */
+    uint8_t c;          /* 起始列 0~4 */
+    uint8_t w;          /* 列跨度 1~2 */
+    uint8_t h;          /* 行跨度 1~2 */
+} ble_sync_5f_widget_t;
+
+/* BLE UI 布局同步帧 — 总大小 184 字节，可单帧传输
+ * 字节数: version(1) + card_order[7](7) + left_count(1)
+ *       + left_widgets[12]×6B(72) + custom_5f_count(1)
+ *       + custom_5f_widgets[20]×5B(100) + crc16(2)
+ *       = 184 字节
+ */
+typedef struct {
+    uint8_t  version;                     /* 协议版本 0x01 */
+    uint8_t  card_order[7];               /* 卡片滑动顺序 */
+    uint8_t  left_count;                  /* 左侧组件数量 */
+    ble_sync_left_widget_t left_widgets[12];
+    uint8_t  custom_5f_count;             /* 5F 组件数量 */
+    ble_sync_5f_widget_t custom_5f_widgets[20];
+    uint16_t crc16;                      /* CRC-16/XMODEM 校验和 */
+} arex_ble_ui_sync_payload_t;
+#pragma pack(pop)
+
+#define AREX_BLE_CFG_VERSION  0x01
+#define AREX_BLE_FRAME_SIZE   sizeof(arex_ble_ui_sync_payload_t)
+```
+
+### B.3 新增脏标记
+
+```c
+typedef enum {
+    DIRTY_NONE      = 0,
+    DIRTY_DEPTH     = (1U << 0),
+    // ... DIRTY_CNS / DIRTY_OTU ...
+    DIRTY_UI_LAYOUT = (1U << 16),  /* UI 布局重建（BLE 配置同步触发） */
+} arex_dirty_bit_t;
+```
+
+### B.4 Data Bus API
+
+| 函数 | 所在文件 | 触发方 | 作用 |
+|------|----------|--------|------|
+| `arex_bus_set_ui_layout()` | `arex_data.c` | BLE 任务 | 临界区 memcpy + 触发 `DIRTY_UI_LAYOUT` |
+
+**真机 BLE 任务调用示例（伪代码）：**
+
+```c
+case 0x45: {  /* UI 布局同步帧 */
+    arex_ble_ui_sync_payload_t *payload = (arex_ble_ui_sync_payload_t *)frame->payload;
+
+    /* 1. BLE 层负责校验 CRC */
+    uint16_t calc_crc = crc16(payload, sizeof(arex_ble_ui_sync_payload_t) - 2);
+    if (calc_crc != payload->crc16) {
+        ble_send_status_ack(env, frame->seq, frame->func, BLE_UI_ACK_CRC_ERROR);
+        break;
+    }
+
+    /* 2. BLE 层负责将配置写入 Flash */
+    my_hardware_kv_set("UI_CFG", payload, sizeof(arex_ble_ui_sync_payload_t));
+
+    /* 3. 一切换写安全后，调用 UI Data Bus 接口 */
+    arex_bus_set_ui_layout(payload);
+
+    ble_send_status_ack(env, frame->seq, frame->func, BLE_UI_ACK_SUCCESS);
+    break;
+}
+```
+
+### B.5 帧处理流程
+
+```
+BLE 收到帧 (0x45 CMD)
+  │
+  ├─ CRC-16 校验（BLE 任务侧负责）
+  ├─ Flash/KV 持久化（BLE 任务侧负责）
+  │
+  ▼
+arex_bus_set_ui_layout(payload)      // arex_data.c
+  │
+  ├─ 版本号校验 (version == 0x01)
+  ├─ 临界区保护 memcpy
+  │     ├─ card_order[] → g_sys_config
+  │     ├─ left_widgets[] → g_left_widgets[]
+  │     └─ custom_5f_widgets[] → g_sys_config.widget_*
+  └─ g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT
+        │
+        ▼
+arex_ui_update_task() (50ms)
+  │
+  └─ mask & DIRTY_UI_LAYOUT
+        │
+        ├─ lv_disp_enable_invalidation(false)  // 锁屏防闪烁
+        ├─ arex_screen_rebuild_layout()
+        │     ├─ lv_obj_clean(s_left_anchor)
+        │     ├─ arex_render_left_anchor_grid()
+        │     └─ right_panel_create() / tileview 重建
+        ├─ lv_disp_enable_invalidation(true)
+        └─ return  // 重建耗时，本帧直接退出
+```
+
+### B.6 文件清单
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `arex_data.h` | 修改 | 新增 BLE 帧结构体 + `arex_bus_set_ui_layout()` 声明 |
+| `arex_data.c` | 修改 | 新增 `arex_bus_set_ui_layout()` 实现（临界区 memcpy + 脏标记） |
+| `arex_ui_engine.h` | 修改 | 新增 `DIRTY_UI_LAYOUT` 枚举值 |
+| `arex_ui_engine.c` | 修改 | `arex_ui_update_task()` 第一优先拦截 `DIRTY_UI_LAYOUT` |
+| `UI_main.c` | 修改 | 移除 `arex_config.h` include；移除 `arex_config_init()` 调用 |
+| `UI_html_DOC/UI_TOPOLOGY_REPORT.md` | 修改 | 附录 B 重构为 Data Bus 极简解耦架构 |
+
+---
+
 ## 变更日志
 
 | 日期 | 作者 | 描述 |
 |------|------|------|
 | 2026-04-29 | ClaudeCode | 初版：提取 arex_ui_engine.h/c + arex_card_registry.h 全部核心枚举和结构体定义 |
+| 2026-04-29 | ClaudeCode | 新增 Config Manager 中间件（arex_config.h/c）；新增 DIRTY_UI_LAYOUT 脏标记；新增附录 B 架构文档 |
+| 2026-04-29 | ClaudeCode | 撤销 arex_config 设计；BLE 帧移入 arex_data.h；改为极简 Data Bus 架构（arex_bus_set_ui_layout）；附录 B 重写 |

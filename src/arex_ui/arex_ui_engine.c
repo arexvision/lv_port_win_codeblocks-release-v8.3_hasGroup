@@ -1282,6 +1282,17 @@ void arex_ui_update_task(lv_timer_t *timer)
     uint32_t mask = g_sensor_data.dirty_mask;
     if (mask == DIRTY_NONE) return;
 
+    /* 最高优先级：UI 布局重建（BLE 配置同步触发）。
+     * 重建耗时较长，锁住 LVGL invalidation 防止闪烁，本帧直接退出。 */
+    if (mask & DIRTY_UI_LAYOUT) {
+        lv_disp_t *disp = lv_disp_get_default();
+        if (disp) lv_disp_enable_invalidation(disp, false);
+        arex_screen_rebuild_layout();
+        if (disp) lv_disp_enable_invalidation(disp, true);
+        g_sensor_data.dirty_mask &= ~DIRTY_UI_LAYOUT;
+        return;
+    }
+
     /* 深度 + NDL + TTS + 组织舱 —— 左侧面板全量刷新 + 2F Deco 卡片刷新 */
     if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES)) {
         arex_screen_refresh_left_panel();
