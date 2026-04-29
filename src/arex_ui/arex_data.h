@@ -113,6 +113,7 @@ void arex_bus_set_deco_plan(const arex_deco_stop_t *stops, uint8_t count);
 /* --- System Data 接口 --- */
 void arex_bus_set_temperature(float temp_c);
 void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
+void arex_bus_toggle_layout_order(void);
 
 /* --- 历史轨迹推流（已在 card_plan.c 中实现，此处声明导出） --- */
 void arex_dive_log_append(float current_time_s, float current_depth_m);

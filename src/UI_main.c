@@ -1,10 +1,11 @@
-#include "../arex_ui/arex_ui_engine.h"
-#include "../arex_ui/arex_ui_state.h"
-#include "../arex_ui/arex_screen.h"
-#include "../arex_ui/arex_data.h"
-#include "../lvgl/lvgl.h"
+#include "arex_ui/arex_ui_engine.h"
+#include "arex_ui/arex_ui_state.h"
+#include "arex_ui/arex_screen.h"
+#include "arex_ui/arex_data.h"
+#include "lvgl/lvgl.h"
 #include "arex_hal_sim/arex_input_pc.h"
 #include <math.h>
+#include <stdio.h>
 
 static lv_timer_t *s_update_task_timer;  /* 50ms UI 消费定时器 */
 
@@ -18,9 +19,19 @@ static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
 
+    /* 每 10 秒切换一次布局（左右/右左），用于测试 */
+    static uint16_t s_layout_tick = 0;
+    s_layout_tick++;
+    if (s_layout_tick % 5 == 0) {
+        arex_bus_toggle_layout_order();
+    }
+
     /* 航向缓慢顺时针旋转 */
     uint16_t new_heading = (g_sensor_data.heading + 1) % 360;
     arex_bus_set_heading(new_heading);
+
+    /* 每 2 秒切换一次气体，用于测试 */
+    arex_bus_set_gas(g_sensor_data.gas_active_idx,g_sensor_data.gas_name);
 
     /* 潜水时间 +1s（同时触发左侧面板 + 曲线图刷新） */
     arex_bus_set_dive_time(g_sensor_data.dive_time_s + 1);
@@ -29,7 +40,7 @@ static void sim_tick_cb(lv_timer_t *t)
     arex_bus_set_surface_time(g_sensor_data.surface_time_s + 1);
 
     /* 深度模拟：每秒增加 0.5m */
-    float new_depth = g_sensor_data.depth + 2.5f;
+    float new_depth = g_sensor_data.depth + 2.0f;
     if (new_depth > 50.0f) new_depth = 50.0f;
     arex_bus_set_depth(new_depth);
 

@@ -58,6 +58,8 @@
         "arex_data.h": "c",
         "arex_ui_state.h": "c",
         "math.h": "c",
-        "win32drv.h": "c"
+        "win32drv.h": "c",
+        "arex_screen.h": "c",
+        "arex_input_pc.h": "c"
     }
 }

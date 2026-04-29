@@ -231,3 +231,11 @@ void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cyli
         g_sensor_data.dirty_mask |= DIRTY_DEVICES;
     }
 }
+
+void arex_bus_toggle_layout_order(void)
+{
+    g_sys_config.layout_order = (g_sys_config.layout_order == AREX_ORDER_NORMAL)
+                                ? AREX_ORDER_REVERSE
+                                : AREX_ORDER_NORMAL;
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+}
