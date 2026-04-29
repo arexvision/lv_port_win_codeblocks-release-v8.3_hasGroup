@@ -57,71 +57,113 @@ uint8_t g_left_widget_count = 0;
 
 
 /* =========================================================
- * 默认配置值 (全字段初始化 — APP 同步就绪)
+ * 从 KV 持久化存储加载配置
+ *
+ * 模拟实现（PC 端 / 调试用）：
+ *   - 直接返回 false，强制走 arex_sys_config_defaults() 默认值
+ * 真机实现（替换为本函数体）：
+ *   - 从 Flash/NVDS 读取 arex_sys_config_t 二进制块
+ *   - 做 CRC 校验，数据损坏则返回 false
+ *   - 成功返回 true，失败返回 false
+ * ========================================================= */
+static bool arex_config_load(arex_sys_config_t *cfg)
+{
+    /* TODO(真机): 替换为实际的 KV 读取实现
+     *
+     * 示例（伪代码）：
+     *   uint8_t buf[sizeof(arex_sys_config_t)];
+     *   if (nvds_get(NVDS_TAG_UI_CONFIG, sizeof(buf), buf)) {
+     *       if (crc16_check(buf, sizeof(buf) - 2)) {
+     *           memcpy(cfg, buf, sizeof(arex_sys_config_t));
+     *           return true;
+     *       }
+     *   }
+     *   return false;
+     */
+    return false;
+}
+
+
+/* =========================================================
+ * 默认配置值
+ *
+ * 当前实现的布局: Left Grid + Right Cards
+ *   左侧: 160x360 固定 2列(x80) x 6行(y60) 网格
+ *   右侧: tileview 滑动卡片 (INFO / 5F / DECO / COMPASS / GAS / PLAN / SETUP)
+ *   安全区: 580x420 由 left_anchor(160) + right_cards(420) 组成
+ *
+ * 字段分组:
+ *   [A] 活跃字段 — 当前渲染代码实际读取
+ *   [R] 预留字段 — 已定义但渲染代码未使用，为未来 Classic 上下布局预留
  * ========================================================= */
 void arex_sys_config_defaults(arex_sys_config_t *cfg)
 {
     memset(cfg, 0, sizeof(arex_sys_config_t));
 
-    /* 安全区 */
+    /* ========== [A] 安全区 ========== */
     cfg->safe_zone_w  = 580;
     cfg->safe_zone_h  = 420;
-    cfg->offset_x     = 0;           //默认情况x,y为0，表示中心点(上下，左右都是留白3U)
-    cfg->offset_y     = -10;        //睿哥需求默认上面留白2U，下面留白4U。所以要往上挪（对应LVGL的Y-1U）
+    cfg->offset_x     = 0;            /* x=0 表示水平居中（左右各留白 3U） */
+    cfg->offset_y     = -10;          /* y=-10 向上偏移（上面留白 2U，下面留白 4U） */
 
-    /* 架构 */
-    cfg->theme_mode    = AREX_THEME_TECH;
-    cfg->layout_order  = AREX_ORDER_NORMAL;
-    cfg->dots_position = AREX_DOTS_RIGHT;
+    /* ========== [A] 架构 ========== */
+    cfg->layout_order  = AREX_ORDER_REVERSE;  /* 0=标准(左锚右卡)，1=翻转(右锚左卡) */
+    cfg->dots_position = AREX_DOTS_RIGHT;    /* tileview 指示点位置 */
     cfg->compass_style = AREX_COMPASS_CLASSIC;
-    cfg->flash_speed   = 1;
     cfg->mask_enabled  = false;
 
-    cfg->split_outward = true;
+    /* ========== [R] 主题模式预留（当前固定为 Left Grid + Right Cards） ==========
+     * 可选扩展为 Classic 上下流式布局，届时渲染代码需读取以下字段：
+     *   - theme_mode        → AREX_THEME_CLASSIC
+     *   - h_depth / h_ndl / h_pod / h_batt / h_gas / h_time   → 上下分区高度
+     *   - sep_style / sep_thick                                → 分割线样式
+     *   - split_outward / flash_speed                          → 动画参数
+     *   - title_h_u / h_menu_item / gap_menu                  → 菜单排版
+     *   - h_tissues_chart                                     → 组织图高度
+     */
+    cfg->theme_mode    = AREX_THEME_TECH;    /* 当前固定 TECH（Left Grid + Right Cards） */
+    cfg->sep_style     = AREX_SEP_DASHED;    /* [R] 分割线样式（待用） */
+    cfg->sep_thick     = 2;                  /* [R] 线条粗细 px（待用） */
+    cfg->split_outward = true;               /* [R] 双拼模块展开方向（待用） */
+    cfg->flash_speed   = 1;                  /* [R] 动画闪烁速度（待用） */
 
-    /* 分割线 */
-    cfg->sep_style  = AREX_SEP_DASHED;
-    cfg->sep_thick  = 2;
-    cfg->sep_alpha  = 51;   /* 20% of 255 */
+    /* ========== [A] 分割线透明度 ========== */
+    cfg->sep_alpha  = 51;   /* 20% of 255 — SystemData 顶部分割线透明度 */
 
-    /* 10U 高度分配 (单位 U，1U = 10px) */
-    cfg->h_depth  = 8;   /* DEPTH 大通栏: 8U=80px */
-    cfg->h_ndl    = 6;   /* NDL/TTS 双拼: 6U=60px */
-    cfg->h_pod    = 6;   /* POD 1/2 双拼: 6U=60px */
-    cfg->h_batt   = 5;   /* BATT/W.TIME 双拼: 5U=50px */
-    cfg->h_gas    = 6;   /* GAS 中通栏: 6U=60px */
-    cfg->h_time   = 5;   /* DIVE TIME 底部: 5U=50px */
-    cfg->gap_u         = 0;   /* 模块间距: 0U=0px（由 sep_thick 负责分割线粗细） */
-    cfg->panel_gap_u   = 1;   /* 面板间距: 1U=10px */
-    cfg->title_h_u     = 2;   /* 标题高度: 2U=20px */
-    cfg->h_menu_item   = 5;   /* 菜单项高度: 5U=50px */
-    cfg->gap_menu      = 1;   /* 菜单项间距: 1U=10px */
-    cfg->h_tissues_chart = 9; /* 组织柱图高度: 9U=90px */
+    /* ========== [R] Classic 上下布局 10U 高度分配 (当前未使用) ==========
+     * 1U = 10px，总计 10U = 100px（预留将来改为上下分区流式布局）
+     * DEPTH 大通栏 → NDL/TTS 双拼 → POD 双拼 → BATT 双拼 → GAS → DIVE TIME
+     */
+    cfg->h_depth         = 8;   /* DEPTH 大通栏: 8U=80px */
+    cfg->h_ndl           = 6;   /* NDL/TTS 双拼: 6U=60px */
+    cfg->h_pod           = 6;   /* POD 1/2 双拼: 6U=60px */
+    cfg->h_batt          = 5;   /* BATT/W.TIME 双拼: 5U=50px */
+    cfg->h_gas           = 6;   /* GAS 中通栏: 6U=60px */
+    cfg->h_time          = 5;   /* DIVE TIME 底部: 5U=50px */
+    cfg->title_h_u       = 2;   /* [R] 标题高度（待用） */
+    cfg->h_menu_item     = 5;   /* [R] 菜单项高度（待用） */
+    cfg->gap_menu        = 1;   /* [R] 菜单项间距（待用） */
+    cfg->h_tissues_chart = 9;   /* [R] 组织柱图高度（待用） */
 
-    /* 默认 5F 网格布局
-     * 行 r(0~5) × 列 c(0~4)
-     * 跨度 w(1~2列) × h(1~2行)
+    /* ========== [A] 面板间距 ========== */
+    cfg->gap_u       = 0;   /* 左侧锚点与右侧面板间距: 0U=0px（由 sep_thick 负责分割线粗细） */
+    cfg->panel_gap_u = 1;   /* tileview 容器间距: 1U=10px */
+
+    /* ========== [A] 5F 自定义网格 (5列 x 6行) ==========
      *
      *  5列布局示意（5列=10格，6行）：
      *  col:  0  1  2  3  4
-     *  row0: [DEPTH 2x2 大块    ] [TEMP  ]
-     *  row2: [SAC 2x1           ] [WARN ]
-     *  row3: [POD1 2x2 大块       ]
-     *  row5: [POD2 2x1] [NDL 1x1]
+     *  row0: [DEPTH 2x2 大块    ] [TEMP  ] [HEADING 2x1 ]
+     *  row2: [SAC 2x1           ] [BATT 2x1] [PPO2 1x1 ]
+     *  row3: [NDL 2x1           ] [TTS 2x1 ] [CNS  1x1 ]
+     *  row4: [POD1 2x1          ] [POD2 2x1] [WTIME 1x1]
+     *  row5: [(POD1续)         ] [(POD2续)] [(WTIME续)]
      *
      *  widget_id → arex_widget_id_t:
      *    0=EMPTY 1=DEPTH 2=TEMP 3=HEADING 4=SAC_RATE 5=BATTERY
-     *    6=NDL 7=TTS 8=PPO2 9=CNS 10=POD1 11=POD2 12=WTIME
+     *    6=NDL 7=TTS 8=PPO2 9=CNS 10=POD1 11=POD2 12=WTIME 13=GAS
      */
     cfg->widget_count = 12;
-    /* 5x6 网格完全铺满布局：
-     * Row 0: DEPTH(2x2) | TEMP(1x1) | HEADING(2x1)
-     * Row 1: (DEPTH右)  | ---     | (HEADING右)
-     * Row 2: SAC(2x1)  | BATTERY(2x1) | PPO2(1x1)
-     * Row 3: NDL(2x1)  | TTS(2x1)    | CNS(1x1)
-     * Row 4: POD1(2x1) | POD2(2x1)    | (WTIME左)
-     * Row 5: (POD1右)  | (POD2右)     | WTIME(2x2)
-     */
     /*  id              r  c  w  h */
     cfg->widget_ids[0] = AREX_WIDGET_DEPTH;     cfg->widget_r[0] = 0; cfg->widget_c[0] = 0; cfg->widget_w[0] = 2; cfg->widget_h[0] = 2;
     cfg->widget_ids[1] = AREX_WIDGET_TEMP;      cfg->widget_r[1] = 0; cfg->widget_c[1] = 2; cfg->widget_w[1] = 1; cfg->widget_h[1] = 1;
@@ -135,35 +177,18 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->widget_ids[9] = AREX_WIDGET_POD1;      cfg->widget_r[9] = 4; cfg->widget_c[9] = 0; cfg->widget_w[9] = 2; cfg->widget_h[9] = 1;
     cfg->widget_ids[10] = AREX_WIDGET_POD2;      cfg->widget_r[10] = 4; cfg->widget_c[10] = 2; cfg->widget_w[10] = 2; cfg->widget_h[10] = 1;
     cfg->widget_ids[11] = AREX_WIDGET_WTIME;     cfg->widget_r[11] = 4; cfg->widget_c[11] = 4; cfg->widget_w[11] = 1; cfg->widget_h[11] = 1;
-    cfg->widget_ids[11] = AREX_WIDGET_WTIME;     cfg->widget_r[11] = 5; cfg->widget_c[11] = 0; cfg->widget_w[11] = 1; cfg->widget_h[11] = 1;
+    cfg->widget_ids[12] = AREX_WIDGET_WTIME;    cfg->widget_r[12] = 5; cfg->widget_c[12] = 0; cfg->widget_w[12] = 1; cfg->widget_h[12] = 1;
 
-    /* =====================================================
-     * 注入最新的左侧 2x6 矩阵排版数据
-     * (160x360 = 2列x6行，每格 80x60)
+    /* ========== [A] 左侧 2x6 固定网格 (160x360) ==========
+     * 160x360 区域 = 2列(80px) x 6行(60px)，由 arex_render_left_anchor_grid() 渲染
      *
-     * Grid Layout:
-     *   Row 0: NDL      | (2x1 → 160x60)
-     *   Row 1-2: DEPTH  | (2x2 → 160x120，带 sudu 速率图标)
-     *   Row 3: TIME     | (2x1 → 160x60)
-     *   Row 4: GAS      | (2x1 → 160x60)
-     *   Row 5: POD1     | POD2    (各 1x1 → 80x60，塞满第 6 行)
-     * ===================================================== */
-
-    /* DEPTH: 固定 160x120 (即 w=2, h=2 -> 占用 2列x2行)
-     * TIME: 占据 2x1 长条
-     * GAS: 占据 2x1 长条
-     * POD 1 & POD 2: 各占 1x1 (80x60 双拼，正好塞满第 6 行)
+     *  Grid Layout:
+     *    Row 0: NDL      | (2x1 → 160x60)
+     *    Row 1-2: DEPTH  | (2x2 → 160x120，带 sudu 速率图标)
+     *    Row 3: TIME     | (2x1 → 160x60)
+     *    Row 4: GAS      | (2x1 → 160x60)
+     *    Row 5: POD1     | POD2    (各 1x1 → 80x60，塞满第 6 行)
      */
-
-    /*typedef struct {
-        arex_widget_id_t widget_id;  组件类型 ID
-        uint8_t x;                  列索引 0~1
-        uint8_t y;                  行索引 0~5
-        uint8_t w;                  跨越列数 1~2
-        uint8_t h;                  跨越行数 1~2
-        uint8_t font_id;            字号: arex_font_id_t
-    } arex_custom_widget_cfg_t;
-    */
     g_left_widget_count = 6;
     g_left_widgets[0] = (arex_custom_widget_cfg_t){ AREX_WIDGET_NDL,    0, 0, 2, 1, AREX_FONT_ID_MEDIUM };
     g_left_widgets[1] = (arex_custom_widget_cfg_t){ AREX_WIDGET_DEPTH,  0, 1, 2, 2, AREX_FONT_ID_HUGE   };
@@ -172,19 +197,19 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     g_left_widgets[4] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD1,   0, 5, 1, 1, AREX_FONT_ID_SMALL  };
     g_left_widgets[5] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD2,   1, 5, 1, 1, AREX_FONT_ID_SMALL  };
 
-    /* 卡片顺序（INFO/SETUP 固定，中间 5 个可重排）
+    /* ========== [A] 右侧卡片顺序 (tileview 滑动顺序) ==========
      * card_order[pos] = card_id
-     * 固定: CARD_POS_INFO=0, CARD_POS_SETUP=6
-     * 可重排: CARD_POS_1 ~ CARD_POS_5 */
-    cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;         /* 不可修改 */
-    cfg->card_order[CARD_POS_1]     = CARD_ID_CUSTOM_GRID;  /* 5F 自定义网格 — 放在最前 */
+     * INFO(0) / SETUP(6) 固定，中间 5 张可由 APP 重排
+     */
+    cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;
+    cfg->card_order[CARD_POS_1]     = CARD_ID_CUSTOM_GRID;  /* 5F 自定义网格 — 默认最前 */
     cfg->card_order[CARD_POS_2]     = CARD_ID_DECO;
     cfg->card_order[CARD_POS_3]     = CARD_ID_COMPASS;
     cfg->card_order[CARD_POS_4]     = CARD_ID_GAS;
     cfg->card_order[CARD_POS_5]     = CARD_ID_PLAN;
-    cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;        /* 不可修改 */
+    cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;
 
-    /* 用户设置默认值 */
+    /* ========== [A] 用户设置默认值 ========== */
     cfg->mod_ppo2       = 1.4f;
     cfg->conservatism   = 1;    /* MED */
     cfg->brightness     = 2;    /* HIGH */
@@ -422,36 +447,22 @@ const lv_font_t *arex_get_font(uint8_t font_id)
 
 /* =========================================================
  * 初始化入口 (由 UI_main 调用)
+ *
+ * 启动流程：
+ *   1. 从 KV 持久化读取配置 → 成功则直接使用
+ *   2. KV 无数据/读取失败 → 填入默认值
+ *   3. 传感器数据清零（由 sim_tick_cb / 外部 API 实时写入）
  * ========================================================= */
 void arex_ui_init(void)
 {
-    arex_sys_config_defaults(&g_sys_config);
-    memset(&g_sensor_data, 0, sizeof(g_sensor_data));
+    /* 1. 加载持久化配置，失败则用默认值保底 */
+    if (!arex_config_load(&g_sys_config)) {
+        arex_sys_config_defaults(&g_sys_config);
+    }
 
-    /* 初始化默认潜水数据 */
-    g_sensor_data.depth = 0.0f;
-    g_sensor_data.ndl  = 5;
-    g_sensor_data.tts  = 24;
-    g_sensor_data.pod1_bar = 0.0f;
-    g_sensor_data.pod2_bar = 0.0f;
-    g_sensor_data.battery_pct = 85.0f;
-    g_sensor_data.heading = 265;
-    g_sensor_data.dive_time_s = 0; /* 38:14 */
-    g_sensor_data.surface_time_s = 0; /* WTM: 10:45 */
-    g_sensor_data.gas_active_idx = 2;
     strcpy(g_sensor_data.gas_name, "AIR");
-    g_sensor_data.ppo2[0] = 1.2f;
-    g_sensor_data.ppo2[1] = 1.2f;
-    g_sensor_data.ppo2[2] = 1.3f;
-    g_sensor_data.cns_pct = 15;
-    g_sensor_data.otu = 22;
-    g_sensor_data.next_stop_m = 21;
-    g_sensor_data.next_stop_min = 3;
-    /* System Data — 设备基础数据 */
-    g_sensor_data.temperature_c = 25.0f;
-    g_sensor_data.strobe_on = true;
-    g_sensor_data.flashlight_on = true;
-    g_sensor_data.cylinder_count = 1;
+    /* 2. 传感器数据清零 */
+    memset(&g_sensor_data, 0, sizeof(g_sensor_data));
 }
 
 /* =========================================================
@@ -866,6 +877,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.dive_time_s / 60, g_sensor_data.dive_time_s % 60);
         else if (w_id == AREX_WIDGET_TEMP)
             snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.temperature_c);
+        else if (w_id == AREX_WIDGET_GAS)
+            snprintf(buf, sizeof(buf), "%s", g_sensor_data.gas_name);
         else
             snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.depth);
         lv_label_set_text(val_lbl, buf);

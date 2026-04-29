@@ -96,8 +96,8 @@ typedef enum {
 
 /* 主题模式 */
 typedef enum {
-    AREX_THEME_TECH    = 0,   /* 左右宽屏布局 */
-    AREX_THEME_CLASSIC = 1    /* 上下流式布局 */
+    AREX_THEME_TECH    = 0,   /* Left Grid + Right Cards（当前使用） */
+    AREX_THEME_CLASSIC = 1    /* 上下流式布局（预留，渲染代码未实现） */
 } arex_theme_t;
 
 /* 告警级别 */
@@ -136,7 +136,7 @@ typedef struct {
     int16_t  offset_y;      /* 浮力盲区校准 */
 
     /* === 全局架构与行为 === */
-    uint8_t  theme_mode;      /* arex_theme_t (0=tech, 1=classic) */
+    uint8_t  theme_mode;      /* arex_theme_t: 0=Left Grid+Right Cards(当前), 1=Classic上下(预留) */
     uint8_t  layout_order;    /* arex_order_t */
     uint8_t  dots_position;   /* arex_dots_pos_t */
     uint8_t  compass_style;    /* arex_compass_style_t */
@@ -320,7 +320,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->offset_y     = -10;
 
     /* 架构 */
-    cfg->theme_mode    = AREX_THEME_TECH;
+    cfg->theme_mode    = AREX_THEME_TECH;    /* 当前固定 Left Grid + Right Cards */
     cfg->layout_order  = AREX_ORDER_NORMAL;
     cfg->dots_position = AREX_DOTS_RIGHT;
     cfg->compass_style = AREX_COMPASS_CLASSIC;

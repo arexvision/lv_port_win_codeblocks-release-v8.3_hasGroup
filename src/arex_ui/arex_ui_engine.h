@@ -85,13 +85,13 @@ typedef enum {
 } arex_font_id_t;
 
 typedef enum {
-    AREX_THEME_TECH = 0,   /* 左右宽屏布局 */
-    AREX_THEME_CLASSIC      /* 上下流式布局 */
+    AREX_THEME_TECH = 0,   /* Left Grid + Right Cards（当前使用） */
+    AREX_THEME_CLASSIC      /* 上下流式布局（预留，渲染代码未实现） */
 } arex_theme_t;
 
 typedef enum {
-    AREX_ORDER_NORMAL = 0,  /* 标准 (左/上) */
-    AREX_ORDER_REVERSE      /* 翻转 (右/下) */
+    AREX_ORDER_NORMAL = 0,  /* 标准 (左/又) */
+    AREX_ORDER_REVERSE      /* 翻转 (上/下) */
 } arex_order_t;
 
 typedef enum {

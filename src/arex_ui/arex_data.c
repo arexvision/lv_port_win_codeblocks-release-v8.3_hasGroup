@@ -176,10 +176,10 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
     }
 
     /* 临界区保护，防止 UI 任务在中途读到撕裂的数据 */
-#ifndef PC_SIMULATOR
-    rt_base_t level = rt_hw_interrupt_disable();
-#else
+#ifdef PC_SIMULATOR
     volatile rt_base_t level = 0;
+#else
+    rt_base_t level = rt_hw_interrupt_disable();
 #endif
 
     /* 2. 拷贝右侧卡片滑动顺序 */
