@@ -86,7 +86,7 @@ void UI_main(void)
     /* 2. 创建 UI 界面 (安全区 + 左侧锚点 + 卡片) */
     arex_screen_create();
 
-    /* 3. 初始化输入处理 */
+    /* 3. 初始化输入处理[!!!注意：只有PC模拟器需要这个，真机不需要，真机输入直接调用UI_handle_rotate()/UI_handle_click()/UI_handle_back()] */ 
     lv_obj_t *scr = lv_scr_act();
     arex_input_init(scr);
 

@@ -16,7 +16,7 @@ void arex_bus_set_depth(float depth_m)
     /* 防抖：只有变化超过 0.05m 才触发 UI 刷新，极大节省 CPU */
     if (fabsf(g_sensor_data.depth - depth_m) > 0.05f) {
         g_sensor_data.depth = depth_m;
-        g_sensor_data.dirty_mask |= DIRTY_DEPTH | DIRTY_DECO;
+        g_sensor_data.dirty_mask |= DIRTY_DEPTH | DIRTY_DECO;  //深度变化的时候也会触发跟踪
     }
 }
 
