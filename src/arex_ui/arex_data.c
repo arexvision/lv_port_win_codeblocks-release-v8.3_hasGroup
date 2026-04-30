@@ -11,10 +11,27 @@ extern uint16_t         g_deco_stop_count;
  * 铁律：仅更新数值 + 打脏标记，绝不碰 LVGL！
  * ========================================================= */
 
+/* 速率计算用：记录上一次深度更新的时间戳和深度值 */
+static uint32_t _last_depth_tick_ms = 0;
+static float    _prev_depth = 0.0f;
+
 void arex_bus_set_depth(float depth_m)
 {
     /* 防抖：只有变化超过 0.05m 才触发 UI 刷新，极大节省 CPU */
     if (fabsf(g_sensor_data.depth - depth_m) > 0.05f) {
+        /* 实时计算速率：m/min = (delta_depth_m / delta_time_s) * 60 */
+        uint32_t now_ms = lv_tick_get();
+        if (_last_depth_tick_ms > 0) {
+            uint32_t dt_ms = now_ms - _last_depth_tick_ms;
+            if (dt_ms > 0) {
+                float dt_min = dt_ms / 60000.0f;
+                float rate = (depth_m - _prev_depth) / dt_min;  /* m/min */
+                g_sensor_data.ascent_rate = rate;
+            }
+        }
+        _last_depth_tick_ms = now_ms;
+        _prev_depth = depth_m;
+
         g_sensor_data.depth = depth_m;
         g_sensor_data.dirty_mask |= DIRTY_DEPTH | DIRTY_DECO;  //深度变化的时候也会触发跟踪
     }

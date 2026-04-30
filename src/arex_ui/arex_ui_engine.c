@@ -7,6 +7,19 @@
 #include <string.h>
 
 /* ============================================================
+ * 速率指示器图片资源（6级动态箭头）
+ * ============================================================ */
+LV_IMG_DECLARE(sudo_up_level0);
+LV_IMG_DECLARE(sudo_up_level1);
+LV_IMG_DECLARE(sudo_up_level2);
+LV_IMG_DECLARE(sudo_down_level0);
+LV_IMG_DECLARE(sudo_down_level1);
+LV_IMG_DECLARE(sudo_down_level2);
+
+/* 速率图标全局句柄（用于 update_task 动态切换） */
+static lv_obj_t *s_img_ascent_rate = NULL;
+
+/* ============================================================
  * 罗盘卡片静态句柄（由 card_compass.c 持有）
  * 用于 arex_ui_update_task 中的零内存引擎刷新
  * ============================================================ */
@@ -772,10 +785,9 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, 0, 2);
 
         /* child[3] 速率箭头，贴右边缘（仅 2x2 大块显示） */
-        LV_IMG_DECLARE(sudu);
-        lv_obj_t *sudu_img = lv_img_create(obj);
-        lv_img_set_src(sudu_img, &sudu);
-        lv_obj_align(sudu_img, LV_ALIGN_RIGHT_MID, -5, 0);
+        s_img_ascent_rate = lv_img_create(obj);
+        lv_img_set_src(s_img_ascent_rate, &sudo_up_level0);
+        lv_obj_align(s_img_ascent_rate, LV_ALIGN_RIGHT_MID, -10, 0);
 
         /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
         lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
@@ -1291,6 +1303,26 @@ void arex_ui_update_task(lv_timer_t *timer)
     if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES)) {
         arex_screen_refresh_left_panel();
         card_deco_update();
+
+        /* 速率图标状态机：根据 ascent_rate 动态切换 6 级箭头 */
+        if (s_img_ascent_rate != NULL) {
+            float rate = g_sensor_data.ascent_rate;
+            const void *target_img = &sudo_up_level0;
+            if (rate >= 9.0f) {
+                target_img = &sudo_up_level2;
+            } else if (rate >= 3.0f) {
+                target_img = &sudo_up_level1;
+            } else if (rate >= 0.0f) {
+                target_img = &sudo_up_level0;
+            } else if (rate > -3.0f) {
+                target_img = &sudo_down_level0;
+            } else if (rate > -9.0f) {
+                target_img = &sudo_down_level1;
+            } else {
+                target_img = &sudo_down_level2;
+            }
+            lv_img_set_src(s_img_ascent_rate, target_img);
+        }
     }
 
     /* 气瓶压力 —— 左侧面板 POD 刷新 */
