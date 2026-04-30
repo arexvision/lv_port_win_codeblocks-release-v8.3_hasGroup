@@ -1694,6 +1694,7 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
  *       }
  *   }
  */
+// __attribute__((weak))
 void arex_bus_set_light_power(bool on)
 {
     /* TODO: 业务层实现
@@ -1732,6 +1733,7 @@ void arex_bus_set_light_power(bool on)
  *       else if (strncmp(color, "WHITE", 5) == 0) set_pwm(CH_WHITE, duty);
  *   }
  */
+// __attribute__((weak))
 void arex_ui_on_light_color_set(const char *color, const char *level)
 {
     /* TODO: 业务层实现
