@@ -128,7 +128,7 @@ typedef enum {
 } arex_sep_style_t;
 
 /* =========================================================
- * 2c. 5F 自定义网格组件 ID 枚举 (APP 同步核心)
+ * AREX 全量组件 ID 字典 (Mapped from Product PRD)
  *
  * 全系统唯一组件类型字典。APP 下发 widget_id 即可指定组件类型，
  * 渲染引擎通过 arex_widget_id_t → display name + unit string + data source
@@ -138,20 +138,58 @@ typedef enum {
  * 告警同步引擎靠这个共享 ID 实现"左侧锚点 + 5F 组件同时闪烁"。
  * ========================================================= */
 typedef enum {
-    AREX_WIDGET_EMPTY      = 0,   /* 空槽位 */
-    AREX_WIDGET_DEPTH      = 1,   /* DEPTH 深度 — 数据源: g_sensor_data.depth */
-    AREX_WIDGET_TEMP       = 2,   /* TEMP 水温 — 数据源: g_sensor_data.temp */
-    AREX_WIDGET_HEADING    = 3,   /* HEADING 航向 — 数据源: g_sensor_data.heading */
-    AREX_WIDGET_SAC_RATE   = 4,   /* SAC 呼吸速率 — 数据源: g_sensor_data.sac_rate */
-    AREX_WIDGET_BATTERY    = 5,   /* BATTERY 电池 — 数据源: g_sensor_data.battery_pct */
-    AREX_WIDGET_NDL        = 6,   /* NDL 免减压 — 数据源: g_sensor_data.ndl */
-    AREX_WIDGET_TTS        = 7,   /* TTS 回到水面 — 数据源: g_sensor_data.tts */
-    AREX_WIDGET_PPO2       = 8,   /* PPO2 — 数据源: g_sensor_data.ppo2[active_gas] */
-    AREX_WIDGET_CNS        = 9,   /* CNS — 数据源: g_sensor_data.cns_pct */
-    AREX_WIDGET_POD1       = 10,  /* POD1 气瓶1 — 数据源: g_sensor_data.pod1_bar */
-    AREX_WIDGET_POD2       = 11,  /* POD2 气瓶2 — 数据源: g_sensor_data.pod2_bar */
-    AREX_WIDGET_WTIME      = 12,  /* W.TIME 潜水总时 — 数据源: g_sensor_data.dive_time_s */
-    AREX_WIDGET_GAS        = 13,  /* GAS 当前气体 — 数据源: g_sensor_data.gas_name */
+    AREX_WIDGET_EMPTY = 0,
+
+    /* --- 核心 (Core) --- */
+    AREX_WIDGET_DEPTH,          // COMP.DEPTH
+    AREX_WIDGET_NDL_STOP,       // COMP.NDL_STOP (包含 NDL/停留时间的动态切换)
+    AREX_WIDGET_DIVE_TIME,      // COMP.DIVE_TIME
+    AREX_WIDGET_GAS,            // COMP.GAS
+    AREX_WIDGET_SYS,            // COMP.SYS (底部 60px 专属栏)
+
+    /* --- 基础 (Basic) --- */
+    AREX_WIDGET_TEMP,           // COMP.TEMP
+    AREX_WIDGET_TIME_OF_DAY,    // COMP.TIME (当前钟表时间)
+    AREX_WIDGET_TTS,            // COMP.TTS
+    AREX_WIDGET_ASCENT,         // COMP.ASCENT (速率，含箭头)
+    AREX_WIDGET_COMPASS,        // COMP.COMPASS (非交互式静态罗盘)
+    AREX_WIDGET_BATTERY,        // COMP.BATTERY
+    AREX_WIDGET_STOP_DEPTH,     // COMP.STOP_DEPTH
+    AREX_WIDGET_STOP_TIME,      // COMP.STOP_TIME
+    AREX_WIDGET_PPO2,           // COMP.PO2
+    AREX_WIDGET_NDL,            // COMP.NDL (保留兼容)
+    AREX_WIDGET_HEADING,        // COMP.HEADING
+    AREX_WIDGET_WTIME,          // COMP.WTIME (潜水时间，兼容旧名)
+
+    /* --- 技术潜水 (Tech Dive) --- */
+    AREX_WIDGET_SURF_GF,        // COMP.SURF_GF
+    AREX_WIDGET_GF99,           // COMP.GF99
+    AREX_WIDGET_CNS,            // COMP.CNS
+    AREX_WIDGET_OTU,            // COMP.OTU
+    AREX_WIDGET_GF_SETTING,     // COMP.GF (如 30/70)
+    AREX_WIDGET_MOD,            // COMP.MOD
+    AREX_WIDGET_CEILING,        // COMP.CEILING (原始上限)
+    AREX_WIDGET_GAS_MIX,        // COMP.GAS_MIX (N2/He%)
+    AREX_WIDGET_TISSUE_GF,      // COMP.TISSUE_GF (带GF线的组织图)
+    AREX_WIDGET_TISSUE_RAW,     // COMP.TISSUE_RAW
+    AREX_WIDGET_GAS_DENS,       // COMP.GAS_DENS (气体密度)
+    AREX_WIDGET_FIO2,           // COMP.FIO2 (吸入氧气浓度)
+
+    /* --- 传感器与拓展 (Sensors) --- */
+    AREX_WIDGET_POD1,           // COMP.POD1
+    AREX_WIDGET_POD2,           // COMP.POD2
+    AREX_WIDGET_DEPTH_MAX,      // COMP.DEPTH_MAX
+    AREX_WIDGET_DEPTH_AVG,      // COMP.DEPTH_AVG
+    AREX_WIDGET_TEMP_MIN,       // COMP.TEMP_MIN
+    AREX_WIDGET_TEMP_MAX,       // COMP.TEMP_MAX
+    AREX_WIDGET_TEMP_AVG,       // COMP.TEMP_AVG
+    AREX_WIDGET_SAC_RATE,       // COMP.SAC_RATE (呼吸速率)
+
+    /* --- 边界保护 (Safety) --- */
+    AREX_WIDGET_PPO2_SAFE,      // PPO2 安全边界
+    AREX_WIDGET_NDL_SAFE,       // NDL 安全边界
+    AREX_WIDGET_SAC_SAFE,       // SAC 安全边界
+
     AREX_WIDGET_COUNT
 } arex_widget_id_t;
 
@@ -234,44 +272,73 @@ typedef struct {
  * 4. 实时数据总线 (RAM Only - 高频刷新)
  * ========================================================= */
 typedef struct {
-    /* 左侧锚点数据 */
-    float   depth;           /* 当前深度 m */
-    int16_t ndl;            /* 免减压时间 min */
-    uint16_t tts;           /* 回到水面时间 min */
-    float   pod1_bar;       /* 气瓶1压力 bar */
-    float   pod2_bar;       /* 气瓶2压力 bar */
-    float   ppo2[3];        /* 三段 PO2 */
-    float   battery_pct;      /* 电池百分比 */
+    /* =========================================================
+     * 核心数据 (Core)
+     * ========================================================= */
+    float   depth;              /* 当前深度 m */
+    int16_t ndl;               /* 免减压时间 min */
+    int16_t ndl_stop_value;     /* NDL_STOP: 停留时间/剩余 NDL 动态值 */
+    uint16_t tts;              /* 回到水面时间 min */
+    uint32_t dive_time_s;       /* 潜水总时 s */
+    uint32_t surface_time_s;    /* WTM 水面休息时间 s */
+    char    gas_name[16];       /* 当前气体名称 */
+    uint8_t gas_active_idx;     /* 当前气体索引 0-3 */
 
-    /* 气体信息 */
-    uint8_t  gas_active_idx;
-    char     gas_name[16];
+    /* =========================================================
+     * 基础数据 (Basic)
+     * ========================================================= */
+    float   temperature_c;      /* 当前温度 */
+    float   battery_pct;         /* 电池百分比 */
+    uint8_t sys_time_h;         /* 当前时 (0-23) */
+    uint8_t sys_time_m;         /* 当前分 (0-59) */
+    float   ascent_rate;        /* 上升速率 m/min (正=上升，负=下潜) */
+    uint16_t heading;           /* 当前航向 0~359 */
+    bool    heading_locked;     /* 航向是否锁定 */
+    uint16_t heading_target;    /* 锁定目标航向 */
+    float   ppo2[3];           /* 三段 PPO2 */
+    int16_t next_stop_m;       /* 下一减压站深度 m */
+    uint8_t next_stop_min;     /* 下一减压站停留时间 min */
 
-    /* 罗盘数据 */
-    uint16_t heading;        /* 当前航向 0~359 */
-    bool     heading_locked;
-    uint16_t heading_target;
+    /* =========================================================
+     * 传感器数据 (Sensors)
+     * ========================================================= */
+    float   pod1_bar;          /* 气瓶1压力 bar */
+    float   pod2_bar;          /* 气瓶2压力 bar */
+    uint8_t cylinder_count;    /* 气瓶连接数量 */
+    float   sac_rate;          /* SAC 呼吸速率 L/min */
+    float   max_depth;         /* 本次最大深度 m */
+    float   avg_depth;         /* 平均深度 m */
+    float   min_temp;          /* 最低温度 */
+    float   max_temp;          /* 最高温度 */
+    float   avg_temp;          /* 平均温度 */
 
-    /* 潜水时间 */
-    uint32_t dive_time_s;
-    uint32_t surface_time_s;   /* WTM 水面休息时间 */
+    /* =========================================================
+     * 技术潜水数据 (Tech Dive)
+     * ========================================================= */
+    float   surf_gf;           /* Surf.GF 预测值 */
+    float   gf99;              /* GF99 实时值 % */
+    uint8_t gf_low;            /* GF Low 设定值 (如 30) */
+    uint8_t gf_high;           /* GF High 设定值 (如 70) */
+    float   mod_m;             /* 最大操作深度 m */
+    float   ceiling_m;         /* 实时减压上限 Ceiling m */
+    float   gas_density;       /* 气体密度 g/L */
+    float   fio2_pct;          /* 实际吸入氧浓度 % */
+    uint8_t gas_o2_pct;       /* O2 浓度 % */
+    uint8_t gas_he_pct;       /* He 浓度 % */
 
-    /* 减压/组织数据 */
-    uint8_t  tissue_pct[16];
-    uint8_t  cns_pct;
-    uint16_t otu;
-    int16_t  next_stop_m;
-    uint8_t  next_stop_min;
+    /* =========================================================
+     * 氧中毒监控 (Oxygen Toxicity)
+     * ========================================================= */
+    uint8_t  tissue_pct[16];  /* 16 组织舱饱和度数组 */
+    uint8_t  cns_pct;         /* CNS 氧中毒百分比 0-100 */
+    uint16_t otu;             /* OTU 氧中毒剂量单位 */
 
-    /* 减压违规标志：仅当真实减压引擎判断进入减压区时由业务逻辑置 true */
-    bool     deco_violation;
-
-    /* System Data — 设备基础数据 */
-    float    temperature_c;      /* 设备/水温 摄氏度 */
-    float    ascent_rate;        /* 上升速率 m/min (正=上升，负=下潜) */
-    bool     strobe_on;         /* 留转灯（频闪灯）开关状态 */
-    bool     flashlight_on;      /* 手电筒开关状态 */
-    uint8_t  cylinder_count;   /* 气瓶连接数量 (x0, x1...) */
+    /* =========================================================
+     * 设备状态 (Device Status)
+     * ========================================================= */
+    bool    deco_violation;    /* 减压违规标志 */
+    bool    strobe_on;         /* 频闪灯开关状态 */
+    bool    flashlight_on;      /* 手电筒开关状态 */
 
     /* =========================================================
      * Data Bus 脏标记位域 (UI 消费任务专用)
@@ -284,24 +351,51 @@ typedef struct {
  * Data Bus 脏标记位掩码枚举
  * ========================================================= */
 typedef enum {
-    DIRTY_NONE      = 0,
-    DIRTY_DEPTH     = (1U << 0),   /* 深度数据 */
-    DIRTY_NDL       = (1U << 1),   /* 免减压时间 */
-    DIRTY_TTS       = (1U << 2),   /* 回到水面时间 */
-    DIRTY_POD       = (1U << 3),   /* 气瓶压力（pod1/pod2） */
-    DIRTY_BATT      = (1U << 4),   /* 电池电量 */
-    DIRTY_HEADING   = (1U << 5),   /* 罗盘航向 */
-    DIRTY_TIME      = (1U << 6),   /* 潜水时间 / W.TIME */
-    DIRTY_PPO2      = (1U << 7),   /* PO2 值 */
-    DIRTY_GAS       = (1U << 8),   /* 气体切换 */
-    DIRTY_ALARM     = (1U << 9),   /* 告警状态 */
-    DIRTY_DECO      = (1U << 10),  /* 减压站序列 + 站点时间（临界区保护） */
-    DIRTY_TEMP      = (1U << 11),  /* 温度数据 */
-    DIRTY_DEVICES   = (1U << 12),  /* 外设状态（灯、气瓶数量） */
-    DIRTY_TISSUES   = (1U << 13),  /* 16 组织舱饱和度数组（临界区保护） */
-    DIRTY_CNS       = (1U << 14),  /* CNS 氧中毒百分比 */
-    DIRTY_OTU       = (1U << 15),  /* OTU 氧中毒剂量单位 */
-    DIRTY_UI_LAYOUT = (1U << 16),  /* UI 布局重建（BLE 配置同步触发） */
+    DIRTY_NONE       = 0,
+    /* 核心数据 */
+    DIRTY_DEPTH      = (1U << 0),   /* 深度数据 */
+    DIRTY_NDL        = (1U << 1),   /* 免减压时间 */
+    DIRTY_NDL_STOP   = (1U << 2),   /* NDL_STOP 动态值 */
+    DIRTY_TTS        = (1U << 3),   /* 回到水面时间 */
+    DIRTY_DIVE_TIME  = (1U << 4),   /* 潜水总时 */
+    DIRTY_GAS        = (1U << 5),   /* 气体切换 */
+
+    /* 基础数据 */
+    DIRTY_TEMP       = (1U << 6),   /* 温度数据 */
+    DIRTY_BATT       = (1U << 7),   /* 电池电量 */
+    DIRTY_TIME_DAY   = (1U << 8),   /* 当前钟表时间 */
+    DIRTY_ASCENT     = (1U << 9),   /* 上升速率 */
+    DIRTY_HEADING    = (1U << 10),  /* 罗盘航向 */
+    DIRTY_PPO2       = (1U << 11),  /* PO2 值 */
+    DIRTY_STOP_DEPTH = (1U << 12),  /* 停止深度 */
+    DIRTY_STOP_TIME  = (1U << 13),  /* 停止时间 */
+
+    /* 传感器数据 */
+    DIRTY_POD        = (1U << 14),  /* 气瓶压力 */
+    DIRTY_SAC        = (1U << 15),  /* SAC 呼吸速率 */
+    DIRTY_DEPTH_STATS = (1U << 16), /* 深度统计 (max/avg) */
+    DIRTY_TEMP_STATS = (1U << 17), /* 温度统计 (min/max/avg) */
+
+    /* 技术潜水数据 */
+    DIRTY_SURF_GF    = (1U << 18),  /* Surf.GF */
+    DIRTY_GF99       = (1U << 19),  /* GF99 */
+    DIRTY_GF_SETTING = (1U << 20),  /* GF 设定值 */
+    DIRTY_MOD        = (1U << 21),  /* 最大操作深度 */
+    DIRTY_CEILING    = (1U << 22),  /* 减压上限 */
+    DIRTY_GAS_MIX    = (1U << 23),  /* 气体混合比 */
+    DIRTY_GAS_DENS   = (1U << 24),  /* 气体密度 */
+    DIRTY_FIO2       = (1U << 25),  /* 吸入氧浓度 */
+
+    /* 氧中毒 */
+    DIRTY_TISSUES    = (1U << 26),  /* 组织舱饱和度 */
+    DIRTY_CNS        = (1U << 27),  /* CNS 百分比 */
+    DIRTY_OTU        = (1U << 28),  /* OTU */
+
+    /* 设备状态 */
+    DIRTY_ALARM      = (1U << 29),  /* 告警状态 */
+    DIRTY_DEVICES    = (1U << 30),  /* 外设状态 */
+    DIRTY_UI_LAYOUT  = (1U << 31),  /* UI 布局重建 */
+
 } arex_dirty_bit_t;
 
 /* =========================================================

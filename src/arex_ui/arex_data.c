@@ -33,7 +33,7 @@ void arex_bus_set_depth(float depth_m)
         _prev_depth = depth_m;
 
         g_sensor_data.depth = depth_m;
-        g_sensor_data.dirty_mask |= DIRTY_DEPTH | DIRTY_DECO;  //深度变化的时候也会触发跟踪
+        g_sensor_data.dirty_mask |= DIRTY_DEPTH;  //深度变化的时候也会触发跟踪
     }
 }
 
@@ -84,7 +84,7 @@ void arex_bus_set_dive_time(uint32_t dive_s)
 {
     if (g_sensor_data.dive_time_s != dive_s) {
         g_sensor_data.dive_time_s = dive_s;
-        g_sensor_data.dirty_mask |= DIRTY_TIME;
+        g_sensor_data.dirty_mask |= DIRTY_DIVE_TIME;
     }
 }
 
@@ -92,7 +92,7 @@ void arex_bus_set_surface_time(uint32_t surface_s)
 {
     if (g_sensor_data.surface_time_s != surface_s) {
         g_sensor_data.surface_time_s = surface_s;
-        g_sensor_data.dirty_mask |= DIRTY_TIME;
+        g_sensor_data.dirty_mask |= DIRTY_DIVE_TIME;
     }
 }
 
@@ -121,7 +121,7 @@ void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min)
     if (g_sensor_data.next_stop_m != stop_m || g_sensor_data.next_stop_min != stop_min) {
         g_sensor_data.next_stop_m = stop_m;
         g_sensor_data.next_stop_min = stop_min;
-        g_sensor_data.dirty_mask |= DIRTY_DECO;
+        g_sensor_data.dirty_mask |= DIRTY_TISSUES;
     }
 }
 
@@ -169,7 +169,7 @@ void arex_bus_set_deco_plan(const arex_deco_stop_t *stops, uint8_t count)
     if (count > 0 && stops != NULL) {
         memcpy(g_deco_stops, stops, count * sizeof(arex_deco_stop_t));
     }
-    g_sensor_data.dirty_mask |= DIRTY_DECO;
+    g_sensor_data.dirty_mask |= DIRTY_TISSUES;
     rt_hw_interrupt_enable(level);
 }
 

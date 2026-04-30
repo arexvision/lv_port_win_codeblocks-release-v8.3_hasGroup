@@ -749,20 +749,51 @@ typedef struct {
 } widget_meta_t;
 
 static const widget_meta_t s_widget_meta[AREX_WIDGET_COUNT] = {
-    /* EMPTY */     { NULL,          NULL,   AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_CENTER },
-    /* DEPTH  */    { "DEPTH",      "m",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_CENTER },
-    /* TEMP   */    { "TEMP",       "C",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* HEADING */   { "HEADING",    "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* SAC    */    { "SAC",        "l/m",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* BATT   */    { "BATTERY",    "%",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* NDL    */    { "NDL",        "min",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* TTS    */    { "TTS",        "min",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* PPO2   */    { "PPO2",      "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* CNS    */    { "CNS",        "%",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* POD1   */    { "POD 1",     NULL,   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* POD2   */    { "POD 2",     NULL,   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* WTIME  */    { "TIME",       "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* GAS    */    { "GAS",        "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 0  */ [AREX_WIDGET_EMPTY]       = { NULL,          NULL,  AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_CENTER },
+    /* 1  */ [AREX_WIDGET_DEPTH]       = { "DEPTH",       "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_CENTER },
+    /* 2  */ [AREX_WIDGET_NDL_STOP]   = { "NDL",         "min", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 3  */ [AREX_WIDGET_DIVE_TIME]   = { "DIVE",        "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 4  */ [AREX_WIDGET_GAS]         = { "GAS",         "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 5  */ [AREX_WIDGET_SYS]         = { "SYS",         "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_CENTER },
+
+    /* 6  */ [AREX_WIDGET_TEMP]        = { "TEMP",        "C",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 7  */ [AREX_WIDGET_TIME_OF_DAY] = { "TIME",        "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 8  */ [AREX_WIDGET_TTS]         = { "TTS",         "min", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 9  */ [AREX_WIDGET_ASCENT]      = { "RATE",        "m/m", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 10 */ [AREX_WIDGET_COMPASS]     = { "HDG",         "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 11 */ [AREX_WIDGET_BATTERY]     = { "BATT",        "%",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 12 */ [AREX_WIDGET_STOP_DEPTH]   = { "STOP",        "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 13 */ [AREX_WIDGET_STOP_TIME]    = { "STIME",       "min", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 14 */ [AREX_WIDGET_PPO2]         = { "PPO2",        "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 15 */ [AREX_WIDGET_NDL]          = { "NDL",         "min", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 16 */ [AREX_WIDGET_HEADING]      = { "HDG",         "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 17 */ [AREX_WIDGET_WTIME]        = { "TIME",        "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+
+    /* 18 */ [AREX_WIDGET_SURF_GF]     = { "SURF.GF",     "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 19 */ [AREX_WIDGET_GF99]        = { "GF99",        "%",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 20 */ [AREX_WIDGET_CNS]         = { "CNS",         "%",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 21 */ [AREX_WIDGET_OTU]         = { "OTU",         "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 22 */ [AREX_WIDGET_GF_SETTING]  = { "GF",          "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 23 */ [AREX_WIDGET_MOD]          = { "MOD",         "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 24 */ [AREX_WIDGET_CEILING]      = { "CEIL",        "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 25 */ [AREX_WIDGET_GAS_MIX]      = { "O2/He",      "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 26 */ [AREX_WIDGET_TISSUE_GF]    = { "TISSUE",     "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_CENTER },
+    /* 27 */ [AREX_WIDGET_TISSUE_RAW]   = { "TISSUE",     "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_CENTER },
+    /* 28 */ [AREX_WIDGET_GAS_DENS]     = { "DENS",        "g/L", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 29 */ [AREX_WIDGET_FIO2]         = { "FIO2",        "%",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+
+    /* 30 */ [AREX_WIDGET_POD1]         = { "POD 1",      "bar", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 31 */ [AREX_WIDGET_POD2]         = { "POD 2",      "bar", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 32 */ [AREX_WIDGET_DEPTH_MAX]    = { "MAX D",      "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 33 */ [AREX_WIDGET_DEPTH_AVG]    = { "AVG D",      "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 34 */ [AREX_WIDGET_TEMP_MIN]     = { "MIN T",       "C",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 35 */ [AREX_WIDGET_TEMP_MAX]     = { "MAX T",       "C",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 36 */ [AREX_WIDGET_TEMP_AVG]     = { "AVG T",       "C",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 37 */ [AREX_WIDGET_SAC_RATE]     = { "SAC",         "l/m", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+
+    /* 38 */ [AREX_WIDGET_PPO2_SAFE]    = { "PPO2 MAX",   "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 39 */ [AREX_WIDGET_NDL_SAFE]     = { "NDL MIN",    "min", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* 40 */ [AREX_WIDGET_SAC_SAFE]     = { "SAC MAX",    "l/m", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
 };
 
 /* =========================================================
@@ -1044,29 +1075,148 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
         lv_label_set_text(val_lbl, "--");
     } else {
-        /* 取对应字段的初始值，与 arex_widget_set_value() 格式保持一致 */
-        char buf[32];        if (w_id == AREX_WIDGET_TTS || w_id == AREX_WIDGET_NDL)
-            snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl);
-        else if (w_id == AREX_WIDGET_HEADING)
-            snprintf(buf, sizeof(buf), "%d", g_sensor_data.heading);
-        else if (w_id == AREX_WIDGET_CNS)
-            snprintf(buf, sizeof(buf), "%d", g_sensor_data.cns_pct);
-        else if (w_id == AREX_WIDGET_PPO2)
-            snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
-        else if (w_id == AREX_WIDGET_POD1)
-            snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod1_bar);
-        else if (w_id == AREX_WIDGET_POD2)
-            snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod2_bar);
-        else if (w_id == AREX_WIDGET_BATTERY)
-            snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.battery_pct);
-        else if (w_id == AREX_WIDGET_WTIME)
-            snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.dive_time_s / 60, g_sensor_data.dive_time_s % 60);
-        else if (w_id == AREX_WIDGET_TEMP)
-            snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.temperature_c);
-        else if (w_id == AREX_WIDGET_GAS)
-            snprintf(buf, sizeof(buf), "%s", g_sensor_data.gas_name);
-        else
-            snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.depth);
+        /* 全量数据路由：widget_id → 数据源 + 格式化 */
+        char buf[48] = "--";
+        switch (w_id) {
+            /* === 核心数据 === */
+            case AREX_WIDGET_DEPTH:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.depth);
+                break;
+            case AREX_WIDGET_NDL_STOP:
+                snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl_stop_value);
+                break;
+            case AREX_WIDGET_DIVE_TIME:
+                snprintf(buf, sizeof(buf), "%02d:%02d",
+                         g_sensor_data.dive_time_s / 60, g_sensor_data.dive_time_s % 60);
+                break;
+            case AREX_WIDGET_GAS:
+                snprintf(buf, sizeof(buf), "%s", g_sensor_data.gas_name);
+                break;
+            case AREX_WIDGET_SYS:
+                snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.sys_time_h, g_sensor_data.sys_time_m);
+                break;
+
+            /* === 基础数据 === */
+            case AREX_WIDGET_TEMP:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.temperature_c);
+                break;
+            case AREX_WIDGET_TIME_OF_DAY:
+                snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.sys_time_h, g_sensor_data.sys_time_m);
+                break;
+            case AREX_WIDGET_TTS:
+                snprintf(buf, sizeof(buf), "%d", g_sensor_data.tts);
+                break;
+            case AREX_WIDGET_ASCENT:
+                if (g_sensor_data.ascent_rate >= 0)
+                    snprintf(buf, sizeof(buf), "+%.1f", (double)g_sensor_data.ascent_rate);
+                else
+                    snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.ascent_rate);
+                break;
+            case AREX_WIDGET_COMPASS:
+                snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading);
+                break;
+            case AREX_WIDGET_BATTERY:
+                snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.battery_pct);
+                break;
+            case AREX_WIDGET_STOP_DEPTH:
+                snprintf(buf, sizeof(buf), "%d", g_sensor_data.next_stop_m);
+                break;
+            case AREX_WIDGET_STOP_TIME:
+                snprintf(buf, sizeof(buf), "%d", g_sensor_data.next_stop_min);
+                break;
+            case AREX_WIDGET_PPO2:
+                snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
+                break;
+            case AREX_WIDGET_NDL:
+                snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl);
+                break;
+            case AREX_WIDGET_HEADING:
+                snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading);
+                break;
+            case AREX_WIDGET_WTIME:
+                snprintf(buf, sizeof(buf), "%02d:%02d",
+                         g_sensor_data.dive_time_s / 60, g_sensor_data.dive_time_s % 60);
+                break;
+
+            /* === 技术潜水数据 === */
+            case AREX_WIDGET_SURF_GF:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.surf_gf);
+                break;
+            case AREX_WIDGET_GF99:
+                snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.gf99);
+                break;
+            case AREX_WIDGET_CNS:
+                snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
+                break;
+            case AREX_WIDGET_OTU:
+                snprintf(buf, sizeof(buf), "%d", g_sensor_data.otu);
+                break;
+            case AREX_WIDGET_GF_SETTING:
+                snprintf(buf, sizeof(buf), "%d/%d", g_sensor_data.gf_low, g_sensor_data.gf_high);
+                break;
+            case AREX_WIDGET_MOD:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.mod_m);
+                break;
+            case AREX_WIDGET_CEILING:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.ceiling_m);
+                break;
+            case AREX_WIDGET_GAS_MIX:
+                snprintf(buf, sizeof(buf), "%d/%d", g_sensor_data.gas_o2_pct, g_sensor_data.gas_he_pct);
+                break;
+            case AREX_WIDGET_TISSUE_GF:
+            case AREX_WIDGET_TISSUE_RAW:
+                snprintf(buf, sizeof(buf), "---");  /* 组织图由专属卡片渲染 */
+                break;
+            case AREX_WIDGET_GAS_DENS:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.gas_density);
+                break;
+            case AREX_WIDGET_FIO2:
+                snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.fio2_pct);
+                break;
+
+            /* === 传感器数据 === */
+            case AREX_WIDGET_POD1:
+                snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod1_bar);
+                break;
+            case AREX_WIDGET_POD2:
+                snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod2_bar);
+                break;
+            case AREX_WIDGET_DEPTH_MAX:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_depth);
+                break;
+            case AREX_WIDGET_DEPTH_AVG:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_depth);
+                break;
+            case AREX_WIDGET_TEMP_MIN:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.min_temp);
+                break;
+            case AREX_WIDGET_TEMP_MAX:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_temp);
+                break;
+            case AREX_WIDGET_TEMP_AVG:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_temp);
+                break;
+            case AREX_WIDGET_SAC_RATE:
+                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.sac_rate);
+                break;
+
+            /* === 边界保护 === */
+            case AREX_WIDGET_PPO2_SAFE:
+                snprintf(buf, sizeof(buf), "%.2f", 1.4);
+                break;
+            case AREX_WIDGET_NDL_SAFE:
+                snprintf(buf, sizeof(buf), "%d", 5);
+                break;
+            case AREX_WIDGET_SAC_SAFE:
+                snprintf(buf, sizeof(buf), "%.1f", 25.0);
+                break;
+
+            /* === 空槽 === */
+            case AREX_WIDGET_EMPTY:
+            default:
+                buf[0] = '\0';
+                break;
+        }
         lv_label_set_text(val_lbl, buf);
     }
     lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
@@ -1550,7 +1700,7 @@ void arex_ui_update_task(lv_timer_t *timer)
     }
 
     /* 潜水时间 + W.TIME —— 左侧面板 + 4F 曲线图 */
-    if (mask & DIRTY_TIME) {
+    if (mask & DIRTY_DIVE_TIME) {
         arex_screen_refresh_left_panel();
     }
 
@@ -1565,8 +1715,8 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_screen_refresh_left_panel();
     }
 
-    /* 4F 曲线图 + 减压站序列刷新（轨迹追加 + 减压站重绘，节流保护） */
-    if (mask & DIRTY_DECO) {
+    /* 组织舱 + 减压站序列刷新（轨迹追加 + 减压站重绘，节流保护） */
+    if (mask & DIRTY_TISSUES) {
         uint32_t now = lv_tick_get();
 #if AREX_DECO_REFRESH_MS > 0 //相当于刷新的间隔（这个决定了刷新的点，但是和真正的采样频率有区别（一般要对应上））
         if (now - _deco_last_refresh_ms >= AREX_DECO_REFRESH_MS) {
