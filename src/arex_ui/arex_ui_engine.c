@@ -184,12 +184,83 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *    Row 5: POD1     | POD2    (各 1x1 → 80x60，塞满第 6 行)
      */
     g_left_widget_count = 6;
-    g_left_widgets[0] = (arex_custom_widget_cfg_t){ AREX_WIDGET_NDL,    0, 0, 2, 1, AREX_FONT_ID_MEDIUM };
-    g_left_widgets[1] = (arex_custom_widget_cfg_t){ AREX_WIDGET_DEPTH,  0, 1, 2, 2, AREX_FONT_ID_HUGE   };
-    g_left_widgets[2] = (arex_custom_widget_cfg_t){ AREX_WIDGET_WTIME,  0, 3, 2, 1, AREX_FONT_ID_MEDIUM };
-    g_left_widgets[3] = (arex_custom_widget_cfg_t){ AREX_WIDGET_GAS,    0, 4, 2, 1, AREX_FONT_ID_MEDIUM };
-    g_left_widgets[4] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD1,   0, 5, 1, 1, AREX_FONT_ID_TITLE  };
-    g_left_widgets[5] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD2,   1, 5, 1, 1, AREX_FONT_ID_HUGE  };
+
+    /* =========================================================
+     * 每个模块都可以通过布局参数独立配置
+     * =========================================================
+     * 通用参数:
+     *   .title_offset_x/y/align  - 标题位置
+     *   .value_offset_x/y/align   - 数值位置
+     *
+     * DEPTH 特殊参数 (AREX_LAYOUT_DEPTH_SPLIT):
+     *   .depth_int_offset_x/y/align  - 整数位置
+     *   .depth_dec_offset_x/y       - 小数相对位置
+     *   .depth_unit_offset_x/y      - 单位相对位置
+     *   .depth_icon_offset_x/y/align - 箭头图标位置
+     *
+     * NDL 特殊参数 (AREX_LAYOUT_NDL_BAR):
+     *   .ndl_bar_offset_x/y/align  - 进度条位置
+     *   .ndl_bar_w/h              - 进度条尺寸
+     *   .ndl_bar_fill_dir         - 填充方向 (0=从下往上, 1=从上往下)
+     * ========================================================= */
+
+    /* NDL: 进度条样式 */
+    g_left_widgets[0] = (arex_custom_widget_cfg_t){
+        AREX_WIDGET_NDL,  0, 0, 2, 1, AREX_FONT_ID_MEDIUM,
+        .layout = AREX_LAYOUT_NDL_BAR,
+        /* 进度条 */
+        .ndl_bar_offset_x = 10, .ndl_bar_offset_y = 0, .ndl_bar_align = LV_ALIGN_LEFT_MID,
+        .ndl_bar_w = 14, .ndl_bar_h = 40, .ndl_bar_fill_dir = 0,
+        /* 数值和标题 */
+        .value_offset_x = 10, .value_offset_y = 0, .value_align = LV_ALIGN_LEFT_MID,
+        .title_offset_x = 5,  .title_offset_y = -8, .title_align = LV_ALIGN_LEFT_MID,
+    };
+
+    /* DEPTH: 2x2 大块，整数+小数+单位+箭头分离 */
+    g_left_widgets[1] = (arex_custom_widget_cfg_t){
+        AREX_WIDGET_DEPTH, 0, 1, 2, 2, AREX_FONT_ID_HUGE,
+        .layout = AREX_LAYOUT_DEPTH_SPLIT,
+        /* 整数 */
+        .depth_int_offset_x = 8,  .depth_int_offset_y = 0,  .depth_int_align = LV_ALIGN_LEFT_MID,
+        /* 小数（相对整数） */
+        .depth_dec_offset_x = 2,  .depth_dec_offset_y = 5,
+        /* 单位（相对小数） */
+        .depth_unit_offset_x = 0, .depth_unit_offset_y = 2,
+        /* 箭头图标 */
+        .depth_icon_offset_x = -10, .depth_icon_offset_y = 0, .depth_icon_align = LV_ALIGN_RIGHT_MID,
+    };
+
+    /* TIME: 上下布局，标题顶部，数值底部 */
+    g_left_widgets[2] = (arex_custom_widget_cfg_t){
+        AREX_WIDGET_WTIME, 0, 3, 2, 1, AREX_FONT_ID_MEDIUM,
+        .layout = AREX_LAYOUT_TOP_BOTTOM,
+        .title_offset_x = 0,  .title_offset_y = 4,  .title_align = LV_ALIGN_TOP_MID,
+        .value_offset_x = 0,  .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID,
+    };
+
+    /* GAS: 通用居中布局 */
+    g_left_widgets[3] = (arex_custom_widget_cfg_t){
+        AREX_WIDGET_GAS,  0, 4, 2, 1, AREX_FONT_ID_SMALL,
+        .layout = AREX_LAYOUT_CENTER,
+        .title_offset_x = 0,  .title_offset_y = 2,  .title_align = LV_ALIGN_TOP_MID,
+        .value_offset_x = 0,  .value_offset_y = 0,  .value_align = LV_ALIGN_CENTER,
+    };
+
+    /* POD1: 对角线布局 */
+    g_left_widgets[4] = (arex_custom_widget_cfg_t){
+        AREX_WIDGET_POD1, 0, 5, 1, 1, AREX_FONT_ID_TITLE,
+        .layout = AREX_LAYOUT_DIAGONAL,
+        .title_offset_x = 6,  .title_offset_y = 4,  .title_align = LV_ALIGN_TOP_LEFT,
+        .value_offset_x = -6, .value_offset_y = -2,  .value_align = LV_ALIGN_BOTTOM_RIGHT,
+    };
+
+    /* POD2: 对角线布局 */
+    g_left_widgets[5] = (arex_custom_widget_cfg_t){
+        AREX_WIDGET_POD2, 1, 5, 1, 1, AREX_FONT_ID_HUGE,
+        .layout = AREX_LAYOUT_DIAGONAL,
+        .title_offset_x = 6,  .title_offset_y = 4,  .title_align = LV_ALIGN_TOP_LEFT,
+        .value_offset_x = -6, .value_offset_y = -2,  .value_align = LV_ALIGN_BOTTOM_RIGHT,
+    };
 
     /* ========== [A] 右侧卡片顺序 (tileview 滑动顺序) ==========
      * card_order[pos] = card_id
@@ -709,26 +780,36 @@ const char *arex_get_widget_name(arex_widget_id_t id)
  * 关键：每个组件的 lv_obj_set_user_data() 存储了 arex_widget_id_t，
  * 告警引擎靠这个烙印实现"左侧锚点 + 5F 组件同时闪烁"。
  *
- * 字号由 span 自动决定，大块→Huge，中块→Medium，小块→Small。
+ * 字号默认由 span 自动决定，大块→Huge，中块→Medium，小块→Small。
+ * cfg_font_id 可覆盖默认值（用于左侧锚点等特殊场景）。
  * is_depth_icon == true 时，在 DEPTH 模块内挂载 sudu 速率图标。
+ * layout_cfg 可覆盖默认布局（传入 NULL 则用自动布局）。
  * ========================================================= */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                                arex_widget_id_t w_id,
                                int16_t abs_x, int16_t abs_y,
                                uint16_t abs_w, uint16_t abs_h,
                                uint8_t span_w, uint8_t span_h,
-                               bool is_depth_icon)
+                               bool is_depth_icon,
+                               arex_font_id_t cfg_font_id,
+                               arex_custom_widget_cfg_t *layout_cfg)
 {
     if (w_id >= AREX_WIDGET_COUNT) return NULL;
 
     const widget_meta_t *meta = &s_widget_meta[w_id];
 
-    /* 字号自适应引擎：
+    /* 字号自适应引擎（可被 cfg_font_id 覆盖）：
      *   2x2 大块 → AREX_FONT_ID_HUGE (48px)
      *   2x1 长条 → AREX_FONT_ID_MEDIUM (28px)
      *   1x1 小块 → AREX_FONT_ID_SMALL (14px) */
     arex_font_id_t val_font_id;
-    if (span_w >= 2 && span_h >= 2) {
+    /* 字号自适应引擎（cfg_font_id 255 表示"自动计算"）：
+     *   2x2 大块 → AREX_FONT_ID_HUGE (48px)
+     *   2x1 长条 → AREX_FONT_ID_MEDIUM (28px)
+     *   1x1 小块 → AREX_FONT_ID_SMALL (14px) */
+    if (cfg_font_id != (arex_font_id_t)255) {
+        val_font_id = cfg_font_id;  /* 使用配置传入的字体 */
+    } else if (span_w >= 2 && span_h >= 2) {
         val_font_id = AREX_FONT_ID_HUGE;
     } else if (span_w >= 2) {
         val_font_id = AREX_FONT_ID_MEDIUM;
@@ -756,7 +837,19 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     /* ========== 第二步：DEPTH 专属渲染（整数+小数+单位分离） ========== */
     bool is_2x2 = (span_w >= 2 && span_h >= 2);
     if (w_id == AREX_WIDGET_DEPTH && is_2x2) {
-        /* child[0] 整数，Huge 字体，靠左 */
+        /* 获取布局配置或使用默认值 */
+        int16_t int_x  = layout_cfg ? layout_cfg->depth_int_offset_x : 8;
+        int16_t int_y  = layout_cfg ? layout_cfg->depth_int_offset_y : 0;
+        uint8_t int_al = layout_cfg ? layout_cfg->depth_int_align : LV_ALIGN_LEFT_MID;
+        int16_t dec_x  = layout_cfg ? layout_cfg->depth_dec_offset_x : 2;
+        int16_t dec_y  = layout_cfg ? layout_cfg->depth_dec_offset_y : 5;
+        int16_t unit_x = layout_cfg ? layout_cfg->depth_unit_offset_x : 0;
+        int16_t unit_y = layout_cfg ? layout_cfg->depth_unit_offset_y : 2;
+        int16_t ico_x  = layout_cfg ? layout_cfg->depth_icon_offset_x : -10;
+        int16_t ico_y  = layout_cfg ? layout_cfg->depth_icon_offset_y : 0;
+        uint8_t ico_al = layout_cfg ? layout_cfg->depth_icon_align : LV_ALIGN_RIGHT_MID;
+
+        /* child[0] 整数，Huge 字体 */
         lv_obj_t *int_lbl = lv_label_create(obj);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
             lv_label_set_text(int_lbl, "--");
@@ -765,7 +858,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         lv_obj_set_style_text_font(int_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
         lv_obj_set_style_text_color(int_lbl, AREX_GREEN, 0);
-        lv_obj_align(int_lbl, LV_ALIGN_LEFT_MID, 8, 0);
+        lv_obj_align(int_lbl, int_al, int_x, int_y);
 
         /* child[1] 小数，Medium 字体，贴整数右上角 */
         lv_obj_t *dec_lbl = lv_label_create(obj);
@@ -776,19 +869,19 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         lv_obj_set_style_text_font(dec_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(dec_lbl, AREX_GREEN, 0);
-        lv_obj_align_to(dec_lbl, int_lbl, LV_ALIGN_OUT_RIGHT_TOP, 2, 5);
+        lv_obj_align_to(dec_lbl, int_lbl, LV_ALIGN_OUT_RIGHT_TOP, dec_x, dec_y);
 
         /* child[2] 单位m，Small 字体，贴小数正下方 */
         lv_obj_t *unit_lbl = lv_label_create(obj);
         lv_label_set_text(unit_lbl, "m");
         lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
-        lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, 0, 2);
+        lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, unit_x, unit_y);
 
         /* child[3] 速率箭头，贴右边缘（仅 2x2 大块显示） */
         s_img_ascent_rate = lv_img_create(obj);
         lv_img_set_src(s_img_ascent_rate, &sudo_up_level0);
-        lv_obj_align(s_img_ascent_rate, LV_ALIGN_RIGHT_MID, -10, 0);
+        lv_obj_align(s_img_ascent_rate, ico_al, ico_x, ico_y);
 
         /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
         lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
@@ -796,10 +889,18 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     } else if (w_id == AREX_WIDGET_DEPTH) {
         /* 单格 DEPTH（1x1 等）：走通用单标签渲染，不显示速度图标 */
     } else if (w_id == AREX_WIDGET_NDL) {
+        /* 获取布局配置或使用默认值 */
+        int16_t bar_x   = layout_cfg ? layout_cfg->ndl_bar_offset_x : 10;
+        int16_t bar_y   = layout_cfg ? layout_cfg->ndl_bar_offset_y : 0;
+        uint8_t bar_al  = layout_cfg ? layout_cfg->ndl_bar_align : LV_ALIGN_LEFT_MID;
+        int16_t bar_w   = layout_cfg ? layout_cfg->ndl_bar_w : 14;
+        int16_t bar_h   = layout_cfg ? layout_cfg->ndl_bar_h : 40;
+        uint8_t fill_dir = layout_cfg ? layout_cfg->ndl_bar_fill_dir : 0;  /* 0=从下往上 */
+
         lv_obj_t *bar_bg = lv_obj_create(obj);
         lv_obj_remove_style_all(bar_bg);
-        lv_obj_set_size(bar_bg, 14, 40);
-        lv_obj_align(bar_bg, LV_ALIGN_LEFT_MID, 10, 0);
+        lv_obj_set_size(bar_bg, bar_w, bar_h);
+        lv_obj_align(bar_bg, bar_al, bar_x, bar_y);
         lv_obj_set_style_border_width(bar_bg, 2, 0);
         lv_obj_set_style_border_color(bar_bg, AREX_GREEN, 0);
         lv_obj_set_style_radius(bar_bg, 4, 0);
@@ -807,10 +908,22 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_t *bar_fill = lv_obj_create(bar_bg);
         lv_obj_remove_style_all(bar_fill);
         lv_obj_set_size(bar_fill, LV_PCT(100), LV_PCT(60));
-        lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
+        /* 根据 fill_dir 决定填充方向 */
+        if (fill_dir == 0) {
+            lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);  /* 从下往上 */
+        } else {
+            lv_obj_align(bar_fill, LV_ALIGN_TOP_MID, 0, 0);    /* 从上往下 */
+        }
         lv_obj_set_style_bg_color(bar_fill, AREX_GREEN, 0);
         lv_obj_set_style_bg_opa(bar_fill, LV_OPA_COVER, 0);
         lv_obj_set_style_radius(bar_fill, 2, 0);
+
+        /* 获取通用布局参数 */
+        int16_t val_x  = layout_cfg ? layout_cfg->value_offset_x : 10;
+        int16_t val_y  = layout_cfg ? layout_cfg->value_offset_y : 0;
+        uint8_t val_al = layout_cfg ? layout_cfg->value_align : LV_ALIGN_LEFT_MID;
+        int16_t tit_x  = layout_cfg ? layout_cfg->title_offset_x : 5;
+        int16_t tit_y  = layout_cfg ? layout_cfg->title_offset_y : -8;
 
         lv_obj_t *val_lbl = lv_label_create(obj);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
@@ -820,14 +933,14 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         lv_obj_set_style_text_font(val_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
         lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
-        lv_obj_align_to(val_lbl, bar_bg, LV_ALIGN_OUT_RIGHT_MID, 10, 0);
+        lv_obj_align_to(val_lbl, bar_bg, LV_ALIGN_OUT_RIGHT_MID, val_x, val_y);
         lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)AREX_WIDGET_NDL);
 
         lv_obj_t *title_lbl = lv_label_create(obj);
         lv_label_set_text(title_lbl, "NDL");
         lv_obj_set_style_text_font(title_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(title_lbl, AREX_GREEN, 0);
-        lv_obj_align_to(title_lbl, val_lbl, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, -8);
+        lv_obj_align_to(title_lbl, val_lbl, LV_ALIGN_OUT_RIGHT_BOTTOM, tit_x, tit_y);
 
         /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
         lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
@@ -835,13 +948,22 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     }
 
     /* ========== POD1/POD2 对角线布局（标题左上 + 数字右下，无 BAR 单位） ========== */
+    /* ========== POD1/POD2 对角线布局（标题左上 + 数字右下） ========== */
     else if (w_id == AREX_WIDGET_POD1 || w_id == AREX_WIDGET_POD2) {
+        /* 获取布局配置或使用默认值 */
+        int16_t tit_x  = layout_cfg ? layout_cfg->title_offset_x : 6;
+        int16_t tit_y  = layout_cfg ? layout_cfg->title_offset_y : 4;
+        uint8_t tit_al = layout_cfg ? layout_cfg->title_align : LV_ALIGN_TOP_LEFT;
+        int16_t val_x  = layout_cfg ? layout_cfg->value_offset_x : -6;
+        int16_t val_y  = layout_cfg ? layout_cfg->value_offset_y : -2;
+        uint8_t val_al = layout_cfg ? layout_cfg->value_align : LV_ALIGN_BOTTOM_RIGHT;
+
         /* 标题 -> 左上角 */
         lv_obj_t *title_lbl = lv_label_create(obj);
         lv_label_set_text(title_lbl, w_id == AREX_WIDGET_POD1 ? "POD 1" : "POD 2");
         lv_obj_set_style_text_font(title_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(title_lbl, AREX_LIGHT, 0);
-        lv_obj_align(title_lbl, LV_ALIGN_TOP_LEFT, 6, 4);
+        lv_obj_align(title_lbl, tit_al, tit_x, tit_y);
 
         /* 纯数字 -> 右下角 */
         lv_obj_t *val_lbl = lv_label_create(obj);
@@ -853,21 +975,29 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
         lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
-        lv_obj_align(val_lbl, LV_ALIGN_BOTTOM_RIGHT, -6, -2);
+        lv_obj_align(val_lbl, val_al, val_x, val_y);
         lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
 
         lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
         return obj;
     }
 
-    /* ========== TIME 模块：标题顶部 + 数字底部，拉开呼吸间距 ========== */
+    /* ========== TIME 模块：标题顶部 + 数字底部 ========== */
     else if (w_id == AREX_WIDGET_WTIME) {
+        /* 获取布局配置或使用默认值 */
+        int16_t tit_x  = layout_cfg ? layout_cfg->title_offset_x : 0;
+        int16_t tit_y  = layout_cfg ? layout_cfg->title_offset_y : 4;
+        uint8_t tit_al = layout_cfg ? layout_cfg->title_align : LV_ALIGN_TOP_MID;
+        int16_t val_x  = layout_cfg ? layout_cfg->value_offset_x : 0;
+        int16_t val_y  = layout_cfg ? layout_cfg->value_offset_y : -4;
+        uint8_t val_al = layout_cfg ? layout_cfg->value_align : LV_ALIGN_BOTTOM_MID;
+
         /* 标题 -> 顶部居中 */
         lv_obj_t *title_lbl = lv_label_create(obj);
         lv_label_set_text(title_lbl, "TIME");
         lv_obj_set_style_text_font(title_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(title_lbl, AREX_LIGHT, 0);
-        lv_obj_align(title_lbl, LV_ALIGN_TOP_MID, 0, 4);
+        lv_obj_align(title_lbl, tit_al, tit_x, tit_y);
 
         /* 时间数值 -> 底部居中 */
         lv_obj_t *val_lbl = lv_label_create(obj);
@@ -879,7 +1009,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
         lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
-        lv_obj_align(val_lbl, LV_ALIGN_BOTTOM_MID, 0, -4);
+        lv_obj_align(val_lbl, val_al, val_x, val_y);
         lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
 
         lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
@@ -888,6 +1018,16 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
     /* ========== 通用渲染（标题 + 数值 + 单位）========== */
 
+    /* 获取布局配置（使用配置或默认值） */
+    uint8_t title_align = (layout_cfg && layout_cfg->title_align != 0)
+                          ? layout_cfg->title_align : LV_ALIGN_TOP_MID;
+    int8_t title_offset_x = (layout_cfg) ? layout_cfg->title_offset_x : 0;
+    int8_t title_offset_y = (layout_cfg) ? layout_cfg->title_offset_y : 2;
+    uint8_t value_align = (layout_cfg && layout_cfg->value_align != 0)
+                           ? layout_cfg->value_align : LV_ALIGN_CENTER;
+    int8_t value_offset_x = (layout_cfg) ? layout_cfg->value_offset_x : 0;
+    int8_t value_offset_y = (layout_cfg) ? layout_cfg->value_offset_y : 0;
+
     /* 标题 label */
     if (meta->title) {
         lv_obj_t *title_lbl = lv_label_create(obj);
@@ -895,7 +1035,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_text_font(title_lbl, arex_get_font(meta->title_font), 0);
         lv_obj_set_style_text_color(title_lbl, AREX_GREEN, 0);
         lv_obj_set_size(title_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-        lv_obj_align(title_lbl, LV_ALIGN_TOP_MID, 0, 2);
+        lv_obj_align(title_lbl, title_align, title_offset_x, title_offset_y);
         lv_label_set_long_mode(title_lbl, LV_LABEL_LONG_DOT);
     }
 
@@ -932,18 +1072,18 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
     lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
     lv_obj_set_size(val_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_align(val_lbl, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(val_lbl, value_align, value_offset_x, value_offset_y);
     lv_label_set_long_mode(val_lbl, LV_LABEL_LONG_DOT);
     lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
 
-    /* 单位 label */
-    if (meta->unit && meta->unit[0]) {
+    /* 单位 label（只在居中布局时显示）*/
+    if (meta->unit && meta->unit[0] && value_align == LV_ALIGN_CENTER) {
         lv_obj_t *unit_lbl = lv_label_create(obj);
         lv_label_set_text(unit_lbl, meta->unit);
         lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
         lv_obj_set_size(unit_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-        lv_obj_align(unit_lbl, LV_ALIGN_BOTTOM_MID, 0, -2);
+        lv_obj_align_to(unit_lbl, val_lbl, LV_ALIGN_OUT_BOTTOM_MID, 0, -2);
         lv_label_set_long_mode(unit_lbl, LV_LABEL_LONG_DOT);
     }
 
@@ -1031,7 +1171,7 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
         /* 调用组件工厂 */
         lv_obj_t *w = render_widget_by_id(card_custom, w_id,
                                           abs_x, abs_y, abs_w, abs_h,
-                                          span_w, span_h, false);
+                                          span_w, span_h, false, (arex_font_id_t)255, NULL);
 
         /* 记录句柄（用于 update 循环） */
         if (w && s_widget_handle_count < MAX_WIDGET_HANDLES) {
@@ -1502,6 +1642,6 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
         /* 调用底层工厂，左侧视觉紧凑，不扣除间隙 */
         render_widget_by_id(left_anchor, cfg->widget_id,
                             abs_x, abs_y, abs_w, abs_h,
-                            cfg->w, cfg->h, is_depth);
+                            cfg->w, cfg->h, is_depth, cfg->font_id, cfg);
     }
 }

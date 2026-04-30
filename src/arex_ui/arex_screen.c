@@ -1708,7 +1708,10 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
  *       }
  *   }
  */
-// __attribute__((weak))  //这个在真机需要打开，这个是用来弱定义的
+#ifdef PC_SIMULATOR
+#else
+__attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
+#endif
 void arex_bus_set_light_power(bool on)
 {
     /* TODO: 业务层实现
@@ -1747,7 +1750,10 @@ void arex_bus_set_light_power(bool on)
  *       else if (strncmp(color, "WHITE", 5) == 0) set_pwm(CH_WHITE, duty);
  *   }
  */
-// __attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
+#ifdef PC_SIMULATOR
+#else
+__attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
+#endif
 void arex_ui_on_light_color_set(const char *color, const char *level)
 {
     /* TODO: 业务层实现
@@ -1774,7 +1780,10 @@ void arex_ui_on_light_color_set(const char *color, const char *level)
  *       set_pwm(BACKLIGHT_CHANNEL, duty);
  *   }
  */
-// __attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
+#ifdef PC_SIMULATOR
+#else
+__attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
+#endif
 void arex_set_brightness(uint8_t level)
 {
     /* 亮度级别到 OPA 映射: LOW=40%, MED=70%, HIGH=90%, MAX=100% */

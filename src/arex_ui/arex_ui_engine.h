@@ -455,13 +455,79 @@ void arex_hide_alarm_banner(void);
 #define AREX_LEFT_GRID_W (AREX_LEFT_COLS * AREX_LEFT_CELL_W)  /* 160px */
 #define AREX_LEFT_GRID_H (AREX_LEFT_ROWS * AREX_LEFT_CELL_H)  /* 360px */
 
+/* 组件布局类型 */
+typedef enum {
+    AREX_LAYOUT_CENTER      = 0,  /* 通用居中：标题上 + 数值中 + 单位下 */
+    AREX_LAYOUT_DIAGONAL   = 1,  /* 对角线：标题左上 + 数值右下 */
+    AREX_LAYOUT_TOP_BOTTOM = 2,  /* 上下：标题顶部 + 数值底部 */
+    AREX_LAYOUT_LEFT_RIGHT = 3,  /* 左右：数值左侧 + 单位/标题右侧 */
+    AREX_LAYOUT_NDL_BAR    = 4,  /* NDL专属：进度条 + 数值 + 标题 */
+    AREX_LAYOUT_DEPTH_SPLIT = 5, /* DEPTH专属：整数 + 小数 + 单位 + 箭头 */
+} arex_layout_type_t;
+
+/* LVGL 常用对齐宏简写 */
+#define ALIGN_TL LV_ALIGN_TOP_LEFT
+#define ALIGN_TM LV_ALIGN_TOP_MID
+#define ALIGN_TR LV_ALIGN_TOP_RIGHT
+#define ALIGN_LM LV_ALIGN_LEFT_MID
+#define ALIGN_CT LV_ALIGN_CENTER
+#define ALIGN_RM LV_ALIGN_RIGHT_MID
+#define ALIGN_BL LV_ALIGN_BOTTOM_LEFT
+#define ALIGN_BM LV_ALIGN_BOTTOM_MID
+#define ALIGN_BR LV_ALIGN_BOTTOM_RIGHT
+
 typedef struct {
     arex_widget_id_t widget_id;  /* 组件类型 ID */
-    uint8_t x;                  /* 列索引 0~1 */
-    uint8_t y;                  /* 行索引 0~5 */
-    uint8_t w;                  /* 跨越列数 1~2 */
-    uint8_t h;                  /* 跨越行数 1~2 */
-    uint8_t font_id;            /* 字号: arex_font_id_t */
+    uint8_t x;                    /* 列索引 0~1 */
+    uint8_t y;                    /* 行索引 0~5 */
+    uint8_t w;                    /* 跨越列数 1~2 */
+    uint8_t h;                    /* 跨越行数 1~2 */
+    uint8_t font_id;              /* 数值字号: arex_font_id_t */
+
+    /* ===== 通用布局参数 ===== */
+    arex_layout_type_t layout;    /* 布局类型 */
+
+    /* 标题位置 */
+    int8_t  title_offset_x;
+    int8_t  title_offset_y;
+    uint8_t title_align;
+
+    /* 数值位置 */
+    int8_t  value_offset_x;
+    int8_t  value_offset_y;
+    uint8_t value_align;
+
+    /* ===== DEPTH 特殊参数 ===== */
+    /* 整数位置 */
+    int8_t  depth_int_offset_x;
+    int8_t  depth_int_offset_y;
+    uint8_t depth_int_align;
+
+    /* 小数位置（相对于整数） */
+    int8_t  depth_dec_offset_x;
+    int8_t  depth_dec_offset_y;
+
+    /* 单位位置（相对于小数） */
+    int8_t  depth_unit_offset_x;
+    int8_t  depth_unit_offset_y;
+
+    /* 箭头图标位置 */
+    int8_t  depth_icon_offset_x;
+    int8_t  depth_icon_offset_y;
+    uint8_t depth_icon_align;
+
+    /* ===== NDL 特殊参数 ===== */
+    /* 进度条位置 */
+    int8_t  ndl_bar_offset_x;
+    int8_t  ndl_bar_offset_y;
+    uint8_t ndl_bar_align;
+
+    /* 进度条尺寸 */
+    int8_t  ndl_bar_w;
+    int8_t  ndl_bar_h;
+
+    /* 进度条填充方向: 0=从下往上, 1=从上往下 */
+    uint8_t ndl_bar_fill_dir;
 } arex_custom_widget_cfg_t;
 
 /* 左侧网格组件数组声明（最多 12 个组件覆盖 2x6 网格） */
@@ -497,13 +563,17 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor);
 /* 通用组件工厂（左侧网格 + 5F 共用）：
  * 接收绝对物理坐标，生成标准化组件容器。
  * is_depth_icon == true 时，在 DEPTH 模块内挂载 sudu 速率图标。
+ * cfg_font_id 可覆盖默认字号计算（设为 255 则自动计算）。
+ * layout_cfg 传入布局配置（左侧锚点使用），右侧卡片传 NULL。
  * 返回组件容器对象句柄。 */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                                arex_widget_id_t w_id,
                                int16_t abs_x, int16_t abs_y,
                                uint16_t abs_w, uint16_t abs_h,
                                uint8_t span_w, uint8_t span_h,
-                               bool is_depth_icon);
+                               bool is_depth_icon,
+                               arex_font_id_t cfg_font_id,
+                               arex_custom_widget_cfg_t *layout_cfg);
 
 /* UI 消费任务 — 全系统唯一允许执行 lv_label_set_text 的地方（50ms 定时器驱动） */
 void arex_ui_update_task(lv_timer_t *timer);
