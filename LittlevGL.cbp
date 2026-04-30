@@ -1785,9 +1785,10 @@
 		<Unit filename="my_.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_hal_sim/UI_main.c">
+		<Unit filename="src/UI_main.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/UI_main.h" />
 		<Unit filename="src/arex_hal_sim/arex_input_pc.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -1812,16 +1813,7 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/arex_ui_state.h" />
-		<Unit filename="src/arex_ui/picture/liuzhuandeng.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/picture/qiping.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/picture/sudu.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/picture/Shoudiantong.c">
+		<Unit filename="src/arex_ui/cards/card_blank.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/cards/card_compass.c">
@@ -1853,6 +1845,33 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/fonts/lv_font_courier_48.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/Shoudiantong.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/liuzhuandeng.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/qiping.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/sudo_down_level0.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/sudo_down_level1.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/sudo_down_level2.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/sudo_up_level0.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/sudo_up_level1.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/picture/sudo_up_level2.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/lv_100ask_demo_course_3_1_1/lv_100ask_demo_course_3_1_1.h" />
