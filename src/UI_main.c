@@ -157,7 +157,7 @@ static void sim_tick_cb(lv_timer_t *t)
     /* 推流历史轨迹点到 4F 曲线图 */
     arex_dive_log_append((float)g_sensor_data.dive_time_s, g_sensor_data.depth);
 
-    arex_bus_set_battery(g_sensor_data.battery_pct + 1);
+    arex_bus_set_battery(g_sensor_data.battery_pct + 1.2);
     /* 模拟温度缓慢变化 */
     static float s_temp_offset = 0.0f;
     s_temp_offset += 1.0f;
@@ -193,5 +193,5 @@ void UI_main(void)
     s_update_task_timer = lv_timer_create(arex_ui_update_task, 50, NULL);
 
     /* 8. 启动模拟数据定时器：1Hz */
-    // lv_timer_create(sim_tick_cb, 100, NULL);
+    lv_timer_create(sim_tick_cb, 100, NULL);
 }

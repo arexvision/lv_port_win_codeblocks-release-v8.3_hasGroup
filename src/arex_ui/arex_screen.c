@@ -1241,13 +1241,6 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         else if (strncmp(text, "BLUE", 4) == 0) strcpy(color_name, "BLUE");
         else if (strncmp(text, "WHITE", 5) == 0) strcpy(color_name, "WHITE");
 
-        /* 【自动开灯】如果灯是关闭状态，先自动打开 */
-        extern void arex_bus_set_light_power(bool on);
-        if (!g_light_power_state) {
-            g_light_power_state = true;
-            arex_bus_set_light_power(true);
-        }
-
         /* 通过 nested_items_for 获取颜色亮度选项（专门的二级嵌套菜单） */
         uint8_t ncnt = 0;
         const char **color_items = nested_items_for(color_name, &ncnt);
@@ -1323,6 +1316,14 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
             /* 回调给业务层处理 */
             extern void arex_ui_on_light_color_set(const char *color, const char *level);
             arex_ui_on_light_color_set(cur_title, text);
+
+            /* 选中亮度后自动开灯 */
+            if (!g_light_power_state) {
+                g_light_power_state = true;
+                extern void arex_bus_set_light_power(bool on);
+                arex_bus_set_light_power(true);
+            }
+
             arex_screen_show_modal_act(action);
         }
         arex_screen_close_submenu();
