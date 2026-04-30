@@ -213,8 +213,10 @@ typedef struct {
     uint8_t  widget_h[AREX_MAX_WIDGETS];    /* 行跨度 1~2 */
 
     /* --- 卡片顺序 (APP 同步就绪) ---
-     * card_order[i] = card_id（0=INFO 1=COMPASS 2=DECO 3=GAS 4=PLAN 5=SETUP）
-     * 控制 tileview 中各卡片的显示顺序，默认 {0,1,2,3,4,5} */
+     * card_order[pos] = card_id
+     * INFO 固定在 tile 0，SETUP 固定在 tile 7。
+     * CARD_POS_1 ~ CARD_POS_6 这 6 个位置可由 APP 重排。
+     */
     uint8_t card_order[AREX_CARD_COUNT];
 
     /* --- 用户设置 (运行时可修改) --- */

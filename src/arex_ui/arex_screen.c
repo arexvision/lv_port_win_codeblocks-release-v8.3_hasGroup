@@ -711,7 +711,8 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
 
     lv_obj_set_tile(s_tileview, card->tile_obj, AREX_TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
 
-    if (tile_pos >= 1) {
+    /* SETUP(tile 7) 不显示 dots，只有 DASH 卡片才更新 */
+    if (tile_pos >= 1 && tile_pos < CARD_POS_SETUP) {
         arex_screen_update_scroll_dots(tile_pos - 1, true);
     } else {
         arex_screen_update_scroll_dots(0, false);

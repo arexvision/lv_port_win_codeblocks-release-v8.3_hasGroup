@@ -193,14 +193,15 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
 
     /* ========== [A] 右侧卡片顺序 (tileview 滑动顺序) ==========
      * card_order[pos] = card_id
-     * INFO(0) / SETUP(6) 固定，中间 5 张可由 APP 重排
+     * INFO(0) / SETUP(7) 固定，中间 6 张可由 APP 重排
      */
     cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;
-    cfg->card_order[CARD_POS_1]     = CARD_ID_COMPASS;  /* 5F 自定义网格 — 默认最前 */
+    cfg->card_order[CARD_POS_1]     = CARD_ID_COMPASS;
     cfg->card_order[CARD_POS_2]     = CARD_ID_DECO;
     cfg->card_order[CARD_POS_3]     = CARD_ID_PLAN;
     cfg->card_order[CARD_POS_4]     = CARD_ID_GAS;
     cfg->card_order[CARD_POS_5]     = CARD_ID_CUSTOM_GRID;
+    cfg->card_order[CARD_POS_6]     = CARD_ID_BLANK;      /* 空白卡片 */
     cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;
 
     /* ========== [A] 用户设置默认值 ========== */

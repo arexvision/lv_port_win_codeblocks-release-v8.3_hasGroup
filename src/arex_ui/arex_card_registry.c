@@ -6,6 +6,7 @@ void card_compass_create(lv_obj_t *parent); void card_compass_update(void);
 void card_deco_create(lv_obj_t *parent);    void card_deco_update(void);
 void card_gas_create(lv_obj_t *parent);     void card_gas_update(void);
 void card_plan_create(lv_obj_t *parent);    void card_plan_update(void);
+void card_blank_create(lv_obj_t *parent);   void card_blank_update(void);
 void card_setup_create(lv_obj_t *parent);   void card_setup_update(void);
 
 extern const arex_menu_list_cfg_t info_menu_cfg;
@@ -71,6 +72,16 @@ static arex_card_t g_cards[AREX_CARD_COUNT] = {
         .tile_obj    = NULL,
         .create_cb   = NULL,   /* GRID 引擎由 arex_screen.c switch 分支直接调度 */
         .update_cb   = NULL,
+        .on_enter_cb = NULL,
+    },
+    [CARD_ID_BLANK] = {
+        .id          = CARD_ID_BLANK,
+        .title       = "BLANK",
+        .engine_type = CARD_ENGINE_CUSTOM,
+        .config_data = NULL,
+        .tile_obj    = NULL,
+        .create_cb   = card_blank_create,
+        .update_cb   = card_blank_update,
         .on_enter_cb = NULL,
     },
     [CARD_ID_SETUP] = {
