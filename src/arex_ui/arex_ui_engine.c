@@ -688,8 +688,8 @@ static const widget_meta_t s_widget_meta[AREX_WIDGET_COUNT] = {
     /* TTS    */    { "TTS",        "min",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
     /* PPO2   */    { "PPO2",      "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
     /* CNS    */    { "CNS",        "%",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* POD1   */    { "POD1",       "bar",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* POD2   */    { "POD2",       "bar",  AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* POD1   */    { "POD 1",     NULL,   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
+    /* POD2   */    { "POD 2",     NULL,   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
     /* WTIME  */    { "TIME",       "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
     /* GAS    */    { "GAS",        "",     AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
 };
@@ -830,6 +830,58 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_align_to(title_lbl, val_lbl, LV_ALIGN_OUT_RIGHT_BOTTOM, 5, -8);
 
         /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
+        lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
+        return obj;
+    }
+
+    /* ========== POD1/POD2 对角线布局（标题左上 + 数字右下，无 BAR 单位） ========== */
+    else if (w_id == AREX_WIDGET_POD1 || w_id == AREX_WIDGET_POD2) {
+        /* 标题 -> 左上角 */
+        lv_obj_t *title_lbl = lv_label_create(obj);
+        lv_label_set_text(title_lbl, w_id == AREX_WIDGET_POD1 ? "POD 1" : "POD 2");
+        lv_obj_set_style_text_font(title_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(title_lbl, AREX_LIGHT, 0);
+        lv_obj_align(title_lbl, LV_ALIGN_TOP_LEFT, 6, 4);
+
+        /* 纯数字 -> 右下角 */
+        lv_obj_t *val_lbl = lv_label_create(obj);
+        uint16_t pod_val = (w_id == AREX_WIDGET_POD1) ? g_sensor_data.pod1_bar : g_sensor_data.pod2_bar;
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
+            lv_label_set_text(val_lbl, "--");
+        } else {
+            lv_label_set_text_fmt(val_lbl, "%d", pod_val);
+        }
+        lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
+        lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
+        lv_obj_align(val_lbl, LV_ALIGN_BOTTOM_RIGHT, -6, -2);
+        lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
+
+        lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
+        return obj;
+    }
+
+    /* ========== TIME 模块：标题顶部 + 数字底部，拉开呼吸间距 ========== */
+    else if (w_id == AREX_WIDGET_WTIME) {
+        /* 标题 -> 顶部居中 */
+        lv_obj_t *title_lbl = lv_label_create(obj);
+        lv_label_set_text(title_lbl, "TIME");
+        lv_obj_set_style_text_font(title_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(title_lbl, AREX_LIGHT, 0);
+        lv_obj_align(title_lbl, LV_ALIGN_TOP_MID, 0, 4);
+
+        /* 时间数值 -> 底部居中 */
+        lv_obj_t *val_lbl = lv_label_create(obj);
+        uint32_t t_sec = g_sensor_data.dive_time_s;
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
+            lv_label_set_text(val_lbl, "--:--");
+        } else {
+            lv_label_set_text_fmt(val_lbl, "%02d:%02d", t_sec / 60, t_sec % 60);
+        }
+        lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
+        lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
+        lv_obj_align(val_lbl, LV_ALIGN_BOTTOM_MID, 0, -4);
+        lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
+
         lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
         return obj;
     }
