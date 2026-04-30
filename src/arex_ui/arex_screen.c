@@ -709,7 +709,7 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
         lv_obj_set_y(s_tileview, 0);
     }
 
-    lv_obj_set_tile(s_tileview, card->tile_obj, LV_ANIM_ON);
+    lv_obj_set_tile(s_tileview, card->tile_obj, AREX_TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
 
     if (tile_pos >= 1) {
         arex_screen_update_scroll_dots(tile_pos - 1, true);

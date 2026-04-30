@@ -20,6 +20,11 @@ extern "C" {
 #define AREX_RIGHT_W    (AREX_SCREEN_W - AREX_LEFT_W)
 #define AREX_CARD_H     AREX_SCREEN_H
 
+/* 页面切换动画开关：1=开动画，0=关动画 */
+#ifndef AREX_TILE_ANIM_ENABLED
+#define AREX_TILE_ANIM_ENABLED  1
+#endif
+
 /* 向前兼容宏 */
 #define AREX_FONT_HUGE   (&lv_font_courier_48)
 #define AREX_FONT_MEDIUM  (&lv_font_courier_28)
