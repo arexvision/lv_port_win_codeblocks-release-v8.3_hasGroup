@@ -16,6 +16,9 @@ static lv_obj_t *s_left_anchor;      /* 左侧锚点 (10U 沙盒) */
 static lv_obj_t *s_right_cont;       /* clip container */
 static lv_obj_t *s_tileview;
 
+/* 灯光控制状态（供 LIGHT CONTROL 子菜单全局共享） */
+bool g_light_power_state = false;
+
 /* System Data 专属物理防区句柄 */
 static lv_obj_t *s_lbl_sys_batt;
 static lv_obj_t *s_lbl_sys_temp;
@@ -1119,15 +1122,16 @@ static const char *s_setup_sub[][7] = {
     { "LOW (GF 40/85)", "MED (GF 30/70)", "HIGH (GF 20/65)", "< BACK", NULL },
     { "LOW", "MED", "HIGH", "MAX", "< BACK", NULL },
     { "START CALIBRATION", "< BACK", NULL },
+    { "LIGHT ON/OFF", "RED COLOR >", "GREEN COLOR >", "BLUE COLOR >", "WHITE COLOR >", "< BACK", NULL },
     { "MODE SETUP >", "DIVE SETUP >", "AI SETUP >", "ALERTS SETUP >", "DISPLAY / SYS >", "< BACK", NULL },
 };
 static const char *s_setup_titles[] = {
-    "> GAS SWITCH", "> CONSERVATISM", "> BRIGHTNESS", "> COMPASS CAL", "> SYSTEM SETUP"
+    "> GAS SWITCH", "> CONSERVATISM", "> BRIGHTNESS", "> COMPASS CAL", "> LIGHT CONTROL", "> SYSTEM SETUP"
 };
 
 void arex_screen_open_setup_submenu(uint8_t item_idx)
 {
-    if (item_idx >= 5) return;
+    if (item_idx >= 6) return;
     uint8_t count = 0;
     while (count < 7 && s_setup_sub[item_idx][count]) count++;
     submenu_populate(s_setup_titles[item_idx], s_setup_sub[item_idx], count);
@@ -1160,6 +1164,11 @@ static void build_nested_dive_setup(void)
     s_nested_dive_setup[5] = NULL;
 }
 
+static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", "< BACK", NULL };
+static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", "< BACK", NULL };
+static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", "< BACK", NULL };
+static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", "< BACK", NULL };
+
 static const char **nested_items_for(const char *title, uint8_t *out_count)
 {
     const char **tbl = NULL;
@@ -1168,6 +1177,10 @@ static const char **nested_items_for(const char *title, uint8_t *out_count)
     else if (strcmp(title, "AI SETUP")      == 0) tbl = s_nested_ai_setup;
     else if (strcmp(title, "ALERTS SETUP")  == 0) tbl = s_nested_alerts_setup;
     else if (strcmp(title, "DISPLAY / SYS") == 0) tbl = s_nested_display_sys;
+    else if (strcmp(title, "RED")    == 0) tbl = s_nested_red;
+    else if (strcmp(title, "GREEN")  == 0) tbl = s_nested_green;
+    else if (strcmp(title, "BLUE")   == 0) tbl = s_nested_blue;
+    else if (strcmp(title, "WHITE") == 0) tbl = s_nested_white;
 
     if (tbl && out_count) {
         *out_count = 0;
@@ -1206,17 +1219,51 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     const char *text = lv_label_get_text(lbl);
     if (!text) return;
 
-    if (strcmp(text, "< BACK") == 0) {
-        arex_screen_close_submenu();
-        return;
-    }
-
     const char *raw_title = lv_label_get_text(s_submenu_title);
     char cur_title[40] = {0};
     if (raw_title) {
         const char *p = raw_title;
         if (p[0] == '>' && p[1] == ' ') p += 2;
         lv_snprintf(cur_title, sizeof(cur_title), "%s", p);
+    }
+
+    if (strcmp(text, "< BACK") == 0) {
+        arex_screen_close_submenu();
+        return;
+    }
+
+    /* LIGHT CONTROL 颜色选项处理（必须在通用 > 处理之前） */
+    if (strcmp(cur_title, "LIGHT CONTROL") == 0 && strstr(text, "COLOR >") != NULL) {
+        /* 从 "RED COLOR >" 提取颜色名 */
+        char color_name[20] = {0};
+        if (strncmp(text, "RED", 3) == 0) strcpy(color_name, "RED");
+        else if (strncmp(text, "GREEN", 5) == 0) strcpy(color_name, "GREEN");
+        else if (strncmp(text, "BLUE", 4) == 0) strcpy(color_name, "BLUE");
+        else if (strncmp(text, "WHITE", 5) == 0) strcpy(color_name, "WHITE");
+
+        /* 【自动开灯】如果灯是关闭状态，先自动打开 */
+        extern void arex_bus_set_light_power(bool on);
+        if (!g_light_power_state) {
+            g_light_power_state = true;
+            arex_bus_set_light_power(true);
+        }
+
+        /* 通过 nested_items_for 获取颜色亮度选项（专门的二级嵌套菜单） */
+        uint8_t ncnt = 0;
+        const char **color_items = nested_items_for(color_name, &ncnt);
+        if (color_items && ncnt > 0) {
+            arex_screen_open_nested_submenu(color_name, color_items, ncnt);
+        }
+        return;
+    }
+
+    /* LIGHT CONTROL 开关处理 */
+    if (strcmp(cur_title, "LIGHT CONTROL") == 0 && strcmp(text, "LIGHT ON/OFF") == 0) {
+        extern void arex_bus_set_light_power(bool on);
+        g_light_power_state = !g_light_power_state;
+        arex_bus_set_light_power(g_light_power_state);
+        arex_screen_show_modal_act(g_light_power_state ? "LIGHT: ON" : "LIGHT: OFF");
+        return;
     }
 
     if (text[strlen(text) - 1] == '>') {
@@ -1262,6 +1309,22 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
 
     if (strcmp(cur_title, "BRIGHTNESS") == 0) {
         arex_screen_update_setup_badge(2, text);
+        arex_screen_close_submenu();
+        return;
+    }
+
+    /* 颜色亮度调节子菜单处理（RED/GREEN/BLUE/WHITE） */
+    if (strcmp(cur_title, "RED") == 0 || strcmp(cur_title, "GREEN") == 0 ||
+        strcmp(cur_title, "BLUE") == 0 || strcmp(cur_title, "WHITE") == 0) {
+        /* 用户选择了亮度百分比 */
+        if (strcmp(text, "< BACK") != 0) {
+            char action[40];
+            snprintf(action, sizeof(action), "%s: %s", cur_title, text);
+            /* 回调给业务层处理 */
+            extern void arex_ui_on_light_color_set(const char *color, const char *level);
+            arex_ui_on_light_color_set(cur_title, text);
+            arex_screen_show_modal_act(action);
+        }
         arex_screen_close_submenu();
         return;
     }
@@ -1600,4 +1663,78 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
     lv_obj_set_style_radius(line, 0, 0);
 
     return lbl;
+}
+
+/* =========================================================
+ * Light control callbacks (供业务层对接)
+ *
+ * 以下两个函数是 UI 层与业务层/硬件层的对接入口：
+ *   - arex_bus_set_light_power()  : 由业务层实现，控制灯光开关
+ *   - arex_ui_on_light_color_set(): 由业务层实现，设置颜色亮度
+ * ========================================================= */
+
+/**
+ * 灯光开关控制回调
+ *
+ * 调用时机：当用户在 SETUP > LIGHT CONTROL > LIGHT ON/OFF 点击时触发
+ * 调用方向：arex_screen.c -> 业务层
+ *
+ * @param on  true=开灯, false=关灯
+ *
+ * 【业务层对接方式】
+ * 在业务层重新定义此函数，控制 GPIO：
+ *
+ *   void arex_bus_set_light_power(bool on) {
+ *       if (on) {
+ *           GPIO_SetBits(PORT_LIGHT_EN, PIN_LIGHT_EN);
+ *       } else {
+ *           GPIO_ResetBits(PORT_LIGHT_EN, PIN_LIGHT_EN);
+ *       }
+ *   }
+ */
+void arex_bus_set_light_power(bool on)
+{
+    /* TODO: 业务层实现
+     *
+     * 示例伪代码：
+     *   extern void hw_light_set_power(bool state);
+     *   hw_light_set_power(on);
+     *
+     * 此处仅打印日志供调试
+     */
+    printf("[LIGHT] Power: %s\n", on ? "ON" : "OFF");
+}
+
+/**
+ * 灯光颜色亮度设置回调
+ *
+ * 调用时机：当用户在 SETUP > LIGHT CONTROL > [COLOR] > [LEVEL] 点击时触发
+ * 调用方向：arex_screen.c -> 业务层
+ *
+ * @param color  颜色名称: "RED", "GREEN", "BLUE", "WHITE"
+ * @param level 亮度级别: "10%", "30%", "50%", "70%", "100%"
+ *
+ * 【业务层对接方式】
+ * 在业务层实现此函数，处理 RGBW PWM 控制：
+ *
+ *   void arex_ui_on_light_color_set(const char *color, const char *level) {
+ *       uint8_t duty = 0;
+ *       if (strncmp(level, "10", 2) == 0) duty = 25;
+ *       else if (strncmp(level, "30", 2) == 0) duty = 76;
+ *       else if (strncmp(level, "50", 2) == 0) duty = 127;
+ *       else if (strncmp(level, "70", 2) == 0) duty = 178;
+ *       else duty = 255;
+ *       if (strncmp(color, "RED", 3) == 0) set_pwm(CH_RED, duty);
+ *       else if (strncmp(color, "GREEN", 5) == 0) set_pwm(CH_GREEN, duty);
+ *       else if (strncmp(color, "BLUE", 4) == 0) set_pwm(CH_BLUE, duty);
+ *       else if (strncmp(color, "WHITE", 5) == 0) set_pwm(CH_WHITE, duty);
+ *   }
+ */
+void arex_ui_on_light_color_set(const char *color, const char *level)
+{
+    /* TODO: 业务层实现
+     *
+     * 此处仅打印日志供调试
+     */
+    printf("[LIGHT] Color: %s, Level: %s\n", color, level);
 }

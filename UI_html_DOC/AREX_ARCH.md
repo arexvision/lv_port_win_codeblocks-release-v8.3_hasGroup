@@ -2556,3 +2556,168 @@ extern lv_obj_t *s_heading_hint_lbl;
 | 2026-04-30 | `arex_ui_engine.c` | `arex_ui_update_task()` 中 DIRTY_HEADING 处理改为 invalidate + 标签更新 |
 | 2026-04-30 | `AREX_ARCH.md` | 新增 Section 31 — 1F 罗盘零内存重构 |
 
+---
+
+## 33. 灯光控制子系统 (v2026-04-30)
+
+### 33.1 功能概述
+
+在 **DIVE SETUP** 卡片中新增 **LIGHT CONTROL** 选项，支持：
+- 灯光开关控制（ON/OFF）
+- RGBW 四色亮度调节（RED / GREEN / BLUE / WHITE）
+- 每种颜色支持 5 档亮度：10% / 30% / 50% / 70% / 100%
+- **自动开灯**：当灯光关闭时，点击任意颜色选项会自动先开灯
+
+### 33.2 菜单结构
+
+```
+DIVE SETUP
+  ├─ > LIGHT CONTROL          ← 新增入口
+  │     ├─ LIGHT ON/OFF      ← 开关切换
+  │     ├─ RED COLOR >       ─┐
+  │     ├─ GREEN COLOR >     ─┼─ 颜色子菜单（嵌套）
+  │     ├─ BLUE COLOR >     ─┤
+  │     ├─ WHITE COLOR >     ─┘
+  │     └─ < BACK
+  │
+  └─ > SYSTEM SETUP
+```
+
+点击颜色（如 RED COLOR >）后进入**专门的二级嵌套菜单**：
+```
+RED (二级嵌套菜单)
+  ├─ 10%
+  ├─ 30%
+  ├─ 50%
+  ├─ 70%
+  ├─ 100%
+  └─ < BACK
+```
+
+### 33.3 状态管理
+
+```c
+/* arex_screen.c - 全局灯光状态（供 LIGHT CONTROL 子菜单共享） */
+bool g_light_power_state = false;  /* 灯光开关状态 */
+```
+
+### 33.4 二级嵌套菜单实现
+
+颜色亮度菜单通过统一的 `nested_items_for()` 路由系统实现：
+
+```c
+/* arex_screen.c */
+static const char *s_nested_red[]   = { "10%", "30%", "50%", "70%", "100%", "< BACK" };
+static const char *s_nested_green[] = { "10%", "30%", "50%", "70%", "100%", "< BACK" };
+static const char *s_nested_blue[]  = { "10%", "30%", "50%", "70%", "100%", "< BACK" };
+static const char *s_nested_white[] = { "10%", "30%", "50%", "70%", "100%", "< BACK" };
+
+static const char **nested_items_for(const char *title, uint8_t *out_count)
+{
+    // ... existing routes ...
+    else if (strcmp(title, "RED")   == 0) tbl = s_nested_red;
+    else if (strcmp(title, "GREEN") == 0) tbl = s_nested_green;
+    else if (strcmp(title, "BLUE")  == 0) tbl = s_nested_blue;
+    else if (strcmp(title, "WHITE") == 0) tbl = s_nested_white;
+    // ...
+}
+```
+
+### 33.5 自动开灯逻辑
+
+当用户点击颜色选项时，如果灯处于关闭状态，系统会自动先开灯：
+
+```c
+/* arex_screen_handle_submenu_select() - LIGHT CONTROL 分支 */
+if (strstr(text, "COLOR >") != NULL) {
+    // 【自动开灯】如果灯是关闭状态，先自动打开
+    if (!g_light_power_state) {
+        g_light_power_state = true;
+        arex_bus_set_light_power(true);
+    }
+    // 通过 nested_items_for 获取颜色亮度选项（专门的二级嵌套菜单）
+    uint8_t ncnt = 0;
+    const char **color_items = nested_items_for(color_name, &ncnt);
+    if (color_items && ncnt > 0) {
+        arex_screen_open_nested_submenu(color_name, color_items, ncnt);
+    }
+    return;
+}
+```
+
+### 33.6 回调函数对接
+
+#### 回调 1：灯光开关
+
+**函数原型**：
+```c
+void arex_bus_set_light_power(bool on);
+```
+
+**调用时机**：用户在 `SETUP > LIGHT CONTROL > LIGHT ON/OFF` 点击时触发
+
+**业务层对接示例**：
+```c
+/* 在业务层重新定义此函数 */
+void arex_bus_set_light_power(bool on) {
+    if (on) {
+        GPIO_SetBits(PORT_LIGHT_EN, PIN_LIGHT_EN);
+    } else {
+        GPIO_ResetBits(PORT_LIGHT_EN, PIN_LIGHT_EN);
+    }
+}
+```
+
+#### 回调 2：颜色亮度设置
+
+**函数原型**：
+```c
+void arex_ui_on_light_color_set(const char *color, const char *level);
+```
+
+**参数**：
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `color` | `"RED"`, `"GREEN"`, `"BLUE"`, `"WHITE"` | 颜色名称 |
+| `level` | `"10%"`, `"30%"`, `"50%"`, `"70%"`, `"100%"` | 亮度级别 |
+
+**业务层对接示例**：
+```c
+void arex_ui_on_light_color_set(const char *color, const char *level) {
+    uint8_t duty = 0;
+    /* 解析亮度百分比 */
+    if (strncmp(level, "10", 2) == 0) duty = 25;   // 10%
+    else if (strncmp(level, "30", 2) == 0) duty = 76;  // 30%
+    else if (strncmp(level, "50", 2) == 0) duty = 127;  // 50%
+    else if (strncmp(level, "70", 2) == 0) duty = 178;  // 70%
+    else duty = 255;  // 100%
+
+    /* 根据颜色设置对应 PWM 通道 */
+    if (strncmp(color, "RED", 3) == 0) {
+        set_pwm_channel(PWM_CH_RED, duty);
+    } else if (strncmp(color, "GREEN", 5) == 0) {
+        set_pwm_channel(PWM_CH_GREEN, duty);
+    } else if (strncmp(color, "BLUE", 4) == 0) {
+        set_pwm_channel(PWM_CH_BLUE, duty);
+    } else if (strncmp(color, "WHITE", 5) == 0) {
+        set_pwm_channel(PWM_CH_WHITE, duty);
+    }
+}
+```
+
+### 33.7 文件变更
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-04-30 | `card_setup.c` | 新增 `"> LIGHT CONTROL"` 菜单项（索引 4） |
+| 2026-04-30 | `arex_screen.c` | `s_setup_sub[]` 新增 LIGHT 子菜单配置 |
+| 2026-04-30 | `arex_screen.c` | `s_setup_titles[]` 新增 `"> LIGHT CONTROL"` |
+| 2026-04-30 | `arex_screen.c` | `arex_screen_handle_submenu_select()` 新增 LIGHT 处理分支 |
+| 2026-04-30 | `arex_screen.c` | 新增 `arex_bus_set_light_power()` 回调（TODO 实现） |
+| 2026-04-30 | `arex_screen.c` | 新增 `arex_ui_on_light_color_set()` 回调（TODO 实现） |
+| 2026-04-30 | `arex_screen.h` | 新增回调函数声明 |
+| 2026-04-30 | `arex_screen.c` | `g_light_power_state` 全局变量管理灯光状态 |
+| 2026-04-30 | `arex_screen.c` | 颜色子菜单通过 `nested_items_for()` 路由实现 |
+| 2026-04-30 | `arex_screen.c` | 点击颜色选项时自动开灯逻辑 |
+| 2026-04-30 | `AREX_ARCH.md` | 新增 Section 33 — 灯光控制子系统 |
+

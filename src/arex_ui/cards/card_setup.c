@@ -17,6 +17,7 @@ static const arex_menu_item_cfg_t s_setup_items[] = {
     { "> CONSERVATISM",  "MED",        AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
     { "> BRIGHTNESS",    "HIGH",       AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
     { "> COMPASS CAL",   NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "> LIGHT CONTROL", NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
     { "> SYSTEM SETUP",  NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
 };
 #define SETUP_ITEM_COUNT (sizeof(s_setup_items) / sizeof(s_setup_items[0]))
