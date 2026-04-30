@@ -5,6 +5,7 @@
 #include "arex_data.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 /* ============================================================
  * 速率指示器图片资源（6级动态箭头）
@@ -16,8 +17,14 @@ LV_IMG_DECLARE(sudo_down_level0);
 LV_IMG_DECLARE(sudo_down_level1);
 LV_IMG_DECLARE(sudo_down_level2);
 
-/* 速率图标全局句柄（用于 update_task 动态切换） */
-static lv_obj_t *s_img_ascent_rate = NULL;
+/* ============================================================
+ * 速率图标指针阵列（支持多个 DEPTH 模块同时存在）
+ * 最多支持屏幕上出现 MAX_ASCENT_ICONS 个深度模块
+ * (左侧锚点 1 个 + 5F 自定义网格多个)
+ * 注意: MAX_ASCENT_ICONS 在 arex_ui_engine.h 中定义
+ * ============================================================ */
+lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
+uint8_t  s_ascent_icon_count = 0;
 
 /* ============================================================
  * 罗盘卡片静态句柄（由 card_compass.c 持有）
@@ -909,10 +916,15 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
         lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, unit_x, unit_y);
 
-        /* child[3] 速率箭头，贴右边缘（仅 2x2 大块显示） */
-        s_img_ascent_rate = lv_img_create(obj);
-        lv_img_set_src(s_img_ascent_rate, &sudo_up_level0);
-        lv_obj_align(s_img_ascent_rate, ico_al, ico_x, ico_y);
+        /* child[3] 速率箭头，贴右边缘（仅 2x2 大块显示）
+         * 将图标指针存入数组，支持多实例同步刷新 */
+        lv_obj_t *sudu_img = lv_img_create(obj);
+        lv_img_set_src(sudu_img, &sudo_up_level0);
+        lv_obj_align(sudu_img, ico_al, ico_x, ico_y);
+        /* 核心修复：将生成的图片指针存入数组 */
+        if (s_ascent_icon_count < MAX_ASCENT_ICONS) {
+            s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
+        }
 
         /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
         lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
@@ -1628,6 +1640,26 @@ void arex_ui_update_task(lv_timer_t *timer)
 {
     (void)timer;
 
+    /* ============================================================
+     * 🚨 核心修复：独立于数据的"时间心跳引擎"必须放在最前面！
+     *
+     * 即使没有任何脏标记，只要处于运动状态(|rate|>=3.0 m/min)，
+     * 我们就强行注入 DIRTY_DEPTH 脏标记，唤醒 UI 引擎去画闪烁动画！
+     * ============================================================ */
+    {
+        static bool last_flash_state = false;
+        bool current_flash_state = (lv_tick_get() / 500) % 2 == 0;
+
+        if (current_flash_state != last_flash_state) {
+            last_flash_state = current_flash_state;
+
+            float rate = g_sensor_data.ascent_rate;
+            if (fabsf(rate) >= AREX_RATE_STILL_THRESHOLD) {
+                g_sensor_data.dirty_mask |= DIRTY_DEPTH;
+            }
+        }
+    }
+
     uint32_t mask = g_sensor_data.dirty_mask;
     if (mask == DIRTY_NONE) return;
 
@@ -1647,24 +1679,59 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_screen_refresh_left_panel();
         card_deco_update();
 
-        /* 速率图标状态机：根据 ascent_rate 动态切换 6 级箭头 */
-        if (s_img_ascent_rate != NULL) {
+        /* ============================================================
+         * 速率图标闪烁引擎（与开头心跳同步执行）
+         *
+         * 当 DIRTY_DEPTH 被心跳唤醒后，统一在此处执行图标更新
+         * ============================================================ */
+        if (s_ascent_icon_count > 0) {
+            static int8_t s_last_direction = 0;  /* 0=静止, 1=上升, -1=下降 */
             float rate = g_sensor_data.ascent_rate;
-            const void *target_img = &sudo_up_level0;
-            if (rate >= 9.0f) {
-                target_img = &sudo_up_level2;
-            } else if (rate >= 3.0f) {
-                target_img = &sudo_up_level1;
-            } else if (rate >= 0.0f) {
-                target_img = &sudo_up_level0;
-            } else if (rate > -3.0f) {
-                target_img = &sudo_down_level0;
-            } else if (rate > -9.0f) {
-                target_img = &sudo_down_level1;
-            } else {
-                target_img = &sudo_down_level2;
+            bool is_moving = (fabsf(rate) >= AREX_RATE_STILL_THRESHOLD);
+            bool current_flash_state = (lv_tick_get() / 500) % 2 == 0;
+            const void *target_img_src = &sudo_up_level0;
+
+            /* 判断当前运动方向: 1=上升(positive), -1=下降(negative), 0=静止 */
+            int8_t current_direction = 0;
+            if (rate > 0.0f) {
+                current_direction = 1;
+            } else if (rate < 0.0f) {
+                current_direction = -1;
             }
-            lv_img_set_src(s_img_ascent_rate, target_img);
+
+            /* A. 静止悬停 或 方向切换过渡期 或 闪烁灭相位 → 强制显示 level0
+             * 方向根据最后的运动方向决定（静止时保持最后的方向图标） */
+            bool direction_changed = (current_direction != 0 && s_last_direction != 0 && current_direction != s_last_direction);
+            if (!is_moving || direction_changed || current_flash_state == false) {
+                int8_t effective_dir = is_moving ? current_direction : s_last_direction;
+                target_img_src = (effective_dir > 0) ? &sudo_up_level0 : &sudo_down_level0;
+            }
+            /* B. 移动中 且 非方向切换期 且 闪烁亮相位 → 显示真实等级 */
+            else {
+                if (rate >= AREX_RATE_LEVEL2_THRESHOLD) {
+                    target_img_src = &sudo_up_level2;
+                } else if (rate >= AREX_RATE_LEVEL1_THRESHOLD) {
+                    target_img_src = &sudo_up_level1;
+                } else if (rate > -AREX_RATE_LEVEL1_THRESHOLD) {
+                    target_img_src = &sudo_down_level0;
+                } else if (rate > -AREX_RATE_LEVEL2_THRESHOLD) {
+                    target_img_src = &sudo_down_level1;
+                } else {
+                    target_img_src = &sudo_down_level2;
+                }
+            }
+
+            /* 更新方向状态（仅在非静止时更新，静止时保持最后方向） */
+            if (current_direction != 0) {
+                s_last_direction = current_direction;
+            }
+
+            /* C. 循环遍历数组，让所有速率图标同步刷新 */
+            for (int i = 0; i < s_ascent_icon_count; i++) {
+                if (s_img_ascent_rate[i] != NULL) {
+                    lv_img_set_src(s_img_ascent_rate[i], target_img_src);
+                }
+            }
         }
     }
 
@@ -1770,6 +1837,10 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
 
     /* 注入外部容器（供告警引擎跨区搜索烙印对象） */
     g_left_anchor_obj = left_anchor;
+
+    /* 清空速率图标阵列（防止内存溢出/指针残留） */
+    memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
+    s_ascent_icon_count = 0;
 
     /* 基准网格单元：2列 x 6行，每格 80x60 */
     const uint16_t cell_w = AREX_LEFT_CELL_W;   /* 80px */

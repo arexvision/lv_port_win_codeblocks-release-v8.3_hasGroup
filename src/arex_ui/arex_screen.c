@@ -186,6 +186,10 @@ static void left_anchor_rebuild(uint8_t comp_count)
     /* 清除所有子对象 */
     lv_obj_clean(s_left_anchor);
 
+    /* 清空速率图标阵列（防止内存溢出/指针残留） */
+    memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
+    s_ascent_icon_count = 0;
+
     /* 重新调用 2x6 绝对网格渲染引擎 */
     arex_render_left_anchor_grid(s_left_anchor);
 
@@ -222,6 +226,10 @@ static void left_anchor_create(void)
     lv_obj_clear_flag(s_left_anchor, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_clean(s_left_anchor);
+
+    /* 清空速率图标阵列（防止内存溢出/指针残留） */
+    memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
+    s_ascent_icon_count = 0;
 
     /* 2. 调用 2x6 绝对网格渲染引擎（带 sudu 速率图标） */
     arex_render_left_anchor_grid(s_left_anchor);

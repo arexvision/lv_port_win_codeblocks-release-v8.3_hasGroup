@@ -117,13 +117,43 @@ static void sim_tick_cb(lv_timer_t *t)
     /* 水面休息计时（用于 W.TIME 显示） */
     arex_bus_set_surface_time(g_sensor_data.surface_time_s + 1);
 
-    /* 深度模拟：每秒增加 0.5m */
-    float new_depth = g_sensor_data.depth + 2.0f;
-    if (new_depth > 50.0f) new_depth = 50.0f;
-    arex_bus_set_depth(new_depth);
+    /* 深度模拟：快速下潜 → 停留5秒 → 快速上升 → 3m停留10秒 → 循环 */
+    static uint8_t s_depth_phase = 0;      /* 0: 快速下潜, 1: 停留5s, 2: 快速上升, 3: 3m停留10s */
+    static uint8_t s_depth_phase_tick = 0; /* 当前阶段已执行 tick 数 */
+    static float s_sim_depth = 0.0f;       /* 模拟深度值 */
+    static uint8_t s_cycle_count = 0;     /* 循环计数，用于区分停留阶段 */
+
+    /* 各阶段参数: { 持续tick数(秒), 每tick深度变化(m) } */
+    static const struct { uint8_t ticks; float delta; } s_depth_profiles[4] = {
+        { 20,  1.50f },  /* 0: 快速下潜 20s, 20×1.5=30m */
+        { 5,   0.00f },  /* 1: 停留5秒 30m不变 */
+        { 20, -1.35f },  /* 2: 快速上升 20s, 30m→3m, 27m÷20s=1.35m/s */
+        { 10,  0.00f },  /* 3: 3m停留10秒 */
+    };
+
+    s_sim_depth += s_depth_profiles[s_depth_phase].delta;
+    s_depth_phase_tick++;
+
+    /* 阶段切换 */
+    if (s_depth_phase_tick >= s_depth_profiles[s_depth_phase].ticks) {
+        s_depth_phase_tick = 0;
+        if (s_depth_phase == 3) {
+            /* 3m停留结束后，回到水面，开始新循环 */
+            s_sim_depth = 0.0f;
+            s_depth_phase = 0;
+        } else {
+            s_depth_phase++;
+        }
+    }
+
+    /* 边界保护 */
+    if (s_sim_depth > 50.0f) s_sim_depth = 50.0f;
+    if (s_sim_depth < 0.0f)  s_sim_depth = 0.0f;
+
+    arex_bus_set_depth(s_sim_depth);
 
     /* 深度超过 12m 时，推送模拟减压站序列 */
-    if (new_depth > 12.0f) {
+    if (s_sim_depth > 12.0f) {
         arex_deco_stop_t sim_stops[] = {
             { .depth_m = 9.0f, .stay_min = 2.0f },
             { .depth_m = 6.0f, .stay_min = 3.0f },

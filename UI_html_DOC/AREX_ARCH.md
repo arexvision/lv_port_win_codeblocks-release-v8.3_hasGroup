@@ -2725,3 +2725,166 @@ void arex_ui_on_light_color_set(const char *color, const char *level) {
 | 2026-04-30 | `arex_screen.c` | 点击颜色选项时自动开灯逻辑 |
 | 2026-04-30 | `AREX_ARCH.md` | 新增 Section 33 — 灯光控制子系统 |
 
+---
+
+## 34. 速率图标多例指针阵列与动效闪烁引擎 (v2026-05-01)
+
+### 34.1 问题描述
+
+**问题 1：单例指针被覆盖**
+- 原代码使用 `static lv_obj_t *s_img_ascent_rate = NULL` 单例指针
+- 当屏幕上同时存在多个 DEPTH 模块时（如左侧锚点 1 个 + 5F 卡片多个），后创建的指针会覆盖先创建的
+- 导致左侧锚点的速度图标失去响应
+
+**问题 2：缺乏动感**
+- 原代码只在 `DIRTY_DEPTH` 脏标记触发时更新图标
+- 如果速度匀速不变（没有新的脏标记），图标静止不动
+- 上升/下降时缺乏"呼吸效果"
+
+### 34.2 修复方案
+
+**第一步：单例升级为指针阵列**
+
+```c
+// arex_ui_engine.h/c 顶部
+#define MAX_ASCENT_ICONS 4
+static lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
+static uint8_t s_ascent_icon_count = 0;
+```
+
+**第二步：工厂函数收集指针**
+
+在 `render_widget_by_id()` 创建 DEPTH 图标时，将指针存入数组：
+
+```c
+lv_obj_t *sudu_img = lv_img_create(obj);
+lv_img_set_src(sudu_img, &sudo_up_level0);
+lv_obj_align(sudu_img, ico_al, ico_x, ico_y);
+
+/* 核心修复：将生成的图片指针存入数组 */
+if (s_ascent_icon_count < MAX_ASCENT_ICONS) {
+    s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
+}
+```
+
+**重建时清空计数器**
+
+在 `arex_render_5f_custom_grid()` 和 `arex_render_left_anchor_grid()` 最开头清空数组：
+
+```c
+/* 清空速率图标阵列（防止内存溢出/指针残留） */
+memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
+s_ascent_icon_count = 0;
+```
+
+### 34.3 速率计算与防抖（arex_data.c）
+
+`arex_bus_set_depth()` 负责速率计算与防抖：
+
+```c
+void arex_bus_set_depth(float depth_m)
+{
+    /* 速率计算移到防抖之前，每次调用都计算最新值 */
+    uint32_t now_ms = lv_tick_get();
+    if (_last_depth_tick_ms > 0) {
+        uint32_t dt_ms = now_ms - _last_depth_tick_ms;
+        if (dt_ms > 0) {
+            float dt_min = dt_ms / 60000.0f;
+            float rate = (depth_m - _prev_depth) / dt_min;  /* m/min */
+            g_sensor_data.ascent_rate = -rate;  /* 取反：正=上升，负=下降 */
+        }
+    }
+    _last_depth_tick_ms = now_ms;
+    _prev_depth = depth_m;
+
+    /* 防抖：深度变化 > 0.05m 才触发 DIRTY_DEPTH */
+    if (fabsf(g_sensor_data.depth - depth_m) > 0.05f) {
+        g_sensor_data.depth = depth_m;
+        g_sensor_data.dirty_mask |= DIRTY_DEPTH;
+    } else {
+        /* 深度未变 → 速率必为0，确保停留时图标显示 level0 不闪烁 */
+        g_sensor_data.ascent_rate = 0.0f;
+    }
+}
+```
+
+**关键点：**
+- 速率计算在防抖之前执行，确保每次调用都更新 `ascent_rate`
+- 停留时（深度不变）主动清零 `ascent_rate = 0.0f`，防止残留非零值导致图标继续闪烁
+- 防抖阈值 0.05m 避免 UI 频繁刷新
+
+### 34.4 500ms 心跳闪烁引擎（arex_ui_engine.c）
+
+在 `arex_ui_update_task()` 中注入闪烁逻辑，核心状态机：
+
+```c
+{
+    static int8_t s_last_direction = 0;  /* 0=静止, 1=上升, -1=下降 */
+    float rate = g_sensor_data.ascent_rate;
+    bool is_moving = (fabsf(rate) >= AREX_RATE_STILL_THRESHOLD);  /* 3.0 m/min */
+    bool current_flash_state = (lv_tick_get() / 500) % 2 == 0;   /* 500ms 节拍 */
+    const void *target_img_src = &sudo_up_level0;
+
+    /* 判断当前运动方向: 1=上升(positive), -1=下降(negative), 0=静止 */
+    int8_t current_direction = 0;
+    if (rate > 0.0f)      current_direction = 1;
+    else if (rate < 0.0f) current_direction = -1;
+
+    /* A. 静止悬停 或 方向切换过渡期 或 闪烁灭相位 → 强制显示 level0
+     * 方向根据最后的运动方向决定（静止时保持最后的方向图标） */
+    bool direction_changed = (current_direction != 0 && s_last_direction != 0
+                              && current_direction != s_last_direction);
+    if (!is_moving || direction_changed || current_flash_state == false) {
+        int8_t effective_dir = is_moving ? current_direction : s_last_direction;
+        target_img_src = (effective_dir > 0) ? &sudo_up_level0 : &sudo_down_level0;
+    }
+    /* B. 移动中 且 非方向切换期 且 闪烁亮相位 → 显示真实等级 */
+    else {
+        if (rate >= AREX_RATE_LEVEL2_THRESHOLD)       target_img_src = &sudo_up_level2;
+        else if (rate >= AREX_RATE_LEVEL1_THRESHOLD) target_img_src = &sudo_up_level1;
+        else if (rate > -AREX_RATE_LEVEL1_THRESHOLD) target_img_src = &sudo_down_level0;
+        else if (rate > -AREX_RATE_LEVEL2_THRESHOLD) target_img_src = &sudo_down_level1;
+        else                                          target_img_src = &sudo_down_level2;
+    }
+
+    /* 更新方向状态（仅在非静止时更新，静止时保持最后方向） */
+    if (current_direction != 0) {
+        s_last_direction = current_direction;
+    }
+
+    /* C. 循环遍历数组，让所有速率图标同步刷新 */
+    for (int i = 0; i < s_ascent_icon_count; i++) {
+        if (s_img_ascent_rate[i] != NULL) {
+            lv_img_set_src(s_img_ascent_rate[i], target_img_src);
+        }
+    }
+}
+```
+
+### 34.5 核心设计原理
+
+| 特性 | 说明 |
+|------|------|
+| `lv_tick_get() / 500` | 硬件级节拍器，每 500ms 翻转一次，与速度数据无关 |
+| `is_moving` | 移动判断，`|rate| >= 3.0 m/min` 视为移动 |
+| `s_last_direction` | 记录最后运动方向，静止时用于决定 level0 的方向（上/下箭头） |
+| `direction_changed` | 方向切换过渡期，强制显示 level0 防止图标跳变 |
+| 灭相位强制 level0 | 动感实现，`current_flash_state == false` 时退回空心箭头 |
+| 亮相位显示等级 | 呼吸效果，`current_flash_state == true` 时显示真实等级 |
+
+**视觉效果**：
+- 静止时：显示空心箭头（level0），方向由最后运动方向决定，不闪烁
+- 上升/下降时：图标一亮一灭（一闪一闪），如"呼吸"般有动感
+- 停留阶段（delta=0）：`ascent_rate` 被清零，图标固定显示 level0，方向与停留前的运动方向一致
+
+### 34.6 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-05-01 | `arex_ui_engine.c` | 单例 `s_img_ascent_rate` 升级为 `s_img_ascent_rate[MAX_ASCENT_ICONS]` 指针数组 |
+| 2026-05-01 | `arex_ui_engine.c` | `render_widget_by_id()` DEPTH 分支收集图标指针到数组 |
+| 2026-05-01 | `arex_ui_engine.c` | `arex_render_5f_custom_grid()` 和 `arex_render_left_anchor_grid()` 清空数组计数器 |
+| 2026-05-01 | `arex_ui_engine.c` | `arex_ui_update_task()` 注入 500ms 心跳闪烁引擎 |
+| 2026-05-01 | `arex_data.c` | `arex_bus_set_depth()` 速率计算前置；停留时主动清零 `ascent_rate` |
+| 2026-05-01 | `arex_ui_engine.c` | 静止/方向切换时 level0 方向由 `s_last_direction` 决定（非 rate>=0） |
+| 2026-05-01 | `AREX_ARCH.md` | Section 34 新增 34.3 速率计算与防抖；34.4~34.6 更新 |

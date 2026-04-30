@@ -17,23 +17,29 @@ static float    _prev_depth = 0.0f;
 
 void arex_bus_set_depth(float depth_m)
 {
-    /* 防抖：只有变化超过 0.05m 才触发 UI 刷新，极大节省 CPU */
-    if (fabsf(g_sensor_data.depth - depth_m) > 0.05f) {
-        /* 实时计算速率：m/min = (delta_depth_m / delta_time_s) * 60 */
-        uint32_t now_ms = lv_tick_get();
-        if (_last_depth_tick_ms > 0) {
-            uint32_t dt_ms = now_ms - _last_depth_tick_ms;
-            if (dt_ms > 0) {
-                float dt_min = dt_ms / 60000.0f;
-                float rate = (depth_m - _prev_depth) / dt_min;  /* m/min */
-                g_sensor_data.ascent_rate = rate;
-            }
+    /* 实时计算速率：m/min = (delta_depth_m / delta_time_s) * 60
+     * 注意：潜水习惯：深度增加=下潜(negative)，深度减少=上升(positive)
+     * 因此取负以匹配 UI 显示逻辑（正=上升箭头，负=下降箭头） */
+    uint32_t now_ms = lv_tick_get();
+    if (_last_depth_tick_ms > 0) {
+        uint32_t dt_ms = now_ms - _last_depth_tick_ms;
+        if (dt_ms > 0) {
+            float dt_min = dt_ms / 60000.0f;
+            float rate = (depth_m - _prev_depth) / dt_min;  /* m/min */
+            g_sensor_data.ascent_rate = -rate;  /* 取反：正=上升，负=下降 */
         }
-        _last_depth_tick_ms = now_ms;
-        _prev_depth = depth_m;
+    }
+    _last_depth_tick_ms = now_ms;
+    _prev_depth = depth_m;
 
+    /* 防抖：只有变化超过 0.05m 才触发 UI 刷新，极大节省 CPU
+     * 停留时虽然不刷新UI，但ascent_rate已在上面被清零/保持正确 */
+    if (fabsf(g_sensor_data.depth - depth_m) > 0.05f) {
         g_sensor_data.depth = depth_m;
         g_sensor_data.dirty_mask |= DIRTY_DEPTH;  //深度变化的时候也会触发跟踪
+    } else {
+        /* 深度未变 → 速率必为0（静止），确保停留时图标显示level0不闪烁 */
+        g_sensor_data.ascent_rate = 0.0f;
     }
 }
 

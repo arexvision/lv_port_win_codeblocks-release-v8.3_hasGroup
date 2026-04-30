@@ -60,6 +60,19 @@ extern "C" {
 #define AREX_ANCHOR_SEP_THICK  3   /* 模块间分割线粗细 px */
 #define AREX_ANCHOR_SEP_STYLE  AREX_SEP_SOLID  /* 分割线样式: SOLID/DASHED/DOTTED */
 
+/* 上升速率图标相关常量（供全局引用） */
+#define MAX_ASCENT_ICONS  4         /* 最多支持屏幕上出现 MAX_ASCENT_ICONS 个深度模块 */
+
+/* 速率阈值宏（可调整以修改 level1 触发灵敏度） */
+/* Level1 触发阈值：速率绝对值 >= 此值时显示 level1 */
+#define AREX_RATE_LEVEL1_THRESHOLD  3.0f   /* m/min */
+/* Level2 触发阈值：速率绝对值 >= 此值时显示 level2 */
+#define AREX_RATE_LEVEL2_THRESHOLD  9.0f   /* m/min */
+/* 静止判定阈值：速率绝对值 < 此值时视为静止（不闪烁） */
+#define AREX_RATE_STILL_THRESHOLD   3.0f   /* m/min */
+extern lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
+extern uint8_t  s_ascent_icon_count;
+
 /* =========================================================
  * 1b. 气体表常量 (供全局引用)
  * ========================================================= */
