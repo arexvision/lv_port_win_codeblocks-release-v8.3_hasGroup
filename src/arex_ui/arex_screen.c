@@ -153,6 +153,17 @@ static void styles_init(void)
  * 辅助函数
  * ========================================================= */
 
+/* 清空 ascent/NDL widget 句柄数组（在任何网格渲染之前调用）
+ * 在 arex_screen_rebuild_layout() 和 left_anchor_create() 入口各调用一次，
+ * 确保数组从干净状态开始，两侧网格渲染函数均以追加模式运行。 */
+static void clear_widget_arrays(void)
+{
+    memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
+    s_ascent_icon_count = 0;
+    memset(s_ndl_handles, 0, sizeof(s_ndl_handles));
+    s_ndl_handle_count = 0;
+}
+
 /* =========================================================
  * 左侧锚点：绝对坐标重建
  *
@@ -185,10 +196,6 @@ static void left_anchor_rebuild(uint8_t comp_count)
 
     /* 清除所有子对象 */
     lv_obj_clean(s_left_anchor);
-
-    /* 清空速率图标阵列（防止内存溢出/指针残留） */
-    memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
-    s_ascent_icon_count = 0;
 
     /* 重新调用 2x6 绝对网格渲染引擎 */
     arex_render_left_anchor_grid(s_left_anchor);
@@ -227,9 +234,8 @@ static void left_anchor_create(void)
 
     lv_obj_clean(s_left_anchor);
 
-    /* 清空速率图标阵列（防止内存溢出/指针残留） */
-    memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
-    s_ascent_icon_count = 0;
+    /* 清空 widget 句柄数组（首次创建时重置） */
+    clear_widget_arrays();
 
     /* 2. 调用 2x6 绝对网格渲染引擎（带 sudu 速率图标） */
     arex_render_left_anchor_grid(s_left_anchor);
@@ -505,6 +511,9 @@ static void right_panel_create(void)
  * ========================================================= */
 void arex_screen_rebuild_layout(void)
 {
+    /* 统一清空 widget 句柄数组（只清空一次！） */
+    clear_widget_arrays();
+
     /* 重建左侧锚点排版（2x6 绝对网格版本） */
     if (s_left_anchor) {
         left_anchor_rebuild(0);

@@ -284,13 +284,28 @@ typedef struct {
 /* =========================================================
  * 4. 实时数据总线 (RAM Only - 高频刷新)
  * ========================================================= */
+
+/* 停留状态枚举 */
+typedef enum {
+    AREX_STOP_NONE = 0,    /* 0: 常态，无停留 */
+    AREX_STOP_SAFETY,      /* 1: 安全停留 */
+    AREX_STOP_DECO         /* 2: 强制减压停留 */
+} arex_stop_type_t;
+
 typedef struct {
     /* =========================================================
      * 核心数据 (Core)
      * ========================================================= */
     float   depth;              /* 当前深度 m */
     int16_t ndl;               /* 免减压时间 min */
-    int16_t ndl_stop_value;     /* NDL_STOP: 停留时间/剩余 NDL 动态值 */
+    int16_t ndl_stop_value;    /* NDL_STOP: 停留时间/剩余 NDL 动态值 */
+
+    /* --- 动态停留状态机 --- */
+    arex_stop_type_t stop_type;        /* 当前所处的停留模式 */
+    float            stop_depth_m;     /* 目标停留深度 (如 3.0m 或 6.0m) */
+    uint16_t         stop_time_total_s;/* 该减压站的总时间 (用于计算横向进度条) */
+    uint16_t         stop_time_left_s; /* 剩余倒计时 (秒) */
+    bool             in_stop_zone;     /* 是否在目标深度 ±1.5m 范围内？(决定是否读秒) */
     uint16_t tts;              /* 回到水面时间 min */
     uint32_t dive_time_s;       /* 潜水总时 s */
     uint32_t surface_time_s;    /* WTM 水面休息时间 s */
@@ -368,7 +383,7 @@ typedef enum {
     /* 核心数据 */
     DIRTY_DEPTH      = (1U << 0),   /* 深度数据 */
     DIRTY_NDL        = (1U << 1),   /* 免减压时间 */
-    DIRTY_NDL_STOP   = (1U << 2),   /* NDL_STOP 动态值 */
+    DIRTY_NDL_STOP   = (1U << 2),   /* NDL_STOP 动态值 + 停留状态机 */
     DIRTY_TTS        = (1U << 3),   /* 回到水面时间 */
     DIRTY_DIVE_TIME  = (1U << 4),   /* 潜水总时 */
     DIRTY_GAS        = (1U << 5),   /* 气体切换 */
@@ -416,6 +431,32 @@ typedef enum {
  * ========================================================= */
 extern arex_sys_config_t  g_sys_config;
 extern arex_sensor_data_t g_sensor_data;
+
+/* =========================================================
+ * NDL_STOP 多形态组件句柄（160x60 极限空间内的"变形金刚"）
+ * 支持屏幕上多个 NDL 模块（左侧锚点 1 个 + 5F 多个）
+ * 三种状态: NDL常态 / Safety停留 / Deco停留
+ * ========================================================= */
+#define MAX_NDL_ICONS 4
+typedef struct {
+    lv_obj_t *comp;
+    lv_obj_t *vert_bg;
+    lv_obj_t *vert_fill;
+    lv_obj_t *horiz_bg;
+    lv_obj_t *horiz_fill;
+    lv_obj_t *main_val;
+    lv_obj_t *title_top;
+    lv_obj_t *sub_bot;
+} ndl_handle_t;
+
+/* 速率图标指针阵列（最多支持 MAX_ASCENT_ICONS 个 DEPTH 模块） */
+#define MAX_ASCENT_ICONS 4
+extern lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
+extern uint8_t  s_ascent_icon_count;
+
+/* NDL_STOP 多形态组件句柄数组 */
+extern ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
+extern uint8_t      s_ndl_handle_count;
 
 /* =========================================================
  * 6b. 潜水轨迹与减压停留（供 card_plan.c 和 UI_main.c 共享）

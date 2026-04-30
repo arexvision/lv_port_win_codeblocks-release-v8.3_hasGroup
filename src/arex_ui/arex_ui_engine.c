@@ -21,10 +21,17 @@ LV_IMG_DECLARE(sudo_down_level2);
  * 速率图标指针阵列（支持多个 DEPTH 模块同时存在）
  * 最多支持屏幕上出现 MAX_ASCENT_ICONS 个深度模块
  * (左侧锚点 1 个 + 5F 自定义网格多个)
- * 注意: MAX_ASCENT_ICONS 在 arex_ui_engine.h 中定义
+ * ============================================================ */
+
+/* ============================================================
+ * NDL_STOP 多形态组件句柄（160x60 极限空间内的"变形金刚"）
+ * 支持屏幕上多个 NDL 模块（左侧锚点 1 个 + 5F 多个）
+ * 三种状态: NDL常态 / Safety停留 / Deco停留
  * ============================================================ */
 lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
 uint8_t  s_ascent_icon_count = 0;
+ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
+uint8_t      s_ndl_handle_count = 0;
 
 /* ============================================================
  * 罗盘卡片静态句柄（由 card_compass.c 持有）
@@ -932,58 +939,68 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     } else if (w_id == AREX_WIDGET_DEPTH) {
         /* 单格 DEPTH（1x1 等）：走通用单标签渲染，不显示速度图标 */
     } else if (w_id == AREX_WIDGET_NDL) {
-        /* 获取布局配置或使用默认值 */
-        int16_t bar_x   = layout_cfg ? layout_cfg->ndl_bar_offset_x : 10;
-        int16_t bar_y   = layout_cfg ? layout_cfg->ndl_bar_offset_y : 0;
-        uint8_t bar_al  = layout_cfg ? layout_cfg->ndl_bar_align : LV_ALIGN_LEFT_MID;
-        int16_t bar_w   = layout_cfg ? layout_cfg->ndl_bar_w : 14;
-        int16_t bar_h   = layout_cfg ? layout_cfg->ndl_bar_h : 40;
-        uint8_t fill_dir = layout_cfg ? layout_cfg->ndl_bar_fill_dir : 0;  /* 0=从下往上 */
-
-        lv_obj_t *bar_bg = lv_obj_create(obj);
-        lv_obj_remove_style_all(bar_bg);
-        lv_obj_set_size(bar_bg, bar_w, bar_h);
-        lv_obj_align(bar_bg, bar_al, bar_x, bar_y);
-        lv_obj_set_style_border_width(bar_bg, 2, 0);
-        lv_obj_set_style_border_color(bar_bg, AREX_GREEN, 0);
-        lv_obj_set_style_radius(bar_bg, 4, 0);
-
-        lv_obj_t *bar_fill = lv_obj_create(bar_bg);
-        lv_obj_remove_style_all(bar_fill);
-        lv_obj_set_size(bar_fill, LV_PCT(100), LV_PCT(60));
-        /* 根据 fill_dir 决定填充方向 */
-        if (fill_dir == 0) {
-            lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);  /* 从下往上 */
-        } else {
-            lv_obj_align(bar_fill, LV_ALIGN_TOP_MID, 0, 0);    /* 从上往下 */
+        /* NDL_STOP 多形态组件"变形金刚"：
+         * 在 160x60 极限空间内，提前创建好所有子对象，靠显隐实现瞬间变形
+         * 三种状态: NDL常态(垂直柱+大字) / Safety停留(横向柱+缩写字) / Deco停留
+         * 支持多实例：收集句柄到数组，所有实例同步刷新 */
+        if (s_ndl_handle_count >= MAX_NDL_ICONS) {
+            return obj;  /* 超出容量，安全返回 */
         }
-        lv_obj_set_style_bg_color(bar_fill, AREX_GREEN, 0);
-        lv_obj_set_style_bg_opa(bar_fill, LV_OPA_COVER, 0);
-        lv_obj_set_style_radius(bar_fill, 2, 0);
 
-        /* 获取通用布局参数 */
-        int16_t val_x  = layout_cfg ? layout_cfg->value_offset_x : 10;
-        int16_t val_y  = layout_cfg ? layout_cfg->value_offset_y : 0;
-        uint8_t val_al = layout_cfg ? layout_cfg->value_align : LV_ALIGN_LEFT_MID;
-        int16_t tit_x  = layout_cfg ? layout_cfg->title_offset_x : 5;
-        int16_t tit_y  = layout_cfg ? layout_cfg->title_offset_y : -8;
+        ndl_handle_t *h = &s_ndl_handles[s_ndl_handle_count++];
+        h->comp = obj;
 
-        lv_obj_t *val_lbl = lv_label_create(obj);
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
-            lv_label_set_text(val_lbl, "--");
-        } else {
-            lv_label_set_text_fmt(val_lbl, "%d", g_sensor_data.ndl);
-        }
-        lv_obj_set_style_text_font(val_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
-        lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
-        lv_obj_align_to(val_lbl, bar_bg, LV_ALIGN_OUT_RIGHT_MID, val_x, val_y);
-        lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)AREX_WIDGET_NDL);
+        /* === 常态: 左侧垂直进度条 (宽14, 高40) === */
+        h->vert_bg = lv_obj_create(obj);
+        lv_obj_remove_style_all(h->vert_bg);
+        lv_obj_set_size(h->vert_bg, 14, 40);
+        lv_obj_align(h->vert_bg, LV_ALIGN_LEFT_MID, 10, 0);
+        lv_obj_set_style_border_width(h->vert_bg, 2, 0);
+        lv_obj_set_style_border_color(h->vert_bg, AREX_GREEN, 0);
+        lv_obj_set_style_radius(h->vert_bg, 4, 0);
 
-        lv_obj_t *title_lbl = lv_label_create(obj);
-        lv_label_set_text(title_lbl, "NDL");
-        lv_obj_set_style_text_font(title_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
-        lv_obj_set_style_text_color(title_lbl, AREX_GREEN, 0);
-        lv_obj_align_to(title_lbl, val_lbl, LV_ALIGN_OUT_RIGHT_BOTTOM, tit_x, tit_y);
+        h->vert_fill = lv_obj_create(h->vert_bg);
+        lv_obj_remove_style_all(h->vert_fill);
+        lv_obj_set_size(h->vert_fill, LV_PCT(100), LV_PCT(60));
+        lv_obj_align(h->vert_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
+        lv_obj_set_style_bg_color(h->vert_fill, AREX_GREEN, 0);
+        lv_obj_set_style_bg_opa(h->vert_fill, LV_OPA_COVER, 0);
+        lv_obj_set_style_radius(h->vert_fill, 2, 0);
+
+        /* === 停留态: 底部横向进度条 (宽140, 高6) === */
+        h->horiz_bg = lv_obj_create(obj);
+        lv_obj_remove_style_all(h->horiz_bg);
+        lv_obj_set_size(h->horiz_bg, 140, 6);
+        lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
+        lv_obj_set_style_border_width(h->horiz_bg, 1, 0);
+        lv_obj_set_style_border_color(h->horiz_bg, AREX_GREEN, 0);
+        lv_obj_add_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);  /* 默认隐藏 */
+
+        h->horiz_fill = lv_obj_create(h->horiz_bg);
+        lv_obj_remove_style_all(h->horiz_fill);
+        lv_obj_set_size(h->horiz_fill, LV_PCT(0), LV_PCT(100));
+        lv_obj_align(h->horiz_fill, LV_ALIGN_LEFT_MID, 0, 0);
+        lv_obj_set_style_bg_color(h->horiz_fill, AREX_GREEN, 0);
+        lv_obj_set_style_bg_opa(h->horiz_fill, LV_OPA_COVER, 0);
+
+        /* === 主干数值 (大数字/倒计时) === */
+        h->main_val = lv_label_create(obj);
+        lv_obj_set_style_text_color(h->main_val, AREX_GREEN, 0);
+        lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_HUGE), 0);
+        lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -45, 0);
+
+        /* === 顶部标题 (用于显示 SAFETY 3m 或 DECO 6m) === */
+        h->title_top = lv_label_create(obj);
+        lv_obj_set_style_text_font(h->title_top, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(h->title_top, AREX_LIGHT, 0);
+        lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 10, 4);
+        lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);  /* 默认隐藏 */
+
+        /* === 底部副标题 (用于显示 NDL 文本) === */
+        h->sub_bot = lv_label_create(obj);
+        lv_obj_set_style_text_font(h->sub_bot, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(h->sub_bot, AREX_GREEN, 0);
+        lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_RIGHT, -10, -5);
 
         /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
         lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
@@ -1300,6 +1317,9 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
     /* 清除旧 widget 句柄表 */
     memset(s_widget_handles, 0, sizeof(s_widget_handles));
     s_widget_handle_count = 0;
+
+    /* 注意：不单独清空 s_img_ascent_rate[] / s_ndl_handles[]！
+     * 它们已经在 arex_screen_rebuild_layout() 入口统一清空了。 */
 
     /* 清除容器中所有旧组件（rebuild 时） */
     lv_obj_clean(card_custom);
@@ -1735,6 +1755,81 @@ void arex_ui_update_task(lv_timer_t *timer)
         }
     }
 
+    /* ============================================================
+     * NDL_STOP 多形态状态机：NDL常态 / Safety停留 / Deco停留
+     * 根据 g_sensor_data.stop_type 瞬间切换所有子组件的显隐、位置和字号
+     * 遍历数组，同步刷新所有 NDL 实例（左侧锚点 + 5F 多个）
+     * ============================================================ */
+    if (s_ndl_handle_count > 0 && (mask & (DIRTY_NDL_STOP | DIRTY_DEPTH | DIRTY_NDL))) {
+        for (int i = 0; i < s_ndl_handle_count; i++) {
+            ndl_handle_t *h = &s_ndl_handles[i];
+
+            /* ========== 状态 1: 常规 NDL 模式 ========== */
+            if (g_sensor_data.stop_type == AREX_STOP_NONE) {
+                /* 显隐控制 */
+                lv_obj_clear_flag(h->vert_bg, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+
+                /* 样式重组：切换为 58px 巨型字体，纯 NDL 数字 */
+                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_HUGE), 0);
+                lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
+                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -45, 0);
+
+                /* "NDL" 文本放右下角 */
+                lv_label_set_text(h->sub_bot, "NDL");
+                lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_RIGHT, -10, -5);
+
+                /* 垂直进度条动态计算（假设最大99分钟） */
+                int fill_h = (g_sensor_data.ndl * 40) / 99;
+                if (fill_h > 40) fill_h = 40;
+                if (fill_h < 1) fill_h = 1;
+                lv_obj_set_size(h->vert_fill, LV_PCT(100), fill_h);
+            }
+            /* ========== 状态 2 & 3: 停留模式 (Safety / Deco) ========== */
+            else {
+                /* 显隐控制 */
+                lv_obj_add_flag(h->vert_bg, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
+
+                /* 样式重组：缩小主字体为 28px 以腾出空间显示 MM:SS */
+                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -10, -5);
+
+                /* 判断在 ±1.5m 范围内？(读秒 vs 读分) */
+                if (g_sensor_data.in_stop_zone) {
+                    int m = g_sensor_data.stop_time_left_s / 60;
+                    int s = g_sensor_data.stop_time_left_s % 60;
+                    lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
+                } else {
+                    int m = (g_sensor_data.stop_time_left_s + 59) / 60;
+                    lv_label_set_text_fmt(h->main_val, "%d'", m);
+                }
+
+                /* 标题文本分配 */
+                if (g_sensor_data.stop_type == AREX_STOP_SAFETY) {
+                    lv_label_set_text_fmt(h->title_top, "SAFETY %.0fm", (double)g_sensor_data.stop_depth_m);
+                    lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+                    lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
+                    lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 10, -14);
+                } else {
+                    lv_label_set_text_fmt(h->title_top, "DECO %.0fm", (double)g_sensor_data.stop_depth_m);
+                    lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+                }
+
+                /* 横向进度条动态生长 */
+                if (g_sensor_data.stop_time_total_s > 0) {
+                    int fill_w = ((g_sensor_data.stop_time_total_s - g_sensor_data.stop_time_left_s) * 140) / g_sensor_data.stop_time_total_s;
+                    if (fill_w > 140) fill_w = 140;
+                    if (fill_w < 1) fill_w = 1;
+                    lv_obj_set_size(h->horiz_fill, fill_w, 6);
+                }
+            }
+        }
+    }
+
     /* 气瓶压力 —— 左侧面板 POD 刷新 */
     if (mask & DIRTY_POD) {
         arex_screen_refresh_left_panel();
@@ -1838,9 +1933,9 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
     /* 注入外部容器（供告警引擎跨区搜索烙印对象） */
     g_left_anchor_obj = left_anchor;
 
-    /* 清空速率图标阵列（防止内存溢出/指针残留） */
-    memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
-    s_ascent_icon_count = 0;
+    /* 注意：不单独清空 s_img_ascent_rate[] / s_ndl_handles[]！
+     * 它们已经在 arex_screen_rebuild_layout() 入口统一清空了。
+     * 这里只需要追加左侧锚点的 widget 指针即可（追加模式）。 */
 
     /* 基准网格单元：2列 x 6行，每格 80x60 */
     const uint16_t cell_w = AREX_LEFT_CELL_W;   /* 80px */

@@ -152,6 +152,49 @@ static void sim_tick_cb(lv_timer_t *t)
 
     arex_bus_set_depth(s_sim_depth);
 
+    /* ============================================================
+     * NDL_STOP 状态机仿真：NDL常态 → Safety停留 → Deco停留
+     * 每秒调用一次，驱动停留状态机的自动变身效果
+     * ============================================================ */
+    {
+        static uint16_t s_ndl_tick = 0;
+        s_ndl_tick++;
+
+        /* 1. NDL 递减 */
+        if (g_sensor_data.ndl > 0) {
+            arex_bus_set_ndl((int16_t)(g_sensor_data.ndl - 1));
+        }
+
+        /* 2. 常态: 深度 < 5m 且 NDL > 0 */
+        g_sensor_data.stop_type = AREX_STOP_NONE;
+        g_sensor_data.in_stop_zone = false;
+
+        /* 3. 安全停留: 深度 5~10m，触发 3m 安全停留 180秒 */
+        if (s_sim_depth >= 5.0f && s_sim_depth < 10.0f && g_sensor_data.ndl > 0) {
+            g_sensor_data.stop_type = AREX_STOP_SAFETY;
+            g_sensor_data.stop_depth_m = 3.0f;
+            g_sensor_data.stop_time_total_s = 180;
+            g_sensor_data.stop_time_left_s = 180 - (s_ndl_tick % 180);
+            /* 是否在 ±1.5m 范围内？ */
+            g_sensor_data.in_stop_zone = (fabsf(s_sim_depth - 3.0f) <= 1.5f);
+        }
+        /* 4. 减压停留: 深度 >= 10m 或 NDL 耗尽 */
+        else if (s_sim_depth >= 10.0f || g_sensor_data.ndl <= 0) {
+            if (g_sensor_data.ndl <= 0) {
+                g_sensor_data.ndl = 0;
+            }
+            g_sensor_data.stop_type = AREX_STOP_DECO;
+            g_sensor_data.stop_depth_m = 6.0f;
+            g_sensor_data.stop_time_total_s = 300;
+            g_sensor_data.stop_time_left_s = 300 - (s_ndl_tick % 300);
+            /* 是否在 ±1.5m 范围内？ */
+            g_sensor_data.in_stop_zone = (fabsf(s_sim_depth - 6.0f) <= 1.5f);
+        }
+
+        /* 强制唤醒 UI 更新（停留状态变化时触发 DIRTY_NDL_STOP） */
+        g_sensor_data.dirty_mask |= DIRTY_NDL_STOP;
+    }
+
     /* 深度超过 12m 时，推送模拟减压站序列 */
     if (s_sim_depth > 12.0f) {
         arex_deco_stop_t sim_stops[] = {
@@ -160,11 +203,6 @@ static void sim_tick_cb(lv_timer_t *t)
             { .depth_m = 3.0f, .stay_min = 1.0f },
         };
         arex_bus_set_deco_plan(sim_stops, 3);
-    }
-
-    /* 模拟 NDL 递减 */
-    if (g_sensor_data.ndl > 0) {
-        arex_bus_set_ndl((int16_t)(g_sensor_data.ndl - 1));
     }
 
     /* 模拟 TTS 递增 */

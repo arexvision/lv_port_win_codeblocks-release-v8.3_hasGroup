@@ -2888,3 +2888,454 @@ void arex_bus_set_depth(float depth_m)
 | 2026-05-01 | `arex_data.c` | `arex_bus_set_depth()` 速率计算前置；停留时主动清零 `ascent_rate` |
 | 2026-05-01 | `arex_ui_engine.c` | 静止/方向切换时 level0 方向由 `s_last_direction` 决定（非 rate>=0） |
 | 2026-05-01 | `AREX_ARCH.md` | Section 34 新增 34.3 速率计算与防抖；34.4~34.6 更新 |
+
+---
+
+## 35. NDL_STOP 多形态组件与动态减压状态机 (v2026-05-01)
+
+### 35.1 问题描述
+
+在 160x60 的极限空间内，NDL 组件需要在三种完全不同的视觉状态之间**瞬间无缝切换**：
+
+| 状态 | 视觉表现 |
+|------|---------|
+| **NDL 常态** | 左侧粗壮垂直进度条 + 右上方巨型数字（如 "22 NDL"） |
+| **Safety 停留** | 垂直柱消失，底部出现横向进度条 + 顶部 "SAFETY 3m" 标题 + 缩小倒计时 |
+| **Deco 停留** | 同上，但顶部 "DECO 6m" + 无 NDL 文本 + 更长倒计时 |
+
+传统方案（替换整张图片 / 重建对象）会导致**明显的卡顿感**，用户体验极差。
+
+### 35.2 数据总线扩展（arex_ui_engine.h）
+
+**停留状态枚举**：
+
+```c
+typedef enum {
+    AREX_STOP_NONE = 0,    /* 0: 常态，无停留 */
+    AREX_STOP_SAFETY,      /* 1: 安全停留 */
+    AREX_STOP_DECO         /* 2: 强制减压停留 */
+} arex_stop_type_t;
+```
+
+**结构体新增字段**：
+
+```c
+/* --- 动态停留状态机 --- */
+arex_stop_type_t stop_type;        /* 当前所处的停留模式 */
+float            stop_depth_m;     /* 目标停留深度 (如 3.0m 或 6.0m) */
+uint16_t         stop_time_total_s;/* 该减压站的总时间 (用于计算横向进度条) */
+uint16_t         stop_time_left_s; /* 剩余倒计时 (秒) */
+bool             in_stop_zone;     /* 是否在目标深度 ±1.5m 范围内？(决定是否读秒) */
+```
+
+### 35.3 静态句柄声明（arex_ui_engine.c 顶部）
+
+```c
+/* NDL_STOP 多形态组件句柄（160x60 极限空间内的"变形金刚"）
+ * 三种状态: NDL常态 / Safety停留 / Deco停留 */
+static lv_obj_t *s_ndl_comp      = NULL;
+static lv_obj_t *s_ndl_vert_bg   = NULL;  /* 垂直进度条背景 */
+static lv_obj_t *s_ndl_vert_fill = NULL;  /* 垂直进度条填充 */
+static lv_obj_t *s_ndl_horiz_bg   = NULL; /* 横向进度条背景 */
+static lv_obj_t *s_ndl_horiz_fill = NULL;/* 横向进度条填充 */
+static lv_obj_t *s_ndl_main_val  = NULL;  /* 主干数值 (大数字/倒计时) */
+static lv_obj_t *s_ndl_title_top = NULL;  /* 顶部标题 (SAFETY 3m / DECO 6m) */
+static lv_obj_t *s_ndl_sub_bot   = NULL;  /* 底部副标题 (NDL 文本) */
+```
+
+**重建时清空句柄**（防止指针残留）：
+
+```c
+s_ndl_comp       = NULL;
+s_ndl_vert_bg    = NULL;
+s_ndl_vert_fill  = NULL;
+s_ndl_horiz_bg   = NULL;
+s_ndl_horiz_fill = NULL;
+s_ndl_main_val   = NULL;
+s_ndl_title_top  = NULL;
+s_ndl_sub_bot    = NULL;
+```
+
+### 35.4 AREX_WIDGET_NDL 创建拦截（render_widget_by_id）
+
+在 `render_widget_by_id()` 中拦截 `AREX_WIDGET_NDL`，**提前创建所有子对象**，靠显隐/字号切换实现瞬间变形：
+
+```c
+} else if (w_id == AREX_WIDGET_NDL) {
+    s_ndl_comp = obj;
+
+    /* === 常态: 左侧垂直进度条 (宽14, 高40) === */
+    s_ndl_vert_bg = lv_obj_create(obj);
+    lv_obj_remove_style_all(s_ndl_vert_bg);
+    lv_obj_set_size(s_ndl_vert_bg, 14, 40);
+    lv_obj_align(s_ndl_vert_bg, LV_ALIGN_LEFT_MID, 10, 0);
+    lv_obj_set_style_border_width(s_ndl_vert_bg, 2, 0);
+    lv_obj_set_style_border_color(s_ndl_vert_bg, AREX_GREEN, 0);
+    lv_obj_set_style_radius(s_ndl_vert_bg, 4, 0);
+
+    s_ndl_vert_fill = lv_obj_create(s_ndl_vert_bg);
+    lv_obj_remove_style_all(s_ndl_vert_fill);
+    lv_obj_set_size(s_ndl_vert_fill, LV_PCT(100), LV_PCT(60));
+    lv_obj_align(s_ndl_vert_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_color(s_ndl_vert_fill, AREX_GREEN, 0);
+    lv_obj_set_style_bg_opa(s_ndl_vert_fill, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(s_ndl_vert_fill, 2, 0);
+
+    /* === 停留态: 底部横向进度条 (宽140, 高6) === */
+    s_ndl_horiz_bg = lv_obj_create(obj);
+    lv_obj_remove_style_all(s_ndl_horiz_bg);
+    lv_obj_set_size(s_ndl_horiz_bg, 140, 6);
+    lv_obj_align(s_ndl_horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
+    lv_obj_set_style_border_width(s_ndl_horiz_bg, 1, 0);
+    lv_obj_set_style_border_color(s_ndl_horiz_bg, AREX_GREEN, 0);
+    lv_obj_add_flag(s_ndl_horiz_bg, LV_OBJ_FLAG_HIDDEN);  /* 默认隐藏 */
+
+    s_ndl_horiz_fill = lv_obj_create(s_ndl_horiz_bg);
+    lv_obj_remove_style_all(s_ndl_horiz_fill);
+    lv_obj_set_size(s_ndl_horiz_fill, LV_PCT(0), LV_PCT(100));
+    lv_obj_align(s_ndl_horiz_fill, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_set_style_bg_color(s_ndl_horiz_fill, AREX_GREEN, 0);
+    lv_obj_set_style_bg_opa(s_ndl_horiz_fill, LV_OPA_COVER, 0);
+
+    /* === 主干数值 (大数字/倒计时) === */
+    s_ndl_main_val = lv_label_create(obj);
+    lv_obj_set_style_text_color(s_ndl_main_val, AREX_GREEN, 0);
+    lv_obj_set_style_text_font(s_ndl_main_val, arex_get_font(AREX_FONT_ID_HUGE), 0);
+    lv_obj_align(s_ndl_main_val, LV_ALIGN_RIGHT_MID, -45, 0);
+
+    /* === 顶部标题 === */
+    s_ndl_title_top = lv_label_create(obj);
+    lv_obj_set_style_text_font(s_ndl_title_top, arex_get_font(AREX_FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(s_ndl_title_top, AREX_LIGHT, 0);
+    lv_obj_align(s_ndl_title_top, LV_ALIGN_TOP_LEFT, 10, 4);
+    lv_obj_add_flag(s_ndl_title_top, LV_OBJ_FLAG_HIDDEN);  /* 默认隐藏 */
+
+    /* === 底部副标题 === */
+    s_ndl_sub_bot = lv_label_create(obj);
+    lv_obj_set_style_text_font(s_ndl_sub_bot, arex_get_font(AREX_FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(s_ndl_sub_bot, AREX_GREEN, 0);
+    lv_obj_align(s_ndl_sub_bot, LV_ALIGN_BOTTOM_RIGHT, -10, -5);
+
+    return obj;
+}
+```
+
+### 35.5 状态机切换逻辑（arex_ui_update_task）
+
+在 `arex_ui_update_task()` 中注入状态机，响应 `DIRTY_NDL_STOP` / `DIRTY_DEPTH` / `DIRTY_NDL`：
+
+```c
+if (s_ndl_comp != NULL && (mask & (DIRTY_NDL_STOP | DIRTY_DEPTH | DIRTY_NDL))) {
+
+    /* ========== 状态 1: 常规 NDL 模式 ========== */
+    if (g_sensor_data.stop_type == AREX_STOP_NONE) {
+        /* 显隐控制 */
+        lv_obj_clear_flag(s_ndl_vert_bg, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_ndl_horiz_bg, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_ndl_title_top, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(s_ndl_sub_bot, LV_OBJ_FLAG_HIDDEN);
+
+        /* 58px 巨型字体，纯 NDL 数字 */
+        lv_obj_set_style_text_font(s_ndl_main_val, arex_get_font(AREX_FONT_ID_HUGE), 0);
+        lv_label_set_text_fmt(s_ndl_main_val, "%d", g_sensor_data.ndl);
+        lv_obj_align(s_ndl_main_val, LV_ALIGN_RIGHT_MID, -45, 0);
+
+        lv_label_set_text(s_ndl_sub_bot, "NDL");
+        lv_obj_align(s_ndl_sub_bot, LV_ALIGN_BOTTOM_RIGHT, -10, -5);
+
+        /* 垂直进度条动态计算 */
+        int fill_h = (g_sensor_data.ndl * 40) / 99;
+        if (fill_h > 40) fill_h = 40;
+        if (fill_h < 1) fill_h = 1;
+        lv_obj_set_size(s_ndl_vert_fill, LV_PCT(100), fill_h);
+    }
+    /* ========== 状态 2 & 3: 停留模式 (Safety / Deco) ========== */
+    else {
+        /* 显隐控制 */
+        lv_obj_add_flag(s_ndl_vert_bg, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(s_ndl_horiz_bg, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(s_ndl_title_top, LV_OBJ_FLAG_HIDDEN);
+
+        /* 缩小主字体为 28px 以腾出空间显示 MM:SS */
+        lv_obj_set_style_text_font(s_ndl_main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+        lv_obj_align(s_ndl_main_val, LV_ALIGN_RIGHT_MID, -10, -5);
+
+        /* 判断在 ±1.5m 范围内？(读秒 vs 读分) */
+        if (g_sensor_data.in_stop_zone) {
+            int m = g_sensor_data.stop_time_left_s / 60;
+            int s = g_sensor_data.stop_time_left_s % 60;
+            lv_label_set_text_fmt(s_ndl_main_val, "%d:%02d", m, s);
+        } else {
+            int m = (g_sensor_data.stop_time_left_s + 59) / 60;
+            lv_label_set_text_fmt(s_ndl_main_val, "%d'", m);
+        }
+
+        /* 标题文本分配 */
+        if (g_sensor_data.stop_type == AREX_STOP_SAFETY) {
+            lv_label_set_text_fmt(s_ndl_title_top, "SAFETY %.0fm", g_sensor_data.stop_depth_m);
+            lv_obj_clear_flag(s_ndl_sub_bot, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text_fmt(s_ndl_sub_bot, "NDL %d", g_sensor_data.ndl);
+            lv_obj_align(s_ndl_sub_bot, LV_ALIGN_BOTTOM_LEFT, 10, -14);
+        } else {
+            lv_label_set_text_fmt(s_ndl_title_top, "DECO %.0fm", g_sensor_data.stop_depth_m);
+            lv_obj_add_flag(s_ndl_sub_bot, LV_OBJ_FLAG_HIDDEN);
+        }
+
+        /* 横向进度条动态生长 */
+        if (g_sensor_data.stop_time_total_s > 0) {
+            int fill_w = ((g_sensor_data.stop_time_total_s - g_sensor_data.stop_time_left_s) * 140)
+                         / g_sensor_data.stop_time_total_s;
+            if (fill_w > 140) fill_w = 140;
+            if (fill_w < 1) fill_w = 1;
+            lv_obj_set_size(s_ndl_horiz_fill, fill_w, 6);
+        }
+    }
+}
+```
+
+### 35.6 仿真测试逻辑（UI_main.c）
+
+在仿真定时器中注入停留状态机测试代码：
+
+```c
+{
+    static uint16_t s_ndl_tick = 0;
+    s_ndl_tick++;
+
+    /* 1. NDL 递减 */
+    if (g_sensor_data.ndl > 0) {
+        arex_bus_set_ndl((int16_t)(g_sensor_data.ndl - 1));
+    }
+
+    /* 2. 常态: 深度 < 5m 且 NDL > 0 */
+    g_sensor_data.stop_type = AREX_STOP_NONE;
+    g_sensor_data.in_stop_zone = false;
+
+    /* 3. 安全停留: 深度 5~10m，触发 3m 安全停留 180秒 */
+    if (s_sim_depth >= 5.0f && s_sim_depth < 10.0f && g_sensor_data.ndl > 0) {
+        g_sensor_data.stop_type = AREX_STOP_SAFETY;
+        g_sensor_data.stop_depth_m = 3.0f;
+        g_sensor_data.stop_time_total_s = 180;
+        g_sensor_data.stop_time_left_s = 180 - (s_ndl_tick % 180);
+        g_sensor_data.in_stop_zone = (fabsf(s_sim_depth - 3.0f) <= 1.5f);
+    }
+    /* 4. 减压停留: 深度 >= 10m 或 NDL 耗尽 */
+    else if (s_sim_depth >= 10.0f || g_sensor_data.ndl <= 0) {
+        if (g_sensor_data.ndl <= 0) g_sensor_data.ndl = 0;
+        g_sensor_data.stop_type = AREX_STOP_DECO;
+        g_sensor_data.stop_depth_m = 6.0f;
+        g_sensor_data.stop_time_total_s = 300;
+        g_sensor_data.stop_time_left_s = 300 - (s_ndl_tick % 300);
+        g_sensor_data.in_stop_zone = (fabsf(s_sim_depth - 6.0f) <= 1.5f);
+    }
+
+    /* 强制唤醒 UI 更新 */
+    g_sensor_data.dirty_mask |= DIRTY_NDL_STOP;
+}
+```
+
+**仿真效果**：
+- 下水初期（0~25s）：深度 < 5m，显示巨型 NDL 数字
+- 深度 5~10m（25~50s）：垂直柱消失，底部出现 "SAFETY 3m" + 倒计时横向条
+- 深度 > 10m（50s+）：切换 "DECO 6m" + 更长倒计时
+
+### 35.7 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-05-01 | `arex_ui_engine.h` | 新增 `arex_stop_type_t` 枚举；`arex_sensor_data_t` 新增 5 个停留状态字段 |
+| 2026-05-01 | `arex_ui_engine.c` | 新增 `s_ndl_*` 静态句柄；`render_widget_by_id()` 拦截 AREX_WIDGET_NDL 创建多形态组件 |
+| 2026-05-01 | `arex_ui_engine.c` | `arex_render_5f_custom_grid()` / `arex_render_left_anchor_grid()` 清空 NDL 句柄 |
+| 2026-05-01 | `arex_ui_engine.c` | `arex_ui_update_task()` 注入 NDL_STOP 状态机切换逻辑 |
+| 2026-05-01 | `UI_main.c` | 仿真定时器新增停留状态机测试逻辑 |
+| 2026-05-01 | `AREX_ARCH.md` | 新增 Section 35 - NDL_STOP 多形态组件与动态减压状态机 |
+
+---
+
+## 36. 数组清空时机问题：双渲染区域踩踏 Bug 分析与修复 (v2026-05-01)
+
+### 36.1 问题现象
+
+NDL 状态机和速率图标（Sudo 箭头）在两个渲染区域的表现不一致：
+
+- **5F 自定义卡片区**：NDL_STOP 状态机能正常变形，sudo 图标正常闪烁 ✅
+- **左侧锚点固定区**：两者均无变化 ❌
+
+两种表现完全隔离，仿佛是两个互不干扰的子系统。
+
+### 36.2 根本原因：错误的清空时机
+
+#### 架构背景
+
+ARE-X 的 UI 渲染分为**两个独立的渲染区域**，但它们共用同一套 widget 句柄数组：
+
+| 渲染区域 | 调用函数 | 渲染内容 |
+|---------|---------|---------|
+| 左侧锚点 2x6 网格 | `arex_render_left_anchor_grid()` | DEPTH、NDL、TTS 等固定组件 |
+| 5F 自定义网格 | `arex_render_5f_custom_grid()` | 用户配置的 widget（可含 NDL） |
+
+两个渲染函数都通过 `render_widget_by_id()` 工厂创建 NDL 组件，并把句柄**追加到同一个全局数组**：
+
+```c
+// arex_ui_engine.c
+ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];  // 共用数组
+uint8_t      s_ndl_handle_count = 0;          // 追加计数器
+```
+
+#### 错误发生的过程
+
+问题出在**渲染顺序和清空时机**。原来的代码在**三个地方**各自清空数组：
+
+```c
+// ❌ 错误：多处清空，时机混乱
+
+// 位置1: arex_render_5f_custom_grid() 开头
+void arex_render_5f_custom_grid(...) {
+    memset(s_ndl_handles, 0, sizeof(s_ndl_handles));  // ← 清空！
+    s_ndl_handle_count = 0;
+    // ... 渲染 5F widget，追加到数组
+}
+
+// 位置2: arex_render_left_anchor_grid() 开头
+void arex_render_left_anchor_grid(...) {
+    memset(s_ndl_handles, 0, sizeof(s_ndl_handles));  // ← 又清空！
+    s_ndl_handle_count = 0;
+    // ... 渲染左侧 widget，追加到数组
+}
+
+// 位置3: left_anchor_rebuild() 里头
+static void left_anchor_rebuild(...) {
+    memset(s_ndl_handles, 0, sizeof(s_ndl_handles));  // ← 再次清空！
+    s_ndl_handle_count = 0;
+    arex_render_left_anchor_grid(...);
+}
+```
+
+而这两个渲染函数的调用顺序是：
+
+```c
+// arex_screen.c
+void arex_screen_rebuild_layout(void) {
+    left_anchor_rebuild(0);           // ① 先渲染左侧 → 数组：[左侧NDL]
+                                       // ② → 调用 render_left_anchor_grid()
+                                       // ③ → render_left_anchor_grid 里头又清空一次！
+                                       // ④ 结果：数组被清空，变成 []
+    card_engine_create(CARD_ID_CUSTOM_GRID);  // ⑤ 渲染 5F
+                                                // ⑥ → 调用 render_5f_custom_grid()
+                                                // ⑦ → 数组：[5F的NDL]
+}
+```
+
+最终结果：**只有最后被调用的渲染函数（5F）的 widget 被保留在数组里**。状态机遍历数组时，只能刷新 5F 区域的组件，左侧锚点完全被无视。
+
+#### 速率图标（ascent icon）同样遭殃
+
+同样的问题也影响了 `s_img_ascent_rate[]` 数组。sudo 箭头图标在 DEPTH 模块里被创建并追加到数组，但因为清空时机混乱，只有最后一个渲染区域的图标被保留。
+
+### 36.3 修复方案：统一清空，单点控制
+
+核心思想：**清空数组和渲染 widget 是两件完全不同的事，必须彻底分离**。
+
+引入统一的 `clear_widget_arrays()` helper，在**渲染之前只清空一次**：
+
+```c
+// arex_screen.c
+
+/* 清空 ascent/NDL widget 句柄数组（在任何网格渲染之前调用） */
+static void clear_widget_arrays(void)
+{
+    memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
+    s_ascent_icon_count = 0;
+    memset(s_ndl_handles, 0, sizeof(s_ndl_handles));
+    s_ndl_handle_count = 0;
+}
+```
+
+然后在两个入口各调用一次：
+
+```c
+// 入口A：首次初始化
+static void left_anchor_create(void) {
+    lv_obj_clean(s_left_anchor);
+    clear_widget_arrays();        // ← 统一清空
+    arex_render_left_anchor_grid(s_left_anchor);   // 追加左侧
+    arex_render_5f_custom_grid(tile, ...);         // 追加 5F
+}
+
+// 入口B：布局重建
+void arex_screen_rebuild_layout(void) {
+    clear_widget_arrays();        // ← 统一清空
+    left_anchor_rebuild(0);      // 追加左侧
+    card_engine_create(CARD_ID_CUSTOM_GRID);  // 追加 5F
+}
+```
+
+两个渲染函数改为**纯追加模式**，不再自己清空：
+
+```c
+// arex_render_left_anchor_grid()  —— 不再清空！
+void arex_render_left_anchor_grid(...) {
+    // ... 渲染左侧 widget
+    // 自动追加到数组
+}
+
+// arex_render_5f_custom_grid()    —— 不再清空！
+void arex_render_5f_custom_grid(...) {
+    // ... 渲染 5F widget
+    // 自动追加到数组
+}
+```
+
+最终数组状态（正确的顺序）：
+
+```
+渲染前：clear_widget_arrays()  →  数组=[]
+渲染后：left_anchor  →  数组=[左侧NDL, 左侧DEPTH+sudo]
+渲染后：5F_grid      →  数组=[左侧NDL, 左侧DEPTH, 5F的NDL, 5F的DEPTH]
+状态机遍历数组  →  所有实例同步刷新 ✅
+```
+
+### 36.4 变量作用域问题：C 文件间的 static 隔离
+
+修复过程中还遇到了一个编译错误：
+
+```
+error: 's_ndl_handles' undeclared (first use in this function)
+```
+
+原因是 `s_ndl_handles[]` 在 `arex_ui_engine.c` 中声明为 `static`，只能在那个文件内部访问。`arex_screen.c` 无法直接访问。
+
+**解决方案**：把这些共享数组的声明从 `static` 改为非 static，并移动到 `arex_ui_engine.h` 头文件中作为 `extern` 声明：
+
+```c
+// arex_ui_engine.h（头文件：extern 声明）
+#define MAX_NDL_ICONS 4
+typedef struct { ... } ndl_handle_t;
+#define MAX_ASCENT_ICONS 4
+extern lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
+extern uint8_t  s_ascent_icon_count;
+extern ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
+extern uint8_t  s_ndl_handle_count;
+
+// arex_ui_engine.c（源文件：实际定义）
+lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
+uint8_t  s_ascent_icon_count = 0;
+ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
+uint8_t  s_ndl_handle_count = 0;
+
+// arex_screen.c（通过 include 访问）
+#include "arex_ui_engine.h"  // 隐式获得 extern 声明
+clear_widget_arrays();       // ✅ 正确访问
+```
+
+### 36.5 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-05-01 | `arex_ui_engine.h` | `ndl_handle_t` 结构体 + `s_ndl_handles[]` / `s_img_ascent_rate[]` 改为 extern 声明 |
+| 2026-05-01 | `arex_screen.c` | 新增 `clear_widget_arrays()` 统一清空函数 |
+| 2026-05-01 | `arex_screen.c` | `arex_screen_rebuild_layout()` 入口调用 `clear_widget_arrays()` |
+| 2026-05-01 | `arex_screen.c` | `left_anchor_create()` 入口调用 `clear_widget_arrays()` |
+| 2026-05-01 | `arex_ui_engine.c` | `arex_render_left_anchor_grid()` 移除自己的 memset |
+| 2026-05-01 | `arex_ui_engine.c` | `arex_render_5f_custom_grid()` 移除自己的 memset |
+| 2026-05-01 | `AREX_ARCH.md` | 新增 Section 36 - 双渲染区域踩踏 Bug 分析与修复 |
