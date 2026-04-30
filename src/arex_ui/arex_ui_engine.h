@@ -43,7 +43,10 @@ extern "C" {
  * 0 = 量产模式 (隐藏所有布局外框，极其干净)
  * 1 = 调试模式 (显示所有暗绿色外框，用于排版对齐)
  * ========================================================= */
-#define AREX_DEBUG_BORDERS  0
+#define AREX_DEBUG_BORDERS   0  /* 外围大布局排版框 */
+#define AREX_INNER_BORDER_W  2  /* 内部菜单项的暗绿色边框粗细 (0=隐藏, 1或2=显示) */
+#define AREX_GAS_BORDER_W    2  /* GAS SWITCH 卡片的边框粗细 */
+#define AREX_GRID_BORDER_W   0  /* 5F 自定义网格组件的边框粗细 */
 
 /* 5列x6行网格，最多装30个组件 */
 #define AREX_MAX_WIDGETS    30

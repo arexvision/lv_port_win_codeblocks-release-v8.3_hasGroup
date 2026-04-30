@@ -36,7 +36,7 @@ void card_gas_create(lv_obj_t *parent)
         lv_obj_set_style_bg_color(row, lv_color_make(0,0,0), 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(row, AREX_DARK, 0);
-        lv_obj_set_style_border_width(row, AREX_DEBUG_BORDERS ? 2 : 0, 0);
+        lv_obj_set_style_border_width(row, AREX_GAS_BORDER_W, 0);
         lv_obj_set_style_radius(row, 0, 0);
         lv_obj_set_style_pad_all(row, 0, LV_PART_MAIN);   /* 零边距，子元素绝对定位 */
         lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
