@@ -22,7 +22,7 @@ extern "C" {
 
 /* 页面切换动画开关：1=开动画，0=关动画 */
 #ifndef AREX_TILE_ANIM_ENABLED
-#define AREX_TILE_ANIM_ENABLED  1
+#define AREX_TILE_ANIM_ENABLED  0
 #endif
 
 /* 向前兼容宏 */
