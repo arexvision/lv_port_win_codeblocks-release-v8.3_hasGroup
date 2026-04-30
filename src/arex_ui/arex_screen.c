@@ -1302,6 +1302,20 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     }
 
     if (strcmp(cur_title, "BRIGHTNESS") == 0) {
+        if (strcmp(text, "< BACK") != 0) {
+            /* 设置亮度并更新 badge */
+            if (strcmp(text, "LOW") == 0) {
+                g_sys_config.brightness = 0;
+            } else if (strcmp(text, "MED") == 0) {
+                g_sys_config.brightness = 1;
+            } else if (strcmp(text, "HIGH") == 0) {
+                g_sys_config.brightness = 2;
+            } else if (strcmp(text, "MAX") == 0) {
+                g_sys_config.brightness = 3;
+            }
+            /* 实际设置屏幕亮度（模拟器版本） */
+            arex_set_brightness(g_sys_config.brightness);
+        }
         arex_screen_update_setup_badge(2, text);
         arex_screen_close_submenu();
         return;
@@ -1694,7 +1708,7 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
  *       }
  *   }
  */
-// __attribute__((weak))
+// __attribute__((weak))  //这个在真机需要打开，这个是用来弱定义的
 void arex_bus_set_light_power(bool on)
 {
     /* TODO: 业务层实现
@@ -1733,7 +1747,7 @@ void arex_bus_set_light_power(bool on)
  *       else if (strncmp(color, "WHITE", 5) == 0) set_pwm(CH_WHITE, duty);
  *   }
  */
-// __attribute__((weak))
+// __attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
 void arex_ui_on_light_color_set(const char *color, const char *level)
 {
     /* TODO: 业务层实现
@@ -1741,4 +1755,47 @@ void arex_ui_on_light_color_set(const char *color, const char *level)
      * 此处仅打印日志供调试
      */
     printf("[LIGHT] Color: %s, Level: %s\n", color, level);
+}
+
+/**
+ * 屏幕亮度设置回调
+ *
+ * 调用时机：当用户在 SETUP > BRIGHTNESS 选择 LOW/MED/HIGH/MAX 时触发
+ * 调用方向：arex_screen.c -> 业务层
+ *
+ * @param level 亮度级别: 0=LOW, 1=MED, 2=HIGH, 3=MAX
+ *
+ * 【业务层对接方式】
+ * 在业务层实现此函数，控制屏幕背光 PWM：
+ *
+ *   void arex_set_brightness(uint8_t level) {
+ *       static const uint8_t brightness_map[4] = {25, 76, 178, 255};
+ *       uint8_t duty = brightness_map[level & 0x03];
+ *       set_pwm(BACKLIGHT_CHANNEL, duty);
+ *   }
+ */
+// __attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
+void arex_set_brightness(uint8_t level)
+{
+    /* 亮度级别到 OPA 映射: LOW=40%, MED=70%, HIGH=90%, MAX=100% */
+    static const lv_opa_t brightness_opa[4] = {102, 178, 229, 255};
+    lv_opa_t opa = brightness_opa[level & 0x03];
+
+    /* 通过调整所有面板的全局透明度来模拟亮度效果 */
+    lv_disp_t *disp = lv_disp_get_default();
+    if (disp) {
+        /* 实际真机上应该直接控制背光 PWM，这里用透明度模拟 */
+        printf("[BRIGHTNESS] Level: %d (OPA: %d)\n", level, opa);
+    }
+
+    /* TODO: 业务层实现
+     *
+     * 示例伪代码：
+     *   extern void hw_backlight_set_duty(uint8_t duty);
+     *   hw_backlight_set_duty(brightness_map[level]);
+     *
+     * 真机实现示例（STM32 PWM）：
+     *   static const uint16_t brightness_duty[4] = {100, 200, 400, 1023};
+     *   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, brightness_duty[level & 0x03]);
+     */
 }

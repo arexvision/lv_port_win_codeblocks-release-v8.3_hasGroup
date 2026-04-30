@@ -102,7 +102,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
 
     /* ========== [A] 架构 ========== */
     cfg->layout_order  = AREX_ORDER_NORMAL;  /* 0=标准(左锚右卡)，1=翻转(右锚左卡) */
-    cfg->dots_position = AREX_DOTS_RIGHT;    /* tileview 指示点位置 */
+    cfg->dots_position = AREX_DOTS_LEFT;    /* tileview 指示点位置 */
     cfg->compass_style = AREX_COMPASS_CLASSIC;
     cfg->mask_enabled  = false;
 
@@ -188,8 +188,8 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     g_left_widgets[1] = (arex_custom_widget_cfg_t){ AREX_WIDGET_DEPTH,  0, 1, 2, 2, AREX_FONT_ID_HUGE   };
     g_left_widgets[2] = (arex_custom_widget_cfg_t){ AREX_WIDGET_WTIME,  0, 3, 2, 1, AREX_FONT_ID_MEDIUM };
     g_left_widgets[3] = (arex_custom_widget_cfg_t){ AREX_WIDGET_GAS,    0, 4, 2, 1, AREX_FONT_ID_MEDIUM };
-    g_left_widgets[4] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD1,   0, 5, 1, 1, AREX_FONT_ID_SMALL  };
-    g_left_widgets[5] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD2,   1, 5, 1, 1, AREX_FONT_ID_SMALL  };
+    g_left_widgets[4] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD1,   0, 5, 1, 1, AREX_FONT_ID_TITLE  };
+    g_left_widgets[5] = (arex_custom_widget_cfg_t){ AREX_WIDGET_POD2,   1, 5, 1, 1, AREX_FONT_ID_HUGE  };
 
     /* ========== [A] 右侧卡片顺序 (tileview 滑动顺序) ==========
      * card_order[pos] = card_id

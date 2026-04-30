@@ -151,6 +151,7 @@ void arex_screen_register_setup_list(lv_obj_t *list);
 extern bool g_light_power_state;        /* 灯光开关状态（共享） */
 void arex_bus_set_light_power(bool on);           /* 开关灯光 */
 void arex_ui_on_light_color_set(const char *color, const char *level);  /* 颜色亮度设置 */
+void arex_set_brightness(uint8_t level);           /* 设置屏幕亮度 (0-3) */
 
 #ifdef __cplusplus
 }
