@@ -98,7 +98,7 @@ static void styles_init(void)
     lv_style_set_bg_color(&s_style_anchor_bg, AREX_BLACK);
     lv_style_set_bg_opa(&s_style_anchor_bg, LV_OPA_COVER);
     lv_style_set_border_color(&s_style_anchor_bg, AREX_DARK);
-    lv_style_set_border_width(&s_style_anchor_bg, 1);
+    lv_style_set_border_width(&s_style_anchor_bg, AREX_DEBUG_BORDERS ? 1 : 0);
     lv_style_set_pad_all(&s_style_anchor_bg, 0);     /* 必须显式清零，否则 LVGL 默认 padding 会偏移所有子组件坐标 */
     lv_style_set_radius(&s_style_anchor_bg, 0);
 
@@ -139,7 +139,7 @@ static void styles_init(void)
     lv_style_set_bg_opa(&s_style_menu_item, LV_OPA_COVER);
     lv_style_set_text_color(&s_style_menu_item, AREX_GREEN);
     lv_style_set_border_color(&s_style_menu_item, AREX_DARK);
-    lv_style_set_border_width(&s_style_menu_item, 2);
+    lv_style_set_border_width(&s_style_menu_item, AREX_DEBUG_BORDERS ? 2 : 0);
     lv_style_set_pad_all(&s_style_menu_item, 12);
 
     lv_style_init(&s_style_menu_item_active);
@@ -554,7 +554,7 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
     lv_obj_set_style_bg_color(w, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(w, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(w, AREX_DARK, 0);
-    lv_obj_set_style_border_width(w, 2, 0);
+    lv_obj_set_style_border_width(w, AREX_DEBUG_BORDERS ? 2 : 0, 0);
     lv_obj_set_style_border_side(w, LV_BORDER_SIDE_TOP | LV_BORDER_SIDE_BOTTOM, 0);
     lv_obj_set_style_pad_all(w, 0, 0);
     lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
@@ -684,7 +684,7 @@ void arex_screen_create(void)
     lv_obj_clear_flag(s_safe_zone, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_set_style_border_color(s_safe_zone, AREX_DARK, 0);
-    lv_obj_set_style_border_width(s_safe_zone, 1, 0);
+    lv_obj_set_style_border_width(s_safe_zone, AREX_DEBUG_BORDERS ? 1 : 0, 0);
     
     left_anchor_create();
     right_panel_create();
@@ -998,7 +998,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
         lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(item, AREX_DARK, 0);
-        lv_obj_set_style_border_width(item, 2, LV_PART_MAIN);
+        lv_obj_set_style_border_width(item, AREX_DEBUG_BORDERS ? 2 : 0, LV_PART_MAIN);
         lv_obj_set_style_radius(item, 0, 0);
         lv_obj_set_style_pad_all(item, 0, LV_PART_MAIN);
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);

@@ -38,8 +38,12 @@ extern "C" {
 #define AREX_BLACK   lv_color_make(0x00, 0x00, 0x00)
 #define AREX_BG      lv_color_make(0x05, 0x05, 0x05)
 
-/* Debug 配置: 左侧锚点 title_zone / val_zone 调试边框: 0=关闭(默认), 1=开启 */
-#define AREX_DEBUG_BORDER  0
+/* =========================================================
+ * UI 调试与排版开关
+ * 0 = 量产模式 (隐藏所有布局外框，极其干净)
+ * 1 = 调试模式 (显示所有暗绿色外框，用于排版对齐)
+ * ========================================================= */
+#define AREX_DEBUG_BORDERS  0
 
 /* 5列x6行网格，最多装30个组件 */
 #define AREX_MAX_WIDGETS    30

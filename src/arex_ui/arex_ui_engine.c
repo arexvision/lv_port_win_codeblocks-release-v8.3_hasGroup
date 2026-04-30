@@ -518,7 +518,7 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
         lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
         lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(item, AREX_DARK, 0);
-        lv_obj_set_style_border_width(item, item_cfg->border_width, LV_PART_MAIN);
+        lv_obj_set_style_border_width(item, AREX_DEBUG_BORDERS ? item_cfg->border_width : 0, LV_PART_MAIN);
         lv_obj_set_style_radius(item, 0, 0);
         lv_obj_set_style_pad_all(item, 0, LV_PART_MAIN);
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
@@ -741,7 +741,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     lv_obj_set_style_bg_color(obj, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(obj, AREX_DARK, 0);
-    lv_obj_set_style_border_width(obj, 1, 0);
+    lv_obj_set_style_border_width(obj, AREX_DEBUG_BORDERS ? 1 : 0, 0);
     lv_obj_set_style_radius(obj, 0, 0);
     lv_obj_set_style_pad_all(obj, 2, 0);
 

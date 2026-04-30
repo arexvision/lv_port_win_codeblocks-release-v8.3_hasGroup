@@ -384,7 +384,7 @@ void card_plan_create(lv_obj_t *parent)
     lv_obj_set_style_bg_color(shell, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(shell, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(shell, AREX_DARK, 0);
-    lv_obj_set_style_border_width(shell, 2, 0);
+        lv_obj_set_style_border_width(shell, AREX_DEBUG_BORDERS ? 2 : 0, 0);
     lv_obj_set_style_radius(shell, 0, 0);
     lv_obj_set_style_pad_all(shell, 0, 0);
 
