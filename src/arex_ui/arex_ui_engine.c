@@ -1272,7 +1272,7 @@ const char *arex_get_widget_name(arex_widget_id_t id)
  *   - 位置参数 (abs_x/y/w/h, span_w/h) 由调用方传入
  *   - 样式参数 (font, offsets) 由 arex_get_widget_style(w_id) 自动查表
  *   - cfg_font_id != 255 时强制覆盖自动字号
- *   - is_depth_icon == true 时挂载 sudu 速率图标
+ *   - 速率图标由工厂自主查字典决定（根据 elements & ELEM_BAR）
  *   - 专属组件（DEPTH/NDL）走早期返回，内部仍读 style 参数
  *   - 通用组件按 elements 掩码装配流水线：TITLE → VALUE → UNIT → BAR
  *
@@ -1283,12 +1283,11 @@ const char *arex_get_widget_name(arex_widget_id_t id)
  *   - 将标签烙印到容器 user_data
  * ========================================================= */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,
-                               arex_widget_id_t w_id,
-                               int16_t abs_x, int16_t abs_y,
-                               uint16_t abs_w, uint16_t abs_h,
-                               uint8_t span_w, uint8_t span_h,
-                               bool is_depth_icon,
-                               arex_font_id_t cfg_font_id)
+                              arex_widget_id_t w_id,
+                              int16_t abs_x, int16_t abs_y,
+                              uint16_t abs_w, uint16_t abs_h,
+                              uint8_t span_w, uint8_t span_h,
+                              arex_font_id_t cfg_font_id)
 {
     /* ===== POD 单模具拦截：提前消耗计数器 ===== */
     bool is_pod_mold = (w_id == WIDGET_POD_0806);
@@ -1365,8 +1364,9 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
         lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, s->unit_offset_x, s->unit_offset_y);
 
-        /* sudu 速率图标 */
-        if (is_depth_icon) {
+        /* 速率图标：工厂自主查字典判断是否需要绘制 */
+        bool needs_bar_icon = (style->elements & ELEM_BAR) != 0;
+        if (needs_bar_icon) {
             lv_obj_t *sudu_img = lv_img_create(obj);
             lv_img_set_src(sudu_img, &sudo_up_level0);
             lv_obj_align(sudu_img, (lv_align_t)s->icon_align, s->icon_offset_x, s->icon_offset_y);
@@ -1555,17 +1555,15 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     /* --- 零件 4：特殊 BAR --- */
     if (style->elements & ELEM_BAR) {
         if (w_id == WIDGET_DEPTH_1612) {
-            /* DEPTH 2x2 的 sudu 图标（早期分支已处理，此分支仅作兜底） */
+            /* DEPTH 2x2 的速率图标（早期分支已处理，此分支仅作兜底） */
             /* DEPTH_1612 的 icon 在早期分支里，这里不需要再处理 */
         } else if (w_id == WIDGET_ASCENT_0812) {
-            /* ASCENT_0812 (1x2)：绘制上升速率方向箭头图标 */
-            if (is_depth_icon) {
-                lv_obj_t *sudu_img = lv_img_create(obj);
-                lv_img_set_src(sudu_img, &sudo_up_level0);
-                lv_obj_align(sudu_img, LV_ALIGN_CENTER, 0, 0);
-                if (s_ascent_icon_count < MAX_ASCENT_ICONS)
-                    s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
-            }
+            /* ASCENT_0812 (1x2)：绘制上升速率方向箭头图标（工厂自主查字典决定） */
+            lv_obj_t *sudu_img = lv_img_create(obj);
+            lv_img_set_src(sudu_img, &sudo_up_level0);
+            lv_obj_align(sudu_img, LV_ALIGN_CENTER, 0, 0);
+            if (s_ascent_icon_count < MAX_ASCENT_ICONS)
+                s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
         } else if (w_id == WIDGET_COMPASS_1612) {
             /* COMPASS_1612 (2x2)：卷尺 tape 在早期分支里，ELEM_BAR 标记由 spec.compass 驱动 */
         } else if (w_id == WIDGET_TISSUE_GF_4012 || w_id == WIDGET_TISSUE_RAW_4012) {
@@ -1675,10 +1673,10 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
                               r, c, span_w, span_h,
                               &abs_x, &abs_y, &abs_w, &abs_h);
 
-        /* 调用组件工厂 */
+        /* 调用组件工厂（工厂自主查字典决定是否绘制速率图标） */
         lv_obj_t *w = render_widget_by_id(card_custom, w_id,
                                           abs_x, abs_y, abs_w, abs_h,
-                                          span_w, span_h, false, (arex_font_id_t)255);
+                                          span_w, span_h, (arex_font_id_t)255);
 
         /* 记录句柄（用于 update 循环） */
         if (w && s_widget_handle_count < MAX_WIDGET_HANDLES) {
@@ -2308,13 +2306,10 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
         uint16_t abs_w = span_w * cell_w;
         uint16_t abs_h = span_h * cell_h;
 
-        /* DEPTH 模块挂载 sudu 速率图标 */
-        bool is_depth = (cfg->widget_id == WIDGET_DEPTH_1612);
-
-        /* 调用底层工厂：跨度由样式表提供 */
+        /* 调用底层工厂：速率图标由工厂自主查字典决定 */
         render_widget_by_id(left_anchor, cfg->widget_id,
                             abs_x, abs_y, abs_w, abs_h,
-                            span_w, span_h, is_depth, (arex_font_id_t)255);
+                            span_w, span_h, (arex_font_id_t)255);
     }
 }
 
@@ -2351,13 +2346,9 @@ lv_obj_t* arex_render_widget(lv_obj_t *parent,
     uint16_t abs_w = (uint16_t)(style->span_w * cell_w);
     uint16_t abs_h = (uint16_t)(style->span_h * cell_h);
 
-    /* 3. DEPTH 图标判断 */
-    bool is_depth_icon = (pos->widget_id == WIDGET_DEPTH_1612 ||
-                          pos->widget_id == WIDGET_DEPTH_1606);
-
-    /* 4. 直接调用底层工厂（POD 拦截已在 render_widget_by_id 内部完成） */
+    /* 3. 直接调用底层工厂（速率图标由工厂自主查字典决定） */
     return render_widget_by_id(parent, pos->widget_id,
                                abs_x, abs_y, abs_w, abs_h,
                                style->span_w, style->span_h,
-                               is_depth_icon, (arex_font_id_t)255);
+                               (arex_font_id_t)255);
 }

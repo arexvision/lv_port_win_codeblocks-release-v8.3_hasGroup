@@ -838,7 +838,7 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor);
 
 /* 通用组件工厂（左侧网格 + 5F 共用）：
  * 接收绝对物理坐标，生成标准化组件容器。
- * is_depth_icon == true 时，在 DEPTH 模块内挂载 sudu 速率图标。
+ * 渲染时自主查字典判断是否需要绘制速率图标（根据 elements & ELEM_BAR 决定）。
  * cfg_font_id 可覆盖默认字号计算（设为 255 则自动计算）。
  * 返回组件容器对象句柄。 */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,
@@ -846,7 +846,6 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                                int16_t abs_x, int16_t abs_y,
                                uint16_t abs_w, uint16_t abs_h,
                                uint8_t span_w, uint8_t span_h,
-                               bool is_depth_icon,
                                arex_font_id_t cfg_font_id);
 
 /* =========================================================

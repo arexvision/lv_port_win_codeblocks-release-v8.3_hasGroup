@@ -4021,6 +4021,59 @@ UI 引擎去找被打上 1033 (POD 1) 烙印的 Label，更新文字为 "200"。
 | 2026-05-02 | `arex_ui_engine.c` | 删除 `render_widget_by_id()` 中的 `/* --- 零件 5：EXTRA 附加异构元素 --- */` 代码块 |
 | 2026-05-02 | `arex_ui_engine.c` | `arex_widget_set_value()` POD 更新逻辑简化为通过 `child_tag == WIDGET_POD_0806` 直接匹配 |
 | 2026-05-02 | `AREX_ARCH.md` | Section 38.11 新增本次 POD 标题文本合并修复记录 |
+| 2026-05-02 | `arex_ui_engine.h` | `render_widget_by_id()` 删除 `is_depth_icon` 参数，改为工厂自主查字典决定 |
+| 2026-05-02 | `arex_ui_engine.c` | `render_widget_by_id()` 删除 `is_depth_icon` 参数，内部使用 `needs_bar_icon = (style->elements & ELEM_BAR)` 判断 |
+| 2026-05-02 | `arex_ui_engine.c` | 清理所有上层调用者（5F 网格、左侧锚点、arex_render_widget）中的 is_depth 参数 |
+| 2026-05-02 | `AREX_ARCH.md` | Section 38.11 新增本次函数签名瘦身与渲染参数解耦修复记录 |
+
+---
+
+## 41. 组件工厂函数签名瘦身与渲染参数解耦 (v2026-05-02)
+
+### 41.1 问题描述
+
+左侧固定区的 DEPTH 模块带有上升速率图标，但放入 5F 自定义网格区时，速率图标消失。
+
+**根因**：`arex_render_5f_custom_grid` 调用 `render_widget_by_id` 时，`is_depth_icon` 被硬编码为 `false`，导致工厂无法绘制速率图标。
+
+### 41.2 修复方案
+
+#### 第一步：函数签名瘦身
+
+```c
+// 修改前：依赖外部传参
+lv_obj_t *render_widget_by_id(..., bool is_depth_icon, arex_font_id_t cfg_font_id);
+
+// 修改后：工厂自主查字典
+lv_obj_t *render_widget_by_id(..., arex_font_id_t cfg_font_id);
+```
+
+#### 第二步：工厂内部自主判断
+
+```c
+// DEPTH 2x2 渲染时
+bool needs_bar_icon = (style->elements & ELEM_BAR) != 0;
+if (needs_bar_icon) {
+    lv_obj_t *sudu_img = lv_img_create(obj);
+    lv_img_set_src(sudu_img, &sudo_up_level0);
+    // ...
+}
+```
+
+#### 第三步：清理所有调用者
+
+所有调用处移除 `is_depth_icon` 参数，工厂自动查字典决定。
+
+### 41.3 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-05-02 | `arex_ui_engine.h` | `render_widget_by_id()` 删除 `is_depth_icon` 参数 |
+| 2026-05-02 | `arex_ui_engine.c` | 函数实现删除 `is_depth_icon` 参数，内部改用 `needs_bar_icon = (style->elements & ELEM_BAR)` |
+| 2026-05-02 | `arex_ui_engine.c` | 清理 `arex_render_5f_custom_grid()` 中的 false 参数 |
+| 2026-05-02 | `arex_ui_engine.c` | 清理 `arex_render_left_anchor_grid()` 中的 is_depth 变量和参数 |
+| 2026-05-02 | `arex_ui_engine.c` | 清理 `arex_render_widget()` 中的 is_depth_icon 判断 |
+| 2026-05-02 | `AREX_ARCH.md` | 新增 Section 41 记录本次重构 |
 
 ---
 
