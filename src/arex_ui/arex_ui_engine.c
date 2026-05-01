@@ -1629,9 +1629,6 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
     memset(s_widget_handles, 0, sizeof(s_widget_handles));
     s_widget_handle_count = 0;
 
-    /* 注意：不单独清空 s_img_ascent_rate[] / s_ndl_handles[]！
-     * 它们已经在 arex_screen_rebuild_layout() 入口统一清空了。 */
-
     /* 清除容器中所有旧组件（rebuild 时） */
     lv_obj_clean(card_custom);
 
@@ -1672,6 +1669,74 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
             s_widget_handles[s_widget_handle_count++] = w;
         }
     }
+}
+
+/* =========================================================
+ * arex_5f_grid_rebuild — 重建 5F 自定义网格
+ *
+ * 由 arex_screen_rebuild_layout() 调用，当 BLE 下发新的 5F 布局时触发。
+ * 直接操作 g_card_custom_obj 容器，清除并重建所有网格组件。
+ * ========================================================= */
+void arex_5f_grid_rebuild(void)
+{
+    if (!g_card_custom_obj) {
+        printf("[5F] ERROR: g_card_custom_obj is NULL!\r\n");
+        return;
+    }
+
+    printf("[5F] Rebuilding: widget_count=%u, container_size=%dx%d\r\n",
+           g_5f_widget_count,
+           lv_obj_get_content_width(g_card_custom_obj),
+           lv_obj_get_content_height(g_card_custom_obj));
+
+    /* 获取容器尺寸 */
+    uint16_t parent_w = lv_obj_get_content_width(g_card_custom_obj);
+    uint16_t parent_h = lv_obj_get_content_height(g_card_custom_obj);
+
+    /* 清除旧 widget 句柄表 */
+    memset(s_widget_handles, 0, sizeof(s_widget_handles));
+    s_widget_handle_count = 0;
+
+    /* 清除容器中所有旧组件 */
+    lv_obj_clean(g_card_custom_obj);
+
+    /* 创建卡片标题 */
+    arex_render_card_title(g_card_custom_obj, "5F: CUSTOM WIDGETS");
+
+    /* 遍历所有组件 */
+    uint8_t count = g_5f_widget_count;
+    if (count > AREX_5F_MAX_WIDGETS) count = AREX_5F_MAX_WIDGETS;
+
+    for (uint8_t i = 0; i < count; i++) {
+        arex_widget_id_t w_id   = g_5f_widgets[i].widget_id;
+        uint8_t r = g_5f_widgets[i].r;
+        uint8_t c = g_5f_widgets[i].c;
+
+        if (w_id == WIDGET_EMPTY) continue;
+
+        /* 从样式表查 span_w/span_h */
+        const arex_widget_style_t *style = arex_get_widget_style(w_id);
+        uint8_t span_w = (style != NULL) ? style->span_w : 1;
+        uint8_t span_h = (style != NULL) ? style->span_h : 1;
+
+        if (r >= AREX_WIDGET_ROWS || c >= AREX_WIDGET_COLS) continue;
+
+        /* 计算绝对坐标 */
+        int16_t abs_x, abs_y;
+        uint16_t abs_w, abs_h;
+        arex_calc_widget_grid(parent_w, parent_h, r, c, span_w, span_h,
+                              &abs_x, &abs_y, &abs_w, &abs_h);
+
+        /* 渲染组件 */
+        lv_obj_t *w = render_widget_by_id(g_card_custom_obj, w_id,
+                                          abs_x, abs_y, abs_w, abs_h,
+                                          span_w, span_h, (arex_font_id_t)255);
+        if (w && s_widget_handle_count < MAX_WIDGET_HANDLES) {
+            s_widget_handles[s_widget_handle_count++] = w;
+        }
+    }
+
+    printf("[5F] Rebuilt with %u widgets\r\n", count);
 }
 
 /* =========================================================

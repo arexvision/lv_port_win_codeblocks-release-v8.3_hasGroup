@@ -134,13 +134,26 @@ static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
 
-    /* 布局切换测试：每 10 秒切换一次布局（phase: 0→1→2→0 循环） */
+    /* 布局切换测试：每 5 秒切换一次布局（phase: 0→1→2→0 循环） */
     static uint16_t s_layout_tick = 0;
+    static bool s_started = false;
+    if (!s_started) {
+        printf("[TEST] Layout switch test started (every 5s)...\r\n");
+        s_started = true;
+    }
     s_layout_tick++;
-    if (s_layout_tick % 20 == 0) {  /* 200 ticks = 10 秒 */
+    if (s_layout_tick % 5 == 0) {  /* 5 秒触发一次 */
         static uint8_t s_layout_phase = 0;
+        printf("[TEST] Switching to phase %u\r\n", s_layout_phase);
+
+        /* 禁用 LVGL invalidation 防止重建时的闪烁和崩溃 */
+        lv_disp_t *disp = lv_disp_get_default();
+        if (disp) lv_disp_enable_invalidation(disp, false);
+
         arex_test_set_ui_layout(s_layout_phase);
-        s_layout_phase = (s_layout_phase + 1) % 3;  /* 0=A, 1=B, 2=C */
+
+        if (disp) lv_disp_enable_invalidation(disp, true);
+        s_layout_phase = (s_layout_phase + 1) % 1;  /* 只测试 phase 0，固定不动 */
     }
 
     /* 航向缓慢顺时针旋转 */
@@ -160,7 +173,6 @@ static void sim_tick_cb(lv_timer_t *t)
     static uint8_t s_depth_phase = 0;      /* 0: 快速下潜, 1: 停留5s, 2: 快速上升, 3: 3m停留10s */
     static uint8_t s_depth_phase_tick = 0; /* 当前阶段已执行 tick 数 */
     static float s_sim_depth = 0.0f;       /* 模拟深度值 */
-    static uint8_t s_cycle_count = 0;     /* 循环计数，用于区分停留阶段 */
 
     /* 各阶段参数: { 持续tick数(秒), 每tick深度变化(m) } */
     static const struct { uint8_t ticks; float delta; } s_depth_profiles[4] = {

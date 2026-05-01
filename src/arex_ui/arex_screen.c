@@ -516,6 +516,9 @@ void arex_screen_rebuild_layout(void)
         left_anchor_rebuild(0);
     }
 
+    /* 重建 5F 自定义网格 */
+    arex_5f_grid_rebuild();
+
     /* 重建 Safe Zone 内部定位 */
     safe_zone_reposition();
 

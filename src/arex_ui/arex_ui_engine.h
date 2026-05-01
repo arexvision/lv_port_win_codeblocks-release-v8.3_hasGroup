@@ -574,6 +574,9 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom,
 /* 按 widget_id 设置数值（由 update 循环调用，绝不触发重绘） */
 void arex_widget_set_value(arex_widget_id_t id, float value);
 
+/* 5F 自定义网格重建（由 arex_screen_rebuild_layout 调用） */
+void arex_5f_grid_rebuild(void);
+
 /* 按 widget_id 设置字符串（用于 GAS 等非数值组件） */
 void arex_widget_set_text(arex_widget_id_t id, const char *text);
 
