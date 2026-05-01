@@ -13,8 +13,10 @@ static lv_timer_t *s_update_task_timer;  /* 50ms UI 消费定时器 */
 /* =========================================================
  * arex_test_set_ui_layout — 构造 BLE 同步帧，模拟 APP 下发布局配置
  *
- * 测试布局 A (phase=0): 标准 2x6 锚点 + 默认卡片顺序
- * 测试布局 B (phase=1): 翻转 2x6 锚点 + 翻转卡片顺序
+ * 测试场景:
+ *   phase=0: 标准 2x7 左侧锚点 + 默认 5F 网格 + 默认卡片顺序
+ *   phase=1: 翻转 2x7 锚点 + 空 5F 网格 + 翻转卡片顺序
+ *   phase=2: 最小 5F 配置测试（只有 3 个组件）
  * ========================================================= */
 static void arex_test_set_ui_layout(uint8_t phase)
 {
@@ -23,20 +25,24 @@ static void arex_test_set_ui_layout(uint8_t phase)
     memset(&s_payload, 0, sizeof(s_payload));
     s_payload.version = AREX_BLE_CFG_VERSION;
 
+    /* ========== 卡片顺序 ========== */
+    uint8_t card_order_default[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    uint8_t card_order_rev[] = { 7, 6, 5, 4, 3, 2, 1, 0 };
+    uint8_t *card_order = (phase % 2 == 0) ? card_order_default : card_order_rev;
+    memcpy(s_payload.card_order, card_order, sizeof(card_order_default));
+
     if (phase == 0) {
-        /* 标准布局：APP 只下发 [id, x, y]，MCU 查样式表获取 span_w/h */
+        /* ========== 布局 A: 标准 2x7 左侧锚点 ========== */
+        /* MCU 根据 widget_id 查样式表自动推导 span_w/h */
         uint8_t left_def[][3] = {
-            /* id,              x,  y */
-            { WIDGET_DEPTH_1612,    0, 0 },   /* 深度占满顶行 */
-            { WIDGET_NDL_STOP_1606, 0, 1 },   /* NDL 左 */
-            { WIDGET_TTS_0806,     1, 1 },   /* TTS 右 */
-            { WIDGET_POD_0806,     0, 2 },   /* POD1 左 */
-            { WIDGET_POD_0806,     1, 2 },   /* POD2 右 */
-            { WIDGET_PPO2_0806,    0, 3 },   /* PPO2 左 */
-            { WIDGET_GAS_1606,     1, 3 },   /* GAS 右 */
-            { WIDGET_WTIME_0806,   0, 4 },   /* W.TIME 左 */
-            { WIDGET_BATTERY_0806, 1, 4 },   /* BATTERY 右 */
-            { WIDGET_TEMP_0806,    0, 5 },   /* TEMP 底行 */
+            /* widget_id,           x,  y */
+            { WIDGET_NDL_STOP_1606,  0, 0 },   /* NDL 第0行 */
+            { WIDGET_DEPTH_1612,    0, 1 },   /* DEPTH 占 2x2 */
+            { WIDGET_POD_0806,      0, 3 },   /* POD1 左 */
+            { WIDGET_POD_0806,      1, 3 },   /* POD2 右 */
+            { WIDGET_WTIME_0806,    0, 4 },   /* W.TIME 左 */
+            { WIDGET_GAS_1606,      0, 5 },   /* GAS 左 */
+            { WIDGET_SYS_1606,      0, 6 },   /* SYS 底行 */
         };
         s_payload.left_count = sizeof(left_def) / sizeof(left_def[0]);
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
@@ -44,39 +50,77 @@ static void arex_test_set_ui_layout(uint8_t phase)
             s_payload.left_widgets[i].x  = left_def[i][1];
             s_payload.left_widgets[i].y  = left_def[i][2];
         }
-        /* 默认卡片顺序 */
-        uint8_t card_order_default[] = { 0, 1, 2, 3, 4, 5 };
-        memcpy(s_payload.card_order, card_order_default, sizeof(card_order_default));
-        s_payload.custom_5f_count = 0;
-    } else {
-        /* 翻转布局：交换 x 列索引，左右对调 */
+
+        /* ========== 5F 自定义网格（12 个组件）========== */
+        uint8_t custom_5f[][3] = {
+            /* widget_id,            r,  c */
+            { WIDGET_DEPTH_1612,     0, 0 },   /* DEPTH 2x2 大块 */
+            { WIDGET_TEMP_0806,      0, 2 },   /* TEMP 1x1 */
+            { WIDGET_HEADING_0806,   0, 3 },   /* HEADING 2x1 */
+            { WIDGET_SAC_RATE_0806,  2, 0 },   /* SAC 2x1 */
+            { WIDGET_BATTERY_0806,   2, 2 },   /* BATTERY 2x1 */
+            { WIDGET_PPO2_0806,      2, 4 },   /* PPO2 1x1 */
+            { WIDGET_NDL_STOP_1606,  3, 0 },   /* NDL 2x1 */
+            { WIDGET_TTS_0806,       3, 2 },   /* TTS 2x1 */
+            { WIDGET_CNS_0806,       3, 4 },   /* CNS 1x1 */
+            { WIDGET_POD_0806,       4, 0 },   /* POD1 2x1 */
+            { WIDGET_POD_0806,       4, 2 },   /* POD2 2x1 */
+            { WIDGET_WTIME_0806,     4, 4 },   /* W.TIME 1x1 */
+        };
+        s_payload.custom_5f_count = sizeof(custom_5f) / sizeof(custom_5f[0]);
+        for (uint8_t i = 0; i < s_payload.custom_5f_count; i++) {
+            s_payload.custom_5f_widgets[i].widget_id = custom_5f[i][0];
+            s_payload.custom_5f_widgets[i].r  = custom_5f[i][1];
+            s_payload.custom_5f_widgets[i].c  = custom_5f[i][2];
+        }
+
+    } else if (phase == 1) {
+        /* ========== 布局 B: 翻转 2x7 左侧锚点 ========== */
         uint8_t left_rev[][3] = {
-            /* widget_id,        x,  y */
-            { WIDGET_HEADING_0806,  0, 0 },   /* 航向顶行 */
-            { WIDGET_CNS_0806,     1, 1 },   /* CNS 左 */
-            { WIDGET_SAC_RATE_0806,0, 1 },   /* SAC 右 */
-            { WIDGET_BATTERY_0806, 1, 2 },   /* BATTERY 左 */
-            { WIDGET_TEMP_0806,    0, 2 },   /* TEMP 右 */
-            { WIDGET_WTIME_0806,   1, 3 },   /* W.TIME 左 */
-            { WIDGET_DEPTH_1612,   0, 3 },   /* DEPTH 右 */
-            { WIDGET_PPO2_0806,    0, 4 },   /* PPO2 双列 */
-            { WIDGET_NDL_STOP_1606,0, 5 },   /* NDL 底 */
-            { WIDGET_TTS_0806,     1, 5 },   /* TTS 底 */
+            /* widget_id,            x,  y */
+            { WIDGET_NDL_STOP_1606,  0, 0 },   /* NDL 第0行 */
+            { WIDGET_DEPTH_1612,    0, 1 },   /* DEPTH 保持位置 */
+            { WIDGET_POD_0806,      1, 3 },   /* POD2 左 (x 翻转) */
+            { WIDGET_POD_0806,      0, 3 },   /* POD1 右 (x 翻转) */
+            { WIDGET_WTIME_0806,    1, 4 },   /* WTIME 翻转 */
+            { WIDGET_GAS_1606,      0, 5 },   /* GAS 保持 */
+            { WIDGET_SYS_1606,      0, 6 },   /* SYS 保持 */
         };
         s_payload.left_count = sizeof(left_rev) / sizeof(left_rev[0]);
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
             s_payload.left_widgets[i].widget_id = left_rev[i][0];
-            s_payload.left_widgets[i].x  = 1 - left_rev[i][1]; /* 列索引翻转 */
+            s_payload.left_widgets[i].x  = left_rev[i][1];
             s_payload.left_widgets[i].y  = left_rev[i][2];
         }
-        /* 翻转卡片顺序 */
-        uint8_t card_order_rev[] = { 5, 4, 3, 2, 1, 0 };
-        memcpy(s_payload.card_order, card_order_rev, sizeof(card_order_rev));
+        /* 5F 网格置空 */
         s_payload.custom_5f_count = 0;
+
+    } else {
+        /* ========== 布局 C: 最小 5F 配置测试 ========== */
+        s_payload.left_count = 7;
+        for (uint8_t i = 0; i < s_payload.left_count; i++) {
+            s_payload.left_widgets[i].widget_id = WIDGET_EMPTY;
+            s_payload.left_widgets[i].x  = 0;
+            s_payload.left_widgets[i].y  = i;
+        }
+
+        /* 只测试 3 个组件的 5F 网格 */
+        uint8_t custom_min[][3] = {
+            /* widget_id,            r,  c */
+            { WIDGET_DEPTH_1612,     0, 0 },   /* DEPTH 占 2x2 */
+            { WIDGET_BATTERY_0806,   2, 0 },   /* BATTERY 2x1 */
+            { WIDGET_TEMP_0806,      2, 2 },   /* TEMP 1x1 */
+        };
+        s_payload.custom_5f_count = sizeof(custom_min) / sizeof(custom_min[0]);
+        for (uint8_t i = 0; i < s_payload.custom_5f_count; i++) {
+            s_payload.custom_5f_widgets[i].widget_id = custom_min[i][0];
+            s_payload.custom_5f_widgets[i].r  = custom_min[i][1];
+            s_payload.custom_5f_widgets[i].c  = custom_min[i][2];
+        }
     }
 
-    printf("[TEST] Calling arex_bus_set_ui_layout(phase=%u, left_count=%u)\r\n",
-           phase, s_payload.left_count);
+    printf("[TEST] arex_bus_set_ui_layout(phase=%u, left=%u, 5f=%u)\r\n",
+           phase, s_payload.left_count, s_payload.custom_5f_count);
     arex_bus_set_ui_layout(&s_payload);
 }
 
@@ -90,13 +134,14 @@ static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
 
-    // static uint16_t s_layout_tick = 0;
-    // s_layout_tick++;
-    // if (s_layout_tick % 2 == 0) {
-    //     static uint8_t phase = 0;
-    //     arex_test_set_ui_layout(phase);
-    //     phase = (phase + 1) % 2;
-    // }
+    /* 布局切换测试：每 10 秒切换一次布局（phase: 0→1→2→0 循环） */
+    static uint16_t s_layout_tick = 0;
+    s_layout_tick++;
+    if (s_layout_tick % 20 == 0) {  /* 200 ticks = 10 秒 */
+        static uint8_t s_layout_phase = 0;
+        arex_test_set_ui_layout(s_layout_phase);
+        s_layout_phase = (s_layout_phase + 1) % 3;  /* 0=A, 1=B, 2=C */
+    }
 
     /* 航向缓慢顺时针旋转 */
     uint16_t new_heading = (g_sensor_data.heading + 1) % 360;
