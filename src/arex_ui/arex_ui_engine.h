@@ -43,7 +43,7 @@ extern "C" {
  * 0 = 量产模式 (隐藏所有布局外框，极其干净)
  * 1 = 调试模式 (显示所有暗绿色外框，用于排版对齐)
  * ========================================================= */
-#define AREX_DEBUG_BORDERS   0  /* 外围大布局排版框 */
+#define AREX_DEBUG_BORDERS   1  /* 外围大布局排版框 */
 #define AREX_INNER_BORDER_W  2  /* 内部菜单项的暗绿色边框粗细 (0=隐藏, 1或2=显示) */
 #define AREX_GAS_BORDER_W    2  /* GAS SWITCH 卡片的边框粗细 */
 #define AREX_GRID_BORDER_W   0  /* 5F 自定义网格组件的边框粗细 */
@@ -53,7 +53,7 @@ extern "C" {
 #define AREX_WIDGET_COLS    5
 #define AREX_WIDGET_ROWS    6
 
-/* 10U 左侧锚点最大行数（布局数组长度） */
+/* 10U 左侧锚点最大行数（布局数组长度，2x7=14格，最坏14个单格组件） */
 #define AREX_MAX_LEFT_ROWS    8
 
 /* 左侧锚点模块间分割线宏 */
@@ -141,69 +141,74 @@ typedef enum {
 } arex_sep_style_t;
 
 /* =========================================================
- * AREX 全量组件 ID 字典 (Mapped from Product PRD)
+ * AREX 全量组件 ID 字典 (扁平分组枚举，APP/MCU 严格对齐)
  *
- * 全系统唯一组件类型字典。APP 下发 widget_id 即可指定组件类型，
- * 渲染引擎通过 arex_widget_id_t → display name + unit string + data source
- * 做数据绑定，绝不硬编码字号或排版。
+ * 架构铁律：
+ *   - 组件 ID 的数值直接编码了物理尺寸信息（如 WIDGET_DEPTH_1612 = 2列×2行）
+ *   - POD_0806 (33) 是全局唯一真实存在的气瓶模具 ID
+ *   - APP 下发时，同一个 POD_0806 可以出现多次
+ *   - MCU 通过渲染计数器（s_pod_render_count）自动分配 POD1/POD2
  *
- * 注意：这些 ID 与左侧锚点 AREX_MODULE_* 共享同一个数据源！
- * 告警同步引擎靠这个共享 ID 实现"左侧锚点 + 5F 组件同时闪烁"。
+ * 命名规则: WIDGET_<TYPE>_<W><H>
+ *   TYPE: DEPTH, NDL_STOP, DIVE_TIME, GAS, TEMP, ...
+ *   W: 列跨度 (1~5)
+ *   H: 行跨度 (1~6)
  * ========================================================= */
 typedef enum {
-    AREX_WIDGET_EMPTY = 0,
+    AREX_WIDGET_UNSPECIFIED = 0,
 
-    /* --- 核心 (Core) --- */
-    AREX_WIDGET_DEPTH,          // COMP.DEPTH
-    AREX_WIDGET_NDL_STOP,       // COMP.NDL_STOP (包含 NDL/停留时间的动态切换)
-    AREX_WIDGET_DIVE_TIME,      // COMP.DIVE_TIME
-    AREX_WIDGET_GAS,            // COMP.GAS
-    AREX_WIDGET_SYS,            // COMP.SYS (底部 60px 专属栏)
+    /* --- 核心驻留区 (强制固定) --- */
+    WIDGET_NDL_STOP_1606 = 1,   /* NDL/停留状态机 (2x1) */
+    WIDGET_DEPTH_1612    = 2,   /* 深度大通栏 (2x2) */
+    WIDGET_DEPTH_1606    = 3,   /* 深度长条 (2x1) */
+    WIDGET_DIVE_TIME_1606 = 4, /* 潜水计时 (2x1) */
+    WIDGET_GAS_1606      = 5,   /* 当前气体 (2x1) */
+    WIDGET_SYS_1606      = 6,   /* 系统状态栏 (2x1) */
 
-    /* --- 基础 (Basic) --- */
-    AREX_WIDGET_TEMP,           // COMP.TEMP
-    AREX_WIDGET_TIME_OF_DAY,    // COMP.TIME (当前钟表时间)
-    AREX_WIDGET_TTS,            // COMP.TTS
-    AREX_WIDGET_ASCENT,         // COMP.ASCENT (速率，含箭头)
-    AREX_WIDGET_COMPASS,        // COMP.COMPASS (非交互式静态罗盘)
-    AREX_WIDGET_BATTERY,        // COMP.BATTERY
-    AREX_WIDGET_STOP_DEPTH,     // COMP.STOP_DEPTH
-    AREX_WIDGET_STOP_TIME,      // COMP.STOP_TIME
-    AREX_WIDGET_PPO2,           // COMP.PO2
-    AREX_WIDGET_NDL,            // COMP.NDL (保留兼容)
-    AREX_WIDGET_HEADING,        // COMP.HEADING
-    AREX_WIDGET_WTIME,          // COMP.WTIME (潜水时间，兼容旧名)
+    /* --- 基础组件 (Basic) --- */
+    WIDGET_TEMP_0806     = 10,  /* 温度 (1x1) */
+    WIDGET_TIME_1606     = 11,  /* 当前时间 (2x1) */
+    WIDGET_TTS_0806      = 12,  /* 到水面时间 (1x1) */
+    WIDGET_ASCENT_0806   = 13,  /* 上升速率 (1x1) */
+    WIDGET_ASCENT_0812   = 14,  /* 上升速率大 (1x2) */
+    WIDGET_COMPASS_1612  = 15,  /* 罗盘 (2x2) */
+    WIDGET_BATTERY_0806  = 16,  /* 电池 (1x1) */
+    WIDGET_STOP_DEPTH_0806 = 17, /* 停留深度 (1x1) */
+    WIDGET_STOP_TIME_1606 = 18,  /* 停留时间 (2x1) */
+    WIDGET_PPO2_0806     = 19,  /* PPO2 (1x1) */
 
     /* --- 技术潜水 (Tech Dive) --- */
-    AREX_WIDGET_SURF_GF,        // COMP.SURF_GF
-    AREX_WIDGET_GF99,           // COMP.GF99
-    AREX_WIDGET_CNS,            // COMP.CNS
-    AREX_WIDGET_OTU,            // COMP.OTU
-    AREX_WIDGET_GF_SETTING,     // COMP.GF (如 30/70)
-    AREX_WIDGET_MOD,            // COMP.MOD
-    AREX_WIDGET_CEILING,        // COMP.CEILING (原始上限)
-    AREX_WIDGET_GAS_MIX,        // COMP.GAS_MIX (N2/He%)
-    AREX_WIDGET_TISSUE_GF,      // COMP.TISSUE_GF (带GF线的组织图)
-    AREX_WIDGET_TISSUE_RAW,     // COMP.TISSUE_RAW
-    AREX_WIDGET_GAS_DENS,       // COMP.GAS_DENS (气体密度)
-    AREX_WIDGET_FIO2,           // COMP.FIO2 (吸入氧气浓度)
+    WIDGET_SURF_GF_0806  = 20,  /* Surf GF (1x1) */
+    WIDGET_GF99_0806     = 21,  /* GF99 (1x1) */
+    WIDGET_CNS_0806      = 22,  /* CNS (1x1) */
+    WIDGET_OTU_0806      = 23,  /* OTU (1x1) */
+    WIDGET_GF_0806       = 24,  /* GF 设置值 (1x1) */
+    WIDGET_MOD_0806      = 25,  /* MOD (1x1) */
+    WIDGET_CEILING_0806  = 26,  /* Ceiling (1x1) */
+    WIDGET_GAS_MIX_1606  = 27,  /* 气体混合 (2x1) */
+    WIDGET_TISSUE_GF_4012 = 28, /* 组织 GF 图 (4x2) */
+    WIDGET_TISSUE_RAW_4012 = 29, /* 组织原始 (4x2) */
+    WIDGET_GAS_DENS_0806 = 30,  /* 气体密度 (1x1) */
+    WIDGET_FIO2_0806     = 31,  /* FIO2 (1x1) */
 
-    /* --- 传感器与拓展 (Sensors) --- */
-    AREX_WIDGET_POD1,           // COMP.POD1
-    AREX_WIDGET_POD2,           // COMP.POD2
-    AREX_WIDGET_DEPTH_MAX,      // COMP.DEPTH_MAX
-    AREX_WIDGET_DEPTH_AVG,      // COMP.DEPTH_AVG
-    AREX_WIDGET_TEMP_MIN,       // COMP.TEMP_MIN
-    AREX_WIDGET_TEMP_MAX,       // COMP.TEMP_MAX
-    AREX_WIDGET_TEMP_AVG,       // COMP.TEMP_AVG
-    AREX_WIDGET_SAC_RATE,       // COMP.SAC_RATE (呼吸速率)
+    /* --- 传感器 (Sensors) --- */
+    WIDGET_HEADING_0806  = 32,   /* 航向 (1x1) */
+    WIDGET_POD_0806      = 33,  /* 气瓶压力 (1x1)，全局唯一真实模具 ID */
+    WIDGET_DEPTH_MAX_0806 = 34, /* 最大深度 (1x1) */
+    WIDGET_DEPTH_AVG_0806 = 35, /* 平均深度 (1x1) */
+    WIDGET_TEMP_MIN_0806 = 36,  /* 最低温度 (1x1) */
+    WIDGET_TEMP_AVG_0806 = 37,  /* 平均温度 (1x1) */
+    WIDGET_TEMP_MAX_0806 = 38,  /* 最高温度 (1x1) */
+    WIDGET_SAC_RATE_0806 = 39, /* SAC 呼吸速率 (1x1) */
+    WIDGET_WTIME_0806    = 40,  /* 水面休息时间 (1x1) */
 
-    /* --- 边界保护 (Safety) --- */
-    AREX_WIDGET_PPO2_SAFE,      // PPO2 安全边界
-    AREX_WIDGET_NDL_SAFE,       // NDL 安全边界
-    AREX_WIDGET_SAC_SAFE,       // SAC 安全边界
+    /* --- 边界安全 (Safety) --- */
+    WIDGET_PPO2_SAFE_0806 = 50, /* PPO2 安全边界 (1x1) */
+    WIDGET_NDL_SAFE_0806 = 51, /* NDL 安全边界 (1x1) */
+    WIDGET_SAC_SAFE_0806 = 52, /* SAC 安全边界 (1x1) */
 
-    AREX_WIDGET_COUNT
+    /* --- 空白占位 --- */
+    WIDGET_EMPTY         = 99,   /* 空槽位 */
 } arex_widget_id_t;
 
 /* =========================================================
@@ -423,6 +428,7 @@ typedef enum {
     DIRTY_ALARM      = (1U << 29),  /* 告警状态 */
     DIRTY_DEVICES    = (1U << 30),  /* 外设状态 */
     DIRTY_UI_LAYOUT  = (1U << 31),  /* UI 布局重建 */
+    DIRTY_SETUP      = (1U << 22),  /* 用户设置变更（conservatism 等） */
 
 } arex_dirty_bit_t;
 
@@ -591,17 +597,29 @@ void arex_show_alarm_banner(arex_alarm_level_t level, const char *eng_text);
 void arex_hide_alarm_banner(void);
 
 /* =========================================================
- * 2c. 左侧 2x6 绝对网格配置结构体 (APP 同步核心)
+ * 2c. 左侧 2x7 绝对网格组件配置 (APP 同步核心)
  *
- * 左侧 160x360 区域（不含底部 60px SystemData）被划分为 2列(80px) x 6行(60px)。
- * 每行列/列/跨度完全复用 AREX_WIDGET_* 枚举（共享同一数据源）。
+ * 架构铁律：APP 只下发 [widget_id, x, y] 三字段（3字节）。
+ * MCU 根据 widget_id 从样式表自动查表获取 span_w/span_h。
  * ========================================================= */
 #define AREX_LEFT_COLS   2
-#define AREX_LEFT_ROWS   6
+#define AREX_LEFT_ROWS   7
 #define AREX_LEFT_CELL_W 80
 #define AREX_LEFT_CELL_H 60
 #define AREX_LEFT_GRID_W (AREX_LEFT_COLS * AREX_LEFT_CELL_W)  /* 160px */
-#define AREX_LEFT_GRID_H (AREX_LEFT_ROWS * AREX_LEFT_CELL_H)  /* 360px */
+#define AREX_LEFT_GRID_H (AREX_LEFT_ROWS * AREX_LEFT_CELL_H)  /* 420px */
+
+/* APP 下发数据结构（只含位置，无样式） */
+typedef struct {
+    arex_widget_id_t widget_id;  /* 组件类型 ID（枚举） */
+    uint8_t x;                   /* 列索引 0~1 */
+    uint8_t y;                   /* 行索引 0~6 */
+} arex_left_widget_t;
+
+/* 左侧网格组件数组声明（最多 14 个组件覆盖 2x7 网格） */
+#define AREX_LEFT_MAX_WIDGETS 14
+extern arex_left_widget_t g_left_widgets[AREX_LEFT_MAX_WIDGETS];
+extern uint8_t g_left_widget_count;
 
 /* 组件布局类型 */
 typedef enum {
@@ -613,7 +631,171 @@ typedef enum {
     AREX_LAYOUT_DEPTH_SPLIT = 5, /* DEPTH专属：整数 + 小数 + 单位 + 箭头 */
 } arex_layout_type_t;
 
-/* LVGL 常用对齐宏简写 */
+/* =========================================================
+ * 第二步：极简 BLE 通信布局结构体 (APP → MCU)
+ *
+ * 架构铁律：APP 只下发"意图和网格坐标"，MCU 包揽所有"内部像素级排版"。
+ * BLE 协议中每个网格组件仅占 3 字节，彻底压榨协议体积。
+ * ========================================================= */
+#define AREX_MAX_WIDGETS 30
+
+#pragma pack(push, 1)
+typedef struct {
+    arex_widget_id_t widget_id;  /* 组件类型 ID（必须与枚举严格对齐） */
+    uint8_t x;                    /* 列索引 0~4 */
+    uint8_t y;                    /* 行索引 0~5 */
+} arex_widget_pos_t;
+#pragma pack(pop)
+
+/* =========================================================
+ * 第三步：MCU 本地样式字典结构体 (Union 内存优化版)
+ *
+ * 架构铁律：APP 省略掉的 w 和 h 由 MCU 本地样式表提供。
+ * 各种奇形怪状模块的专属 offset 用 Union 强制共享内存，防止结构体膨胀。
+ * ========================================================= */
+
+/* DEPTH 专属样式参数
+ * 用于 DEPTH_1612/1606 等深度组件，实现整数+小数+单位+箭头图标分离排版 */
+typedef struct {
+    int8_t  int_offset_x;    /* 整数部分 X 偏移 */
+    int8_t  int_offset_y;    /* 整数部分 Y 偏移 */
+    uint8_t int_align;       /* 整数部分对齐方式 */
+    int8_t  dec_offset_x;    /* 小数部分 X 偏移（相对整数） */
+    int8_t  dec_offset_y;    /* 小数部分 Y 偏移（相对整数） */
+    int8_t  unit_offset_x;   /* 单位 X 偏移（相对小数） */
+    int8_t  unit_offset_y;   /* 单位 Y 偏移（相对小数） */
+    int8_t  icon_offset_x;  /* 箭头图标 X 偏移 */
+    int8_t  icon_offset_y;  /* 箭头图标 Y 偏移 */
+    uint8_t icon_align;      /* 箭头图标对齐方式 */
+} arex_style_depth_t;
+
+/* NDL 专属样式参数
+ * 用于 NDL_STOP_1606 等停留组件，实现进度条+数值分离排版 */
+typedef struct {
+    int8_t  bar_offset_x;   /* 进度条 X 偏移 */
+    int8_t  bar_offset_y;   /* 进度条 Y 偏移 */
+    uint8_t bar_align;      /* 进度条对齐方式 */
+    int8_t  bar_w;          /* 进度条宽度 */
+    int8_t  bar_h;          /* 进度条高度 */
+    uint8_t bar_fill_dir;   /* 填充方向：0=从下往上, 1=从上往下 */
+} arex_style_ndl_t;
+
+/* NDL_STOP 多形态专属样式参数
+ * 用于 NDL_STOP_1606，支持三种状态：NDL常态/Safety停留/Deco停留 */
+typedef struct {
+    /* 垂直进度条（NDL常态显示） */
+    int8_t  vert_offset_x;  /* 垂直条 X 偏移 */
+    int8_t  vert_offset_y;  /* 垂直条 Y 偏移 */
+    uint8_t vert_align;      /* 垂直条对齐方式 */
+    int8_t  vert_w;          /* 垂直条宽度 */
+    int8_t  vert_h;          /* 垂直条高度 */
+    /* 横向进度条（停留态显示） */
+    int8_t  horiz_offset_x;  /* 横向条 X 偏移 */
+    int8_t  horiz_offset_y;  /* 横向条 Y 偏移 */
+    int8_t  horiz_w;         /* 横向条宽度 */
+    int8_t  horiz_h;         /* 横向条高度 */
+    /* 主值文本（NDL数字/MM:SS） */
+    int8_t  main_offset_x;   /* 主值 X 偏移 */
+    int8_t  main_offset_y;   /* 主值 Y 偏移 */
+    uint8_t main_align;       /* 主值对齐方式 */
+    /* 顶部标题（停留态显示） */
+    int8_t  title_offset_x;  /* 顶部标题 X 偏移 */
+    int8_t  title_offset_y;  /* 顶部标题 Y 偏移 */
+    uint8_t title_align;      /* 顶部标题对齐方式 */
+    /* 底部副标题（NDL/Safety态显示） */
+    int8_t  sub_offset_x;    /* 底部副标题 X 偏移 */
+    int8_t  sub_offset_y;    /* 底部副标题 Y 偏移 */
+    uint8_t sub_align;        /* 底部副标题对齐方式 */
+} arex_style_ndl_stop_t;
+
+/* TISSUE 组织图专属样式参数
+ * 用于 TISSUE_GF_4012/TISSUE_RAW_4012，实现16柱组织图排版 */
+typedef struct {
+    int8_t  chart_offset_x; /* 柱状图 X 偏移 */
+    int8_t  chart_offset_y; /* 柱状图 Y 偏移 */
+    uint8_t chart_align;     /* 柱状图对齐方式 */
+    int8_t  bar_count;      /* 柱状图数量（固定16） */
+    int8_t  bar_spacing;    /* 柱子间距 */
+} arex_style_tissue_t;
+
+/* COMPASS 罗盘专属样式参数
+ * 用于 COMPASS_1612，实现卷尺+数值分离排版 */
+typedef struct {
+    int8_t  tape_offset_x;  /* 卷尺 X 偏移 */
+    int8_t  tape_offset_y;  /* 卷尺 Y 偏移 */
+    uint8_t tape_align;      /* 卷尺对齐方式 */
+    int8_t  val_offset_x;   /* 航向数值 X 偏移 */
+    int8_t  val_offset_y;   /* 航向数值 Y 偏移 */
+    uint8_t val_align;      /* 航向数值对齐方式 */
+} arex_style_compass_t;
+
+/* 通用基础样式（无特殊参数的组件使用）
+ * 用于 TEMP/TIME/TTS/BATT/POD 等1x1或2x1通用组件 */
+typedef struct {
+    int8_t  value_offset_x; /* 数值 X 偏移 */
+    int8_t  value_offset_y; /* 数值 Y 偏移 */
+    uint8_t value_align;     /* 数值对齐方式 */
+} arex_style_basic_t;
+
+/* =========================================================
+ * 第三步：8-bit UI 元素开关掩码 (Element Bitmask)
+ *
+ * 每 bit 对应一个 UI 零件的有无，字典中按 PRD 约束"按需勾选"。
+ * 渲染工厂完全依据此掩码决定流水线装配哪些零件，彻底消灭 if-else 膨胀。
+ * ========================================================= */
+/* ELEM_TITLE : 标题行（如 "DEPTH"、"TEMP"） */
+#define ELEM_TITLE (1 << 0)
+/* ELEM_VALUE  : 主数值（整数/小数/字符串） */
+#define ELEM_VALUE (1 << 1)
+/* ELEM_UNIT   : 单位字符串（"m"、"min"、"C" 等，NULL 单位自动跳过） */
+#define ELEM_UNIT  (1 << 2)
+/* ELEM_BAR    : 特殊进度条/图标（DEPTH 速率箭头、NDL 停留柱、SYS 电池条等） */
+#define ELEM_BAR   (1 << 3)
+/* ELEM_EXTRA  : 附加异构元素（POD1/POD2 专属 ID 标签等） */
+#define ELEM_EXTRA (1 << 4)
+
+/* MCU 本地样式字典（Union 共享内存，大小永远等于最大成员） */
+#define AREX_MAX_STYLE_SPEC_SIZE 32
+typedef struct {
+    arex_widget_id_t widget_id;   /* 绑定的组件 ID */
+    uint8_t span_w;              /* 跨越列数 */
+    uint8_t span_h;              /* 跨越行数 */
+
+    /* 元素开关掩码，决定流水线要装配哪些零件 */
+    uint8_t elements;            /* ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_BAR | ELEM_EXTRA */
+
+    arex_font_id_t font_id;      /* 主数值字号 */
+    arex_font_id_t title_font_id; /* 标题字号 */
+    const char *unit;            /* 单位字符串（如 "m"、"min"、NULL） */
+    int8_t  title_offset_x;
+    int8_t  title_offset_y;
+    uint8_t title_align;
+
+    /* 专属样式 Union（强制共享内存，防止膨胀） */
+    union {
+        arex_style_depth_t        depth;                            /* DEPTH专属排版参数 */
+        arex_style_ndl_t          ndl;                              /* NDL 专属参数（进度条/停留态） */
+        arex_style_ndl_stop_t     ndl_stop;                         /* NDL_STOP专属排版参数 */
+        arex_style_tissue_t       tissue;                           /* TISSUE专属排版参数 */
+        arex_style_compass_t      compass;                          /* COMPASS专属排版参数 */
+        arex_style_basic_t        basic;                            /* 通用组件排版参数 */
+        uint8_t                   dummy[AREX_MAX_STYLE_SPEC_SIZE];  /* 强制对齐 */
+    } spec;
+
+    /* 组件显示名称 */
+    const char *title;
+} arex_widget_style_t;
+
+/* 辅助查表函数声明 */
+const arex_widget_style_t* arex_get_widget_style(arex_widget_id_t id);
+
+/* =========================================================
+ * POD 渲染状态机（POD1/POD2 共用同一枚举值，靠计数器区分）
+ *
+ * 策略：静态渲染计数器，同一渲染批次内按顺序分配 POD1→POD2。
+ * 每次网格重建/重绘前必须调用 arex_reset_widget_render_state() 归零。
+ * ========================================================= */
+void arex_reset_widget_render_state(void);
 #define ALIGN_TL LV_ALIGN_TOP_LEFT
 #define ALIGN_TM LV_ALIGN_TOP_MID
 #define ALIGN_TR LV_ALIGN_TOP_RIGHT
@@ -624,63 +806,9 @@ typedef enum {
 #define ALIGN_BM LV_ALIGN_BOTTOM_MID
 #define ALIGN_BR LV_ALIGN_BOTTOM_RIGHT
 
-typedef struct {
-    arex_widget_id_t widget_id;  /* 组件类型 ID */
-    uint8_t x;                    /* 列索引 0~1 */
-    uint8_t y;                    /* 行索引 0~5 */
-    uint8_t w;                    /* 跨越列数 1~2 */
-    uint8_t h;                    /* 跨越行数 1~2 */
-    uint8_t font_id;              /* 数值字号: arex_font_id_t */
-
-    /* ===== 通用布局参数 ===== */
-    arex_layout_type_t layout;    /* 布局类型 */
-
-    /* 标题位置 */
-    int8_t  title_offset_x;
-    int8_t  title_offset_y;
-    uint8_t title_align;
-
-    /* 数值位置 */
-    int8_t  value_offset_x;
-    int8_t  value_offset_y;
-    uint8_t value_align;
-
-    /* ===== DEPTH 特殊参数 ===== */
-    /* 整数位置 */
-    int8_t  depth_int_offset_x;
-    int8_t  depth_int_offset_y;
-    uint8_t depth_int_align;
-
-    /* 小数位置（相对于整数） */
-    int8_t  depth_dec_offset_x;
-    int8_t  depth_dec_offset_y;
-
-    /* 单位位置（相对于小数） */
-    int8_t  depth_unit_offset_x;
-    int8_t  depth_unit_offset_y;
-
-    /* 箭头图标位置 */
-    int8_t  depth_icon_offset_x;
-    int8_t  depth_icon_offset_y;
-    uint8_t depth_icon_align;
-
-    /* ===== NDL 特殊参数 ===== */
-    /* 进度条位置 */
-    int8_t  ndl_bar_offset_x;
-    int8_t  ndl_bar_offset_y;
-    uint8_t ndl_bar_align;
-
-    /* 进度条尺寸 */
-    int8_t  ndl_bar_w;
-    int8_t  ndl_bar_h;
-
-    /* 进度条填充方向: 0=从下往上, 1=从上往下 */
-    uint8_t ndl_bar_fill_dir;
-} arex_custom_widget_cfg_t;
-
-/* 左侧网格组件数组声明（最多 12 个组件覆盖 2x6 网格） */
-#define AREX_LEFT_MAX_WIDGETS 12
-extern arex_custom_widget_cfg_t g_left_widgets[AREX_LEFT_MAX_WIDGETS];
+/* 左侧网格组件数组声明（最多 14 个组件覆盖 2x7 网格） */
+#define AREX_LEFT_MAX_WIDGETS 14
+extern arex_left_widget_t g_left_widgets[AREX_LEFT_MAX_WIDGETS];
 extern uint8_t g_left_widget_count;
 
 /* 外部告警状态容器（由 arex_screen.c 在创建锚点和卡片时注入） */
@@ -695,12 +823,12 @@ void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
                            uint16_t *out_w, uint16_t *out_h);
 
 /* =========================================================
- * 12. 左侧 2x6 绝对网格渲染引擎
+ * 12. 左侧 2x7 绝对网格渲染引擎
  *
- * 严格将 160x360 区域划分为 2列(80px) x 6行(60px) 的绝对网格矩阵，
+ * 严格将 160x420 区域划分为 2列(80px) x 7行(60px) 的绝对网格矩阵，
  * 彻底废弃 current_y 累加排版，改用 x*y*w*h 纯数学坐标推演。
  * 内部调用 render_widget_by_id 工厂函数，兼容 arex_widget_id_t 体系。
- * SystemData 底部 60px 由 arex_render_system_data() 独立渲染。
+ * 样式由 arex_get_widget_style(widget_id) 自动查表获取，无需手动配置。
  * ========================================================= */
 
 /* 左侧网格总线渲染器：遍历 g_left_widgets[] 数组，
@@ -712,7 +840,6 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor);
  * 接收绝对物理坐标，生成标准化组件容器。
  * is_depth_icon == true 时，在 DEPTH 模块内挂载 sudu 速率图标。
  * cfg_font_id 可覆盖默认字号计算（设为 255 则自动计算）。
- * layout_cfg 传入布局配置（左侧锚点使用），右侧卡片传 NULL。
  * 返回组件容器对象句柄。 */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                                arex_widget_id_t w_id,
@@ -720,8 +847,25 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                                uint16_t abs_w, uint16_t abs_h,
                                uint8_t span_w, uint8_t span_h,
                                bool is_depth_icon,
-                               arex_font_id_t cfg_font_id,
-                               arex_custom_widget_cfg_t *layout_cfg);
+                               arex_font_id_t cfg_font_id);
+
+/* =========================================================
+ * 第五步：新简化工厂函数（APP下发位置 + MCU本地查样式表）
+ *
+ * 架构：APP 只下发 [widget_id, x, y]，MCU 根据 widget_id
+ * 自动从样式注册表获取 w/h/offset，渲染时组合两者。
+ *
+ * @param parent   父容器
+ * @param pos      APP下发的极简坐标（仅含ID/X/Y，3字节）
+ * @param cell_w   网格单元宽度（默认80px或根据区域不同）
+ * @param cell_h   网格单元高度（默认60px或根据区域不同）
+ * @param title_h  标题区高度偏移（0则无偏移）
+ * @return         组件容器对象句柄
+ * ========================================================= */
+lv_obj_t* arex_render_widget(lv_obj_t *parent,
+                              const arex_widget_pos_t *pos,
+                              uint16_t cell_w, uint16_t cell_h,
+                              uint16_t title_h);
 
 /* UI 消费任务 — 全系统唯一允许执行 lv_label_set_text 的地方（50ms 定时器驱动） */
 void arex_ui_update_task(lv_timer_t *timer);

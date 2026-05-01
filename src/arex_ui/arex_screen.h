@@ -26,7 +26,7 @@ extern "C" {
 #endif
 
 /* 向前兼容宏 */
-#define AREX_FONT_HUGE   (&lv_font_courier_48)
+#define AREX_FONT_HUGE   (&lv_font_courier_58)
 #define AREX_FONT_MEDIUM  (&lv_font_courier_28)
 #define AREX_FONT_SMALL   (&lv_font_courier_14)
 #define AREX_FONT_TITLE   (&lv_font_courier_20)
@@ -91,6 +91,7 @@ void arex_screen_set_submenu_selection(uint8_t idx);
    Gas menu
    ========================================= */
 void arex_screen_refresh_gas_menu(void);
+void arex_screen_refresh_setup_menu(void);
 
 /* =========================================
    Sub-menu layer
@@ -152,7 +153,7 @@ extern bool g_light_power_state;        /* 灯光开关状态（共享） */
 void arex_bus_set_light_power(bool on);           /* 开关灯光 */
 void arex_ui_on_light_color_set(const char *color, const char *level);  /* 颜色亮度设置 */
 void arex_set_brightness(uint8_t level);           /* 设置屏幕亮度 (0-3) */
-
+void arex_ui_on_conservatism_set(uint8_t level);   /* 设置算法保守度 */
 #ifdef __cplusplus
 }
 #endif

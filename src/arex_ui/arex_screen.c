@@ -182,7 +182,7 @@ static void clear_widget_arrays(void)
 /* =========================================================
  * 左侧锚点重建 (配置变更时调用)
  *
- * 2x6 绝对网格版本：直接调用网格渲染引擎重建。
+ * 2x7 绝对网格版本：直接调用网格渲染引擎重建。
  * ========================================================= */
 static void left_anchor_rebuild(uint8_t comp_count)
 {
@@ -197,23 +197,20 @@ static void left_anchor_rebuild(uint8_t comp_count)
     /* 清除所有子对象 */
     lv_obj_clean(s_left_anchor);
 
-    /* 重新调用 2x6 绝对网格渲染引擎 */
+    /* 重新调用 2x7 绝对网格渲染引擎 */
     arex_render_left_anchor_grid(s_left_anchor);
-
-    /* 重建 SystemData 底部 60px */
-    arex_render_system_data(s_left_anchor);
 }
 
 /* =========================================================
  * 左侧锚点创建 (首次初始化)
  * ========================================================= */
 /* =========================================================
- * 左侧锚点创建 (2x6 绝对网格版本)
+ * 左侧锚点创建 (2x7 绝对网格版本)
  *
- * 废弃 current_y 累加排版，改为 2列(80px) x 6行(60px) 绝对网格矩阵。
+ * 废弃 current_y 累加排版，改为 2列(80px) x 7行(60px) 绝对网格矩阵。
  * 所有组件通过 arex_render_left_anchor_grid() 使用 render_widget_by_id 工厂渲染，
  * 并注入 arex_widget_id_t 烙印供 arex_widget_set_value() 定位更新。
- * SystemData 底部 60px 由 arex_render_system_data() 独立渲染。
+ * SystemData 已作为 g_left_widgets[6] 参与网格排版，不再独立渲染。
  * ========================================================= */
 static void left_anchor_create(void)
 {
@@ -237,10 +234,10 @@ static void left_anchor_create(void)
     /* 清空 widget 句柄数组（首次创建时重置） */
     clear_widget_arrays();
 
-    /* 2. 调用 2x6 绝对网格渲染引擎（带 sudu 速率图标） */
+    /* 2. 调用 2x7 绝对网格渲染引擎（带 sudu 速率图标） */
     arex_render_left_anchor_grid(s_left_anchor);
 
-    /* 3. 绝对锁定底部 System Data（底部 60px） */
+    /* 3. SystemData 底部 60px（电池/温度/设备图标，独立渲染） */
     arex_render_system_data(s_left_anchor);
 }
 
@@ -514,7 +511,7 @@ void arex_screen_rebuild_layout(void)
     /* 统一清空 widget 句柄数组（只清空一次！） */
     clear_widget_arrays();
 
-    /* 重建左侧锚点排版（2x6 绝对网格版本） */
+    /* 重建左侧锚点排版（2x7 绝对网格版本） */
     if (s_left_anchor) {
         left_anchor_rebuild(0);
     }
@@ -743,12 +740,13 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
  * 左侧锚点 + 5F 网格中所有打了烙印的组件并更新数值。
  * 不再直接操作 s_lbl_* 句柄，彻底解耦！
  *
- * 2x6 网格布局:
+ * 2x7 网格布局:
  *   Row 0: NDL      | (2x1)
  *   Row 1-2: DEPTH  | (2x2, 带 sudu 速率图标)
- *   Row 3: TIME     | (2x1, 潜水时间 MM:SS)
- *   Row 4: GAS      | (2x1, 当前气体名称)
- *   Row 5: POD1     | POD2   (各 1x1)
+ *   Row 3: POD1     | POD2   (各 1x1)
+ *   Row 4: TIME     | (2x1, 潜水时间 MM:SS)
+ *   Row 5: GAS      | (2x1, 当前气体名称)
+ *   Row 6: SYS      | (2x1, 系统时间)
  * ========================================================= */
 /* =========================================================
  * 左侧面板刷新 — 数据源自动推导引擎
@@ -762,43 +760,43 @@ void arex_screen_refresh_left_panel(void)
         arex_widget_id_t w_id = g_left_widgets[i].widget_id;
 
         switch (w_id) {
-            case AREX_WIDGET_NDL:
-                arex_widget_set_value(AREX_WIDGET_NDL, (float)g_sensor_data.ndl);
+            case WIDGET_NDL_STOP_1606:
+                arex_widget_set_value(WIDGET_NDL_STOP_1606, (float)g_sensor_data.ndl);
                 break;
-            case AREX_WIDGET_DEPTH:
-                arex_widget_set_value(AREX_WIDGET_DEPTH, g_sensor_data.depth);
+            case WIDGET_DEPTH_1612:
+                arex_widget_set_value(WIDGET_DEPTH_1612, g_sensor_data.depth);
                 break;
-            case AREX_WIDGET_TEMP:
-                arex_widget_set_value(AREX_WIDGET_TEMP, g_sensor_data.temperature_c);
+            case WIDGET_TEMP_0806:
+                arex_widget_set_value(WIDGET_TEMP_0806, g_sensor_data.temperature_c);
                 break;
-            case AREX_WIDGET_HEADING:
-                arex_widget_set_value(AREX_WIDGET_HEADING, (float)g_sensor_data.heading);
+            case WIDGET_HEADING_0806:
+                arex_widget_set_value(WIDGET_HEADING_0806, (float)g_sensor_data.heading);
                 break;
-            case AREX_WIDGET_BATTERY:
-                arex_widget_set_value(AREX_WIDGET_BATTERY, g_sensor_data.battery_pct);
+            case WIDGET_BATTERY_0806:
+                arex_widget_set_value(WIDGET_BATTERY_0806, g_sensor_data.battery_pct);
                 break;
-            case AREX_WIDGET_TTS:
-                arex_widget_set_value(AREX_WIDGET_TTS, (float)g_sensor_data.tts);
+            case WIDGET_TTS_0806:
+                arex_widget_set_value(WIDGET_TTS_0806, (float)g_sensor_data.tts);
                 break;
-            case AREX_WIDGET_PPO2:
-                arex_widget_set_value(AREX_WIDGET_PPO2, g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
+            case WIDGET_PPO2_0806:
+                arex_widget_set_value(WIDGET_PPO2_0806, g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
                 break;
-            case AREX_WIDGET_CNS:
-                arex_widget_set_value(AREX_WIDGET_CNS, (float)g_sensor_data.cns_pct);
+            case WIDGET_CNS_0806:
+                arex_widget_set_value(WIDGET_CNS_0806, (float)g_sensor_data.cns_pct);
                 break;
-            case AREX_WIDGET_POD1:
-                arex_widget_set_value(AREX_WIDGET_POD1, g_sensor_data.pod1_bar);
+            case WIDGET_POD_0806:
+                /* POD1/POD2 共用枚举值 33；渲染时已由状态机区分写入 user_data，
+                 * 更新时两次调用按 user_data 各自路由到对应的 POD1/POD2 组件 */
+                arex_widget_set_value(WIDGET_POD_0806, g_sensor_data.pod1_bar);
+                arex_widget_set_value(WIDGET_POD_0806, g_sensor_data.pod2_bar);
                 break;
-            case AREX_WIDGET_POD2:
-                arex_widget_set_value(AREX_WIDGET_POD2, g_sensor_data.pod2_bar);
+            case WIDGET_WTIME_0806:
+                arex_widget_set_value(WIDGET_WTIME_0806, (float)g_sensor_data.dive_time_s);
                 break;
-            case AREX_WIDGET_WTIME:
-                arex_widget_set_value(AREX_WIDGET_WTIME, (float)g_sensor_data.dive_time_s);
+            case WIDGET_GAS_1606:
+                arex_widget_set_text(WIDGET_GAS_1606, g_sensor_data.gas_name);
                 break;
-            case AREX_WIDGET_GAS:
-                arex_widget_set_text(AREX_WIDGET_GAS, g_sensor_data.gas_name);
-                break;
-            case AREX_WIDGET_EMPTY:
+            case WIDGET_EMPTY:
             default:
                 break;
         }
@@ -1313,6 +1311,19 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     }
 
     if (strcmp(cur_title, "CONSERVATISM") == 0) {
+        if (strcmp(text, "< BACK") != 0) {
+            /* 解析 conservatism 级别：LOW/MED/HIGH */
+            uint8_t level = 1;  /* 默认 MED */
+            if (strncmp(text, "LOW", 3) == 0) level = 0;
+            else if (strncmp(text, "MED", 3) == 0) level = 1;
+            else if (strncmp(text, "HIGH", 4) == 0) level = 2;
+
+            /* 调用外部业务层回调（weak 实现会调用内部 bus） */
+            extern void arex_ui_on_conservatism_set(uint8_t level);
+            arex_ui_on_conservatism_set(level);
+
+            arex_screen_refresh_setup_menu();
+        }
         arex_screen_update_setup_badge(1, text);
         arex_screen_close_submenu();
         return;
@@ -1527,6 +1538,12 @@ void arex_screen_refresh_compass_target(void)
 void arex_screen_refresh_gas_menu(void)
 {
     arex_card_t *c = arex_card_get_by_id(CARD_ID_GAS);
+    if (c && c->update_cb) c->update_cb();
+}
+
+void arex_screen_refresh_setup_menu(void)
+{
+    arex_card_t *c = arex_card_get_by_id(CARD_ID_SETUP);
     if (c && c->update_cb) c->update_cb();
 }
 
@@ -1824,4 +1841,31 @@ void arex_set_brightness(uint8_t level)
      *   static const uint16_t brightness_duty[4] = {100, 200, 400, 1023};
      *   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, brightness_duty[level & 0x03]);
      */
+}
+
+/**
+ * CONSERVATISM 保守度设置回调
+ *
+ * 调用时机：当用户在 SETUP > CONSERVATISM 选择 LOW/MED/HIGH 时触发
+ * 调用方向：arex_screen.c -> 业务层
+ *
+ * @param level 保守度级别: 0=LOW, 1=MED, 2=HIGH
+ *
+ * 【业务层对接方式】
+ * 在业务层实现此函数，控制减压算法的保守度参数：
+ *
+ *   void arex_ui_on_conservatism_set(uint8_t level) {
+ *       g_sys_config.conservatism = level;
+ *       recalculate_deco_plan();  // 重新计算减压计划
+ *   }
+ */
+#ifdef PC_SIMULATOR
+#else
+__attribute__((weak))
+#endif
+void arex_ui_on_conservatism_set(uint8_t level)
+{
+    /* 调用内部 bus 更新系统配置 */
+    extern void arex_bus_set_conservatism(uint8_t level);
+    arex_bus_set_conservatism(level);
 }

@@ -1847,6 +1847,9 @@
 		<Unit filename="src/arex_ui/fonts/lv_font_courier_48.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_58.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="src/arex_ui/picture/Shoudiantong.c">
 			<Option compilerVar="CC" />
 		</Unit>

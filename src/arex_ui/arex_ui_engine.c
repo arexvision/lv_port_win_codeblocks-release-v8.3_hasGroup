@@ -73,10 +73,560 @@ arex_sensor_data_t g_sensor_data;  //注意这个是全局变量，所有UI层�
 它根本不会碰 heading，也不会碰 battery。 这就是一次纯粹的、针对单个 32 位地址的“单指令写入”。因此，它是绝对原子的。
 */
 
-
-/* 左侧 2x6 绝对网格配置数组
+static const arex_widget_style_t g_widget_styles[] = {
+/* =========================================================
+ * 第四步：MCU 本地只读 CSS 样式注册表
  *
- * 160x360 区域（不含底部 60px SystemData）= 2列(80px) x 6行(60px)
+ * 架构铁律：UI 工程师调整内部像素位移只需在这里改数字，编译即生效。
+ * 完全不需要改 APP，也不需要改 BLE 协议。
+ * ========================================================= */
+    /* ========== 核心驻留组件 ========== */
+    {
+        .widget_id = WIDGET_DEPTH_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_VALUE | ELEM_UNIT | ELEM_BAR,  /* 2x2 大通栏：无 title，靠 spec.depth 做 int/dec/unit 分离 */
+        .font_id = AREX_FONT_ID_HUGE,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "m",
+        .title = "DEPTH",
+        .title_offset_x = 8, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,
+        .spec.depth = {
+            .int_offset_x = 10, .int_offset_y = 30, .int_align = LV_TEXT_ALIGN_LEFT,
+            .dec_offset_x = 2,  .dec_offset_y = 5,
+            .unit_offset_x = 0, .unit_offset_y = 2,
+            .icon_offset_x = -10, .icon_offset_y = 0, .icon_align = LV_ALIGN_RIGHT_MID
+        }
+    },
+    {
+        .widget_id = WIDGET_DEPTH_1606,
+        .span_w = 2, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "m",
+        .title = "DEPTH",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,
+        .spec.depth = {
+            .int_offset_x = 8, .int_offset_y = 0, .int_align = LV_ALIGN_LEFT_MID,
+            .dec_offset_x = 2,  .dec_offset_y = 3,
+            .unit_offset_x = 0, .unit_offset_y = 1,
+            .icon_offset_x = -6, .icon_offset_y = 0, .icon_align = LV_ALIGN_RIGHT_MID
+        }
+    },
+    {
+        .widget_id = WIDGET_NDL_STOP_1606,
+        .span_w = 2, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_BAR,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "min",
+        .title = "NDL",
+        .title_offset_x = 0, .title_offset_y = 0, .title_align = LV_TEXT_ALIGN_LEFT,
+        .spec.ndl_stop = {
+            .vert_offset_x = 10, .vert_offset_y = 0, .vert_align = LV_ALIGN_LEFT_MID,
+            .vert_w = 14, .vert_h = 40,
+            .horiz_offset_x = 0, .horiz_offset_y = -4, .horiz_w = 140, .horiz_h = 6,
+            .main_offset_x = -45, .main_offset_y = 0, .main_align = LV_ALIGN_RIGHT_MID,
+            .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,
+            .sub_offset_x = -10, .sub_offset_y = -5, .sub_align = LV_ALIGN_BOTTOM_RIGHT
+        }
+    },
+    {
+        .widget_id = WIDGET_DIVE_TIME_1606,
+        .span_w = 2, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_BAR,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "DIVE",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_CENTER,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_GAS_1606,
+        .span_w = 2, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "GAS",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_SYS_1606,
+        .span_w = 2, .span_h = 1,
+        .elements = 0,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "SYS",
+        .title_offset_x = 0, .title_offset_y = 0, .title_align = LV_TEXT_ALIGN_LEFT,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = 0, .value_align = LV_ALIGN_CENTER }
+    },
+    /* ========== 基础组件 ========== */
+    {
+        .widget_id = WIDGET_TEMP_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "C",
+        .title = "TEMP",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_TIME_1606,
+        .span_w = 2, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "TIME",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_TTS_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "min",
+        .title = "TTS",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_ASCENT_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "m/m",
+        .title = "RATE",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_ASCENT_0812,
+        .span_w = 1, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_BAR,  /* 1x2 带 sudu 速率图标 */
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "m/m",
+        .title = "RATE",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_COMPASS_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_VALUE | ELEM_BAR,  /* 罗盘：无 title，靠 spec.compass 做 tape/val 分离 */
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "HDG",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_CENTER,
+        .spec.compass = { .tape_offset_x = 0, .tape_offset_y = 20, .tape_align = LV_ALIGN_TOP_MID,
+                          .val_offset_x = 0, .val_offset_y = -4, .val_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_BATTERY_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "%",
+        .title = "BATT",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_STOP_DEPTH_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "m",
+        .title = "STOP",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_STOP_TIME_1606,
+        .span_w = 2, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "min",
+        .title = "STIME",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_PPO2_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "PPO2",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    /* ========== 技术潜水组件 ========== */
+    {
+        .widget_id = WIDGET_SURF_GF_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "SURF.GF",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_GF99_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "%",
+        .title = "GF99",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_CNS_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "%",
+        .title = "CNS",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_OTU_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "OTU",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_GF_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "GF",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_MOD_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "m",
+        .title = "MOD",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_CEILING_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "m",
+        .title = "CEIL",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_GAS_MIX_1606,
+        .span_w = 2, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "O2/He",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_TISSUE_GF_4012,
+        .span_w = 4, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_BAR,  /* 4x2 大图：title(Med) + tissue 柱状图，chart 由 spec.tissue 驱动 */
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_MEDIUM,
+        .unit = NULL,
+        .title = "TISSUE(GF)",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.tissue = { .chart_offset_x = 0, .chart_offset_y = 20, .chart_align = LV_ALIGN_TOP_MID,
+                         .bar_count = 16, .bar_spacing = 2 }
+    },
+    {
+        .widget_id = WIDGET_TISSUE_RAW_4012,
+        .span_w = 4, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_BAR,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_MEDIUM,
+        .unit = NULL,
+        .title = "TISSUE(RAW)",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.tissue = { .chart_offset_x = 0, .chart_offset_y = 20, .chart_align = LV_ALIGN_TOP_MID,
+                         .bar_count = 16, .bar_spacing = 2 }
+    },
+    {
+        .widget_id = WIDGET_GAS_DENS_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "g/L",
+        .title = "DENS",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_FIO2_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "%",
+        .title = "FIO2",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    /* ========== 传感器组件 ========== */
+    {
+        .widget_id = WIDGET_HEADING_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "HDG",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_POD_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_EXTRA,  /* ELEM_EXTRA → POD1/POD2 专属 ID 标签 */
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "",
+        .title = "POD",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -2, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = WIDGET_DEPTH_MAX_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "m",
+        .title = "MAX D",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_DEPTH_AVG_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "m",
+        .title = "AVG D",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_TEMP_MIN_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "C",
+        .title = "MIN T",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_TEMP_AVG_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "C",
+        .title = "AVG T",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_TEMP_MAX_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "C",
+        .title = "MAX T",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_SAC_RATE_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "l/m",
+        .title = "SAC",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_WTIME_0806,
+        .span_w = 2, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "TIME",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    /* ========== 安全边界组件 ========== */
+    {
+        .widget_id = WIDGET_PPO2_SAFE_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "PPO2 MAX",
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_NDL_SAFE_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "min",
+        .title = "NDL MIN",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_SAC_SAFE_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = AREX_FONT_ID_MEDIUM,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = "l/m",
+        .title = "SAC MAX",
+        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = WIDGET_EMPTY,
+        .span_w = 1, .span_h = 1,
+        .elements = 0,
+        .font_id = AREX_FONT_ID_SMALL,
+        .title_font_id = AREX_FONT_ID_SMALL,
+        .unit = NULL,
+        .title = NULL,
+        .title_offset_x = 0, .title_offset_y = 0, .title_align = LV_TEXT_ALIGN_CENTER,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = 0, .value_align = LV_ALIGN_CENTER }
+    },
+};
+
+#define STYLE_COUNT (int)(sizeof(g_widget_styles) / sizeof(g_widget_styles[0]))
+
+/* 查表函数 */
+const arex_widget_style_t* arex_get_widget_style(arex_widget_id_t id)
+{
+    for (int i = 0; i < STYLE_COUNT; i++) {
+        if (g_widget_styles[i].widget_id == id)
+            return &g_widget_styles[i];
+    }
+    return NULL;
+}
+
+/* =========================================================
+ * POD 单模具轮转分配状态机
+ *
+ * 架构：WIDGET_POD_0806 (33) 是全局唯一真实存在的气瓶模具。
+ * APP 下发同一个 POD_0806 可以出现多次（如左侧锚点的 POD1+POD2，或 5F 中的多个）。
+ * MCU 通过渲染计数器 s_pod_render_count 自动分配身份。
+ *
+ * 渲染时拦截 WIDGET_POD_0806，根据计数器判断：
+ *   - 第1次遇到 (count=1, 奇数) → 分配为 POD1
+ *   - 第2次遇到 (count=2, 偶数) → 分配为 POD2
+ *
+ * user_data 烙印使用高位掩码区分：
+ *   - POD1: 1000 + WIDGET_POD_0806 = 1033
+ *   - POD2: 2000 + WIDGET_POD_0806 = 2033
+ * ========================================================= */
+static uint8_t s_pod_render_count = 0;  /* POD 渲染计数器 */
+
+#define POD_TAG_BASE  1000  /* POD 标签基准偏移 */
+#define POD1_TAG      (POD_TAG_BASE + WIDGET_POD_0806)  /* 1033 */
+#define POD2_TAG      (2 * POD_TAG_BASE + WIDGET_POD_0806)  /* 2033 */
+
+/* =========================================================
+ * 获取 POD 标签（根据当前渲染计数器返回值）
+ * 返回 POD1_TAG 或 POD2_TAG，用于烙印到 user_data
+ *
+ * 注意：s_pod_render_count 已在 render_widget_by_id 中先递增。
+ * 所以 count=1 时为第1个POD，count=2 时为第2个POD。
+ * ========================================================= */
+static uintptr_t arex_get_pod_tag(void)
+{
+    /* 第1次调用(count=1，奇数) → POD1_TAG
+     * 第2次调用(count=2，偶数) → POD2_TAG */
+    return (s_pod_render_count % 2 == 1) ? POD1_TAG : POD2_TAG;
+}
+
+/* =========================================================
+ * 获取 POD 编号（返回 1 或 2）
+ * ========================================================= */
+static uint8_t arex_get_pod_index(void)
+{
+    /* 第1次调用(count=1，奇数) → POD1
+     * 第2次调用(count=2，偶数) → POD2 */
+    return (s_pod_render_count % 2 == 1) ? 1 : 2;
+}
+
+/* =========================================================
+ * 渲染计数器归零（每次网格重建/重绘前必须调用）
+ * 由 arex_screen_rebuild_layout() 或 left_anchor_create() 调用
+ * ========================================================= */
+void arex_reset_widget_render_state(void)
+{
+    s_pod_render_count = 0;
+}
+
+/* 左侧 2x7 绝对网格配置数组
+ *
+ * 160x420 区域 = 2列(80px) x 7行(60px)
  * 与 5F 卡片共用 arex_widget_id_t 枚举体系。
  *
  * Grid Layout:
@@ -85,9 +635,10 @@ arex_sensor_data_t g_sensor_data;  //注意这个是全局变量，所有UI层�
  *   Row 2: (DEPTH 第二行)
  *   Row 3: POD1     | POD2    (各占用 1x1 = 80x60)
  *   Row 4: TIME     | (占用 2x1 = 160x60)
- *   Row 5: GAS      | (占用 2x1 = 160x60，正好塞满第 6 行)
+ *   Row 5: GAS      | (占用 2x1 = 160x60)
+ *   Row 6: SYS      | (占用 2x1 = 160x60，SystemData 可配置)
  * ========================================================= */
-arex_custom_widget_cfg_t g_left_widgets[AREX_LEFT_MAX_WIDGETS] = {0};
+arex_left_widget_t g_left_widgets[AREX_LEFT_MAX_WIDGETS] = {0};
 uint8_t g_left_widget_count = 0;
 
 
@@ -96,7 +647,7 @@ uint8_t g_left_widget_count = 0;
  * 默认配置值
  *
  * 当前实现的布局: Left Grid + Right Cards
- *   左侧: 160x360 固定 2列(x80) x 6行(y60) 网格
+ *   左侧: 160x420 固定 2列(x80) x 7行(y60) 网格
  *   右侧: tileview 滑动卡片 (INFO / 5F / DECO / COMPASS / GAS / PLAN / SETUP)
  *   安全区: 580x420 由 left_anchor(160) + right_cards(420) 组成
  *
@@ -173,31 +724,32 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      */
     cfg->widget_count = 12;
     /*  id              r  c  w  h */
-    cfg->widget_ids[0] = AREX_WIDGET_DEPTH;     cfg->widget_r[0] = 0; cfg->widget_c[0] = 0; cfg->widget_w[0] = 2; cfg->widget_h[0] = 2;
-    cfg->widget_ids[1] = AREX_WIDGET_TEMP;      cfg->widget_r[1] = 0; cfg->widget_c[1] = 2; cfg->widget_w[1] = 1; cfg->widget_h[1] = 1;
-    cfg->widget_ids[2] = AREX_WIDGET_HEADING;   cfg->widget_r[2] = 0; cfg->widget_c[2] = 3; cfg->widget_w[2] = 2; cfg->widget_h[2] = 1;
-    cfg->widget_ids[3] = AREX_WIDGET_SAC_RATE;  cfg->widget_r[3] = 2; cfg->widget_c[3] = 0; cfg->widget_w[3] = 2; cfg->widget_h[3] = 1;
-    cfg->widget_ids[4] = AREX_WIDGET_BATTERY;   cfg->widget_r[4] = 2; cfg->widget_c[4] = 2; cfg->widget_w[4] = 2; cfg->widget_h[4] = 1;
-    cfg->widget_ids[5] = AREX_WIDGET_PPO2;       cfg->widget_r[5] = 2; cfg->widget_c[5] = 4; cfg->widget_w[5] = 1; cfg->widget_h[5] = 1;
-    cfg->widget_ids[6] = AREX_WIDGET_NDL;       cfg->widget_r[6] = 3; cfg->widget_c[6] = 0; cfg->widget_w[6] = 2; cfg->widget_h[6] = 1;
-    cfg->widget_ids[7] = AREX_WIDGET_TTS;        cfg->widget_r[7] = 3; cfg->widget_c[7] = 2; cfg->widget_w[7] = 2; cfg->widget_h[7] = 1;
-    cfg->widget_ids[8] = AREX_WIDGET_CNS;        cfg->widget_r[8] = 3; cfg->widget_c[8] = 4; cfg->widget_w[8] = 1; cfg->widget_h[8] = 1;
-    cfg->widget_ids[9] = AREX_WIDGET_POD1;      cfg->widget_r[9] = 4; cfg->widget_c[9] = 0; cfg->widget_w[9] = 2; cfg->widget_h[9] = 1;
-    cfg->widget_ids[10] = AREX_WIDGET_POD2;      cfg->widget_r[10] = 4; cfg->widget_c[10] = 2; cfg->widget_w[10] = 2; cfg->widget_h[10] = 1;
-    cfg->widget_ids[11] = AREX_WIDGET_WTIME;     cfg->widget_r[11] = 4; cfg->widget_c[11] = 4; cfg->widget_w[11] = 1; cfg->widget_h[11] = 1;
-    cfg->widget_ids[12] = AREX_WIDGET_WTIME;    cfg->widget_r[12] = 5; cfg->widget_c[12] = 0; cfg->widget_w[12] = 1; cfg->widget_h[12] = 1;
+    cfg->widget_ids[0] = WIDGET_DEPTH_1612;     cfg->widget_r[0] = 0; cfg->widget_c[0] = 0; cfg->widget_w[0] = 2; cfg->widget_h[0] = 2;
+    cfg->widget_ids[1] = WIDGET_TEMP_0806;      cfg->widget_r[1] = 0; cfg->widget_c[1] = 2; cfg->widget_w[1] = 1; cfg->widget_h[1] = 1;
+    cfg->widget_ids[2] = WIDGET_HEADING_0806;   cfg->widget_r[2] = 0; cfg->widget_c[2] = 3; cfg->widget_w[2] = 2; cfg->widget_h[2] = 1;
+    cfg->widget_ids[3] = WIDGET_SAC_RATE_0806;  cfg->widget_r[3] = 2; cfg->widget_c[3] = 0; cfg->widget_w[3] = 2; cfg->widget_h[3] = 1;
+    cfg->widget_ids[4] = WIDGET_BATTERY_0806;   cfg->widget_r[4] = 2; cfg->widget_c[4] = 2; cfg->widget_w[4] = 2; cfg->widget_h[4] = 1;
+    cfg->widget_ids[5] = WIDGET_PPO2_0806;       cfg->widget_r[5] = 2; cfg->widget_c[5] = 4; cfg->widget_w[5] = 1; cfg->widget_h[5] = 1;
+    cfg->widget_ids[6] = WIDGET_NDL_STOP_1606;       cfg->widget_r[6] = 3; cfg->widget_c[6] = 0; cfg->widget_w[6] = 2; cfg->widget_h[6] = 1;
+    cfg->widget_ids[7] = WIDGET_TTS_0806;        cfg->widget_r[7] = 3; cfg->widget_c[7] = 2; cfg->widget_w[7] = 2; cfg->widget_h[7] = 1;
+    cfg->widget_ids[8] = WIDGET_CNS_0806;        cfg->widget_r[8] = 3; cfg->widget_c[8] = 4; cfg->widget_w[8] = 1; cfg->widget_h[8] = 1;
+    cfg->widget_ids[9] = WIDGET_POD_0806;      cfg->widget_r[9] = 4; cfg->widget_c[9] = 0; cfg->widget_w[9] = 2; cfg->widget_h[9] = 1;
+    cfg->widget_ids[10] = WIDGET_POD_0806;      cfg->widget_r[10] = 4; cfg->widget_c[10] = 2; cfg->widget_w[10] = 2; cfg->widget_h[10] = 1;
+    cfg->widget_ids[11] = WIDGET_WTIME_0806;     cfg->widget_r[11] = 4; cfg->widget_c[11] = 4; cfg->widget_w[11] = 1; cfg->widget_h[11] = 1;
+    cfg->widget_ids[12] = WIDGET_WTIME_0806;    cfg->widget_r[12] = 5; cfg->widget_c[12] = 0; cfg->widget_w[12] = 1; cfg->widget_h[12] = 1;
 
-    /* ========== [A] 左侧 2x6 固定网格 (160x360) ==========
-     * 160x360 区域 = 2列(80px) x 6行(60px)，由 arex_render_left_anchor_grid() 渲染
+    /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
+     * 160x420 区域 = 2列(80px) x 7行(60px)，由 arex_render_left_anchor_grid() 渲染
      *
      *  Grid Layout:
      *    Row 0: NDL      | (2x1 → 160x60)
      *    Row 1-2: DEPTH  | (2x2 → 160x120，带 sudu 速率图标)
-     *    Row 3: TIME     | (2x1 → 160x60)
-     *    Row 4: GAS      | (2x1 → 160x60)
-     *    Row 5: POD1     | POD2    (各 1x1 → 80x60，塞满第 6 行)
+     *    Row 3: POD1     | POD2    (各 1x1 → 80x60)
+     *    Row 4: TIME     | (2x1 → 160x60)
+     *    Row 5: GAS      | (2x1 → 160x60)
+     *    Row 6: SYS      | (2x1 → 160x60，SystemData 可配置)
      */
-    g_left_widget_count = 6;
+    g_left_widget_count = 7;
 
     /* =========================================================
      * 每个模块都可以通过布局参数独立配置
@@ -214,67 +766,16 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *
      * NDL 特殊参数 (AREX_LAYOUT_NDL_BAR):
      *   .ndl_bar_offset_x/y/align  - 进度条位置
-     *   .ndl_bar_w/h              - 进度条尺寸
-     *   .ndl_bar_fill_dir         - 填充方向 (0=从下往上, 1=从上往下)
      * ========================================================= */
 
-    /* NDL: 进度条样式 */
-    g_left_widgets[0] = (arex_custom_widget_cfg_t){
-        AREX_WIDGET_NDL,  0, 0, 2, 1, AREX_FONT_ID_MEDIUM,
-        .layout = AREX_LAYOUT_NDL_BAR,
-        /* 进度条 */
-        .ndl_bar_offset_x = 10, .ndl_bar_offset_y = 0, .ndl_bar_align = LV_ALIGN_LEFT_MID,
-        .ndl_bar_w = 14, .ndl_bar_h = 40, .ndl_bar_fill_dir = 0,
-        /* 数值和标题 */
-        .value_offset_x = 10, .value_offset_y = 0, .value_align = LV_ALIGN_LEFT_MID,
-        .title_offset_x = 5,  .title_offset_y = -8, .title_align = LV_ALIGN_LEFT_MID,
-    };
-
-    /* DEPTH: 2x2 大块，整数+小数+单位+箭头分离 */
-    g_left_widgets[1] = (arex_custom_widget_cfg_t){
-        AREX_WIDGET_DEPTH, 0, 1, 2, 2, AREX_FONT_ID_HUGE,
-        .layout = AREX_LAYOUT_DEPTH_SPLIT,
-        /* 整数 */
-        .depth_int_offset_x = 8,  .depth_int_offset_y = 0,  .depth_int_align = LV_ALIGN_LEFT_MID,
-        /* 小数（相对整数） */
-        .depth_dec_offset_x = 2,  .depth_dec_offset_y = 5,
-        /* 单位（相对小数） */
-        .depth_unit_offset_x = 0, .depth_unit_offset_y = 2,
-        /* 箭头图标 */
-        .depth_icon_offset_x = -10, .depth_icon_offset_y = 0, .depth_icon_align = LV_ALIGN_RIGHT_MID,
-    };
-
-    /* TIME: 上下布局，标题顶部，数值底部 */
-    g_left_widgets[2] = (arex_custom_widget_cfg_t){
-        AREX_WIDGET_WTIME, 0, 3, 2, 1, AREX_FONT_ID_MEDIUM,
-        .layout = AREX_LAYOUT_TOP_BOTTOM,
-        .title_offset_x = 0,  .title_offset_y = 4,  .title_align = LV_ALIGN_TOP_MID,
-        .value_offset_x = 0,  .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID,
-    };
-
-    /* GAS: 通用居中布局 */
-    g_left_widgets[3] = (arex_custom_widget_cfg_t){
-        AREX_WIDGET_GAS,  0, 4, 2, 1, AREX_FONT_ID_SMALL,
-        .layout = AREX_LAYOUT_CENTER,
-        .title_offset_x = 0,  .title_offset_y = 2,  .title_align = LV_ALIGN_TOP_MID,
-        .value_offset_x = 0,  .value_offset_y = 0,  .value_align = LV_ALIGN_CENTER,
-    };
-
-    /* POD1: 对角线布局 */
-    g_left_widgets[4] = (arex_custom_widget_cfg_t){
-        AREX_WIDGET_POD1, 0, 5, 1, 1, AREX_FONT_ID_TITLE,
-        .layout = AREX_LAYOUT_DIAGONAL,
-        .title_offset_x = 6,  .title_offset_y = 4,  .title_align = LV_ALIGN_TOP_LEFT,
-        .value_offset_x = -6, .value_offset_y = -2,  .value_align = LV_ALIGN_BOTTOM_RIGHT,
-    };
-
-    /* POD2: 对角线布局 */
-    g_left_widgets[5] = (arex_custom_widget_cfg_t){
-        AREX_WIDGET_POD2, 1, 5, 1, 1, AREX_FONT_ID_HUGE,
-        .layout = AREX_LAYOUT_DIAGONAL,
-        .title_offset_x = 6,  .title_offset_y = 4,  .title_align = LV_ALIGN_TOP_LEFT,
-        .value_offset_x = -6, .value_offset_y = -2,  .value_align = LV_ALIGN_BOTTOM_RIGHT,
-    };
+    /* 简洁位置配置：APP 下发 widget_id + x/y，span_w/h 由 MCU 样式表自动推导 */
+    g_left_widgets[0] = (arex_left_widget_t){ WIDGET_NDL_STOP_1606,    0, 0 };
+    g_left_widgets[1] = (arex_left_widget_t){ WIDGET_DEPTH_1612,  0, 1 };
+    g_left_widgets[2] = (arex_left_widget_t){ WIDGET_POD_0806,  0, 3 };
+    g_left_widgets[3] = (arex_left_widget_t){ WIDGET_POD_0806,  1, 3 };
+    g_left_widgets[4] = (arex_left_widget_t){ WIDGET_WTIME_0806, 0, 4 };
+    g_left_widgets[5] = (arex_left_widget_t){ WIDGET_GAS_1606,   0, 5 };
+    g_left_widgets[6] = (arex_left_widget_t){ WIDGET_SYS_1606,   0, 6 };
 
     /* ========== [A] 右侧卡片顺序 (tileview 滑动顺序) ==========
      * card_order[pos] = card_id
@@ -489,7 +990,7 @@ lv_align_t arex_align_to_lv_align(uint8_t align)
  *   AREX_FONT_ID_SMALL  (0) → lv_font_courier_14  14px  标签/单位/Badge
  *   AREX_FONT_ID_TITLE  (1) → lv_font_courier_20  20px  菜单项/卡片标题
  *   AREX_FONT_ID_MEDIUM (2) → lv_font_courier_28  28px  数据值
- *   AREX_FONT_ID_HUGE   (3) → lv_font_courier_48  48px  深度大数字
+ *   AREX_FONT_ID_HUGE   (3) → lv_font_courier_58  58px  深度大数字(与HTML规范一致)
  * ========================================================= */
 const lv_font_t *arex_get_font(uint8_t font_id)
 {
@@ -751,84 +1252,35 @@ void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
 /* 字号自适应引擎（已内联到 render_widget_by_id，保留函数体供未来扩展） */
 
 /* =========================================================
- * 组件元数据字典（按 arex_widget_id_t 索引）
- * 渲染引擎只查此表，不做任何"如果是 DEPTH" 的硬编码判断。
- * ========================================================= */
-typedef struct {
-    const char *title;     /* 显示标题（英文） */
-    const char *unit;     /* 单位字符串 */
-    arex_font_id_t title_font;
-    arex_font_id_t val_font;
-    arex_align_t   val_align;
-} widget_meta_t;
-
-static const widget_meta_t s_widget_meta[AREX_WIDGET_COUNT] = {
-    /* 0  */ [AREX_WIDGET_EMPTY]       = { NULL,          NULL,  AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_CENTER },
-    /* 1  */ [AREX_WIDGET_DEPTH]       = { "DEPTH",       "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_HUGE,   AREX_ALIGN_CENTER },
-    /* 2  */ [AREX_WIDGET_NDL_STOP]   = { "NDL",         "min", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 3  */ [AREX_WIDGET_DIVE_TIME]   = { "DIVE",        "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 4  */ [AREX_WIDGET_GAS]         = { "GAS",         "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 5  */ [AREX_WIDGET_SYS]         = { "SYS",         "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_CENTER },
-
-    /* 6  */ [AREX_WIDGET_TEMP]        = { "TEMP",        "C",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 7  */ [AREX_WIDGET_TIME_OF_DAY] = { "TIME",        "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 8  */ [AREX_WIDGET_TTS]         = { "TTS",         "min", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 9  */ [AREX_WIDGET_ASCENT]      = { "RATE",        "m/m", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 10 */ [AREX_WIDGET_COMPASS]     = { "HDG",         "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 11 */ [AREX_WIDGET_BATTERY]     = { "BATT",        "%",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 12 */ [AREX_WIDGET_STOP_DEPTH]   = { "STOP",        "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 13 */ [AREX_WIDGET_STOP_TIME]    = { "STIME",       "min", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 14 */ [AREX_WIDGET_PPO2]         = { "PPO2",        "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 15 */ [AREX_WIDGET_NDL]          = { "NDL",         "min", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 16 */ [AREX_WIDGET_HEADING]      = { "HDG",         "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 17 */ [AREX_WIDGET_WTIME]        = { "TIME",        "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-
-    /* 18 */ [AREX_WIDGET_SURF_GF]     = { "SURF.GF",     "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 19 */ [AREX_WIDGET_GF99]        = { "GF99",        "%",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 20 */ [AREX_WIDGET_CNS]         = { "CNS",         "%",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 21 */ [AREX_WIDGET_OTU]         = { "OTU",         "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 22 */ [AREX_WIDGET_GF_SETTING]  = { "GF",          "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 23 */ [AREX_WIDGET_MOD]          = { "MOD",         "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 24 */ [AREX_WIDGET_CEILING]      = { "CEIL",        "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 25 */ [AREX_WIDGET_GAS_MIX]      = { "O2/He",      "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 26 */ [AREX_WIDGET_TISSUE_GF]    = { "TISSUE",     "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_CENTER },
-    /* 27 */ [AREX_WIDGET_TISSUE_RAW]   = { "TISSUE",     "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_SMALL,  AREX_ALIGN_CENTER },
-    /* 28 */ [AREX_WIDGET_GAS_DENS]     = { "DENS",        "g/L", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 29 */ [AREX_WIDGET_FIO2]         = { "FIO2",        "%",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-
-    /* 30 */ [AREX_WIDGET_POD1]         = { "POD 1",      "bar", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 31 */ [AREX_WIDGET_POD2]         = { "POD 2",      "bar", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 32 */ [AREX_WIDGET_DEPTH_MAX]    = { "MAX D",      "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 33 */ [AREX_WIDGET_DEPTH_AVG]    = { "AVG D",      "m",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 34 */ [AREX_WIDGET_TEMP_MIN]     = { "MIN T",       "C",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 35 */ [AREX_WIDGET_TEMP_MAX]     = { "MAX T",       "C",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 36 */ [AREX_WIDGET_TEMP_AVG]     = { "AVG T",       "C",   AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 37 */ [AREX_WIDGET_SAC_RATE]     = { "SAC",         "l/m", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-
-    /* 38 */ [AREX_WIDGET_PPO2_SAFE]    = { "PPO2 MAX",   "",    AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 39 */ [AREX_WIDGET_NDL_SAFE]     = { "NDL MIN",    "min", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-    /* 40 */ [AREX_WIDGET_SAC_SAFE]     = { "SAC MAX",    "l/m", AREX_FONT_ID_SMALL,  AREX_FONT_ID_MEDIUM, AREX_ALIGN_CENTER },
-};
-
-/* =========================================================
- * 获取 widget 显示名称
+ * 获取 widget 显示名称（从 g_widget_styles[] 读取 title 字段）
  * ========================================================= */
 const char *arex_get_widget_name(arex_widget_id_t id)
 {
-    if (id >= AREX_WIDGET_COUNT) return "???";
-    return s_widget_meta[id].title ? s_widget_meta[id].title : "";
+    const arex_widget_style_t *style = arex_get_widget_style(id);
+    if (!style) return "???";
+    return style->title ? style->title : "";
 }
 
 /* =========================================================
  * 创建单个自定义组件（组件工厂 — 左侧网格 + 5F 共用）
  *
- * 关键：每个组件的 lv_obj_set_user_data() 存储了 arex_widget_id_t，
+ * 关键：每个组件的 lv_obj_set_user_data() 存储了标签烙印。
+ * 对于 POD，使用高位掩码区分（1033=POD1, 2033=POD2）。
  * 告警引擎靠这个烙印实现"左侧锚点 + 5F 组件同时闪烁"。
  *
- * 字号默认由 span 自动决定，大块→Huge，中块→Medium，小块→Small。
- * cfg_font_id 可覆盖默认值（用于左侧锚点等特殊场景）。
- * is_depth_icon == true 时，在 DEPTH 模块内挂载 sudu 速率图标。
- * layout_cfg 可覆盖默认布局（传入 NULL 则用自动布局）。
+ * 架构铁律：
+ *   - 位置参数 (abs_x/y/w/h, span_w/h) 由调用方传入
+ *   - 样式参数 (font, offsets) 由 arex_get_widget_style(w_id) 自动查表
+ *   - cfg_font_id != 255 时强制覆盖自动字号
+ *   - is_depth_icon == true 时挂载 sudu 速率图标
+ *   - 专属组件（DEPTH/NDL）走早期返回，内部仍读 style 参数
+ *   - 通用组件按 elements 掩码装配流水线：TITLE → VALUE → UNIT → BAR
+ *
+ * POD 单模具轮转分配：
+ *   - 函数入口检测 w_id == WIDGET_POD_0806
+ *   - 调用 arex_get_pod_tag() 获得高位掩码标签 (1033/2033)
+ *   - 调用 arex_get_pod_index() 获得 POD 编号 (1/2)
+ *   - 将标签烙印到容器 user_data
  * ========================================================= */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                                arex_widget_id_t w_id,
@@ -836,24 +1288,28 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                                uint16_t abs_w, uint16_t abs_h,
                                uint8_t span_w, uint8_t span_h,
                                bool is_depth_icon,
-                               arex_font_id_t cfg_font_id,
-                               arex_custom_widget_cfg_t *layout_cfg)
+                               arex_font_id_t cfg_font_id)
 {
-    if (w_id >= AREX_WIDGET_COUNT) return NULL;
+    /* ===== POD 单模具拦截：提前消耗计数器 ===== */
+    bool is_pod_mold = (w_id == WIDGET_POD_0806);
+    uint8_t pod_index = 0;        /* POD number 1 or 2 */
+    uintptr_t pod_tag = 0;        /* POD tag 1033 or 2033 */
+    if (is_pod_mold) {
+        s_pod_render_count++;     /* Increment first, then get current value */
+        pod_index = arex_get_pod_index();
+        pod_tag = arex_get_pod_tag();
+    }
 
-    const widget_meta_t *meta = &s_widget_meta[w_id];
+    const arex_widget_style_t *style = arex_get_widget_style(w_id);
+    if (!style) return NULL;
 
-    /* 字号自适应引擎（可被 cfg_font_id 覆盖）：
+    /* 字号自适应（可被 cfg_font_id 覆盖）：
      *   2x2 大块 → AREX_FONT_ID_HUGE (48px)
      *   2x1 长条 → AREX_FONT_ID_MEDIUM (28px)
      *   1x1 小块 → AREX_FONT_ID_SMALL (14px) */
     arex_font_id_t val_font_id;
-    /* 字号自适应引擎（cfg_font_id 255 表示"自动计算"）：
-     *   2x2 大块 → AREX_FONT_ID_HUGE (48px)
-     *   2x1 长条 → AREX_FONT_ID_MEDIUM (28px)
-     *   1x1 小块 → AREX_FONT_ID_SMALL (14px) */
     if (cfg_font_id != (arex_font_id_t)255) {
-        val_font_id = cfg_font_id;  /* 使用配置传入的字体 */
+        val_font_id = cfg_font_id;  /* 强制覆盖 */
     } else if (span_w >= 2 && span_h >= 2) {
         val_font_id = AREX_FONT_ID_HUGE;
     } else if (span_w >= 2) {
@@ -872,89 +1328,64 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     lv_obj_set_style_radius(obj, 0, 0);
     lv_obj_set_style_pad_all(obj, 2, 0);
 
-    /* ========== 第一步：封杀所有滚动条 ========== */
+    /* 封杀所有滚动条 */
     lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);
 
-    /* ========== 靶向告警烙印 ========== */
-    lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
+    /* ===== 靶向告警烙印 =====
+     * POD uses high-bit mask tags (1033/2033), others use raw w_id */
+    if (is_pod_mold) {
+        lv_obj_set_user_data(obj, (void *)pod_tag);
+    } else {
+        lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
+    }
 
-    /* ========== 第二步：DEPTH 专属渲染（整数+小数+单位分离） ========== */
+    /* ===== DEPTH 2x2 专属渲染（整数+小数+单位分离） ===== */
     bool is_2x2 = (span_w >= 2 && span_h >= 2);
-    if (w_id == AREX_WIDGET_DEPTH && is_2x2) {
-        /* 获取布局配置或使用默认值 */
-        int16_t int_x  = layout_cfg ? layout_cfg->depth_int_offset_x : 8;
-        int16_t int_y  = layout_cfg ? layout_cfg->depth_int_offset_y : 0;
-        uint8_t int_al = layout_cfg ? layout_cfg->depth_int_align : LV_ALIGN_LEFT_MID;
-        int16_t dec_x  = layout_cfg ? layout_cfg->depth_dec_offset_x : 2;
-        int16_t dec_y  = layout_cfg ? layout_cfg->depth_dec_offset_y : 5;
-        int16_t unit_x = layout_cfg ? layout_cfg->depth_unit_offset_x : 0;
-        int16_t unit_y = layout_cfg ? layout_cfg->depth_unit_offset_y : 2;
-        int16_t ico_x  = layout_cfg ? layout_cfg->depth_icon_offset_x : -10;
-        int16_t ico_y  = layout_cfg ? layout_cfg->depth_icon_offset_y : 0;
-        uint8_t ico_al = layout_cfg ? layout_cfg->depth_icon_align : LV_ALIGN_RIGHT_MID;
-
-        /* child[0] 整数，Huge 字体 */
+    if (w_id == WIDGET_DEPTH_1612 && is_2x2) {
+        /* 样式参数来自 arex_widget_style_t */
+        const arex_style_depth_t *s = &style->spec.depth;
         lv_obj_t *int_lbl = lv_label_create(obj);
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
-            lv_label_set_text(int_lbl, "--");
-        } else {
-            lv_label_set_text_fmt(int_lbl, "%d", (int)g_sensor_data.depth);
-        }
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(int_lbl, "--");
+        else lv_label_set_text_fmt(int_lbl, "%d", (int)g_sensor_data.depth);
         lv_obj_set_style_text_font(int_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
         lv_obj_set_style_text_color(int_lbl, AREX_GREEN, 0);
-        lv_obj_align(int_lbl, int_al, int_x, int_y);
+        lv_obj_align(int_lbl, (lv_align_t)s->int_align, s->int_offset_x, s->int_offset_y);
 
-        /* child[1] 小数，Medium 字体，贴整数右上角 */
         lv_obj_t *dec_lbl = lv_label_create(obj);
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
-            lv_label_set_text(dec_lbl, ".-");
-        } else {
-            lv_label_set_text_fmt(dec_lbl, ".%d", (int)((g_sensor_data.depth - (int)g_sensor_data.depth) * 10 + 0.5f));
-        }
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
+        else lv_label_set_text_fmt(dec_lbl, ".%d", (int)((g_sensor_data.depth - (int)g_sensor_data.depth) * 10 + 0.5f));
         lv_obj_set_style_text_font(dec_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(dec_lbl, AREX_GREEN, 0);
-        lv_obj_align_to(dec_lbl, int_lbl, LV_ALIGN_OUT_RIGHT_TOP, dec_x, dec_y);
+        lv_obj_align_to(dec_lbl, int_lbl, LV_ALIGN_OUT_RIGHT_TOP, s->dec_offset_x, s->dec_offset_y);
 
-        /* child[2] 单位m，Small 字体，贴小数正下方 */
         lv_obj_t *unit_lbl = lv_label_create(obj);
-        lv_label_set_text(unit_lbl, "m");
+        lv_label_set_text(unit_lbl, style->unit ? style->unit : "");
         lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
-        lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, unit_x, unit_y);
+        lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, s->unit_offset_x, s->unit_offset_y);
 
-        /* child[3] 速率箭头，贴右边缘（仅 2x2 大块显示）
-         * 将图标指针存入数组，支持多实例同步刷新 */
-        lv_obj_t *sudu_img = lv_img_create(obj);
-        lv_img_set_src(sudu_img, &sudo_up_level0);
-        lv_obj_align(sudu_img, ico_al, ico_x, ico_y);
-        /* 核心修复：将生成的图片指针存入数组 */
-        if (s_ascent_icon_count < MAX_ASCENT_ICONS) {
-            s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
+        /* sudu 速率图标 */
+        if (is_depth_icon) {
+            lv_obj_t *sudu_img = lv_img_create(obj);
+            lv_img_set_src(sudu_img, &sudo_up_level0);
+            lv_obj_align(sudu_img, (lv_align_t)s->icon_align, s->icon_offset_x, s->icon_offset_y);
+            if (s_ascent_icon_count < MAX_ASCENT_ICONS)
+                s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
         }
-
-        /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
-        lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
         return obj;
-    } else if (w_id == AREX_WIDGET_DEPTH) {
-        /* 单格 DEPTH（1x1 等）：走通用单标签渲染，不显示速度图标 */
-    } else if (w_id == AREX_WIDGET_NDL) {
-        /* NDL_STOP 多形态组件"变形金刚"：
-         * 在 160x60 极限空间内，提前创建好所有子对象，靠显隐实现瞬间变形
-         * 三种状态: NDL常态(垂直柱+大字) / Safety停留(横向柱+缩写字) / Deco停留
-         * 支持多实例：收集句柄到数组，所有实例同步刷新 */
-        if (s_ndl_handle_count >= MAX_NDL_ICONS) {
-            return obj;  /* 超出容量，安全返回 */
-        }
-
+    } else if (w_id == WIDGET_NDL_STOP_1606) {
+        /* NDL 变形金刚：从 style->spec.ndl_stop 读取所有位置参数 */
+        if (s_ndl_handle_count >= MAX_NDL_ICONS) return obj;
         ndl_handle_t *h = &s_ndl_handles[s_ndl_handle_count++];
         h->comp = obj;
 
-        /* === 常态: 左侧垂直进度条 (宽14, 高40) === */
+        const arex_style_ndl_stop_t *s = &style->spec.ndl_stop;
+        /* 垂直进度条 */
         h->vert_bg = lv_obj_create(obj);
         lv_obj_remove_style_all(h->vert_bg);
-        lv_obj_set_size(h->vert_bg, 14, 40);
-        lv_obj_align(h->vert_bg, LV_ALIGN_LEFT_MID, 10, 0);
+        lv_obj_set_size(h->vert_bg, s->vert_w, s->vert_h);
+        lv_obj_align(h->vert_bg, (lv_align_t)s->vert_align, s->vert_offset_x, s->vert_offset_y);
         lv_obj_set_style_border_width(h->vert_bg, 2, 0);
         lv_obj_set_style_border_color(h->vert_bg, AREX_GREEN, 0);
         lv_obj_set_style_radius(h->vert_bg, 4, 0);
@@ -967,14 +1398,14 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_bg_opa(h->vert_fill, LV_OPA_COVER, 0);
         lv_obj_set_style_radius(h->vert_fill, 2, 0);
 
-        /* === 停留态: 底部横向进度条 (宽140, 高6) === */
+        /* 横向进度条 */
         h->horiz_bg = lv_obj_create(obj);
         lv_obj_remove_style_all(h->horiz_bg);
-        lv_obj_set_size(h->horiz_bg, 140, 6);
-        lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
+        lv_obj_set_size(h->horiz_bg, s->horiz_w, s->horiz_h);
+        lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, s->horiz_offset_x, s->horiz_offset_y);
         lv_obj_set_style_border_width(h->horiz_bg, 1, 0);
         lv_obj_set_style_border_color(h->horiz_bg, AREX_GREEN, 0);
-        lv_obj_add_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);  /* 默认隐藏 */
+        lv_obj_add_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
 
         h->horiz_fill = lv_obj_create(h->horiz_bg);
         lv_obj_remove_style_all(h->horiz_fill);
@@ -983,291 +1414,196 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_bg_color(h->horiz_fill, AREX_GREEN, 0);
         lv_obj_set_style_bg_opa(h->horiz_fill, LV_OPA_COVER, 0);
 
-        /* === 主干数值 (大数字/倒计时) === */
+        /* 主干数值 */
         h->main_val = lv_label_create(obj);
         lv_obj_set_style_text_color(h->main_val, AREX_GREEN, 0);
         lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_HUGE), 0);
-        lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -45, 0);
+        lv_obj_align(h->main_val, (lv_align_t)s->main_align, s->main_offset_x, s->main_offset_y);
 
-        /* === 顶部标题 (用于显示 SAFETY 3m 或 DECO 6m) === */
+        /* 顶部标题 */
         h->title_top = lv_label_create(obj);
         lv_obj_set_style_text_font(h->title_top, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(h->title_top, AREX_LIGHT, 0);
-        lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 10, 4);
-        lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);  /* 默认隐藏 */
+        lv_obj_align(h->title_top, (lv_align_t)s->title_align, s->title_offset_x, s->title_offset_y);
+        lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
 
-        /* === 底部副标题 (用于显示 NDL 文本) === */
+        /* 底部副标题 */
         h->sub_bot = lv_label_create(obj);
         lv_obj_set_style_text_font(h->sub_bot, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(h->sub_bot, AREX_GREEN, 0);
-        lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_RIGHT, -10, -5);
-
-        /* 容器自身设烙印，供 arex_widget_set_value 遍历匹配 */
-        lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
+        lv_obj_align(h->sub_bot, (lv_align_t)s->sub_align, s->sub_offset_x, s->sub_offset_y);
         return obj;
     }
 
-    /* ========== POD1/POD2 对角线布局（标题左上 + 数字右下，无 BAR 单位） ========== */
-    /* ========== POD1/POD2 对角线布局（标题左上 + 数字右下） ========== */
-    else if (w_id == AREX_WIDGET_POD1 || w_id == AREX_WIDGET_POD2) {
-        /* 获取布局配置或使用默认值 */
-        int16_t tit_x  = layout_cfg ? layout_cfg->title_offset_x : 6;
-        int16_t tit_y  = layout_cfg ? layout_cfg->title_offset_y : 4;
-        uint8_t tit_al = layout_cfg ? layout_cfg->title_align : LV_ALIGN_TOP_LEFT;
-        int16_t val_x  = layout_cfg ? layout_cfg->value_offset_x : -6;
-        int16_t val_y  = layout_cfg ? layout_cfg->value_offset_y : -2;
-        uint8_t val_al = layout_cfg ? layout_cfg->value_align : LV_ALIGN_BOTTOM_RIGHT;
+    /* ===== 通用流水线：按 elements 掩码按需装配零件 =====
+     * POD1/POD2/WTIME 及所有 1x1/2x1 通用组件走此路径
+     * ELEM_TITLE → ELEM_VALUE → ELEM_UNIT → ELEM_BAR
+     *
+     * 样式参数全部来自 arex_get_widget_style(w_id) 查表结果
+     * 仅 title 文本和数值数据源依赖 w_id 做 switch 分发 */
 
-        /* 标题 -> 左上角 */
+    /* --- 零件 1：标题 --- */
+    if ((style->elements & ELEM_TITLE) && style->title) {
         lv_obj_t *title_lbl = lv_label_create(obj);
-        lv_label_set_text(title_lbl, w_id == AREX_WIDGET_POD1 ? "POD 1" : "POD 2");
-        lv_obj_set_style_text_font(title_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(title_lbl, AREX_LIGHT, 0);
-        lv_obj_align(title_lbl, tit_al, tit_x, tit_y);
-
-        /* 纯数字 -> 右下角 */
-        lv_obj_t *val_lbl = lv_label_create(obj);
-        uint16_t pod_val = (w_id == AREX_WIDGET_POD1) ? g_sensor_data.pod1_bar : g_sensor_data.pod2_bar;
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
-            lv_label_set_text(val_lbl, "--");
+        /* POD 单模具：根据 pod_index 动态决定标题文字 */
+        if (is_pod_mold) {
+            lv_label_set_text_fmt(title_lbl, "POD %d", pod_index);
         } else {
-            lv_label_set_text_fmt(val_lbl, "%d", pod_val);
+            lv_label_set_text(title_lbl, style->title);
         }
-        lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
-        lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
-        lv_obj_align(val_lbl, val_al, val_x, val_y);
-        lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
-
-        lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
-        return obj;
-    }
-
-    /* ========== TIME 模块：标题顶部 + 数字底部 ========== */
-    else if (w_id == AREX_WIDGET_WTIME) {
-        /* 获取布局配置或使用默认值 */
-        int16_t tit_x  = layout_cfg ? layout_cfg->title_offset_x : 0;
-        int16_t tit_y  = layout_cfg ? layout_cfg->title_offset_y : 4;
-        uint8_t tit_al = layout_cfg ? layout_cfg->title_align : LV_ALIGN_TOP_MID;
-        int16_t val_x  = layout_cfg ? layout_cfg->value_offset_x : 0;
-        int16_t val_y  = layout_cfg ? layout_cfg->value_offset_y : -4;
-        uint8_t val_al = layout_cfg ? layout_cfg->value_align : LV_ALIGN_BOTTOM_MID;
-
-        /* 标题 -> 顶部居中 */
-        lv_obj_t *title_lbl = lv_label_create(obj);
-        lv_label_set_text(title_lbl, "TIME");
-        lv_obj_set_style_text_font(title_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_font(title_lbl, arex_get_font(style->title_font_id), 0);
         lv_obj_set_style_text_color(title_lbl, AREX_LIGHT, 0);
-        lv_obj_align(title_lbl, tit_al, tit_x, tit_y);
-
-        /* 时间数值 -> 底部居中 */
-        lv_obj_t *val_lbl = lv_label_create(obj);
-        uint32_t t_sec = g_sensor_data.dive_time_s;
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
-            lv_label_set_text(val_lbl, "--:--");
-        } else {
-            lv_label_set_text_fmt(val_lbl, "%02d:%02d", t_sec / 60, t_sec % 60);
-        }
-        lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
-        lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
-        lv_obj_align(val_lbl, val_al, val_x, val_y);
-        lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
-
-        lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
-        return obj;
-    }
-
-    /* ========== 通用渲染（标题 + 数值 + 单位）========== */
-
-    /* 获取布局配置（使用配置或默认值） */
-    uint8_t title_align = (layout_cfg && layout_cfg->title_align != 0)
-                          ? layout_cfg->title_align : LV_ALIGN_TOP_MID;
-    int8_t title_offset_x = (layout_cfg) ? layout_cfg->title_offset_x : 0;
-    int8_t title_offset_y = (layout_cfg) ? layout_cfg->title_offset_y : 2;
-    uint8_t value_align = (layout_cfg && layout_cfg->value_align != 0)
-                           ? layout_cfg->value_align : LV_ALIGN_CENTER;
-    int8_t value_offset_x = (layout_cfg) ? layout_cfg->value_offset_x : 0;
-    int8_t value_offset_y = (layout_cfg) ? layout_cfg->value_offset_y : 0;
-
-    /* 标题 label */
-    if (meta->title) {
-        lv_obj_t *title_lbl = lv_label_create(obj);
-        lv_label_set_text(title_lbl, meta->title);
-        lv_obj_set_style_text_font(title_lbl, arex_get_font(meta->title_font), 0);
-        lv_obj_set_style_text_color(title_lbl, AREX_GREEN, 0);
         lv_obj_set_size(title_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-        lv_obj_align(title_lbl, title_align, title_offset_x, title_offset_y);
+        lv_obj_align(title_lbl, (lv_align_t)style->title_align,
+                     style->title_offset_x, style->title_offset_y);
         lv_label_set_long_mode(title_lbl, LV_LABEL_LONG_DOT);
     }
 
-    /* 数值 label（存储句柄供 update 循环更新文字）*/
+    /* --- 零件 2：主数值 --- */
+    if (style->elements & ELEM_VALUE) {
     lv_obj_t *val_lbl = lv_label_create(obj);
+        lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
+        lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
+
     if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
+            /* 通用占位符 */
         lv_label_set_text(val_lbl, "--");
     } else {
-        /* 全量数据路由：widget_id → 数据源 + 格式化 */
         char buf[48] = "--";
         switch (w_id) {
-            /* === 核心数据 === */
-            case AREX_WIDGET_DEPTH:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.depth);
+                case WIDGET_DEPTH_1612:  snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.depth); break;
+                case WIDGET_NDL_STOP_1606: snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl_stop_value); break;
+                case WIDGET_DIVE_TIME_1606: snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.dive_time_s/60, g_sensor_data.dive_time_s%60); break;
+                case WIDGET_GAS_1606:      snprintf(buf, sizeof(buf), "%s", g_sensor_data.gas_name); break;
+                case WIDGET_SYS_1606:    snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.sys_time_h, g_sensor_data.sys_time_m); break;
+                case WIDGET_TEMP_0806:    snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.temperature_c); break;
+                case WIDGET_TIME_1606:    snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.sys_time_h, g_sensor_data.sys_time_m); break;
+                case WIDGET_TTS_0806:      snprintf(buf, sizeof(buf), "%d", g_sensor_data.tts); break;
+                case WIDGET_ASCENT_0806:
+                case WIDGET_ASCENT_0812:  snprintf(buf, sizeof(buf), "%+.1f", (double)g_sensor_data.ascent_rate); break;
+                case WIDGET_COMPASS_1612: snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading); break;
+                case WIDGET_BATTERY_0806: snprintf(buf, sizeof(buf), "%d", g_sensor_data.battery_pct); break;
+                case WIDGET_STOP_DEPTH_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.stop_depth_m); break;
+                case WIDGET_STOP_TIME_1606: snprintf(buf, sizeof(buf), "%d", g_sensor_data.stop_time_left_s); break;
+                case WIDGET_PPO2_0806:     snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.ppo2[0]); break;
+                case WIDGET_SURF_GF_0806:  snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.surf_gf); break;
+                case WIDGET_GF99_0806:     snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.gf99); break;
+                case WIDGET_CNS_0806:      snprintf(buf, sizeof(buf), "%d", g_sensor_data.cns_pct); break;
+                case WIDGET_OTU_0806:      snprintf(buf, sizeof(buf), "%d", g_sensor_data.otu); break;
+                case WIDGET_GF_0806:        snprintf(buf, sizeof(buf), "%d/%d", g_sensor_data.gf_low, g_sensor_data.gf_high); break;
+                case WIDGET_MOD_0806:       snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.mod_m); break;
+                case WIDGET_CEILING_0806:  snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.ceiling_m); break;
+                case WIDGET_GAS_MIX_1606:  snprintf(buf, sizeof(buf), "%d/%d", g_sensor_data.gas_o2_pct, g_sensor_data.gas_he_pct); break;
+                case WIDGET_GAS_DENS_0806:  snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.gas_density); break;
+                case WIDGET_FIO2_0806:      snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.fio2_pct); break;
+                case WIDGET_HEADING_0806:   snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading); break;
+                /* ===== POD 单模具：数据源根据 pod_index 动态分配 ===== */
+                case WIDGET_POD_0806:
+                    if (is_pod_mold) {
+                        if (pod_index == 1) {
+                            snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod1_bar);
+                        } else {
+                            snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod2_bar);
+                        }
+                    } else {
+                        snprintf(buf, sizeof(buf), "--");
+                    }
+                    break;
+                case WIDGET_WTIME_0806: {
+                    uint32_t t = g_sensor_data.surface_time_s;
+                    snprintf(buf, sizeof(buf), "%02d:%02d", t / 60, t % 60);
                 break;
-            case AREX_WIDGET_NDL_STOP:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl_stop_value);
-                break;
-            case AREX_WIDGET_DIVE_TIME:
-                snprintf(buf, sizeof(buf), "%02d:%02d",
-                         g_sensor_data.dive_time_s / 60, g_sensor_data.dive_time_s % 60);
-                break;
-            case AREX_WIDGET_GAS:
-                snprintf(buf, sizeof(buf), "%s", g_sensor_data.gas_name);
-                break;
-            case AREX_WIDGET_SYS:
-                snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.sys_time_h, g_sensor_data.sys_time_m);
-                break;
-
-            /* === 基础数据 === */
-            case AREX_WIDGET_TEMP:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.temperature_c);
-                break;
-            case AREX_WIDGET_TIME_OF_DAY:
-                snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.sys_time_h, g_sensor_data.sys_time_m);
-                break;
-            case AREX_WIDGET_TTS:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.tts);
-                break;
-            case AREX_WIDGET_ASCENT:
-                if (g_sensor_data.ascent_rate >= 0)
-                    snprintf(buf, sizeof(buf), "+%.1f", (double)g_sensor_data.ascent_rate);
-                else
-                    snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.ascent_rate);
-                break;
-            case AREX_WIDGET_COMPASS:
-                snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading);
-                break;
-            case AREX_WIDGET_BATTERY:
-                snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.battery_pct);
-                break;
-            case AREX_WIDGET_STOP_DEPTH:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.next_stop_m);
-                break;
-            case AREX_WIDGET_STOP_TIME:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.next_stop_min);
-                break;
-            case AREX_WIDGET_PPO2:
-                snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
-                break;
-            case AREX_WIDGET_NDL:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl);
-                break;
-            case AREX_WIDGET_HEADING:
-                snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading);
-                break;
-            case AREX_WIDGET_WTIME:
-                snprintf(buf, sizeof(buf), "%02d:%02d",
-                         g_sensor_data.dive_time_s / 60, g_sensor_data.dive_time_s % 60);
-                break;
-
-            /* === 技术潜水数据 === */
-            case AREX_WIDGET_SURF_GF:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.surf_gf);
-                break;
-            case AREX_WIDGET_GF99:
-                snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.gf99);
-                break;
-            case AREX_WIDGET_CNS:
-                snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
-                break;
-            case AREX_WIDGET_OTU:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.otu);
-                break;
-            case AREX_WIDGET_GF_SETTING:
-                snprintf(buf, sizeof(buf), "%d/%d", g_sensor_data.gf_low, g_sensor_data.gf_high);
-                break;
-            case AREX_WIDGET_MOD:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.mod_m);
-                break;
-            case AREX_WIDGET_CEILING:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.ceiling_m);
-                break;
-            case AREX_WIDGET_GAS_MIX:
-                snprintf(buf, sizeof(buf), "%d/%d", g_sensor_data.gas_o2_pct, g_sensor_data.gas_he_pct);
-                break;
-            case AREX_WIDGET_TISSUE_GF:
-            case AREX_WIDGET_TISSUE_RAW:
-                snprintf(buf, sizeof(buf), "---");  /* 组织图由专属卡片渲染 */
-                break;
-            case AREX_WIDGET_GAS_DENS:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.gas_density);
-                break;
-            case AREX_WIDGET_FIO2:
-                snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.fio2_pct);
-                break;
-
-            /* === 传感器数据 === */
-            case AREX_WIDGET_POD1:
-                snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod1_bar);
-                break;
-            case AREX_WIDGET_POD2:
-                snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod2_bar);
-                break;
-            case AREX_WIDGET_DEPTH_MAX:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_depth);
-                break;
-            case AREX_WIDGET_DEPTH_AVG:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_depth);
-                break;
-            case AREX_WIDGET_TEMP_MIN:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.min_temp);
-                break;
-            case AREX_WIDGET_TEMP_MAX:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_temp);
-                break;
-            case AREX_WIDGET_TEMP_AVG:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_temp);
-                break;
-            case AREX_WIDGET_SAC_RATE:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.sac_rate);
-                break;
-
-            /* === 边界保护 === */
-            case AREX_WIDGET_PPO2_SAFE:
-                snprintf(buf, sizeof(buf), "%.2f", 1.4);
-                break;
-            case AREX_WIDGET_NDL_SAFE:
-                snprintf(buf, sizeof(buf), "%d", 5);
-                break;
-            case AREX_WIDGET_SAC_SAFE:
-                snprintf(buf, sizeof(buf), "%.1f", 25.0);
-                break;
-
-            /* === 空槽 === */
-            case AREX_WIDGET_EMPTY:
-            default:
-                buf[0] = '\0';
-                break;
+                }
+                case WIDGET_DEPTH_MAX_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_depth); break;
+                case WIDGET_DEPTH_AVG_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_depth); break;
+                case WIDGET_TEMP_MIN_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.min_temp); break;
+                case WIDGET_TEMP_AVG_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_temp); break;
+                case WIDGET_TEMP_MAX_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_temp); break;
+                case WIDGET_SAC_RATE_0806:  snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.sac_rate); break;
+                case WIDGET_PPO2_SAFE_0806: snprintf(buf, sizeof(buf), "%.2f", 1.4); break;
+                case WIDGET_NDL_SAFE_0806:  snprintf(buf, sizeof(buf), "%d", 5); break;
+                case WIDGET_SAC_SAFE_0806:  snprintf(buf, sizeof(buf), "%.1f", 25.0); break;
+                default:                          snprintf(buf, sizeof(buf), "--"); break;
         }
         lv_label_set_text(val_lbl, buf);
     }
-    lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
-    lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
-    lv_obj_set_size(val_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_align(val_lbl, value_align, value_offset_x, value_offset_y);
-    lv_label_set_long_mode(val_lbl, LV_LABEL_LONG_DOT);
-    lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
 
-    /* 单位 label（只在居中布局时显示）*/
-    if (meta->unit && meta->unit[0] && value_align == LV_ALIGN_CENTER) {
-        lv_obj_t *unit_lbl = lv_label_create(obj);
-        lv_label_set_text(unit_lbl, meta->unit);
-        lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
-        lv_obj_set_size(unit_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-        lv_obj_align_to(unit_lbl, val_lbl, LV_ALIGN_OUT_BOTTOM_MID, 0, -2);
-        lv_label_set_long_mode(unit_lbl, LV_LABEL_LONG_DOT);
+        /* 所有使用 ELEM_VALUE 的 widget 都使用 spec.basic.value_align */
+        if (style->elements & ELEM_VALUE) {
+            lv_obj_align(val_lbl, (lv_align_t)style->spec.basic.value_align,
+                         style->spec.basic.value_offset_x, style->spec.basic.value_offset_y);
+        }
+    lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
     }
 
-    (void)meta;
-    (void)is_depth_icon;
+    /* --- 零件 3：单位 --- */
+    if ((style->elements & ELEM_UNIT) && style->unit) {
+        lv_obj_t *unit_lbl = lv_label_create(obj);
+        lv_label_set_text(unit_lbl, style->unit);
+        lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
+        /* 单位位于数值下方 */
+        if (style->elements & ELEM_VALUE) {
+            /* 挂在数值 label 下方 */
+            lv_obj_align_to(unit_lbl, obj, LV_ALIGN_BOTTOM_MID, 0, -2);
+        } else {
+            lv_obj_align(unit_lbl, (lv_align_t)style->title_align,
+                         style->title_offset_x, style->title_offset_y);
+        }
+    }
+
+    /* --- 零件 4：特殊 BAR --- */
+    if (style->elements & ELEM_BAR) {
+        if (w_id == WIDGET_DEPTH_1612) {
+            /* DEPTH 2x2 的 sudu 图标（早期分支已处理，此分支仅作兜底） */
+            /* DEPTH_1612 的 icon 在早期分支里，这里不需要再处理 */
+        } else if (w_id == WIDGET_ASCENT_0812) {
+            /* ASCENT_0812 (1x2)：绘制上升速率方向箭头图标 */
+            if (is_depth_icon) {
+                lv_obj_t *sudu_img = lv_img_create(obj);
+                lv_img_set_src(sudu_img, &sudo_up_level0);
+                lv_obj_align(sudu_img, LV_ALIGN_CENTER, 0, 0);
+                if (s_ascent_icon_count < MAX_ASCENT_ICONS)
+                    s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
+            }
+        } else if (w_id == WIDGET_COMPASS_1612) {
+            /* COMPASS_1612 (2x2)：卷尺 tape 在早期分支里，ELEM_BAR 标记由 spec.compass 驱动 */
+        } else if (w_id == WIDGET_TISSUE_GF_4012 || w_id == WIDGET_TISSUE_RAW_4012) {
+            /* TISSUE (4x2)：16 柱组织图，ELEM_BAR 标记由 spec.tissue 驱动 */
+        } else if (w_id == WIDGET_SYS_1606) {
+            /* SYS 电池条 + 外设图标（系统状态栏） */
+            lv_obj_t *bat_bg = lv_obj_create(obj);
+            lv_obj_remove_style_all(bat_bg);
+            lv_obj_set_size(bat_bg, 60, 14);
+            lv_obj_align(bat_bg, LV_ALIGN_BOTTOM_LEFT, 4, -4);
+            lv_obj_set_style_border_width(bat_bg, 1, 0);
+            lv_obj_set_style_border_color(bat_bg, AREX_GREEN, 0);
+            lv_obj_set_style_radius(bat_bg, 2, 0);
+
+            uint8_t pct = g_sensor_data.battery_pct;
+            lv_obj_t *bat_fill = lv_obj_create(bat_bg);
+            lv_obj_remove_style_all(bat_fill);
+            lv_obj_set_size(bat_fill, LV_PCT(pct > 20 ? 100 : pct), LV_PCT(100));
+            lv_obj_align(bat_fill, LV_ALIGN_LEFT_MID, 0, 0);
+            lv_obj_set_style_bg_color(bat_fill, pct > 20 ? AREX_GREEN : AREX_LIGHT, 0);
+            lv_obj_set_style_bg_opa(bat_fill, LV_OPA_COVER, 0);
+            lv_obj_set_style_radius(bat_fill, 1, 0);
+            (void)bat_fill;
+        }
+    }
+
+    /* --- 零件 5：EXTRA 附加异构元素 --- */
+    if (style->elements & ELEM_EXTRA) {
+        /* ===== POD 单模具：显示右上角 ID 标签 ("1" 或 "2") ===== */
+        if (is_pod_mold) {
+            lv_obj_t *pod_id_lbl = lv_label_create(obj);
+            lv_label_set_text_fmt(pod_id_lbl, "%d", pod_index);
+            lv_obj_set_style_text_font(pod_id_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+            lv_obj_set_style_text_color(pod_id_lbl, AREX_LIGHT, 0);
+            lv_obj_align(pod_id_lbl, LV_ALIGN_TOP_RIGHT, -4, 4);
+        }
+    }
+
     return obj;
 }
 
@@ -1277,7 +1613,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
  * 所以这是链表表头，实际使用时遍历子节点查找。
  * ========================================================= */
 #define MAX_WIDGET_HANDLES 16
-static lv_obj_t *s_widget_handles[AREX_WIDGET_COUNT]; /* 仅记录 5F 区域的句柄 */
+#define MAX_WIDGETS  41
+static lv_obj_t *s_widget_handles[MAX_WIDGETS]; /* 仅记录 5F 区域的句柄 */
 static uint8_t   s_widget_handle_count = 0;
 
 /* 按 widget_id 在容器中查找第一个匹配的子节点 */
@@ -1338,7 +1675,7 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
         uint8_t span_w  = g_sys_config.widget_w[i];
         uint8_t span_h  = g_sys_config.widget_h[i];
 
-        if (w_id == AREX_WIDGET_EMPTY) continue;
+        if (w_id == WIDGET_EMPTY) continue;
         if (r >= AREX_WIDGET_ROWS || c >= AREX_WIDGET_COLS) continue;
         if (span_w == 0) span_w = 1;
         if (span_h == 0) span_h = 1;
@@ -1353,7 +1690,7 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
         /* 调用组件工厂 */
         lv_obj_t *w = render_widget_by_id(card_custom, w_id,
                                           abs_x, abs_y, abs_w, abs_h,
-                                          span_w, span_h, false, (arex_font_id_t)255, NULL);
+                                          span_w, span_h, false, (arex_font_id_t)255);
 
         /* 记录句柄（用于 update 循环） */
         if (w && s_widget_handle_count < MAX_WIDGET_HANDLES) {
@@ -1365,9 +1702,15 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
 /* =========================================================
  * 按 widget_id 设置数值（由外部 update 循环调用）
  *
- * 算法：在 g_card_custom_obj 和 g_left_anchor_obj 两个容器中
- * 遍历所有子节点，用 user_data 烙印匹配 target_id，
- * 找到后定位其中的数值 label 并更新文字。
+ * 架构：
+ *   - 遍历 g_card_custom_obj 和 g_left_anchor_obj 两个容器
+ *   - 用 user_data 烙印匹配 target_id
+ *   - POD 使用高位掩码标签 (1033=POD1, 2033=POD2)
+ *
+ * 算法：
+ *   - DEPTH: 用 child[0]/child[1] 下标访问
+ *   - POD: 遍历查找标签 1033/2033
+ *   - 其他: 遍历子节点查找 user_data 匹配
  *
  * 绝不触发任何重绘或排版重构！只更新 lv_label 文字。
  * ========================================================= */
@@ -1385,45 +1728,65 @@ void arex_widget_set_value(arex_widget_id_t id, float value)
             lv_obj_t *child = lv_obj_get_child(container, i);
             if (!child) continue;
 
-            /* user_data 烙印匹配：找到 widget 容器 */
-            if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(child) == id) {
-                /* DEPTH 专属：整数/小数用 child[0]/child[1] 下标访问，不走通用子 label 路由 */
-                if (id == AREX_WIDGET_DEPTH) {
-                    int di = (int)value;
-                    int dd = (int)((value - di) * 10 + 0.5f);
-                    lv_obj_t *part0 = lv_obj_get_child(child, 0);
-                    lv_obj_t *part1 = lv_obj_get_child(child, 1);
-                    if (part0 && lv_obj_check_type(part0, &lv_label_class)) {
-                        lv_label_set_text_fmt(part0, "%d", di);
-                    }
-                    if (part1 && lv_obj_check_type(part1, &lv_label_class)) {
-                        lv_label_set_text_fmt(part1, ".%d", dd);
-                    }
-                    break;
-                }
+            uintptr_t child_tag = (uintptr_t)lv_obj_get_user_data(child);
 
-                /* 通用 widget：在子节点中找 user_data == id 的数值 label */
+            /* DEPTH 专属：整数/小数用 child[0]/child[1] 下标访问 */
+            if (id == WIDGET_DEPTH_1612 && child_tag == (uintptr_t)id) {
+                int di = (int)value;
+                int dd = (int)((value - di) * 10 + 0.5f);
+                lv_obj_t *part0 = lv_obj_get_child(child, 0);
+                lv_obj_t *part1 = lv_obj_get_child(child, 1);
+                if (part0 && lv_obj_check_type(part0, &lv_label_class)) {
+                    lv_label_set_text_fmt(part0, "%d", di);
+                }
+                if (part1 && lv_obj_check_type(part1, &lv_label_class)) {
+                    lv_label_set_text_fmt(part1, ".%d", dd);
+                }
+                break;
+            }
+
+            /* ===== POD 单模具：根据标签 1033/2033 精确匹配 ===== */
+            if (id == WIDGET_POD_0806) {
+                /* 查找标签为 1033 (POD1) 或 2033 (POD2) 的容器 */
+                if (child_tag == POD1_TAG || child_tag == POD2_TAG) {
+                    int16_t sub_cnt = lv_obj_get_child_cnt(child);
+                    for (int16_t j = 0; j < sub_cnt; j++) {
+                        lv_obj_t *sub = lv_obj_get_child(child, j);
+                        if (!sub) continue;
+                        /* 查找 user_data 等于容器标签的子 label */
+                        if ((uintptr_t)lv_obj_get_user_data(sub) == child_tag) {
+                            if (lv_obj_check_type(sub, &lv_label_class)) {
+                                char buf[32];
+                                snprintf(buf, sizeof(buf), "%.0f", (double)value);
+                                lv_label_set_text(sub, buf);
+                            }
+                            break;
+                        }
+                    }
+                }
+                continue;
+            }
+
+            /* ===== 通用 widget：用 user_data == id 匹配 ===== */
+            if (child_tag == (uintptr_t)id) {
                 int16_t sub_cnt = lv_obj_get_child_cnt(child);
                 for (int16_t j = 0; j < sub_cnt; j++) {
                     lv_obj_t *sub = lv_obj_get_child(child, j);
                     if (!sub) continue;
-                    if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(sub) == id) {
+                    if ((uintptr_t)lv_obj_get_user_data(sub) == (uintptr_t)id) {
                         if (lv_obj_check_type(sub, &lv_label_class)) {
                             char buf[32];
-                            if (id == AREX_WIDGET_TEMP) {
+                            if (id == WIDGET_TEMP_0806) {
                                 snprintf(buf, sizeof(buf), "%.1f", (double)value);
-                                lv_label_set_text(sub, buf);
-                            } else if (id == AREX_WIDGET_PPO2) {
+                            } else if (id == WIDGET_PPO2_0806) {
                                 snprintf(buf, sizeof(buf), "%.2f", (double)value);
-                            } else if (id == AREX_WIDGET_POD1 || id == AREX_WIDGET_POD2) {
-                                snprintf(buf, sizeof(buf), "%.0f", (double)value);
-                            } else if (id == AREX_WIDGET_WTIME) {
+                            } else if (id == WIDGET_WTIME_0806) {
                                 snprintf(buf, sizeof(buf), "%02d:%02d",
                                          ((uint32_t)value) / 60,
                                          ((uint32_t)value) % 60);
-                            } else if (id == AREX_WIDGET_BATTERY) {
+                            } else if (id == WIDGET_BATTERY_0806) {
                                 snprintf(buf, sizeof(buf), "%.0f%%", (double)value);
-                            } else if (id == AREX_WIDGET_TTS || id == AREX_WIDGET_NDL) {
+                            } else if (id == WIDGET_TTS_0806 || id == WIDGET_NDL_STOP_1606) {
                                 snprintf(buf, sizeof(buf), "%d", (int)value);
                             } else {
                                 snprintf(buf, sizeof(buf), "%.0f", (double)value);
@@ -1523,7 +1886,7 @@ void arex_trigger_alarm(arex_alarm_level_t level,
     /* 弹出告警横幅 */
     arex_show_alarm_banner(level, eng_text);
 
-    if (target_id == AREX_WIDGET_EMPTY) {
+    if (target_id == WIDGET_EMPTY) {
         /* 仅横幅告警，不做靶向 */
         return;
     }
@@ -1736,7 +2099,7 @@ void arex_ui_update_task(lv_timer_t *timer)
                     target_img_src = &sudo_down_level0;
                 } else if (rate > -AREX_RATE_LEVEL2_THRESHOLD) {
                     target_img_src = &sudo_down_level1;
-                } else {
+            } else {
                     target_img_src = &sudo_down_level2;
                 }
             }
@@ -1943,21 +2306,70 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
 
     /* 遍历并渲染基于网格的组件 */
     for (uint8_t i = 0; i < g_left_widget_count && i < AREX_LEFT_MAX_WIDGETS; i++) {
-        arex_custom_widget_cfg_t *cfg = &g_left_widgets[i];
-        if (cfg->widget_id == AREX_WIDGET_EMPTY) continue;
+        arex_left_widget_t *cfg = &g_left_widgets[i];
+        if (cfg->widget_id == WIDGET_EMPTY) continue;
+
+        /* 从样式表查表获取跨度信息 */
+        const arex_widget_style_t *style = arex_get_widget_style(cfg->widget_id);
+        uint8_t span_w = (style != NULL) ? style->span_w : 1;
+        uint8_t span_h = (style != NULL) ? style->span_h : 1;
 
         /* 绝对物理坐标推演：col * cell_w, row * cell_h */
         int16_t  abs_x = (int16_t)(cfg->x * cell_w);
         int16_t  abs_y = (int16_t)(cfg->y * cell_h);
-        uint16_t abs_w = cfg->w * cell_w;
-        uint16_t abs_h = cfg->h * cell_h;
+        uint16_t abs_w = span_w * cell_w;
+        uint16_t abs_h = span_h * cell_h;
 
         /* DEPTH 模块挂载 sudu 速率图标 */
-        bool is_depth = (cfg->widget_id == AREX_WIDGET_DEPTH);
+        bool is_depth = (cfg->widget_id == WIDGET_DEPTH_1612);
 
-        /* 调用底层工厂，左侧视觉紧凑，不扣除间隙 */
+        /* 调用底层工厂：跨度由样式表提供 */
         render_widget_by_id(left_anchor, cfg->widget_id,
                             abs_x, abs_y, abs_w, abs_h,
-                            cfg->w, cfg->h, is_depth, cfg->font_id, cfg);
+                            span_w, span_h, is_depth, (arex_font_id_t)255);
     }
+}
+
+/* =========================================================
+ * 第五步：新简化工厂函数（APP下发位置 + MCU本地查样式表）
+ *
+ * 架构铁律：APP 只下发 [widget_id, x, y]，MCU 根据 widget_id
+ * 自动从样式注册表获取 w/h/offset，渲染时组合两者。
+ * ========================================================= */
+lv_obj_t* arex_render_widget(lv_obj_t *parent,
+                            const arex_widget_pos_t *pos,
+                            uint16_t cell_w, uint16_t cell_h,
+                            uint16_t title_h)
+{
+    if (!parent || !pos) return NULL;
+    if (pos->widget_id == WIDGET_EMPTY) return NULL;
+
+    /* 1. 查本地样式表 */
+    const arex_widget_style_t *style = arex_get_widget_style(pos->widget_id);
+    if (!style) {
+        /* 容错：未知ID，尝试用通用方式渲染 */
+        lv_obj_t *comp = lv_obj_create(parent);
+        lv_obj_remove_style_all(comp);
+        int16_t ax = (int16_t)(pos->x * cell_w);
+        int16_t ay = (int16_t)(pos->y * cell_h) + title_h;
+        lv_obj_set_pos(comp, ax, ay);
+        lv_obj_set_size(comp, cell_w, cell_h);
+        return comp;
+    }
+
+    /* 2. 推算绝对物理坐标 */
+    int16_t  abs_x = (int16_t)(pos->x * cell_w);
+    int16_t  abs_y = (int16_t)(pos->y * cell_h) + title_h;
+    uint16_t abs_w = (uint16_t)(style->span_w * cell_w);
+    uint16_t abs_h = (uint16_t)(style->span_h * cell_h);
+
+    /* 3. DEPTH 图标判断 */
+    bool is_depth_icon = (pos->widget_id == WIDGET_DEPTH_1612 ||
+                          pos->widget_id == WIDGET_DEPTH_1606);
+
+    /* 4. 直接调用底层工厂（POD 拦截已在 render_widget_by_id 内部完成） */
+    return render_widget_by_id(parent, pos->widget_id,
+                               abs_x, abs_y, abs_w, abs_h,
+                               style->span_w, style->span_h,
+                               is_depth_icon, (arex_font_id_t)255);
 }

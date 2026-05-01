@@ -44,20 +44,17 @@ extern "C" {
  *
  * BLE 帧字节数计算：
  *   version(1) + card_order[7](7) + left_count(1)
- *   + left_widgets[12] × 6B(72)
+ *   + left_widgets[12] × 3B(36)     ← 优化：移除 w/h，MCU 查样式表
  *   + custom_5f_count(1) + custom_5f_widgets[20] × 5B(100)
  *   + crc16(2)
- *   = 184 字节
+ *   = 148 字节                      ← 优化后
  * ========================================================= */
 #pragma pack(push, 1)
-/* 左侧 2x6 组件描述 (6 Bytes) */
+/* 左侧 2x6 组件描述 (3 Bytes) */
 typedef struct {
     uint8_t id;         /* arex_widget_id_t (0~13) */
     uint8_t x;          /* 列索引 0~1 */
     uint8_t y;          /* 行索引 0~5 */
-    uint8_t w;          /* 列跨度 1~2 */
-    uint8_t h;          /* 行跨度 1~2 */
-    uint8_t font_id;     /* arex_font_id_t (0~3) */
 } ble_sync_left_widget_t;
 
 /* 5F 自定义组件描述 (5 Bytes) */
@@ -122,6 +119,9 @@ void arex_bus_toggle_sep_style(void);
 void arex_bus_toggle_flash_speed(void);
 void arex_bus_toggle_mask(void);
 void arex_bus_toggle_split_outward(void);
+
+/* --- 用户设置接口 --- */
+void arex_bus_set_conservatism(uint8_t level);
 
 /* --- 历史轨迹推流（已在 card_plan.c 中实现，此处声明导出） --- */
 void arex_dive_log_append(float current_time_s, float current_depth_m);

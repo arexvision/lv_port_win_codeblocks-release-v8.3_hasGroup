@@ -208,7 +208,7 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
     /* 2. 拷贝右侧卡片滑动顺序 */
     memcpy(g_sys_config.card_order, payload->card_order, sizeof(g_sys_config.card_order));
 
-    /* 3. 映射左侧 2x6 锚点配置 */
+    /* 3. 映射左侧 2x6 锚点配置（span_w/h 由 MCU 样式表自动推导） */
     g_left_widget_count = (payload->left_count > AREX_LEFT_MAX_WIDGETS)
                           ? AREX_LEFT_MAX_WIDGETS
                           : payload->left_count;
@@ -216,9 +216,6 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
         g_left_widgets[i].widget_id = (arex_widget_id_t)payload->left_widgets[i].id;
         g_left_widgets[i].x         = payload->left_widgets[i].x;
         g_left_widgets[i].y         = payload->left_widgets[i].y;
-        g_left_widgets[i].w         = payload->left_widgets[i].w;
-        g_left_widgets[i].h         = payload->left_widgets[i].h;
-        g_left_widgets[i].font_id   = (arex_font_id_t)payload->left_widgets[i].font_id;
     }
 
     /* 4. 映射 5F 自定义网格配置 */
@@ -316,16 +313,32 @@ void arex_bus_toggle_split_outward(void)
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 }
 
+void arex_bus_set_conservatism(uint8_t level)
+{
+    if (g_sys_config.conservatism != level) {
+        g_sys_config.conservatism = level;
+        g_sensor_data.dirty_mask |= DIRTY_SETUP;
+    }
+}
+
 /* =========================================================
  * 配置持久化接口
  * 由具体平台（PC 模拟器 / 真机）提供 weak 实现覆盖
  * ========================================================= */
+#ifdef PC_SIMULATOR
+#else
+__attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
+#endif
 bool arex_config_load(arex_sys_config_t *cfg)
 {
     (void)cfg;
     return false;
 }
 
+#ifdef PC_SIMULATOR
+#else
+__attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
+#endif
 bool arex_config_save(const arex_sys_config_t *cfg)
 {
     (void)cfg;

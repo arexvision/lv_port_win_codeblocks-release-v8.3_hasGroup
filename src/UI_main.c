@@ -24,28 +24,25 @@ static void arex_test_set_ui_layout(uint8_t phase)
     s_payload.version = AREX_BLE_CFG_VERSION;
 
     if (phase == 0) {
-        /* 标准布局 */
-        uint8_t left_def[][6] = {
-            /* id,   x,  y,  w,  h,  font_id */
-            { AREX_WIDGET_DEPTH,    0, 0, 2, 1, AREX_FONT_ID_HUGE },   /* 深度占满顶行 */
-            { AREX_WIDGET_NDL,     0, 1, 1, 1, AREX_FONT_ID_MEDIUM },   /* NDL 左 */
-            { AREX_WIDGET_TTS,     1, 1, 1, 1, AREX_FONT_ID_MEDIUM },   /* TTS 右 */
-            { AREX_WIDGET_POD1,    0, 2, 1, 1, AREX_FONT_ID_MEDIUM }, /* POD1 左 */
-            { AREX_WIDGET_POD2,    1, 2, 1, 1, AREX_FONT_ID_MEDIUM }, /* POD2 右 */
-            { AREX_WIDGET_PPO2,    0, 3, 1, 1, AREX_FONT_ID_MEDIUM }, /* PPO2 左 */
-            { AREX_WIDGET_GAS,     1, 3, 1, 1, AREX_FONT_ID_MEDIUM }, /* GAS 右 */
-            { AREX_WIDGET_WTIME,   0, 4, 1, 1, AREX_FONT_ID_MEDIUM }, /* W.TIME 左 */
-            { AREX_WIDGET_BATTERY, 1, 4, 1, 1, AREX_FONT_ID_MEDIUM }, /* BATTERY 右 */
-            { AREX_WIDGET_TEMP,    0, 5, 2, 1, AREX_FONT_ID_SMALL  }, /* TEMP 底行 */
+        /* 标准布局：APP 只下发 [id, x, y]，MCU 查样式表获取 span_w/h */
+        uint8_t left_def[][3] = {
+            /* id,              x,  y */
+            { WIDGET_DEPTH_1612,    0, 0 },   /* 深度占满顶行 */
+            { WIDGET_NDL_STOP_1606, 0, 1 },   /* NDL 左 */
+            { WIDGET_TTS_0806,     1, 1 },   /* TTS 右 */
+            { WIDGET_POD_0806,     0, 2 },   /* POD1 左 */
+            { WIDGET_POD_0806,     1, 2 },   /* POD2 右 */
+            { WIDGET_PPO2_0806,    0, 3 },   /* PPO2 左 */
+            { WIDGET_GAS_1606,     1, 3 },   /* GAS 右 */
+            { WIDGET_WTIME_0806,   0, 4 },   /* W.TIME 左 */
+            { WIDGET_BATTERY_0806, 1, 4 },   /* BATTERY 右 */
+            { WIDGET_TEMP_0806,    0, 5 },   /* TEMP 底行 */
         };
         s_payload.left_count = sizeof(left_def) / sizeof(left_def[0]);
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
-            s_payload.left_widgets[i].id      = left_def[i][0];
-            s_payload.left_widgets[i].x      = left_def[i][1];
-            s_payload.left_widgets[i].y      = left_def[i][2];
-            s_payload.left_widgets[i].w      = left_def[i][3];
-            s_payload.left_widgets[i].h      = left_def[i][4];
-            s_payload.left_widgets[i].font_id = left_def[i][5];
+            s_payload.left_widgets[i].id = left_def[i][0];
+            s_payload.left_widgets[i].x  = left_def[i][1];
+            s_payload.left_widgets[i].y  = left_def[i][2];
         }
         /* 默认卡片顺序 */
         uint8_t card_order_default[] = { 0, 1, 2, 3, 4, 5 };
@@ -53,27 +50,24 @@ static void arex_test_set_ui_layout(uint8_t phase)
         s_payload.custom_5f_count = 0;
     } else {
         /* 翻转布局：交换 x 列索引，左右对调 */
-        uint8_t left_rev[][6] = {
-            /* id,   x,  y,  w,  h,  font_id */
-            { AREX_WIDGET_HEADING,  0, 0, 2, 1, AREX_FONT_ID_HUGE },   /* 航向顶行 */
-            { AREX_WIDGET_CNS,     1, 1, 1, 1, AREX_FONT_ID_MEDIUM },  /* CNS 左 */
-            { AREX_WIDGET_SAC_RATE,0, 1, 1, 1, AREX_FONT_ID_MEDIUM },  /* SAC 右 */
-            { AREX_WIDGET_BATTERY, 1, 2, 1, 1, AREX_FONT_ID_MEDIUM }, /* BATTERY 左 */
-            { AREX_WIDGET_TEMP,    0, 2, 1, 1, AREX_FONT_ID_MEDIUM }, /* TEMP 右 */
-            { AREX_WIDGET_WTIME,   1, 3, 1, 1, AREX_FONT_ID_MEDIUM }, /* W.TIME 左 */
-            { AREX_WIDGET_DEPTH,   0, 3, 1, 1, AREX_FONT_ID_MEDIUM }, /* DEPTH 右 */
-            { AREX_WIDGET_PPO2,    0, 4, 2, 1, AREX_FONT_ID_MEDIUM }, /* PPO2 双列 */
-            { AREX_WIDGET_NDL,     0, 5, 1, 1, AREX_FONT_ID_SMALL  }, /* NDL 底 */
-            { AREX_WIDGET_TTS,     1, 5, 1, 1, AREX_FONT_ID_SMALL  }, /* TTS 底 */
+        uint8_t left_rev[][3] = {
+            /* id,               x,  y */
+            { WIDGET_HEADING_0806,  0, 0 },   /* 航向顶行 */
+            { WIDGET_CNS_0806,     1, 1 },   /* CNS 左 */
+            { WIDGET_SAC_RATE_0806,0, 1 },   /* SAC 右 */
+            { WIDGET_BATTERY_0806, 1, 2 },   /* BATTERY 左 */
+            { WIDGET_TEMP_0806,    0, 2 },   /* TEMP 右 */
+            { WIDGET_WTIME_0806,   1, 3 },   /* W.TIME 左 */
+            { WIDGET_DEPTH_1612,   0, 3 },   /* DEPTH 右 */
+            { WIDGET_PPO2_0806,    0, 4 },   /* PPO2 双列 */
+            { WIDGET_NDL_STOP_1606,0, 5 },   /* NDL 底 */
+            { WIDGET_TTS_0806,     1, 5 },   /* TTS 底 */
         };
         s_payload.left_count = sizeof(left_rev) / sizeof(left_rev[0]);
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
-            s_payload.left_widgets[i].id      = left_rev[i][0];
-            s_payload.left_widgets[i].x      = 1 - left_rev[i][1]; /* 列索引翻转 */
-            s_payload.left_widgets[i].y      = left_rev[i][2];
-            s_payload.left_widgets[i].w      = left_rev[i][3];
-            s_payload.left_widgets[i].h      = left_rev[i][4];
-            s_payload.left_widgets[i].font_id = left_rev[i][5];
+            s_payload.left_widgets[i].id = left_rev[i][0];
+            s_payload.left_widgets[i].x  = 1 - left_rev[i][1]; /* 列索引翻转 */
+            s_payload.left_widgets[i].y  = left_rev[i][2];
         }
         /* 翻转卡片顺序 */
         uint8_t card_order_rev[] = { 5, 4, 3, 2, 1, 0 };
