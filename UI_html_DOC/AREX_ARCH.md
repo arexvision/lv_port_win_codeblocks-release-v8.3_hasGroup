@@ -3894,3 +3894,122 @@ UI 引擎去找被打上 1033 (POD 1) 烙印的 Label，更新文字为 "200"。
 | 2026-05-01 | `arex_ui_engine.c` | 重构 `arex_widget_set_value()` POD 精确靶向逻辑 |
 | 2026-05-01 | `arex_ui_engine.c` | 删除 `arex_render_widget()` 中的旧版虚拟 ID 路由 |
 | 2026-05-01 | `AREX_ARCH.md` | 替换 Section 38.x 为新 POD 单模具架构文档 |
+| 2026-05-02 | `arex_ui_engine.c` | `g_widget_styles[]` 中 `WIDGET_POD_0806` 删除 `ELEM_EXTRA` 开关，只保留 `ELEM_TITLE \| ELEM_VALUE \| ELEM_UNIT` |
+| 2026-05-02 | `arex_ui_engine.c` | 删除 `render_widget_by_id()` 中的 `/* --- 零件 5：EXTRA 附加异构元素 --- */` 代码块 |
+| 2026-05-02 | `arex_ui_engine.c` | `arex_widget_set_value()` POD 更新逻辑简化为通过 `child_tag == WIDGET_POD_0806` 直接匹配 |
+| 2026-05-02 | `AREX_ARCH.md` | Section 38.11 新增本次 POD 标题文本合并修复记录 |
+
+---
+
+## 39. POD 标题文本合并修复 (v2026-05-02)
+
+### 39.1 问题描述
+
+在 POD 单模具架构下，气瓶模块左上角的标题和右上角出现了分离的显示：
+
+```
+修复前：
+┌──────────────┐
+│ POD  1       │  ← 标题 "POD" 在左上方
+│       210    │  ← 数值在中间
+│       bar    │  ← 单位在右下方
+│       2       │  ← ELEM_EXTRA 创建的独立 "2" 标签在右上方
+└──────────────┘
+```
+
+**根因**：`g_widget_styles[]` 中 `WIDGET_POD_0806` 的 `.elements` 字段包含了 `ELEM_EXTRA` 标志，导致工厂函数在渲染时额外创建了一个独立的数字标签 "1" 或 "2"。
+
+### 39.2 修复方案
+
+**釜底抽薪三步走**：
+
+#### 第一步：从源头字典关掉 ELEM_EXTRA 开关
+
+```c
+// arex_ui_engine.c — g_widget_styles[] 中 WIDGET_POD_0806 配置
+{
+    .widget_id = WIDGET_POD_0806,
+    .span_w = 1, .span_h = 1,
+    .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,  // 删除 ELEM_EXTRA
+    .font_id = AREX_FONT_ID_MEDIUM,
+    .title_font_id = AREX_FONT_ID_SMALL,
+    .unit = "bar",
+    .title = "POD",
+    .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+    .spec.basic = { .value_offset_x = -2, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+},
+```
+
+#### 第二步：恢复完整的 "POD 1" 标题拼接
+
+`render_widget_by_id()` 中的零件 1（标题）已有正确的拼接逻辑：
+
+```c
+/* --- 零件 1：标题 --- */
+if ((style->elements & ELEM_TITLE) && style->title) {
+    lv_obj_t *title_lbl = lv_label_create(obj);
+    /* POD 单模具：根据 pod_index 动态决定标题文字 */
+    if (is_pod_mold) {
+        lv_label_set_text_fmt(title_lbl, "POD %d", pod_index);  // "POD 1" 或 "POD 2"
+    } else {
+        lv_label_set_text(title_lbl, style->title);
+    }
+    // ...
+}
+```
+
+#### 第三步：删除多余的 EXTRA 代码块
+
+删除 `render_widget_by_id()` 中的以下代码：
+
+```c
+// --- 零件 5：EXTRA 附加异构元素 ---
+if (style->elements & ELEM_EXTRA) {
+    if (is_pod_mold) {
+        lv_obj_t *pod_id_lbl = lv_label_create(obj);
+        lv_label_set_text_fmt(pod_id_lbl, "%d", pod_index);
+        // ...
+    }
+}
+```
+
+### 39.3 更新函数适配
+
+由于删除了 ELEM_EXTRA，`arex_widget_set_value()` 中的 POD 更新逻辑需要简化：
+
+```c
+// 修复前：通过 1033/2033 高位标签精确匹配
+if (child_tag == POD1_TAG || child_tag == POD2_TAG) {
+    // 查找 user_data == child_tag 的子 label
+}
+
+// 修复后：直接通过 WIDGET_POD_0806 匹配
+if (child_tag == (uintptr_t)WIDGET_POD_0806) {
+    // 查找 user_data == WIDGET_POD_0806 的子 label
+}
+```
+
+### 39.4 修复结果
+
+```
+修复后：
+┌──────────────┐
+│ POD 1        │  ← 完整的 "POD 1" 标题在左上方
+│       210    │  ← 数值在中间
+│       bar    │  ← 单位在右下方
+└──────────────┘
+```
+
+- POD 1 标题完整显示为 "POD 1"
+- POD 2 标题完整显示为 "POD 2"
+- 右侧独立的数字 "1" / "2" 标签被彻底移除
+- 气瓶模块视觉更加紧凑、整洁
+
+### 39.5 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-05-02 | `arex_ui_engine.c` | `g_widget_styles[]` 中 `WIDGET_POD_0806` 删除 `ELEM_EXTRA` 开关 |
+| 2026-05-02 | `arex_ui_engine.c` | 删除 `render_widget_by_id()` 中的 `/* --- 零件 5：EXTRA 附加异构元素 --- */` 代码块 |
+| 2026-05-02 | `arex_ui_engine.c` | `arex_widget_set_value()` POD 更新逻辑简化 |
+| 2026-05-02 | `AREX_ARCH.md` | 新增 Section 39 记录本次修复 |

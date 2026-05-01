@@ -426,7 +426,7 @@ static const arex_widget_style_t g_widget_styles[] = {
     {
         .widget_id = WIDGET_POD_0806,
         .span_w = 1, .span_h = 1,
-        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_EXTRA,  /* ELEM_EXTRA → POD1/POD2 专属 ID 标签 */
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,  /* ELEM_EXTRA → POD1/POD2 专属 ID 标签 */
         .font_id = AREX_FONT_ID_MEDIUM,
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "",
@@ -1592,18 +1592,6 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
     }
 
-    /* --- 零件 5：EXTRA 附加异构元素 --- */
-    if (style->elements & ELEM_EXTRA) {
-        /* ===== POD 单模具：显示右上角 ID 标签 ("1" 或 "2") ===== */
-        if (is_pod_mold) {
-            lv_obj_t *pod_id_lbl = lv_label_create(obj);
-            lv_label_set_text_fmt(pod_id_lbl, "%d", pod_index);
-            lv_obj_set_style_text_font(pod_id_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-            lv_obj_set_style_text_color(pod_id_lbl, AREX_LIGHT, 0);
-            lv_obj_align(pod_id_lbl, LV_ALIGN_TOP_RIGHT, -4, 4);
-        }
-    }
-
     return obj;
 }
 
@@ -1745,23 +1733,23 @@ void arex_widget_set_value(arex_widget_id_t id, float value)
                 break;
             }
 
-            /* ===== POD 单模具：根据标签 1033/2033 精确匹配 ===== */
-            if (id == WIDGET_POD_0806) {
-                /* 查找标签为 1033 (POD1) 或 2033 (POD2) 的容器 */
-                if (child_tag == POD1_TAG || child_tag == POD2_TAG) {
-                    int16_t sub_cnt = lv_obj_get_child_cnt(child);
-                    for (int16_t j = 0; j < sub_cnt; j++) {
-                        lv_obj_t *sub = lv_obj_get_child(child, j);
-                        if (!sub) continue;
-                        /* 查找 user_data 等于容器标签的子 label */
-                        if ((uintptr_t)lv_obj_get_user_data(sub) == child_tag) {
-                            if (lv_obj_check_type(sub, &lv_label_class)) {
-                                char buf[32];
-                                snprintf(buf, sizeof(buf), "%.0f", (double)value);
-                                lv_label_set_text(sub, buf);
-                            }
-                            break;
+            /* ===== POD 单模具：数据源根据 pod_index 动态分配 =====
+             * 注意：由于关闭了 ELEM_EXTRA，POD 不再有独立的 ID 标签子元素。
+             * 数值 label 通过通用路径创建，其 user_data = WIDGET_POD_0806。
+             * 因此可以简化逻辑：直接通过 child_tag == WIDGET_POD_0806 匹配即可。
+             * POD1/POD2 的区分由渲染时的 pod_index 决定，更新时无需区分。 */
+            if (child_tag == (uintptr_t)WIDGET_POD_0806) {
+                int16_t sub_cnt = lv_obj_get_child_cnt(child);
+                for (int16_t j = 0; j < sub_cnt; j++) {
+                    lv_obj_t *sub = lv_obj_get_child(child, j);
+                    if (!sub) continue;
+                    if ((uintptr_t)lv_obj_get_user_data(sub) == (uintptr_t)WIDGET_POD_0806) {
+                        if (lv_obj_check_type(sub, &lv_label_class)) {
+                            char buf[32];
+                            snprintf(buf, sizeof(buf), "%.0f", (double)value);
+                            lv_label_set_text(sub, buf);
                         }
+                        break;
                     }
                 }
                 continue;
