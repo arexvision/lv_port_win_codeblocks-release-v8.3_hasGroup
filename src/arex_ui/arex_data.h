@@ -43,38 +43,36 @@ extern "C" {
  * 由 BLE 任务负责接收并校验 CRC，校验通过后调用 arex_bus_set_ui_layout()。
  *
  * BLE 帧字节数计算：
- *   version(1) + card_order[7](7) + left_count(1)
- *   + left_widgets[12] × 3B(36)     ← 优化：移除 w/h，MCU 查样式表
- *   + custom_5f_count(1) + custom_5f_widgets[20] × 5B(100)
+ *   version(1) + card_order[8](8) + left_count(1)
+ *   + left_widgets[14] × 3B(42)     ← 2x7 网格，span_w/h 由 MCU 查样式表
+ *   + custom_5f_count(1) + custom_5f_widgets[30] × 3B(90)
  *   + crc16(2)
- *   = 148 字节                      ← 优化后
+ *   = 145 字节                      ← 优化后
  * ========================================================= */
 #pragma pack(push, 1)
-/* 左侧 2x6 组件描述 (3 Bytes) */
+/* 左侧 2x7 组件描述 (3 Bytes) */
 typedef struct {
-    uint8_t id;         /* arex_widget_id_t (0~13) */
-    uint8_t x;          /* 列索引 0~1 */
-    uint8_t y;          /* 行索引 0~5 */
+    uint8_t widget_id;    /* arex_widget_id_t (0~52) */
+    uint8_t x;           /* 列索引 0~1 */
+    uint8_t y;           /* 行索引 0~6 */
 } ble_sync_left_widget_t;
 
-/* 5F 自定义组件描述 (5 Bytes) */
+/* 5F 自定义组件描述 (3 Bytes) - span_w/h 由 MCU 从样式表自动推导 */
 typedef struct {
-    uint8_t id;         /* arex_widget_id_t (0~13) */
-    uint8_t r;          /* 起始行 0~5 */
-    uint8_t c;          /* 起始列 0~4 */
-    uint8_t w;          /* 列跨度 1~2 */
-    uint8_t h;          /* 行跨度 1~2 */
+    uint8_t widget_id;   /* arex_widget_id_t (0~52) */
+    uint8_t r;           /* 起始行 0~5 */
+    uint8_t c;           /* 起始列 0~4 */
 } ble_sync_5f_widget_t;
 
 /* BLE UI 布局同步帧 */
 typedef struct {
-    uint8_t  version;                     /* 协议版本，0x01 */
-    uint8_t  card_order[7];              /* 卡片滑动顺序数组 */
-    uint8_t  left_count;                 /* 左侧组件数量 */
-    ble_sync_left_widget_t left_widgets[12];       /* 左侧 2x6 组件 */
-    uint8_t  custom_5f_count;            /* 5F 网格组件数量 */
-    ble_sync_5f_widget_t custom_5f_widgets[20];   /* 5F 组件 */
-    uint16_t crc16;                      /* CRC-16/XMODEM 校验和 */
+    uint8_t  version;                      /* 协议版本，0x01 */
+    uint8_t  card_order[8];               /* 卡片滑动顺序数组 */
+    uint8_t  left_count;                  /* 左侧组件数量 */
+    ble_sync_left_widget_t left_widgets[14];        /* 左侧 2x7 组件 */
+    uint8_t  custom_5f_count;             /* 5F 网格组件数量 */
+    ble_sync_5f_widget_t custom_5f_widgets[30];    /* 5F 组件 */
+    uint16_t crc16;                       /* CRC-16/XMODEM 校验和 */
 } arex_ble_ui_sync_payload_t;
 #pragma pack(pop)
 

@@ -205,32 +205,30 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
     rt_base_t level = rt_hw_interrupt_disable();
 #endif
 
-    /* 2. 拷贝右侧卡片滑动顺序 */
+    /* 1. 拷贝右侧卡片滑动顺序 */
     memcpy(g_sys_config.card_order, payload->card_order, sizeof(g_sys_config.card_order));
 
-    /* 3. 映射左侧 2x6 锚点配置（span_w/h 由 MCU 样式表自动推导） */
+    /* 2. 映射左侧 2x7 锚点配置（span_w/h 由 MCU 样式表自动推导） */
     g_left_widget_count = (payload->left_count > AREX_LEFT_MAX_WIDGETS)
-                          ? AREX_LEFT_MAX_WIDGETS
-                          : payload->left_count;
+                        ? AREX_LEFT_MAX_WIDGETS
+                        : payload->left_count;
     for (int i = 0; i < g_left_widget_count; i++) {
-        g_left_widgets[i].widget_id = (arex_widget_id_t)payload->left_widgets[i].id;
+        g_left_widgets[i].widget_id = (arex_widget_id_t)payload->left_widgets[i].widget_id;
         g_left_widgets[i].x         = payload->left_widgets[i].x;
         g_left_widgets[i].y         = payload->left_widgets[i].y;
     }
 
-    /* 4. 映射 5F 自定义网格配置 */
-    g_sys_config.widget_count = (payload->custom_5f_count > 30)
-                                 ? 30
-                                 : payload->custom_5f_count;
-    for (int i = 0; i < g_sys_config.widget_count; i++) {
-        g_sys_config.widget_ids[i] = (arex_widget_id_t)payload->custom_5f_widgets[i].id;
-        g_sys_config.widget_r[i]  = payload->custom_5f_widgets[i].r;
-        g_sys_config.widget_c[i]  = payload->custom_5f_widgets[i].c;
-        g_sys_config.widget_w[i]  = payload->custom_5f_widgets[i].w;
-        g_sys_config.widget_h[i]  = payload->custom_5f_widgets[i].h;
+    /* 3. 映射右侧 5F 自定义网格配置（span_w/h 由 MCU 样式表自动推导） */
+    g_5f_widget_count = (payload->custom_5f_count > AREX_5F_MAX_WIDGETS)
+                       ? AREX_5F_MAX_WIDGETS
+                       : payload->custom_5f_count;
+    for (int i = 0; i < g_5f_widget_count; i++) {
+        g_5f_widgets[i].widget_id = (arex_widget_id_t)payload->custom_5f_widgets[i].widget_id;
+        g_5f_widgets[i].r  = payload->custom_5f_widgets[i].r;
+        g_5f_widgets[i].c  = payload->custom_5f_widgets[i].c;
     }
 
-    /* 5. 打上终极脏标记，通知 UI 推倒重建 */
+    /* 4. 打上终极脏标记，通知 UI 推倒重建 */
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 
 #ifndef PC_SIMULATOR

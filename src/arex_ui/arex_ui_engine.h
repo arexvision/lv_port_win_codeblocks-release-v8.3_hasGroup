@@ -262,14 +262,11 @@ typedef struct {
     uint8_t  gap_menu;       /* 菜单项间距 (默认 0.8U=8px) */
     uint8_t  h_tissues_chart;/* 组织柱图高度 (默认 9U=90px) */
 
-    /* --- 5F 自定义网格 (5x6 密集排版) --- */
-    /* APP 下发每个组件的: 类型ID, 起始行(0~5), 起始列(0~4), 列跨度(1~2), 行跨度(1~2) */
-    uint8_t  widget_count;    /* 当前装填的组件数量 (最多30) */
-    uint8_t  widget_ids[AREX_MAX_WIDGETS];  /* 组件类型: arex_widget_id_t */
-    uint8_t  widget_r[AREX_MAX_WIDGETS];    /* 起始行 0~5 */
-    uint8_t  widget_c[AREX_MAX_WIDGETS];    /* 起始列 0~4 */
-    uint8_t  widget_w[AREX_MAX_WIDGETS];    /* 列跨度 1~2 */
-    uint8_t  widget_h[AREX_MAX_WIDGETS];    /* 行跨度 1~2 */
+    /* --- 5F 自定义网格配置已迁移到独立全局数组 g_5f_widgets[] ---
+     * 架构优化：移除 arex_sys_config_t 中的冗余字段
+     * 5F 网格配置现在由 g_5f_widgets[] 和 g_5f_widget_count 管理，
+     * span_w/h 由 MCU 从 arex_get_widget_style(widget_id) 自动推导。
+     */
 
     /* --- 卡片顺序 (APP 同步就绪) ---
      * card_order[pos] = card_id
@@ -810,6 +807,24 @@ void arex_reset_widget_render_state(void);
 #define AREX_LEFT_MAX_WIDGETS 14
 extern arex_left_widget_t g_left_widgets[AREX_LEFT_MAX_WIDGETS];
 extern uint8_t g_left_widget_count;
+
+/* =========================================================
+ * 5F 自定义网格组件配置（APP 下发结构）
+ *
+ * 架构铁律：
+ *   - widget_id: 组件类型 ID，由 MCU 样式表自动查 span_w/span_h
+ *   - r/c: 网格起始行列，由 MCU 计算绝对坐标
+ *   - w/h: 由 MCU 从 arex_get_widget_style(widget_id) 自动推导
+ * ========================================================= */
+#define AREX_5F_MAX_WIDGETS 30
+typedef struct {
+    arex_widget_id_t widget_id;  /* 组件类型 ID */
+    uint8_t r;                    /* 起始行 0~5 */
+    uint8_t c;                    /* 起始列 0~4 */
+} arex_5f_widget_t;
+
+extern arex_5f_widget_t g_5f_widgets[AREX_5F_MAX_WIDGETS];
+extern uint8_t g_5f_widget_count;
 
 /* 外部告警状态容器（由 arex_screen.c 在创建锚点和卡片时注入） */
 extern lv_obj_t *g_left_anchor_obj;

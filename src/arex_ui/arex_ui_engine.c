@@ -641,6 +641,14 @@ void arex_reset_widget_render_state(void)
 arex_left_widget_t g_left_widgets[AREX_LEFT_MAX_WIDGETS] = {0};
 uint8_t g_left_widget_count = 0;
 
+/* 5F 自定义网格配置数组（与左侧锚点结构一致）
+ *
+ * 5x6 网格区域，由 APP 下发配置
+ * 每个组件只含 widget_id + r/c 三字段，span_w/h 由 MCU 样式表自动查表
+ * ========================================================= */
+arex_5f_widget_t g_5f_widgets[AREX_5F_MAX_WIDGETS] = {0};
+uint8_t g_5f_widget_count = 0;
+
 
 /* 从 KV 持久化存储加载配置（weak 实现由具体平台覆盖） */
 /* =========================================================
@@ -712,31 +720,28 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *
      *  5列布局示意（5列=10格，6行）：
      *  col:  0  1  2  3  4
-     *  row0: [DEPTH 2x2 大块    ] [TEMP  ] [HEADING 2x1 ]
+     *  row0: [DEPTH 2x2 大块    ] [TEMP  ] [HEADING 2 x1 ]
      *  row2: [SAC 2x1           ] [BATT 2x1] [PPO2 1x1 ]
      *  row3: [NDL 2x1           ] [TTS 2x1 ] [CNS  1x1 ]
      *  row4: [POD1 2x1          ] [POD2 2x1] [WTIME 1x1]
      *  row5: [(POD1续)         ] [(POD2续)] [(WTIME续)]
      *
-     *  widget_id → arex_widget_id_t:
-     *    0=EMPTY 1=DEPTH 2=TEMP 3=HEADING 4=SAC_RATE 5=BATTERY
-     *    6=NDL 7=TTS 8=PPO2 9=CNS 10=POD1 11=POD2 12=WTIME 13=GAS
+     *  简洁位置配置：widget_id + r/c 三字段，span_w/h 由 MCU 样式表自动推导
      */
-    cfg->widget_count = 12;
-    /*  id              r  c  w  h */
-    cfg->widget_ids[0] = WIDGET_DEPTH_1612;     cfg->widget_r[0] = 0; cfg->widget_c[0] = 0; cfg->widget_w[0] = 2; cfg->widget_h[0] = 2;
-    cfg->widget_ids[1] = WIDGET_TEMP_0806;      cfg->widget_r[1] = 0; cfg->widget_c[1] = 2; cfg->widget_w[1] = 1; cfg->widget_h[1] = 1;
-    cfg->widget_ids[2] = WIDGET_HEADING_0806;   cfg->widget_r[2] = 0; cfg->widget_c[2] = 3; cfg->widget_w[2] = 2; cfg->widget_h[2] = 1;
-    cfg->widget_ids[3] = WIDGET_SAC_RATE_0806;  cfg->widget_r[3] = 2; cfg->widget_c[3] = 0; cfg->widget_w[3] = 2; cfg->widget_h[3] = 1;
-    cfg->widget_ids[4] = WIDGET_BATTERY_0806;   cfg->widget_r[4] = 2; cfg->widget_c[4] = 2; cfg->widget_w[4] = 2; cfg->widget_h[4] = 1;
-    cfg->widget_ids[5] = WIDGET_PPO2_0806;       cfg->widget_r[5] = 2; cfg->widget_c[5] = 4; cfg->widget_w[5] = 1; cfg->widget_h[5] = 1;
-    cfg->widget_ids[6] = WIDGET_NDL_STOP_1606;       cfg->widget_r[6] = 3; cfg->widget_c[6] = 0; cfg->widget_w[6] = 2; cfg->widget_h[6] = 1;
-    cfg->widget_ids[7] = WIDGET_TTS_0806;        cfg->widget_r[7] = 3; cfg->widget_c[7] = 2; cfg->widget_w[7] = 2; cfg->widget_h[7] = 1;
-    cfg->widget_ids[8] = WIDGET_CNS_0806;        cfg->widget_r[8] = 3; cfg->widget_c[8] = 4; cfg->widget_w[8] = 1; cfg->widget_h[8] = 1;
-    cfg->widget_ids[9] = WIDGET_POD_0806;      cfg->widget_r[9] = 4; cfg->widget_c[9] = 0; cfg->widget_w[9] = 2; cfg->widget_h[9] = 1;
-    cfg->widget_ids[10] = WIDGET_POD_0806;      cfg->widget_r[10] = 4; cfg->widget_c[10] = 2; cfg->widget_w[10] = 2; cfg->widget_h[10] = 1;
-    cfg->widget_ids[11] = WIDGET_WTIME_0806;     cfg->widget_r[11] = 4; cfg->widget_c[11] = 4; cfg->widget_w[11] = 1; cfg->widget_h[11] = 1;
-    cfg->widget_ids[12] = WIDGET_WTIME_0806;    cfg->widget_r[12] = 5; cfg->widget_c[12] = 0; cfg->widget_w[12] = 1; cfg->widget_h[12] = 1;
+    g_5f_widget_count = 12;
+    g_5f_widgets[0]  = (arex_5f_widget_t){ WIDGET_DEPTH_1612,     0, 0 };
+    g_5f_widgets[1]  = (arex_5f_widget_t){ WIDGET_TEMP_0806,     0, 2 };
+    g_5f_widgets[2]  = (arex_5f_widget_t){ WIDGET_HEADING_0806,  0, 3 };
+    g_5f_widgets[3]  = (arex_5f_widget_t){ WIDGET_SAC_RATE_0806, 2, 0 };
+    g_5f_widgets[4]  = (arex_5f_widget_t){ WIDGET_BATTERY_0806,  2, 2 };
+    g_5f_widgets[5]  = (arex_5f_widget_t){ WIDGET_PPO2_0806,     2, 4 };
+    g_5f_widgets[6]  = (arex_5f_widget_t){ WIDGET_NDL_STOP_1606, 3, 0 };
+    g_5f_widgets[7]  = (arex_5f_widget_t){ WIDGET_TTS_0806,      3, 2 };
+    g_5f_widgets[8]  = (arex_5f_widget_t){ WIDGET_CNS_0806,      3, 4 };
+    g_5f_widgets[9]  = (arex_5f_widget_t){ WIDGET_POD_0806,      4, 0 };
+    g_5f_widgets[10] = (arex_5f_widget_t){ WIDGET_POD_0806,      4, 2 };
+    g_5f_widgets[11] = (arex_5f_widget_t){ WIDGET_WTIME_0806,    4, 4 };
+    g_5f_widgets[12] = (arex_5f_widget_t){ WIDGET_WTIME_0806,    5, 0 };
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
      * 160x420 区域 = 2列(80px) x 7行(60px)，由 arex_render_left_anchor_grid() 渲染
@@ -751,31 +756,14 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      */
     g_left_widget_count = 7;
 
-    /* =========================================================
-     * 每个模块都可以通过布局参数独立配置
-     * =========================================================
-     * 通用参数:
-     *   .title_offset_x/y/align  - 标题位置
-     *   .value_offset_x/y/align   - 数值位置
-     *
-     * DEPTH 特殊参数 (AREX_LAYOUT_DEPTH_SPLIT):
-     *   .depth_int_offset_x/y/align  - 整数位置
-     *   .depth_dec_offset_x/y       - 小数相对位置
-     *   .depth_unit_offset_x/y      - 单位相对位置
-     *   .depth_icon_offset_x/y/align - 箭头图标位置
-     *
-     * NDL 特殊参数 (AREX_LAYOUT_NDL_BAR):
-     *   .ndl_bar_offset_x/y/align  - 进度条位置
-     * ========================================================= */
-
     /* 简洁位置配置：APP 下发 widget_id + x/y，span_w/h 由 MCU 样式表自动推导 */
     g_left_widgets[0] = (arex_left_widget_t){ WIDGET_NDL_STOP_1606,    0, 0 };
-    g_left_widgets[1] = (arex_left_widget_t){ WIDGET_DEPTH_1612,  0, 1 };
-    g_left_widgets[2] = (arex_left_widget_t){ WIDGET_POD_0806,  0, 3 };
-    g_left_widgets[3] = (arex_left_widget_t){ WIDGET_POD_0806,  1, 3 };
-    g_left_widgets[4] = (arex_left_widget_t){ WIDGET_WTIME_0806, 0, 4 };
-    g_left_widgets[5] = (arex_left_widget_t){ WIDGET_GAS_1606,   0, 5 };
-    g_left_widgets[6] = (arex_left_widget_t){ WIDGET_SYS_1606,   0, 6 };
+    g_left_widgets[1] = (arex_left_widget_t){ WIDGET_DEPTH_1612,      0, 1 };
+    g_left_widgets[2] = (arex_left_widget_t){ WIDGET_POD_0806,        0, 3 };
+    g_left_widgets[3] = (arex_left_widget_t){ WIDGET_POD_0806,        1, 3 };
+    g_left_widgets[4] = (arex_left_widget_t){ WIDGET_WTIME_0806,      0, 4 };
+    g_left_widgets[5] = (arex_left_widget_t){ WIDGET_GAS_1606,        0, 5 };
+    g_left_widgets[6] = (arex_left_widget_t){ WIDGET_SYS_1606,        0, 6 };
 
     /* ========== [A] 右侧卡片顺序 (tileview 滑动顺序) ==========
      * card_order[pos] = card_id
@@ -1650,21 +1638,22 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
     /* ---- 创建卡片标题（使用通用引擎函数） ---- */
     arex_render_card_title(card_custom, "5F: CUSTOM WIDGETS");
 
-    /* 遍历所有组件 */
-    uint8_t count = g_sys_config.widget_count;
-    if (count > AREX_MAX_WIDGETS) count = AREX_MAX_WIDGETS;
+    /* 遍历所有组件（使用新的 g_5f_widgets[] 结构体数组） */
+    uint8_t count = g_5f_widget_count;
+    if (count > AREX_5F_MAX_WIDGETS) count = AREX_5F_MAX_WIDGETS;
 
     for (uint8_t i = 0; i < count; i++) {
-        arex_widget_id_t w_id   = (arex_widget_id_t)g_sys_config.widget_ids[i];
-        uint8_t r       = g_sys_config.widget_r[i];
-        uint8_t c       = g_sys_config.widget_c[i];
-        uint8_t span_w  = g_sys_config.widget_w[i];
-        uint8_t span_h  = g_sys_config.widget_h[i];
+        arex_widget_id_t w_id   = g_5f_widgets[i].widget_id;
+        uint8_t r = g_5f_widgets[i].r;
+        uint8_t c = g_5f_widgets[i].c;
+
+        /* 从样式表查 span_w/span_h（MCU 本地自动推导） */
+        const arex_widget_style_t *style = arex_get_widget_style(w_id);
+        uint8_t span_w = (style != NULL) ? style->span_w : 1;
+        uint8_t span_h = (style != NULL) ? style->span_h : 1;
 
         if (w_id == WIDGET_EMPTY) continue;
         if (r >= AREX_WIDGET_ROWS || c >= AREX_WIDGET_COLS) continue;
-        if (span_w == 0) span_w = 1;
-        if (span_h == 0) span_h = 1;
 
         /* 纯数学绝对坐标映射（含 AREX_CARD_TITLE_H=40px 标题避让偏移） */
         int16_t abs_x, abs_y;

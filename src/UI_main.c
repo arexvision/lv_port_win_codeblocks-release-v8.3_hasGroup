@@ -40,7 +40,7 @@ static void arex_test_set_ui_layout(uint8_t phase)
         };
         s_payload.left_count = sizeof(left_def) / sizeof(left_def[0]);
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
-            s_payload.left_widgets[i].id = left_def[i][0];
+            s_payload.left_widgets[i].widget_id = left_def[i][0];
             s_payload.left_widgets[i].x  = left_def[i][1];
             s_payload.left_widgets[i].y  = left_def[i][2];
         }
@@ -51,7 +51,7 @@ static void arex_test_set_ui_layout(uint8_t phase)
     } else {
         /* 翻转布局：交换 x 列索引，左右对调 */
         uint8_t left_rev[][3] = {
-            /* id,               x,  y */
+            /* widget_id,        x,  y */
             { WIDGET_HEADING_0806,  0, 0 },   /* 航向顶行 */
             { WIDGET_CNS_0806,     1, 1 },   /* CNS 左 */
             { WIDGET_SAC_RATE_0806,0, 1 },   /* SAC 右 */
@@ -65,7 +65,7 @@ static void arex_test_set_ui_layout(uint8_t phase)
         };
         s_payload.left_count = sizeof(left_rev) / sizeof(left_rev[0]);
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
-            s_payload.left_widgets[i].id = left_rev[i][0];
+            s_payload.left_widgets[i].widget_id = left_rev[i][0];
             s_payload.left_widgets[i].x  = 1 - left_rev[i][1]; /* 列索引翻转 */
             s_payload.left_widgets[i].y  = left_rev[i][2];
         }
