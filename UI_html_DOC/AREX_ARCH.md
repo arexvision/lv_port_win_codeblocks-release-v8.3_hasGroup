@@ -3207,6 +3207,129 @@ if (s_ndl_comp != NULL && (mask & (DIRTY_NDL_STOP | DIRTY_DEPTH | DIRTY_NDL))) {
 | 2026-05-01 | `arex_ui_engine.c` | `arex_ui_update_task()` 注入 NDL_STOP 状态机切换逻辑 |
 | 2026-05-01 | `UI_main.c` | 仿真定时器新增停留状态机测试逻辑 |
 | 2026-05-01 | `AREX_ARCH.md` | 新增 Section 35 - NDL_STOP 多形态组件与动态减压状态机 |
+| 2026-05-02 | `UI_main.c` | 重构 NDL_STOP 模拟器为"剧本"式单向状态机（阶段 A-E） |
+
+---
+
+## 40. NDL 减压状态机业务逻辑重构 (v2026-05-02)
+
+### 40.1 问题描述
+
+**现象**：`arex_ui_update_task` 中的 NDL 组件出现图一 → 图二 → 图三 → 图二的反复横跳乱象。
+
+**根因**：底层模拟数据的状态机逻辑不合理，频繁根据深度上下浮动切换 `stop_type` 枚举，导致 UI 跟着抽风。
+
+### 40.2 核心法则：潜水表三大停留状态
+
+#### 状态 1：常规潜水模式 (`AREX_STOP_NONE`)
+
+| 条件 | 说明 |
+|------|------|
+| 触发 | 默认状态，NDL > 0 且不需要做安全停留 |
+| UI | 粗大垂直绿色进度条 + 巨型 NDL 数字 |
+
+#### 状态 2：安全停留模式 (`AREX_STOP_SAFETY`)
+
+| 条件 | 说明 |
+|------|------|
+| 触发 | 最大深度曾超过 10m，NDL > 0，上升至 3~6m 区间 |
+| UI | 垂直柱消失，底部横向进度条，顶部门显示 "SAFETY 3/5m" |
+| **关键** | **必须保留 NDL 显示**（潜水员仍受 NDL 约束） |
+
+#### 状态 3：强制减压模式 (`AREX_STOP_DECO`)
+
+| 条件 | 说明 |
+|------|------|
+| 触发 | NDL <= 0（组织氮饱和度超过 M-Value） |
+| UI | "DECO 6m" 警示，**彻底隐藏 NDL 文本** |
+| **关键** | NDL 失去意义，只关注减压站深度和倒计时 |
+
+### 40.3 模拟器剧本式单向状态机
+
+将 `UI_main.c` 中 `sim_tick_cb` 的 NDL 模拟逻辑替换为以下剧本：
+
+```c
+/* ============================================================
+ * NDL_STOP 状态机仿真：单向剧本式状态机
+ *
+ * 阶段 A (0-100s): 持续下潜，NDL 持续减少，状态 1 (AREX_STOP_NONE)
+ * 阶段 B (100-300s): NDL 耗尽归零，强制进入 DECO 减压，状态 3
+ * 阶段 C (300-500s): 上升到 6m 减压站，开始读秒，状态 3
+ * 阶段 D (500-700s): 减压完成，NDL 恢复，上升到 5m 触发安全停留，状态 2
+ * 阶段 E (700s+): 全部做完，出水，循环剧本
+ * ============================================================ */
+{
+    static int test_dive_sec = 0;
+    test_dive_sec++;
+
+    if (test_dive_sec < 100) {
+        /* 阶段 A：持续下潜，NDL 持续减少 (状态 1) */
+        g_sensor_data.current_depth = 5.0f + (test_dive_sec * 0.3f);
+        g_sensor_data.ndl = 99 - (test_dive_sec / 2);
+        g_sensor_data.stop_type = AREX_STOP_NONE;
+        g_sensor_data.stop_time_total_s = 0;
+
+    } else if (test_dive_sec < 300) {
+        /* 阶段 B：NDL 耗尽归零，强制进入 DECO 减压模式 (状态 3) */
+        g_sensor_data.ndl = 0;
+        g_sensor_data.current_depth = 35.0f;
+        g_sensor_data.stop_type = AREX_STOP_DECO;
+        g_sensor_data.stop_depth_m = 6.0f;
+        g_sensor_data.stop_time_total_s = 120;
+        g_sensor_data.stop_time_left_s = 120 - ((test_dive_sec - 100) % 120);
+        g_sensor_data.in_stop_zone = false;
+
+    } else if (test_dive_sec < 500) {
+        /* 阶段 C：上升到 6m 减压站，开始读秒 (状态 3) */
+        g_sensor_data.current_depth = 6.1f;
+        g_sensor_data.in_stop_zone = true;
+        g_sensor_data.stop_time_left_s = 120 - ((test_dive_sec - 300) * 120 / 200);
+
+    } else if (test_dive_sec < 700) {
+        /* 阶段 D：减压做完，NDL 恢复，上升到 5m 触发安全停留 (状态 2) */
+        g_sensor_data.ndl = 15;
+        g_sensor_data.current_depth = 4.8f;
+        g_sensor_data.stop_type = AREX_STOP_SAFETY;
+        g_sensor_data.stop_depth_m = 5.0f;
+        g_sensor_data.stop_time_total_s = 180;
+        g_sensor_data.stop_time_left_s = 180 - ((test_dive_sec - 500) * 180 / 200);
+        g_sensor_data.in_stop_zone = true;
+
+    } else {
+        /* 阶段 E：全部做完，出水 */
+        test_dive_sec = 0;
+    }
+
+    g_sensor_data.dirty_mask |= (DIRTY_NDL | DIRTY_DEPTH | DIRTY_NDL_STOP);
+}
+```
+
+### 40.4 UI 层验证检查
+
+`arex_ui_engine.c` 中 `arex_ui_update_task()` 的 NDL 状态机渲染逻辑：
+
+```c
+/* 标题文本分配与显隐控制 */
+if (g_sensor_data.stop_type == AREX_STOP_SAFETY) {
+    lv_label_set_text_fmt(h->title_top, "SAFETY %.0fm", ...);
+
+    /* SAFETY 模式必须保留 NDL 显示 */
+    lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
+} else {
+    lv_label_set_text_fmt(h->title_top, "DECO %.0fm", ...);
+
+    /* DECO 模式彻底消灭 NDL */
+    lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+}
+```
+
+### 40.5 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-05-02 | `UI_main.c` | 重构 `sim_tick_cb` 中的 NDL 模拟逻辑为"剧本"式单向状态机（5个阶段 A-E） |
+| 2026-05-02 | `AREX_ARCH.md` | 新增 Section 40 记录本次修复 |
 
 ---
 
