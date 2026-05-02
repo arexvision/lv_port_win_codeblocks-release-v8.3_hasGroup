@@ -484,29 +484,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
-        .widget_id = WIDGET_TEMP_MAX_0806,
-        .span_w = 1, .span_h = 1,
-        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
-        .font_id = AREX_FONT_ID_MEDIUM,
-        .title_font_id = AREX_FONT_ID_SMALL,
-        .unit = "C",
-        .title = "MAX T",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
-    },
-    {
-        .widget_id = WIDGET_SAC_RATE_0806,
-        .span_w = 1, .span_h = 1,
-        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
-        .font_id = AREX_FONT_ID_MEDIUM,
-        .title_font_id = AREX_FONT_ID_SMALL,
-        .unit = "l/m",
-        .title = "SAC",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
-    },
-    {
-        .widget_id = WIDGET_WTIME_0806,
+        .widget_id = WIDGET_EMPTY,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -516,9 +494,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
-    /* ========== 安全边界组件 ========== */
     {
-        .widget_id = WIDGET_PPO2_SAFE_0806,
+        .widget_id = WIDGET_EMPTY,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -529,7 +506,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
-        .widget_id = WIDGET_NDL_SAFE_0806,
+        .widget_id = WIDGET_EMPTY,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -540,7 +517,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
-        .widget_id = WIDGET_SAC_SAFE_0806,
+        .widget_id = WIDGET_EMPTY,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -742,10 +719,10 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *  5列布局示意（5列=10格，6行）：
      *  col:  0  1  2  3  4
      *  row0: [DEPTH 2x2 大块    ] [TEMP  ] [HEADING 2 x1 ]
-     *  row2: [SAC 2x1           ] [BATT 2x1] [PPO2 1x1 ]
+     *  row2: [空槽    ]          [BATT   ] [PPO2 1x1 ]
      *  row3: [NDL 2x1           ] [TTS 2x1 ] [CNS  1x1 ]
-     *  row4: [POD1 2x1          ] [POD2 2x1] [WTIME 1x1]
-     *  row5: [(POD1续)         ] [(POD2续)] [(WTIME续)]
+     *  row4: [POD1              ] [POD2    ] [空槽   ]
+     *  row5: [空槽               ] [空槽    ] [空槽   ]
      *
      *  简洁位置配置：widget_id + r/c 三字段，span_w/h 由 MCU 样式表自动推导
      */
@@ -753,7 +730,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     g_5f_widgets[0]  = (arex_5f_widget_t){ WIDGET_DEPTH_1612,     0, 0 };
     g_5f_widgets[1]  = (arex_5f_widget_t){ WIDGET_TEMP_0806,     0, 2 };
     g_5f_widgets[2]  = (arex_5f_widget_t){ WIDGET_HEADING_0806,  0, 3 };
-    g_5f_widgets[3]  = (arex_5f_widget_t){ WIDGET_SAC_RATE_0806, 2, 0 };
+    g_5f_widgets[3]  = (arex_5f_widget_t){ WIDGET_EMPTY,         2, 0 };  /* SAC 已移除 */
     g_5f_widgets[4]  = (arex_5f_widget_t){ WIDGET_BATTERY_0806,  2, 2 };
     g_5f_widgets[5]  = (arex_5f_widget_t){ WIDGET_PPO2_0806,     2, 4 };
     g_5f_widgets[6]  = (arex_5f_widget_t){ WIDGET_NDL_STOP_1606, 3, 0 };
@@ -761,8 +738,8 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     g_5f_widgets[8]  = (arex_5f_widget_t){ WIDGET_CNS_0806,      3, 4 };
     g_5f_widgets[9]  = (arex_5f_widget_t){ WIDGET_POD_0806,      4, 0 };
     g_5f_widgets[10] = (arex_5f_widget_t){ WIDGET_POD_0806,      4, 2 };
-    g_5f_widgets[11] = (arex_5f_widget_t){ WIDGET_WTIME_0806,    4, 4 };
-    g_5f_widgets[12] = (arex_5f_widget_t){ WIDGET_WTIME_0806,    5, 0 };
+    g_5f_widgets[11] = (arex_5f_widget_t){ WIDGET_EMPTY,         4, 4 };  /* 保留空槽 */
+    g_5f_widgets[12] = (arex_5f_widget_t){ WIDGET_EMPTY,         5, 0 };  /* 保留空槽 */
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
      * 160x420 区域 = 2列(80px) x 7行(60px)，由 arex_render_left_anchor_grid() 渲染
@@ -780,7 +757,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     /* 简洁位置配置：APP 下发 widget_id + x/y，span_w/h 由 MCU 样式表自动推导 */
     g_left_widgets[0] = (arex_left_widget_t){ WIDGET_NDL_STOP_1606,   0, 0 };
     g_left_widgets[1] = (arex_left_widget_t){ WIDGET_DEPTH_1612,      0, 1 };
-    g_left_widgets[2] = (arex_left_widget_t){ WIDGET_WTIME_0806,      0, 3 };
+    g_left_widgets[2] = (arex_left_widget_t){ WIDGET_DIVE_TIME_1606,  0, 3 };  /* 潜水时间 */
     g_left_widgets[3] = (arex_left_widget_t){ WIDGET_GAS_1606,        0, 4 };
     g_left_widgets[4] = (arex_left_widget_t){ WIDGET_POD_0806,        0, 5 };
     g_left_widgets[5] = (arex_left_widget_t){ WIDGET_POD_0806,        1, 5 };
@@ -1590,20 +1567,22 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                         snprintf(buf, sizeof(buf), "--");
                     }
                     break;
+                case WIDGET_DEPTH_MAX_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_depth); break;
+                case WIDGET_DEPTH_AVG_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_depth); break;
+                case WIDGET_TEMP_MIN_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.min_temp); break;
+                case WIDGET_TEMP_AVG_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_temp); break;
+                /* 🚨 以下已废弃，Protobuf 已移除对应 ID
                 case WIDGET_WTIME_0806: {
                     uint32_t t = g_sensor_data.surface_time_s;
                     snprintf(buf, sizeof(buf), "%02d:%02d", t / 60, t % 60);
                 break;
                 }
-                case WIDGET_DEPTH_MAX_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_depth); break;
-                case WIDGET_DEPTH_AVG_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_depth); break;
-                case WIDGET_TEMP_MIN_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.min_temp); break;
-                case WIDGET_TEMP_AVG_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_temp); break;
                 case WIDGET_TEMP_MAX_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_temp); break;
                 case WIDGET_SAC_RATE_0806:  snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.sac_rate); break;
                 case WIDGET_PPO2_SAFE_0806: snprintf(buf, sizeof(buf), "%.2f", 1.4); break;
                 case WIDGET_NDL_SAFE_0806:  snprintf(buf, sizeof(buf), "%d", 5); break;
                 case WIDGET_SAC_SAFE_0806:  snprintf(buf, sizeof(buf), "%.1f", 25.0); break;
+                */
                 default:                          snprintf(buf, sizeof(buf), "--"); break;
         }
         lv_label_set_text(val_lbl, buf);
@@ -1913,10 +1892,6 @@ void arex_widget_set_value(arex_widget_id_t id, float value)
                                 snprintf(buf, sizeof(buf), "%.1f", (double)value);
                             } else if (id == WIDGET_PPO2_0806) {
                                 snprintf(buf, sizeof(buf), "%.2f", (double)value);
-                            } else if (id == WIDGET_WTIME_0806) {
-                                snprintf(buf, sizeof(buf), "%02d:%02d",
-                                         ((uint32_t)value) / 60,
-                                         ((uint32_t)value) % 60);
                             } else if (id == WIDGET_BATTERY_0806) {
                                 snprintf(buf, sizeof(buf), "%.0f%%", (double)value);
                             } else if (id == WIDGET_TTS_0806 || id == WIDGET_NDL_STOP_1606) {

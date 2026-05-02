@@ -155,61 +155,62 @@ typedef enum {
  *   W: 列跨度 (1~5)
  *   H: 行跨度 (1~6)
  * ========================================================= */
+/* =========================================================
+ * AREX 全局组件 ID 字典 (Strictly mapped from Protobuf)
+ * 警告：此枚举必须与 APP 端的 WidgetType 保持 100% 对齐！
+ * ========================================================= */
 typedef enum {
-    AREX_WIDGET_UNSPECIFIED = 0,
+    WIDGET_TYPE_UNSPECIFIED = 0,
+    WIDGET_EMPTY            = 0,  /* C语言内部别名：空槽位占位符 */
 
     /* --- 核心驻留区 (强制固定) --- */
-    WIDGET_NDL_STOP_1606 = 1,   /* NDL/停留状态机 (2x1) */
-    WIDGET_DEPTH_1612    = 2,   /* 深度大通栏 (2x2) */
-    WIDGET_DEPTH_1606    = 3,   /* 深度长条 (2x1) */
-    WIDGET_DIVE_TIME_1606 = 4, /* 潜水计时 (2x1) */
-    WIDGET_GAS_1606      = 5,   /* 当前气体 (2x1) */
-    WIDGET_SYS_1606      = 6,   /* 系统状态栏 (2x1) */
+    WIDGET_NDL_STOP_1606    = 1,
+    WIDGET_DEPTH_1612       = 2,
+    WIDGET_DEPTH_1606       = 3,
+    WIDGET_DIVE_TIME_1606   = 4,
+    WIDGET_GAS_1606         = 5,
+    WIDGET_SYS_1606         = 6,
 
     /* --- 基础组件 (Basic) --- */
-    WIDGET_TEMP_0806     = 10,  /* 温度 (1x1) */
-    WIDGET_TIME_1606     = 11,  /* 当前时间 (2x1) */
-    WIDGET_TTS_0806      = 12,  /* 到水面时间 (1x1) */
-    WIDGET_ASCENT_0806   = 13,  /* 上升速率 (1x1) */
-    WIDGET_ASCENT_0812   = 14,  /* 上升速率大 (1x2) */
-    WIDGET_COMPASS_1612  = 15,  /* 罗盘 (2x2) */
-    WIDGET_BATTERY_0806  = 16,  /* 电池 (1x1) */
-    WIDGET_STOP_DEPTH_0806 = 17, /* 停留深度 (1x1) */
-    WIDGET_STOP_TIME_1606 = 18,  /* 停留时间 (2x1) */
-    WIDGET_PPO2_0806     = 19,  /* PPO2 (1x1) */
+    WIDGET_TEMP_0806        = 10,
+    WIDGET_TIME_1606        = 11,
+    WIDGET_TTS_0806         = 12,
+    WIDGET_ASCENT_0806      = 13,
+    WIDGET_ASCENT_0812      = 14,
+    WIDGET_COMPASS_1612     = 15,
+    WIDGET_BATTERY_0806     = 16,
+    WIDGET_STOP_DEPTH_0806  = 17,
+    WIDGET_STOP_TIME_1606   = 18,
+    WIDGET_PPO2_0806        = 19,
 
     /* --- 技术潜水 (Tech Dive) --- */
-    WIDGET_SURF_GF_0806  = 20,  /* Surf GF (1x1) */
-    WIDGET_GF99_0806     = 21,  /* GF99 (1x1) */
-    WIDGET_CNS_0806      = 22,  /* CNS (1x1) */
-    WIDGET_OTU_0806      = 23,  /* OTU (1x1) */
-    WIDGET_GF_0806       = 24,  /* GF 设置值 (1x1) */
-    WIDGET_MOD_0806      = 25,  /* MOD (1x1) */
-    WIDGET_CEILING_0806  = 26,  /* Ceiling (1x1) */
-    WIDGET_GAS_MIX_1606  = 27,  /* 气体混合 (2x1) */
-    WIDGET_TISSUE_GF_4012 = 28, /* 组织 GF 图 (4x2) */
-    WIDGET_TISSUE_RAW_4012 = 29, /* 组织原始 (4x2) */
-    WIDGET_GAS_DENS_0806 = 30,  /* 气体密度 (1x1) */
-    WIDGET_FIO2_0806     = 31,  /* FIO2 (1x1) */
+    WIDGET_SURF_GF_0806     = 20,
+    WIDGET_GF99_0806        = 21,
+    WIDGET_CNS_0806         = 22,
+    WIDGET_OTU_0806         = 23,
+    WIDGET_GF_0806          = 24,
+    WIDGET_MOD_0806         = 25,
+    WIDGET_CEILING_0806     = 26,
+    WIDGET_GAS_MIX_1606     = 27,
+    WIDGET_TISSUE_GF_4012   = 28,
+    WIDGET_TISSUE_RAW_4012  = 29,
+    WIDGET_GAS_DENS_0806    = 30,
+    WIDGET_FIO2_0806        = 31,
 
     /* --- 传感器 (Sensors) --- */
-    WIDGET_HEADING_0806  = 32,   /* 航向 (1x1) */
-    WIDGET_POD_0806      = 33,  /* 气瓶压力 (1x1)，全局唯一真实模具 ID */
-    WIDGET_DEPTH_MAX_0806 = 34, /* 最大深度 (1x1) */
-    WIDGET_DEPTH_AVG_0806 = 35, /* 平均深度 (1x1) */
-    WIDGET_TEMP_MIN_0806 = 36,  /* 最低温度 (1x1) */
-    WIDGET_TEMP_AVG_0806 = 37,  /* 平均温度 (1x1) */
-    WIDGET_TEMP_MAX_0806 = 38,  /* 最高温度 (1x1) */
-    WIDGET_SAC_RATE_0806 = 39, /* SAC 呼吸速率 (1x1) */
-    WIDGET_WTIME_0806    = 40,  /* 水面休息时间 (1x1) */
-
-    /* --- 边界安全 (Safety) --- */
-    WIDGET_PPO2_SAFE_0806 = 50, /* PPO2 安全边界 (1x1) */
-    WIDGET_NDL_SAFE_0806 = 51, /* NDL 安全边界 (1x1) */
-    WIDGET_SAC_SAFE_0806 = 52, /* SAC 安全边界 (1x1) */
-
-    /* --- 空白占位 --- */
-    WIDGET_EMPTY         = 99,   /* 空槽位 */
+    WIDGET_HEADING_0806     = 32,
+    WIDGET_POD_0806         = 33,
+    WIDGET_DEPTH_MAX_0806   = 34,
+    WIDGET_DEPTH_AVG_0806   = 35,
+    WIDGET_TEMP_MIN_0806    = 36,
+    WIDGET_TEMP_AVG_0806    = 37
+    /* 🚨 架构师警告：APP 端的 Protobuf 中移除了以下 ID：
+     * WIDGET_TEMP_MAX_0806 (原38)
+     * WIDGET_SAC_RATE_0806 (原39, 耗气率)
+     * WIDGET_WTIME_0806 (原40, 水面休息时间)
+     * WIDGET_PPO2_SAFE_0806 等边界安全组件 (原50+)
+     * 请务必确认产品经理确实删除了这些模块！
+     */
 } arex_widget_id_t;
 
 /* =========================================================

@@ -383,6 +383,184 @@ g_deco_stops[0] = {3.0f, 3.0f};  // 3m 停留 3 分钟
 
 ---
 
+## 十、Protobuf 枚举对齐 + 组件更新数据流修复
+
+### 10.1 枚举精简（`arex_ui_engine.h`）
+
+**文件**：`arex_ui_engine.h` → `arex_widget_id_t`
+
+**背景**：与 APP 端 Protobuf 的 `WidgetType` 严格对齐，移除 MCU 端多余 ID。
+
+**修复 — 新枚举定义**：
+
+```c
+typedef enum {
+    WIDGET_TYPE_UNSPECIFIED = 0,
+    WIDGET_EMPTY            = 0,  /* C语言内部别名：空槽位占位符 */
+
+    /* --- 核心驻留区 (强制固定) --- */
+    WIDGET_NDL_STOP_1606    = 1,
+    WIDGET_DEPTH_1612       = 2,
+    WIDGET_DEPTH_1606       = 3,
+    WIDGET_DIVE_TIME_1606   = 4,
+    WIDGET_GAS_1606         = 5,
+    WIDGET_SYS_1606         = 6,
+
+    /* --- 基础组件 (Basic) --- */
+    WIDGET_TEMP_0806        = 10,
+    WIDGET_TIME_1606        = 11,
+    WIDGET_TTS_0806         = 12,
+    // ... 13-19 ...
+
+    /* --- 技术潜水 (Tech Dive) --- */
+    WIDGET_SURF_GF_0806    = 20,
+    // ... 21-31 ...
+
+    /* --- 传感器 (Sensors) --- */
+    WIDGET_HEADING_0806     = 32,
+    WIDGET_POD_0806         = 33,
+    WIDGET_DEPTH_MAX_0806   = 34,
+    WIDGET_DEPTH_AVG_0806   = 35,
+    WIDGET_TEMP_MIN_0806    = 36,
+    WIDGET_TEMP_AVG_0806    = 37
+    /* 🚨 以下已移除：38(TEMP_MAX), 39(SAC_RATE), 40(WTIME), 50-52(安全边界组件) */
+} arex_widget_id_t;
+```
+
+**已移除的废弃 ID**：
+
+| 旧 ID | 名称 | 原因 |
+|-------|------|------|
+| 38 | `WIDGET_TEMP_MAX_0806` | Protobuf 已移除 |
+| 39 | `WIDGET_SAC_RATE_0806` | Protobuf 已移除 |
+| 40 | `WIDGET_WTIME_0806` | Protobuf 已移除（替换为 WIDGET_TIME_1606） |
+| 50 | `WIDGET_PPO2_SAFE_0806` | Protobuf 已移除 |
+| 51 | `WIDGET_NDL_SAFE_0806` | Protobuf 已移除 |
+| 52 | `WIDGET_SAC_SAFE_0806` | Protobuf 已移除 |
+
+---
+
+### 10.2 样式表清理（`arex_ui_engine.c`）
+
+**文件**：`arex_ui_engine.c` → `g_widget_styles[]`
+
+**修复**：将废弃 ID 的样式项替换为 `WIDGET_EMPTY`，保持数组索引稳定。
+
+| 废弃 ID | 替换为 | 位置 |
+|---------|--------|------|
+| `WIDGET_TEMP_MAX_0806` | `WIDGET_EMPTY` | g_widget_styles |
+| `WIDGET_SAC_RATE_0806` | `WIDGET_EMPTY` | g_widget_styles |
+| `WIDGET_WTIME_0806` | `WIDGET_EMPTY` | g_widget_styles |
+| `WIDGET_PPO2_SAFE_0806` | `WIDGET_EMPTY` | g_widget_styles |
+| `WIDGET_NDL_SAFE_0806` | `WIDGET_EMPTY` | g_widget_styles |
+| `WIDGET_SAC_SAFE_0806` | `WIDGET_EMPTY` | g_widget_styles |
+
+---
+
+### 10.3 网格配置清理（`arex_ui_engine.c`）
+
+**文件**：`arex_ui_engine.c` → `g_5f_widgets[]` / `g_left_widgets[]`
+
+**修复 — 5F 自定义网格**：
+
+```c
+g_5f_widgets[3] = (arex_5f_widget_t){ WIDGET_EMPTY,         2, 0 };  /* SAC 已移除 */
+g_5f_widgets[11] = (arex_5f_widget_t){ WIDGET_EMPTY,         4, 4 };  /* WTIME 已移除 */
+g_5f_widgets[12] = (arex_5f_widget_t){ WIDGET_EMPTY,         5, 0 };  /* WTIME 已移除 */
+```
+
+**修复 — 左侧锚点网格**：
+
+```c
+g_left_widgets[2] = (arex_left_widget_t){ WIDGET_TIME_1606,   0, 3 };  /* 系统时间 */
+```
+
+---
+
+### 10.4 渲染工厂 switch 清理（`arex_ui_engine.c`）
+
+**文件**：`arex_ui_engine.c` → `render_widget_by_id()` 内 switch
+
+**修复**：将废弃 ID 的 case 分支注释掉：
+
+```c
+/* 🚨 以下已废弃，Protobuf 已移除对应 ID
+case WIDGET_WTIME_0806: {
+    uint32_t t = g_sensor_data.surface_time_s;
+    snprintf(buf, sizeof(buf), "%02d:%02d", t / 60, t % 60);
+    break;
+}
+case WIDGET_TEMP_MAX_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_temp); break;
+case WIDGET_SAC_RATE_0806:  snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.sac_rate); break;
+case WIDGET_PPO2_SAFE_0806: snprintf(buf, sizeof(buf), "%.2f", 1.4); break;
+case WIDGET_NDL_SAFE_0806:  snprintf(buf, sizeof(buf), "%d", 5); break;
+case WIDGET_SAC_SAFE_0806:  snprintf(buf, sizeof(buf), "%.1f", 25.0); break;
+*/
+```
+
+---
+
+### 10.5 刷新面板缺失路由修复（`arex_screen.c`）
+
+**文件**：`arex_screen.c` → `arex_screen_refresh_left_panel()`
+
+**问题**：`WIDGET_DIVE_TIME_1606` 虽已加入左侧网格配置，但刷新函数 switch 中缺少对应分支，导致 `DIRTY_DIVE_TIME` 信号无法路由到组件。
+
+**修复 — 添加 case 分支**：
+
+```c
+case WIDGET_DIVE_TIME_1606: {
+    /* 直接格式化 MM:SS，避免 arex_widget_set_value 的浮点格式化 */
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%02d:%02d",
+             g_sensor_data.dive_time_s / 60,
+             g_sensor_data.dive_time_s % 60);
+    arex_widget_set_text(WIDGET_DIVE_TIME_1606, buf);
+    break;
+}
+```
+
+**注意**：`arex_widget_set_value` 会将浮点数格式化为 `%.0f`（整数），不适用于 `MM:SS` 时间格式，因此使用 `arex_widget_set_text` 直接设置格式化字符串。
+
+---
+
+### 10.6 测试代码清理（`UI_main.c`）
+
+**文件**：`UI_main.c` → `arex_test_set_ui_layout()`
+
+**修复**：将废弃 ID 替换为有效 ID 或 `WIDGET_EMPTY`：
+
+| 行 | 旧值 | 新值 |
+|----|------|------|
+| 39 | `WIDGET_WTIME_0806` | `WIDGET_TIME_1606` |
+| 55 | `WIDGET_SAC_RATE_0806` | `WIDGET_EMPTY` |
+| 63 | `WIDGET_WTIME_0806` | `WIDGET_EMPTY` |
+| 96 | `WIDGET_WTIME_0806` | `WIDGET_EMPTY` |
+
+---
+
+### 10.7 数据流完整路径
+
+```
+UI_main.c: g_sensor_data.dive_time_s++
+    ↓
+arex_bus_set_dive_time(dive_s)
+    → arex_data.c: g_sensor_data.dirty_mask |= DIRTY_DIVE_TIME
+    ↓
+arex_ui_engine.c: update_task_timer_cb()
+    → if (mask & DIRTY_DIVE_TIME) → arex_screen_refresh_left_panel()
+    ↓
+arex_screen.c: arex_screen_refresh_left_panel()
+    → switch(w_id) case WIDGET_DIVE_TIME_1606
+    → arex_widget_set_text(WIDGET_DIVE_TIME_1606, "MM:SS")
+    ↓
+arex_ui_engine.c: arex_widget_set_text()
+    → 遍历容器查找 user_data == WIDGET_DIVE_TIME_1606
+    → lv_label_set_text(sub, "MM:SS")
+```
+
+---
+
 ## 九、待处理项
 
 | 项目 | 文件 | 说明 |

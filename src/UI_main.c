@@ -36,7 +36,7 @@ static void arex_test_set_ui_layout(uint8_t phase)
             { WIDGET_DEPTH_1612,     0, 1 },
             { WIDGET_POD_0806,       0, 3 },
             { WIDGET_POD_0806,       1, 3 },
-            { WIDGET_WTIME_0806,     0, 4 },
+            { WIDGET_TIME_1606,        0, 3 },
             { WIDGET_GAS_1606,       0, 5 },
             { WIDGET_SYS_1606,       0, 6 },
         };
@@ -52,7 +52,7 @@ static void arex_test_set_ui_layout(uint8_t phase)
             { WIDGET_DEPTH_1612,     0, 0 },
             { WIDGET_TEMP_0806,      0, 2 },
             { WIDGET_HEADING_0806,   0, 3 },
-            { WIDGET_SAC_RATE_0806,  2, 0 },
+            { WIDGET_EMPTY,            2, 0 },  /* SAC 已移除 */
             { WIDGET_BATTERY_0806,   2, 2 },
             { WIDGET_PPO2_0806,      2, 4 },
             { WIDGET_NDL_STOP_1606,  3, 0 },
@@ -60,7 +60,7 @@ static void arex_test_set_ui_layout(uint8_t phase)
             { WIDGET_CNS_0806,       3, 4 },
             { WIDGET_POD_0806,       4, 0 },
             { WIDGET_POD_0806,       4, 2 },
-            { WIDGET_WTIME_0806,     4, 4 },
+            { WIDGET_EMPTY,            4, 4 },  /* WTIME 已移除 */
         };
         s_payload.custom_5f_count = sizeof(custom_5f) / sizeof(custom_5f[0]);
         for (uint8_t i = 0; i < s_payload.custom_5f_count; i++) {
@@ -93,7 +93,7 @@ static void arex_test_set_ui_layout(uint8_t phase)
             { WIDGET_BATTERY_0806,   2, 0 },
             { WIDGET_PPO2_0806,      2, 2 },
             { WIDGET_NDL_STOP_1606,  3, 0 },
-            { WIDGET_WTIME_0806,     4, 0 },
+            { WIDGET_EMPTY,            4, 0 },  /* WTIME 已移除 */
         };
         s_payload.custom_5f_count = sizeof(custom_min) / sizeof(custom_min[0]);
         for (uint8_t i = 0; i < s_payload.custom_5f_count; i++) {
@@ -227,7 +227,8 @@ static void sim_tick_cb(lv_timer_t *t)
     arex_bus_set_gas(g_sensor_data.gas_active_idx,g_sensor_data.gas_name);
 
     /* 潜水时间 +1s（同时触发左侧面板 + 曲线图刷新） */
-    arex_bus_set_dive_time(g_sensor_data.dive_time_s + 1);
+    g_sensor_data.dive_time_s ++;
+    arex_bus_set_dive_time(g_sensor_data.dive_time_s);
 
     /* 水面休息计时（用于 W.TIME 显示） */
     arex_bus_set_surface_time(g_sensor_data.surface_time_s + 1);

@@ -679,9 +679,15 @@ void arex_screen_refresh_left_panel(void)
                 arex_widget_set_value(WIDGET_POD_0806, g_sensor_data.pod1_bar);
                 arex_widget_set_value(WIDGET_POD_0806, g_sensor_data.pod2_bar);
                 break;
-            case WIDGET_WTIME_0806:
-                arex_widget_set_value(WIDGET_WTIME_0806, (float)g_sensor_data.dive_time_s);
+            case WIDGET_DIVE_TIME_1606: {
+                /* 直接格式化 MM:SS，避免 arex_widget_set_value 的浮点格式化 */
+                char buf[16];
+                snprintf(buf, sizeof(buf), "%02d:%02d",
+                         g_sensor_data.dive_time_s / 60,
+                         g_sensor_data.dive_time_s % 60);
+                arex_widget_set_text(WIDGET_DIVE_TIME_1606, buf);
                 break;
+            }
             case WIDGET_GAS_1606:
                 arex_widget_set_text(WIDGET_GAS_1606, g_sensor_data.gas_name);
                 break;
