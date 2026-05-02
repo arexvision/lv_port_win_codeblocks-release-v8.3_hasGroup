@@ -117,6 +117,7 @@ void arex_bus_toggle_sep_style(void);
 void arex_bus_toggle_flash_speed(void);
 void arex_bus_toggle_mask(void);
 void arex_bus_toggle_split_outward(void);
+void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y);
 
 /* --- 用户设置接口 --- */
 void arex_bus_set_conservatism(uint8_t level);

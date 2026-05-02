@@ -311,6 +311,17 @@ void arex_bus_toggle_split_outward(void)
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 }
 
+void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
+{
+    if (g_sys_config.offset_x == offset_x && g_sys_config.offset_y == offset_y) {
+        return;
+    }
+
+    g_sys_config.offset_x = offset_x;
+    g_sys_config.offset_y = offset_y;
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+}
+
 void arex_bus_set_conservatism(uint8_t level)
 {
     if (g_sys_config.conservatism != level) {
