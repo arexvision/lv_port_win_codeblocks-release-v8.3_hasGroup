@@ -223,8 +223,15 @@ static void sim_tick_cb(lv_timer_t *t)
     /* SafeZone 偏移测试：10秒内 y 先变化，然后 x 再变化 */
     // arex_test_set_ui_offset();
 
-    /* 每 2 秒切换一次气体，用于测试 */
-    arex_bus_set_gas(g_sensor_data.gas_active_idx,g_sensor_data.gas_name);
+    /* 模拟器：交替写入真实的气体名字 */
+    static uint8_t mock_gas_toggle = 0;
+    if (mock_gas_toggle == 0) {
+        arex_bus_set_gas(0, "AIR");
+        mock_gas_toggle = 1;
+    } else {
+        arex_bus_set_gas(1, "NX 32");
+        mock_gas_toggle = 0;
+    }
 
     /* 潜水时间 +1s（同时触发左侧面板 + 曲线图刷新） */
     g_sensor_data.dive_time_s ++;
