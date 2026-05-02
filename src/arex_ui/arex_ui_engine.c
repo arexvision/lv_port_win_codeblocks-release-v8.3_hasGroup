@@ -123,12 +123,17 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title = "NDL",
         .title_offset_x = 0, .title_offset_y = 0, .title_align = LV_TEXT_ALIGN_LEFT,
         .spec.ndl_stop = {
+            /* 基础 Bar 设置 */
             .vert_offset_x = 10, .vert_offset_y = 0, .vert_align = LV_ALIGN_LEFT_MID,
             .vert_w = 14, .vert_h = 40,
             .horiz_offset_x = 0, .horiz_offset_y = -4, .horiz_w = 140, .horiz_h = 6,
-            .main_offset_x = -45, .main_offset_y = 0, .main_align = LV_ALIGN_RIGHT_MID,
-            .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,
-            .sub_offset_x = -10, .sub_offset_y = -5, .sub_align = LV_ALIGN_BOTTOM_RIGHT
+            /* 常态 (Normal) 排版 */
+            .norm_main_x = -45, .norm_main_y = 0,  .norm_main_align = LV_ALIGN_RIGHT_MID,
+            .norm_sub_x  = -10, .norm_sub_y  = -5, .norm_sub_align  = LV_ALIGN_BOTTOM_RIGHT,
+            /* 停留态 (Stop) 排版 */
+            .deco_title_x = 10,  .deco_title_y = 4,   .deco_title_align = LV_ALIGN_TOP_LEFT,
+            .deco_main_x  = -10, .deco_main_y  = -5, .deco_main_align  = LV_ALIGN_RIGHT_MID,
+            .deco_sub_x   = 10,  .deco_sub_y   = -14,.deco_sub_align   = LV_ALIGN_BOTTOM_LEFT
         }
     },
     {
@@ -1422,29 +1427,28 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_bg_color(h->horiz_fill, AREX_GREEN, 0);
         lv_obj_set_style_bg_opa(h->horiz_fill, LV_OPA_COVER, 0);
 
-        /* 主干数值 */
+        /* 主干数值（常态初始位置） */
         h->main_val = lv_label_create(obj);
         lv_obj_set_style_text_color(h->main_val, AREX_GREEN, 0);
         lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_HUGE), 0);
-        lv_obj_align(h->main_val, (lv_align_t)s->main_align, s->main_offset_x, s->main_offset_y);
+        lv_obj_align(h->main_val, (lv_align_t)s->norm_main_align, s->norm_main_x, s->norm_main_y);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(h->main_val, "--");
         else
             lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
 
-        /* 顶部标题 */
+        /* 顶部标题（默认隐藏，停留态时显示） */
         h->title_top = lv_label_create(obj);
         lv_obj_set_style_text_font(h->title_top, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(h->title_top, AREX_LIGHT, 0);
-        lv_obj_align(h->title_top, (lv_align_t)s->title_align, s->title_offset_x, s->title_offset_y);
         lv_label_set_text(h->title_top, "");
         lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
 
-        /* 底部副标题 */
+        /* 底部副标题（常态显示 NDL） */
         h->sub_bot = lv_label_create(obj);
         lv_obj_set_style_text_font(h->sub_bot, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(h->sub_bot, AREX_GREEN, 0);
-        lv_obj_align(h->sub_bot, (lv_align_t)s->sub_align, s->sub_offset_x, s->sub_offset_y);
+        lv_obj_align(h->sub_bot, (lv_align_t)s->norm_sub_align, s->norm_sub_x, s->norm_sub_y);
         lv_label_set_text(h->sub_bot, "NDL");
         return obj;
     } else if (w_id == WIDGET_SYS_1606) {
@@ -2247,6 +2251,12 @@ void arex_ui_update_task(lv_timer_t *timer)
      * 遍历数组，同步刷新所有 NDL 实例（左侧锚点 + 5F 多个）
      * ============================================================ */
     if (s_ndl_handle_count > 0 && (mask & (DIRTY_NDL_STOP | DIRTY_DEPTH | DIRTY_NDL))) {
+        /* 实时查表获取样式字典 */
+        const arex_widget_style_t *style = arex_get_widget_style(WIDGET_NDL_STOP_1606);
+        if (!style) return;
+
+        const arex_style_ndl_stop_t *s = &style->spec.ndl_stop;
+
         for (int i = 0; i < s_ndl_handle_count; i++) {
             ndl_handle_t *h = &s_ndl_handles[i];
 
@@ -2259,69 +2269,51 @@ void arex_ui_update_task(lv_timer_t *timer)
 
                 lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_HUGE), 0);
                 lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
-                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -45, 0);
-
                 lv_label_set_text(h->sub_bot, "NDL");
-                lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_RIGHT, -10, -5);
 
-                int fill_h = (g_sensor_data.ndl * 40) / 99;
-                if (fill_h > 40) fill_h = 40;
+                /* 应用常态字典，消灭魔法数字 */
+                lv_obj_align(h->main_val, (lv_align_t)s->norm_main_align, s->norm_main_x, s->norm_main_y);
+                lv_obj_align(h->sub_bot, (lv_align_t)s->norm_sub_align, s->norm_sub_x, s->norm_sub_y);
+
+                int fill_h = (g_sensor_data.ndl * s->vert_h) / 99;
+                if (fill_h > s->vert_h) fill_h = s->vert_h;
                 if (fill_h < 1) fill_h = 1;
                 lv_obj_set_size(h->vert_fill, LV_PCT(100), fill_h);
             }
-            /* ========== 状态 2: 安全停留模式 (Safety) ========== */
-            else if (g_sensor_data.stop_type == AREX_STOP_SAFETY) {
+            /* ========== 状态 2/3: 停留模式 (Safety / Deco) ========== */
+            else {
                 lv_obj_add_flag(h->vert_bg, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
-                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
-                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -10, 0);
+                /* 缩小字号，合并深度与倒计时 */
+                lv_obj_set_style_text_font(h->main_val, arex_get_font(style->font_id), 0);
 
-                /* 防 fm 乱码：强转成整数，格式如 "3m 3:00" */
+                /* 应用停留态字典 */
+                lv_obj_align(h->main_val, (lv_align_t)s->deco_main_align, s->deco_main_x, s->deco_main_y);
+                lv_obj_align(h->title_top, (lv_align_t)s->deco_title_align, s->deco_title_x, s->deco_title_y);
+
                 int m = g_sensor_data.stop_time_left_s / 60;
-                int s = g_sensor_data.stop_time_left_s % 60;
-                lv_label_set_text_fmt(h->main_val, "%dm %d:%02d", (int)g_sensor_data.stop_depth_m, m, s);
+                int s_val = g_sensor_data.stop_time_left_s % 60;
+                lv_label_set_text_fmt(h->main_val, "%dm %d:%02d", (int)g_sensor_data.stop_depth_m, m, s_val);
 
-                lv_label_set_text(h->title_top, "SAFE STOP");
-                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 10, 4);
-
-                lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
-                lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 10, -14);
+                if (g_sensor_data.stop_type == AREX_STOP_SAFETY) {
+                    lv_label_set_text(h->title_top, "SAFE STOP");
+                    lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+                    lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
+                    /* 应用停留态副标题字典 */
+                    lv_obj_align(h->sub_bot, (lv_align_t)s->deco_sub_align, s->deco_sub_x, s->deco_sub_y);
+                } else {
+                    lv_label_set_text(h->title_top, "DECO STOP");
+                    lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+                }
 
                 int fill_w = (g_sensor_data.stop_time_total_s > 0)
-                             ? ((g_sensor_data.stop_time_total_s - g_sensor_data.stop_time_left_s) * 140) / g_sensor_data.stop_time_total_s
+                             ? ((g_sensor_data.stop_time_total_s - g_sensor_data.stop_time_left_s) * s->horiz_w) / g_sensor_data.stop_time_total_s
                              : 0;
-                if (fill_w > 140) fill_w = 140;
+                if (fill_w > s->horiz_w) fill_w = s->horiz_w;
                 if (fill_w < 1) fill_w = 1;
-                lv_obj_set_size(h->horiz_fill, fill_w, 6);
-            }
-            /* ========== 状态 3: 减压停留模式 (Deco) ========== */
-            else if (g_sensor_data.stop_type == AREX_STOP_DECO) {
-                lv_obj_add_flag(h->vert_bg, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_clear_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
-                /* 减压模式 NDL 已归零，彻底隐藏 NDL 副标题 */
-                lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
-
-                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
-                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -10, 0);
-
-                /* 防 fm 乱码：强转成整数，格式如 "6m 5:00" */
-                int m = g_sensor_data.stop_time_left_s / 60;
-                int s = g_sensor_data.stop_time_left_s % 60;
-                lv_label_set_text_fmt(h->main_val, "%dm %d:%02d", (int)g_sensor_data.stop_depth_m, m, s);
-
-                lv_label_set_text(h->title_top, "DECO STOP");
-                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 10, 4);
-
-                int fill_w = (g_sensor_data.stop_time_total_s > 0)
-                             ? ((g_sensor_data.stop_time_total_s - g_sensor_data.stop_time_left_s) * 140) / g_sensor_data.stop_time_total_s
-                             : 0;
-                if (fill_w > 140) fill_w = 140;
-                if (fill_w < 1) fill_w = 1;
-                lv_obj_set_size(h->horiz_fill, fill_w, 6);
+                lv_obj_set_size(h->horiz_fill, fill_w, s->horiz_h);
             }
         }
     }

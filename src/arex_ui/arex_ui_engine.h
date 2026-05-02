@@ -695,18 +695,19 @@ typedef struct {
     int8_t  horiz_offset_y;  /* 横向条 Y 偏移 */
     int8_t  horiz_w;         /* 横向条宽度 */
     int8_t  horiz_h;         /* 横向条高度 */
-    /* 主值文本（NDL数字/MM:SS） */
-    int8_t  main_offset_x;   /* 主值 X 偏移 */
-    int8_t  main_offset_y;   /* 主值 Y 偏移 */
-    uint8_t main_align;       /* 主值对齐方式 */
-    /* 顶部标题（停留态显示） */
-    int8_t  title_offset_x;  /* 顶部标题 X 偏移 */
-    int8_t  title_offset_y;  /* 顶部标题 Y 偏移 */
-    uint8_t title_align;      /* 顶部标题对齐方式 */
-    /* 底部副标题（NDL/Safety态显示） */
-    int8_t  sub_offset_x;    /* 底部副标题 X 偏移 */
-    int8_t  sub_offset_y;    /* 底部副标题 Y 偏移 */
-    uint8_t sub_align;        /* 底部副标题对齐方式 */
+
+    /* =======================================
+     * 常态 (Normal) 排版参数
+     * ======================================= */
+    int8_t  norm_main_x;  int8_t norm_main_y;  uint8_t norm_main_align; /* NDL 巨大数字 */
+    int8_t  norm_sub_x;   int8_t norm_sub_y;   uint8_t norm_sub_align;  /* 底部 NDL 文本 */
+
+    /* =======================================
+     * 停留态 (Deco/Safety) 排版参数
+     * ======================================= */
+    int8_t  deco_title_x;  int8_t deco_title_y;  uint8_t deco_title_align; /* 顶部 SAFETY/DECO */
+    int8_t  deco_main_x;   int8_t deco_main_y;   uint8_t deco_main_align;  /* 停留倒计时 MM:SS */
+    int8_t  deco_sub_x;    int8_t deco_sub_y;    uint8_t deco_sub_align;   /* Safety 悬浮的 NDL 文本 */
 } arex_style_ndl_stop_t;
 
 /* TISSUE 组织图专属样式参数
