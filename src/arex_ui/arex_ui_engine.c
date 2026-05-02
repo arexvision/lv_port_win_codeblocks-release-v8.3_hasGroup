@@ -597,11 +597,13 @@ static uint8_t s_pod_render_count = 0;  /* POD 渲染计数器 */
 #define POD2_TAG      (2 * POD_TAG_BASE + WIDGET_POD_0806)  /* 2033 */
 
 /* =========================================================
- * SYS 设备状态图标句柄（供 arex_ui_update_task 刷新透明度）
+ * SYS 模块全局静态指针（O(1) 直接访问，零遍历）
  * ========================================================= */
-static lv_obj_t *s_img_strobe = NULL;   /* 留转灯图标 */
-static lv_obj_t *s_img_flash  = NULL;   /* 手电筒图标 */
-static lv_obj_t *s_lbl_cylinders = NULL; /* 气瓶数量文本 "x0" */
+static lv_obj_t *s_sys_batt_lbl = NULL;      /* 电量百分比 */
+static lv_obj_t *s_sys_temp_lbl = NULL;      /* 温度 */
+static lv_obj_t *s_sys_strobe_img = NULL;    /* 留转灯图标 */
+static lv_obj_t *s_sys_flash_img = NULL;     /* 手电筒图标 */
+static lv_obj_t *s_sys_cyl_lbl = NULL;      /* 气瓶数量文本 "x0" */
 
 /* =========================================================
  * 获取 POD 标签（根据当前渲染计数器返回值）
@@ -636,9 +638,11 @@ void arex_reset_widget_render_state(void)
     s_pod_render_count = 0;
 
     /* 归零底部 SystemData 静态句柄，防止 lv_timer 访问死内存 */
-    s_img_strobe       = NULL;
-    s_img_flash        = NULL;
-    s_lbl_cylinders    = NULL;
+    s_sys_batt_lbl     = NULL;
+    s_sys_temp_lbl     = NULL;
+    s_sys_strobe_img   = NULL;
+    s_sys_flash_img    = NULL;
+    s_sys_cyl_lbl      = NULL;
 }
 
 /* 左侧 2x7 绝对网格配置数组
@@ -1452,60 +1456,62 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_label_set_text(h->sub_bot, "NDL");
         return obj;
     } else if (w_id == WIDGET_SYS_1606) {
-        /* ===== SYS 模块：电池 + 温度 + 设备状态图标 ===== */
+        /* ===== SYS 模块：电池 + 温度 + 设备状态图标（O(1) 静态指针捕获） ===== */
         LV_IMG_DECLARE(liuzhuandeng);
         LV_IMG_DECLARE(Shoudiantong);
         LV_IMG_DECLARE(qiping);
 
-        /* 左半部分：电量 + 温度 Label */
-        lv_obj_t *batt_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(batt_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(batt_lbl, AREX_GREEN, 0);
-        lv_obj_align(batt_lbl, LV_ALIGN_TOP_LEFT, 6, 6);
+        /* 左半部分：电量 Label —— 捕获指针 */
+        s_sys_batt_lbl = lv_label_create(obj);
+        lv_obj_set_style_text_font(s_sys_batt_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(s_sys_batt_lbl, AREX_GREEN, 0);
+        lv_obj_align(s_sys_batt_lbl, LV_ALIGN_TOP_LEFT, 10, 2);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT)
-            lv_label_set_text(batt_lbl, "--%");
+            lv_label_set_text(s_sys_batt_lbl, "--%");
         else
-            lv_label_set_text_fmt(batt_lbl, "%.0f%%", (double)g_sensor_data.battery_pct);
+            lv_label_set_text_fmt(s_sys_batt_lbl, "%d%%", (int)g_sensor_data.battery_pct);
 
-        lv_obj_t *temp_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(temp_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(temp_lbl, AREX_GREEN, 0);
-        lv_obj_align(temp_lbl, LV_ALIGN_BOTTOM_LEFT, 6, -6);
+        /* 左半部分：温度 Label —— 捕获指针 */
+        s_sys_temp_lbl = lv_label_create(obj);
+        lv_obj_set_style_text_font(s_sys_temp_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(s_sys_temp_lbl, AREX_GREEN, 0);
+        lv_obj_align(s_sys_temp_lbl, LV_ALIGN_BOTTOM_LEFT, 10, -2);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT)
-            lv_label_set_text(temp_lbl, "--°C");
-        else
-            lv_label_set_text_fmt(temp_lbl, "%.1f°C", (double)g_sensor_data.temperature_c);
+            lv_label_set_text(s_sys_temp_lbl, "-- C");
+        else {
+            int t_int = (int)g_sensor_data.temperature_c;
+            int t_dec = (int)(fabsf(g_sensor_data.temperature_c - t_int) * 10);
+            lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%d C", t_int, t_dec);
+        }
 
-        /* 右半部分：设备状态图标（使用静态句柄刷新） */
+        /* 右半部分：设备状态图标 —— 捕获指针 */
         /* 1. 留转灯图标 */
-        s_img_strobe = lv_img_create(obj);
-        lv_img_set_src(s_img_strobe, &liuzhuandeng);
-        lv_obj_align(s_img_strobe, LV_ALIGN_TOP_RIGHT, -30, 0);
-        lv_obj_set_style_img_opa(s_img_strobe, g_sensor_data.strobe_on ? LV_OPA_COVER : LV_OPA_40, 0);
+        s_sys_strobe_img = lv_img_create(obj);
+        lv_img_set_src(s_sys_strobe_img, &liuzhuandeng);
+        lv_obj_align(s_sys_strobe_img, LV_ALIGN_TOP_RIGHT, -30, 0);
+        lv_obj_set_style_img_opa(s_sys_strobe_img, g_sensor_data.strobe_on ? LV_OPA_COVER : LV_OPA_40, 0);
 
         /* 2. 手电筒图标 */
-        s_img_flash = lv_img_create(obj);
-        lv_img_set_src(s_img_flash, &Shoudiantong);
-        lv_obj_align(s_img_flash, LV_ALIGN_TOP_RIGHT, -10, 5);
-        lv_obj_set_style_img_opa(s_img_flash, g_sensor_data.flashlight_on ? LV_OPA_COVER : LV_OPA_40, 0);
+        s_sys_flash_img = lv_img_create(obj);
+        lv_img_set_src(s_sys_flash_img, &Shoudiantong);
+        lv_obj_align(s_sys_flash_img, LV_ALIGN_TOP_RIGHT, -10, 5);
+        lv_obj_set_style_img_opa(s_sys_flash_img, g_sensor_data.flashlight_on ? LV_OPA_COVER : LV_OPA_40, 0);
 
         /* 3. 气瓶图标 */
         lv_obj_t *img_cyl = lv_img_create(obj);
         lv_img_set_src(img_cyl, &qiping);
         lv_obj_align(img_cyl, LV_ALIGN_BOTTOM_RIGHT, -40, 0);
 
-        /* 4. 气瓶数量文本 "x0" */
-        s_lbl_cylinders = lv_label_create(obj);
-        lv_obj_set_style_text_font(s_lbl_cylinders, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(s_lbl_cylinders, AREX_GREEN, 0);
-        lv_obj_align(s_lbl_cylinders, LV_ALIGN_BOTTOM_RIGHT, -12, 0);
+        /* 4. 气瓶数量文本 "x0" —— 捕获指针 */
+        s_sys_cyl_lbl = lv_label_create(obj);
+        lv_obj_set_style_text_font(s_sys_cyl_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(s_sys_cyl_lbl, AREX_GREEN, 0);
+        lv_obj_align(s_sys_cyl_lbl, LV_ALIGN_BOTTOM_RIGHT, -12, 0);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT)
-            lv_label_set_text(s_lbl_cylinders, "x0");
+            lv_label_set_text(s_sys_cyl_lbl, "x0");
         else
-            lv_label_set_text_fmt(s_lbl_cylinders, "x%d", g_sensor_data.cylinder_count);
+            lv_label_set_text_fmt(s_sys_cyl_lbl, "x%d", g_sensor_data.cylinder_count);
 
-        (void)batt_lbl;
-        (void)temp_lbl;
         (void)img_cyl;
         return obj;
     }
@@ -2400,16 +2406,37 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_widget_set_value(WIDGET_TEMP_0806, g_sensor_data.temperature_c);
     }
 
-    /* 外设状态刷新（灯、气瓶数量） —— 使用静态句柄刷新图标和气瓶数字 */
-    if (mask & DIRTY_DEVICES) {
-        if (s_img_strobe) {
-            lv_obj_set_style_img_opa(s_img_strobe, g_sensor_data.strobe_on ? LV_OPA_COVER : LV_OPA_40, 0);
+    /* ============================================================
+     * O(1) SYS_1606 全模块极速点对点刷新
+     * 直接操作静态指针，绝不遍历 UI 树！
+     * ============================================================ */
+    if (mask & (DIRTY_BATT | DIRTY_TEMP | DIRTY_DEVICES)) {
+        /* 1. 电量百分比 */
+        if (mask & DIRTY_BATT) {
+            if (s_sys_batt_lbl) {
+                lv_label_set_text_fmt(s_sys_batt_lbl, "%d%%", (int)g_sensor_data.battery_pct);
+            }
         }
-        if (s_img_flash) {
-            lv_obj_set_style_img_opa(s_img_flash, g_sensor_data.flashlight_on ? LV_OPA_COVER : LV_OPA_40, 0);
+        /* 2. 温度 */
+        if (mask & DIRTY_TEMP) {
+            if (s_sys_temp_lbl) {
+                /* 整数拼接法绕过 %f 限制，完美显示 26.5 C */
+                int t_int = (int)g_sensor_data.temperature_c;
+                int t_dec = (int)(fabsf(g_sensor_data.temperature_c - t_int) * 10);
+                lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%d C", t_int, t_dec);
+            }
         }
-        if (s_lbl_cylinders) {
-            lv_label_set_text_fmt(s_lbl_cylinders, "x%d", g_sensor_data.cylinder_count);
+        /* 3. 设备状态图标 */
+        if (mask & DIRTY_DEVICES) {
+            if (s_sys_strobe_img) {
+                lv_obj_set_style_img_opa(s_sys_strobe_img, g_sensor_data.strobe_on ? LV_OPA_COVER : LV_OPA_40, 0);
+            }
+            if (s_sys_flash_img) {
+                lv_obj_set_style_img_opa(s_sys_flash_img, g_sensor_data.flashlight_on ? LV_OPA_COVER : LV_OPA_40, 0);
+            }
+            if (s_sys_cyl_lbl) {
+                lv_label_set_text_fmt(s_sys_cyl_lbl, "x%d", g_sensor_data.cylinder_count);
+            }
         }
     }
 
