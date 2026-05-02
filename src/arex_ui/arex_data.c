@@ -322,12 +322,13 @@ void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 }
 
-void arex_bus_set_stop_state(arex_stop_type_t type, float depth_m, uint16_t total_s, uint16_t left_s)
+void arex_bus_set_stop_state(arex_stop_type_t type, float depth_m, uint16_t total_s, uint16_t left_s, bool in_zone)
 {
     if (g_sensor_data.stop_type == type &&
         g_sensor_data.stop_depth_m == depth_m &&
         g_sensor_data.stop_time_total_s == total_s &&
-        g_sensor_data.stop_time_left_s == left_s) {
+        g_sensor_data.stop_time_left_s == left_s &&
+        g_sensor_data.in_stop_zone == in_zone) {
         return;
     }
 
@@ -335,8 +336,12 @@ void arex_bus_set_stop_state(arex_stop_type_t type, float depth_m, uint16_t tota
     g_sensor_data.stop_depth_m = depth_m;
     g_sensor_data.stop_time_total_s = total_s;
     g_sensor_data.stop_time_left_s = left_s;
+    g_sensor_data.in_stop_zone = in_zone;
 
+    /* 临界区保护脏标记，防止数据撕裂 */
+    rt_base_t level = rt_hw_interrupt_disable();
     g_sensor_data.dirty_mask |= DIRTY_NDL_STOP;
+    rt_hw_interrupt_enable(level);
 }
 
 void arex_bus_set_conservatism(uint8_t level)

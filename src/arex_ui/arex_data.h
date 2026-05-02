@@ -120,7 +120,7 @@ void arex_bus_toggle_split_outward(void);
 void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y);
 
 /* --- NDL 停留状态机控制接口 --- */
-void arex_bus_set_stop_state(arex_stop_type_t type, float depth_m, uint16_t total_s, uint16_t left_s);
+void arex_bus_set_stop_state(arex_stop_type_t type, float depth_m, uint16_t total_s, uint16_t left_s, bool in_zone);
 
 /* --- 用户设置接口 --- */
 void arex_bus_set_conservatism(uint8_t level);
