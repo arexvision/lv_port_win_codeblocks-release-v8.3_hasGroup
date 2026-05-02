@@ -145,7 +145,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_BAR,
         .font_id = AREX_FONT_ID_MEDIUM,
-        .title_font_id = AREX_FONT_ID_SMALL,
+        .title_font_id = AREX_FONT_ID_TITLE,
         .unit = NULL,
         .title = "DIVE",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_CENTER,
@@ -204,8 +204,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "min",
         .title = "TTS",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_ASCENT_0806,
@@ -215,8 +215,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "m/m",
         .title = "RATE",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_ASCENT_0812,
@@ -249,8 +249,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "%",
         .title = "BATT",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_STOP_DEPTH_0806,
@@ -260,8 +260,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "m",
         .title = "STOP",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_STOP_TIME_1606,
@@ -271,8 +271,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "min",
         .title = "STIME",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_PPO2_0806,
@@ -305,8 +305,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "%",
         .title = "GF99",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_CNS_0806,
@@ -316,8 +316,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "%",
         .title = "CNS",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_OTU_0806,
@@ -349,8 +349,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "m",
         .title = "MOD",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_CEILING_0806,
@@ -360,8 +360,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "m",
         .title = "CEIL",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_GAS_MIX_1606,
@@ -406,8 +406,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "g/L",
         .title = "DENS",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_FIO2_0806,
@@ -417,8 +417,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "%",
         .title = "FIO2",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     /* ========== 传感器组件 ========== */
     {
@@ -429,8 +429,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = NULL,
         .title = "HDG",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_POD_0806,
@@ -462,8 +462,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "m",
         .title = "AVG D",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_TEMP_MIN_0806,
@@ -473,8 +473,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "C",
         .title = "MIN T",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_TEMP_AVG_0806,
@@ -484,8 +484,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "C",
         .title = "AVG T",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_EMPTY,
@@ -517,8 +517,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "min",
         .title = "NDL MIN",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_EMPTY,
