@@ -146,12 +146,22 @@ static void styles_init(void)
 /* 清空 ascent/NDL widget 句柄数组（在任何网格渲染之前调用）
  * 在 arex_screen_rebuild_layout() 和 left_anchor_create() 入口各调用一次，
  * 确保数组从干净状态开始，两侧网格渲染函数均以追加模式运行。 */
+/* =========================================================
+ * 统一重置 UI 渲染状态（防止悬空指针访问）
+ * 调用链：arex_screen_rebuild_layout → clear_widget_arrays
+ * ========================================================= */
 static void clear_widget_arrays(void)
 {
+    /* 重置速率图标阵列 */
     memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
     s_ascent_icon_count = 0;
+
+    /* 重置 NDL 状态机 */
     memset(s_ndl_handles, 0, sizeof(s_ndl_handles));
     s_ndl_handle_count = 0;
+
+    /* 重置渲染计数器和 SystemData 静态句柄 */
+    arex_reset_widget_render_state();
 }
 
 /* =========================================================
@@ -374,21 +384,26 @@ static void right_panel_create(void)
  * ========================================================= */
 void arex_screen_rebuild_layout(void)
 {
-    /* 统一清空 widget 句柄数组（只清空一次！） */
+    /* 1. 必须在清空对象前，把指针全部洗白！断绝悬空指针！ */
     clear_widget_arrays();
 
-    /* 重建左侧锚点排版（2x7 绝对网格版本） */
+    /* 2. 清空左侧锚点（拆房子） */
+    if (s_left_anchor) {
+        lv_obj_clean(s_left_anchor);
+    }
+
+    /* 3. 重建左侧锚点排版（2x7 绝对网格版本，建房子） */
     if (s_left_anchor) {
         left_anchor_rebuild(0);
     }
 
-    /* 重建 5F 自定义网格 */
+    /* 4. 重建 5F 自定义网格（拆+建） */
     arex_5f_grid_rebuild();
 
-    /* 重建 Safe Zone 内部定位 */
+    /* 5. 重建 Safe Zone 内部定位 */
     safe_zone_reposition();
 
-    /* 重建滚动指示器 */
+    /* 6. 重建滚动指示器 */
     for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++) {
         if (s_scroll_dots[i]) {
             if (g_sys_config.dots_position == AREX_DOTS_NONE)
@@ -397,7 +412,12 @@ void arex_screen_rebuild_layout(void)
                 lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
         }
     }
+
+    /* 7. 强制把所有常规数据的脏标记置 1！
+     * 因为新建的 Label 里面全是 "--"，必须让定时器在下一帧把真实数据刷进去！ */
+    g_sensor_data.dirty_mask |= (DIRTY_DEPTH | DIRTY_BATT | DIRTY_TEMP | DIRTY_POD | DIRTY_DEVICES);
 }
+
 
 /* =========================================================
  * Tileview 重建 (卡片顺序变更时调用)
@@ -568,7 +588,7 @@ void arex_screen_create(void)
 
     lv_obj_set_style_border_color(s_safe_zone, AREX_DARK, 0);
     lv_obj_set_style_border_width(s_safe_zone, AREX_DEBUG_BORDERS ? 1 : 0, 0);
-    
+
     left_anchor_create();
     right_panel_create();
     wall_create();

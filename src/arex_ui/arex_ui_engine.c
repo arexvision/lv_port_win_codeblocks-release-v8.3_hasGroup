@@ -629,6 +629,11 @@ static uint8_t arex_get_pod_index(void)
 void arex_reset_widget_render_state(void)
 {
     s_pod_render_count = 0;
+
+    /* 归零底部 SystemData 静态句柄，防止 lv_timer 访问死内存 */
+    s_img_strobe       = NULL;
+    s_img_flash        = NULL;
+    s_lbl_cylinders    = NULL;
 }
 
 /* 左侧 2x7 绝对网格配置数组
