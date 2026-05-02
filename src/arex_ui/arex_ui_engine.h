@@ -100,8 +100,8 @@ extern uint8_t g_sys_card_order(uint8_t pos);
  */
 typedef enum {
     AREX_FONT_ID_SMALL = 0,  /* 14px  标签/单位/Badge */
-    AREX_FONT_ID_TITLE,      /* 20px  菜单项/卡片标题 */
-    AREX_FONT_ID_MEDIUM,     /* 28px  数据值 */
+    AREX_FONT_ID_TITLE,       /* 20px  菜单项/卡片标题 */
+    AREX_FONT_ID_MEDIUM,      /* 28px  数据值 */
     AREX_FONT_ID_HUGE,       /* 58px  深度大数字 */
 } arex_font_id_t;
 

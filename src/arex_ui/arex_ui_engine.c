@@ -85,15 +85,15 @@ static const arex_widget_style_t g_widget_styles[] = {
         .widget_id = WIDGET_DEPTH_1612,
         .span_w = 2, .span_h = 2,
         .elements = ELEM_VALUE | ELEM_UNIT | ELEM_BAR,  /* 2x2 大通栏：无 title，靠 spec.depth 做 int/dec/unit 分离 */
-        .font_id = AREX_FONT_ID_HUGE,
-        .title_font_id = AREX_FONT_ID_SMALL,
+        .font_id = AREX_FONT_ID_HUGE,           //整数字体
+        .title_font_id = AREX_FONT_ID_MEDIUM,    //小数字体
         .unit = "m",
         .title = "DEPTH",
         .title_offset_x = 8, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,//实际无用
         .spec.depth = {
             // 核心修复：将大整数的锚点设为 RIGHT_MID (靠右对齐)！
             // offset_x = -45，意味着右边缘焊死在距离右边界 45px 的位置 (给右边的箭头留出空间)
-            .int_offset_x = -90, .int_offset_y = 10, .int_align = LV_ALIGN_RIGHT_MID,
+            .int_offset_x = -80, .int_offset_y = 10, .int_align = LV_ALIGN_RIGHT_MID,
             // 小数点挂在整数的外部右下角，Y轴微微往上提一点 (-6) 让基线对齐
             .dec_offset_x = 2,  .dec_offset_y = -30,
             // 单位挂在小数的正下方
@@ -436,7 +436,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .widget_id = WIDGET_POD_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,  /* ELEM_EXTRA → POD1/POD2 专属 ID 标签 */
-        .font_id = AREX_FONT_ID_HUGE,
+        .font_id = AREX_FONT_ID_MEDIUM,
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "",
         .title = "POD",
@@ -978,7 +978,7 @@ lv_align_t arex_align_to_lv_align(uint8_t align)
  *   AREX_FONT_ID_SMALL  (0) → lv_font_courier_14  14px  标签/单位/Badge
  *   AREX_FONT_ID_TITLE  (1) → lv_font_courier_20  20px  菜单项/卡片标题
  *   AREX_FONT_ID_MEDIUM (2) → lv_font_courier_28  28px  数据值
- *   AREX_FONT_ID_HUGE   (3) → lv_font_courier_58  58px  深度大数字(与HTML规范一致)
+ *   AREX_FONT_ID_HUGE   (3) → lv_font_courier_58  58px  深度大数字
  * ========================================================= */
 const lv_font_t *arex_get_font(uint8_t font_id)
 {
@@ -986,7 +986,7 @@ const lv_font_t *arex_get_font(uint8_t font_id)
         case AREX_FONT_ID_SMALL:  return AREX_FONT_SMALL;   /* 14px */
         case AREX_FONT_ID_TITLE:  return AREX_FONT_TITLE;   /* 20px */
         case AREX_FONT_ID_MEDIUM: return AREX_FONT_MEDIUM;  /* 28px */
-        case AREX_FONT_ID_HUGE:   return AREX_FONT_HUGE;   /* 48px */
+        case AREX_FONT_ID_HUGE:   return AREX_FONT_HUGE;   /* 58px */
         default:                   return AREX_FONT_SMALL;   /* 兜底：永不为 NULL */
     }
 }
@@ -1290,19 +1290,25 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     const arex_widget_style_t *style = arex_get_widget_style(w_id);
     if (!style) return NULL;
 
-    /* 字号自适应（可被 cfg_font_id 覆盖）：
-     *   2x2 大块 → AREX_FONT_ID_HUGE (48px)
-     *   2x1 长条 → AREX_FONT_ID_MEDIUM (28px)
-     *   1x1 小块 → AREX_FONT_ID_SMALL (14px) */
+    /* 字号选择逻辑：
+     *   cfg_font_id != 255 → 强制覆盖（运行时指定）
+     *   DEPTH 系列 → 自动适配尺寸（HUGE/MEDIUM/SMALL）
+     *   其他组件 → 直接使用字典 font_id */
     arex_font_id_t val_font_id;
     if (cfg_font_id != (arex_font_id_t)255) {
-        val_font_id = cfg_font_id;  /* 强制覆盖 */
-    } else if (span_w >= 2 && span_h >= 2) {
-        val_font_id = AREX_FONT_ID_HUGE;
-    } else if (span_w >= 2) {
-        val_font_id = AREX_FONT_ID_MEDIUM;
+        val_font_id = cfg_font_id;  /* 强制覆盖（运行时指定） */
+    } else if (w_id == WIDGET_DEPTH_1612 || w_id == WIDGET_DEPTH_1606) {
+        /* DEPTH 组件：自动适配尺寸 */
+        if (span_w >= 2 && span_h >= 2) {
+            val_font_id = AREX_FONT_ID_HUGE;
+        } else if (span_w >= 2) {
+            val_font_id = AREX_FONT_ID_MEDIUM;
+        } else {
+            val_font_id = AREX_FONT_ID_SMALL;
+        }
     } else {
-        val_font_id = AREX_FONT_ID_SMALL;
+        /* 其他组件：直接使用字典 font_id */
+        val_font_id = style->font_id;
     }
 
     lv_obj_t *obj = lv_obj_create(parent);
@@ -1339,7 +1345,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_t *int_lbl = lv_label_create(obj);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(int_lbl, "--");
         else lv_label_set_text_fmt(int_lbl, "%d", (int)g_sensor_data.depth);
-        lv_obj_set_style_text_font(int_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
+        // 字体从字典读取（font_id = HUGE 58px）
+        lv_obj_set_style_text_font(int_lbl, arex_get_font(style->font_id), 0);
         lv_obj_set_style_text_color(int_lbl, AREX_GREEN, 0);
 
         // 绝杀技：必须设为 CONTENT！这样无论变成 "6" 还是 "45"，
@@ -1355,7 +1362,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_t *dec_lbl = lv_label_create(obj);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
         else lv_label_set_text_fmt(dec_lbl, ".%d", (int)((g_sensor_data.depth - (int)g_sensor_data.depth) * 10 + 0.5f));
-        lv_obj_set_style_text_font(dec_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+        // 字体从字典读取（title_font_id = MEDIUM 28px，小数比整数小）
+        lv_obj_set_style_text_font(dec_lbl, arex_get_font(style->title_font_id), 0);
         lv_obj_set_style_text_color(dec_lbl, AREX_GREEN, 0);
         lv_obj_set_size(dec_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
@@ -1368,6 +1376,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         if (style->elements & ELEM_UNIT) {
             lv_obj_t *unit_lbl = lv_label_create(obj);
             lv_label_set_text(unit_lbl, style->unit ? style->unit : "");
+            // 单位固定用小号字体
             lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
             lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
             lv_obj_set_size(unit_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
