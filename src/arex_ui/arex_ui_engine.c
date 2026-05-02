@@ -769,13 +769,13 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     g_left_widget_count = 7;
 
     /* 简洁位置配置：APP 下发 widget_id + x/y，span_w/h 由 MCU 样式表自动推导 */
-    g_left_widgets[0] = (arex_left_widget_t){ WIDGET_NDL_STOP_1606,    0, 0 };
+    g_left_widgets[0] = (arex_left_widget_t){ WIDGET_NDL_STOP_1606,   0, 0 };
     g_left_widgets[1] = (arex_left_widget_t){ WIDGET_DEPTH_1612,      0, 1 };
-    g_left_widgets[2] = (arex_left_widget_t){ WIDGET_POD_0806,        0, 3 };
-    g_left_widgets[3] = (arex_left_widget_t){ WIDGET_POD_0806,        1, 3 };
-    g_left_widgets[4] = (arex_left_widget_t){ WIDGET_WTIME_0806,      0, 4 };
-    g_left_widgets[5] = (arex_left_widget_t){ WIDGET_SYS_1606,        0, 5 };
-    g_left_widgets[6] = (arex_left_widget_t){ WIDGET_WTIME_0806,        0, 6 };
+    g_left_widgets[2] = (arex_left_widget_t){ WIDGET_WTIME_0806,      0, 3 };
+    g_left_widgets[3] = (arex_left_widget_t){ WIDGET_GAS_1606,        0, 4 };
+    g_left_widgets[4] = (arex_left_widget_t){ WIDGET_POD_0806,        0, 5 };
+    g_left_widgets[5] = (arex_left_widget_t){ WIDGET_POD_0806,        1, 5 };
+    g_left_widgets[6] = (arex_left_widget_t){ WIDGET_SYS_1606,        0, 6 };
 
     /* 动态计算实际 widget 数量（以最后一个非零 widget 为准） */
     g_left_widget_count = 0;

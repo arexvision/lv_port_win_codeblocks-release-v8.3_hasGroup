@@ -146,6 +146,46 @@ static void arex_test_set_ui_layout(uint8_t phase)
     /* 触发底层总线数据装载与清屏重建 */
     arex_bus_set_ui_layout(&s_payload);
 }
+
+/* =========================================================
+ * arex_test_set_ui_offset — 模拟 BLE 下发 SafeZone 偏移
+ *
+ * 测试场景：10秒内 y 先变化，然后 x 再变化
+ *   - 0~10s:  y 从 -10 → -20 → -10 循环
+ *   - 10~20s: x 从 0 → 20 → 0 循环
+ *   - 之后:    x/y 交替变化
+ * ========================================================= */
+static void arex_test_set_ui_offset(void)
+{
+    static uint32_t s_offset_start_tick = 0;
+    static uint8_t  s_offset_phase = 0;
+
+    if (s_offset_start_tick == 0) {
+        s_offset_start_tick = lv_tick_get();
+        printf("[TEST] arex_bus_set_ui_offset test started\r\n");
+    }
+
+    uint32_t elapsed_s = (lv_tick_get() - s_offset_start_tick) / 1000;
+
+    if (elapsed_s < 10) {
+        /* 0~10s: y 变化 */
+        int16_t y_val = -10 + (int16_t)((elapsed_s % 5) * 2); /* -10, -8, -6, -8, -10 循环 */
+        arex_bus_set_ui_offset(0, y_val);
+    } else if (elapsed_s < 20) {
+        /* 10~20s: x 变化 */
+        int16_t x_val = (int16_t)((elapsed_s % 5) * 5); /* 0, 5, 10, 15, 0 循环 */
+        arex_bus_set_ui_offset(x_val, -10);
+    } else {
+        /* 20s+: x/y 交替变化 */
+        if (s_offset_phase == 0) {
+            arex_bus_set_ui_offset(10, -10);
+        } else {
+            arex_bus_set_ui_offset(0, -20);
+        }
+        s_offset_phase = 1 - s_offset_phase;
+    }
+}
+
 /* =========================================================
  * sim_tick_cb — 模拟硬件数据源
  *
@@ -156,29 +196,32 @@ static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
 
-    /* 布局切换测试：每 5 秒切换一次布局（phase: 0→1→2→0 循环） */
-    static uint16_t s_layout_tick = 0;
-    static bool s_started = false;
-    if (!s_started) {
-        printf("[TEST] Layout switch test started (every 5s)...\r\n");
-        s_started = true;
-    }
-    s_layout_tick++;
-    if (s_layout_tick % 5 == 0) {  /* 5 秒触发一次 */
-        static uint8_t s_layout_phase = 0;
-        printf("[TEST] Switching to phase %u\r\n", s_layout_phase);
+    // /* 布局切换测试：每 5 秒切换一次布局（phase: 0→1→2→0 循环） */
+    // static uint16_t s_layout_tick = 0;
+    // static bool s_started = false;
+    // if (!s_started) {
+    //     printf("[TEST] Layout switch test started (every 5s)...\r\n");
+    //     s_started = true;
+    // }
+    // s_layout_tick++;
+    // if (s_layout_tick % 5 == 0) {  /* 5 秒触发一次 */
+    //     static uint8_t s_layout_phase = 0;
+    //     printf("[TEST] Switching to phase %u\r\n", s_layout_phase);
 
-        /* 【注意】不要在这里调用 lv_disp_enable_invalidation！
-         * arex_ui_update_task() 内部已经正确处理了 invalidation。
-         * 如果同时在 sim_tick_cb 中禁用，LVGL 显示缓冲区可能在重建后无法正确刷新。 */
-        arex_test_set_ui_layout(s_layout_phase);
+    //     /* 【注意】不要在这里调用 lv_disp_enable_invalidation！
+    //      * arex_ui_update_task() 内部已经正确处理了 invalidation。
+    //      * 如果同时在 sim_tick_cb 中禁用，LVGL 显示缓冲区可能在重建后无法正确刷新。 */
+    //     arex_test_set_ui_layout(s_layout_phase);
 
-        s_layout_phase = (s_layout_phase + 1) % 2;  /* 0→1→0 循环测试 */
-    }
+    //     s_layout_phase = (s_layout_phase + 1) % 2;  /* 0→1→0 循环测试 */
+    // }
 
     /* 航向缓慢顺时针旋转 */
     uint16_t new_heading = (g_sensor_data.heading + 1) % 360;
     arex_bus_set_heading(new_heading);
+
+    /* SafeZone 偏移测试：10秒内 y 先变化，然后 x 再变化 */
+    arex_test_set_ui_offset();
 
     /* 每 2 秒切换一次气体，用于测试 */
     arex_bus_set_gas(g_sensor_data.gas_active_idx,g_sensor_data.gas_name);
@@ -332,5 +375,5 @@ void UI_main(void)
     s_update_task_timer = lv_timer_create(arex_ui_update_task, 50, NULL);
 
     /* 8. 启动模拟数据定时器：1Hz */
-    // lv_timer_create(sim_tick_cb, 1000, NULL);
+    lv_timer_create(sim_tick_cb, 1000, NULL);
 }
