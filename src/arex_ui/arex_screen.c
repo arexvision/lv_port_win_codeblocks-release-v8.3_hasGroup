@@ -643,57 +643,38 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
  * 铁律：只读 g_left_widgets[] 数组，根据 widget_id 路由到对应的 g_sensor_data 字段。
  * 每次修改布局（调整 g_left_widgets[] 顺序/类型）后，此函数自动同步，无需手动维护。
  * ========================================================= */
+/* =========================================================
+ * 全屏组件数据同步接口
+ *
+ * 同时刷新左侧锚点和右侧 5F 自定义网格的所有组件。
+ * 内部调用 arex_widget_sync_data() 路由分发器，实现全量数据自动对齐。
+ * ========================================================= */
+void arex_screen_refresh_all_widgets(void)
+{
+    /* 1. 同步左侧固定区配置 */
+    for (uint8_t i = 0; i < g_left_widget_count; i++) {
+        if (g_left_widgets[i].widget_id != WIDGET_EMPTY) {
+            arex_widget_sync_data(g_left_widgets[i].widget_id);
+        }
+    }
+
+    /* 2. 同步右侧 5F 自定义区配置（遍历 g_5f_widgets[]） */
+    for (uint8_t i = 0; i < g_5f_widget_count; i++) {
+        if (g_5f_widgets[i].widget_id != WIDGET_EMPTY) {
+            arex_widget_sync_data(g_5f_widgets[i].widget_id);
+        }
+    }
+}
+
+/* =========================================================
+ * 兼容旧接口：仅刷新左侧面板
+ * 内部委托给 arex_widget_sync_data()，消除冗余 switch-case
+ * ========================================================= */
 void arex_screen_refresh_left_panel(void)
 {
     for (uint8_t i = 0; i < g_left_widget_count; i++) {
-        arex_widget_id_t w_id = g_left_widgets[i].widget_id;
-
-        switch (w_id) {
-            case WIDGET_NDL_STOP_1606:
-                arex_widget_set_value(WIDGET_NDL_STOP_1606, (float)g_sensor_data.ndl);
-                break;
-            case WIDGET_DEPTH_1612:
-                arex_widget_set_value(WIDGET_DEPTH_1612, g_sensor_data.depth);
-                break;
-            case WIDGET_TEMP_0806:
-                arex_widget_set_value(WIDGET_TEMP_0806, g_sensor_data.temperature_c);
-                break;
-            case WIDGET_HEADING_0806:
-                arex_widget_set_value(WIDGET_HEADING_0806, (float)g_sensor_data.heading);
-                break;
-            case WIDGET_BATTERY_0806:
-                arex_widget_set_value(WIDGET_BATTERY_0806, g_sensor_data.battery_pct);
-                break;
-            case WIDGET_TTS_0806:
-                arex_widget_set_value(WIDGET_TTS_0806, (float)g_sensor_data.tts);
-                break;
-            case WIDGET_PPO2_0806:
-                arex_widget_set_value(WIDGET_PPO2_0806, g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
-                break;
-            case WIDGET_CNS_0806:
-                arex_widget_set_value(WIDGET_CNS_0806, (float)g_sensor_data.cns_pct);
-                break;
-            case WIDGET_POD_0806:
-                /* POD1/POD2 共用枚举值 33；渲染时已由状态机区分写入 user_data，
-                 * 更新时两次调用按 user_data 各自路由到对应的 POD1/POD2 组件 */
-                arex_widget_set_value(WIDGET_POD_0806, g_sensor_data.pod1_bar);
-                arex_widget_set_value(WIDGET_POD_0806, g_sensor_data.pod2_bar);
-                break;
-            case WIDGET_DIVE_TIME_1606: {
-                /* 直接格式化 MM:SS，避免 arex_widget_set_value 的浮点格式化 */
-                char buf[16];
-                snprintf(buf, sizeof(buf), "%02d:%02d",
-                         g_sensor_data.dive_time_s / 60,
-                         g_sensor_data.dive_time_s % 60);
-                arex_widget_set_text(WIDGET_DIVE_TIME_1606, buf);
-                break;
-            }
-            case WIDGET_GAS_1606:
-                arex_widget_set_text(WIDGET_GAS_1606, g_sensor_data.gas_name);
-                break;
-            case WIDGET_EMPTY:
-            default:
-                break;
+        if (g_left_widgets[i].widget_id != WIDGET_EMPTY) {
+            arex_widget_sync_data(g_left_widgets[i].widget_id);
         }
     }
 }

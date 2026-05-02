@@ -66,6 +66,12 @@ void arex_screen_rebuild_tileview(void);
 /* =========================================
    Left panel refresh (仅更新文字)
    ========================================= */
+
+/* 统一全屏组件刷新接口：同时刷新左侧锚点和 5F 自定义网格
+ * 内部调用 arex_widget_sync_data() 路由分发器 */
+void arex_screen_refresh_all_widgets(void);
+
+/* 兼容旧接口：仅刷新左侧面板（保留以避免外部引用断裂） */
 void arex_screen_refresh_left_panel(void);
 
 /* =========================================

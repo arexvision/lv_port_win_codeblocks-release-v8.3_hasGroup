@@ -1946,6 +1946,190 @@ void arex_widget_set_text(arex_widget_id_t id, const char *text)
 }
 
 /* =========================================================
+ * 全局组件数据路由分发器
+ *
+ * 架构设计：此函数作为数据路由总机，根据 widget_id 自动从 g_sensor_data
+ * 取值并调用 arex_widget_set_value() 或 arex_widget_set_text() 刷新界面。
+ *
+ * 使用场景：
+ *   - arex_screen_refresh_all_widgets() 遍历全量 widget 调用此函数
+ *   - update 任务在收到 DIRTY_ALL 时调用全量刷新
+ *   - 任何需要单独刷新某个组件数据的场景
+ *
+ * 注意：复杂状态机组件（NDL_STOP/SYS/COMPASS/TISSUE）已在 update_task 中
+ *       有专属刷新逻辑，此处仅做兜底处理。
+ * ========================================================= */
+void arex_widget_sync_data(arex_widget_id_t w_id)
+{
+    char buf[32];
+
+    switch (w_id) {
+        /* =========================================================
+         * 1. 核心驻留区 & 复杂状态机 (这些由专属函数处理，这里做兜底)
+         * ========================================================= */
+        case WIDGET_NDL_STOP_1606:
+        case WIDGET_SYS_1606:
+        case WIDGET_COMPASS_1612:
+        case WIDGET_TISSUE_GF_4012:
+        case WIDGET_TISSUE_RAW_4012:
+            /* 这些是包含动画/多元素的复杂状态机，已在 arex_ui_update_task 有专属刷新逻辑 */
+            break;
+
+        /* =========================================================
+         * 2. 深度组件
+         * ========================================================= */
+        case WIDGET_DEPTH_1612:
+        case WIDGET_DEPTH_1606:
+            arex_widget_set_value(w_id, g_sensor_data.depth);
+            break;
+
+        /* =========================================================
+         * 3. 潜水时间（MM:SS 格式化）
+         * ========================================================= */
+        case WIDGET_DIVE_TIME_1606:
+            snprintf(buf, sizeof(buf), "%02d:%02d",
+                     g_sensor_data.dive_time_s / 60,
+                     g_sensor_data.dive_time_s % 60);
+            arex_widget_set_text(w_id, buf);
+            break;
+
+        /* =========================================================
+         * 4. 气体组件
+         * ========================================================= */
+        case WIDGET_GAS_1606:
+            arex_widget_set_text(w_id, g_sensor_data.gas_name);
+            break;
+
+        /* =========================================================
+         * 5. 基础组件 (Basic)
+         * ========================================================= */
+        case WIDGET_TEMP_0806:
+            arex_widget_set_value(w_id, g_sensor_data.temperature_c);
+            break;
+
+        case WIDGET_TIME_1606:
+            snprintf(buf, sizeof(buf), "%02d:%02d",
+                     g_sensor_data.sys_time_h,
+                     g_sensor_data.sys_time_m);
+            arex_widget_set_text(w_id, buf);
+            break;
+
+        case WIDGET_TTS_0806:
+            arex_widget_set_value(w_id, (float)g_sensor_data.tts);
+            break;
+
+        case WIDGET_ASCENT_0806:
+        case WIDGET_ASCENT_0812:
+            arex_widget_set_value(w_id, g_sensor_data.ascent_rate);
+            break;
+
+        case WIDGET_BATTERY_0806:
+            arex_widget_set_value(w_id, g_sensor_data.battery_pct);
+            break;
+
+        case WIDGET_STOP_DEPTH_0806:
+            arex_widget_set_value(w_id, g_sensor_data.stop_depth_m);
+            break;
+
+        case WIDGET_STOP_TIME_1606:
+            snprintf(buf, sizeof(buf), "%02d:%02d",
+                     g_sensor_data.stop_time_left_s / 60,
+                     g_sensor_data.stop_time_left_s % 60);
+            arex_widget_set_text(w_id, buf);
+            break;
+
+        case WIDGET_PPO2_0806:
+            /* 根据激活气体索引选择对应的 PPO2 值 */
+            arex_widget_set_value(w_id, g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
+            break;
+
+        /* =========================================================
+         * 6. 技术潜水 (Tech Dive)
+         * ========================================================= */
+        case WIDGET_SURF_GF_0806:
+            arex_widget_set_value(w_id, g_sensor_data.surf_gf);
+            break;
+
+        case WIDGET_GF99_0806:
+            arex_widget_set_value(w_id, g_sensor_data.gf99);
+            break;
+
+        case WIDGET_GF_0806:
+            snprintf(buf, sizeof(buf), "%d/%d",
+                     g_sensor_data.gf_low,
+                     g_sensor_data.gf_high);
+            arex_widget_set_text(w_id, buf);
+            break;
+
+        case WIDGET_CNS_0806:
+            arex_widget_set_value(w_id, (float)g_sensor_data.cns_pct);
+            break;
+
+        case WIDGET_OTU_0806:
+            arex_widget_set_value(w_id, (float)g_sensor_data.otu);
+            break;
+
+        case WIDGET_MOD_0806:
+            arex_widget_set_value(w_id, g_sensor_data.mod_m);
+            break;
+
+        case WIDGET_CEILING_0806:
+            arex_widget_set_value(w_id, g_sensor_data.ceiling_m);
+            break;
+
+        case WIDGET_GAS_MIX_1606:
+            snprintf(buf, sizeof(buf), "%d/%d",
+                     g_sensor_data.gas_o2_pct,
+                     g_sensor_data.gas_he_pct);
+            arex_widget_set_text(w_id, buf);
+            break;
+
+        case WIDGET_GAS_DENS_0806:
+            arex_widget_set_value(w_id, g_sensor_data.gas_density);
+            break;
+
+        case WIDGET_FIO2_0806:
+            arex_widget_set_value(w_id, g_sensor_data.fio2_pct);
+            break;
+
+        /* =========================================================
+         * 7. 传感器 & 拓展 (Sensors)
+         * ========================================================= */
+        case WIDGET_HEADING_0806:
+            arex_widget_set_value(w_id, (float)g_sensor_data.heading);
+            break;
+
+        case WIDGET_POD_0806:
+            /* POD 由状态机使用 user_data 靶向刷新，此处做兜底 */
+            arex_widget_set_value(WIDGET_POD_0806, g_sensor_data.pod1_bar);
+            break;
+
+        case WIDGET_DEPTH_MAX_0806:
+            arex_widget_set_value(w_id, g_sensor_data.max_depth);
+            break;
+
+        case WIDGET_DEPTH_AVG_0806:
+            arex_widget_set_value(w_id, g_sensor_data.avg_depth);
+            break;
+
+        case WIDGET_TEMP_MIN_0806:
+            arex_widget_set_value(w_id, g_sensor_data.min_temp);
+            break;
+
+        case WIDGET_TEMP_AVG_0806:
+            arex_widget_set_value(w_id, g_sensor_data.avg_temp);
+            break;
+
+        /* =========================================================
+         * 8. 空槽位和未知 ID
+         * ========================================================= */
+        case WIDGET_EMPTY:
+        default:
+            break;
+    }
+}
+
+/* =========================================================
  * 告警闪烁定时器回调
  * ========================================================= */
 static void alarm_blink_cb(lv_timer_t *timer)

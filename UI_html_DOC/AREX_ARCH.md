@@ -2379,9 +2379,87 @@ for (c = 0; c < 2; c++) {
   ]
 }
 ```
+
+### 29.10 全量组件数据路由分发器 (Data Router)
+
+**架构设计**：新增 `arex_widget_sync_data()` 函数作为数据路由总机，根据 `widget_id` 自动从 `g_sensor_data` 取值并刷新界面。
+
+```
+调用层次：
+  arex_screen_refresh_all_widgets()
+      ├─ 遍历 g_left_widgets[] → arex_widget_sync_data(w_id)
+      └─ 遍历 g_5f_widgets[]  → arex_widget_sync_data(w_id)
+
+  arex_widget_sync_data(w_id)
+      ├─ switch(w_id) 路由到 g_sensor_data 字段
+      └─ 调用 arex_widget_set_value() 或 arex_widget_set_text()
 ```
 
-### 29.9 变更文件清单
+**`arex_widget_sync_data()` 覆盖的全部组件**：
+
+| 分类 | Widget ID | 数据源 | 接口 |
+|------|-----------|--------|------|
+| 核心 | `WIDGET_DEPTH_1612/1606` | `g_sensor_data.depth` | `arex_widget_set_value` |
+| 核心 | `WIDGET_DIVE_TIME_1606` | `g_sensor_data.dive_time_s` | `arex_widget_set_text` (MM:SS) |
+| 核心 | `WIDGET_GAS_1606` | `g_sensor_data.gas_name` | `arex_widget_set_text` |
+| 基础 | `WIDGET_TEMP_0806` | `g_sensor_data.temperature_c` | `arex_widget_set_value` |
+| 基础 | `WIDGET_TIME_1606` | `g_sensor_data.sys_time_h/m` | `arex_widget_set_text` (HH:MM) |
+| 基础 | `WIDGET_TTS_0806` | `g_sensor_data.tts` | `arex_widget_set_value` |
+| 基础 | `WIDGET_ASCENT_0806/0812` | `g_sensor_data.ascent_rate` | `arex_widget_set_value` |
+| 基础 | `WIDGET_BATTERY_0806` | `g_sensor_data.battery_pct` | `arex_widget_set_value` |
+| 基础 | `WIDGET_STOP_DEPTH_0806` | `g_sensor_data.stop_depth_m` | `arex_widget_set_value` |
+| 基础 | `WIDGET_STOP_TIME_1606` | `g_sensor_data.stop_time_left_s` | `arex_widget_set_text` (MM:SS) |
+| 基础 | `WIDGET_PPO2_0806` | `g_sensor_data.ppo2[gas_active_idx]` | `arex_widget_set_value` |
+| Tech | `WIDGET_SURF_GF_0806` | `g_sensor_data.surf_gf` | `arex_widget_set_value` |
+| Tech | `WIDGET_GF99_0806` | `g_sensor_data.gf99` | `arex_widget_set_value` |
+| Tech | `WIDGET_GF_0806` | `g_sensor_data.gf_low/high` | `arex_widget_set_text` (L/H) |
+| Tech | `WIDGET_CNS_0806` | `g_sensor_data.cns_pct` | `arex_widget_set_value` |
+| Tech | `WIDGET_OTU_0806` | `g_sensor_data.otu` | `arex_widget_set_value` |
+| Tech | `WIDGET_MOD_0806` | `g_sensor_data.mod_m` | `arex_widget_set_value` |
+| Tech | `WIDGET_CEILING_0806` | `g_sensor_data.ceiling_m` | `arex_widget_set_value` |
+| Tech | `WIDGET_GAS_MIX_1606` | `g_sensor_data.gas_o2/he_pct` | `arex_widget_set_text` (O2/He) |
+| Tech | `WIDGET_GAS_DENS_0806` | `g_sensor_data.gas_density` | `arex_widget_set_value` |
+| Tech | `WIDGET_FIO2_0806` | `g_sensor_data.fio2_pct` | `arex_widget_set_value` |
+| 传感 | `WIDGET_HEADING_0806` | `g_sensor_data.heading` | `arex_widget_set_value` |
+| 传感 | `WIDGET_POD_0806` | `g_sensor_data.pod1_bar` | `arex_widget_set_value` |
+| 传感 | `WIDGET_DEPTH_MAX_0806` | `g_sensor_data.max_depth` | `arex_widget_set_value` |
+| 传感 | `WIDGET_DEPTH_AVG_0806` | `g_sensor_data.avg_depth` | `arex_widget_set_value` |
+| 传感 | `WIDGET_TEMP_MIN_0806` | `g_sensor_data.min_temp` | `arex_widget_set_value` |
+| 传感 | `WIDGET_TEMP_AVG_0806` | `g_sensor_data.avg_temp` | `arex_widget_set_value` |
+| 复杂 | `WIDGET_NDL_STOP_1606` | (状态机专属刷新) | - |
+| 复杂 | `WIDGET_SYS_1606` | (状态机专属刷新) | - |
+| 复杂 | `WIDGET_COMPASS_1612` | (状态机专属刷新) | - |
+| 复杂 | `WIDGET_TISSUE_GF/RAW_4012` | (状态机专属刷新) | - |
+
+> **架构铁律**：复杂状态机组件（NDL_STOP/SYS/COMPASS/TISSUE）在 `arex_ui_update_task` 中有专属刷新逻辑，Data Router 仅做兜底处理。
+
+**`arex_screen_refresh_all_widgets()` 全屏刷新接口**：
+
+```c
+void arex_screen_refresh_all_widgets(void)
+{
+    /* 1. 同步左侧固定区配置 */
+    for (uint8_t i = 0; i < g_left_widget_count; i++) {
+        if (g_left_widgets[i].widget_id != WIDGET_EMPTY) {
+            arex_widget_sync_data(g_left_widgets[i].widget_id);
+        }
+    }
+
+    /* 2. 同步右侧 5F 自定义区配置 */
+    for (uint8_t i = 0; i < g_5f_widget_count; i++) {
+        if (g_5f_widgets[i].widget_id != WIDGET_EMPTY) {
+            arex_widget_sync_data(g_5f_widgets[i].widget_id);
+        }
+    }
+}
+```
+
+**使用场景**：
+- update 任务在收到 `DIRTY_ALL`（全量更新）时调用
+- 任何需要同时刷新左右两侧所有组件的场景
+- 算法工程师新增指标后，只需在此函数的 switch 中加一行 case
+
+### 29.11 变更文件清单
 
 | 日期 | 文件 | 变更 |
 |------|------|------|
@@ -2408,6 +2486,10 @@ for (c = 0; c < 2; c++) {
 | 2026-05-02 | `UI_main.c` | `arex_test_set_ui_layout()` 中 `WIDGET_WTIME_0806` → `WIDGET_TIME_1606`（行39）；`WIDGET_SAC_RATE_0806` → `WIDGET_EMPTY`（行55）；两处 `WIDGET_WTIME_0806` → `WIDGET_EMPTY`（行63/96） |
 | 2026-05-02 | `RENDER_FIXES.md` | 新增 Section 10：Protobuf 枚举对齐 + 组件更新数据流修复 |
 | 2026-05-02 | `AREX_ARCH.md` | Section 29 更新：枚举定义、网格配置、格式化规则表、刷新函数代码、APP 同步协议 JSON、变更日志 |
+| 2026-05-02 | `arex_ui_engine.c` | 新增 `arex_widget_sync_data()` 全量组件数据路由分发器：覆盖全部 30+ 组件 ID，自动从 `g_sensor_data` 取值并调用 `arex_widget_set_value()` 或 `arex_widget_set_text()` 刷新界面 |
+| 2026-05-02 | `arex_ui_engine.h` | 新增 `arex_widget_sync_data()` 函数声明 |
+| 2026-05-02 | `arex_screen.c` | 新增 `arex_screen_refresh_all_widgets()` 统一全屏刷新接口；同时遍历 `g_left_widgets[]` 和 `g_5f_widgets[]`，内部调用 `arex_widget_sync_data()`；保留 `arex_screen_refresh_left_panel()` 兼容旧接口 |
+| 2026-05-02 | `arex_screen.h` | 新增 `arex_screen_refresh_all_widgets()` 函数声明 |
 
 ---
 

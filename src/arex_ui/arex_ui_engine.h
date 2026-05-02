@@ -582,6 +582,9 @@ void arex_5f_grid_rebuild(void);
 /* 按 widget_id 设置字符串（用于 GAS 等非数值组件） */
 void arex_widget_set_text(arex_widget_id_t id, const char *text);
 
+/* 全局组件数据路由分发器：根据 widget_id 自动从 g_sensor_data 取值并刷新界面 */
+void arex_widget_sync_data(arex_widget_id_t w_id);
+
 /* 靶向告警触发：全屏搜索所有打了 user_data 烙印的组件并同步闪烁。
  * target_id = AREX_WIDGET_EMPTY 时仅弹出横幅，不做靶向同步。 */
 void arex_trigger_alarm(arex_alarm_level_t level,
