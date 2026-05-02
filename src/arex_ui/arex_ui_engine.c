@@ -151,7 +151,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .unit = NULL,
         .title = "GAS",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_SYS_1606,
@@ -185,7 +185,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .unit = NULL,
         .title = "TIME",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_TTS_0806,
@@ -274,7 +274,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .unit = NULL,
         .title = "PPO2",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     /* ========== 技术潜水组件 ========== */
     {
@@ -286,7 +286,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .unit = NULL,
         .title = "SURF.GF",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_GF99_0806,
@@ -319,7 +319,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .unit = NULL,
         .title = "OTU",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_GF_0806,
@@ -330,7 +330,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .unit = NULL,
         .title = "GF",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_MOD_0806,
@@ -363,7 +363,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .unit = NULL,
         .title = "O2/He",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_TISSUE_GF_4012,
@@ -509,7 +509,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .unit = NULL,
         .title = "TIME",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     /* ========== 安全边界组件 ========== */
     {
@@ -521,7 +521,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .unit = NULL,
         .title = "PPO2 MAX",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = WIDGET_NDL_SAFE_0806,

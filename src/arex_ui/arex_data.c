@@ -231,10 +231,10 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
     /* 4. 打上终极脏标记，通知 UI 推倒重建 */
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 
-#ifndef PC_SIMULATOR
-    rt_hw_interrupt_enable(level);
-#else
+#ifdef PC_SIMULATOR
     (void)level;
+#else
+    rt_hw_interrupt_enable(level);
 #endif
 }
 
