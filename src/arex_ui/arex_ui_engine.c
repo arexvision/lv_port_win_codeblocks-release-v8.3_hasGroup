@@ -1427,12 +1427,17 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_text_color(h->main_val, AREX_GREEN, 0);
         lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_HUGE), 0);
         lv_obj_align(h->main_val, (lv_align_t)s->main_align, s->main_offset_x, s->main_offset_y);
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+            lv_label_set_text(h->main_val, "--");
+        else
+            lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
 
         /* 顶部标题 */
         h->title_top = lv_label_create(obj);
         lv_obj_set_style_text_font(h->title_top, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(h->title_top, AREX_LIGHT, 0);
         lv_obj_align(h->title_top, (lv_align_t)s->title_align, s->title_offset_x, s->title_offset_y);
+        lv_label_set_text(h->title_top, "");
         lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
 
         /* 底部副标题 */
@@ -1440,6 +1445,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_text_font(h->sub_bot, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(h->sub_bot, AREX_GREEN, 0);
         lv_obj_align(h->sub_bot, (lv_align_t)s->sub_align, s->sub_offset_x, s->sub_offset_y);
+        lv_label_set_text(h->sub_bot, "NDL");
         return obj;
     } else if (w_id == WIDGET_SYS_1606) {
         /* ===== SYS 模块：电池 + 温度 + 设备状态图标 ===== */
