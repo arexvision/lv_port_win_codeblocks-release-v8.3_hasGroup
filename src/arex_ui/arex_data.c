@@ -368,14 +368,28 @@ bool arex_config_load(arex_sys_config_t *cfg)
      *   - cfg 指向 g_sys_config 全局变量
      *   - 成功返回 true（表示加载了有效配置，UI 不要用默认值）
      *   - 失败返回 false（表示无配置或配置损坏，UI 用默认值）
-     *   - 若需要同时加载 g_left_widgets / g_5f_widgets，在此处一并处理
-
      *
-     * // 5. 若 g_left_widgets / g_5f_widgets 也需要持久化：
-     * // memcpy(g_left_widgets, blk.left_widgets, sizeof(blk.left_widgets));
-     * // g_left_widget_count = blk.left_widget_count;
-     * // memcpy(g_5f_widgets, blk.f5f_widgets, sizeof(blk.f5f_widgets));
-     * // g_5f_widget_count = blk.f5f_widget_count;
+     * 伪代码结构：
+     *
+     * #define CFG_MAGIC   0xAREX5F5A
+     * #define CFG_ADDR    (Flash分区起始地址 + 偏移量)
+     *
+     * arex_config_block_t blk;
+     * fal_partition_read(PART_NAME, CFG_ADDR, &blk, sizeof(blk));
+     *
+     * // 验证魔法数
+     * if (blk.magic != CFG_MAGIC) {
+     *     return false;
+     * }
+     *
+     * // 复制主配置
+     * memcpy(cfg, &blk.cfg, sizeof(arex_sys_config_t));
+     *
+     * // 复制网格配置
+     * memcpy(g_left_widgets, blk.left_widgets, sizeof(blk.left_widgets));
+     * g_left_widget_count = blk.left_widget_count;
+     * memcpy(g_5f_widgets, blk.f5f_widgets, sizeof(blk.f5f_widgets));
+     * g_5f_widget_count = blk.f5f_widget_count;
      *
      * return true;
      */
@@ -414,17 +428,19 @@ bool arex_config_save(const arex_sys_config_t *cfg)
      * // memcpy(blk.left_widgets, g_left_widgets, sizeof(g_left_widgets));
      * // blk.left_widget_count = g_left_widget_count;
      * // memcpy(blk.f5f_widgets, g_5f_widgets, sizeof(g_5f_widgets));
-     * // blk.f5f_widget_count = g_5f_widget_count;
-     * // blk.crc16 = calc_crc16((uint8_t*)&blk.cfg,
-     * //                         sizeof(blk) - offsetof(arex_config_block_t, cfg));
-     *
-     * // 3. 写入 Flash（通常需先擦除整页再写入）
-     * fal_partition_erase(PART_NAME, CFG_ADDR, sizeof(blk));
-     * if (fal_partition_write(PART_NAME, CFG_ADDR, &blk, sizeof(blk)) != sizeof(blk)) {
-     *     return false;
-     * }
-     *
-     * return true;
+    // 复制网格配置
+    memcpy(blk.left_widgets, g_left_widgets, sizeof(blk.left_widgets));
+    blk.left_widget_count = g_left_widget_count;
+    memcpy(blk.f5f_widgets, g_5f_widgets, sizeof(blk.f5f_widgets));
+    blk.f5f_widget_count = g_5f_widget_count;
+
+    // 写入 Flash
+    fal_partition_erase(PART_NAME, CFG_ADDR, sizeof(blk));
+    if (fal_partition_write(PART_NAME, CFG_ADDR, &blk, sizeof(blk)) != sizeof(blk)) {
+        return false;
+    }
+
+    return true;
      */
     (void)cfg;
     return false;
