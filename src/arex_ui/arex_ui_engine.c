@@ -592,6 +592,13 @@ static uint8_t s_pod_render_count = 0;  /* POD 渲染计数器 */
 #define POD2_TAG      (2 * POD_TAG_BASE + WIDGET_POD_0806)  /* 2033 */
 
 /* =========================================================
+ * SYS 设备状态图标句柄（供 arex_ui_update_task 刷新透明度）
+ * ========================================================= */
+static lv_obj_t *s_img_strobe = NULL;   /* 留转灯图标 */
+static lv_obj_t *s_img_flash  = NULL;   /* 手电筒图标 */
+static lv_obj_t *s_lbl_cylinders = NULL; /* 气瓶数量文本 "x0" */
+
+/* =========================================================
  * 获取 POD 标签（根据当前渲染计数器返回值）
  * 返回 POD1_TAG 或 POD2_TAG，用于烙印到 user_data
  *
@@ -1429,6 +1436,63 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_text_color(h->sub_bot, AREX_GREEN, 0);
         lv_obj_align(h->sub_bot, (lv_align_t)s->sub_align, s->sub_offset_x, s->sub_offset_y);
         return obj;
+    } else if (w_id == WIDGET_SYS_1606) {
+        /* ===== SYS 模块：电池 + 温度 + 设备状态图标 ===== */
+        LV_IMG_DECLARE(liuzhuandeng);
+        LV_IMG_DECLARE(Shoudiantong);
+        LV_IMG_DECLARE(qiping);
+
+        /* 左半部分：电量 + 温度 Label */
+        lv_obj_t *batt_lbl = lv_label_create(obj);
+        lv_obj_set_style_text_font(batt_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(batt_lbl, AREX_GREEN, 0);
+        lv_obj_align(batt_lbl, LV_ALIGN_TOP_LEFT, 6, 6);
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+            lv_label_set_text(batt_lbl, "--%");
+        else
+            lv_label_set_text_fmt(batt_lbl, "%.0f%%", (double)g_sensor_data.battery_pct);
+
+        lv_obj_t *temp_lbl = lv_label_create(obj);
+        lv_obj_set_style_text_font(temp_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(temp_lbl, AREX_GREEN, 0);
+        lv_obj_align(temp_lbl, LV_ALIGN_BOTTOM_LEFT, 6, -6);
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+            lv_label_set_text(temp_lbl, "--°C");
+        else
+            lv_label_set_text_fmt(temp_lbl, "%.1f°C", (double)g_sensor_data.temperature_c);
+
+        /* 右半部分：设备状态图标（使用静态句柄刷新） */
+        /* 1. 留转灯图标 */
+        s_img_strobe = lv_img_create(obj);
+        lv_img_set_src(s_img_strobe, &liuzhuandeng);
+        lv_obj_align(s_img_strobe, LV_ALIGN_TOP_RIGHT, -30, 0);
+        lv_obj_set_style_img_opa(s_img_strobe, g_sensor_data.strobe_on ? LV_OPA_COVER : LV_OPA_40, 0);
+
+        /* 2. 手电筒图标 */
+        s_img_flash = lv_img_create(obj);
+        lv_img_set_src(s_img_flash, &Shoudiantong);
+        lv_obj_align(s_img_flash, LV_ALIGN_TOP_RIGHT, -10, 5);
+        lv_obj_set_style_img_opa(s_img_flash, g_sensor_data.flashlight_on ? LV_OPA_COVER : LV_OPA_40, 0);
+
+        /* 3. 气瓶图标 */
+        lv_obj_t *img_cyl = lv_img_create(obj);
+        lv_img_set_src(img_cyl, &qiping);
+        lv_obj_align(img_cyl, LV_ALIGN_BOTTOM_RIGHT, -40, 0);
+
+        /* 4. 气瓶数量文本 "x0" */
+        s_lbl_cylinders = lv_label_create(obj);
+        lv_obj_set_style_text_font(s_lbl_cylinders, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(s_lbl_cylinders, AREX_GREEN, 0);
+        lv_obj_align(s_lbl_cylinders, LV_ALIGN_BOTTOM_RIGHT, -12, 0);
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+            lv_label_set_text(s_lbl_cylinders, "x0");
+        else
+            lv_label_set_text_fmt(s_lbl_cylinders, "x%d", g_sensor_data.cylinder_count);
+
+        (void)batt_lbl;
+        (void)temp_lbl;
+        (void)img_cyl;
+        return obj;
     }
 
     /* ===== 通用流水线：按 elements 掩码按需装配零件 =====
@@ -1478,7 +1542,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                 case WIDGET_ASCENT_0806:
                 case WIDGET_ASCENT_0812:  snprintf(buf, sizeof(buf), "%+.1f", (double)g_sensor_data.ascent_rate); break;
                 case WIDGET_COMPASS_1612: snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading); break;
-                case WIDGET_BATTERY_0806: snprintf(buf, sizeof(buf), "%d", g_sensor_data.battery_pct); break;
+                case WIDGET_BATTERY_0806: snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.battery_pct); break;
                 case WIDGET_STOP_DEPTH_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.stop_depth_m); break;
                 case WIDGET_STOP_TIME_1606: snprintf(buf, sizeof(buf), "%d", g_sensor_data.stop_time_left_s); break;
                 case WIDGET_PPO2_0806:     snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.ppo2[0]); break;
@@ -2246,10 +2310,10 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_screen_refresh_left_panel();
     }
 
-    /* 电池 —— 左侧面板刷新 + SystemData 专属物理防区 */
+    /* 电池刷新 —— 数据驱动网格自动更新 */
     if (mask & DIRTY_BATT) {
         arex_screen_refresh_left_panel();
-        arex_screen_refresh_system_data();
+        arex_widget_set_value(WIDGET_BATTERY_0806, g_sensor_data.battery_pct);
     }
 
     /* 罗盘航向 — 零内存数学引擎，触发 invalidate + 更新标签 */
@@ -2312,14 +2376,22 @@ void arex_ui_update_task(lv_timer_t *timer)
         card_deco_update();
     }
 
-    /* 温度刷新 — SystemData 专属物理防区 */
+    /* 温度刷新 —— 数据驱动网格自动更新 */
     if (mask & DIRTY_TEMP) {
-        arex_screen_refresh_system_data();
+        arex_widget_set_value(WIDGET_TEMP_0806, g_sensor_data.temperature_c);
     }
 
-    /* 外设状态刷新（灯、气瓶数量） — SystemData 专属物理防区 */
+    /* 外设状态刷新（灯、气瓶数量） —— 使用静态句柄刷新图标和气瓶数字 */
     if (mask & DIRTY_DEVICES) {
-        arex_screen_refresh_system_data();
+        if (s_img_strobe) {
+            lv_obj_set_style_img_opa(s_img_strobe, g_sensor_data.strobe_on ? LV_OPA_COVER : LV_OPA_40, 0);
+        }
+        if (s_img_flash) {
+            lv_obj_set_style_img_opa(s_img_flash, g_sensor_data.flashlight_on ? LV_OPA_COVER : LV_OPA_40, 0);
+        }
+        if (s_lbl_cylinders) {
+            lv_label_set_text_fmt(s_lbl_cylinders, "x%d", g_sensor_data.cylinder_count);
+        }
     }
 
     /* 洗净所有脏标记 */
@@ -2331,7 +2403,7 @@ void arex_ui_update_task(lv_timer_t *timer)
  *
  * 严格将 160x360 区域划分为 2列(80px) x 6行(60px) 的绝对网格矩阵，
  * 彻底废弃 current_y 累加排版，改用 x*y*w*h 纯数学坐标推演。
- * SystemData 底部 60px 由 arex_render_system_data() 独立渲染。
+ * SystemData 底部 60px 由 WIDGET_SYS_1606 组件化渲染。
  * ========================================================= */
 
 /* 左侧网格总线渲染器：遍历 g_left_widgets[] 数组，
