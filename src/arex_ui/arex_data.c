@@ -358,20 +358,74 @@ void arex_bus_set_conservatism(uint8_t level)
  * ========================================================= */
 #ifdef PC_SIMULATOR
 #else
-__attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
+__attribute__((weak))    //真机需打开，用于覆盖此默认实现
 #endif
 bool arex_config_load(arex_sys_config_t *cfg)
 {
+    /*
+     * ========== 真机实现模板（删除 #ifdef PC_SIMULATOR 后替换此处） ==========
+     * 说明：
+     *   - cfg 指向 g_sys_config 全局变量
+     *   - 成功返回 true（表示加载了有效配置，UI 不要用默认值）
+     *   - 失败返回 false（表示无配置或配置损坏，UI 用默认值）
+     *   - 若需要同时加载 g_left_widgets / g_5f_widgets，在此处一并处理
+
+     *
+     * // 5. 若 g_left_widgets / g_5f_widgets 也需要持久化：
+     * // memcpy(g_left_widgets, blk.left_widgets, sizeof(blk.left_widgets));
+     * // g_left_widget_count = blk.left_widget_count;
+     * // memcpy(g_5f_widgets, blk.f5f_widgets, sizeof(blk.f5f_widgets));
+     * // g_5f_widget_count = blk.f5f_widget_count;
+     *
+     * return true;
+     */
     (void)cfg;
     return false;
 }
 
 #ifdef PC_SIMULATOR
 #else
-__attribute__((weak))    //这个在真机需要打开，这个是用来弱定义的
+__attribute__((weak))    //真机需打开，用于覆盖此默认实现
 #endif
 bool arex_config_save(const arex_sys_config_t *cfg)
 {
+    //补充这个实际可以不需要，ble那侧已经有写入FLASH的逻辑了
+    /*
+     * ========== 真机实现模板（删除 #ifdef PC_SIMULATOR 后替换此处） ==========
+     * 说明：
+     *   - cfg 指向当前配置（通常即 g_sys_config）
+     *   - 成功返回 true，失败返回 false
+     *   - 若 g_left_widgets / g_5f_widgets 也需要持久化，在此处一并写入 Flash
+     *
+     * 伪代码结构：
+     *
+     * #define CFG_MAGIC   0xAREX5F5A
+     * #define CFG_ADDR    (Flash分区起始地址 + 偏移量)
+     *
+     * arex_config_block_t blk = {0};
+     * blk.magic   = CFG_MAGIC;
+     * blk.version = CFG_VERSION;
+     * blk.crc16   = calc_crc16((uint8_t*)cfg, sizeof(*cfg));
+     *
+     * // 1. 复制主配置
+     * memcpy(&blk.cfg, cfg, sizeof(arex_sys_config_t));
+     *
+     * // 2. 若需要同时保存组件网格布局：
+     * // memcpy(blk.left_widgets, g_left_widgets, sizeof(g_left_widgets));
+     * // blk.left_widget_count = g_left_widget_count;
+     * // memcpy(blk.f5f_widgets, g_5f_widgets, sizeof(g_5f_widgets));
+     * // blk.f5f_widget_count = g_5f_widget_count;
+     * // blk.crc16 = calc_crc16((uint8_t*)&blk.cfg,
+     * //                         sizeof(blk) - offsetof(arex_config_block_t, cfg));
+     *
+     * // 3. 写入 Flash（通常需先擦除整页再写入）
+     * fal_partition_erase(PART_NAME, CFG_ADDR, sizeof(blk));
+     * if (fal_partition_write(PART_NAME, CFG_ADDR, &blk, sizeof(blk)) != sizeof(blk)) {
+     *     return false;
+     * }
+     *
+     * return true;
+     */
     (void)cfg;
     return false;
 }

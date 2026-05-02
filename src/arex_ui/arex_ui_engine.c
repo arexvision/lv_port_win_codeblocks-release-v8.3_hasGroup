@@ -89,7 +89,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "m",
         .title = "DEPTH",
-        .title_offset_x = 8, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,
+        .title_offset_x = 8, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,//实际无用
         .spec.depth = {
             .int_offset_x = 10, .int_offset_y = 30, .int_align = LV_TEXT_ALIGN_LEFT,
             .dec_offset_x = 2,  .dec_offset_y = 5,

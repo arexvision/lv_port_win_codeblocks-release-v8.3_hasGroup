@@ -221,7 +221,7 @@ static void sim_tick_cb(lv_timer_t *t)
     arex_bus_set_heading(new_heading);
 
     /* SafeZone 偏移测试：10秒内 y 先变化，然后 x 再变化 */
-    arex_test_set_ui_offset();
+    // arex_test_set_ui_offset();
 
     /* 每 2 秒切换一次气体，用于测试 */
     arex_bus_set_gas(g_sensor_data.gas_active_idx,g_sensor_data.gas_name);
@@ -350,5 +350,5 @@ void UI_main(void)
     s_update_task_timer = lv_timer_create(arex_ui_update_task, 50, NULL);
 
     /* 8. 启动模拟数据定时器：1Hz */
-    lv_timer_create(sim_tick_cb, 1000, NULL);
+    // lv_timer_create(sim_tick_cb, 1000, NULL);
 }
