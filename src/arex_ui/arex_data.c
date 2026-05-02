@@ -322,6 +322,23 @@ void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 }
 
+void arex_bus_set_stop_state(arex_stop_type_t type, float depth_m, uint16_t total_s, uint16_t left_s)
+{
+    if (g_sensor_data.stop_type == type &&
+        g_sensor_data.stop_depth_m == depth_m &&
+        g_sensor_data.stop_time_total_s == total_s &&
+        g_sensor_data.stop_time_left_s == left_s) {
+        return;
+    }
+
+    g_sensor_data.stop_type = type;
+    g_sensor_data.stop_depth_m = depth_m;
+    g_sensor_data.stop_time_total_s = total_s;
+    g_sensor_data.stop_time_left_s = left_s;
+
+    g_sensor_data.dirty_mask |= DIRTY_NDL_STOP;
+}
+
 void arex_bus_set_conservatism(uint8_t level)
 {
     if (g_sys_config.conservatism != level) {

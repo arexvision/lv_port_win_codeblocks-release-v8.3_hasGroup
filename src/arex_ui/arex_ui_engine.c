@@ -2250,68 +2250,78 @@ void arex_ui_update_task(lv_timer_t *timer)
         for (int i = 0; i < s_ndl_handle_count; i++) {
             ndl_handle_t *h = &s_ndl_handles[i];
 
-            /* ========== 状态 1: 常规 NDL 模式 ========== */
+            /* ========== 状态 1: 常态 NDL 模式 ========== */
             if (g_sensor_data.stop_type == AREX_STOP_NONE) {
-                /* 显隐控制 */
                 lv_obj_clear_flag(h->vert_bg, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
-                /* 样式重组：切换为 58px 巨型字体，纯 NDL 数字 */
                 lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_HUGE), 0);
                 lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
                 lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -45, 0);
 
-                /* "NDL" 文本放右下角 */
                 lv_label_set_text(h->sub_bot, "NDL");
                 lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_RIGHT, -10, -5);
 
-                /* 垂直进度条动态计算（假设最大99分钟） */
                 int fill_h = (g_sensor_data.ndl * 40) / 99;
                 if (fill_h > 40) fill_h = 40;
                 if (fill_h < 1) fill_h = 1;
                 lv_obj_set_size(h->vert_fill, LV_PCT(100), fill_h);
             }
-            /* ========== 状态 2 & 3: 停留模式 (Safety / Deco) ========== */
-            else {
-                /* 显隐控制 */
+            /* ========== 状态 2: 安全停留模式 (Safety) ========== */
+            else if (g_sensor_data.stop_type == AREX_STOP_SAFETY) {
                 lv_obj_add_flag(h->vert_bg, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
-                /* 样式重组：缩小主字体为 28px 以腾出空间显示 MM:SS */
                 lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
-                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -10, -5);
+                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -10, 0);
 
-                /* 判断在 ±1.5m 范围内？(读秒 vs 读分) */
-                if (g_sensor_data.in_stop_zone) {
-                    int m = g_sensor_data.stop_time_left_s / 60;
-                    int s = g_sensor_data.stop_time_left_s % 60;
-                    lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
-                } else {
-                    int m = (g_sensor_data.stop_time_left_s + 59) / 60;
-                    lv_label_set_text_fmt(h->main_val, "%d'", m);
-                }
+                /* 防 fm 乱码：强转成整数，格式如 "3m 3:00" */
+                int m = g_sensor_data.stop_time_left_s / 60;
+                int s = g_sensor_data.stop_time_left_s % 60;
+                lv_label_set_text_fmt(h->main_val, "%dm %d:%02d", (int)g_sensor_data.stop_depth_m, m, s);
 
-                /* 标题文本分配 */
-                if (g_sensor_data.stop_type == AREX_STOP_SAFETY) {
-                    lv_label_set_text_fmt(h->title_top, "SAFETY %.0fm", (double)g_sensor_data.stop_depth_m);
-                    lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
-                    lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
-                    lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 10, -14);
-                } else {
-                    lv_label_set_text_fmt(h->title_top, "DECO %.0fm", (double)g_sensor_data.stop_depth_m);
-                    lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
-                }
+                lv_label_set_text(h->title_top, "SAFE STOP");
+                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 10, 4);
 
-                /* 横向进度条动态生长 */
-                if (g_sensor_data.stop_time_total_s > 0) {
-                    int fill_w = ((g_sensor_data.stop_time_total_s - g_sensor_data.stop_time_left_s) * 140) / g_sensor_data.stop_time_total_s;
-                    if (fill_w > 140) fill_w = 140;
-                    if (fill_w < 1) fill_w = 1;
-                    lv_obj_set_size(h->horiz_fill, fill_w, 6);
-                }
+                lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
+                lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 10, -14);
+
+                int fill_w = (g_sensor_data.stop_time_total_s > 0)
+                             ? ((g_sensor_data.stop_time_total_s - g_sensor_data.stop_time_left_s) * 140) / g_sensor_data.stop_time_total_s
+                             : 0;
+                if (fill_w > 140) fill_w = 140;
+                if (fill_w < 1) fill_w = 1;
+                lv_obj_set_size(h->horiz_fill, fill_w, 6);
+            }
+            /* ========== 状态 3: 减压停留模式 (Deco) ========== */
+            else if (g_sensor_data.stop_type == AREX_STOP_DECO) {
+                lv_obj_add_flag(h->vert_bg, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
+                /* 减压模式 NDL 已归零，彻底隐藏 NDL 副标题 */
+                lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+
+                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -10, 0);
+
+                /* 防 fm 乱码：强转成整数，格式如 "6m 5:00" */
+                int m = g_sensor_data.stop_time_left_s / 60;
+                int s = g_sensor_data.stop_time_left_s % 60;
+                lv_label_set_text_fmt(h->main_val, "%dm %d:%02d", (int)g_sensor_data.stop_depth_m, m, s);
+
+                lv_label_set_text(h->title_top, "DECO STOP");
+                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 10, 4);
+
+                int fill_w = (g_sensor_data.stop_time_total_s > 0)
+                             ? ((g_sensor_data.stop_time_total_s - g_sensor_data.stop_time_left_s) * 140) / g_sensor_data.stop_time_total_s
+                             : 0;
+                if (fill_w > 140) fill_w = 140;
+                if (fill_w < 1) fill_w = 1;
+                lv_obj_set_size(h->horiz_fill, fill_w, 6);
             }
         }
     }
