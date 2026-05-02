@@ -208,24 +208,24 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
     /* 1. 拷贝右侧卡片滑动顺序 */
     memcpy(g_sys_config.card_order, payload->card_order, sizeof(g_sys_config.card_order));
 
-    /* 2. 映射左侧 2x7 锚点配置（span_w/h 由 MCU 样式表自动推导） */
-    g_left_widget_count = (payload->left_count > AREX_LEFT_MAX_WIDGETS)
+    /* 2. 映射左侧 2x7 锚点配置到 g_sys_config */
+    g_sys_config.left_widget_count = (payload->left_count > AREX_LEFT_MAX_WIDGETS)
                         ? AREX_LEFT_MAX_WIDGETS
                         : payload->left_count;
-    for (int i = 0; i < g_left_widget_count; i++) {
-        g_left_widgets[i].widget_id = (arex_widget_id_t)payload->left_widgets[i].widget_id;
-        g_left_widgets[i].x         = payload->left_widgets[i].x;
-        g_left_widgets[i].y         = payload->left_widgets[i].y;
+    for (int i = 0; i < g_sys_config.left_widget_count; i++) {
+        g_sys_config.left_widgets[i].widget_id = (arex_widget_id_t)payload->left_widgets[i].widget_id;
+        g_sys_config.left_widgets[i].x         = payload->left_widgets[i].x;
+        g_sys_config.left_widgets[i].y         = payload->left_widgets[i].y;
     }
 
-    /* 3. 映射右侧 5F 自定义网格配置（span_w/h 由 MCU 样式表自动推导） */
-    g_5f_widget_count = (payload->custom_5f_count > AREX_5F_MAX_WIDGETS)
+    /* 3. 映射右侧 5F 自定义网格配置到 g_sys_config */
+    g_sys_config.custom_5f_count = (payload->custom_5f_count > AREX_5F_MAX_WIDGETS)
                        ? AREX_5F_MAX_WIDGETS
                        : payload->custom_5f_count;
-    for (int i = 0; i < g_5f_widget_count; i++) {
-        g_5f_widgets[i].widget_id = (arex_widget_id_t)payload->custom_5f_widgets[i].widget_id;
-        g_5f_widgets[i].r  = payload->custom_5f_widgets[i].r;
-        g_5f_widgets[i].c  = payload->custom_5f_widgets[i].c;
+    for (int i = 0; i < g_sys_config.custom_5f_count; i++) {
+        g_sys_config.custom_5f_widgets[i].widget_id = (arex_widget_id_t)payload->custom_5f_widgets[i].widget_id;
+        g_sys_config.custom_5f_widgets[i].x = payload->custom_5f_widgets[i].c;  /* 列 -> x */
+        g_sys_config.custom_5f_widgets[i].y = payload->custom_5f_widgets[i].r;  /* 行 -> y */
     }
 
     /* 4. 打上终极脏标记，通知 UI 推倒重建 */
@@ -382,14 +382,8 @@ bool arex_config_load(arex_sys_config_t *cfg)
      *     return false;
      * }
      *
-     * // 复制主配置
-     * memcpy(cfg, &blk.cfg, sizeof(arex_sys_config_t));
-     *
-     * // 复制网格配置
-     * memcpy(g_left_widgets, blk.left_widgets, sizeof(blk.left_widgets));
-     * g_left_widget_count = blk.left_widget_count;
-     * memcpy(g_5f_widgets, blk.f5f_widgets, sizeof(blk.f5f_widgets));
-     * g_5f_widget_count = blk.f5f_widget_count;
+     * // 复制主配置（包含 left_widgets 和 custom_5f_widgets）
+     * memcpy(cfg, &tmp, sizeof(arex_sys_config_t));
      *
      * return true;
      */
@@ -403,44 +397,23 @@ __attribute__((weak))    //真机需打开，用于覆盖此默认实现
 #endif
 bool arex_config_save(const arex_sys_config_t *cfg)
 {
-    //补充这个实际可以不需要，ble那侧已经有写入FLASH的逻辑了
     /*
      * ========== 真机实现模板（删除 #ifdef PC_SIMULATOR 后替换此处） ==========
      * 说明：
      *   - cfg 指向当前配置（通常即 g_sys_config）
      *   - 成功返回 true，失败返回 false
-     *   - 若 g_left_widgets / g_5f_widgets 也需要持久化，在此处一并写入 Flash
      *
      * 伪代码结构：
      *
-     * #define CFG_MAGIC   0xAREX5F5A
      * #define CFG_ADDR    (Flash分区起始地址 + 偏移量)
      *
-     * arex_config_block_t blk = {0};
-     * blk.magic   = CFG_MAGIC;
-     * blk.version = CFG_VERSION;
-     * blk.crc16   = calc_crc16((uint8_t*)cfg, sizeof(*cfg));
+     * // 整块写入（包含 left_widgets 和 custom_5f_widgets）
+     * fal_partition_erase(PART_NAME, CFG_ADDR, sizeof(arex_sys_config_t));
+     * if (fal_partition_write(PART_NAME, CFG_ADDR, cfg, sizeof(arex_sys_config_t)) != sizeof(arex_sys_config_t)) {
+     *     return false;
+     * }
      *
-     * // 1. 复制主配置
-     * memcpy(&blk.cfg, cfg, sizeof(arex_sys_config_t));
-     *
-     * // 2. 若需要同时保存组件网格布局：
-     * // memcpy(blk.left_widgets, g_left_widgets, sizeof(g_left_widgets));
-     * // blk.left_widget_count = g_left_widget_count;
-     * // memcpy(blk.f5f_widgets, g_5f_widgets, sizeof(g_5f_widgets));
-    // 复制网格配置
-    memcpy(blk.left_widgets, g_left_widgets, sizeof(blk.left_widgets));
-    blk.left_widget_count = g_left_widget_count;
-    memcpy(blk.f5f_widgets, g_5f_widgets, sizeof(blk.f5f_widgets));
-    blk.f5f_widget_count = g_5f_widget_count;
-
-    // 写入 Flash
-    fal_partition_erase(PART_NAME, CFG_ADDR, sizeof(blk));
-    if (fal_partition_write(PART_NAME, CFG_ADDR, &blk, sizeof(blk)) != sizeof(blk)) {
-        return false;
-    }
-
-    return true;
+     * return true;
      */
     (void)cfg;
     return false;

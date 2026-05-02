@@ -136,18 +136,6 @@ void arex_bus_clear_all_dirty(void);
 
 /* --- 配置持久化（weak 实现由具体平台覆盖） --- */
 bool arex_config_load(arex_sys_config_t *cfg);
-
-/* 统一配置块（包含所有需要持久化的数据） */
-#pragma pack(push, 1)
-typedef struct {
-    arex_sys_config_t cfg;
-    uint8_t left_widgets[AREX_LEFT_MAX_WIDGETS][3];  /* widget_id + x + y */
-    uint8_t left_widget_count;
-    uint8_t f5f_widgets[AREX_5F_MAX_WIDGETS][3];      /* widget_id + r + c */
-    uint8_t f5f_widget_count;
-} arex_config_block_t;
-#pragma pack(pop)
-
 bool arex_config_save(const arex_sys_config_t *cfg);
 
 #ifdef __cplusplus

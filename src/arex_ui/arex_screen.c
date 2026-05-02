@@ -210,7 +210,7 @@ static void left_anchor_rebuild(uint8_t comp_count)
  * 废弃 current_y 累加排版，改为 2列(80px) x 7行(60px) 绝对网格矩阵。
  * 所有组件通过 arex_render_left_anchor_grid() 使用 render_widget_by_id 工厂渲染，
  * 并注入 arex_widget_id_t 烙印供 arex_widget_set_value() 定位更新。
- * SystemData 已作为 g_left_widgets[6] 参与网格排版，不再独立渲染。
+ * SystemData 已作为 g_sys_config.left_widgets[6] 参与网格排版，不再独立渲染。
  * ========================================================= */
 static void left_anchor_create(void)
 {
@@ -640,7 +640,7 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
 /* =========================================================
  * 左侧面板刷新 — 数据源自动推导引擎
  *
- * 铁律：只读 g_left_widgets[] 数组，根据 widget_id 路由到对应的 g_sensor_data 字段。
+ * 铁律：只读 g_sys_config.left_widgets[] 数组，根据 widget_id 路由到对应的 g_sensor_data 字段。
  * 每次修改布局（调整 g_left_widgets[] 顺序/类型）后，此函数自动同步，无需手动维护。
  * ========================================================= */
 /* =========================================================
@@ -652,16 +652,16 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
 void arex_screen_refresh_all_widgets(void)
 {
     /* 1. 同步左侧固定区配置 */
-    for (uint8_t i = 0; i < g_left_widget_count; i++) {
-        if (g_left_widgets[i].widget_id != WIDGET_EMPTY) {
-            arex_widget_sync_data(g_left_widgets[i].widget_id);
+    for (uint8_t i = 0; i < g_sys_config.left_widget_count; i++) {
+        if (g_sys_config.left_widgets[i].widget_id != WIDGET_EMPTY) {
+            arex_widget_sync_data(g_sys_config.left_widgets[i].widget_id);
         }
     }
 
-    /* 2. 同步右侧 5F 自定义区配置（遍历 g_5f_widgets[]） */
-    for (uint8_t i = 0; i < g_5f_widget_count; i++) {
-        if (g_5f_widgets[i].widget_id != WIDGET_EMPTY) {
-            arex_widget_sync_data(g_5f_widgets[i].widget_id);
+    /* 2. 同步右侧 5F 自定义区配置 */
+    for (uint8_t i = 0; i < g_sys_config.custom_5f_count; i++) {
+        if (g_sys_config.custom_5f_widgets[i].widget_id != WIDGET_EMPTY) {
+            arex_widget_sync_data(g_sys_config.custom_5f_widgets[i].widget_id);
         }
     }
 }
@@ -672,9 +672,9 @@ void arex_screen_refresh_all_widgets(void)
  * ========================================================= */
 void arex_screen_refresh_left_panel(void)
 {
-    for (uint8_t i = 0; i < g_left_widget_count; i++) {
-        if (g_left_widgets[i].widget_id != WIDGET_EMPTY) {
-            arex_widget_sync_data(g_left_widgets[i].widget_id);
+    for (uint8_t i = 0; i < g_sys_config.left_widget_count; i++) {
+        if (g_sys_config.left_widgets[i].widget_id != WIDGET_EMPTY) {
+            arex_widget_sync_data(g_sys_config.left_widgets[i].widget_id);
         }
     }
 }

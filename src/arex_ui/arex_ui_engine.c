@@ -91,8 +91,12 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title = "DEPTH",
         .title_offset_x = 8, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,//实际无用
         .spec.depth = {
-            .int_offset_x = 10, .int_offset_y = 30, .int_align = LV_TEXT_ALIGN_LEFT,
-            .dec_offset_x = 2,  .dec_offset_y = 5,
+            // 核心修复：将大整数的锚点设为 RIGHT_MID (靠右对齐)！
+            // offset_x = -45，意味着右边缘焊死在距离右边界 45px 的位置 (给右边的箭头留出空间)
+            .int_offset_x = -90, .int_offset_y = 10, .int_align = LV_ALIGN_RIGHT_MID,
+            // 小数点挂在整数的外部右下角，Y轴微微往上提一点 (-6) 让基线对齐
+            .dec_offset_x = 2,  .dec_offset_y = -30,
+            // 单位挂在小数的正下方
             .unit_offset_x = 0, .unit_offset_y = 2,
             .icon_offset_x = -10, .icon_offset_y = 0, .icon_align = LV_ALIGN_RIGHT_MID
         }
@@ -432,7 +436,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .widget_id = WIDGET_POD_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,  /* ELEM_EXTRA → POD1/POD2 专属 ID 标签 */
-        .font_id = AREX_FONT_ID_MEDIUM,
+        .font_id = AREX_FONT_ID_HUGE,
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "",
         .title = "POD",
@@ -636,16 +640,9 @@ void arex_reset_widget_render_state(void)
  *   Row 5: GAS      | (占用 2x1 = 160x60)
  *   Row 6: SYS      | (占用 2x1 = 160x60，SystemData 可配置)
  * ========================================================= */
-arex_left_widget_t g_left_widgets[AREX_LEFT_MAX_WIDGETS] = {0};
-uint8_t g_left_widget_count = 0;
+/* 左侧网格配置已迁移到 g_sys_config.left_widgets[] */
 
-/* 5F 自定义网格配置数组（与左侧锚点结构一致）
- *
- * 5x6 网格区域，由 APP 下发配置
- * 每个组件只含 widget_id + r/c 三字段，span_w/h 由 MCU 样式表自动查表
- * ========================================================= */
-arex_5f_widget_t g_5f_widgets[AREX_5F_MAX_WIDGETS] = {0};
-uint8_t g_5f_widget_count = 0;
+/* 5F 自定义网格配置已迁移到 g_sys_config.custom_5f_widgets[] */
 
 
 /* 从 KV 持久化存储加载配置（weak 实现由具体平台覆盖） */
@@ -724,22 +721,21 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *  row4: [POD1              ] [POD2    ] [空槽   ]
      *  row5: [空槽               ] [空槽    ] [空槽   ]
      *
-     *  简洁位置配置：widget_id + r/c 三字段，span_w/h 由 MCU 样式表自动推导
+     *  简洁位置配置：widget_id + x/y 三字段，span_w/h 由 MCU 样式表自动推导
      */
-    g_5f_widget_count = 12;
-    g_5f_widgets[0]  = (arex_5f_widget_t){ WIDGET_DEPTH_1612,     0, 0 };
-    g_5f_widgets[1]  = (arex_5f_widget_t){ WIDGET_TEMP_0806,     0, 2 };
-    g_5f_widgets[2]  = (arex_5f_widget_t){ WIDGET_HEADING_0806,  0, 3 };
-    g_5f_widgets[3]  = (arex_5f_widget_t){ WIDGET_EMPTY,         2, 0 };  /* SAC 已移除 */
-    g_5f_widgets[4]  = (arex_5f_widget_t){ WIDGET_BATTERY_0806,  2, 2 };
-    g_5f_widgets[5]  = (arex_5f_widget_t){ WIDGET_PPO2_0806,     2, 4 };
-    g_5f_widgets[6]  = (arex_5f_widget_t){ WIDGET_NDL_STOP_1606, 3, 0 };
-    g_5f_widgets[7]  = (arex_5f_widget_t){ WIDGET_TTS_0806,      3, 2 };
-    g_5f_widgets[8]  = (arex_5f_widget_t){ WIDGET_CNS_0806,      3, 4 };
-    g_5f_widgets[9]  = (arex_5f_widget_t){ WIDGET_POD_0806,      4, 0 };
-    g_5f_widgets[10] = (arex_5f_widget_t){ WIDGET_POD_0806,      4, 2 };
-    g_5f_widgets[11] = (arex_5f_widget_t){ WIDGET_EMPTY,         4, 4 };  /* 保留空槽 */
-    g_5f_widgets[12] = (arex_5f_widget_t){ WIDGET_EMPTY,         5, 0 };  /* 保留空槽 */
+    cfg->custom_5f_count = 12;
+    cfg->custom_5f_widgets[0]  = (arex_grid_widget_t){ WIDGET_DEPTH_1612,     0, 0 };
+    cfg->custom_5f_widgets[1]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,     2, 0 };
+    cfg->custom_5f_widgets[2]  = (arex_grid_widget_t){ WIDGET_HEADING_0806,   3, 0 };
+    cfg->custom_5f_widgets[3]  = (arex_grid_widget_t){ WIDGET_EMPTY,          0, 2 };  /* SAC 已移除 */
+    cfg->custom_5f_widgets[4]  = (arex_grid_widget_t){ WIDGET_BATTERY_0806,   2, 2 };
+    cfg->custom_5f_widgets[5]  = (arex_grid_widget_t){ WIDGET_PPO2_0806,     4, 2 };
+    cfg->custom_5f_widgets[6]  = (arex_grid_widget_t){ WIDGET_NDL_STOP_1606,  0, 3 };
+    cfg->custom_5f_widgets[7]  = (arex_grid_widget_t){ WIDGET_TTS_0806,       2, 3 };
+    cfg->custom_5f_widgets[8]  = (arex_grid_widget_t){ WIDGET_CNS_0806,       4, 3 };
+    cfg->custom_5f_widgets[9]  = (arex_grid_widget_t){ WIDGET_POD_0806,       0, 4 };
+    cfg->custom_5f_widgets[10] = (arex_grid_widget_t){ WIDGET_POD_0806,       2, 4 };
+    cfg->custom_5f_widgets[11] = (arex_grid_widget_t){ WIDGET_EMPTY,          4, 4 };  /* 保留空槽 */
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
      * 160x420 区域 = 2列(80px) x 7行(60px)，由 arex_render_left_anchor_grid() 渲染
@@ -752,22 +748,20 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *    Row 5: GAS      | (2x1 → 160x60)
      *    Row 6: SYS      | (2x1 → 160x60，SystemData 可配置)
      */
-    g_left_widget_count = 7;
-
-    /* 简洁位置配置：APP 下发 widget_id + x/y，span_w/h 由 MCU 样式表自动推导 */
-    g_left_widgets[0] = (arex_left_widget_t){ WIDGET_NDL_STOP_1606,   0, 0 };
-    g_left_widgets[1] = (arex_left_widget_t){ WIDGET_DEPTH_1612,      0, 1 };
-    g_left_widgets[2] = (arex_left_widget_t){ WIDGET_DIVE_TIME_1606,  0, 3 };  /* 潜水时间 */
-    g_left_widgets[3] = (arex_left_widget_t){ WIDGET_GAS_1606,        0, 4 };
-    g_left_widgets[4] = (arex_left_widget_t){ WIDGET_POD_0806,        0, 5 };
-    g_left_widgets[5] = (arex_left_widget_t){ WIDGET_POD_0806,        1, 5 };
-    g_left_widgets[6] = (arex_left_widget_t){ WIDGET_SYS_1606,        0, 6 };
+    /* 简洁位置配置：widget_id + x/y，span_w/h 由 MCU 样式表自动推导 */
+    cfg->left_widgets[0] = (arex_grid_widget_t){ WIDGET_NDL_STOP_1606,   0, 0 };
+    cfg->left_widgets[1] = (arex_grid_widget_t){ WIDGET_DEPTH_1612,      0, 1 };
+    cfg->left_widgets[2] = (arex_grid_widget_t){ WIDGET_DIVE_TIME_1606,  0, 3 };  /* 潜水时间 */
+    cfg->left_widgets[3] = (arex_grid_widget_t){ WIDGET_GAS_1606,        0, 4 };
+    cfg->left_widgets[4] = (arex_grid_widget_t){ WIDGET_POD_0806,        0, 5 };
+    cfg->left_widgets[5] = (arex_grid_widget_t){ WIDGET_POD_0806,        1, 5 };
+    cfg->left_widgets[6] = (arex_grid_widget_t){ WIDGET_SYS_1606,        0, 6 };
 
     /* 动态计算实际 widget 数量（以最后一个非零 widget 为准） */
-    g_left_widget_count = 0;
+    cfg->left_widget_count = 0;
     for (int i = 0; i < AREX_LEFT_MAX_WIDGETS; i++) {
-        if (g_left_widgets[i].widget_id != 0) {
-            g_left_widget_count = i + 1;
+        if (cfg->left_widgets[i].widget_id != 0) {
+            cfg->left_widget_count = i + 1;
         }
     }
 
@@ -1338,25 +1332,47 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     if (w_id == WIDGET_DEPTH_1612 && is_2x2) {
         /* 样式参数来自 arex_widget_style_t */
         const arex_style_depth_t *s = &style->spec.depth;
+
+        /* ==========================================
+         * 1. 超大号整数 -> 宽度必须紧密包裹！
+         * ========================================== */
         lv_obj_t *int_lbl = lv_label_create(obj);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(int_lbl, "--");
         else lv_label_set_text_fmt(int_lbl, "%d", (int)g_sensor_data.depth);
         lv_obj_set_style_text_font(int_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);
         lv_obj_set_style_text_color(int_lbl, AREX_GREEN, 0);
+
+        // 绝杀技：必须设为 CONTENT！这样无论变成 "6" 还是 "45"，
+        // Label 的右边缘都会死死包住个位数，绝不留一丝缝隙！
+        lv_obj_set_size(int_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+
+        // 读取字典中的 RIGHT_MID 和 -45，把右边缘焊死在这堵墙上！
         lv_obj_align(int_lbl, (lv_align_t)s->int_align, s->int_offset_x, s->int_offset_y);
 
+        /* ==========================================
+         * 2. 中号小数 -> 紧贴整数的右边界！
+         * ========================================== */
         lv_obj_t *dec_lbl = lv_label_create(obj);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
         else lv_label_set_text_fmt(dec_lbl, ".%d", (int)((g_sensor_data.depth - (int)g_sensor_data.depth) * 10 + 0.5f));
         lv_obj_set_style_text_font(dec_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(dec_lbl, AREX_GREEN, 0);
-        lv_obj_align_to(dec_lbl, int_lbl, LV_ALIGN_OUT_RIGHT_TOP, s->dec_offset_x, s->dec_offset_y);
+        lv_obj_set_size(dec_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
-        lv_obj_t *unit_lbl = lv_label_create(obj);
-        lv_label_set_text(unit_lbl, style->unit ? style->unit : "");
-        lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
-        lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, s->unit_offset_x, s->unit_offset_y);
+        // 因为整数的右边缘(个位数)被焊死了，小数挂在它右边，自然就永远贴紧个位数！
+        lv_obj_align_to(dec_lbl, int_lbl, LV_ALIGN_OUT_RIGHT_BOTTOM, s->dec_offset_x, s->dec_offset_y);
+
+        /* ==========================================
+         * 3. 小号单位 (m) -> 紧贴小数正下方
+         * ========================================== */
+        if (style->elements & ELEM_UNIT) {
+            lv_obj_t *unit_lbl = lv_label_create(obj);
+            lv_label_set_text(unit_lbl, style->unit ? style->unit : "");
+            lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+            lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
+            lv_obj_set_size(unit_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, s->unit_offset_x, s->unit_offset_y);
+        }
 
         /* 速率图标：工厂自主查字典判断是否需要绘制 */
         bool needs_bar_icon = (style->elements & ELEM_BAR) != 0;
@@ -1707,14 +1723,14 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
     /* ---- 创建卡片标题（使用通用引擎函数） ---- */
     arex_render_card_title(card_custom, "5F: CUSTOM WIDGETS");
 
-    /* 遍历所有组件（使用新的 g_5f_widgets[] 结构体数组） */
-    uint8_t count = g_5f_widget_count;
+    /* 遍历所有组件 */
+    uint8_t count = g_sys_config.custom_5f_count;
     if (count > AREX_5F_MAX_WIDGETS) count = AREX_5F_MAX_WIDGETS;
 
     for (uint8_t i = 0; i < count; i++) {
-        arex_widget_id_t w_id   = g_5f_widgets[i].widget_id;
-        uint8_t r = g_5f_widgets[i].r;
-        uint8_t c = g_5f_widgets[i].c;
+        arex_widget_id_t w_id   = g_sys_config.custom_5f_widgets[i].widget_id;
+        uint8_t c = g_sys_config.custom_5f_widgets[i].x;  /* 列 */
+        uint8_t r = g_sys_config.custom_5f_widgets[i].y;  /* 行 */
 
         /* 从样式表查 span_w/span_h（MCU 本地自动推导） */
         const arex_widget_style_t *style = arex_get_widget_style(w_id);
@@ -1757,7 +1773,7 @@ void arex_5f_grid_rebuild(void)
     }
 
     printf("[5F] Rebuilding: widget_count=%u, container_size=%dx%d\r\n",
-           g_5f_widget_count,
+           g_sys_config.custom_5f_count,
            lv_obj_get_content_width(g_card_custom_obj),
            lv_obj_get_content_height(g_card_custom_obj));
 
@@ -1776,13 +1792,13 @@ void arex_5f_grid_rebuild(void)
     arex_render_card_title(g_card_custom_obj, "5F: CUSTOM WIDGETS");
 
     /* 遍历所有组件 */
-    uint8_t count = g_5f_widget_count;
+    uint8_t count = g_sys_config.custom_5f_count;
     if (count > AREX_5F_MAX_WIDGETS) count = AREX_5F_MAX_WIDGETS;
 
     for (uint8_t i = 0; i < count; i++) {
-        arex_widget_id_t w_id   = g_5f_widgets[i].widget_id;
-        uint8_t r = g_5f_widgets[i].r;
-        uint8_t c = g_5f_widgets[i].c;
+        arex_widget_id_t w_id   = g_sys_config.custom_5f_widgets[i].widget_id;
+        uint8_t c = g_sys_config.custom_5f_widgets[i].x;  /* 列 */
+        uint8_t r = g_sys_config.custom_5f_widgets[i].y;  /* 行 */
 
         if (w_id == WIDGET_EMPTY) continue;
 
@@ -2611,7 +2627,7 @@ void arex_ui_update_task(lv_timer_t *timer)
  * SystemData 底部 60px 由 WIDGET_SYS_1606 组件化渲染。
  * ========================================================= */
 
-/* 左侧网格总线渲染器：遍历 g_left_widgets[] 数组，
+/* 左侧网格总线渲染器：遍历 g_sys_config.left_widgets[] 数组，
  * 用纯数学 cell_w * cell_h 推算绝对坐标并渲染所有组件。
  * left_anchor 传入用于告警引擎跨区搜索烙印对象。 */
 void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
@@ -2630,8 +2646,8 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
     const uint16_t cell_h = AREX_LEFT_CELL_H;   /* 60px */
 
     /* 遍历并渲染基于网格的组件 */
-    for (uint8_t i = 0; i < g_left_widget_count && i < AREX_LEFT_MAX_WIDGETS; i++) {
-        arex_left_widget_t *cfg = &g_left_widgets[i];
+    for (uint8_t i = 0; i < g_sys_config.left_widget_count && i < AREX_LEFT_MAX_WIDGETS; i++) {
+        arex_grid_widget_t *cfg = &g_sys_config.left_widgets[i];
         if (cfg->widget_id == WIDGET_EMPTY) continue;
 
         /* 从样式表查表获取跨度信息 */
