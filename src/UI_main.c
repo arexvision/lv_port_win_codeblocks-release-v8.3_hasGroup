@@ -232,91 +232,65 @@ static void sim_tick_cb(lv_timer_t *t)
     /* 水面休息计时（用于 W.TIME 显示） */
     arex_bus_set_surface_time(g_sensor_data.surface_time_s + 1);
 
-    /* 深度模拟：快速下潜 → 停留5秒 → 快速上升 → 3m停留10秒 → 循环 */
-    static uint8_t s_depth_phase = 0;      /* 0: 快速下潜, 1: 停留5s, 2: 快速上升, 3: 3m停留10s */
-    static uint8_t s_depth_phase_tick = 0; /* 当前阶段已执行 tick 数 */
-    static float s_sim_depth = 0.0f;       /* 模拟深度值 */
-
-    /* 各阶段参数: { 持续tick数(秒), 每tick深度变化(m) } */
-    static const struct { uint8_t ticks; float delta; } s_depth_profiles[4] = {
-        { 20,  1.50f },  /* 0: 快速下潜 20s, 20×1.5=30m */
-        { 5,   0.00f },  /* 1: 停留5秒 30m不变 */
-        { 20, -1.35f },  /* 2: 快速上升 20s, 30m→3m, 27m÷20s=1.35m/s */
-        { 10,  0.00f },  /* 3: 3m停留10秒 */
-    };
-
-    s_sim_depth += s_depth_profiles[s_depth_phase].delta;
-    s_depth_phase_tick++;
-
-    /* 阶段切换 */
-    if (s_depth_phase_tick >= s_depth_profiles[s_depth_phase].ticks) {
-        s_depth_phase_tick = 0;
-        if (s_depth_phase == 3) {
-            /* 3m停留结束后，回到水面，开始新循环 */
-            s_sim_depth = 0.0f;
-            s_depth_phase = 0;
-        } else {
-            s_depth_phase++;
-        }
-    }
-
-    /* 边界保护 */
-    if (s_sim_depth > 50.0f) s_sim_depth = 50.0f;
-    if (s_sim_depth < 0.0f)  s_sim_depth = 0.0f;
-
-    arex_bus_set_depth(s_sim_depth);
-
     /* ============================================================
-     * NDL_STOP 状态机仿真：NDL常态 → Safety停留 → Deco停留
-     * 每秒调用一次，驱动停留状态机的自动变身效果
+     * 纯净版完美模拟剧本：常态下潜 -> 安全停留 -> 强制减压
+     * 保证你在 90 秒内看完所有最完美的形态转换与动画！
      * ============================================================ */
     {
-        static uint16_t s_ndl_tick = 0;
-        s_ndl_tick++;
+        static uint32_t s_sim_ticks = 0;
+        s_sim_ticks++;
 
-        /* 1. NDL 递减 */
-        if (g_sensor_data.ndl > 0) {
-            arex_bus_set_ndl((int16_t)(g_sensor_data.ndl - 1));
+        float current_sim_depth = 0.0f;
+
+        if (s_sim_ticks < 30) {
+            /* 阶段 1：平滑下潜 (0~30秒) 5m 缓缓沉入 18.5m */
+            current_sim_depth = 5.0f + (s_sim_ticks * 0.45f);
+            arex_bus_set_ndl(45);
+            g_sensor_data.stop_type = AREX_STOP_NONE;
         }
+        else if (s_sim_ticks < 60) {
+            /* 阶段 2：快速上升到 5m，触发安全停留 (30~60秒) */
+            current_sim_depth = 4.8f;
+            arex_bus_set_ndl(45); /* NDL 充足，触发安全停留 */
 
-        /* 2. 常态: 深度 < 5m 且 NDL > 0 */
-        g_sensor_data.stop_type = AREX_STOP_NONE;
-        g_sensor_data.in_stop_zone = false;
-
-        /* 3. 安全停留: 深度 5~10m，触发 3m 安全停留 180秒 */
-        if (s_sim_depth >= 5.0f && s_sim_depth < 10.0f && g_sensor_data.ndl > 0) {
             g_sensor_data.stop_type = AREX_STOP_SAFETY;
             g_sensor_data.stop_depth_m = 3.0f;
             g_sensor_data.stop_time_total_s = 180;
-            g_sensor_data.stop_time_left_s = 180 - (s_ndl_tick % 180);
-            /* 是否在 ±1.5m 范围内？ */
-            g_sensor_data.in_stop_zone = (fabsf(s_sim_depth - 3.0f) <= 1.5f);
+            g_sensor_data.stop_time_left_s = 180 - (s_sim_ticks - 30) * 6;
+            g_sensor_data.in_stop_zone = true; /* 对准深度，开始读秒！ */
         }
-        /* 4. 减压停留: 深度 >= 10m 或 NDL 耗尽 */
-        else if (s_sim_depth >= 10.0f || g_sensor_data.ndl <= 0) {
-            if (g_sensor_data.ndl <= 0) {
-                g_sensor_data.ndl = 0;
-            }
+        else if (s_sim_ticks < 90) {
+            /* 阶段 3：突发状况，下沉到 6.2m，NDL 耗尽触发强制减压 (60~90秒) */
+            current_sim_depth = 6.2f;
+            arex_bus_set_ndl(0); /* NDL 归零，强制触发 DECO！ */
+
             g_sensor_data.stop_type = AREX_STOP_DECO;
             g_sensor_data.stop_depth_m = 6.0f;
             g_sensor_data.stop_time_total_s = 300;
-            g_sensor_data.stop_time_left_s = 300 - (s_ndl_tick % 300);
-            /* 是否在 ±1.5m 范围内？ */
-            g_sensor_data.in_stop_zone = (fabsf(s_sim_depth - 6.0f) <= 1.5f);
+            g_sensor_data.stop_time_left_s = 300 - (s_sim_ticks - 60) * 10;
+            g_sensor_data.in_stop_zone = true;
+        }
+        else {
+            /* 循环重置 */
+            s_sim_ticks = 0;
+            current_sim_depth = 5.0f;
         }
 
-        /* 强制唤醒 UI 更新（停留状态变化时触发 DIRTY_NDL_STOP） */
-        g_sensor_data.dirty_mask |= DIRTY_NDL_STOP;
-    }
+        /* 统一推送当前剧本深度 */
+        arex_bus_set_depth(current_sim_depth);
 
-    /* 深度超过 12m 时，推送模拟减压站序列 */
-    if (s_sim_depth > 12.0f) {
-        arex_deco_stop_t sim_stops[] = {
-            { .depth_m = 9.0f, .stay_min = 2.0f },
-            { .depth_m = 6.0f, .stay_min = 3.0f },
-            { .depth_m = 3.0f, .stay_min = 1.0f },
-        };
-        arex_bus_set_deco_plan(sim_stops, 3);
+        /* 深度超过 12m 时，推送模拟减压站序列 */
+        if (current_sim_depth > 12.0f) {
+            arex_deco_stop_t sim_stops[] = {
+                { .depth_m = 9.0f, .stay_min = 2.0f },
+                { .depth_m = 6.0f, .stay_min = 3.0f },
+                { .depth_m = 3.0f, .stay_min = 1.0f },
+            };
+            arex_bus_set_deco_plan(sim_stops, 3);
+        }
+
+        /* 强制唤醒 UI 更新 NDL 模块 */
+        g_sensor_data.dirty_mask |= DIRTY_NDL_STOP;
     }
 
     /* 模拟 TTS 递增 */
