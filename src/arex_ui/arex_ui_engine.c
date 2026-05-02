@@ -762,8 +762,16 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     g_left_widgets[2] = (arex_left_widget_t){ WIDGET_POD_0806,        0, 3 };
     g_left_widgets[3] = (arex_left_widget_t){ WIDGET_POD_0806,        1, 3 };
     g_left_widgets[4] = (arex_left_widget_t){ WIDGET_WTIME_0806,      0, 4 };
-    g_left_widgets[5] = (arex_left_widget_t){ WIDGET_GAS_1606,        0, 5 };
-    g_left_widgets[6] = (arex_left_widget_t){ WIDGET_SYS_1606,        0, 6 };
+    g_left_widgets[5] = (arex_left_widget_t){ WIDGET_SYS_1606,        0, 5 };
+    g_left_widgets[6] = (arex_left_widget_t){ WIDGET_WTIME_0806,        0, 6 };
+
+    /* 动态计算实际 widget 数量（以最后一个非零 widget 为准） */
+    g_left_widget_count = 0;
+    for (int i = 0; i < AREX_LEFT_MAX_WIDGETS; i++) {
+        if (g_left_widgets[i].widget_id != 0) {
+            g_left_widget_count = i + 1;
+        }
+    }
 
     /* ========== [A] 右侧卡片顺序 (tileview 滑动顺序) ==========
      * card_order[pos] = card_id

@@ -247,9 +247,23 @@ static void left_anchor_create(void)
  * 位置：左侧锚点 (s_left_anchor) 最下方
  * 左半：电量百分比 + 温度
  * 右半：留转灯 + 手电筒 + 气瓶图标
+ *
+ * 如果任何左侧 widget 设置了 ELEM_SYS_BAR flag，说明 SYS 区域由
+ * arex_render_left_anchor_grid 中的 widget 配置控制，此处跳过渲染。
  * ========================================================= */
 void arex_render_system_data(lv_obj_t *parent)
 {
+    /* 检查是否有 widget 标记了 ELEM_SYS_BAR */
+    bool sys_bar_in_config = false;
+    for (uint8_t i = 0; i < g_left_widget_count; i++) {
+        const arex_widget_style_t *style = arex_get_widget_style(g_left_widgets[i].widget_id);
+        if (style && (style->elements & ELEM_SYS_BAR)) {
+            sys_bar_in_config = true;
+            break;
+        }
+    }
+    if (sys_bar_in_config) return;
+
     /* 声明外部图片数组 */
     LV_IMG_DECLARE(liuzhuandeng);
     LV_IMG_DECLARE(Shoudiantong);

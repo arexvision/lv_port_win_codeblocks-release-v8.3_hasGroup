@@ -13,10 +13,9 @@ static lv_timer_t *s_update_task_timer;  /* 50ms UI 消费定时器 */
 /* =========================================================
  * arex_test_set_ui_layout — 构造 BLE 同步帧，模拟 APP 下发布局配置
  *
- * 测试场景:
- *   phase=0: 标准 2x7 左侧锚点 + 默认 5F 网格 + 默认卡片顺序
- *   phase=1: 翻转 2x7 锚点 + 空 5F 网格 + 翻转卡片顺序
- *   phase=2: 最小 5F 配置测试（只有 3 个组件）
+ * 测试场景（极简版）：
+ *   phase=0: 左侧 7 组件 + 右侧 12 组件（标准布局）
+ *   phase=1: 左侧 5 组件（减少） + 右侧 6 组件（减少）
  * ========================================================= */
 static void arex_test_set_ui_layout(uint8_t phase)
 {
@@ -25,24 +24,21 @@ static void arex_test_set_ui_layout(uint8_t phase)
     memset(&s_payload, 0, sizeof(s_payload));
     s_payload.version = AREX_BLE_CFG_VERSION;
 
-    /* ========== 卡片顺序 ========== */
-    uint8_t card_order_default[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
-    uint8_t card_order_rev[] = { 7, 6, 5, 4, 3, 2, 1, 0 };
-    uint8_t *card_order = (phase % 2 == 0) ? card_order_default : card_order_rev;
-    memcpy(s_payload.card_order, card_order, sizeof(card_order_default));
+    /* ========== 卡片顺序：固定不变 ========== */
+    uint8_t card_order[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    memcpy(s_payload.card_order, card_order, sizeof(card_order));
 
     if (phase == 0) {
-        /* ========== 布局 A: 标准 2x7 左侧锚点 ========== */
-        /* MCU 根据 widget_id 查样式表自动推导 span_w/h */
+        /* ========== 布局 A: 标准 7+12 ========== */
         uint8_t left_def[][3] = {
             /* widget_id,           x,  y */
-            { WIDGET_NDL_STOP_1606,  0, 0 },   /* NDL 第0行 */
-            { WIDGET_DEPTH_1612,    0, 1 },   /* DEPTH 占 2x2 */
-            { WIDGET_POD_0806,      0, 3 },   /* POD1 左 */
-            { WIDGET_POD_0806,      1, 3 },   /* POD2 右 */
-            { WIDGET_WTIME_0806,    0, 4 },   /* W.TIME 左 */
-            { WIDGET_GAS_1606,      0, 5 },   /* GAS 左 */
-            { WIDGET_SYS_1606,      0, 6 },   /* SYS 底行 */
+            { WIDGET_NDL_STOP_1606,  0, 0 },
+            { WIDGET_DEPTH_1612,    0, 1 },
+            { WIDGET_POD_0806,      0, 3 },
+            { WIDGET_POD_0806,      1, 3 },
+            { WIDGET_WTIME_0806,    0, 4 },
+            { WIDGET_GAS_1606,      0, 5 },
+            { WIDGET_SYS_1606,      0, 6 },
         };
         s_payload.left_count = sizeof(left_def) / sizeof(left_def[0]);
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
@@ -51,21 +47,20 @@ static void arex_test_set_ui_layout(uint8_t phase)
             s_payload.left_widgets[i].y  = left_def[i][2];
         }
 
-        /* ========== 5F 自定义网格（12 个组件）========== */
         uint8_t custom_5f[][3] = {
             /* widget_id,            r,  c */
-            { WIDGET_DEPTH_1612,     0, 0 },   /* DEPTH 2x2 大块 */
-            { WIDGET_TEMP_0806,      0, 2 },   /* TEMP 1x1 */
-            { WIDGET_HEADING_0806,   0, 3 },   /* HEADING 2x1 */
-            { WIDGET_SAC_RATE_0806,  2, 0 },   /* SAC 2x1 */
-            { WIDGET_BATTERY_0806,   2, 2 },   /* BATTERY 2x1 */
-            { WIDGET_PPO2_0806,      2, 4 },   /* PPO2 1x1 */
-            { WIDGET_NDL_STOP_1606,  3, 0 },   /* NDL 2x1 */
-            { WIDGET_TTS_0806,       3, 2 },   /* TTS 2x1 */
-            { WIDGET_CNS_0806,       3, 4 },   /* CNS 1x1 */
-            { WIDGET_POD_0806,       4, 0 },   /* POD1 2x1 */
-            { WIDGET_POD_0806,       4, 2 },   /* POD2 2x1 */
-            { WIDGET_WTIME_0806,     4, 4 },   /* W.TIME 1x1 */
+            { WIDGET_DEPTH_1612,     0, 0 },
+            { WIDGET_TEMP_0806,      0, 2 },
+            { WIDGET_HEADING_0806,   0, 3 },
+            { WIDGET_SAC_RATE_0806,  2, 0 },
+            { WIDGET_BATTERY_0806,   2, 2 },
+            { WIDGET_PPO2_0806,      2, 4 },
+            { WIDGET_NDL_STOP_1606,  3, 0 },
+            { WIDGET_TTS_0806,       3, 2 },
+            { WIDGET_CNS_0806,       3, 4 },
+            { WIDGET_POD_0806,       4, 0 },
+            { WIDGET_POD_0806,       4, 2 },
+            { WIDGET_WTIME_0806,     4, 4 },
         };
         s_payload.custom_5f_count = sizeof(custom_5f) / sizeof(custom_5f[0]);
         for (uint8_t i = 0; i < s_payload.custom_5f_count; i++) {
@@ -74,42 +69,31 @@ static void arex_test_set_ui_layout(uint8_t phase)
             s_payload.custom_5f_widgets[i].c  = custom_5f[i][2];
         }
 
-    } else if (phase == 1) {
-        /* ========== 布局 B: 翻转 2x7 左侧锚点 ========== */
-        uint8_t left_rev[][3] = {
-            /* widget_id,            x,  y */
-            { WIDGET_NDL_STOP_1606,  0, 0 },   /* NDL 第0行 */
-            { WIDGET_DEPTH_1612,    0, 1 },   /* DEPTH 保持位置 */
-            { WIDGET_POD_0806,      1, 3 },   /* POD2 左 (x 翻转) */
-            { WIDGET_POD_0806,      0, 3 },   /* POD1 右 (x 翻转) */
-            { WIDGET_WTIME_0806,    1, 4 },   /* WTIME 翻转 */
-            { WIDGET_GAS_1606,      0, 5 },   /* GAS 保持 */
-            { WIDGET_SYS_1606,      0, 6 },   /* SYS 保持 */
-        };
-        s_payload.left_count = sizeof(left_rev) / sizeof(left_rev[0]);
-        for (uint8_t i = 0; i < s_payload.left_count; i++) {
-            s_payload.left_widgets[i].widget_id = left_rev[i][0];
-            s_payload.left_widgets[i].x  = left_rev[i][1];
-            s_payload.left_widgets[i].y  = left_rev[i][2];
-        }
-        /* 5F 网格置空 */
-        s_payload.custom_5f_count = 0;
-
     } else {
-        /* ========== 布局 C: 最小 5F 配置测试 ========== */
-        s_payload.left_count = 7;
+        /* ========== 布局 B: 减少组件（左侧5个 + 右侧6个）========== */
+        uint8_t left_min[][3] = {
+            /* widget_id,           x,  y */
+            { WIDGET_NDL_STOP_1606,  0, 0 },
+            { WIDGET_DEPTH_1612,    0, 1 },
+            { WIDGET_POD_0806,      0, 3 },
+            { WIDGET_GAS_1606,      0, 5 },
+            { WIDGET_SYS_1606,      0, 6 },
+        };
+        s_payload.left_count = sizeof(left_min) / sizeof(left_min[0]);
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
-            s_payload.left_widgets[i].widget_id = WIDGET_EMPTY;
-            s_payload.left_widgets[i].x  = 0;
-            s_payload.left_widgets[i].y  = i;
+            s_payload.left_widgets[i].widget_id = left_min[i][0];
+            s_payload.left_widgets[i].x  = left_min[i][1];
+            s_payload.left_widgets[i].y  = left_min[i][2];
         }
 
-        /* 只测试 3 个组件的 5F 网格 */
         uint8_t custom_min[][3] = {
             /* widget_id,            r,  c */
-            { WIDGET_DEPTH_1612,     0, 0 },   /* DEPTH 占 2x2 */
-            { WIDGET_BATTERY_0806,   2, 0 },   /* BATTERY 2x1 */
-            { WIDGET_TEMP_0806,      2, 2 },   /* TEMP 1x1 */
+            { WIDGET_DEPTH_1612,     0, 0 },
+            { WIDGET_TEMP_0806,      0, 2 },
+            { WIDGET_BATTERY_0806,   2, 0 },
+            { WIDGET_PPO2_0806,      2, 2 },
+            { WIDGET_NDL_STOP_1606,  3, 0 },
+            { WIDGET_WTIME_0806,     4, 0 },
         };
         s_payload.custom_5f_count = sizeof(custom_min) / sizeof(custom_min[0]);
         for (uint8_t i = 0; i < s_payload.custom_5f_count; i++) {
@@ -146,14 +130,12 @@ static void sim_tick_cb(lv_timer_t *t)
         static uint8_t s_layout_phase = 0;
         printf("[TEST] Switching to phase %u\r\n", s_layout_phase);
 
-        /* 禁用 LVGL invalidation 防止重建时的闪烁和崩溃 */
-        lv_disp_t *disp = lv_disp_get_default();
-        if (disp) lv_disp_enable_invalidation(disp, false);
-
+        /* 【注意】不要在这里调用 lv_disp_enable_invalidation！
+         * arex_ui_update_task() 内部已经正确处理了 invalidation。
+         * 如果同时在 sim_tick_cb 中禁用，LVGL 显示缓冲区可能在重建后无法正确刷新。 */
         arex_test_set_ui_layout(s_layout_phase);
 
-        if (disp) lv_disp_enable_invalidation(disp, true);
-        s_layout_phase = (s_layout_phase + 1) % 1;  /* 只测试 phase 0，固定不动 */
+        s_layout_phase = (s_layout_phase + 1) % 2;  /* 0→1→0 循环测试 */
     }
 
     /* 航向缓慢顺时针旋转 */
@@ -312,5 +294,5 @@ void UI_main(void)
     s_update_task_timer = lv_timer_create(arex_ui_update_task, 50, NULL);
 
     /* 8. 启动模拟数据定时器：1Hz */
-    lv_timer_create(sim_tick_cb, 1000, NULL);
+    // lv_timer_create(sim_tick_cb, 1000, NULL);
 }
