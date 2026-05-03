@@ -28,6 +28,7 @@ static lv_obj_t *s_wall_text_top,    *s_wall_blocks_top;
 static lv_obj_t *s_wall_text_bottom, *s_wall_blocks_bottom;
 
 /* Scroll dots */
+static lv_obj_t *s_dot_cont;  /* dots 容器（父对象为 s_safe_zone，可定位到间隙中间） */
 static lv_obj_t *s_scroll_dots[AREX_DASH_CARD_COUNT];
 
 /* Modal overlay */
@@ -270,6 +271,22 @@ static void safe_zone_reposition(void)
     lv_obj_set_size(s_right_cont, right_w, g_sys_config.safe_zone_h);
 
     s_cached_right_w = right_w;
+
+    /* 5. 重新定位 scroll dots（如果存在且位置模式为 LEFT） */
+    if (s_dot_cont && g_sys_config.dots_position == AREX_DOTS_LEFT) {
+        lv_coord_t gap_center_x;
+        uint16_t dot_cont_h = arex_visible_dash_count() * 14;
+        lv_coord_t gap_center_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2);
+
+        if (g_sys_config.layout_order == AREX_ORDER_NORMAL) {
+            /* NORMAL 布局：间隙中间 X = AREX_LEFT_ANCHOR_W + panel_gap / 2 */
+            gap_center_x = (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap / 2);
+        } else {
+            /* FLIPPED 布局：间隙中间 X = right_w + panel_gap / 2 */
+            gap_center_x = (lv_coord_t)(right_w + panel_gap / 2);
+        }
+        lv_obj_set_pos(s_dot_cont, gap_center_x - 5, gap_center_y - dot_cont_h / 2);
+    }
 }
 
 /* =========================================================
@@ -343,30 +360,50 @@ static void right_panel_create(void)
         }
     }
 
-    /* Scroll dots */
-    lv_obj_t *dot_cont = lv_obj_create(s_right_cont);
+    /* Scroll dots - 父对象为 s_safe_zone，可定位到间隙中间 */
+    s_dot_cont = lv_obj_create(s_safe_zone);
     uint16_t dot_cont_h = arex_visible_dash_count() * 14;
-    lv_obj_set_size(dot_cont, 10, dot_cont_h);
-    lv_obj_set_style_bg_opa(dot_cont, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(dot_cont, 0, 0);
-    lv_obj_set_style_pad_all(dot_cont, 0, 0);
-    lv_obj_set_flex_flow(dot_cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(dot_cont, LV_FLEX_ALIGN_SPACE_EVENLY,
+    lv_obj_set_size(s_dot_cont, 10, dot_cont_h);
+    lv_obj_set_style_bg_opa(s_dot_cont, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(s_dot_cont, 0, 0);
+    lv_obj_set_style_pad_all(s_dot_cont, 0, 0);
+    lv_obj_set_flex_flow(s_dot_cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(s_dot_cont, LV_FLEX_ALIGN_SPACE_EVENLY,
                            LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_scrollbar_mode(dot_cont, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_scrollbar_mode(s_dot_cont, LV_SCROLLBAR_MODE_OFF);
 
-    /* Dots 位置跟随配置 */
+    /* Dots 位置跟随配置 - 使用绝对坐标（相对于 s_safe_zone） */
     if (g_sys_config.dots_position == AREX_DOTS_LEFT) {
-        lv_obj_align(dot_cont, LV_ALIGN_LEFT_MID, 8, 0);
+        /* 放在左侧固定区和右侧卡片区的间隙中间 */
+        lv_coord_t gap_center_x;
+        lv_coord_t gap_center_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2);
+
+        if (g_sys_config.layout_order == AREX_ORDER_NORMAL) {
+            /* NORMAL 布局：间隙中间 X = AREX_LEFT_ANCHOR_W + panel_gap / 2 */
+            gap_center_x = (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap / 2);
+        } else {
+            /* FLIPPED 布局：间隙中间 X = right_w + panel_gap / 2 */
+            gap_center_x = (lv_coord_t)(right_w + panel_gap / 2);
+        }
+        lv_obj_set_pos(s_dot_cont, gap_center_x - 5, gap_center_y - dot_cont_h / 2);
     } else if (g_sys_config.dots_position == AREX_DOTS_RIGHT) {
-        lv_obj_align(dot_cont, LV_ALIGN_RIGHT_MID, -8, 0);
+        /* 右侧：相对于右侧容器的右边缘 */
+        lv_coord_t right_cont_x = (g_sys_config.layout_order == AREX_ORDER_NORMAL)
+            ? (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap)
+            : 0;
+        lv_coord_t dots_x = right_cont_x + right_w - 18;
+        lv_coord_t dots_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2 - dot_cont_h / 2);
+        lv_obj_set_pos(s_dot_cont, dots_x, dots_y);
     } else if (g_sys_config.dots_position == AREX_DOTS_BOTTOM) {
-        lv_obj_align(dot_cont, LV_ALIGN_BOTTOM_MID, 0, -8);
+        /* 底部：水平居中 */
+        lv_coord_t dots_x = (lv_coord_t)(g_sys_config.safe_zone_w / 2 - 5);
+        lv_coord_t dots_y = (lv_coord_t)(g_sys_config.safe_zone_h - 18);
+        lv_obj_set_pos(s_dot_cont, dots_x, dots_y);
     }
     /* AREX_DOTS_NONE 时不显示 dot_cont */
 
     for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++) {
-        s_scroll_dots[i] = lv_obj_create(dot_cont);
+        s_scroll_dots[i] = lv_obj_create(s_dot_cont);
         lv_obj_set_size(s_scroll_dots[i], 6, 6);
         lv_obj_set_style_radius(s_scroll_dots[i], 0, 0);
         lv_obj_set_style_bg_color(s_scroll_dots[i], AREX_DARK, 0);
@@ -441,8 +478,6 @@ void arex_screen_rebuild_tileview(void)
         lv_obj_del(s_right_cont);
         s_right_cont = NULL;
         s_tileview   = NULL;
-        for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++)
-            s_scroll_dots[i] = NULL;
         s_wall_top = NULL;
         s_wall_bottom = NULL;
         s_wall_text_top = NULL;
@@ -454,6 +489,14 @@ void arex_screen_rebuild_tileview(void)
         s_submenu_layer = NULL;
         s_submenu_title = NULL;
         s_submenu_list = NULL;
+    }
+
+    /* 单独删除 s_dot_cont（父对象为 s_safe_zone，不会随 s_right_cont 删除） */
+    if (s_dot_cont) {
+        lv_obj_del(s_dot_cont);
+        s_dot_cont = NULL;
+        for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++)
+            s_scroll_dots[i] = NULL;
     }
 
     right_panel_create();
@@ -692,10 +735,14 @@ void arex_screen_refresh_all_widgets(void)
         }
     }
 
-    /* 2. 同步右侧 5F 自定义区配置（使用 custom_cards[0]） */
-    for (uint8_t i = 0; i < g_sys_config.custom_cards[0].widget_count; i++) {
-        if (g_sys_config.custom_cards[0].widgets[i].widget_id != WIDGET_EMPTY) {
-            arex_widget_sync_data(g_sys_config.custom_cards[0].widgets[i].widget_id);
+    /* 2. 同步右侧全部自定义卡片配置 */
+    for (uint8_t card_idx = 0;
+         card_idx < g_sys_config.custom_card_count && card_idx < AREX_MAX_CUSTOM_CARDS;
+         card_idx++) {
+        for (uint8_t i = 0; i < g_sys_config.custom_cards[card_idx].widget_count; i++) {
+            if (g_sys_config.custom_cards[card_idx].widgets[i].widget_id != WIDGET_EMPTY) {
+                arex_widget_sync_data(g_sys_config.custom_cards[card_idx].widgets[i].widget_id);
+            }
         }
     }
 }

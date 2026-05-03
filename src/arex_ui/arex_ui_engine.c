@@ -40,6 +40,8 @@ static uint32_t s_alarm_start_tick = 0;
 
 /* 告警活跃标记：触发告警后持续闪烁，直到速度降到安全范围 */
 static bool s_alarm_active = false;
+/* 用户已确认清除，等待满足最短显示时间后自动消失 */
+static bool s_alarm_clear_armed = false;
 
 /* ============================================================
  * 罗盘卡片静态句柄（由 card_compass.c 持有）
@@ -252,10 +254,10 @@ static const arex_widget_style_t g_widget_styles[] = {
     {
         .widget_id = WIDGET_BATTERY_0806,
         .span_w = 1, .span_h = 1,
-        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
         .title_font_id = AREX_FONT_ID_SMALL,
-        .unit = "%",
+        .unit = "",   /* 单位已在刷新代码中硬编码 */
         .title = "BATT",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
@@ -734,7 +736,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     /* 兼容新架构: 使用 custom_cards[0] 存储单张卡片的配置 */
     cfg->custom_card_count = 1;
     cfg->custom_cards[0].widget_count = 12;
-    cfg->custom_cards[0].widgets[0]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      0, 0 };
+    cfg->custom_cards[0].widgets[0]  = (arex_grid_widget_t){ WIDGET_DEPTH_1612,      0, 0 };
     cfg->custom_cards[0].widgets[1]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      2, 0 };
     cfg->custom_cards[0].widgets[2]  = (arex_grid_widget_t){ WIDGET_HEADING_0806,   3, 0 };
     cfg->custom_cards[0].widgets[3]  = (arex_grid_widget_t){ WIDGET_EMPTY,           0, 2 };  /* SAC 已移除 */
@@ -1381,7 +1383,13 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
          * ========================================== */
         lv_obj_t *dec_lbl = lv_label_create(obj);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
-        else lv_label_set_text_fmt(dec_lbl, ".%d", (int)(fabsf(g_sensor_data.depth - (int)g_sensor_data.depth) * 10 + 0.5f));
+        else {
+            /* 提取小数部分：只保留一位小数，范围 0-9 */
+            float decimal_part = fabsf(g_sensor_data.depth - (int)g_sensor_data.depth);
+            int dd = (int)(decimal_part * 10 + 0.5f);
+            if (dd > 9) dd = 9;  /* 防止浮点精度问题导致多位数 */
+            lv_label_set_text_fmt(dec_lbl, ".%d", dd);
+        }
         // 字体从字典读取（title_font_id = MEDIUM 28px，小数比整数小）
         lv_obj_set_style_text_font(dec_lbl, arex_get_font(style->title_font_id), 0);
         lv_obj_set_style_text_color(dec_lbl, AREX_GREEN, 0);
@@ -1824,7 +1832,10 @@ void arex_widget_set_value(arex_widget_id_t id, float value)
             /* DEPTH 专属：整数/小数用 child[0]/child[1] 下标访问 */
             if (id == WIDGET_DEPTH_1612 && child_tag == (uintptr_t)id) {
                 int di = (int)value;
-                int dd = (int)((value - di) * 10 + 0.5f);
+                /* 只保留一位小数，范围 0-9 */
+                float decimal_part = fabsf(value - di);
+                int dd = (int)(decimal_part * 10 + 0.5f);
+                if (dd > 9) dd = 9;  /* 防止浮点精度问题导致多位数 */
                 lv_obj_t *part0 = lv_obj_get_child(child, 0);
                 lv_obj_t *part1 = lv_obj_get_child(child, 1);
                 if (part0 && lv_obj_check_type(part0, &lv_label_class)) {
@@ -2122,6 +2133,7 @@ void arex_trigger_alarm(arex_alarm_level_t level,
         if (elapsed < ALARM_MIN_DISPLAY_MS) {
             /* 仍在最短显示期内，重新计时 5 秒 */
             s_alarm_start_tick = lv_tick_get();
+            s_alarm_clear_armed = false;
             return;
         }
     }
@@ -2132,6 +2144,7 @@ void arex_trigger_alarm(arex_alarm_level_t level,
     g_ui.alarm_pending_click = true;            /* 4. 要求用户先操作才能清除 */
     s_alarm_start_tick = lv_tick_get();         /* 5. 记录开始时间 */
     s_alarm_active = true;                      /* 6. 标记告警活跃 */
+    s_alarm_clear_armed = false;                /* 7. 新告警需要重新确认 */
 }
 
 /* =========================================================
@@ -2153,6 +2166,13 @@ void arex_clear_all_alarm_styles(void)
     g_current_alarm_target = WIDGET_EMPTY;  /* 清除靶心 */
     g_current_alarm_level = 0;
     s_alarm_active = false;                /* 标记告警已清除 */
+    s_alarm_clear_armed = false;
+}
+
+bool arex_alarm_mark_clear_requested(void)
+{
+    s_alarm_clear_armed = true;
+    return true;
 }
 
 /* =========================================================
@@ -2163,23 +2183,26 @@ void arex_show_alarm_banner(arex_alarm_level_t level, const char *eng_text)
     lv_obj_t *safe_zone = arex_get_safe_zone();
     if (!safe_zone) return;
 
-    /* 动态推算右侧卡片区的准确宽度 */
-    int right_canvas_w = (int)g_sys_config.safe_zone_w - (int)AREX_LEFT_ANCHOR_W
-                       - (int)(g_sys_config.gap_u * AREX_BASE_U);
+    /* 动态推算卡片区宽度，并根据布局方向决定横幅所在侧 */
+    int panel_gap = (int)(g_sys_config.gap_u * AREX_BASE_U);
+    int card_canvas_w = (int)g_sys_config.safe_zone_w - (int)AREX_LEFT_ANCHOR_W - panel_gap;
 
     if (!s_alarm_banner) {
         s_alarm_banner = lv_obj_create(safe_zone);
         lv_obj_remove_style_all(s_alarm_banner);
 
-        /* 核心修复 1：宽度限制为右侧画布宽度，不再横跨全屏 */
-        lv_obj_set_size(s_alarm_banner, right_canvas_w, 60);
-
-        /* 核心修复 2：靠右上角对齐，完美避开左侧 16U 固定锚点区 */
-        lv_obj_align(s_alarm_banner, LV_ALIGN_TOP_RIGHT, 0, 0);
+        lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
 
         s_alarm_banner_lbl = lv_label_create(s_alarm_banner);
         lv_obj_set_style_text_font(s_alarm_banner_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
         lv_obj_align(s_alarm_banner_lbl, LV_ALIGN_LEFT_MID, 20, 0);
+    }
+
+    lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
+    if (g_sys_config.layout_order == AREX_ORDER_NORMAL) {
+        lv_obj_align(s_alarm_banner, LV_ALIGN_TOP_RIGHT, 0, 0);
+    } else {
+        lv_obj_align(s_alarm_banner, LV_ALIGN_TOP_LEFT, 0, 0);
     }
 
     /* 🚨 终极杀招：把横幅强行拉到所有卡片之上！绝对防遮挡！ */
@@ -2379,6 +2402,11 @@ void arex_ui_update_task(lv_timer_t *timer)
 
             /* 速度降到安全范围后自动清除告警 */
             if (!is_moving && s_alarm_active) {
+                arex_clear_all_alarm_styles();
+            }
+
+            if (s_alarm_active && s_alarm_clear_armed &&
+                lv_tick_elaps(s_alarm_start_tick) >= ALARM_MIN_DISPLAY_MS) {
                 arex_clear_all_alarm_styles();
             }
 

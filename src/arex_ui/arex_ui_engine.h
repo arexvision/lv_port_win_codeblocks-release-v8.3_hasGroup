@@ -650,6 +650,9 @@ void arex_trigger_alarm(arex_alarm_level_t level,
 /* 清除告警：隐藏横幅 + 重置靶心状态，停止闪烁 */
 void arex_clear_all_alarm_styles(void);
 
+/* 标记用户已确认清除，满 5 秒后自动消失 */
+bool arex_alarm_mark_clear_requested(void);
+
 /* 内部：横幅显示（由 arex_trigger_alarm 调用） */
 void arex_show_alarm_banner(arex_alarm_level_t level, const char *eng_text);
 
