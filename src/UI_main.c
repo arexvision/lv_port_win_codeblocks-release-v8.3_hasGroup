@@ -296,12 +296,41 @@ static void sim_tick_cb(lv_timer_t *t)
     //         current_sim_depth = 5.0f;
     //     }
 
-        /* 统一推送当前剧本深度（每次定时器触发增加 2.12m） */
+        /* 剧本：下降 → 停留5秒 → 上升 → 循环 */
         static uint16_t i = 0;
+        static uint8_t phase = 0;  /* 0=下降, 1=停留, 2=上升 */
         static float current_sim_depth = 0.0f;
-        if (i < 10) {
-            i++;
-            current_sim_depth += 2.12f;
+
+        switch (phase) {
+            case 0:  /* 下降阶段 */
+                if (i < 10) {
+                    i++;
+                    current_sim_depth += 2.12f;
+                } else {
+                    phase = 1;  /* 进入停留 */
+                    i = 0;
+                }
+                break;
+            case 1:  /* 停留5秒 */
+                if (i < 5) {
+                    i++;
+                    /* 深度不变 */
+                } else {
+                    phase = 2;  /* 进入上升 */
+                    i = 0;
+                }
+                break;
+            case 2:  /* 上升阶段 */
+                if (i < 10) {
+                    i++;
+                    current_sim_depth -= 2.12f;
+                    if (current_sim_depth < 0) current_sim_depth = 0;
+                } else {
+                    phase = 0;  /* 回到下降 */
+                    i = 0;
+                    current_sim_depth = 0;
+                }
+                break;
         }
         arex_bus_set_depth(current_sim_depth);
 
