@@ -497,13 +497,45 @@ modal_box:      400×? px, bg #000000, border 4px #00FF00, padding 30px
 ## 10.2 滚动指示器（规范值）
 
 ```c
-位置: 右侧 8px，垂直居中（LV_ALIGN_RIGHT_MID）
 大小: 6×6px（border-radius:0 → 正方形）
-间距: 纵向 gap 8px
+间距: 纵向 gap 8px（通过 flex 自动分布）
 数量: 6个（对应 AREX_DASH_CARD_COUNT，即 tile 1~6）
 默认: #003300 (AREX_DARK)
 激活: #00FF00 (AREX_GREEN) + shadow_width=8, shadow_color=#00FF00
 ```
+
+### 位置模式（`g_sys_config.dots_position`）
+
+| 模式 | 枚举值 | 定位逻辑 | 说明 |
+|------|--------|----------|------|
+| **右侧** | `AREX_DOTS_RIGHT` | 相对于 `s_safe_zone`，X = `right_cont_x + right_w - 18`，垂直居中 | 默认模式，指示器在右侧卡片区域的右边缘内侧 8px |
+| **左侧（间隙中间）** | `AREX_DOTS_LEFT` | 相对于 `s_safe_zone`，X = `AREX_LEFT_ANCHOR_W + panel_gap / 2 - 5`（NORMAL 布局）或 `right_w + panel_gap / 2 - 5`（FLIPPED 布局），垂直居中 | **定位到左侧固定区和右侧卡片区之间的间隙正中间** |
+| **底部** | `AREX_DOTS_BOTTOM` | 相对于 `s_safe_zone`，X = `safe_zone_w / 2 - 5`，Y = `safe_zone_h - 18` | 指示器在底部水平居中 |
+| **隐藏** | `AREX_DOTS_NONE` | 所有 dots 添加 `LV_OBJ_FLAG_HIDDEN` | 不显示指示器 |
+
+### 架构设计要点
+
+1. **父对象为 `s_safe_zone`**（v0.10.1 变更）：
+   - 早期版本中 `s_dot_cont` 的父对象是 `s_right_cont`，导致 `AREX_DOTS_LEFT` 模式下指示器被容器裁剪
+   - 现在改为 `s_safe_zone`，可以自由定位到任意位置（包括间隙中间）
+   - 在 `arex_screen_rebuild_tileview()` 中需要单独删除 `s_dot_cont`（不会随 `s_right_cont` 自动删除）
+
+2. **绝对坐标定位**：
+   - 使用 `lv_obj_set_pos()` 而非 `lv_obj_align()`，避免相对定位的复杂性
+   - 坐标计算考虑 `layout_order`（NORMAL/FLIPPED）的影响
+
+3. **间隙中间定位算法**（`AREX_DOTS_LEFT` 模式）：
+
+   ```c
+   // NORMAL 布局：左侧锚点在左边
+   gap_center_x = AREX_LEFT_ANCHOR_W + panel_gap / 2;
+   
+   // FLIPPED 布局：左侧锚点在右边
+   gap_center_x = right_w + panel_gap / 2;
+   ```
+
+   - `panel_gap` = `g_sys_config.panel_gap_u * AREX_BASE_U`（默认 2U = 20px）
+   - 指示器宽度 10px，所以 X 坐标需要减去 5px 实现居中
 
 ## 10.3 左侧面板 PO2（规范值）
 

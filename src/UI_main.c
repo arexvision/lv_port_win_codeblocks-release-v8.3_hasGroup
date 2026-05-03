@@ -197,7 +197,7 @@ static void arex_test_set_ui_offset(void)
 static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
-
+arex_bus_toggle_layout_order();
     // /* 布局切换测试：每秒切换一次布局（phase: 0→1→0 循环，DEPTH 2x1 ↔ 2x2） */
     // static uint16_t s_layout_tick = 0;
     // static bool s_started = false;
