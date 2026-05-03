@@ -73,6 +73,9 @@ typedef struct {
     /* Parent state when sub-menu was opened */
     arex_ui_state_t sub_parent;
 
+    /* 告警清除标志：触发后必须先 click/rotate 一次才可清除 */
+    bool alarm_pending_click;
+
 } arex_ui_ctx_t;
 
 extern arex_ui_ctx_t g_ui;

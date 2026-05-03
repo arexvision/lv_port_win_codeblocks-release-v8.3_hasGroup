@@ -7,6 +7,14 @@ extern arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
 extern uint16_t         g_deco_stop_count;
 
 /* =========================================================
+ * 告警待处理标志（由数据层设置，由 arex_ui_update_task 统一处理）
+ * ========================================================= */
+volatile bool g_alarm_pending = false;
+arex_alarm_level_t g_pending_alarm_level = AREX_ALARM_NONE;
+const char *g_pending_alarm_text = NULL;
+arex_widget_id_t g_pending_alarm_target = WIDGET_EMPTY;
+
+/* =========================================================
  * Data Bus Setter 实现 — 硬件/模拟层专用
  * 铁律：仅更新数值 + 打脏标记，绝不碰 LVGL！
  * ========================================================= */
@@ -18,15 +26,24 @@ static float    _prev_depth = 0.0f;
 void arex_bus_set_depth(float depth_m)
 {
     /* 实时计算速率：m/min = (delta_depth_m / delta_time_s) * 60
-     * 注意：潜水习惯：深度增加=下潜(negative)，深度减少=上升(positive)
-     * 因此取负以匹配 UI 显示逻辑（正=上升箭头，负=下降箭头） */
+     * 注意：深度增加=下潜(rate正)，深度减少=上升(rate负) */
     uint32_t now_ms = lv_tick_get();
     if (_last_depth_tick_ms > 0) {
         uint32_t dt_ms = now_ms - _last_depth_tick_ms;
         if (dt_ms > 0) {
             float dt_min = dt_ms / 60000.0f;
-            float rate = (depth_m - _prev_depth) / dt_min;  /* m/min */
-            g_sensor_data.ascent_rate = -rate;  /* 取反：正=上升，负=下降 */
+            float rate = (depth_m - _prev_depth) / dt_min;  /* m/min：正=下潜，负=上升 */
+
+            /* 更新 UI 显示用的速率（取反：正=上升箭头，负=下潜箭头） */
+            g_sensor_data.ascent_rate = -rate;
+
+            /* 上升速率过快告警：>18m/min 标记待处理 */
+            if (rate < -18.0f) {
+                g_alarm_pending = true;
+                g_pending_alarm_level = AREX_ALARM_CRIT;
+                g_pending_alarm_text = "ASCENT RATE FAST";
+                g_pending_alarm_target = WIDGET_DEPTH_1606;
+            }
         }
     }
     _last_depth_tick_ms = now_ms;

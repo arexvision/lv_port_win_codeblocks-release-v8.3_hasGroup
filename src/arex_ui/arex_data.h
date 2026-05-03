@@ -147,6 +147,12 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload);
 /* 清除所有脏标记 */
 void arex_bus_clear_all_dirty(void);
 
+/* 告警待处理标志（由 arex_bus_set_depth 等函数设置，由 arex_ui_update_task 统一处理） */
+extern volatile bool g_alarm_pending;
+extern arex_alarm_level_t g_pending_alarm_level;
+extern const char *g_pending_alarm_text;
+extern arex_widget_id_t g_pending_alarm_target;
+
 /* --- 配置持久化（weak 实现由具体平台覆盖） --- */
 bool arex_config_load(arex_sys_config_t *cfg);
 bool arex_config_save(const arex_sys_config_t *cfg);

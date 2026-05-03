@@ -1,6 +1,7 @@
 #include "arex_ui_engine.h"
 #include "arex_card_registry.h"
 #include "arex_screen.h"
+#include "arex_ui_state.h"
 #include "fonts/arex_fonts.h"
 #include "arex_data.h"
 #include <stdio.h>
@@ -750,7 +751,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      */
     /* 简洁位置配置：widget_id + x/y，span_w/h 由 MCU 样式表自动推导 */
     cfg->left_widgets[0] = (arex_grid_widget_t){ WIDGET_NDL_STOP_1606,   0, 0 };
-    cfg->left_widgets[1] = (arex_grid_widget_t){ WIDGET_DEPTH_1606,      0, 1 };
+    cfg->left_widgets[1] = (arex_grid_widget_t){ WIDGET_DEPTH_1612,      0, 1 };
     cfg->left_widgets[2] = (arex_grid_widget_t){ WIDGET_DIVE_TIME_1606,  0, 3 };  /* 潜水时间 */
     cfg->left_widgets[3] = (arex_grid_widget_t){ WIDGET_GAS_1606,        0, 4 };
     cfg->left_widgets[4] = (arex_grid_widget_t){ WIDGET_POD_0806,        0, 5 };
@@ -2159,6 +2160,7 @@ void arex_trigger_alarm(arex_alarm_level_t level,
     arex_show_alarm_banner(level, eng_text);  /* 1. 弹出横幅 */
     g_current_alarm_target = target_id;         /* 2. 锁定靶心 */
     g_current_alarm_level = level;              /* 3. 锁定级别 */
+    g_ui.alarm_pending_click = true;            /* 4. 要求用户先操作才能清除 */
 }
 
 /* =========================================================
@@ -2610,6 +2612,17 @@ void arex_ui_update_task(lv_timer_t *timer)
                 lv_label_set_text_fmt(s_sys_cyl_lbl, "x%d", g_sensor_data.cylinder_count);
             }
         }
+    }
+
+    /* ============================================================
+     * 🚨 告警待处理标志统一处理
+     * 由 arex_bus_set_depth 等函数设置标志位，在此统一触发
+     * ============================================================ */
+    if (g_alarm_pending) {
+        g_alarm_pending = false;
+        arex_trigger_alarm(g_pending_alarm_level,
+                          g_pending_alarm_text,
+                          g_pending_alarm_target);
     }
 
     /* 洗净所有脏标记 */

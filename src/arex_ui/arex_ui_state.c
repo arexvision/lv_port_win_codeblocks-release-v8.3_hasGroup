@@ -181,6 +181,12 @@ void ui_handle_rotate(int8_t dir)
    ========================================= */
 void ui_handle_click(void)
 {
+    /* 告警锁：触发后必须先 click/rotate 一次才可清除 */
+    if (g_ui.alarm_pending_click) {
+        g_ui.alarm_pending_click = false;
+        arex_clear_all_alarm_styles();
+    }
+
     switch (g_ui.state) {
 
         case UI_DASH: {
