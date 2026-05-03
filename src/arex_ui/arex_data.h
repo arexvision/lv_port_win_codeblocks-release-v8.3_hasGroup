@@ -147,6 +147,9 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload);
 /* 清除所有脏标记 */
 void arex_bus_clear_all_dirty(void);
 
+/* 重置潜水统计值（开始新潜水时调用） */
+void arex_bus_reset_stats(void);
+
 /* 告警待处理标志（由 arex_bus_set_depth 等函数设置，由 arex_ui_update_task 统一处理） */
 extern volatile bool g_alarm_pending;
 extern arex_alarm_level_t g_pending_alarm_level;

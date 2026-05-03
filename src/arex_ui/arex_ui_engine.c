@@ -2604,6 +2604,16 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_widget_set_value(WIDGET_TEMP_0806, g_sensor_data.temperature_c);
     }
 
+    /* 深度/温度统计刷新 —— 最大/平均/最低随主数据同步更新 */
+    if (mask & DIRTY_DEPTH) {
+        arex_widget_set_value(WIDGET_DEPTH_MAX_0806, g_sensor_data.max_depth);
+        arex_widget_set_value(WIDGET_DEPTH_AVG_0806, g_sensor_data.avg_depth);
+    }
+    if (mask & DIRTY_TEMP) {
+        arex_widget_set_value(WIDGET_TEMP_MIN_0806, g_sensor_data.min_temp);
+        arex_widget_set_value(WIDGET_TEMP_AVG_0806, g_sensor_data.avg_temp);
+    }
+
     /* ============================================================
      * O(1) SYS_1606 全模块极速点对点刷新
      * 直接操作静态指针，绝不遍历 UI 树！

@@ -23,6 +23,14 @@ arex_widget_id_t g_pending_alarm_target = WIDGET_EMPTY;
 static uint32_t _last_depth_tick_ms = 0;
 static float    _prev_depth = 0.0f;
 
+/* 深度统计累计值 */
+static float    _depth_sum = 0.0f;       /* 深度累计和 */
+static uint32_t _depth_sample_count = 0;  /* 深度采样次数 */
+
+/* 温度统计累计值 */
+static float    _temp_sum = 0.0f;        /* 温度累计和 */
+static uint32_t _temp_sample_count = 0;  /* 温度采样次数 */
+
 void arex_bus_set_depth(float depth_m)
 {
     /* 实时计算速率：m/min = (delta_depth_m / delta_time_s) * 60
@@ -54,6 +62,14 @@ void arex_bus_set_depth(float depth_m)
     if (fabsf(g_sensor_data.depth - depth_m) > 0.05f) {
         g_sensor_data.depth = depth_m;
         g_sensor_data.dirty_mask |= DIRTY_DEPTH;  //深度变化的时候也会触发跟踪
+
+        /* 统计计算：最大深度 + 平均深度 */
+        if (depth_m > g_sensor_data.max_depth) {
+            g_sensor_data.max_depth = depth_m;
+        }
+        _depth_sum += depth_m;
+        _depth_sample_count++;
+        g_sensor_data.avg_depth = (_depth_sample_count > 0) ? (_depth_sum / _depth_sample_count) : 0.0f;
     } else {
         /* 深度未变 → 速率必为0（静止），确保停留时图标显示level0不闪烁 */
         g_sensor_data.ascent_rate = 0.0f;
@@ -201,11 +217,33 @@ void arex_bus_clear_all_dirty(void)
     g_sensor_data.dirty_mask = DIRTY_NONE;
 }
 
+void arex_bus_reset_stats(void)
+{
+    /* 重置潜水统计值（每次开始新潜水时调用） */
+    g_sensor_data.max_depth = 0.0f;
+    g_sensor_data.avg_depth = 0.0f;
+    g_sensor_data.min_temp = 0.0f;
+    g_sensor_data.avg_temp = 0.0f;
+
+    _depth_sum = 0.0f;
+    _depth_sample_count = 0;
+    _temp_sum = 0.0f;
+    _temp_sample_count = 0;
+}
+
 void arex_bus_set_temperature(float temp_c)
 {
     if (fabsf(g_sensor_data.temperature_c - temp_c) > 0.1f) {
         g_sensor_data.temperature_c = temp_c;
         g_sensor_data.dirty_mask |= DIRTY_TEMP;
+
+        /* 统计计算：最低温度 + 平均温度 */
+        if (_temp_sample_count == 0 || temp_c < g_sensor_data.min_temp) {
+            g_sensor_data.min_temp = temp_c;
+        }
+        _temp_sum += temp_c;
+        _temp_sample_count++;
+        g_sensor_data.avg_temp = (_temp_sample_count > 0) ? (_temp_sum / _temp_sample_count) : 0.0f;
     }
 }
 

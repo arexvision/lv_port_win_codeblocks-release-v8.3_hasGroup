@@ -26,11 +26,36 @@ uint16_t         g_deco_stop_count;
  * ============================================================ */
 void arex_dive_log_append(float current_time_s, float current_depth_m)
 {
+    if (current_time_s < 0.0f) {
+        return;
+    }
+
+    if (g_dive_log_count > 0) {
+        arex_dive_pt_t *last = &g_dive_log[g_dive_log_count - 1];
+
+        /* 丢弃回退时间点，避免旧缓存/跨线程时序异常污染轨迹 */
+        if (current_time_s < last->time_s) {
+            return;
+        }
+
+        /* 同一秒内的重复采样只更新最后一个点，避免轨迹堆积和折返 */
+        if (fabsf(current_time_s - last->time_s) < 0.001f) {
+            last->depth_m = current_depth_m;
+            return;
+        }
+    }
+
     if (g_dive_log_count < MAX_DIVE_LOG) {
-        g_dive_log[g_dive_log_count].time_s   = current_time_s;
-        g_dive_log[g_dive_log_count].depth_m  = current_depth_m;
+        g_dive_log[g_dive_log_count].time_s  = current_time_s;
+        g_dive_log[g_dive_log_count].depth_m = current_depth_m;
         g_dive_log_count++;
     }
+}
+
+void arex_dive_log_reset(void)
+{
+    g_dive_log_count = 0;
+    g_deco_stop_count = 0;
 }
 
 /* ============================================================
@@ -39,7 +64,7 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
 static void init_test_data(void)
 {
     /* 清空历史轨迹，每次启动都是从零生长 */
-    g_dive_log_count = 0;
+    arex_dive_log_reset();
 
     /* 算法预测的未来减压路线：需要在 3m 停留 3 分钟 */
     g_deco_stop_count = 1;
