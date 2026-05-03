@@ -17,6 +17,7 @@
 					<Add option="-DWINVER=0x0601" />
 					<Add directory="." />
 					<Add directory="lvgl" />
+					<Add directory="src" />
 				</Compiler>
 				<Linker>
 					<Add option="-mwindows -mconsole" />
@@ -1835,6 +1836,25 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/fonts/arex_fonts.h" />
+		<Unit filename="src/arex_ui/fonts/lv_font_consola_14.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_consola_20.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_consola_24.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_consola_28.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_consola_48.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_consola_58.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<!-- Courier fonts temporarily disabled - switch to Consolas
 		<Unit filename="src/arex_ui/fonts/lv_font_courier_14.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -1850,6 +1870,7 @@
 		<Unit filename="src/arex_ui/fonts/lv_font_courier_58.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		-->
 		<Unit filename="src/arex_ui/picture/Shoudiantong.c">
 			<Option compilerVar="CC" />
 		</Unit>

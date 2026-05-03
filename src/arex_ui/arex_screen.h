@@ -3,6 +3,7 @@
 
 #include "lvgl/lvgl.h"
 #include "arex_ui_engine.h"
+#include "fonts/arex_fonts.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -25,11 +26,7 @@ extern "C" {
 #define AREX_TILE_ANIM_ENABLED  0
 #endif
 
-/* 向前兼容宏 */
-#define AREX_FONT_HUGE   (&lv_font_courier_58)
-#define AREX_FONT_MEDIUM  (&lv_font_courier_28)
-#define AREX_FONT_SMALL   (&lv_font_courier_14)
-#define AREX_FONT_TITLE   (&lv_font_courier_20)
+/* 向前兼容宏 (已在 arex_fonts.h 中通过 AREX_FONT_HUGE 等定义) */
 
 /* =========================================
    注意：上述宏已废弃！
