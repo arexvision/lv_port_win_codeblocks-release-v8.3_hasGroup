@@ -2116,11 +2116,13 @@ void arex_trigger_alarm(arex_alarm_level_t level,
                         const char *eng_text,
                         arex_widget_id_t target_id)
 {
-    /* 如果已有活跃告警且未达到最小显示时间，不覆盖 */
+    /* 如果已有活跃告警且未达到最小显示时间，重置计时器（而不是忽略） */
     if (s_alarm_active && g_current_alarm_level != AREX_ALARM_NONE) {
         uint32_t elapsed = lv_tick_elaps(s_alarm_start_tick);
         if (elapsed < ALARM_MIN_DISPLAY_MS) {
-            return;  /* 仍在最短显示期内，忽略新告警 */
+            /* 仍在最短显示期内，重新计时 5 秒 */
+            s_alarm_start_tick = lv_tick_get();
+            return;
         }
     }
 
