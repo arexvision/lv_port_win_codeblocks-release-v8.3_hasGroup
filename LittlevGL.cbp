@@ -1848,13 +1848,45 @@
 		<Unit filename="src/arex_ui/fonts/lv_font_consola_28.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_consola_32.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="src/arex_ui/fonts/lv_font_consola_48.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_consola_56.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/fonts/lv_font_consola_58.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<!-- Linotype Ordinar fonts -->
+		<Unit filename="src/arex_ui/fonts/lv_font_consola_64.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_14.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_20.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_28.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_32.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_48.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_56.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_58.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_courier_64.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_14.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -1873,23 +1905,13 @@
 		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_48.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_56.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_58.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<!-- Courier fonts for wall blocks rendering -->
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_14.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_20.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_28.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_48.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_58.c">
+		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_64.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/picture/Shoudiantong.c">

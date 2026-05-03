@@ -106,11 +106,12 @@ extern uint8_t g_sys_card_order(uint8_t pos);
  * 禁止在配置结构体中保存 lv_font_t*，只允许保存此枚举值！
  */
 typedef enum {
-    AREX_FONT_ID_SMALL = 0,  /* 14px  标签/单位/Badge */
+    AREX_FONT_ID_SMALL = 0,  /* 20px  标签/单位/Badge */
     AREX_FONT_ID_TITLE,       /* 20px  菜单项/卡片标题 */
-    AREX_FONT_ID_MEDIUM,      /* 28px  数据值 */
-    AREX_FONT_ID_LARGE,       /* 48px  NDL减压时间 */
-    AREX_FONT_ID_HUGE,       /* 58px  深度大数字 */
+    AREX_FONT_ID_MEDIUM,      /* 32px  数据值 */
+    AREX_FONT_ID_LARGE,       /* 64px  深度大数字 */
+    AREX_FONT_ID_HUGE,        /* 64px  大字体 */
+    AREX_FONT_ID_NDL,         /* 48px  NDL减压时间 */
 } arex_font_id_t;
 
 typedef enum {

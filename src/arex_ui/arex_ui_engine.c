@@ -131,7 +131,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .widget_id = WIDGET_NDL_STOP_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_BAR,
-        .font_id = AREX_FONT_ID_LARGE,  /* 48px NDL减压时间 */
+        .font_id = AREX_FONT_ID_NDL,  /* 48px NDL减压时间 */
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "min",
         .title = "NDL",
@@ -998,20 +998,22 @@ lv_align_t arex_align_to_lv_align(uint8_t align)
  * 所有配置结构体中保存的 title_font / val_font 均应为 arex_font_id_t 值。
  *
  * ID 映射表：
- *   AREX_FONT_ID_SMALL  (0) → lv_font_ordinar_14  14px  标签/单位/Badge
- *   AREX_FONT_ID_TITLE  (1) → lv_font_ordinar_20  20px  菜单项/卡片标题
- *   AREX_FONT_ID_MEDIUM (2) → lv_font_ordinar_28  28px  数据值
- *   AREX_FONT_ID_LARGE  (3) → lv_font_ordinar_48  48px  NDL减压时间
- *   AREX_FONT_ID_HUGE   (4) → lv_font_ordinar_58  58px  深度大数字
+ *   AREX_FONT_ID_SMALL  (0) → 20px  标签/单位/Badge
+ *   AREX_FONT_ID_TITLE  (1) → 20px  菜单项/卡片标题
+ *   AREX_FONT_ID_MEDIUM (2) → 32px  数据值
+ *   AREX_FONT_ID_LARGE  (3) → 64px  深度大数字
+ *   AREX_FONT_ID_HUGE   (4) → 64px  大字体
+ *   AREX_FONT_ID_NDL    (5) → 48px  NDL减压时间
  * ========================================================= */
 const lv_font_t *arex_get_font(uint8_t font_id)
 {
     switch (font_id) {
-        case AREX_FONT_ID_SMALL:  return AREX_FONT_SMALL;   /* 14px */
+        case AREX_FONT_ID_SMALL:  return AREX_FONT_SMALL;   /* 20px */
         case AREX_FONT_ID_TITLE:  return AREX_FONT_TITLE;   /* 20px */
-        case AREX_FONT_ID_MEDIUM: return AREX_FONT_MEDIUM;  /* 28px */
-        case AREX_FONT_ID_LARGE:  return AREX_FONT_48;     /* 48px */
-        case AREX_FONT_ID_HUGE:   return AREX_FONT_HUGE;   /* 58px */
+        case AREX_FONT_ID_MEDIUM: return AREX_FONT_MEDIUM;  /* 32px */
+        case AREX_FONT_ID_LARGE:  return AREX_FONT_LARGE;   /* 64px */
+        case AREX_FONT_ID_HUGE:   return AREX_FONT_HUGE;    /* 64px */
+        case AREX_FONT_ID_NDL:    return AREX_FONT_NDL;     /* 48px */
         default:                   return AREX_FONT_SMALL;   /* 兜底：永不为 NULL */
     }
 }
@@ -1532,7 +1534,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         /* 主数字 (如 22, 3:00) - 使用48px字体 */
         h->main_val = lv_label_create(obj);
         lv_obj_set_style_text_color(h->main_val, AREX_GREEN, 0);
-        lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_LARGE), 0);
+        lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_NDL), 0);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(h->main_val, "--");
         else
@@ -1545,26 +1547,23 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
         return obj;
     } else if (w_id == WIDGET_SYS_1606) {
-        /* ===== SYS 模块：电池 + 温度 + 设备状态图标（O(1) 静态指针捕获） ===== */
-        LV_IMG_DECLARE(liuzhuandeng);
-        LV_IMG_DECLARE(Shoudiantong);
-        LV_IMG_DECLARE(qiping);
+        /* ===== SYS 模块：电池 + 温度横向排列 ===== */
 
-        /* 左半部分：电量 Label —— 捕获指针 */
+        /* 左侧：电量 Label */
         s_sys_batt_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(s_sys_batt_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_font(s_sys_batt_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(s_sys_batt_lbl, AREX_GREEN, 0);
-        lv_obj_align(s_sys_batt_lbl, LV_ALIGN_TOP_LEFT, 10, 2);
+        lv_obj_align(s_sys_batt_lbl, LV_ALIGN_LEFT_MID, 4, 0);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(s_sys_batt_lbl, "--%");
         else
             lv_label_set_text_fmt(s_sys_batt_lbl, "%d%%", (int)g_sensor_data.battery_pct);
 
-        /* 左半部分：温度 Label —— 捕获指针 */
+        /* 右侧：温度 Label */
         s_sys_temp_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(s_sys_temp_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_font(s_sys_temp_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(s_sys_temp_lbl, AREX_GREEN, 0);
-        lv_obj_align(s_sys_temp_lbl, LV_ALIGN_BOTTOM_LEFT, 10, -2);
+        lv_obj_align(s_sys_temp_lbl, LV_ALIGN_RIGHT_MID, -4, 0);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(s_sys_temp_lbl, "-- C");
         else {
@@ -1573,35 +1572,6 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%d C", t_int, t_dec);
         }
 
-        /* 右半部分：设备状态图标 —— 捕获指针 */
-        /* 1. 留转灯图标 */
-        s_sys_strobe_img = lv_img_create(obj);
-        lv_img_set_src(s_sys_strobe_img, &liuzhuandeng);
-        lv_obj_align(s_sys_strobe_img, LV_ALIGN_TOP_RIGHT, -30, 0);
-        lv_obj_set_style_img_opa(s_sys_strobe_img, g_sensor_data.strobe_on ? LV_OPA_COVER : LV_OPA_40, 0);
-
-        /* 2. 手电筒图标 */
-        s_sys_flash_img = lv_img_create(obj);
-        lv_img_set_src(s_sys_flash_img, &Shoudiantong);
-        lv_obj_align(s_sys_flash_img, LV_ALIGN_TOP_RIGHT, -10, 5);
-        lv_obj_set_style_img_opa(s_sys_flash_img, g_sensor_data.flashlight_on ? LV_OPA_COVER : LV_OPA_40, 0);
-
-        /* 3. 气瓶图标 */
-        lv_obj_t *img_cyl = lv_img_create(obj);
-        lv_img_set_src(img_cyl, &qiping);
-        lv_obj_align(img_cyl, LV_ALIGN_BOTTOM_RIGHT, -40, 0);
-
-        /* 4. 气瓶数量文本 "x0" —— 捕获指针 */
-        s_sys_cyl_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(s_sys_cyl_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(s_sys_cyl_lbl, AREX_GREEN, 0);
-        lv_obj_align(s_sys_cyl_lbl, LV_ALIGN_BOTTOM_RIGHT, -12, 0);
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT)
-            lv_label_set_text(s_sys_cyl_lbl, "x0");
-        else
-            lv_label_set_text_fmt(s_sys_cyl_lbl, "x%d", g_sensor_data.cylinder_count);
-
-        (void)img_cyl;
         return obj;
     }
 
@@ -2541,8 +2511,8 @@ void arex_ui_update_task(lv_timer_t *timer)
                 lv_label_set_text(h->sub_bot, "NDL");
                 lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
 
-                /* 48px 数字居右 */
-                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_LARGE), 0);
+                /* NDL专用字体 48px 数字居右 */
+                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_NDL), 0);
                 lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
                 lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
             }
@@ -2561,9 +2531,10 @@ void arex_ui_update_task(lv_timer_t *timer)
                 }
                 lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16); /* 悬停在 10 宫格上方 */
 
+                /* 大字体 64px 数字居右 */
                 int m = g_sensor_data.stop_time_left_s / 60;
                 int s = g_sensor_data.stop_time_left_s % 60;
-                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_LARGE), 0);
+                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
                 lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
                 lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
             }
@@ -2575,9 +2546,10 @@ void arex_ui_update_task(lv_timer_t *timer)
                 lv_label_set_text_fmt(h->title_top, "DECO %dm", (int)g_sensor_data.stop_depth_m);
                 lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 8, 2);
 
+                /* 大字体 64px 数字居右 */
                 int m = g_sensor_data.stop_time_left_s / 60;
                 int s = g_sensor_data.stop_time_left_s % 60;
-                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_LARGE), 0);
+                lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
                 lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
                 lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
             }
@@ -2690,18 +2662,7 @@ void arex_ui_update_task(lv_timer_t *timer)
                 lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%d C", t_int, t_dec);
             }
         }
-        /* 3. 设备状态图标 */
-        if (mask & DIRTY_DEVICES) {
-            if (s_sys_strobe_img) {
-                lv_obj_set_style_img_opa(s_sys_strobe_img, g_sensor_data.strobe_on ? LV_OPA_COVER : LV_OPA_40, 0);
-            }
-            if (s_sys_flash_img) {
-                lv_obj_set_style_img_opa(s_sys_flash_img, g_sensor_data.flashlight_on ? LV_OPA_COVER : LV_OPA_40, 0);
-            }
-            if (s_sys_cyl_lbl) {
-                lv_label_set_text_fmt(s_sys_cyl_lbl, "x%d", g_sensor_data.cylinder_count);
-            }
-        }
+        /* 设备状态图标刷新代码已移除（图标已删除） */
     }
 
     /* ============================================================
