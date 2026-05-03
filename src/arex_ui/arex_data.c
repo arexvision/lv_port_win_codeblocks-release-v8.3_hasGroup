@@ -37,8 +37,8 @@ void arex_bus_set_depth(float depth_m)
             /* 更新 UI 显示用的速率（取反：正=上升箭头，负=下潜箭头） */
             g_sensor_data.ascent_rate = -rate;
 
-            /* 上升速率过快告警：>18m/min 标记待处理 */
-            if (rate < -18.0f) {
+            /* 上升速率过快告警：>10m/min 标记待处理 */
+            if (rate < -10.0f) {
                 g_alarm_pending = true;
                 g_pending_alarm_level = AREX_ALARM_CRIT;
                 g_pending_alarm_text = "ASCENT RATE FAST";

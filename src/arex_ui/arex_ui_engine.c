@@ -34,6 +34,13 @@ uint8_t  s_ascent_icon_count = 0;
 ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
 uint8_t      s_ndl_handle_count = 0;
 
+/* 告警显示计时器：控制告警最少显示 5 秒 */
+static uint32_t s_alarm_start_tick = 0;
+#define ALARM_MIN_DISPLAY_MS  5000   /* 告警最少显示 5 秒 */
+
+/* 告警活跃标记：触发告警后持续闪烁，直到速度降到安全范围 */
+static bool s_alarm_active = false;
+
 /* ============================================================
  * 罗盘卡片静态句柄（由 card_compass.c 持有）
  * 用于 arex_ui_update_task 中的零内存引擎刷新
@@ -1374,7 +1381,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
          * ========================================== */
         lv_obj_t *dec_lbl = lv_label_create(obj);
         if (AREX_SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
-        else lv_label_set_text_fmt(dec_lbl, ".%d", (int)((g_sensor_data.depth - (int)g_sensor_data.depth) * 10 + 0.5f));
+        else lv_label_set_text_fmt(dec_lbl, ".%d", (int)(fabsf(g_sensor_data.depth - (int)g_sensor_data.depth) * 10 + 0.5f));
         // 字体从字典读取（title_font_id = MEDIUM 28px，小数比整数小）
         lv_obj_set_style_text_font(dec_lbl, arex_get_font(style->title_font_id), 0);
         lv_obj_set_style_text_color(dec_lbl, AREX_GREEN, 0);
@@ -2109,23 +2116,41 @@ void arex_trigger_alarm(arex_alarm_level_t level,
                         const char *eng_text,
                         arex_widget_id_t target_id)
 {
+    /* 如果已有活跃告警且未达到最小显示时间，不覆盖 */
+    if (s_alarm_active && g_current_alarm_level != AREX_ALARM_NONE) {
+        uint32_t elapsed = lv_tick_elaps(s_alarm_start_tick);
+        if (elapsed < ALARM_MIN_DISPLAY_MS) {
+            return;  /* 仍在最短显示期内，忽略新告警 */
+        }
+    }
+
     arex_show_alarm_banner(level, eng_text);  /* 1. 弹出横幅 */
     g_current_alarm_target = target_id;         /* 2. 锁定靶心 */
     g_current_alarm_level = level;              /* 3. 锁定级别 */
     g_ui.alarm_pending_click = true;            /* 4. 要求用户先操作才能清除 */
+    s_alarm_start_tick = lv_tick_get();         /* 5. 记录开始时间 */
+    s_alarm_active = true;                      /* 6. 标记告警活跃 */
 }
 
 /* =========================================================
  * 🚨 清除所有告警样式（50ms 定时器会自动把样式复原）
+ * 新逻辑：速度降到安全范围后自动清除，但最少显示 5 秒
  * ========================================================= */
 void arex_clear_all_alarm_styles(void)
 {
+    /* 检查是否满足最小显示时间 */
+    uint32_t elapsed = lv_tick_elaps(s_alarm_start_tick);
+    if (elapsed < ALARM_MIN_DISPLAY_MS) {
+        return;  /* 未达到最短显示期，不清除 */
+    }
+
     if (s_alarm_banner) {
         lv_obj_add_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);  /* 藏起横幅 */
     }
 
     g_current_alarm_target = WIDGET_EMPTY;  /* 清除靶心 */
     g_current_alarm_level = 0;
+    s_alarm_active = false;                /* 标记告警已清除 */
 }
 
 /* =========================================================
@@ -2292,7 +2317,8 @@ void arex_ui_update_task(lv_timer_t *timer)
      * 🚨 核心修复：独立于数据的"时间心跳引擎"必须放在最前面！
      *
      * 即使没有任何脏标记，只要处于运动状态(|rate|>=3.0 m/min)，
-     * 我们就强行注入 DIRTY_DEPTH 脏标记，唤醒 UI 引擎去画闪烁动画！
+     * 或者有活跃告警，我们就强行注入 DIRTY_DEPTH 脏标记，
+     * 唤醒 UI 引擎去画闪烁动画！
      * ============================================================ */
     {
         static bool last_flash_state = false;
@@ -2302,7 +2328,8 @@ void arex_ui_update_task(lv_timer_t *timer)
             last_flash_state = current_flash_state;
 
             float rate = g_sensor_data.ascent_rate;
-            if (fabsf(rate) >= AREX_RATE_STILL_THRESHOLD) {
+            /* 有活跃告警或速度超过静止阈值时，保持心跳刷新 */
+            if (s_alarm_active || fabsf(rate) >= AREX_RATE_STILL_THRESHOLD) {
                 g_sensor_data.dirty_mask |= DIRTY_DEPTH;
             }
         }
@@ -2334,10 +2361,16 @@ void arex_ui_update_task(lv_timer_t *timer)
          * ============================================================ */
         if (s_ascent_icon_count > 0) {
             static int8_t s_last_direction = 0;  /* 0=静止, 1=上升, -1=下降 */
+            static float s_last_depth = 0.0f;
+
             float rate = g_sensor_data.ascent_rate;
+            float current_depth = g_sensor_data.depth;
             bool is_moving = (fabsf(rate) >= AREX_RATE_STILL_THRESHOLD);
-            bool current_flash_state = (lv_tick_get() / 500) % 2 == 0;
-            const void *target_img_src = &sudo_up_level0;
+            bool current_flash_state = (lv_tick_get() / 500) % 2 == 0;  /* 闪烁状态 */
+
+            /* 深度变化超过 0.1m 才刷新图标 */
+            bool depth_changed = (fabsf(current_depth - s_last_depth) > 0.1f);
+            s_last_depth = current_depth;
 
             /* 判断当前运动方向: 1=上升(positive), -1=下降(negative), 0=静止 */
             int8_t current_direction = 0;
@@ -2347,25 +2380,42 @@ void arex_ui_update_task(lv_timer_t *timer)
                 current_direction = -1;
             }
 
-            /* A. 静止悬停 或 方向切换过渡期 或 闪烁灭相位 → 强制显示 level0
-             * 方向根据最后的运动方向决定（静止时保持最后的方向图标） */
-            bool direction_changed = (current_direction != 0 && s_last_direction != 0 && current_direction != s_last_direction);
-            if (!is_moving || direction_changed || current_flash_state == false) {
-                int8_t effective_dir = is_moving ? current_direction : s_last_direction;
-                target_img_src = (effective_dir > 0) ? &sudo_up_level0 : &sudo_down_level0;
+            /* 速度降到安全范围后自动清除告警（但最少显示5秒由 arex_clear_all_alarm_styles 控制） */
+            if (!is_moving && s_alarm_active) {
+                arex_clear_all_alarm_styles();
             }
-            /* B. 移动中 且 非方向切换期 且 闪烁亮相位 → 显示真实等级 */
-            else {
-                if (rate >= AREX_RATE_LEVEL2_THRESHOLD) {
-                    target_img_src = &sudo_up_level2;
-                } else if (rate >= AREX_RATE_LEVEL1_THRESHOLD) {
-                    target_img_src = &sudo_up_level1;
-                } else if (rate > -AREX_RATE_LEVEL1_THRESHOLD) {
-                    target_img_src = &sudo_down_level0;
-                } else if (rate > -AREX_RATE_LEVEL2_THRESHOLD) {
-                    target_img_src = &sudo_down_level1;
+
+            /* 确定显示的图标 */
+            const void *target_img_src = &sudo_up_level0;
+
+            if (!is_moving || !depth_changed) {
+                /* 静止或深度变化不足 0.1m：保持最后方向，显示 level0 */
+                int8_t effective_dir = s_last_direction;
+                target_img_src = (effective_dir > 0) ? &sudo_up_level0 :
+                                (effective_dir < 0) ? &sudo_down_level0 : &sudo_up_level0;
             } else {
-                    target_img_src = &sudo_down_level2;
+                /* 移动中 且 深度变化超过 0.1m */
+                if (current_direction > 0) {
+                    /* 上升方向 */
+                    if (rate >= AREX_RATE_LEVEL2_THRESHOLD) {
+                        /* level2 闪烁：亮相位显示 level2，灭相位显示 level0 */
+                        target_img_src = current_flash_state ? &sudo_up_level2 : &sudo_up_level0;
+                    } else if (rate >= AREX_RATE_LEVEL1_THRESHOLD) {
+                        /* level1 闪烁：亮相位显示 level1，灭相位显示 level0 */
+                        target_img_src = current_flash_state ? &sudo_up_level1 : &sudo_up_level0;
+                    } else {
+                        /* 慢速上升：稳定显示 level0 */
+                        target_img_src = &sudo_up_level0;
+                    }
+                } else {
+                    /* 下降方向（rate < 0） */
+                    if (rate <= -AREX_RATE_LEVEL2_THRESHOLD) {
+                        /* level2 闪烁 */
+                        target_img_src = current_flash_state ? &sudo_down_level2 : &sudo_down_level0;
+                    } else {
+                        /* level1 闪烁 */
+                        target_img_src = current_flash_state ? &sudo_down_level1 : &sudo_down_level0;
+                    }
                 }
             }
 
@@ -2374,7 +2424,7 @@ void arex_ui_update_task(lv_timer_t *timer)
                 s_last_direction = current_direction;
             }
 
-            /* C. 循环遍历数组，让所有速率图标同步刷新 */
+            /* 循环遍历数组，让所有速率图标同步刷新 */
             for (int i = 0; i < s_ascent_icon_count; i++) {
                 if (s_img_ascent_rate[i] != NULL) {
                     lv_img_set_src(s_img_ascent_rate[i], target_img_src);
