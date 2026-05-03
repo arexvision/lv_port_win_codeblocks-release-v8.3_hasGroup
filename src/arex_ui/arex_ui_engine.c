@@ -158,8 +158,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_TITLE,
         .unit = NULL,
         .title = "DIVE",
-        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_CENTER,
-        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = WIDGET_GAS_1606,
@@ -169,8 +169,8 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = NULL,
         .title = "GAS",
-        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = WIDGET_SYS_1606,
@@ -1289,14 +1289,25 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
     int block_w = (total_w - 9 * gap) / 10;
     if (block_w < 1) block_w = 1;
 
-    /* 计算总体百分比：停留态 pct 代表剩余时间比例（从1.0→0递减） */
+    /* 计算总体百分比：
+     * - 常态：按 NDL/99 显示，99 视为满格
+     * - 安全停留：未进站前仍按 NDL；进站后按停留剩余时间缩短
+     * - 减压停留：未进站前保持满格；进站后按当前减压站剩余时间缩短 */
     float pct = 0.0f;
     if (g_sensor_data.stop_type == AREX_STOP_NONE) {
-        /* 常态：根据 NDL 算比例 (假设 99 为满) */
         pct = (float)g_sensor_data.ndl / 99.0f;
-    } else {
-        /* 停留态：根据剩余时间算比例 (随时间逐渐缩短) */
-        if (g_sensor_data.stop_time_total_s > 0) {
+    } else if (g_sensor_data.stop_type == AREX_STOP_SAFETY) {
+        if (!g_sensor_data.in_stop_zone) {
+            pct = (float)g_sensor_data.ndl / 99.0f;
+        } else if (g_sensor_data.stop_time_total_s > 0) {
+            pct = (float)g_sensor_data.stop_time_left_s / g_sensor_data.stop_time_total_s;
+        } else {
+            pct = 1.0f;
+        }
+    } else if (g_sensor_data.stop_type == AREX_STOP_DECO) {
+        if (!g_sensor_data.in_stop_zone) {
+            pct = 1.0f;
+        } else if (g_sensor_data.stop_time_total_s > 0) {
             pct = (float)g_sensor_data.stop_time_left_s / g_sensor_data.stop_time_total_s;
         }
     }
@@ -2533,7 +2544,7 @@ void arex_ui_update_task(lv_timer_t *timer)
                 /* 48px 数字居右 */
                 lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_LARGE), 0);
                 lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
-                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -10, -8);
+                lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
             }
             /* ========== 状态 2: 安全停留模式 ========== */
             else if (g_sensor_data.stop_type == AREX_STOP_SAFETY) {
@@ -2543,7 +2554,11 @@ void arex_ui_update_task(lv_timer_t *timer)
                 lv_label_set_text_fmt(h->title_top, "SAFE %dm", (int)g_sensor_data.stop_depth_m);
                 lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 8, 2);
 
-                lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
+                if (g_sensor_data.in_stop_zone) {
+                    lv_label_set_text(h->sub_bot, "IN STOP");
+                } else {
+                    lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
+                }
                 lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16); /* 悬停在 10 宫格上方 */
 
                 int m = g_sensor_data.stop_time_left_s / 60;
