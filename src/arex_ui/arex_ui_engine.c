@@ -103,12 +103,12 @@ static const arex_widget_style_t g_widget_styles[] = {
         .spec.depth = {
             // 核心修复：将大整数的锚点设为 RIGHT_MID (靠右对齐)！
             // offset_x = -45，意味着右边缘焊死在距离右边界 45px 的位置 (给右边的箭头留出空间)
-            .int_offset_x = -86, .int_offset_y = 12, .int_align = LV_ALIGN_RIGHT_MID,
+            .int_offset_x = -80, .int_offset_y = 10, .int_align = LV_ALIGN_RIGHT_MID,
             // 小数点挂在整数的外部右下角，Y轴微微往上提一点 (-6) 让基线对齐
-            .dec_offset_x = 2,  .dec_offset_y = -28,
+            .dec_offset_x = 2,  .dec_offset_y = -30,
             // 单位挂在小数的正下方
-            .unit_offset_x = 0, .unit_offset_y = 0,
-            .icon_offset_x = -12, .icon_offset_y = -2, .icon_align = LV_ALIGN_RIGHT_MID
+            .unit_offset_x = 0, .unit_offset_y = 2,
+            .icon_offset_x = -10, .icon_offset_y = 0, .icon_align = LV_ALIGN_RIGHT_MID
         }
     },
     {
@@ -157,9 +157,9 @@ static const arex_widget_style_t g_widget_styles[] = {
         .font_id = AREX_FONT_ID_MEDIUM,
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = NULL,
-        .title = "DEPTH",
+        .title = "DIVE",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = -8, .value_offset_y = -2, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = WIDGET_GAS_1606,
@@ -170,7 +170,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .unit = NULL,
         .title = "GAS",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = -8, .value_offset_y = -2, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = WIDGET_SYS_1606,
@@ -770,19 +770,19 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *  Grid Layout:
      *    Row 0: NDL      | (2x1 → 160x60)
      *    Row 1-2: DEPTH  | (2x2 → 160x120，带 sudu 速率图标)
-     *    Row 3: TIME     | (2x1 → 160x60)
-     *    Row 4: GAS      | (2x1 → 160x60)
-     *    Row 5: EMPTY    | (2x1 → 160x60，仅保留分隔线)
+     *    Row 3: POD1     | POD2    (各 1x1 → 80x60)
+     *    Row 4: TIME     | (2x1 → 160x60)
+     *    Row 5: GAS      | (2x1 → 160x60)
      *    Row 6: SYS      | (2x1 → 160x60，SystemData 可配置)
      */
     /* 简洁位置配置：widget_id + x/y，span_w/h 由 MCU 样式表自动推导 */
     cfg->left_widgets[0] = (arex_grid_widget_t){ WIDGET_NDL_STOP_1606,   0, 0 };
     cfg->left_widgets[1] = (arex_grid_widget_t){ WIDGET_DEPTH_1612,      0, 1 };
-    cfg->left_widgets[2] = (arex_grid_widget_t){ WIDGET_DIVE_TIME_1606,  0, 3 };
+    cfg->left_widgets[2] = (arex_grid_widget_t){ WIDGET_DIVE_TIME_1606,  0, 3 };  /* 潜水时间 */
     cfg->left_widgets[3] = (arex_grid_widget_t){ WIDGET_GAS_1606,        0, 4 };
-    cfg->left_widgets[4] = (arex_grid_widget_t){ WIDGET_EMPTY,           0, 5 };
-    cfg->left_widgets[5] = (arex_grid_widget_t){ WIDGET_SYS_1606,        0, 6 };
-    cfg->left_widgets[6] = (arex_grid_widget_t){ WIDGET_EMPTY,           0, 0 };
+    cfg->left_widgets[4] = (arex_grid_widget_t){ WIDGET_POD_0806,        0, 5 };
+    cfg->left_widgets[5] = (arex_grid_widget_t){ WIDGET_POD_0806,        1, 5 };
+    cfg->left_widgets[6] = (arex_grid_widget_t){ WIDGET_SYS_1606,        0, 6 };
 
     /* 动态计算实际 widget 数量（以最后一个非零 widget 为准） */
     cfg->left_widget_count = 0;

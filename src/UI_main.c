@@ -33,10 +33,11 @@ static void arex_test_set_ui_layout(uint8_t phase)
         uint8_t left_def[][3] = {
             /* id,                   x,  y */
             { WIDGET_NDL_STOP_1606,  0, 0 },
-            { WIDGET_DEPTH_1612,     0, 1 },
-            { WIDGET_DIVE_TIME_1606, 0, 3 },
+            { WIDGET_DEPTH_1606,     0, 1 },
+            { WIDGET_DIVE_TIME_1606, 0, 3 },  /* 潜水时间 */
             { WIDGET_GAS_1606,       0, 4 },
-            { WIDGET_EMPTY,          0, 5 },
+            { WIDGET_POD_0806,       0, 5 },
+            { WIDGET_POD_0806,       1, 5 },
             { WIDGET_SYS_1606,       0, 6 },
         };
         s_payload.left_count = sizeof(left_def) / sizeof(left_def[0]);
@@ -74,9 +75,10 @@ static void arex_test_set_ui_layout(uint8_t phase)
             /* id,                   x,  y */
             { WIDGET_NDL_STOP_1606,  0, 0 },
             { WIDGET_DEPTH_1612,     0, 1 },  /* 2x2 大块 */
-            { WIDGET_DIVE_TIME_1606, 0, 3 },
+            { WIDGET_DIVE_TIME_1606, 0, 3 },  /* 潜水时间 */
             { WIDGET_GAS_1606,       0, 4 },
-            { WIDGET_EMPTY,          0, 5 },
+            { WIDGET_POD_0806,       0, 5 },
+            { WIDGET_POD_0806,       1, 5 },
             { WIDGET_SYS_1606,       0, 6 },
         };
         s_payload.left_count = sizeof(left_min) / sizeof(left_min[0]);
