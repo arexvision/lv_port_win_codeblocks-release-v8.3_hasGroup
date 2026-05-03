@@ -131,6 +131,6 @@ extern const lv_font_t lv_font_xxx_24;
 |--------|------|------|------|
 | Consolas | 14/20/24/28/48/58px | lv_font_consola_*.c | 启用 |
 | Courier | 14/20/28/48/58px | lv_font_courier_*.c | 已禁用 |
-| Linotype Ordinar | 14/20/28/48/58px | lv_font_ordinar_*.c | 可用 |
+| Linotype Ordinar | 14/20/24/28/32/48/58px | lv_font_ordinar_*.c | 可用 |
 
 切换字体族：修改 `arex_fonts.h` 的 `#define AREX_USE_FONT_*` 宏。

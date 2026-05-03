@@ -1861,7 +1861,13 @@
 		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_20.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_24.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_28.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_32.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_48.c">
@@ -1870,7 +1876,7 @@
 		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_58.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<!-- Courier fonts temporarily disabled - switch to Consolas
+		<!-- Courier fonts for wall blocks rendering -->
 		<Unit filename="src/arex_ui/fonts/lv_font_courier_14.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -1886,7 +1892,6 @@
 		<Unit filename="src/arex_ui/fonts/lv_font_courier_58.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		-->
 		<Unit filename="src/arex_ui/picture/Shoudiantong.c">
 			<Option compilerVar="CC" />
 		</Unit>

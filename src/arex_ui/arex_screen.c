@@ -546,7 +546,8 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 
     lv_obj_t *blk = lv_label_create(w);
     lv_obj_set_style_text_color(blk, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(blk, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+    /* Wall blocks 必须使用 Courier 内置字体以支持 ■ (U+25A0) 方块字符 */
+    lv_obj_set_style_text_font(blk, &lv_font_courier_28, 0);
     lv_obj_set_width(blk, wall_w);
     lv_obj_set_style_text_align(blk, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(blk, 0, 50);
