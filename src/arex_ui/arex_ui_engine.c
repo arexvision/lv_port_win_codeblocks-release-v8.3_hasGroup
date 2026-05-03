@@ -190,7 +190,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
         .title_font_id = AREX_FONT_ID_SMALL,
-        .unit = "C",
+        .unit = "",
         .title = "TEMP",
         .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
         .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
@@ -212,7 +212,7 @@ static const arex_widget_style_t g_widget_styles[] = {
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
         .title_font_id = AREX_FONT_ID_SMALL,
-        .unit = "min",
+        .unit = "",
         .title = "TTS",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }

@@ -87,26 +87,13 @@ void card_gas_update(void)
         bool is_active  = (g_sensor_data.gas_active_idx == (uint8_t)i);
         bool is_cursor  = (g_ui.state == UI_EDIT_GAS && g_ui.gas_cursor == (uint8_t)i);
 
-        lv_color_t bg, fg;
-        if (is_cursor) {
-            bg = lv_color_make(0x00,0xFF,0x00);
-            fg = lv_color_make(0x00,0x00,0x00);
-        } else if (is_active) {
-            bg = lv_color_make(0x00,0x00,0x00);
-            fg = lv_color_make(0x00,0xFF,0x00);
-        } else {
-            bg = lv_color_make(0x00,0x00,0x00);
-            fg = lv_color_make(0x00,0xFF,0x00);
-        }
+        lv_color_t fg = AREX_GREEN;
+        bool highlight = is_cursor || is_active;
 
-        lv_obj_set_style_bg_color(s_items[i], bg, 0);
-
-        /* 被选中的活动气体：边框变绿色 #00FF00 */
-        if (is_active) {
-            lv_obj_set_style_border_color(s_items[i], AREX_GREEN, 0);
-        } else {
-            lv_obj_set_style_border_color(s_items[i], AREX_DARK, 0);
-        }
+        lv_obj_set_style_bg_color(s_items[i], AREX_BLACK, 0);
+        lv_obj_set_style_bg_opa(s_items[i], LV_OPA_COVER, 0);
+        lv_obj_set_style_border_color(s_items[i], highlight ? AREX_GREEN : AREX_DARK, 0);
+        lv_obj_set_style_border_width(s_items[i], highlight ? (AREX_GAS_BORDER_W + 2) : AREX_GAS_BORDER_W, 0);
 
         char buf[20];
         float ppo2 = g_sensor_data.depth / 10.0f * 0.21f;
@@ -115,7 +102,18 @@ void card_gas_update(void)
 
         /* Recolor children */
         lv_obj_t *name_lbl = lv_obj_get_child(s_items[i], 0);
-        if (name_lbl) lv_obj_set_style_text_color(name_lbl, fg, 0);
+        if (name_lbl) {
+            lv_obj_set_style_text_color(name_lbl, highlight ? AREX_LIGHT : fg, 0);
+            lv_obj_set_style_text_font(name_lbl,
+                                       arex_get_font(highlight ? AREX_FONT_ID_MEDIUM : AREX_FONT_ID_TITLE),
+                                       0);
+        }
+        if (s_lbl_mod[i]) {
+            lv_obj_set_style_text_color(s_lbl_mod[i], AREX_LIGHT, 0);
+        }
+        if (s_lbl_ppo2[i]) {
+            lv_obj_set_style_text_color(s_lbl_ppo2[i], AREX_LIGHT, 0);
+        }
     }
 
     /* Update hint text based on edit state */

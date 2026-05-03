@@ -81,14 +81,17 @@ static lv_color_t tissue_fill_color(uint8_t pct)
 static void surf_gf_apply_style(void)
 {
     if (g_sensor_data.cns_pct > 50) {
-        lv_obj_set_style_bg_color(s_lbl_surf_gf, AREX_GREEN, 0);
+        lv_obj_set_style_bg_color(s_lbl_surf_gf, AREX_BLACK, 0);
         lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_COVER, 0);
-        lv_obj_set_style_text_color(s_lbl_surf_gf, AREX_BLACK, 0);
+        lv_obj_set_style_text_color(s_lbl_surf_gf, AREX_LIGHT, 0);
+        lv_obj_set_style_border_color(s_lbl_surf_gf, AREX_GREEN, 0);
+        lv_obj_set_style_border_width(s_lbl_surf_gf, 2, 0);
         lv_obj_set_style_pad_hor(s_lbl_surf_gf, 4, 0);
         lv_obj_set_style_pad_ver(s_lbl_surf_gf, 0, 0);
     } else {
         lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_TRANSP, 0);
         lv_obj_set_style_text_color(s_lbl_surf_gf, AREX_GREEN, 0);
+        lv_obj_set_style_border_width(s_lbl_surf_gf, 0, 0);
         lv_obj_set_style_pad_hor(s_lbl_surf_gf, 0, 0);
         lv_obj_set_style_pad_ver(s_lbl_surf_gf, 0, 0);
     }
