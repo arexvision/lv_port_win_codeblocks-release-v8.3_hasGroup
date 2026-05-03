@@ -13,9 +13,10 @@ extern "C" {
  * Uncomment ONE of the following to switch font family:
  *   #define AREX_USE_FONT_CONSOLA   // Consolas (code/terminal style)
  *   #define AREX_USE_FONT_COURIER    // Courier New Bold (classic monospace)
+ *   #define AREX_USE_FONT_ORDINAR   // Linotype Ordinar (dive computer style)
  * Comment out all to use built-in LVGL fonts
  */
-#define AREX_USE_FONT_CONSOLA
+#define AREX_USE_FONT_ORDINAR
 
 /* ================================================================
  * Consolas Font — generated from E:/UI/Consolas/consola-1.ttf
@@ -42,7 +43,18 @@ extern const lv_font_t lv_font_courier_28;
 extern const lv_font_t lv_font_courier_48;
 extern const lv_font_t lv_font_courier_58;
 
-#endif /* AREX_USE_FONT_COURIER */
+/* ================================================================
+ * Linotype Ordinar Font — generated from E:/UI/111/Linotype Ordinar W01 Regular.ttf
+ * ================================================================ */
+#elif defined(AREX_USE_FONT_ORDINAR)
+
+extern const lv_font_t lv_font_ordinar_14;
+extern const lv_font_t lv_font_ordinar_20;
+extern const lv_font_t lv_font_ordinar_28;
+extern const lv_font_t lv_font_ordinar_48;
+extern const lv_font_t lv_font_ordinar_58;
+
+#endif /* AREX_USE_FONT_ORDINAR */
 
 /* ================================================================
  * Font Role Aliases — switch between Consolas and Courier by
@@ -61,6 +73,13 @@ extern const lv_font_t lv_font_courier_58;
 #define AREX_FONT_MEDIUM   (&lv_font_courier_28)  /* 28px  数据值 */
 #define AREX_FONT_HUGE     (&lv_font_courier_58)  /* 58px  深度大数字(与HTML规范一致) */
 #define AREX_FONT_DERIVED  (&lv_font_courier_20)  /* 21px  派生(≈Title); 规范0.75x≈21px */
+#elif defined(AREX_USE_FONT_ORDINAR)
+#define AREX_FONT_SMALL    (&lv_font_ordinar_14)  /* 14px  标签/单位/Badge */
+#define AREX_FONT_TITLE    (&lv_font_ordinar_20)  /* 20px  菜单项/卡片标题 */
+#define AREX_FONT_MEDIUM   (&lv_font_ordinar_28)  /* 28px  数据值 */
+#define AREX_FONT_HUGE     (&lv_font_ordinar_58)  /* 58px  深度大数字 */
+#define AREX_FONT_DERIVED  (&lv_font_ordinar_20)  /* 20px  派生 */
+#define AREX_FONT_24       (&lv_font_ordinar_24)  /* 24px  中等标题 */
 #else
 #define AREX_FONT_SMALL    (lv_font_montserrat_14)
 #define AREX_FONT_TITLE    (lv_font_montserrat_20)

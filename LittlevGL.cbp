@@ -1854,6 +1854,22 @@
 		<Unit filename="src/arex_ui/fonts/lv_font_consola_58.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<!-- Linotype Ordinar fonts -->
+		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_14.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_20.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_28.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_48.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_58.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<!-- Courier fonts temporarily disabled - switch to Consolas
 		<Unit filename="src/arex_ui/fonts/lv_font_courier_14.c">
 			<Option compilerVar="CC" />

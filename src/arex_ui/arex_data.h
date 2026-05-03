@@ -140,6 +140,7 @@ void arex_bus_set_conservatism(uint8_t level);
 
 /* --- 历史轨迹推流（已在 card_plan.c 中实现，此处声明导出） --- */
 void arex_dive_log_append(float current_time_s, float current_depth_m);
+void arex_dive_log_reset(void);
 
 /* --- BLE 布局同步接口（由 BLE 任务调用） --- */
 void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload);
@@ -147,8 +148,8 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload);
 /* 清除所有脏标记 */
 void arex_bus_clear_all_dirty(void);
 
-/* 重置潜水统计值（开始新潜水时调用） */
-void arex_bus_reset_stats(void);
+// /* 重置潜水统计值（开始新潜水时调用） */
+// void arex_bus_reset_stats(void);
 
 /* 告警待处理标志（由 arex_bus_set_depth 等函数设置，由 arex_ui_update_task 统一处理） */
 extern volatile bool g_alarm_pending;

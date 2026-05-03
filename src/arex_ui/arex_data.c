@@ -217,20 +217,6 @@ void arex_bus_clear_all_dirty(void)
     g_sensor_data.dirty_mask = DIRTY_NONE;
 }
 
-void arex_bus_reset_stats(void)
-{
-    /* 重置潜水统计值（每次开始新潜水时调用） */
-    g_sensor_data.max_depth = 0.0f;
-    g_sensor_data.avg_depth = 0.0f;
-    g_sensor_data.min_temp = 0.0f;
-    g_sensor_data.avg_temp = 0.0f;
-
-    _depth_sum = 0.0f;
-    _depth_sample_count = 0;
-    _temp_sum = 0.0f;
-    _temp_sample_count = 0;
-}
-
 void arex_bus_set_temperature(float temp_c)
 {
     if (fabsf(g_sensor_data.temperature_c - temp_c) > 0.1f) {
