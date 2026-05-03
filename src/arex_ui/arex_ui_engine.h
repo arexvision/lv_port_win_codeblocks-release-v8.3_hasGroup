@@ -109,6 +109,7 @@ typedef enum {
     AREX_FONT_ID_SMALL = 0,  /* 14px  标签/单位/Badge */
     AREX_FONT_ID_TITLE,       /* 20px  菜单项/卡片标题 */
     AREX_FONT_ID_MEDIUM,      /* 28px  数据值 */
+    AREX_FONT_ID_LARGE,       /* 48px  NDL减压时间 */
     AREX_FONT_ID_HUGE,       /* 58px  深度大数字 */
 } arex_font_id_t;
 
@@ -484,10 +485,7 @@ extern arex_sensor_data_t g_sensor_data;
 #define MAX_NDL_ICONS 4
 typedef struct {
     lv_obj_t *comp;
-    lv_obj_t *vert_bg;
-    lv_obj_t *vert_fill;
-    lv_obj_t *horiz_bg;
-    lv_obj_t *horiz_fill;
+    lv_obj_t *horiz_bg;    /* 十宫格画布（0 RAM 数学绘制） */
     lv_obj_t *main_val;
     lv_obj_t *title_top;
     lv_obj_t *sub_bot;
