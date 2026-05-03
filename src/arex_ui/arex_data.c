@@ -322,25 +322,51 @@ void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 }
 
-void arex_bus_set_stop_state(arex_stop_type_t type, float depth_m, uint16_t total_s, uint16_t left_s, bool in_zone)
+/* =========================================================
+ * 减压状态综合更新接口（原子操作）
+ *
+ * 算法层每个周期调用一次，一次性更新所有减压相关数据：
+ *   - NDL 免减压时间
+ *   - 停留状态机类型
+ *   - 停留深度/时间参数
+ *   - 停留区域标志
+ *
+ * 相比分离调用，本接口的优势：
+ *   1. 原子更新，避免 UI 任务读到中间状态
+ *   2. 一次临界区保护，减少中断关闭时间
+ *   3. 合并 DIRTY_NDL | DIRTY_NDL_STOP 脏标记
+ * ========================================================= */
+void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,float depth_m, uint16_t time_s)
 {
-    if (g_sensor_data.stop_type == type &&
-        g_sensor_data.stop_depth_m == depth_m &&
-        g_sensor_data.stop_time_total_s == total_s &&
-        g_sensor_data.stop_time_left_s == left_s &&
-        g_sensor_data.in_stop_zone == in_zone) {
-        return;
+    /* 计算合并脏标记：停留相关才打 DIRTY_NDL_STOP */
+    uint32_t new_dirty = DIRTY_NDL;  /* NDL 始终需要检查 */
+
+    /* 计算是否需要更新 */
+    bool ndl_changed  = (g_sensor_data.ndl != ndl_min);
+    bool stop_changed = (g_sensor_data.stop_type != stop_type ||
+                         g_sensor_data.stop_depth_m != depth_m ||
+                         g_sensor_data.stop_time_left_s != time_s);
+
+    if (!ndl_changed && !stop_changed) {
+        return;  /* 无变化，快速返回 */
     }
 
-    g_sensor_data.stop_type = type;
-    g_sensor_data.stop_depth_m = depth_m;
-    g_sensor_data.stop_time_total_s = total_s;
-    g_sensor_data.stop_time_left_s = left_s;
-    g_sensor_data.in_stop_zone = in_zone;
-
-    /* 临界区保护脏标记，防止数据撕裂 */
+    /* 临界区保护：一次性更新所有字段 */
     rt_base_t level = rt_hw_interrupt_disable();
-    g_sensor_data.dirty_mask |= DIRTY_NDL_STOP;
+
+    if (ndl_changed) {
+        g_sensor_data.ndl = ndl_min;
+    }
+
+    if (stop_changed) {
+        g_sensor_data.stop_type = stop_type;
+        g_sensor_data.stop_depth_m = depth_m;
+        g_sensor_data.stop_time_left_s = time_s;
+        new_dirty |= DIRTY_NDL_STOP;  /* 停留数据变化才打此标记 */
+    }
+
+    g_sensor_data.dirty_mask |= new_dirty;
+
     rt_hw_interrupt_enable(level);
 }
 

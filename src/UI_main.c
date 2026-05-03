@@ -250,33 +250,45 @@ static void sim_tick_cb(lv_timer_t *t)
 
         float current_sim_depth = 0.0f;
 
-        if (s_sim_ticks < 30) {
+        if (s_sim_ticks < 5) {
             /* 阶段 1：平滑下潜 (0~30秒) 5m 缓缓沉入 18.5m */
             current_sim_depth = 5.0f + (s_sim_ticks * 0.45f);
-            arex_bus_set_ndl(45);
-            g_sensor_data.stop_type = AREX_STOP_NONE;
+
+            /* 常态 NDL 模式：使用综合接口一次性更新 */
+            arex_bus_update_deco(
+                45,              /* ndl_min: NDL 充足 */
+                AREX_STOP_NONE,   /* stop_type: 无停留 */
+                0.0f,            /* depth_m: 无停留深度 */
+                0                /* time_s: 无停留时间 */
+            );
         }
-        else if (s_sim_ticks < 60) {
+        else if (s_sim_ticks < 10) {
             /* 阶段 2：快速上升到 5m，触发安全停留 (30~60秒) */
             current_sim_depth = 4.8f;
-            arex_bus_set_ndl(45); /* NDL 充足，触发安全停留 */
+            uint16_t elapsed_s = (s_sim_ticks - 30) * 6;
+            uint16_t left_s = (elapsed_s > 180) ? 0 : (180 - elapsed_s);
 
-            g_sensor_data.stop_type = AREX_STOP_SAFETY;
-            g_sensor_data.stop_depth_m = 3.0f;
-            g_sensor_data.stop_time_total_s = 180;
-            g_sensor_data.stop_time_left_s = 180 - (s_sim_ticks - 30) * 6;
-            g_sensor_data.in_stop_zone = true; /* 对准深度，开始读秒！ */
+            /* 安全停留模式：使用综合接口一次性更新 */
+            arex_bus_update_deco(
+                45,                 /* ndl_min: NDL 充足 */
+                AREX_STOP_SAFETY,    /* stop_type: 安全停留 */
+                5.0f,               /* depth_m: 3m 停留深度 */
+                180               /* time_s: 剩余秒数 */
+            );
         }
-        else if (s_sim_ticks < 90) {
+        else if (s_sim_ticks < 15) {
             /* 阶段 3：突发状况，下沉到 6.2m，NDL 耗尽触发强制减压 (60~90秒) */
             current_sim_depth = 6.2f;
-            arex_bus_set_ndl(0); /* NDL 归零，强制触发 DECO！ */
+            uint16_t elapsed_s = (s_sim_ticks - 60) * 10;
+            uint16_t left_s = (elapsed_s > 300) ? 0 : (300 - elapsed_s);
 
-            g_sensor_data.stop_type = AREX_STOP_DECO;
-            g_sensor_data.stop_depth_m = 6.0f;
-            g_sensor_data.stop_time_total_s = 300;
-            g_sensor_data.stop_time_left_s = 300 - (s_sim_ticks - 60) * 10;
-            g_sensor_data.in_stop_zone = true;
+            /* 减压停留模式：使用综合接口一次性更新 */
+            arex_bus_update_deco(
+                0,                    /* ndl_min: NDL 归零，进入减压区 */
+                AREX_STOP_DECO,       /* stop_type: 减压停留 */
+                6.0f,               /* depth_m: 6m 停留深度 */
+                50                /* time_s: 剩余秒数 */
+            );
         }
         else {
             /* 循环重置 */
@@ -296,9 +308,6 @@ static void sim_tick_cb(lv_timer_t *t)
             };
             arex_bus_set_deco_plan(sim_stops, 3);
         }
-
-        /* 强制唤醒 UI 更新 NDL 模块 */
-        g_sensor_data.dirty_mask |= DIRTY_NDL_STOP;
     }
 
     /* 模拟 TTS 递增 */

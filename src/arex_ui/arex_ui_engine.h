@@ -217,14 +217,27 @@ typedef enum {
 } arex_widget_id_t;
 
 /* =========================================================
- * 2d. 告警级别枚举
+ * 2d. 告警系统 (Alarm System)
+ *
+ * 架构设计：
+ *   - arex_trigger_alarm()   : 触发告警，设置状态 + 弹出横幅 + 锁定靶心
+ *   - arex_clear_all_alarm_styles() : 清除告警，隐藏横幅 + 重置状态
+ *   - arex_ui_update_task() : 50ms 定时器执行闪烁逻辑（由心跳引擎驱动）
+ *
+ * 告警级别：
+ *   - AREX_ALARM_INFO  (1Hz) : 低优先级提醒，绿底黑字，慢闪
+ *   - AREX_ALARM_WARN  (2Hz) : 中优先级警告，黄底黑字，中速闪烁
+ *   - AREX_ALARM_CRIT  (4Hz) : 高优先级危险，红底黑字，极速狂闪
  * ========================================================= */
 typedef enum {
-    AREX_ALARM_NONE   = 0,
-    AREX_ALARM_INFO   = 1,   /* INFO: 提醒 */
-    AREX_ALARM_WARN   = 2,   /* WARN: 警告（1Hz 闪烁）*/
-    AREX_ALARM_CRIT   = 3,   /* CRITICAL: 危险（2Hz 快速闪烁）*/
+    AREX_ALARM_NONE  = 0,   /* 无告警 */
+    AREX_ALARM_INFO  = 1,   /* INFO: 低优先级提醒（1Hz 闪烁）*/
+    AREX_ALARM_WARN  = 2,   /* WARN: 中优先级警告（2Hz 闪烁）*/
+    AREX_ALARM_CRIT  = 3,   /* CRITICAL: 高优先级危险（4Hz 闪烁）*/
 } arex_alarm_level_t;
+
+/* 告警横幅配置 */
+#define AREX_ALARM_SHOW_PREFIX  0   /* 1=显示 "CRITICAL:" 前缀，0=只显示告警文字 */
 
 /* =========================================================
  * 3. NVDS 核心配置结构体 (字节对齐，用于持久化)
@@ -601,20 +614,33 @@ void arex_widget_set_text(arex_widget_id_t id, const char *text);
 /* 全局组件数据路由分发器：根据 widget_id 自动从 g_sensor_data 取值并刷新界面 */
 void arex_widget_sync_data(arex_widget_id_t w_id);
 
-/* 靶向告警触发：全屏搜索所有打了 user_data 烙印的组件并同步闪烁。
- * target_id = AREX_WIDGET_EMPTY 时仅弹出横幅，不做靶向同步。 */
+
+/* =========================================================
+ * 2d. 告警系统 API (Alarm System)
+ *
+ * 使用流程：
+ *   1. arex_trigger_alarm() - 触发告警（显示横幅 + 锁定靶心 + 启动心跳引擎）
+ *   2. arex_ui_update_task() - 50ms 定时器自动执行闪烁（无需手动调用）
+ *   3. arex_clear_all_alarm_styles() - 清除告警（隐藏横幅 + 重置状态）
+ *
+ * @param level      告警级别（ARE X_ALARM_INFO/WARN/CRIT）
+ * @param eng_text   横幅显示的英文提示文字
+ * @param target_id  靶向组件 ID（WIDGET_EMPTY=仅横幅无靶向）
+ * ========================================================= */
+
+/* 触发告警：显示横幅 + 锁定靶心组件，由 50ms 定时器执行闪烁 */
 void arex_trigger_alarm(arex_alarm_level_t level,
                         const char *eng_text,
                         arex_widget_id_t target_id);
 
-/* 清除所有组件的告警样式（告警消失时调用） */
+/* 清除告警：隐藏横幅 + 重置靶心状态，停止闪烁 */
 void arex_clear_all_alarm_styles(void);
 
-/* 根据 widget_id 获取显示名称（供调试/横幅使用） */
-const char *arex_get_widget_name(arex_widget_id_t id);
-
-/* 告警横幅显示（由 arex_trigger_alarm 调用） */
+/* 内部：横幅显示（由 arex_trigger_alarm 调用） */
 void arex_show_alarm_banner(arex_alarm_level_t level, const char *eng_text);
+
+/* 内部：根据 widget_id 获取显示名称 */
+const char *arex_get_widget_name(arex_widget_id_t id);
 
 /* =========================================================
  * 2c. 左侧 2x7 绝对网格组件配置 (APP 同步核心)

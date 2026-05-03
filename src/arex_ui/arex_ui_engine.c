@@ -136,7 +136,7 @@ static const arex_widget_style_t g_widget_styles[] = {
             .norm_sub_x  = -10, .norm_sub_y  = -5, .norm_sub_align  = LV_ALIGN_BOTTOM_RIGHT,
             /* 停留态 (Stop) 排版 */
             .deco_title_x = 10,  .deco_title_y = 4,   .deco_title_align = LV_ALIGN_TOP_LEFT,
-            .deco_main_x  = -10, .deco_main_y  = -5, .deco_main_align  = LV_ALIGN_RIGHT_MID,
+            .deco_main_x  = -15, .deco_main_y  = -6,  .deco_main_align  = LV_ALIGN_RIGHT_MID,
             .deco_sub_x   = 10,  .deco_sub_y   = -14,.deco_sub_align   = LV_ALIGN_BOTTOM_LEFT
         }
     },
@@ -2471,31 +2471,27 @@ void arex_ui_update_task(lv_timer_t *timer)
                 /* 缩小字号，为 MM:SS 腾出空间 */
                 lv_obj_set_style_text_font(h->main_val, arex_get_font(style->font_id), 0);
 
-                /* 应用停留态字典 */
-                lv_obj_align(h->main_val, (lv_align_t)s->deco_main_align, s->deco_main_x, s->deco_main_y);
+                /* 应用停留态字典（微调位置） */
+                lv_obj_align(h->main_val, (lv_align_t)s->deco_main_align, -15, -6);
                 lv_obj_align(h->title_top, (lv_align_t)s->deco_title_align, s->deco_title_x, s->deco_title_y);
 
-                /* 核心防重叠修复：主干只显示纯粹的时间！不带深度！ */
-                if (g_sensor_data.in_stop_zone) {
-                    int m = g_sensor_data.stop_time_left_s / 60;
-                    int sec = g_sensor_data.stop_time_left_s % 60;
-                    lv_label_set_text_fmt(h->main_val, "%d:%02d", m, sec);
-                } else {
-                    int min = (g_sensor_data.stop_time_left_s + 59) / 60;
-                    lv_label_set_text_fmt(h->main_val, "%d'", min);
-                }
+                /* 彻底废除条件判断，永远显示分和秒 (MM:SS) */
+                int m = g_sensor_data.stop_time_left_s / 60;
+                int sec = g_sensor_data.stop_time_left_s % 60;
+                lv_label_set_text_fmt(h->main_val, "%d:%02d", m, sec);
 
-                /* 标题文本精简分配 */
+                /* 单片机防浮点崩溃，强转 int 配合 %dm 解决 fm 乱码 */
                 if (g_sensor_data.stop_type == AREX_STOP_SAFETY) {
-                    lv_label_set_text_fmt(h->title_top, "SAFE %.0fm", g_sensor_data.stop_depth_m);
+                    lv_label_set_text_fmt(h->title_top, "SAFE %dm", (int)g_sensor_data.stop_depth_m);
                     lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
                     lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
                     lv_obj_align(h->sub_bot, (lv_align_t)s->deco_sub_align, s->deco_sub_x, s->deco_sub_y);
                 } else {
-                    lv_label_set_text_fmt(h->title_top, "DECO %.0fm", g_sensor_data.stop_depth_m);
+                    lv_label_set_text_fmt(h->title_top, "DECO %dm", (int)g_sensor_data.stop_depth_m);
                     lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
                 }
 
+                /* 横向进度条动态生长 */
                 int fill_w = (g_sensor_data.stop_time_total_s > 0)
                              ? ((g_sensor_data.stop_time_total_s - g_sensor_data.stop_time_left_s) * s->horiz_w) / g_sensor_data.stop_time_total_s
                              : 0;

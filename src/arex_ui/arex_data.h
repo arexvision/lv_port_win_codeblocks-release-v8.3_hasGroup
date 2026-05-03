@@ -86,7 +86,6 @@ typedef struct {
 
 /* --- 传感器数据写入接口 --- */
 void arex_bus_set_depth(float depth_m);               /* 防抖阈值 0.05m */
-void arex_bus_set_ndl(int16_t ndl_min);
 void arex_bus_set_tts(uint16_t tts_min);
 void arex_bus_set_pod(uint8_t pod_idx, float bar);   /* pod_idx: 0=pod1, 1=pod2 */
 void arex_bus_set_battery(float pct);
@@ -119,8 +118,22 @@ void arex_bus_toggle_mask(void);
 void arex_bus_toggle_split_outward(void);
 void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y);
 
-/* --- NDL 停留状态机控制接口 --- */
-void arex_bus_set_stop_state(arex_stop_type_t type, float depth_m, uint16_t total_s, uint16_t left_s, bool in_zone);
+/* =========================================================
+ * 减压状态综合更新接口（原子操作）
+ *
+ * 将 NDL + 停留状态合并为一次原子调用，避免数据不一致。
+ * 算法层每个周期只需调用一次，减少总线通信开销。
+ *
+ * @param ndl_min        免减压时间（分钟，0=进入减压区）
+ * @param stop_type      停留类型（NONE/Safety/Deco）
+ * @param depth_m        停留深度（米，0=不在停留）
+ * @param time_s         停留剩余时间（秒），UI 直接显示倒计时
+ * ========================================================= */
+void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,float depth_m, uint16_t time_s);
+
+/* --- NDL 独立接口（快速轮询，仅更新 NDL 数值） --- */
+/* 注意：优先使用 arex_bus_update_deco() 一次性更新所有减压数据 */
+void arex_bus_set_ndl(int16_t ndl_min);
 
 /* --- 用户设置接口 --- */
 void arex_bus_set_conservatism(uint8_t level);
