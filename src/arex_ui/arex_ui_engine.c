@@ -109,9 +109,9 @@ static const arex_widget_style_t g_widget_styles[] = {
         .title_font_id = AREX_FONT_ID_SMALL,
         .unit = "m",
         .title = "DEPTH",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_CENTER,
         .spec.depth = {
-            .int_offset_x = 8, .int_offset_y = 0, .int_align = LV_ALIGN_LEFT_MID,
+            .int_offset_x = 0, .int_offset_y = 4, .int_align = LV_ALIGN_BOTTOM_MID,
             .dec_offset_x = 2,  .dec_offset_y = 3,
             .unit_offset_x = 0, .unit_offset_y = 1,
             .icon_offset_x = -6, .icon_offset_y = 0, .icon_align = LV_ALIGN_RIGHT_MID
@@ -724,12 +724,12 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h 由 MCU 样式表自动推导
      */
     cfg->custom_5f_count = 12;
-    cfg->custom_5f_widgets[0]  = (arex_grid_widget_t){ WIDGET_DEPTH_1612,     0, 0 };
-    cfg->custom_5f_widgets[1]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,     2, 0 };
+    cfg->custom_5f_widgets[0]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      0, 0 };
+    cfg->custom_5f_widgets[1]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      2, 0 };
     cfg->custom_5f_widgets[2]  = (arex_grid_widget_t){ WIDGET_HEADING_0806,   3, 0 };
-    cfg->custom_5f_widgets[3]  = (arex_grid_widget_t){ WIDGET_EMPTY,          0, 2 };  /* SAC 已移除 */
+    cfg->custom_5f_widgets[3]  = (arex_grid_widget_t){ WIDGET_EMPTY,           0, 2 };  /* SAC 已移除 */
     cfg->custom_5f_widgets[4]  = (arex_grid_widget_t){ WIDGET_BATTERY_0806,   2, 2 };
-    cfg->custom_5f_widgets[5]  = (arex_grid_widget_t){ WIDGET_PPO2_0806,     4, 2 };
+    cfg->custom_5f_widgets[5]  = (arex_grid_widget_t){ WIDGET_PPO2_0806,       4, 2 };
     cfg->custom_5f_widgets[6]  = (arex_grid_widget_t){ WIDGET_NDL_STOP_1606,  0, 3 };
     cfg->custom_5f_widgets[7]  = (arex_grid_widget_t){ WIDGET_TTS_0806,       2, 3 };
     cfg->custom_5f_widgets[8]  = (arex_grid_widget_t){ WIDGET_CNS_0806,       4, 3 };
@@ -750,7 +750,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      */
     /* 简洁位置配置：widget_id + x/y，span_w/h 由 MCU 样式表自动推导 */
     cfg->left_widgets[0] = (arex_grid_widget_t){ WIDGET_NDL_STOP_1606,   0, 0 };
-    cfg->left_widgets[1] = (arex_grid_widget_t){ WIDGET_DEPTH_1612,      0, 1 };
+    cfg->left_widgets[1] = (arex_grid_widget_t){ WIDGET_DEPTH_1606,      0, 1 };
     cfg->left_widgets[2] = (arex_grid_widget_t){ WIDGET_DIVE_TIME_1606,  0, 3 };  /* 潜水时间 */
     cfg->left_widgets[3] = (arex_grid_widget_t){ WIDGET_GAS_1606,        0, 4 };
     cfg->left_widgets[4] = (arex_grid_widget_t){ WIDGET_POD_0806,        0, 5 };
@@ -1171,16 +1171,13 @@ void arex_render_card_title(lv_obj_t *parent_card, const char *title_text)
 lv_obj_t *g_left_anchor_obj = NULL;
 lv_obj_t *g_card_custom_obj = NULL;
 
-/* 告警状态 */
-static arex_alarm_level_t s_alarm_level = AREX_ALARM_NONE;
-static char s_alarm_text[64] = {0};
-static lv_timer_t *s_alarm_blink_timer = NULL;
-static bool s_alarm_blink_on = false;
-static lv_obj_t *s_alarm_banner = NULL;
-
-/* 告警横幅静态样式（避免每次创建重复初始化） */
-static lv_style_t s_banner_style_warn;
-static lv_style_t s_banner_style_crit;
+/* ============================================================
+ * 🚨 全域告警状态（50ms 定时器会扫描这两个容器）
+ * ============================================================ */
+static arex_widget_id_t g_current_alarm_target = WIDGET_EMPTY;
+static uint8_t          g_current_alarm_level = 0;
+static lv_obj_t        *s_alarm_banner = NULL;
+static lv_obj_t        *s_alarm_banner_lbl = NULL;
 
 /* =========================================================
  * 5F 网格坐标推算（纯数学绝对映射，无 lv_grid）
@@ -1543,17 +1540,18 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     }
 
     /* --- 零件 2：主数值 --- */
+    lv_obj_t *val_lbl = NULL;
     if (style->elements & ELEM_VALUE) {
-    lv_obj_t *val_lbl = lv_label_create(obj);
+        val_lbl = lv_label_create(obj);
         lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
         lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
 
-    if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
+        if (AREX_SHOW_PLACEHOLDER_ON_INIT) {
             /* 通用占位符 */
-        lv_label_set_text(val_lbl, "--");
-    } else {
-        char buf[48] = "--";
-        switch (w_id) {
+            lv_label_set_text(val_lbl, "--");
+        } else {
+            char buf[48] = "--";
+            switch (w_id) {
                 case WIDGET_DEPTH_1612:  snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.depth); break;
                 case WIDGET_NDL_STOP_1606: snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl_stop_value); break;
                 case WIDGET_DIVE_TIME_1606: snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.dive_time_s/60, g_sensor_data.dive_time_s%60); break;
@@ -1609,16 +1607,13 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                 case WIDGET_SAC_SAFE_0806:  snprintf(buf, sizeof(buf), "%.1f", 25.0); break;
                 */
                 default:                          snprintf(buf, sizeof(buf), "--"); break;
+            }
+            lv_label_set_text(val_lbl, buf);
         }
-        lv_label_set_text(val_lbl, buf);
-    }
-
         /* 所有使用 ELEM_VALUE 的 widget 都使用 spec.basic.value_align */
-        if (style->elements & ELEM_VALUE) {
-            lv_obj_align(val_lbl, (lv_align_t)style->spec.basic.value_align,
-                         style->spec.basic.value_offset_x, style->spec.basic.value_offset_y);
-        }
-    lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
+        lv_obj_align(val_lbl, (lv_align_t)style->spec.basic.value_align,
+                     style->spec.basic.value_offset_x, style->spec.basic.value_offset_y);
+        lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
     }
 
     /* --- 零件 3：单位 --- */
@@ -1627,10 +1622,10 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_label_set_text(unit_lbl, style->unit);
         lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
-        /* 单位位于数值下方 */
-        if (style->elements & ELEM_VALUE) {
-            /* 挂在数值 label 下方 */
-            lv_obj_align_to(unit_lbl, obj, LV_ALIGN_BOTTOM_MID, 0, -2);
+        /* 单位位于数值右侧（对于 2x1 等窄组件） */
+        if ((style->elements & ELEM_VALUE) && (val_lbl != NULL)) {
+            /* 挂在数值 label 右侧 */
+            lv_obj_align_to(unit_lbl, val_lbl, LV_ALIGN_OUT_RIGHT_MID, 4, 0);
         } else {
             lv_obj_align(unit_lbl, (lv_align_t)style->title_align,
                          style->title_offset_x, style->title_offset_y);
@@ -2155,164 +2150,80 @@ void arex_widget_sync_data(arex_widget_id_t w_id)
 }
 
 /* =========================================================
- * 告警闪烁定时器回调
- * ========================================================= */
-static void alarm_blink_cb(lv_timer_t *timer)
-{
-    (void)timer;
-    s_alarm_blink_on = !s_alarm_blink_on;
-
-    /* 遍历所有注册的 widget 句柄应用/移除闪烁样式 */
-    for (uint8_t i = 0; i < s_widget_handle_count; i++) {
-        lv_obj_t *w = s_widget_handles[i];
-        if (!w) continue;
-
-        if (s_alarm_blink_on) {
-            lv_obj_set_style_bg_color(w, AREX_LIGHT, 0);
-            lv_obj_set_style_text_color(w, AREX_BLACK, 0);
-        } else {
-            lv_obj_set_style_bg_color(w, AREX_BLACK, 0);
-            lv_obj_set_style_text_color(w, AREX_GREEN, 0);
-        }
-    }
-}
-
-/* =========================================================
- * 靶向告警触发引擎
- *
- * 1. 弹出顶部的纯英文告警横幅（永不显示图案）
- * 2. 若 target_id != EMPTY，遍历所有子节点，
- *    找到打了烙印的组件并加入闪烁队列
- * 3. 启动/停止 blink 定时器
- *
- * 告警消失时调用 arex_clear_all_alarm_styles() 清除。
+ * 🚨 靶向告警触发引擎（新版本：仅设置状态，由 50ms 定时器执行闪烁）
  * ========================================================= */
 void arex_trigger_alarm(arex_alarm_level_t level,
                         const char *eng_text,
                         arex_widget_id_t target_id)
 {
-    /* 停止旧的 blink 定时器 */
-    if (s_alarm_blink_timer) {
-        lv_timer_pause(s_alarm_blink_timer);
-        s_alarm_blink_on = false;
-    }
-
-    /* 清除旧告警样式 */
-    arex_clear_all_alarm_styles();
-
-    /* 弹出告警横幅 */
-    arex_show_alarm_banner(level, eng_text);
-
-    if (target_id == WIDGET_EMPTY) {
-        /* 仅横幅告警，不做靶向 */
-        return;
-    }
-
-    /* 初始化告警样式到所有匹配的 widget（注册到闪烁队列） */
-    for (uint8_t i = 0; i < s_widget_handle_count; i++) {
-        lv_obj_t *w = s_widget_handles[i];
-        if (!w) continue;
-
-        if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(w) == target_id) {
-            /* 加入闪烁队列（已在 s_widget_handles 中） */
-            /* 立即应用一次 */
-            lv_obj_set_style_bg_color(w, AREX_LIGHT, 0);
-        }
-    }
-
-    /* 启动/重设 blink 定时器 */
-    if (level == AREX_ALARM_CRIT) {
-        /* CRITICAL: 2Hz 快速闪烁 */
-        if (!s_alarm_blink_timer) {
-            s_alarm_blink_timer = lv_timer_create(alarm_blink_cb, 500, NULL);
-        } else {
-            lv_timer_reset(s_alarm_blink_timer);
-            lv_timer_set_period(s_alarm_blink_timer, 500);
-        }
-        lv_timer_resume(s_alarm_blink_timer);
-    } else if (level == AREX_ALARM_WARN) {
-        /* WARN: 1Hz 慢闪烁 */
-        if (!s_alarm_blink_timer) {
-            s_alarm_blink_timer = lv_timer_create(alarm_blink_cb, 1000, NULL);
-        } else {
-            lv_timer_reset(s_alarm_blink_timer);
-            lv_timer_set_period(s_alarm_blink_timer, 1000);
-        }
-        lv_timer_resume(s_alarm_blink_timer);
-    }
-    /* INFO 级别不闪烁，仅横幅 */
-
-    s_alarm_level = level;
+    arex_show_alarm_banner(level, eng_text);  /* 1. 弹出横幅 */
+    g_current_alarm_target = target_id;         /* 2. 锁定靶心 */
+    g_current_alarm_level = level;              /* 3. 锁定级别 */
 }
 
 /* =========================================================
- * 清除所有组件的告警样式，恢复正常显示
+ * 🚨 清除所有告警样式（50ms 定时器会自动把样式复原）
  * ========================================================= */
 void arex_clear_all_alarm_styles(void)
 {
-    /* 停止 blink 定时器 */
-    if (s_alarm_blink_timer) {
-        lv_timer_pause(s_alarm_blink_timer);
+    if (s_alarm_banner) {
+        lv_obj_add_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);  /* 藏起横幅 */
     }
 
-    /* 恢复所有 widget 句柄的正常样式 */
-    for (uint8_t i = 0; i < s_widget_handle_count; i++) {
-        lv_obj_t *w = s_widget_handles[i];
-        if (!w) continue;
-        lv_obj_set_style_bg_color(w, AREX_BLACK, 0);
-        lv_obj_set_style_text_color(w, AREX_GREEN, 0);
-    }
-
-    /* 隐藏横幅 */
-    arex_hide_alarm_banner();
-
-    s_alarm_level = AREX_ALARM_NONE;
+    g_current_alarm_target = WIDGET_EMPTY;  /* 清除靶心 */
+    g_current_alarm_level = 0;
 }
 
 /* =========================================================
- * 告警横幅显示/隐藏
- * 默认横幅显示在屏幕顶部（独立图层），永不显示图案，纯英文文字。
+ * 🚨 告警横幅显示（Z-Order 提权到 Safe Zone 最顶层）
  * ========================================================= */
 void arex_show_alarm_banner(arex_alarm_level_t level, const char *eng_text)
 {
-    arex_hide_alarm_banner();
+    lv_obj_t *safe_zone = arex_get_safe_zone();
+    if (!safe_zone) return;
 
-    if (!eng_text || !eng_text[0]) return;
+    /* 动态推算右侧卡片区的准确宽度 */
+    int right_canvas_w = (int)g_sys_config.safe_zone_w - (int)AREX_LEFT_ANCHOR_W
+                       - (int)(g_sys_config.gap_u * AREX_BASE_U);
 
-    /* 创建横幅（顶层 screen，避免被其他对象遮挡） */
-    lv_obj_t *screen = lv_scr_act();
-    s_alarm_banner = lv_obj_create(screen);
-    lv_obj_set_size(s_alarm_banner, AREX_PHYSICAL_W, 36);
-    lv_obj_set_pos(s_alarm_banner, 0, 0);
-    lv_obj_set_style_border_width(s_alarm_banner, 0, 0);
-    lv_obj_set_style_radius(s_alarm_banner, 0, 0);
-    lv_obj_set_style_pad_all(s_alarm_banner, 0, 0);
+    if (!s_alarm_banner) {
+        s_alarm_banner = lv_obj_create(safe_zone);
+        lv_obj_remove_style_all(s_alarm_banner);
 
-    if (level == AREX_ALARM_CRIT) {
-        lv_obj_set_style_bg_color(s_alarm_banner, AREX_DARK, 0);
-    } else if (level == AREX_ALARM_WARN) {
-        lv_obj_set_style_bg_color(s_alarm_banner, AREX_DARK, 0);
-    } else {
-        lv_obj_set_style_bg_color(s_alarm_banner, AREX_BLACK, 0);
+        /* 核心修复 1：宽度限制为右侧画布宽度，不再横跨全屏 */
+        lv_obj_set_size(s_alarm_banner, right_canvas_w, 60);
+
+        /* 核心修复 2：靠右上角对齐，完美避开左侧 16U 固定锚点区 */
+        lv_obj_align(s_alarm_banner, LV_ALIGN_TOP_RIGHT, 0, 0);
+
+        s_alarm_banner_lbl = lv_label_create(s_alarm_banner);
+        lv_obj_set_style_text_font(s_alarm_banner_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+        lv_obj_align(s_alarm_banner_lbl, LV_ALIGN_LEFT_MID, 20, 0);
     }
+
+    /* 🚨 终极杀招：把横幅强行拉到所有卡片之上！绝对防遮挡！ */
+    lv_obj_move_foreground(s_alarm_banner);
+    lv_obj_clear_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);
+
+    /* 浅底深字配色 */
+    lv_color_t bg_color = (level >= 3) ? AREX_LIGHT : AREX_LIGHT;  /* 都是浅色背景 */
+    lv_obj_set_style_bg_color(s_alarm_banner, bg_color, 0);
     lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+    lv_obj_set_style_text_color(s_alarm_banner_lbl, AREX_BLACK, 0);
 
-    /* 告警文字 label */
-    lv_obj_t *lbl = lv_label_create(s_alarm_banner);
-    lv_label_set_text(lbl, eng_text);
-    lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
-    lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
-    lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
-    lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
-}
+#if AREX_ALARM_SHOW_PREFIX
+    /* 拼接前缀 */
+    const char *prefix = "INFO";
+    if (level >= 3) prefix = "CRITICAL";
+    else if (level >= 2) prefix = "WARNING";
 
-void arex_hide_alarm_banner(void)
-{
-    if (s_alarm_banner) {
-        lv_obj_del(s_alarm_banner);
-        s_alarm_banner = NULL;
-    }
+    char full_text[128];
+    snprintf(full_text, sizeof(full_text), "%s: %s", prefix, eng_text ? eng_text : "");
+    lv_label_set_text(s_alarm_banner_lbl, full_text);
+#else
+    /* 直接显示传入的文字，不带前缀 */
+    lv_label_set_text(s_alarm_banner_lbl, eng_text ? eng_text : "");
+#endif
 }
 
 /* =========================================================
@@ -2339,6 +2250,87 @@ void arex_ui_update_data(void)
 void arex_ui_update_task(lv_timer_t *timer)
 {
     (void)timer;
+
+    /* ============================================================
+     * 🚨 全域告警闪烁引擎 (Heartbeat Flasher)
+     * ============================================================ */
+    {
+        static bool s_last_alarm_flash = false;
+
+        if (g_current_alarm_target != WIDGET_EMPTY) {
+            /* Level3 频率 500ms(2Hz)，Level2 频率 1000ms(1Hz) */
+            int interval = (g_current_alarm_level >= 3) ? 250 : 500;
+            bool is_flash_on = (lv_tick_get() / interval) % 2 == 0;
+
+            /* 只有相位切换时才操作 UI，极大地节省 CPU */
+            if (is_flash_on != s_last_alarm_flash) {
+                s_last_alarm_flash = is_flash_on;
+
+                lv_color_t bg_color = (g_current_alarm_level >= 3) ? AREX_LIGHT : AREX_LIGHT;
+                lv_color_t txt_color = AREX_BLACK;
+
+                /* 灭相位时，退回普通的黑底绿字 */
+                if (!is_flash_on) {
+                    bg_color = AREX_BLACK;
+                    txt_color = AREX_GREEN;
+                }
+
+                /* 🚨 核心修复：让顶部的横幅跟着一起反色闪烁！ */
+                if (s_alarm_banner && s_alarm_banner_lbl) {
+                    lv_obj_set_style_bg_color(s_alarm_banner, bg_color, 0);
+                    lv_obj_set_style_text_color(s_alarm_banner_lbl, txt_color, 0);
+                }
+
+                /* 🚨 全域搜捕：同时扫描左侧锚点和 5F 卡片！ */
+                lv_obj_t *containers[2] = { g_left_anchor_obj, g_card_custom_obj };
+
+                for (int c = 0; c < 2; c++) {
+                    lv_obj_t *container = containers[c];
+                    if (!container) continue;
+
+                    for (int i = 0; i < lv_obj_get_child_cnt(container); i++) {
+                        lv_obj_t *child = lv_obj_get_child(container, i);
+                        if ((uintptr_t)lv_obj_get_user_data(child) == g_current_alarm_target) {
+
+                            /* 命中靶心！实施染色打击！ */
+                            lv_obj_set_style_bg_color(child, bg_color, 0);
+                            lv_obj_set_style_bg_opa(child, is_flash_on ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
+
+                            /* 让里面的文字一起反色 */
+                            for (int j = 0; j < lv_obj_get_child_cnt(child); j++) {
+                                lv_obj_t *lbl = lv_obj_get_child(child, j);
+                                if (lv_obj_check_type(lbl, &lv_label_class)) {
+                                    lv_obj_set_style_text_color(lbl, txt_color, 0);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (s_last_alarm_flash) {
+            /* 如果报警被清除了，但刚才还在亮着，需要强行复原一次透明色 */
+            s_last_alarm_flash = false;
+
+            /* 复原所有可能闪烁过的组件 */
+            lv_obj_t *containers[2] = { g_left_anchor_obj, g_card_custom_obj };
+            for (int c = 0; c < 2; c++) {
+                lv_obj_t *container = containers[c];
+                if (!container) continue;
+
+                for (int i = 0; i < lv_obj_get_child_cnt(container); i++) {
+                    lv_obj_t *child = lv_obj_get_child(container, i);
+                    lv_obj_set_style_bg_color(child, AREX_BLACK, 0);
+                    lv_obj_set_style_bg_opa(child, LV_OPA_TRANSP, 0);
+                    for (int j = 0; j < lv_obj_get_child_cnt(child); j++) {
+                        lv_obj_t *lbl = lv_obj_get_child(child, j);
+                        if (lv_obj_check_type(lbl, &lv_label_class)) {
+                            lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     /* ============================================================
      * 🚨 核心修复：独立于数据的"时间心跳引擎"必须放在最前面！

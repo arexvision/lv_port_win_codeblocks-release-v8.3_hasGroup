@@ -1745,3 +1745,9 @@ void arex_ui_on_conservatism_set(uint8_t level)
     extern void arex_bus_set_conservatism(uint8_t level);
     arex_bus_set_conservatism(level);
 }
+
+/* 获取 Safe Zone 容器对象（供告警横幅使用） */
+lv_obj_t *arex_get_safe_zone(void)
+{
+    return s_safe_zone;
+}

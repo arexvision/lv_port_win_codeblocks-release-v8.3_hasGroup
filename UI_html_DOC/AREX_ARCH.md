@@ -1,5 +1,14 @@
 我已经仔细检查并修复了文档中（特别是第 29 节）出现的乱码字符。文档结构、格式及所有技术参数均严格保持原样。
 
+> **2026-05-03 更新 #2**：
+> - 告警横幅系统重构：`arex_show_alarm_banner()` 改为在 Safe Zone 内部顶部显示，修复了横幅被遮挡的问题
+> - 新增 `arex_get_safe_zone()` 函数（`arex_screen.c`），允许外部模块获取 Safe Zone 容器对象
+> - 告警样式改进：CRITICAL/WARN 级别使用浅色背景配深色文字，提升可视性
+> - 添加告警模拟测试代码（`UI_main.c`），每 5 秒自动触发 DEPTH 告警测试
+> - **技术债发现**：`s_widget_handles[]` 数组仅记录 5F 区域句柄，告警引擎无法覆盖左侧锚点区域的组件闪烁
+
+> **2026-05-03 更新**：`UI_main.c` 布局切换测试重构——phase 0 使用 `WIDGET_DEPTH_1606`（2x1短条形），phase 1 使用 `WIDGET_DEPTH_1612`（2x2大块）；每秒切换一次，左侧面板 DEPTH 组件在 2x1 ↔ 2x2 之间循环切换。
+>
 > **2026-05-02 更新**：Section 29 全面更新——Protobuf 枚举对齐，`WIDGET_WTIME_0806`（水面休息时间）已废弃，替换为 `WIDGET_TIME_1606`（系统时间）和 `WIDGET_DIVE_TIME_1606`（潜水时间）；`arex_screen_refresh_left_panel()` 新增 `DIVE_TIME` case，使用 `arex_widget_set_text()` 配合 `snprintf` 格式化 `MM:SS`；`UI_main.c` 测试代码同步更新。
 >
 > **2026-05-01 更新**：Section 29 协议结构体由 `arex_custom_widget_cfg_t` 回归为 `arex_left_widget_t`，移除 protobuf 下发的 `font_id`（字号改由 MCU 根据 `span_w/span_h` 自动推导）；`render_widget_by_id()` 函数签名增加 `cfg_font_id` 参数以支持强制字号覆盖；新增 **8-bit 元素开关掩码** `ELEM_TITLE|ELEM_VALUE|ELEM_UNIT|ELEM_BAR|ELEM_EXTRA`，字典中每个组件按 PRD 约束"按需勾选"，通用流水线改为掩码驱动的按需装配逻辑。
@@ -1322,10 +1331,12 @@ abs_h  = span_h * 60 - WIDGET_GAP * 2
 
 当 `arex_trigger_alarm(level, text, target_id)` 调用时：
 
-1. 弹出横幅（纯英文，永不显示图案）
-2. 遍历所有容器子节点，`lv_obj_get_user_data()` 匹配 `target_id`
-3. 同步闪烁：`CRIT` ~2Hz(500ms) / `WARN` ~1Hz(1000ms) / `INFO` 仅横向
+1. 弹出横幅（纯英文，永不显示图案，位于 Safe Zone 内部顶部）
+2. 遍历 `s_widget_handles[]` 数组，`lv_obj_get_user_data()` 匹配 `target_id`
+3. 同步闪烁：`CRIT` ~2Hz(500ms) / `WARN` ~1Hz(1000ms) / `INFO` 仅横幅
 4. 消失时调用 `arex_clear_all_alarm_styles()`
+
+> ⚠️ **技术债**：`s_widget_handles[]` 数组仅记录 5F 区域的句柄，告警引擎目前**无法覆盖左侧锚点区域**的组件闪烁。
 
 ### 21.7 核心 API
 
@@ -1337,9 +1348,8 @@ abs_h  = span_h * 60 - WIDGET_GAP * 2
 | `arex_clear_all_alarm_styles()` | 清除所有告警样式 |
 | `arex_get_widget_name()` | 按 ID 获取显示名称 |
 | `arex_calc_widget_grid()` | 网格→绝对坐标（含TITLE_ZONE_H=40px避让偏移，锁定 80x60 基准） |
-| `arex_get_widget_name()` | 按 ID 获取显示名称 |
-| `arex_calc_widget_grid()` | 网格→绝对坐标（含TITLE_ZONE_H=40px避让偏移，锁定 80x60 基准） |
-| `arex_show_alarm_banner()` | 纯英文告警横幅 |
+| `arex_show_alarm_banner()` | 纯英文告警横幅（Safe Zone 内部顶部） |
+| `arex_get_safe_zone()` | 获取 Safe Zone 容器对象（供告警横幅使用） |
 
 ---
 
@@ -2490,6 +2500,7 @@ void arex_screen_refresh_all_widgets(void)
 | 2026-05-02 | `arex_ui_engine.h` | 新增 `arex_widget_sync_data()` 函数声明 |
 | 2026-05-02 | `arex_screen.c` | 新增 `arex_screen_refresh_all_widgets()` 统一全屏刷新接口；同时遍历 `g_left_widgets[]` 和 `g_5f_widgets[]`，内部调用 `arex_widget_sync_data()`；保留 `arex_screen_refresh_left_panel()` 兼容旧接口 |
 | 2026-05-02 | `arex_screen.h` | 新增 `arex_screen_refresh_all_widgets()` 函数声明 |
+| 2026-05-03 | `UI_main.c` | `arex_test_set_ui_layout()` 重构：phase 0 使用 `WIDGET_DEPTH_1606`（2x1短条形），phase 1 使用 `WIDGET_DEPTH_1612`（2x2大块）；布局切换测试改为每秒触发一次（`s_layout_tick % 1`），左侧面板 DEPTH 组件在 2x1 ↔ 2x2 之间循环切换 |
 
 ---
 

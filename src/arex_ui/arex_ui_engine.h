@@ -29,6 +29,9 @@ extern "C" {
 /* 减压数据刷新节流宏：只允许每 N ms 刷新一次，避免高频深度变化时 UI 负载过高 */
 #define AREX_DECO_REFRESH_MS   1000   /* 减压跟踪刷新间隔（ms），设为 0 则关闭节流（每次都刷新） */
 
+/* 告警横幅配置：1=显示 "CRITICAL:" / "WARNING:" 前缀，0=只显示告警文字 */
+#define AREX_ALARM_SHOW_PREFIX  0
+
 /* =========================================================
  * 颜色宏 (统一集中管理)
  * ========================================================= */
@@ -610,9 +613,8 @@ void arex_clear_all_alarm_styles(void);
 /* 根据 widget_id 获取显示名称（供调试/横幅使用） */
 const char *arex_get_widget_name(arex_widget_id_t id);
 
-/* 告警横幅显示/隐藏（由 arex_trigger_alarm 调用） */
+/* 告警横幅显示（由 arex_trigger_alarm 调用） */
 void arex_show_alarm_banner(arex_alarm_level_t level, const char *eng_text);
-void arex_hide_alarm_banner(void);
 
 /* =========================================================
  * 2c. 左侧 2x7 绝对网格组件配置 (APP 同步核心)

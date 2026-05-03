@@ -51,6 +51,9 @@ typedef enum {
    ========================================= */
 void arex_screen_rebuild_layout(void);
 
+/* 获取 Safe Zone 容器对象（供告警横幅使用） */
+lv_obj_t *arex_get_safe_zone(void);
+
 /* =========================================
    Screen lifecycle
    ========================================= */

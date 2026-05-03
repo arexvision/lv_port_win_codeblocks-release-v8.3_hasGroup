@@ -29,15 +29,15 @@ static void arex_test_set_ui_layout(uint8_t phase)
     memcpy(s_payload.card_order, card_order, sizeof(card_order));
 
     if (phase == 0) {
-        /* ========== 布局 A: 标准 7+12 ========== */
+        /* ========== 布局 A: DEPTH 2x1 (短条形) ========== */
         uint8_t left_def[][3] = {
             /* id,                   x,  y */
             { WIDGET_NDL_STOP_1606,  0, 0 },
-            { WIDGET_DEPTH_1612,     0, 1 },
-            { WIDGET_POD_0806,       0, 3 },
-            { WIDGET_POD_0806,       1, 3 },
-            { WIDGET_TIME_1606,        0, 3 },
-            { WIDGET_GAS_1606,       0, 5 },
+            { WIDGET_DEPTH_1606,     0, 1 },
+            { WIDGET_DIVE_TIME_1606, 0, 3 },  /* 潜水时间 */
+            { WIDGET_GAS_1606,       0, 4 },
+            { WIDGET_POD_0806,       0, 5 },
+            { WIDGET_POD_0806,       1, 5 },
             { WIDGET_SYS_1606,       0, 6 },
         };
         s_payload.left_count = sizeof(left_def) / sizeof(left_def[0]);
@@ -49,7 +49,7 @@ static void arex_test_set_ui_layout(uint8_t phase)
 
         uint8_t custom_5f[][3] = {
             /* id,                   r,  c */
-            { WIDGET_DEPTH_1612,     0, 0 },
+            { WIDGET_TEMP_0806,      0, 0 },
             { WIDGET_TEMP_0806,      0, 2 },
             { WIDGET_HEADING_0806,   0, 3 },
             { WIDGET_EMPTY,            2, 0 },  /* SAC 已移除 */
@@ -70,13 +70,15 @@ static void arex_test_set_ui_layout(uint8_t phase)
         }
 
     } else if (phase == 1) {
-        /* ========== 布局 B: 减少组件（左侧5个 + 右侧6个）========== */
+        /* ========== 布局 B: DEPTH 2x2 (大块) ========== */
         uint8_t left_min[][3] = {
             /* id,                   x,  y */
             { WIDGET_NDL_STOP_1606,  0, 0 },
-            { WIDGET_DEPTH_1612,     0, 1 },
-            { WIDGET_POD_0806,       0, 3 },
-            { WIDGET_GAS_1606,       0, 5 },
+            { WIDGET_DEPTH_1612,     0, 1 },  /* 2x2 大块 */
+            { WIDGET_DIVE_TIME_1606, 0, 3 },  /* 潜水时间 */
+            { WIDGET_GAS_1606,       0, 4 },
+            { WIDGET_POD_0806,       0, 5 },
+            { WIDGET_POD_0806,       1, 5 },
             { WIDGET_SYS_1606,       0, 6 },
         };
         s_payload.left_count = sizeof(left_min) / sizeof(left_min[0]);
@@ -88,7 +90,7 @@ static void arex_test_set_ui_layout(uint8_t phase)
 
         uint8_t custom_min[][3] = {
             /* id,                   r,  c */
-            { WIDGET_DEPTH_1612,     0, 0 },
+            { WIDGET_TEMP_0806,      0, 0 },
             { WIDGET_TEMP_0806,      0, 2 },
             { WIDGET_BATTERY_0806,   2, 0 },
             { WIDGET_PPO2_0806,      2, 2 },
@@ -122,10 +124,10 @@ static void arex_test_set_ui_layout(uint8_t phase)
 
         uint8_t custom_crazy[][3] = {
             /* id,                   r,  c */
-            { WIDGET_DEPTH_1612,     0, 0 }, /* 深度 2x2 放右侧 */
+            { WIDGET_ASCENT_0812,    0, 0 }, /* 速率箭头 1x2 */
             { WIDGET_ASCENT_0812,    0, 2 }, /* 速率箭头 1x2 */
-            { WIDGET_GAS_1606,       2, 0 }, 
-            { WIDGET_SURF_GF_0806,   3, 0 }, 
+            { WIDGET_GAS_1606,       2, 0 },
+            { WIDGET_SURF_GF_0806,   3, 0 },
             { WIDGET_GF99_0806,      3, 1 },
             { WIDGET_MOD_0806,       3, 2 },
             { WIDGET_CEILING_0806,   3, 3 },
@@ -196,24 +198,22 @@ static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
 
-    // /* 布局切换测试：每 5 秒切换一次布局（phase: 0→1→2→0 循环） */
+    // /* 布局切换测试：每秒切换一次布局（phase: 0→1→0 循环，DEPTH 2x1 ↔ 2x2） */
     // static uint16_t s_layout_tick = 0;
     // static bool s_started = false;
     // if (!s_started) {
-    //     printf("[TEST] Layout switch test started (every 5s)...\r\n");
+    //     printf("[TEST] DEPTH layout switch test started (every 1s): 2x1 ↔ 2x2\r\n");
     //     s_started = true;
     // }
     // s_layout_tick++;
-    // if (s_layout_tick % 5 == 0) {  /* 5 秒触发一次 */
+    // if (s_layout_tick % 1 == 0) {  /* 每秒触发一次 */
     //     static uint8_t s_layout_phase = 0;
-    //     printf("[TEST] Switching to phase %u\r\n", s_layout_phase);
+    //     printf("[TEST] Switching to phase %u: DEPTH %s\r\n",
+    //            s_layout_phase, (s_layout_phase == 0) ? "WIDGET_DEPTH_1606 (2x1)" : "WIDGET_DEPTH_1612 (2x2)");
 
-    //     /* 【注意】不要在这里调用 lv_disp_enable_invalidation！
-    //      * arex_ui_update_task() 内部已经正确处理了 invalidation。
-    //      * 如果同时在 sim_tick_cb 中禁用，LVGL 显示缓冲区可能在重建后无法正确刷新。 */
     //     arex_test_set_ui_layout(s_layout_phase);
 
-    //     s_layout_phase = (s_layout_phase + 1) % 2;  /* 0→1→0 循环测试 */
+    //     s_layout_phase = 1 - s_layout_phase;  /* 0↔1 切换 */
     // }
 
     /* 航向缓慢顺时针旋转 */
@@ -320,6 +320,31 @@ static void sim_tick_cb(lv_timer_t *t)
 
     /* 推流历史轨迹点到 4F 曲线图 */
     arex_dive_log_append((float)g_sensor_data.dive_time_s, g_sensor_data.depth);
+
+    /* ============================================================
+     * 告警模拟测试：每 5 秒切换一次 DEPTH 告警
+     * 验证左侧锚点 DEPTH 组件是否能同步闪烁
+     * ============================================================ */
+    {
+        static uint32_t s_alarm_test_tick = 0;
+        static bool s_alarm_active = false;
+        s_alarm_test_tick++;
+
+        if (s_alarm_test_tick % 3 == 0) {  /* 每 3 秒 (1s * 3 = 3s) */
+            if (s_alarm_active) {
+                /* 清除告警 */
+                arex_clear_all_alarm_styles();
+                printf("[ALARM TEST] Critical Alarm cleared!\r\n");
+                s_alarm_active = false;
+            } else {
+                /* 触发 Level 3 致命告警，文字为 "ASCENT RATE FAST" */
+                arex_trigger_alarm(AREX_ALARM_CRIT, "ASCENT RATE FAST", WIDGET_DEPTH_1606);
+
+                printf("[ALARM TEST] CRITICAL ASCENT RATE triggered!\r\n");
+                s_alarm_active = true;
+            }
+        }
+    }
 
     arex_bus_set_battery(g_sensor_data.battery_pct + 1.2);
     /* 模拟温度缓慢变化 */
