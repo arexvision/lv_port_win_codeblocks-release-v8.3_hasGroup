@@ -4,6 +4,7 @@
 #include "arex_ui_state.h"
 #include "arex_card_registry.h"
 #include "fonts/arex_fonts.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -15,22 +16,10 @@ static lv_obj_t *s_safe_zone;        /* 安全区容器 (绝对坐标原点) */
 static lv_obj_t *s_left_anchor;      /* 左侧锚点 (10U 沙盒) */
 static lv_obj_t *s_right_cont;       /* clip container */
 static lv_obj_t *s_tileview;
+static lv_obj_t *s_tile_objs[AREX_CARD_COUNT];
 
 /* 灯光控制状态（供 LIGHT CONTROL 子菜单全局共享） */
 bool g_light_power_state = false;
-
-/**
- * 虚线点数组内存释放回调。
- * 当 lv_line 被删除时，LVGL 会触发 LV_EVENT_DELETE，
- * 我们的 user_data 传入了 pts 指针，此时释放它。
- */
-static void line_delete_cb(lv_event_t * e)
-{
-    lv_point_t * pts = (lv_point_t *)lv_event_get_user_data(e);
-    if (pts) {
-        lv_mem_free(pts);
-    }
-}
 
 /* Wall indicators */
 static lv_obj_t *s_wall_top;
@@ -56,6 +45,11 @@ static lv_obj_t *s_setup_list;
 
 /* 排版缓存 (避免每次重算) */
 static uint16_t s_cached_right_w = 0;
+
+/* Forward declarations for static functions */
+static void wall_create(void);
+static void modal_create(void);
+static void submenu_layer_create(void);
 
 /* =========================================================
  * 样式 (静态初始化一次)
@@ -313,6 +307,7 @@ static void right_panel_create(void)
     lv_obj_clear_flag(s_tileview, LV_OBJ_FLAG_SCROLLABLE);
 
     /* 创建 tiles */
+    memset(s_tile_objs, 0, sizeof(s_tile_objs));
     uint8_t count = arex_card_count();
     for (uint8_t i = 0; i < count; i++) {
         arex_card_t *card = arex_card_get(i);
@@ -325,12 +320,21 @@ static void right_panel_create(void)
         lv_obj_set_style_pad_all(tile, 0, 0);
         lv_obj_set_scrollbar_mode(tile, LV_SCROLLBAR_MODE_OFF);
         lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
+        s_tile_objs[i] = tile;
         card->tile_obj = tile;
 
         switch (card->engine_type) {
-            case CARD_ENGINE_GRID:
-                arex_render_5f_custom_grid(tile, g_left_anchor_obj);
+            case CARD_ENGINE_GRID: {
+                /* 获取此 tile 对应的 custom_card_slot 索引 */
+                uint8_t storage_pos = arex_card_storage_pos(i);
+                uint8_t custom_card_idx = (storage_pos < AREX_CARD_COUNT)
+                    ? g_sys_config.custom_card_slot[storage_pos]
+                    : 0xFF;
+                if (custom_card_idx < AREX_MAX_CUSTOM_CARDS) {
+                    arex_render_5f_custom_grid(tile, g_left_anchor_obj, custom_card_idx);
+                }
                 break;
+            }
             case CARD_ENGINE_MENU:
             case CARD_ENGINE_CUSTOM:
             default:
@@ -341,7 +345,7 @@ static void right_panel_create(void)
 
     /* Scroll dots */
     lv_obj_t *dot_cont = lv_obj_create(s_right_cont);
-    uint16_t dot_cont_h = AREX_DASH_CARD_COUNT * 14;
+    uint16_t dot_cont_h = arex_visible_dash_count() * 14;
     lv_obj_set_size(dot_cont, 10, dot_cont_h);
     lv_obj_set_style_bg_opa(dot_cont, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(dot_cont, 0, 0);
@@ -397,8 +401,8 @@ void arex_screen_rebuild_layout(void)
         left_anchor_rebuild(0);
     }
 
-    /* 4. 重建 5F 自定义网格（拆+建） */
-    arex_5f_grid_rebuild();
+    /* 4. 重建所有自定义网格卡片 */
+    arex_5f_grid_rebuild_all();
 
     /* 5. 重建 Safe Zone 内部定位 */
     safe_zone_reposition();
@@ -425,6 +429,9 @@ void arex_screen_rebuild_layout(void)
 void arex_screen_rebuild_tileview(void)
 {
     uint8_t count = arex_card_count();
+    memset(s_tile_objs, 0, sizeof(s_tile_objs));
+    memset(g_card_custom_objs, 0, sizeof(g_card_custom_objs));
+    g_card_custom_obj_count = 0;
     for (uint8_t i = 0; i < count; i++) {
         arex_card_t *card = arex_card_get_by_id(i);
         if (card) card->tile_obj = NULL;
@@ -436,11 +443,34 @@ void arex_screen_rebuild_tileview(void)
         s_tileview   = NULL;
         for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++)
             s_scroll_dots[i] = NULL;
+        s_wall_top = NULL;
+        s_wall_bottom = NULL;
+        s_wall_text_top = NULL;
+        s_wall_blocks_top = NULL;
+        s_wall_text_bottom = NULL;
+        s_wall_blocks_bottom = NULL;
+        s_modal = NULL;
+        s_modal_box = NULL;
+        s_submenu_layer = NULL;
+        s_submenu_title = NULL;
+        s_submenu_list = NULL;
     }
 
     right_panel_create();
-    arex_screen_update_scroll_dots(
-        g_ui.dash_card > 0 ? g_ui.dash_card - 1 : 0, true);
+    wall_create();
+    submenu_layer_create();
+    modal_create();
+    {
+        uint8_t visible_dash = arex_visible_dash_count();
+        uint8_t active_idx = 0;
+        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos()) {
+            active_idx = (uint8_t)(g_ui.dash_card - CARD_POS_DYNAMIC_FIRST);
+            if (active_idx >= visible_dash) {
+                active_idx = visible_dash ? (uint8_t)(visible_dash - 1) : 0;
+            }
+        }
+        arex_screen_update_scroll_dots(active_idx, true);
+    }
 }
 
 /* =========================================================
@@ -603,20 +633,24 @@ void arex_screen_create(void)
  * ========================================================= */
 void arex_screen_scroll_to_card(uint8_t tile_pos)
 {
-    if (tile_pos >= AREX_CARD_COUNT) return;
-    arex_card_t *card = arex_card_get(tile_pos);
-    if (!card || !card->tile_obj) return;
+    if (tile_pos >= arex_card_count()) {
+        return;
+    }
+    lv_obj_t *tile = s_tile_objs[tile_pos];
+    if (!tile) {
+        return;
+    }
 
     if (tile_pos == 0) {
         lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
         lv_obj_set_y(s_tileview, 0);
     }
 
-    lv_obj_set_tile(s_tileview, card->tile_obj, AREX_TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
+    lv_obj_set_tile(s_tileview, tile, AREX_TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
 
-    /* SETUP(tile 7) 不显示 dots，只有 DASH 卡片才更新 */
-    if (tile_pos >= 1 && tile_pos < CARD_POS_SETUP) {
-        arex_screen_update_scroll_dots(tile_pos - 1, true);
+    /* SETUP(最后一页) 不显示 dots，只有 DASH 动态卡片才更新 */
+    if (tile_pos >= CARD_POS_DYNAMIC_FIRST && tile_pos < arex_setup_display_pos()) {
+        arex_screen_update_scroll_dots(tile_pos - CARD_POS_DYNAMIC_FIRST, true);
     } else {
         arex_screen_update_scroll_dots(0, false);
     }
@@ -658,10 +692,10 @@ void arex_screen_refresh_all_widgets(void)
         }
     }
 
-    /* 2. 同步右侧 5F 自定义区配置 */
-    for (uint8_t i = 0; i < g_sys_config.custom_5f_count; i++) {
-        if (g_sys_config.custom_5f_widgets[i].widget_id != WIDGET_EMPTY) {
-            arex_widget_sync_data(g_sys_config.custom_5f_widgets[i].widget_id);
+    /* 2. 同步右侧 5F 自定义区配置（使用 custom_cards[0]） */
+    for (uint8_t i = 0; i < g_sys_config.custom_cards[0].widget_count; i++) {
+        if (g_sys_config.custom_cards[0].widgets[i].widget_id != WIDGET_EMPTY) {
+            arex_widget_sync_data(g_sys_config.custom_cards[0].widgets[i].widget_id);
         }
     }
 }
@@ -752,10 +786,11 @@ void arex_screen_update_scroll_dots(uint8_t active_idx, bool visible)
 {
     bool in_dash_or_edit = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
     bool dots_enabled = (g_sys_config.dots_position != AREX_DOTS_NONE);
+    uint8_t visible_dash = arex_visible_dash_count();
 
     for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++) {
         if (!s_scroll_dots[i]) continue;
-        bool show = visible && in_dash_or_edit && dots_enabled;
+        bool show = visible && in_dash_or_edit && dots_enabled && (i < visible_dash);
         if (!show) {
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
             continue;

@@ -28,6 +28,7 @@ extern "C" {
 
 /* 减压数据刷新节流宏：只允许每 N ms 刷新一次，避免高频深度变化时 UI 负载过高 */
 #define AREX_DECO_REFRESH_MS   1000   /* 减压跟踪刷新间隔（ms），设为 0 则关闭节流（每次都刷新） */
+#define AREX_ALARM_SHOW_PREFIX 0
 
 /* 告警横幅配置：1=显示 "CRITICAL:" / "WARNING:" 前缀，0=只显示告警文字 */
 #define AREX_ALARM_SHOW_PREFIX  0
@@ -85,8 +86,11 @@ extern uint8_t  s_ascent_icon_count;
 extern const char  *AREX_GAS_NAMES[AREX_GAS_COUNT];
 extern const uint8_t AREX_GAS_MOD_M[AREX_GAS_COUNT];
 
-/* 卡片数量常量（与 CARD_ID_* 枚举一致，引用 arex_card_registry.h 中的枚举尾项） */
-#define AREX_CARD_COUNT  CARD_ID_COUNT
+/* 卡片页数 / 卡片类型数常量：
+ * - AREX_CARD_COUNT    : tile 页总数（INFO + 动态槽 + SETUP）
+ * - AREX_CARD_ID_COUNT : 卡片类型种类数（INFO/COMPASS/.../SETUP） */
+#define AREX_CARD_COUNT     CARD_POS_COUNT
+#define AREX_CARD_ID_COUNT  CARD_ID_COUNT
 
 /* 卡片顺序配置读取接口（供 arex_card_registry.c / arex_ui_state.c 使用） */
 extern uint8_t g_sys_card_order(uint8_t pos);
@@ -246,12 +250,18 @@ typedef enum {
 /* 统一的左右网格组件类型 */
 #define AREX_LEFT_MAX_WIDGETS 12
 #define AREX_5F_MAX_WIDGETS   30
+#define AREX_MAX_CUSTOM_CARDS AREX_MAX_DYNAMIC_SLOTS
 
 typedef struct {
     arex_widget_id_t widget_id;
     uint8_t x;   /* 列索引 */
     uint8_t y;   /* 行索引 */
 } arex_grid_widget_t;
+
+typedef struct {
+    uint8_t            widget_count;
+    arex_grid_widget_t widgets[AREX_5F_MAX_WIDGETS];
+} arex_custom_card_cfg_t;
 
 #pragma pack(push, 1)
 typedef struct {
@@ -295,14 +305,15 @@ typedef struct {
     uint8_t            left_widget_count;
     arex_grid_widget_t left_widgets[AREX_LEFT_MAX_WIDGETS];
 
-    /* --- 右侧 5F 自定义网格配置 --- */
-    uint8_t            custom_5f_count;
-    arex_grid_widget_t custom_5f_widgets[AREX_5F_MAX_WIDGETS];
+    /* --- 右侧多张自定义网格卡片配置 --- */
+    uint8_t                custom_card_count;
+    arex_custom_card_cfg_t custom_cards[AREX_MAX_CUSTOM_CARDS];
+    uint8_t                custom_card_slot[AREX_CARD_COUNT];
 
     /* --- 卡片顺序 (APP 同步就绪)
      * card_order[pos] = card_id
-     * INFO 固定在 tile 0，SETUP 固定在 tile 7。
-     * CARD_POS_1 ~ CARD_POS_6 这 6 个位置可由 APP 重排。
+     * INFO 固定在 tile 0，SETUP 固定在最后一页。
+     * CARD_POS_1 ~ CARD_POS_N 的动态槽数量由 AREX_MAX_DYNAMIC_SLOTS 控制。
      */
     uint8_t card_order[AREX_CARD_COUNT];
 
@@ -456,7 +467,6 @@ typedef enum {
     DIRTY_ALARM      = (1U << 29),  /* 告警状态 */
     DIRTY_DEVICES    = (1U << 30),  /* 外设状态 */
     DIRTY_UI_LAYOUT  = (1U << 31),  /* UI 布局重建 */
-    DIRTY_SETUP      = (1U << 22),  /* 用户设置变更（conservatism 等） */
 
 } arex_dirty_bit_t;
 
@@ -499,7 +509,9 @@ typedef struct { float time_s; float depth_m; } arex_dive_pt_t;
 typedef struct { float depth_m; float stay_min; }  arex_deco_stop_t;
 
 #define MAX_DIVE_LOG   100
+#ifndef MAX_DECO_STOPS
 #define MAX_DECO_STOPS 10
+#endif
 
 extern arex_dive_pt_t   g_dive_log[MAX_DIVE_LOG];
 extern uint16_t         g_dive_log_count;
@@ -596,17 +608,19 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
  * 10. 5F 自定义网格渲染引擎 (靶向告警同步核心)
  * ========================================================= */
 
-/* 5F 网格总线渲染器：遍历 g_sys_config.widget_* 数组，
+/* 5F 网格总线渲染器：遍历 g_sys_config.custom_cards[] 数组，
  * 用纯数学行×列→绝对坐标映射渲染所有组件。
- * left_anchor_obj 传入用于告警引擎跨区搜索烙印对象。 */
+ * left_anchor_obj 传入用于告警引擎跨区搜索烙印对象。
+ * custom_card_idx 指定使用哪张卡片的配置。 */
 void arex_render_5f_custom_grid(lv_obj_t *card_custom,
-                                 lv_obj_t *left_anchor_obj);
+                                 lv_obj_t *left_anchor_obj,
+                                 uint8_t custom_card_idx);
 
 /* 按 widget_id 设置数值（由 update 循环调用，绝不触发重绘） */
 void arex_widget_set_value(arex_widget_id_t id, float value);
 
 /* 5F 自定义网格重建（由 arex_screen_rebuild_layout 调用） */
-void arex_5f_grid_rebuild(void);
+void arex_5f_grid_rebuild_all(void);
 
 /* 按 widget_id 设置字符串（用于 GAS 等非数值组件） */
 void arex_widget_set_text(arex_widget_id_t id, const char *text);
@@ -846,11 +860,12 @@ void arex_reset_widget_render_state(void);
 #define ALIGN_BM LV_ALIGN_BOTTOM_MID
 #define ALIGN_BR LV_ALIGN_BOTTOM_RIGHT
 
-/* 5F 网格组件配置已迁移到 g_sys_config.custom_5f_widgets[] */
+/* 5F 网格组件配置已迁移到 g_sys_config.custom_cards[] */
 
 /* 外部告警状态容器（由 arex_screen.c 在创建锚点和卡片时注入） */
 extern lv_obj_t *g_left_anchor_obj;
-extern lv_obj_t *g_card_custom_obj;
+extern lv_obj_t *g_card_custom_objs[AREX_MAX_CUSTOM_CARDS];
+extern uint8_t   g_card_custom_obj_count;
 
 /* 5F 网格坐标推算：支持 title_zone_h 避让偏移，确保网格落在标题区下方 */
 void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,

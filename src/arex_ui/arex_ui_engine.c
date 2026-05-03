@@ -643,7 +643,7 @@ void arex_reset_widget_render_state(void)
  * ========================================================= */
 /* 左侧网格配置已迁移到 g_sys_config.left_widgets[] */
 
-/* 5F 自定义网格配置已迁移到 g_sys_config.custom_5f_widgets[] */
+/* 5F 自定义网格配置已迁移到 g_sys_config.custom_cards[0].widgets[] */
 
 
 /* 从 KV 持久化存储加载配置（weak 实现由具体平台覆盖） */
@@ -724,19 +724,21 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h 由 MCU 样式表自动推导
      */
-    cfg->custom_5f_count = 12;
-    cfg->custom_5f_widgets[0]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      0, 0 };
-    cfg->custom_5f_widgets[1]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      2, 0 };
-    cfg->custom_5f_widgets[2]  = (arex_grid_widget_t){ WIDGET_HEADING_0806,   3, 0 };
-    cfg->custom_5f_widgets[3]  = (arex_grid_widget_t){ WIDGET_EMPTY,           0, 2 };  /* SAC 已移除 */
-    cfg->custom_5f_widgets[4]  = (arex_grid_widget_t){ WIDGET_BATTERY_0806,   2, 2 };
-    cfg->custom_5f_widgets[5]  = (arex_grid_widget_t){ WIDGET_PPO2_0806,       4, 2 };
-    cfg->custom_5f_widgets[6]  = (arex_grid_widget_t){ WIDGET_NDL_STOP_1606,  0, 3 };
-    cfg->custom_5f_widgets[7]  = (arex_grid_widget_t){ WIDGET_TTS_0806,       2, 3 };
-    cfg->custom_5f_widgets[8]  = (arex_grid_widget_t){ WIDGET_CNS_0806,       4, 3 };
-    cfg->custom_5f_widgets[9]  = (arex_grid_widget_t){ WIDGET_POD_0806,       0, 4 };
-    cfg->custom_5f_widgets[10] = (arex_grid_widget_t){ WIDGET_POD_0806,       2, 4 };
-    cfg->custom_5f_widgets[11] = (arex_grid_widget_t){ WIDGET_EMPTY,          4, 4 };  /* 保留空槽 */
+    /* 兼容新架构: 使用 custom_cards[0] 存储单张卡片的配置 */
+    cfg->custom_card_count = 1;
+    cfg->custom_cards[0].widget_count = 12;
+    cfg->custom_cards[0].widgets[0]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      0, 0 };
+    cfg->custom_cards[0].widgets[1]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      2, 0 };
+    cfg->custom_cards[0].widgets[2]  = (arex_grid_widget_t){ WIDGET_HEADING_0806,   3, 0 };
+    cfg->custom_cards[0].widgets[3]  = (arex_grid_widget_t){ WIDGET_EMPTY,           0, 2 };  /* SAC 已移除 */
+    cfg->custom_cards[0].widgets[4]  = (arex_grid_widget_t){ WIDGET_BATTERY_0806,   2, 2 };
+    cfg->custom_cards[0].widgets[5]  = (arex_grid_widget_t){ WIDGET_PPO2_0806,       4, 2 };
+    cfg->custom_cards[0].widgets[6]  = (arex_grid_widget_t){ WIDGET_NDL_STOP_1606,  0, 3 };
+    cfg->custom_cards[0].widgets[7]  = (arex_grid_widget_t){ WIDGET_TTS_0806,       2, 3 };
+    cfg->custom_cards[0].widgets[8]  = (arex_grid_widget_t){ WIDGET_CNS_0806,       4, 3 };
+    cfg->custom_cards[0].widgets[9]  = (arex_grid_widget_t){ WIDGET_POD_0806,       0, 4 };
+    cfg->custom_cards[0].widgets[10] = (arex_grid_widget_t){ WIDGET_POD_0806,       2, 4 };
+    cfg->custom_cards[0].widgets[11] = (arex_grid_widget_t){ WIDGET_EMPTY,          4, 4 };  /* 保留空槽 */
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
      * 160x420 区域 = 2列(80px) x 7行(60px)，由 arex_render_left_anchor_grid() 渲染
@@ -768,16 +770,27 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
 
     /* ========== [A] 右侧卡片顺序 (tileview 滑动顺序) ==========
      * card_order[pos] = card_id
-     * INFO(0) / SETUP(7) 固定，中间 6 张可由 APP 重排
+     * INFO(0) 固定，SETUP(13) 固定，中间 12 张可由 APP 重排
+     * 必须初始化所有 14 个位置！
      */
-    cfg->card_order[CARD_POS_INFO]  = CARD_ID_INFO;
-    cfg->card_order[CARD_POS_1]     = CARD_ID_COMPASS;
-    cfg->card_order[CARD_POS_2]     = CARD_ID_DECO;
-    cfg->card_order[CARD_POS_3]     = CARD_ID_PLAN;
-    cfg->card_order[CARD_POS_4]     = CARD_ID_GAS;
-    cfg->card_order[CARD_POS_5]     = CARD_ID_CUSTOM_GRID;
-    cfg->card_order[CARD_POS_6]     = CARD_ID_BLANK;      /* 空白卡片 */
-    cfg->card_order[CARD_POS_SETUP] = CARD_ID_SETUP;
+    memset(cfg->card_order, CARD_ID_BLANK, sizeof(cfg->card_order));
+    cfg->card_order[CARD_POS_INFO]   = CARD_ID_INFO;
+    cfg->card_order[CARD_POS_1]      = CARD_ID_COMPASS;
+    cfg->card_order[CARD_POS_2]      = CARD_ID_DECO;
+    cfg->card_order[CARD_POS_3]      = CARD_ID_PLAN;
+    cfg->card_order[CARD_POS_4]      = CARD_ID_GAS;
+    cfg->card_order[CARD_POS_5]      = CARD_ID_CUSTOM_GRID;
+    cfg->card_order[CARD_POS_6]      = CARD_ID_BLANK;      /* 空白卡片 */
+    /* CARD_POS_7 ~ CARD_POS_12 保持 CARD_ID_BLANK */
+    cfg->card_order[CARD_POS_SETUP]  = CARD_ID_SETUP;
+
+    /* ========== [A] 卡片槽位映射 ==========
+     * custom_card_slot[pos] = custom_card_index (0~11)
+     * pos 对应 card_order 中的动态槽位置
+     * 默认：第一个 CUSTOM_GRID 卡片映射到 custom_cards[0]
+     */
+    memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
+    cfg->custom_card_slot[CARD_POS_5] = 0;  /* CUSTOM_GRID 映射到 custom_cards[0] */
 
     /* ========== [A] 用户设置默认值 ========== */
     cfg->mod_ppo2       = 1.4f;
@@ -1170,7 +1183,9 @@ void arex_render_card_title(lv_obj_t *parent_card, const char *title_text)
  * 5F 自定义网格组件外部容器（由 arex_screen.c 注入）
  * ========================================================= */
 lv_obj_t *g_left_anchor_obj = NULL;
-lv_obj_t *g_card_custom_obj = NULL;
+/* 多张自定义卡片容器数组 */
+lv_obj_t *g_card_custom_objs[AREX_MAX_CUSTOM_CARDS];
+uint8_t   g_card_custom_obj_count;
 
 /* ============================================================
  * 🚨 全域告警状态（50ms 定时器会扫描这两个容器）
@@ -1675,161 +1690,95 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 }
 
 /* =========================================================
- * 全局 widget 句柄表（按 arex_widget_id_t 索引，供 update 循环查找）
- * 注意：一个 widget_id 可能有多个物理实例（左侧锚点1个 + 5F N个），
- * 所以这是链表表头，实际使用时遍历子节点查找。
- * ========================================================= */
-#define MAX_WIDGET_HANDLES 16
-#define MAX_WIDGETS  41
-static lv_obj_t *s_widget_handles[MAX_WIDGETS]; /* 仅记录 5F 区域的句柄 */
-static uint8_t   s_widget_handle_count = 0;
-
-/* 按 widget_id 在容器中查找第一个匹配的子节点 */
-static lv_obj_t *find_widget_in_container(lv_obj_t *container, arex_widget_id_t w_id)
-{
-    if (!container) return NULL;
-    int16_t child_cnt = lv_obj_get_child_cnt(container);
-    for (int16_t i = 0; i < child_cnt; i++) {
-        lv_obj_t *child = lv_obj_get_child(container, i);
-        if (child && (arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(child) == w_id) {
-            return child;
-        }
-    }
-    return NULL;
-}
-
-/* =========================================================
  * 5F 网格总线渲染器
  *
- * 1. 从 g_sys_config.widget_* 读取所有组件配置
+ * 1. 从 g_sys_config.custom_cards[] 读取组件配置
  * 2. 逐一枚遍历，用纯数学行×列映射算出绝对坐标
  * 3. 调用组件工厂渲染，注入 user_data 烙印
  * 4. 注册外部容器到告警引擎
  * ========================================================= */
-void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor)
+static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_card_idx)
 {
-    /* 注入外部容器 */
-    g_card_custom_obj = card_custom;
-    g_left_anchor_obj = left_anchor;
-
-    if (!card_custom) return;
-
-    /* 获取容器总尺寸（标题区偏移由 arex_calc_widget_grid 内部处理） */
-    uint16_t parent_w = lv_obj_get_content_width(card_custom);
-    uint16_t parent_h = lv_obj_get_content_height(card_custom);
-
-    /* 清除旧 widget 句柄表 */
-    memset(s_widget_handles, 0, sizeof(s_widget_handles));
-    s_widget_handle_count = 0;
-
-    /* 清除容器中所有旧组件（rebuild 时） */
-    lv_obj_clean(card_custom);
-
-    /* ---- 创建卡片标题（使用通用引擎函数） ---- */
-    arex_render_card_title(card_custom, "5F: CUSTOM WIDGETS");
-
-    /* 遍历所有组件 */
-    uint8_t count = g_sys_config.custom_5f_count;
-    if (count > AREX_5F_MAX_WIDGETS) count = AREX_5F_MAX_WIDGETS;
-
-    for (uint8_t i = 0; i < count; i++) {
-        arex_widget_id_t w_id   = g_sys_config.custom_5f_widgets[i].widget_id;
-        uint8_t c = g_sys_config.custom_5f_widgets[i].x;  /* 列 */
-        uint8_t r = g_sys_config.custom_5f_widgets[i].y;  /* 行 */
-
-        /* 从样式表查 span_w/span_h（MCU 本地自动推导） */
-        const arex_widget_style_t *style = arex_get_widget_style(w_id);
-        uint8_t span_w = (style != NULL) ? style->span_w : 1;
-        uint8_t span_h = (style != NULL) ? style->span_h : 1;
-
-        if (w_id == WIDGET_EMPTY) continue;
-        if (r >= AREX_WIDGET_ROWS || c >= AREX_WIDGET_COLS) continue;
-
-        /* 纯数学绝对坐标映射（含 AREX_CARD_TITLE_H=40px 标题避让偏移） */
-        int16_t abs_x, abs_y;
-        uint16_t abs_w, abs_h;
-        arex_calc_widget_grid(parent_w, parent_h,
-                              r, c, span_w, span_h,
-                              &abs_x, &abs_y, &abs_w, &abs_h);
-
-        /* 调用组件工厂（工厂自主查字典决定是否绘制速率图标） */
-        lv_obj_t *w = render_widget_by_id(card_custom, w_id,
-                                          abs_x, abs_y, abs_w, abs_h,
-                                          span_w, span_h, (arex_font_id_t)255);
-
-        /* 记录句柄（用于 update 循环） */
-        if (w && s_widget_handle_count < MAX_WIDGET_HANDLES) {
-            s_widget_handles[s_widget_handle_count++] = w;
-        }
-    }
-}
-
-/* =========================================================
- * arex_5f_grid_rebuild — 重建 5F 自定义网格
- *
- * 由 arex_screen_rebuild_layout() 调用，当 BLE 下发新的 5F 布局时触发。
- * 直接操作 g_card_custom_obj 容器，清除并重建所有网格组件。
- * ========================================================= */
-void arex_5f_grid_rebuild(void)
-{
-    if (!g_card_custom_obj) {
-        printf("[5F] ERROR: g_card_custom_obj is NULL!\r\n");
+    if (!card_custom || custom_card_idx >= g_sys_config.custom_card_count ||
+        custom_card_idx >= AREX_MAX_CUSTOM_CARDS) {
         return;
     }
 
-    printf("[5F] Rebuilding: widget_count=%u, container_size=%dx%d\r\n",
-           g_sys_config.custom_5f_count,
-           lv_obj_get_content_width(g_card_custom_obj),
-           lv_obj_get_content_height(g_card_custom_obj));
+    uint16_t parent_w = lv_obj_get_width(card_custom);
+    uint16_t parent_h = lv_obj_get_height(card_custom);
+    uint8_t count = g_sys_config.custom_cards[custom_card_idx].widget_count;
+    uint16_t fallback_w;
 
-    /* 获取容器尺寸 */
-    uint16_t parent_w = lv_obj_get_content_width(g_card_custom_obj);
-    uint16_t parent_h = lv_obj_get_content_height(g_card_custom_obj);
+    /* tile 刚创建时，content 尺寸有概率还没稳定；这里直接使用对象宽高，
+     * 并在异常时回退到 Safe Zone 推导值，避免自定义组件被算成 0 尺寸。 */
+    fallback_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
+               - (g_sys_config.panel_gap_u * AREX_BASE_U);
+    if (parent_w == 0 || parent_w > g_sys_config.safe_zone_w) {
+        parent_w = fallback_w;
+    }
+    if (parent_h == 0 || parent_h > g_sys_config.safe_zone_h) {
+        parent_h = g_sys_config.safe_zone_h;
+    }
 
-    /* 清除旧 widget 句柄表 */
-    memset(s_widget_handles, 0, sizeof(s_widget_handles));
-    s_widget_handle_count = 0;
+    if (count > AREX_5F_MAX_WIDGETS) {
+        count = AREX_5F_MAX_WIDGETS;
+    }
 
-    /* 清除容器中所有旧组件 */
-    lv_obj_clean(g_card_custom_obj);
-
-    /* 创建卡片标题 */
-    arex_render_card_title(g_card_custom_obj, "5F: CUSTOM WIDGETS");
-
-    /* 遍历所有组件 */
-    uint8_t count = g_sys_config.custom_5f_count;
-    if (count > AREX_5F_MAX_WIDGETS) count = AREX_5F_MAX_WIDGETS;
+    lv_obj_clean(card_custom);
+    arex_render_card_title(card_custom, "CUSTOM WIDGETS");
 
     for (uint8_t i = 0; i < count; i++) {
-        arex_widget_id_t w_id   = g_sys_config.custom_5f_widgets[i].widget_id;
-        uint8_t c = g_sys_config.custom_5f_widgets[i].x;  /* 列 */
-        uint8_t r = g_sys_config.custom_5f_widgets[i].y;  /* 行 */
+        arex_grid_widget_t *widget = &g_sys_config.custom_cards[custom_card_idx].widgets[i];
+        arex_widget_id_t w_id = widget->widget_id;
+        uint8_t c = widget->x;
+        uint8_t r = widget->y;
 
         if (w_id == WIDGET_EMPTY) continue;
+        if (r >= AREX_WIDGET_ROWS || c >= AREX_WIDGET_COLS) continue;
 
         /* 从样式表查 span_w/span_h */
         const arex_widget_style_t *style = arex_get_widget_style(w_id);
         uint8_t span_w = (style != NULL) ? style->span_w : 1;
         uint8_t span_h = (style != NULL) ? style->span_h : 1;
 
-        if (r >= AREX_WIDGET_ROWS || c >= AREX_WIDGET_COLS) continue;
-
-        /* 计算绝对坐标 */
+        /* 纯数学绝对坐标映射（含 AREX_CARD_TITLE_H 标题避让偏移） */
         int16_t abs_x, abs_y;
         uint16_t abs_w, abs_h;
-        arex_calc_widget_grid(parent_w, parent_h, r, c, span_w, span_h,
+        arex_calc_widget_grid(parent_w, parent_h,
+                              r, c, span_w, span_h,
                               &abs_x, &abs_y, &abs_w, &abs_h);
 
-        /* 渲染组件 */
-        lv_obj_t *w = render_widget_by_id(g_card_custom_obj, w_id,
-                                          abs_x, abs_y, abs_w, abs_h,
-                                          span_w, span_h, (arex_font_id_t)255);
-        if (w && s_widget_handle_count < MAX_WIDGET_HANDLES) {
-            s_widget_handles[s_widget_handle_count++] = w;
+        render_widget_by_id(card_custom, w_id, abs_x, abs_y, abs_w, abs_h,
+                            span_w, span_h, (arex_font_id_t)255);
+    }
+}
+
+void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor, uint8_t custom_card_idx)
+{
+    g_left_anchor_obj = left_anchor;
+    if (custom_card_idx < AREX_MAX_CUSTOM_CARDS) {
+        g_card_custom_objs[custom_card_idx] = card_custom;
+        if (g_card_custom_obj_count < (custom_card_idx + 1)) {
+            g_card_custom_obj_count = custom_card_idx + 1;
         }
     }
 
-    printf("[5F] Rebuilt with %u widgets\r\n", count);
+    render_custom_card_widgets(card_custom, custom_card_idx);
+}
+
+/* =========================================================
+ * arex_5f_grid_rebuild — 重建 5F 自定义网格
+ *
+ * 由 arex_screen_rebuild_layout() 调用，当 BLE 下发新的 5F 布局时触发。
+ * 直接操作 g_card_custom_objs[] 容器数组，清除并重建所有网格组件。
+ * ========================================================= */
+void arex_5f_grid_rebuild_all(void)
+{
+    for (uint8_t i = 0; i < g_card_custom_obj_count && i < AREX_MAX_CUSTOM_CARDS; i++) {
+        if (g_card_custom_objs[i] != NULL) {
+            render_custom_card_widgets(g_card_custom_objs[i], i);
+        }
+    }
 }
 
 /* =========================================================
@@ -1849,11 +1798,13 @@ void arex_5f_grid_rebuild(void)
  * ========================================================= */
 void arex_widget_set_value(arex_widget_id_t id, float value)
 {
-    /* 遍历两个容器（5F 卡片 + 左侧锚点） */
-    lv_obj_t *containers[2] = { g_card_custom_obj, g_left_anchor_obj };
+    /* 修复 Bug #3：添加数组越界保护 */
+    uint8_t max_count = (g_card_custom_obj_count < AREX_MAX_CUSTOM_CARDS)
+        ? g_card_custom_obj_count
+        : AREX_MAX_CUSTOM_CARDS;
 
-    for (uint8_t c = 0; c < 2; c++) {
-        lv_obj_t *container = containers[c];
+    for (uint8_t c = 0; c <= max_count; c++) {
+        lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
         if (!container) continue;
 
         int16_t child_cnt = lv_obj_get_child_cnt(container);
@@ -1937,11 +1888,12 @@ void arex_widget_set_text(arex_widget_id_t id, const char *text)
 {
     if (!text) return;
 
-    /* 遍历两个容器（5F 卡片 + 左侧锚点） */
-    lv_obj_t *containers[2] = { g_card_custom_obj, g_left_anchor_obj };
+    /* 遍历所有 5F 卡片容器 + 左侧锚点 */
+    uint8_t max_count = (g_card_custom_obj_count < AREX_MAX_CUSTOM_CARDS)
+        ? g_card_custom_obj_count : AREX_MAX_CUSTOM_CARDS;
 
-    for (uint8_t c = 0; c < 2; c++) {
-        lv_obj_t *container = containers[c];
+    for (uint8_t c = 0; c <= max_count; c++) {
+        lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
         if (!container) continue;
 
         int16_t child_cnt = lv_obj_get_child_cnt(container);
@@ -2283,11 +2235,12 @@ void arex_ui_update_task(lv_timer_t *timer)
                     lv_obj_set_style_text_color(s_alarm_banner_lbl, txt_color, 0);
                 }
 
-                /* 🚨 全域搜捕：同时扫描左侧锚点和 5F 卡片！ */
-                lv_obj_t *containers[2] = { g_left_anchor_obj, g_card_custom_obj };
+                /* 🚨 全域搜捕：同时扫描左侧锚点和所有 5F 卡片！ */
+                uint8_t max_count = (g_card_custom_obj_count < AREX_MAX_CUSTOM_CARDS)
+                    ? g_card_custom_obj_count : AREX_MAX_CUSTOM_CARDS;
 
-                for (int c = 0; c < 2; c++) {
-                    lv_obj_t *container = containers[c];
+                for (int c = 0; c <= max_count; c++) {
+                    lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
                     if (!container) continue;
 
                     for (int i = 0; i < lv_obj_get_child_cnt(container); i++) {
@@ -2314,9 +2267,10 @@ void arex_ui_update_task(lv_timer_t *timer)
             s_last_alarm_flash = false;
 
             /* 复原所有可能闪烁过的组件 */
-            lv_obj_t *containers[2] = { g_left_anchor_obj, g_card_custom_obj };
-            for (int c = 0; c < 2; c++) {
-                lv_obj_t *container = containers[c];
+            uint8_t max_count = (g_card_custom_obj_count < AREX_MAX_CUSTOM_CARDS)
+                ? g_card_custom_obj_count : AREX_MAX_CUSTOM_CARDS;
+            for (int c = 0; c <= max_count; c++) {
+                lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
                 if (!container) continue;
 
                 for (int i = 0; i < lv_obj_get_child_cnt(container); i++) {

@@ -17,7 +17,7 @@ void arex_ui_state_init(void)
 {
     memset(&g_ui, 0, sizeof(g_ui));
     g_ui.state         = UI_INFO;
-    g_ui.dash_card     = 1;
+    g_ui.dash_card     = CARD_POS_DYNAMIC_FIRST;
     g_ui.menu_info_idx = 0;
     g_ui.wall_charge   = 0;
 }
@@ -51,8 +51,8 @@ void ui_handle_rotate(int8_t dir)
 
         /* --- DASH: scroll between cards with wall-charge at edges --- */
         case UI_DASH: {
-            uint8_t dash_min = 1;
-            uint8_t dash_max = AREX_CARD_COUNT - 2;
+            uint8_t dash_min = CARD_POS_DYNAMIC_FIRST;
+            uint8_t dash_max = arex_setup_display_pos() - 1;
 
             if (g_ui.dash_card == dash_min && dir == -1) {
                 g_ui.wall_charge++;
@@ -76,7 +76,7 @@ void ui_handle_rotate(int8_t dir)
                     g_ui.state = UI_SETUP;
                     g_ui.menu_setup_idx = 0;
                     arex_screen_set_setup_selection(0);
-                    arex_ui_go_to_card(AREX_CARD_COUNT - 1);
+                    arex_ui_go_to_card(arex_setup_display_pos());
                 }
             } else {
                 g_ui.wall_charge = 0;
@@ -108,8 +108,8 @@ void ui_handle_rotate(int8_t dir)
                     g_ui.wall_charge = 0;
                     arex_screen_hide_walls_snap();
                     g_ui.state = UI_DASH;
-                    g_ui.dash_card = 1;
-                    arex_ui_go_to_card(1);
+                    g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
+                    arex_ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
                 }
             } else {
                 g_ui.wall_charge = 0;
@@ -134,8 +134,8 @@ void ui_handle_rotate(int8_t dir)
                     g_ui.wall_charge = 0;
                     arex_screen_hide_walls_snap();
                     g_ui.state = UI_DASH;
-                    g_ui.dash_card = AREX_CARD_COUNT - 2;
-                    arex_ui_go_to_card(AREX_CARD_COUNT - 2);
+                    g_ui.dash_card = arex_setup_display_pos() - 1;
+                    arex_ui_go_to_card(arex_setup_display_pos() - 1);
                 }
             } else {
                 g_ui.wall_charge = 0;
@@ -191,7 +191,7 @@ void ui_handle_click(void)
 
         case UI_DASH: {
             /* card_id 从 card_order[] 映射 */
-            uint8_t card_id = g_sys_card_order(g_ui.dash_card);
+            uint8_t card_id = arex_card_id_at(g_ui.dash_card);
 
             if (card_id == CARD_ID_COMPASS) {
                 if (!g_sensor_data.heading_locked) {
@@ -297,14 +297,14 @@ void ui_handle_back(void)
 
         case UI_INFO:
             g_ui.state = UI_DASH;
-            g_ui.dash_card = 1;
-            arex_ui_go_to_card(1);
+            g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
+            arex_ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
             break;
 
         case UI_SETUP:
             g_ui.state = UI_DASH;
-            g_ui.dash_card = AREX_CARD_COUNT - 2;
-            arex_ui_go_to_card(AREX_CARD_COUNT - 2);
+            g_ui.dash_card = arex_setup_display_pos() - 1;
+            arex_ui_go_to_card(arex_setup_display_pos() - 1);
             break;
 
         default:

@@ -27,23 +27,34 @@ typedef enum {
    Card Positions — tileview 中的显示位置
    card_order[pos] = card_id
 
-   INFO 固定在 tile 0，SETUP 固定在 tile 7。
-   CARD_POS_1 ~ CARD_POS_6 这 6 个位置可重排。
+   INFO 固定在 tile 0，SETUP 固定在最后一页。
+   中间动态槽位数量由 AREX_MAX_DYNAMIC_SLOTS 决定。
    ========================================= */
+#define AREX_MAX_DYNAMIC_SLOTS  12
+
 typedef enum {
-    CARD_POS_INFO  = 0,
-    CARD_POS_1     = 1,
-    CARD_POS_2     = 2,
-    CARD_POS_3     = 3,
-    CARD_POS_4     = 4,
-    CARD_POS_5     = 5,
-    CARD_POS_6     = 6,       /* 新增：用于放 BLANK */
-    CARD_POS_SETUP = 7,
+    CARD_POS_INFO          = 0,
+    CARD_POS_DYNAMIC_FIRST = 1,
+    CARD_POS_SETUP         = CARD_POS_DYNAMIC_FIRST + AREX_MAX_DYNAMIC_SLOTS,
     CARD_POS_COUNT
 } arex_card_pos_t;
 
-#define AREX_CARD_COUNT      CARD_ID_COUNT
-#define AREX_DASH_CARD_COUNT (AREX_CARD_COUNT - 2)
+#define CARD_POS_1   (CARD_POS_DYNAMIC_FIRST + 0)
+#define CARD_POS_2   (CARD_POS_DYNAMIC_FIRST + 1)
+#define CARD_POS_3   (CARD_POS_DYNAMIC_FIRST + 2)
+#define CARD_POS_4   (CARD_POS_DYNAMIC_FIRST + 3)
+#define CARD_POS_5   (CARD_POS_DYNAMIC_FIRST + 4)
+#define CARD_POS_6   (CARD_POS_DYNAMIC_FIRST + 5)
+#define CARD_POS_7   (CARD_POS_DYNAMIC_FIRST + 6)
+#define CARD_POS_8   (CARD_POS_DYNAMIC_FIRST + 7)
+#define CARD_POS_9   (CARD_POS_DYNAMIC_FIRST + 8)
+#define CARD_POS_10  (CARD_POS_DYNAMIC_FIRST + 9)
+#define CARD_POS_11  (CARD_POS_DYNAMIC_FIRST + 10)
+#define CARD_POS_12  (CARD_POS_DYNAMIC_FIRST + 11)
+
+#define AREX_CARD_ID_COUNT   CARD_ID_COUNT
+#define AREX_CARD_COUNT      CARD_POS_COUNT
+#define AREX_DASH_CARD_COUNT AREX_MAX_DYNAMIC_SLOTS
 
 /* =========================================
    Card engine type
@@ -75,6 +86,10 @@ typedef struct {
    Registry API
    ========================================= */
 uint8_t      arex_card_count(void);
+uint8_t      arex_visible_dash_count(void);
+uint8_t      arex_setup_display_pos(void);
+uint8_t      arex_card_storage_pos(uint8_t display_pos);
+uint8_t      arex_card_id_at(uint8_t display_pos);
 arex_card_t *arex_card_get(uint8_t order_pos);
 arex_card_t *arex_card_get_by_id(arex_card_id_t id);
 

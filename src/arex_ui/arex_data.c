@@ -222,8 +222,13 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
     rt_base_t level = rt_hw_interrupt_disable();
 #endif
 
-    /* 1. 拷贝右侧卡片滑动顺序 */
-    memcpy(g_sys_config.card_order, payload->card_order, sizeof(g_sys_config.card_order));
+    /* 1. 兼容旧协议：旧 payload 只有 8 个 card_order 槽位，不能按新运行时数组长度整块 memcpy */
+    memset(g_sys_config.card_order, CARD_ID_BLANK, sizeof(g_sys_config.card_order));
+    g_sys_config.card_order[CARD_POS_INFO] = CARD_ID_INFO;
+    g_sys_config.card_order[CARD_POS_SETUP] = CARD_ID_SETUP;
+    for (int i = 0; i < 8 && (CARD_POS_DYNAMIC_FIRST + i) < CARD_POS_SETUP; i++) {
+        g_sys_config.card_order[CARD_POS_DYNAMIC_FIRST + i] = payload->card_order[i];
+    }
 
     /* 2. 映射左侧 2x7 锚点配置到 g_sys_config */
     g_sys_config.left_widget_count = (payload->left_count > AREX_LEFT_MAX_WIDGETS)
@@ -235,14 +240,28 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
         g_sys_config.left_widgets[i].y         = payload->left_widgets[i].y;
     }
 
-    /* 3. 映射右侧 5F 自定义网格配置到 g_sys_config */
-    g_sys_config.custom_5f_count = (payload->custom_5f_count > AREX_5F_MAX_WIDGETS)
-                       ? AREX_5F_MAX_WIDGETS
-                       : payload->custom_5f_count;
-    for (int i = 0; i < g_sys_config.custom_5f_count; i++) {
-        g_sys_config.custom_5f_widgets[i].widget_id = (arex_widget_id_t)payload->custom_5f_widgets[i].widget_id;
-        g_sys_config.custom_5f_widgets[i].x = payload->custom_5f_widgets[i].c;  /* 列 -> x */
-        g_sys_config.custom_5f_widgets[i].y = payload->custom_5f_widgets[i].r;  /* 行 -> y */
+    /* 3. 兼容旧协议：单张 5F 配置映射到 custom_cards[0] */
+    memset(g_sys_config.custom_cards, 0, sizeof(g_sys_config.custom_cards));
+    memset(g_sys_config.custom_card_slot, 0xFF, sizeof(g_sys_config.custom_card_slot));
+    g_sys_config.custom_card_count = 0;
+
+    if (payload->custom_5f_count > 0) {
+        g_sys_config.custom_card_count = 1;
+        /* 在 card_order 中查找 CUSTOM_GRID 卡片的位置，设置正确的 slot 映射 */
+        for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; pos++) {
+            if (g_sys_config.card_order[pos] == CARD_ID_CUSTOM_GRID) {
+                g_sys_config.custom_card_slot[pos] = 0;
+                break;
+            }
+        }
+        g_sys_config.custom_cards[0].widget_count = (payload->custom_5f_count > AREX_5F_MAX_WIDGETS)
+                          ? AREX_5F_MAX_WIDGETS
+                          : payload->custom_5f_count;
+    }
+    for (int i = 0; i < g_sys_config.custom_cards[0].widget_count; i++) {
+        g_sys_config.custom_cards[0].widgets[i].widget_id = (arex_widget_id_t)payload->custom_5f_widgets[i].widget_id;
+        g_sys_config.custom_cards[0].widgets[i].x = payload->custom_5f_widgets[i].c;  /* 列 -> x */
+        g_sys_config.custom_cards[0].widgets[i].y = payload->custom_5f_widgets[i].r;  /* 行 -> y */
     }
 
     /* 4. 打上终极脏标记，通知 UI 推倒重建 */
@@ -391,7 +410,6 @@ void arex_bus_set_conservatism(uint8_t level)
 {
     if (g_sys_config.conservatism != level) {
         g_sys_config.conservatism = level;
-        g_sensor_data.dirty_mask |= DIRTY_SETUP;
     }
 }
 

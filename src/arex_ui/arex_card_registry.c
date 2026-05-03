@@ -13,7 +13,7 @@ extern const arex_menu_list_cfg_t info_menu_cfg;
 extern const arex_menu_list_cfg_t setup_menu_cfg;
 
 /* Single unified table — ROM fields set here, tile_obj filled at runtime */
-static arex_card_t g_cards[AREX_CARD_COUNT] = {
+static arex_card_t g_cards[AREX_CARD_ID_COUNT] = {
     [CARD_ID_INFO] = {
         .id          = CARD_ID_INFO,
         .title       = "INFO MENU",
@@ -96,21 +96,70 @@ static arex_card_t g_cards[AREX_CARD_COUNT] = {
     },
 };
 
+uint8_t arex_visible_dash_count(void)
+{
+    int8_t last_nonblank = -1;
+
+    for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; ++pos) {
+        uint8_t id = g_sys_card_order(pos);
+        if (id != CARD_ID_BLANK) {
+            last_nonblank = (int8_t)pos;
+        }
+    }
+
+    if (last_nonblank < (int8_t)CARD_POS_DYNAMIC_FIRST) {
+        return 1;
+    }
+
+    return (uint8_t)(last_nonblank - CARD_POS_DYNAMIC_FIRST + 1);
+}
+
+uint8_t arex_setup_display_pos(void)
+{
+    return (uint8_t)(CARD_POS_DYNAMIC_FIRST + arex_visible_dash_count());
+}
+
 uint8_t arex_card_count(void)
 {
-    return AREX_CARD_COUNT;
+    return (uint8_t)(arex_setup_display_pos() + 1);
+}
+
+uint8_t arex_card_storage_pos(uint8_t display_pos)
+{
+    uint8_t setup_pos = arex_setup_display_pos();
+
+    if (display_pos == CARD_POS_INFO) {
+        return CARD_POS_INFO;
+    }
+    if (display_pos >= CARD_POS_DYNAMIC_FIRST && display_pos < setup_pos) {
+        return display_pos;
+    }
+    if (display_pos == setup_pos) {
+        return CARD_POS_SETUP;
+    }
+
+    return 0xFF;
+}
+
+uint8_t arex_card_id_at(uint8_t display_pos)
+{
+    uint8_t storage_pos = arex_card_storage_pos(display_pos);
+    if (storage_pos == 0xFF) {
+        return CARD_ID_BLANK;
+    }
+    return g_sys_card_order(storage_pos);
 }
 
 arex_card_t *arex_card_get(uint8_t order_pos)
 {
-    if (order_pos >= AREX_CARD_COUNT) return NULL;
-    uint8_t id = g_sys_card_order(order_pos);
-    if (id >= AREX_CARD_COUNT) return NULL;
+    if (order_pos >= arex_card_count()) return NULL;
+    uint8_t id = arex_card_id_at(order_pos);
+    if (id >= AREX_CARD_ID_COUNT) return NULL;
     return &g_cards[id];
 }
 
 arex_card_t *arex_card_get_by_id(arex_card_id_t id)
 {
-    if (id >= AREX_CARD_COUNT) return NULL;
+    if (id >= AREX_CARD_ID_COUNT) return NULL;
     return &g_cards[id];
 }
