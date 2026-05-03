@@ -2355,24 +2355,19 @@ void arex_ui_update_task(lv_timer_t *timer)
         card_deco_update();
 
         /* ============================================================
-         * 速率图标闪烁引擎（与开头心跳同步执行）
-         *
-         * 当 DIRTY_DEPTH 被心跳唤醒后，统一在此处执行图标更新
+         * ============================================================
+         * 速率图标闪烁引擎（纯正 500ms 心跳驱动，无视深度抖动）
          * ============================================================ */
         if (s_ascent_icon_count > 0) {
             static int8_t s_last_direction = 0;  /* 0=静止, 1=上升, -1=下降 */
-            static float s_last_depth = 0.0f;
 
             float rate = g_sensor_data.ascent_rate;
-            float current_depth = g_sensor_data.depth;
             bool is_moving = (fabsf(rate) >= AREX_RATE_STILL_THRESHOLD);
-            bool current_flash_state = (lv_tick_get() / 500) % 2 == 0;  /* 闪烁状态 */
 
-            /* 深度变化超过 0.1m 才刷新图标 */
-            bool depth_changed = (fabsf(current_depth - s_last_depth) > 0.1f);
-            s_last_depth = current_depth;
+            /* 获取 500ms 心跳相位 */
+            bool current_flash_state = (lv_tick_get() / 500) % 2 == 0;
 
-            /* 判断当前运动方向: 1=上升(positive), -1=下降(negative), 0=静止 */
+            /* 判断当前实际运动方向 */
             int8_t current_direction = 0;
             if (rate > 0.0f) {
                 current_direction = 1;
@@ -2380,51 +2375,46 @@ void arex_ui_update_task(lv_timer_t *timer)
                 current_direction = -1;
             }
 
-            /* 速度降到安全范围后自动清除告警（但最少显示5秒由 arex_clear_all_alarm_styles 控制） */
+            /* 速度降到安全范围后自动清除告警 */
             if (!is_moving && s_alarm_active) {
                 arex_clear_all_alarm_styles();
             }
 
-            /* 确定显示的图标 */
             const void *target_img_src = &sudo_up_level0;
 
-            if (!is_moving || !depth_changed) {
-                /* 静止或深度变化不足 0.1m：保持最后方向，显示 level0 */
-                int8_t effective_dir = s_last_direction;
-                target_img_src = (effective_dir > 0) ? &sudo_up_level0 :
-                                (effective_dir < 0) ? &sudo_down_level0 : &sudo_up_level0;
+            if (!is_moving) {
+                /* 静止状态：不闪烁，保持最后一个方向的 level0 */
+                target_img_src = (s_last_direction > 0) ? &sudo_up_level0 :
+                                (s_last_direction < 0) ? &sudo_down_level0 : &sudo_up_level0;
             } else {
-                /* 移动中 且 深度变化超过 0.1m */
+                /* 运动状态：根据 500ms 节拍进行呼吸闪烁 */
                 if (current_direction > 0) {
                     /* 上升方向 */
                     if (rate >= AREX_RATE_LEVEL2_THRESHOLD) {
-                        /* level2 闪烁：亮相位显示 level2，灭相位显示 level0 */
                         target_img_src = current_flash_state ? &sudo_up_level2 : &sudo_up_level0;
                     } else if (rate >= AREX_RATE_LEVEL1_THRESHOLD) {
-                        /* level1 闪烁：亮相位显示 level1，灭相位显示 level0 */
                         target_img_src = current_flash_state ? &sudo_up_level1 : &sudo_up_level0;
                     } else {
-                        /* 慢速上升：稳定显示 level0 */
                         target_img_src = &sudo_up_level0;
                     }
                 } else {
-                    /* 下降方向（rate < 0） */
+                    /* 下降方向 */
                     if (rate <= -AREX_RATE_LEVEL2_THRESHOLD) {
-                        /* level2 闪烁 */
                         target_img_src = current_flash_state ? &sudo_down_level2 : &sudo_down_level0;
-                    } else {
-                        /* level1 闪烁 */
+                    } else if (rate <= -AREX_RATE_LEVEL1_THRESHOLD) {
                         target_img_src = current_flash_state ? &sudo_down_level1 : &sudo_down_level0;
+                    } else {
+                        target_img_src = &sudo_down_level0;
                     }
                 }
             }
 
-            /* 更新方向状态（仅在非静止时更新，静止时保持最后方向） */
+            /* 更新最后的方向状态 */
             if (current_direction != 0) {
                 s_last_direction = current_direction;
             }
 
-            /* 循环遍历数组，让所有速率图标同步刷新 */
+            /* 同步刷新所有图标 */
             for (int i = 0; i < s_ascent_icon_count; i++) {
                 if (s_img_ascent_rate[i] != NULL) {
                     lv_img_set_src(s_img_ascent_rate[i], target_img_src);
