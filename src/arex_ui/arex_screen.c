@@ -68,6 +68,30 @@ static lv_style_t s_style_menu_item_active;
 static lv_style_t s_style_sep_line;
 static bool       s_styles_inited = false;
 
+static void apply_menu_item_selected_style(lv_obj_t *item,
+                                           lv_obj_t *title_lbl,
+                                           lv_obj_t *badge_lbl,
+                                           bool selected)
+{
+    if (!item) return;
+
+    lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
+    lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(item, selected ? AREX_GREEN : AREX_DARK, 0);
+    lv_obj_set_style_border_width(item, selected ? (AREX_INNER_BORDER_W + 2) : AREX_INNER_BORDER_W, 0);
+
+    if (title_lbl) {
+        lv_obj_set_style_text_color(title_lbl, selected ? AREX_LIGHT : AREX_GREEN, 0);
+        lv_obj_set_style_text_font(title_lbl,
+                                   arex_get_font(selected ? AREX_FONT_ID_MEDIUM : AREX_FONT_ID_TITLE),
+                                   0);
+    }
+
+    if (badge_lbl) {
+        lv_obj_set_style_text_color(badge_lbl, AREX_LIGHT, 0);
+    }
+}
+
 static void styles_init(void)
 {
     if (s_styles_inited) return;
@@ -128,10 +152,11 @@ static void styles_init(void)
     lv_style_set_pad_all(&s_style_menu_item, 12);
 
     lv_style_init(&s_style_menu_item_active);
-    lv_style_set_bg_color(&s_style_menu_item_active, AREX_GREEN);
+    lv_style_set_bg_color(&s_style_menu_item_active, AREX_BLACK);
     lv_style_set_bg_opa(&s_style_menu_item_active, LV_OPA_COVER);
-    lv_style_set_text_color(&s_style_menu_item_active, AREX_BLACK);
+    lv_style_set_text_color(&s_style_menu_item_active, AREX_LIGHT);
     lv_style_set_border_color(&s_style_menu_item_active, AREX_GREEN);
+    lv_style_set_border_width(&s_style_menu_item_active, AREX_INNER_BORDER_W + 2);
 }
 
 /* =========================================================
@@ -866,15 +891,7 @@ void arex_screen_set_info_selection(uint8_t idx)
     for (uint32_t i = 0; i < cnt; i++) {
         lv_obj_t *item = lv_obj_get_child(s_info_list, i);
         lv_obj_t *lbl  = lv_obj_get_child(item, 0);
-        if (i == idx) {
-            lv_obj_set_style_bg_color(item, AREX_GREEN, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            if (lbl) lv_obj_set_style_text_color(lbl, AREX_BLACK, 0);
-        } else {
-            lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            if (lbl) lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
-        }
+        apply_menu_item_selected_style(item, lbl, NULL, i == idx);
     }
 }
 
@@ -892,17 +909,7 @@ void arex_screen_set_setup_selection(uint8_t idx)
         lv_obj_t *item  = lv_obj_get_child(s_setup_list, i);
         lv_obj_t *lbl   = lv_obj_get_child(item, 0);
         lv_obj_t *badge = lv_obj_get_child(item, 1);
-        if (i == idx) {
-            lv_obj_set_style_bg_color(item, AREX_GREEN, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            if (lbl)   lv_obj_set_style_text_color(lbl,   AREX_BLACK, 0);
-            if (badge) lv_obj_set_style_text_color(badge, AREX_BLACK, 0);
-        } else {
-            lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            if (lbl)   lv_obj_set_style_text_color(lbl,   AREX_GREEN, 0);
-            if (badge) lv_obj_set_style_text_color(badge, AREX_LIGHT, 0);
-        }
+        apply_menu_item_selected_style(item, lbl, badge, i == idx);
     }
 }
 
@@ -999,15 +1006,7 @@ void arex_screen_set_submenu_selection(uint8_t idx)
         lv_obj_t *lbl  = lv_obj_get_child(item, 0);
         /* 正在编辑的 item 由 begin_edit_value 单独管理，不参与选中态刷新 */
         if (g_ui.edit_ctx.active && (uint8_t)i == g_ui.edit_ctx.item_index) continue;
-        if (i == idx) {
-            lv_obj_set_style_bg_color(item, AREX_GREEN, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            if (lbl) lv_obj_set_style_text_color(lbl, AREX_BLACK, 0);
-        } else {
-            lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            if (lbl) lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
-        }
+        apply_menu_item_selected_style(item, lbl, NULL, i == idx);
     }
 }
 
@@ -1016,7 +1015,7 @@ static const char *s_info_titles[] = {
     "> LAST DIVE", "> DIVE PLAN", "> TISSUE & TOX", "> GAS & CALC", "> SENSOR & DEVICE"
 };
 
-static char s_info_str[5][5][32];
+static char s_info_str[5][8][32];
 static const char *s_info_dyn[5][6];
 
 static void build_info_submenu(uint8_t idx)
@@ -1057,16 +1056,17 @@ static void build_info_submenu(uint8_t idx)
                 snprintf(s_info_str[4][0], 32, "POD 1: -- BAR");
             else
                 snprintf(s_info_str[4][0], 32, "POD 1: %.0f BAR", g_sensor_data.pod1_bar);
-            if (g_sensor_data.pod2_bar <= 0.0f)
-                snprintf(s_info_str[4][1], 32, "POD 2: -- BAR");
-            else
-                snprintf(s_info_str[4][1], 32, "POD 2: %.0f BAR", g_sensor_data.pod2_bar);
-            snprintf(s_info_str[4][2], 32, "BATTERY: %.0f%%", g_sensor_data.battery_pct);
-            snprintf(s_info_str[4][3], 32, "TEMP: 24C");
+            snprintf(s_info_str[4][1], 32, "HEADING: %03d", g_sensor_data.heading);
+            snprintf(s_info_str[4][2], 32, "MAX DEPTH: %.1fM", (double)g_sensor_data.max_depth);
+            snprintf(s_info_str[4][3], 32, "AVG DEPTH: %.1fM", (double)g_sensor_data.avg_depth);
+            snprintf(s_info_str[4][4], 32, "MIN TEMP: %.1fC", (double)g_sensor_data.min_temp);
+            snprintf(s_info_str[4][5], 32, "AVG TEMP: %.1fC", (double)g_sensor_data.avg_temp);
             s_info_dyn[4][n++] = s_info_str[4][0];
             s_info_dyn[4][n++] = s_info_str[4][1];
             s_info_dyn[4][n++] = s_info_str[4][2];
             s_info_dyn[4][n++] = s_info_str[4][3];
+            s_info_dyn[4][n++] = s_info_str[4][4];
+            s_info_dyn[4][n++] = s_info_str[4][5];
             s_info_dyn[4][n++] = "< BACK";
             break;
         default:
@@ -1616,6 +1616,7 @@ static void edit_value_cleanup(lv_obj_t *item)
     if (!item) return;
     edit_flash_stop();
     lv_obj_set_style_border_color(item, AREX_DARK, 0);
+    lv_obj_set_style_border_width(item, AREX_INNER_BORDER_W, 0);
     uint32_t cnt = lv_obj_get_child_cnt(item);
     if (cnt > 2) lv_obj_del(lv_obj_get_child(item, 2));
     cnt = lv_obj_get_child_cnt(item);

@@ -620,6 +620,44 @@ static uint8_t arex_get_pod_index(void)
     return (s_pod_render_count % 2 == 1) ? 1 : 2;
 }
 
+static void arex_update_pod_widgets(void)
+{
+    uint8_t max_count = (g_card_custom_obj_count < AREX_MAX_CUSTOM_CARDS)
+        ? g_card_custom_obj_count
+        : AREX_MAX_CUSTOM_CARDS;
+
+    for (uint8_t c = 0; c <= max_count; c++) {
+        lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
+        if (!container) continue;
+
+        int16_t child_cnt = lv_obj_get_child_cnt(container);
+        for (int16_t i = 0; i < child_cnt; i++) {
+            lv_obj_t *child = lv_obj_get_child(container, i);
+            if (!child) continue;
+
+            uintptr_t child_tag = (uintptr_t)lv_obj_get_user_data(child);
+            if (child_tag != POD1_TAG && child_tag != POD2_TAG) {
+                continue;
+            }
+
+            float pod_value = (child_tag == POD1_TAG) ? g_sensor_data.pod1_bar : g_sensor_data.pod2_bar;
+            int16_t sub_cnt = lv_obj_get_child_cnt(child);
+            for (int16_t j = 0; j < sub_cnt; j++) {
+                lv_obj_t *sub = lv_obj_get_child(child, j);
+                if (!sub) continue;
+
+                if ((uintptr_t)lv_obj_get_user_data(sub) == child_tag &&
+                    lv_obj_check_type(sub, &lv_label_class)) {
+                    char buf[32];
+                    snprintf(buf, sizeof(buf), "%.0f", (double)pod_value);
+                    lv_label_set_text(sub, buf);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 /* =========================================================
  * 渲染计数器归零（每次网格重建/重绘前必须调用）
  * 由 arex_screen_rebuild_layout() 或 left_anchor_create() 调用
@@ -1644,7 +1682,11 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         /* 所有使用 ELEM_VALUE 的 widget 都使用 spec.basic.value_align */
         lv_obj_align(val_lbl, (lv_align_t)style->spec.basic.value_align,
                      style->spec.basic.value_offset_x, style->spec.basic.value_offset_y);
-        lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
+        if (is_pod_mold) {
+            lv_obj_set_user_data(val_lbl, (void *)pod_tag);
+        } else {
+            lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
+        }
     }
 
     /* --- 零件 3：单位 --- */
@@ -1845,28 +1887,6 @@ void arex_widget_set_value(arex_widget_id_t id, float value)
                     lv_label_set_text_fmt(part1, ".%d", dd);
                 }
                 break;
-            }
-
-            /* ===== POD 单模具：数据源根据 pod_index 动态分配 =====
-             * 注意：由于关闭了 ELEM_EXTRA，POD 不再有独立的 ID 标签子元素。
-             * 数值 label 通过通用路径创建，其 user_data = WIDGET_POD_0806。
-             * 因此可以简化逻辑：直接通过 child_tag == WIDGET_POD_0806 匹配即可。
-             * POD1/POD2 的区分由渲染时的 pod_index 决定，更新时无需区分。 */
-            if (child_tag == (uintptr_t)WIDGET_POD_0806) {
-                int16_t sub_cnt = lv_obj_get_child_cnt(child);
-                for (int16_t j = 0; j < sub_cnt; j++) {
-                    lv_obj_t *sub = lv_obj_get_child(child, j);
-                    if (!sub) continue;
-                    if ((uintptr_t)lv_obj_get_user_data(sub) == (uintptr_t)WIDGET_POD_0806) {
-                        if (lv_obj_check_type(sub, &lv_label_class)) {
-                            char buf[32];
-                            snprintf(buf, sizeof(buf), "%.0f", (double)value);
-                            lv_label_set_text(sub, buf);
-                        }
-                        break;
-                    }
-                }
-                continue;
             }
 
             /* ===== 通用 widget：用 user_data == id 匹配 ===== */
@@ -2091,8 +2111,7 @@ void arex_widget_sync_data(arex_widget_id_t w_id)
             break;
 
         case WIDGET_POD_0806:
-            /* POD 由状态机使用 user_data 靶向刷新，此处做兜底 */
-            arex_widget_set_value(WIDGET_POD_0806, g_sensor_data.pod1_bar);
+            arex_update_pod_widgets();
             break;
 
         case WIDGET_DEPTH_MAX_0806:
