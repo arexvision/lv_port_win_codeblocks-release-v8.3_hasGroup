@@ -797,16 +797,19 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * INFO(0) 固定，SETUP(13) 固定，中间 12 张可由 APP 重排
      * 必须初始化所有 14 个位置！
      */
-    memset(cfg->card_order, CARD_ID_BLANK, sizeof(cfg->card_order));
-    cfg->card_order[CARD_POS_INFO]   = CARD_ID_INFO;
+    /* 未使用的槽位用 0xFF 标记，card_order[INFO] 和 card_order[SETUP] 单独设置 */
+    for (size_t i = 0; i < sizeof(cfg->card_order); i++) {
+        cfg->card_order[i] = CARD_ID_UNUSED;
+    }
+    cfg->card_order[CARD_POS_INFO]   = CARD_ID_INFO; //注意这个叫菜单，不叫卡片，指示器不能在此显示
     cfg->card_order[CARD_POS_1]      = CARD_ID_COMPASS;
     cfg->card_order[CARD_POS_2]      = CARD_ID_DECO;
     cfg->card_order[CARD_POS_3]      = CARD_ID_PLAN;
     cfg->card_order[CARD_POS_4]      = CARD_ID_GAS;
     cfg->card_order[CARD_POS_5]      = CARD_ID_CUSTOM_GRID;
     cfg->card_order[CARD_POS_6]      = CARD_ID_BLANK;      /* 空白卡片 */
-    /* CARD_POS_7 ~ CARD_POS_12 保持 CARD_ID_BLANK */
-    cfg->card_order[CARD_POS_SETUP]  = CARD_ID_SETUP;
+    /* CARD_POS_7 ~ CARD_POS_12 保持 CARD_ID_UNUSED */
+    cfg->card_order[CARD_POS_SETUP]  = CARD_ID_SETUP; //注意这个叫菜单，不叫卡片，指示器不能在此显示
 
     /* ========== [A] 卡片槽位映射 ==========
      * custom_card_slot[pos] = custom_card_index (0~11)
@@ -1099,7 +1102,7 @@ void arex_ui_apply_config(void)
  * ========================================================= */
 uint8_t g_sys_card_order(uint8_t pos)
 {
-    if (pos >= AREX_CARD_COUNT) return 0;
+    if (pos >= AREX_CARD_COUNT) return CARD_ID_UNUSED;
     return g_sys_config.card_order[pos];
 }
 
