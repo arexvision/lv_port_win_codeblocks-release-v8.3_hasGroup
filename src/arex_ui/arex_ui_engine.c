@@ -749,7 +749,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h 由 MCU 样式表自动推导
      */
     /* 兼容新架构: 使用 custom_cards[0] 存储单张卡片的配置 */
-    cfg->custom_card_count = 1;
+    cfg->custom_card_count = 2;
     cfg->custom_cards[0].widget_count = 12;
     cfg->custom_cards[0].widgets[0]  = (arex_grid_widget_t){ WIDGET_DEPTH_1612,      0, 0 };
     cfg->custom_cards[0].widgets[1]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      2, 0 };
