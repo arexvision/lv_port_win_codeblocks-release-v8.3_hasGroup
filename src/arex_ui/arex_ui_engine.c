@@ -748,8 +748,10 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h 由 MCU 样式表自动推导
      */
-    /* 兼容新架构: 使用 custom_cards[0] 存储单张卡片的配置 */
+    /* 兼容新架构: 使用 custom_cards[] 存储多张自定义卡片的配置 */
     cfg->custom_card_count = 2;
+
+    /* ---- 自定义卡片 [0]: 核心数据 (DEPTH + NDL + CNS + TTS + ...) ---- */
     cfg->custom_cards[0].widget_count = 12;
     cfg->custom_cards[0].widgets[0]  = (arex_grid_widget_t){ WIDGET_DEPTH_1612,      0, 0 };
     cfg->custom_cards[0].widgets[1]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      2, 0 };
@@ -763,6 +765,24 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->custom_cards[0].widgets[9]  = (arex_grid_widget_t){ WIDGET_POD_0806,       0, 4 };
     cfg->custom_cards[0].widgets[10] = (arex_grid_widget_t){ WIDGET_POD_0806,       2, 4 };
     cfg->custom_cards[0].widgets[11] = (arex_grid_widget_t){ WIDGET_EMPTY,          4, 4 };  /* 保留空槽 */
+
+    /* ---- 自定义卡片 [1]: 技术潜水数据 (MOD + GF + CEILING + SAC + ...) ----
+     *  5列布局示意（5列=10格，6行）：
+     *  col:  0  1  2  3  4
+     *  row0: [MOD   ] [GF99  ] [CEILING]
+     *  row2: [SURF GF] [空槽  ] [OTU    ]
+     *  row3: [WTIME  ] [SAC   ] [ASCENT ]
+     *  row4: [空槽   ] [空槽  ] [空槽   ]
+     */
+    cfg->custom_cards[1].widget_count = 8;
+    cfg->custom_cards[1].widgets[0]  = (arex_grid_widget_t){ WIDGET_MOD_0806,       0, 0 };
+    cfg->custom_cards[1].widgets[1]  = (arex_grid_widget_t){ WIDGET_GF99_0806,      2, 0 };
+    cfg->custom_cards[1].widgets[2]  = (arex_grid_widget_t){ WIDGET_CEILING_0806,  4, 0 };
+    cfg->custom_cards[1].widgets[3]  = (arex_grid_widget_t){ WIDGET_SURF_GF_0806,  0, 2 };
+    cfg->custom_cards[1].widgets[4]  = (arex_grid_widget_t){ WIDGET_EMPTY,          2, 2 };
+    cfg->custom_cards[1].widgets[5]  = (arex_grid_widget_t){ WIDGET_OTU_0806,      4, 2 };
+    cfg->custom_cards[1].widgets[6]  = (arex_grid_widget_t){ WIDGET_PPO2_0806,    0, 3 };
+    cfg->custom_cards[1].widgets[7]  = (arex_grid_widget_t){ WIDGET_EMPTY,          2, 3 };
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
      * 160x420 区域 = 2列(80px) x 7行(60px)，由 arex_render_left_anchor_grid() 渲染
@@ -806,18 +826,18 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->card_order[CARD_POS_2]      = CARD_ID_DECO;
     cfg->card_order[CARD_POS_3]      = CARD_ID_PLAN;
     cfg->card_order[CARD_POS_4]      = CARD_ID_GAS;
-    cfg->card_order[CARD_POS_5]      = CARD_ID_CUSTOM_GRID;
-    cfg->card_order[CARD_POS_6]      = CARD_ID_BLANK;      /* 空白卡片 */
+    cfg->card_order[CARD_POS_5]      = CARD_ID_CUSTOM_GRID;  /* 自定义卡片[0] */
+    cfg->card_order[CARD_POS_6]      = CARD_ID_CUSTOM_GRID;  /* 自定义卡片[1] - 技术潜水数据 */
     /* CARD_POS_7 ~ CARD_POS_12 保持 CARD_ID_UNUSED */
     cfg->card_order[CARD_POS_SETUP]  = CARD_ID_SETUP; //注意这个叫菜单，不叫卡片，指示器不能在此显示
 
     /* ========== [A] 卡片槽位映射 ==========
      * custom_card_slot[pos] = custom_card_index (0~11)
      * pos 对应 card_order 中的动态槽位置
-     * 默认：第一个 CUSTOM_GRID 卡片映射到 custom_cards[0]
      */
     memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
-    cfg->custom_card_slot[CARD_POS_5] = 0;  /* CUSTOM_GRID 映射到 custom_cards[0] */
+    cfg->custom_card_slot[CARD_POS_5] = 0;  /* 自定义卡片[0] - 核心数据 */
+    cfg->custom_card_slot[CARD_POS_6] = 1;  /* 自定义卡片[1] - 技术潜水数据 */
 
     /* ========== [A] 用户设置默认值 ========== */
     cfg->mod_ppo2       = 1.4f;
