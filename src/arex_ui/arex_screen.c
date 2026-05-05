@@ -504,13 +504,17 @@ void arex_screen_rebuild_tileview(void)
     submenu_layer_create();
     modal_create();
     {
-        uint8_t visible_dash = arex_visible_dash_count();
+        /* 计算逻辑索引：从 DYNAMIC_FIRST 到当前卡片之间有多少个有效卡片 */
         uint8_t active_idx = 0;
-        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos()) {
-            active_idx = (uint8_t)(g_ui.dash_card - CARD_POS_DYNAMIC_FIRST);
-            if (active_idx >= visible_dash) {
-                active_idx = visible_dash ? (uint8_t)(visible_dash - 1) : 0;
-            }
+        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos()) 
+        {
+            for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++) 
+            {
+                if (g_sys_card_order(pos) != CARD_ID_UNUSED) 
+                {
+                    active_idx++;
+                }
+            }        
         }
         arex_screen_update_scroll_dots(active_idx, true);
     }
@@ -693,9 +697,20 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
     lv_obj_set_tile(s_tileview, tile, AREX_TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
 
     /* SETUP(最后一页) 不显示 dots，只有 DASH 动态卡片才更新 */
-    if (tile_pos >= CARD_POS_DYNAMIC_FIRST && tile_pos < arex_setup_display_pos()) {
-        arex_screen_update_scroll_dots(tile_pos - CARD_POS_DYNAMIC_FIRST, true);
-    } else {
+    if (tile_pos >= CARD_POS_DYNAMIC_FIRST && tile_pos < arex_setup_display_pos()) 
+    {
+        /* 计算逻辑索引：从 DYNAMIC_FIRST 到 tile_pos 之间有多少个有效卡片 */
+        uint8_t active_idx = 0;
+        for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < tile_pos; pos++) 
+        {
+            if (g_sys_card_order(pos) != CARD_ID_UNUSED) {
+                active_idx++;
+            }
+        }
+        arex_screen_update_scroll_dots(active_idx, true);
+    } 
+    else 
+    {
         arex_screen_update_scroll_dots(0, false);
     }
 }

@@ -252,7 +252,10 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 #endif
 
     /* 1. 兼容旧协议：旧 payload 只有 8 个 card_order 槽位，不能按新运行时数组长度整块 memcpy */
-    memset(g_sys_config.card_order, CARD_ID_BLANK, sizeof(g_sys_config.card_order));
+    for (size_t i = 0; i < sizeof(g_sys_config.card_order); i++) 
+    {
+        g_sys_config.card_order[i] = CARD_ID_UNUSED;
+    }    
     g_sys_config.card_order[CARD_POS_INFO] = CARD_ID_INFO;
     g_sys_config.card_order[CARD_POS_SETUP] = CARD_ID_SETUP;
     for (int i = 0; i < 8 && (CARD_POS_DYNAMIC_FIRST + i) < CARD_POS_SETUP; i++) {

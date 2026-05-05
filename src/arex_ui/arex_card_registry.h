@@ -23,6 +23,9 @@ typedef enum {
     CARD_ID_COUNT
 } arex_card_id_t;
 
+
+/* 未使用的槽位标记（不等于任何有效卡片ID） */
+#define CARD_ID_UNUSED  0xFF
 /* =========================================
    Card Positions — tileview 中的显示位置
    card_order[pos] = card_id
