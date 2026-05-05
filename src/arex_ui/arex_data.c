@@ -33,7 +33,10 @@ static uint32_t _temp_sample_count = 0;  /* 温度采样次数 */
 
 void arex_data_init(void)
 {
-    memset(&g_sensor_data, 0, sizeof(g_sensor_data));  // HOTFIX: Explicitly zero out sensor data.
+    memset(&g_sensor_data, 0, sizeof(g_sensor_data));
+
+    /* 减压站预测数据初始化（仅初始化节数，数据本身由减压引擎填充） */
+    g_deco_stop_count = 0;
 }
 
 void arex_bus_set_depth(float depth_m)

@@ -797,8 +797,9 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * card_order[pos] = card_id
      * INFO(0) 固定，SETUP(13) 固定，中间 12 张可由 APP 重排
      * 必须初始化所有 14 个位置！
+     * CARD_ID_UNUSED(0xFF)=未占用槽位不显示dot, CARD_ID_BLANK=空白卡也是有效卡片应显示dot
      */
-    memset(cfg->card_order, CARD_ID_BLANK, sizeof(cfg->card_order));
+    memset(cfg->card_order, CARD_ID_UNUSED, sizeof(cfg->card_order));
     cfg->card_order[CARD_POS_INFO]   = CARD_ID_INFO;//菜单，不算卡片
     cfg->card_order[CARD_POS_1]      = CARD_ID_COMPASS;
     cfg->card_order[CARD_POS_2]      = CARD_ID_DECO;
@@ -2621,8 +2622,9 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_screen_refresh_left_panel();
     }
 
-    /* 组织舱 + 减压站序列刷新（轨迹追加 + 减压站重绘，节流保护） */
-    if (mask & DIRTY_TISSUES) {
+    /* 组织舱 + 减压站序列刷新（轨迹追加 + 减压站重绘，节流保护）
+     * DEPTH 变化时也需要刷新图表（NOW 点位置、历史轨迹随之变化） */
+    if (mask & (DIRTY_TISSUES | DIRTY_DEPTH)) {
         uint32_t now = lv_tick_get();
 #if AREX_DECO_REFRESH_MS > 0 //相当于刷新的间隔（这个决定了刷新的点，但是和真正的采样频率有区别（一般要对应上））
         if (now - _deco_last_refresh_ms >= AREX_DECO_REFRESH_MS) {

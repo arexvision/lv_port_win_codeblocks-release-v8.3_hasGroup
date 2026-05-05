@@ -102,8 +102,8 @@ uint8_t arex_visible_dash_count(void)
     uint8_t count = 0;
     for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; ++pos) {
         uint8_t id = g_sys_card_order(pos);
-        /* 有效卡片：不是 BLANK（空白卡），也不是 INFO/SETUP（虽然它们不在这个范围内） */
-        if (id != CARD_ID_BLANK)
+    /* 有效卡片：不是 UNUSED（0xFF=未占用槽位），也不是 INFO/SETUP（虽然它们不在这个范围内） */
+        if (id != CARD_ID_UNUSED)
         {
             count++;
         }

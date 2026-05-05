@@ -510,7 +510,7 @@ void arex_screen_rebuild_tileview(void)
         {
             for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++)
             {
-                if (g_sys_card_order(pos) != CARD_ID_BLANK)
+                if (g_sys_card_order(pos) != CARD_ID_UNUSED)
                 {
                     active_idx++;
                 }
@@ -703,7 +703,7 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
         uint8_t active_idx = 0;
         for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
         {
-            if (g_sys_card_order(pos) != CARD_ID_BLANK) {
+            if (g_sys_card_order(pos) != CARD_ID_UNUSED) {
                 active_idx++;
             }
         }

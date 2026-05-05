@@ -362,6 +362,9 @@ static void sim_tick_cb(lv_timer_t *t)
     if (new_ppo2 > 1.6f) new_ppo2 = 1.6f;
     arex_bus_set_ppo2(2, new_ppo2);
 
+    /* 推流历史轨迹点到 4F 曲线图 */
+    arex_dive_log_append((float)g_sensor_data.dive_time_s, g_sensor_data.depth);
+
     /* ============================================================
      * 告警模拟测试：每 5 秒切换一次 DEPTH 告警
      * 验证左侧锚点 DEPTH 组件是否能同步闪烁
