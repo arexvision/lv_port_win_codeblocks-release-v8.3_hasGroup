@@ -303,7 +303,7 @@ static void sim_tick_cb(lv_timer_t *t)
 
         switch (phase) {
             case 0:  /* 下降阶段 */
-                if (i < 10) {
+                if (i < 6) {
                     i++;
                     current_sim_depth += 2.12f;
                 } else {
@@ -321,7 +321,7 @@ static void sim_tick_cb(lv_timer_t *t)
                 }
                 break;
             case 2:  /* 上升阶段 */
-                if (i < 10) {
+                if (i < 5) {
                     i++;
                     current_sim_depth -= 2.12f;
                     if (current_sim_depth < 0) current_sim_depth = 0;
@@ -368,26 +368,26 @@ static void sim_tick_cb(lv_timer_t *t)
      * 告警模拟测试：每 5 秒切换一次 DEPTH 告警
      * 验证左侧锚点 DEPTH 组件是否能同步闪烁
      * ============================================================ */
-    // {
-    //     static uint32_t s_alarm_test_tick = 0;
-    //     static bool s_alarm_active = false;
-    //     s_alarm_test_tick++;
+    {
+        static uint32_t s_alarm_test_tick = 0;
+        static bool s_alarm_active = false;
+        s_alarm_test_tick++;
 
-    //     if (s_alarm_test_tick % 3 == 0) {  /* 每 3 秒 (1s * 3 = 3s) */
-    //         if (s_alarm_active) {
-    //             /* 清除告警 */
-    //             arex_clear_all_alarm_styles();
-    //             printf("[ALARM TEST] Critical Alarm cleared!\r\n");
-    //             s_alarm_active = false;
-    //         } else {
-    //             /* 触发 Level 3 致命告警，文字为 "ASCENT RATE FAST" */
-    //             arex_trigger_alarm(AREX_ALARM_CRIT, "ASCENT RATE FAST", WIDGET_DEPTH_1606);
+        if (s_alarm_test_tick % 3 == 0) {  /* 每 3 秒 (1s * 3 = 3s) */
+            if (s_alarm_active) {
+                /* 清除告警 */
+                arex_clear_all_alarm_styles();
+                printf("[ALARM TEST] Critical Alarm cleared!\r\n");
+                s_alarm_active = false;
+            } else {
+                /* 触发 Level 3 致命告警，文字为 "ASCENT RATE FAST" */
+                arex_trigger_alarm(AREX_ALARM_CRIT, "ASCENT RATE FAST", WIDGET_DEPTH_1606);
 
-    //             printf("[ALARM TEST] CRITICAL ASCENT RATE triggered!\r\n");
-    //             s_alarm_active = true;
-    //         }
-    //     }
-    // }
+                printf("[ALARM TEST] CRITICAL ASCENT RATE triggered!\r\n");
+                s_alarm_active = true;
+            }
+        }
+    }
 
     arex_bus_set_battery(g_sensor_data.battery_pct + 1.2);
     /* 模拟温度缓慢变化 */
