@@ -87,8 +87,10 @@ void card_gas_update(void)
         bool is_active  = (g_sensor_data.gas_active_idx == (uint8_t)i);
         bool is_cursor  = (g_ui.state == UI_EDIT_GAS && g_ui.gas_cursor == (uint8_t)i);
 
+        /* 高亮条件：光标所在行始终高亮；非编辑模式下，激活气体高亮 */
+        bool highlight = is_cursor || (is_active && g_ui.state != UI_EDIT_GAS);
+
         lv_color_t fg = AREX_GREEN;
-        bool highlight = is_cursor || is_active;
 
         lv_obj_set_style_bg_color(s_items[i], AREX_BLACK, 0);
         lv_obj_set_style_bg_opa(s_items[i], LV_OPA_COVER, 0);
