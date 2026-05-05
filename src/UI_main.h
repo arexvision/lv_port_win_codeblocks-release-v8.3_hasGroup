@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include "arex_hal_sim/arex_input_pc.h"
 #define PC_SIMULATOR  //移植硬件后需要注释
 
 /**

@@ -27,11 +27,9 @@ extern "C" {
 #define AREX_CARD_TITLE_H  60  /* 标题区高度：文字(Y=8) + 分隔线(Y=48) + 下方留白，视觉底边焊死 Y=48 */
 
 /* 减压数据刷新节流宏：只允许每 N ms 刷新一次，避免高频深度变化时 UI 负载过高 */
-#define AREX_DECO_REFRESH_MS   1000   /* 减压跟踪刷新间隔（ms），设为 0 则关闭节流（每次都刷新） */
-#define AREX_ALARM_SHOW_PREFIX 0
+#define AREX_DECO_REFRESH_MS  1000   /* 图表刷新间隔（ms），设为 0 则关闭节流（每次都刷新） */
 
 /* 告警横幅配置：1=显示 "CRITICAL:" / "WARNING:" 前缀，0=只显示告警文字 */
-#define AREX_ALARM_SHOW_PREFIX  0
 
 /* =========================================================
  * 颜色宏 (统一集中管理)
@@ -461,14 +459,14 @@ typedef enum {
     DIRTY_FIO2       = (1U << 25),  /* 吸入氧浓度 */
 
     /* 氧中毒 */
-    DIRTY_TISSUES    = (1U << 26),  /* 组织舱饱和度 */
-    DIRTY_CNS        = (1U << 27),  /* CNS 百分比 */
-    DIRTY_OTU        = (1U << 28),  /* OTU */
+    DIRTY_TISSUES    = (1U << 26),  /* 组织舱饱和度（16组织舱进度条） */
+    DIRTY_TRAJECTORY = (1U << 27),  /* 潜水轨迹+减压站图表（轨迹点追加+减压站预测重绘） */
+    DIRTY_CNS        = (1U << 28),  /* CNS 百分比 */
+    DIRTY_OTU        = (1U << 29),  /* OTU */
 
     /* 设备状态 */
-    DIRTY_ALARM      = (1U << 29),  /* 告警状态 */
-    DIRTY_DEVICES    = (1U << 30),  /* 外设状态 */
-    DIRTY_UI_LAYOUT  = (1U << 31),  /* UI 布局重建 */
+    DIRTY_ALARM      = (1U << 30),  /* 告警状态 */
+    DIRTY_UI_LAYOUT  = (1U << 31),  /* BLE布局同步 + 外设状态变化触发布局重建 */
 
 } arex_dirty_bit_t;
 

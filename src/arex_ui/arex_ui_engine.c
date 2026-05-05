@@ -2622,11 +2622,12 @@ void arex_ui_update_task(lv_timer_t *timer)
         arex_screen_refresh_left_panel();
     }
 
-    /* 组织舱 + 减压站序列刷新（轨迹追加 + 减压站重绘，节流保护）
-     * DEPTH 变化时也需要刷新图表（NOW 点位置、历史轨迹随之变化） */
-    if (mask & (DIRTY_TISSUES | DIRTY_DEPTH)) {
+    /* 潜水轨迹+减压站图表刷新
+     * 轨迹追加由调用方在 sim_tick_cb 中直接调用 arex_dive_log_append，
+     * 此处仅负责刷新图表（受 AREX_DECO_REFRESH_MS 节流保护） */
+    if (mask & DIRTY_TRAJECTORY) {
         uint32_t now = lv_tick_get();
-#if AREX_DECO_REFRESH_MS > 0 //相当于刷新的间隔（这个决定了刷新的点，但是和真正的采样频率有区别（一般要对应上））
+#if AREX_DECO_REFRESH_MS > 0
         if (now - _deco_last_refresh_ms >= AREX_DECO_REFRESH_MS) {
             _deco_last_refresh_ms = now;
             card_plan_update();
@@ -2666,7 +2667,7 @@ void arex_ui_update_task(lv_timer_t *timer)
      * O(1) SYS_1606 全模块极速点对点刷新
      * 直接操作静态指针，绝不遍历 UI 树！
      * ============================================================ */
-    if (mask & (DIRTY_BATT | DIRTY_TEMP | DIRTY_DEVICES)) {
+    if (mask & (DIRTY_BATT | DIRTY_TEMP)) {
         /* 1. 电量百分比 */
         if (mask & DIRTY_BATT) {
             if (s_sys_batt_lbl) {

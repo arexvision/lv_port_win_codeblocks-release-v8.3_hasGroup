@@ -69,7 +69,9 @@ void arex_bus_set_depth(float depth_m)
      * 停留时虽然不刷新UI，但ascent_rate已在上面被清零/保持正确 */
     if (fabsf(g_sensor_data.depth - depth_m) > 0.05f) {
         g_sensor_data.depth = depth_m;
-        g_sensor_data.dirty_mask |= DIRTY_DEPTH;  //深度变化的时候也会触发跟踪
+        g_sensor_data.dirty_mask |= DIRTY_DEPTH;
+        /* 轨迹+减压站图表需要刷新 */
+        g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
 
         /* 统计计算：最大深度 + 平均深度 */
         if (depth_m > g_sensor_data.max_depth) {
@@ -132,6 +134,8 @@ void arex_bus_set_dive_time(uint32_t dive_s)
     if (g_sensor_data.dive_time_s != dive_s) {
         g_sensor_data.dive_time_s = dive_s;
         g_sensor_data.dirty_mask |= DIRTY_DIVE_TIME;
+        /* 潜水时间推进，图表的 NOW 点会随之右移 */
+        g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
     }
 }
 
@@ -168,7 +172,7 @@ void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min)
     if (g_sensor_data.next_stop_m != stop_m || g_sensor_data.next_stop_min != stop_min) {
         g_sensor_data.next_stop_m = stop_m;
         g_sensor_data.next_stop_min = stop_min;
-        g_sensor_data.dirty_mask |= DIRTY_TISSUES;
+        g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
     }
 }
 
@@ -216,7 +220,7 @@ void arex_bus_set_deco_plan(const arex_deco_stop_t *stops, uint8_t count)
     if (count > 0 && stops != NULL) {
         memcpy(g_deco_stops, stops, count * sizeof(arex_deco_stop_t));
     }
-    g_sensor_data.dirty_mask |= DIRTY_TISSUES;
+    g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
     rt_hw_interrupt_enable(level);
 }
 
@@ -309,17 +313,17 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 #endif
 }
 
-void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count)
-{
-    if (g_sensor_data.strobe_on != strobe_on ||
-        g_sensor_data.flashlight_on != flashlight_on ||
-        g_sensor_data.cylinder_count != cylinder_count) {
-        g_sensor_data.strobe_on = strobe_on;
-        g_sensor_data.flashlight_on = flashlight_on;
-        g_sensor_data.cylinder_count = cylinder_count;
-        g_sensor_data.dirty_mask |= DIRTY_DEVICES;
-    }
-}
+// void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count)
+// {
+//     if (g_sensor_data.strobe_on != strobe_on ||
+//         g_sensor_data.flashlight_on != flashlight_on ||
+//         g_sensor_data.cylinder_count != cylinder_count) {
+//         g_sensor_data.strobe_on = strobe_on;
+//         g_sensor_data.flashlight_on = flashlight_on;
+//         g_sensor_data.cylinder_count = cylinder_count;
+//         g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+//     }
+// }
 
 void arex_bus_toggle_layout_order(void)
 {

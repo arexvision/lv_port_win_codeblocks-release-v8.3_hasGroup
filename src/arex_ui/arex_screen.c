@@ -456,7 +456,7 @@ void arex_screen_rebuild_layout(void)
 
     /* 7. 强制把所有常规数据的脏标记置 1！
      * 因为新建的 Label 里面全是 "--"，必须让定时器在下一帧把真实数据刷进去！ */
-    g_sensor_data.dirty_mask |= (DIRTY_DEPTH | DIRTY_BATT | DIRTY_TEMP | DIRTY_POD | DIRTY_DEVICES);
+    g_sensor_data.dirty_mask |= (DIRTY_DEPTH | DIRTY_BATT | DIRTY_TEMP | DIRTY_POD);
 }
 
 

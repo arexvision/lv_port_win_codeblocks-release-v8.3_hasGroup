@@ -101,7 +101,7 @@ void arex_bus_set_cns(uint8_t cns_pct);
 void arex_bus_set_otu(uint16_t otu_val);
 void arex_bus_set_temperature(float temp_c);
 /* --- System Data 接口[状态参数] --- */
-void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
+// void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
 
 /* --- 临界区保护的数组写入接口 --- */
 /* 16 组织舱饱和度数组（>32bit，必须包临界区防止数据撕裂） */

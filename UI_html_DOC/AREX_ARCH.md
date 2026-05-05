@@ -1,5 +1,11 @@
 我已经仔细检查并修复了文档中（特别是第 29 节）出现的乱码字符。文档结构、格式及所有技术参数均严格保持原样。
 
+> **2026-05-05 更新 #1**：
+> - Section 42 新增：潜水轨迹追加 (`arex_dive_log_append`) 正确用法说明
+> - `arex_dive_log_append` 在调用方（`sim_tick_cb`）追加轨迹点，不在引擎里追加
+> - 引擎仅负责图表刷新，受 `AREX_DECO_REFRESH_MS` 节流保护
+> - 常见错误：两处同时追加、深度不一致、`arex_bus_set_depth` 被注释
+
 > **2026-05-03 更新 #5**：
 > - 深度小数位修复：使用 `fabsf()` 确保非负值，正确显示 12.3 而非 12.-3
 > - 上升告警阈值修改：18m/min → 10m/min
@@ -4366,3 +4372,88 @@ if (child_tag == (uintptr_t)WIDGET_POD_0806) {
 | 2026-05-02 | `arex_ui_engine.c` | 删除 `render_widget_by_id()` 中的 `/* --- 零件 5：EXTRA 附加异构元素 --- */` 代码块 |
 | 2026-05-02 | `arex_ui_engine.c` | `arex_widget_set_value()` POD 更新逻辑简化 |
 | 2026-05-02 | `AREX_ARCH.md` | 新增 Section 39 记录本次修复 |
+
+---
+
+## 42. 潜水轨迹追加的正确用法 (v2026-05-05)
+
+### 42.1 核心原则：追加在调用方，刷新在引擎
+
+轨迹追加和图表刷新是**完全独立的两个职责**，不能混在一起：
+
+| 职责 | 谁来做 | 在哪做 |
+|------|--------|--------|
+| **追加轨迹点** | 模拟器/hardware tick | `sim_tick_cb` 或硬件中断回调 |
+| **刷新图表** | UI 引擎 (`arex_ui_update_task`) | 集中消费 `DIRTY_TRAJECTORY` |
+
+### 42.2 正确调用方式
+
+在 `sim_tick_cb` 中，每次采样只需同时调用两个 API：
+
+```c
+// src/UI_main.c  sim_tick_cb()
+static void sim_tick_cb(lv_timer_t *t)
+{
+    (void)t;
+
+    // ... 模拟深度计算后得到 current_sim_depth ...
+
+    // 1. 追加当前采样点到历史轨迹数组
+    arex_dive_log_append((float)g_sensor_data.dive_time_s, current_sim_depth);
+
+    // 2. 通知引擎刷新图表（引擎内部会做节流保护）
+    arex_bus_set_depth(current_sim_depth);
+}
+```
+
+### 42.3 两个 API 各司其职
+
+| API | 作用 | 触发什么 |
+|-----|------|----------|
+| `arex_dive_log_append(time, depth)` | 将 `{时间, 深度}` 点追加到 `g_dive_log[]` 数组 | 历史曲线数据源 |
+| `arex_bus_set_depth(depth)` | 更新当前深度值 + 触发 `DIRTY_TRAJECTORY` | 引擎调用 `card_plan_update()` 刷新图表 |
+
+### 42.4 引擎端节流保护
+
+引擎中的 `DIRTY_TRAJECTORY` 处理受 `AREX_DECO_REFRESH_MS`（`arex_ui_engine.h`）节流保护：
+
+```c
+// arex_ui_engine.c  arex_ui_update_task()
+if (mask & DIRTY_TRAJECTORY) {
+    uint32_t now = lv_tick_get();
+#if AREX_DECO_REFRESH_MS > 0
+    if (now - _deco_last_refresh_ms >= AREX_DECO_REFRESH_MS) {
+        _deco_last_refresh_ms = now;
+        card_plan_update();  // 图表实际重绘
+    }
+#else
+    card_plan_update();
+#endif
+}
+```
+
+- `AREX_DECO_REFRESH_MS = 1000`（默认）：图表每秒最多重绘 1 次，防止高频刷新 CPU 过载
+- `AREX_DECO_REFRESH_MS = 0`：关闭节流，每次 `DIRTY_TRAJECTORY` 都重绘
+
+**轨迹追加不存在节流问题**——追加频率完全由调用方（硬件 tick）控制，引擎只负责读取 `g_dive_log[]` 数组绘制。
+
+### 42.5 常见错误
+
+**错误 1：在引擎里调用 `arex_dive_log_append`**
+
+引擎不应追加轨迹点，否则与调用方重复，造成数据覆盖。引擎只读 `g_dive_log[]`，不写。
+
+**错误 2：`arex_bus_set_depth` 被注释掉**
+
+图表不会刷新。`DIRTY_TRAJECTORY` 需要 `arex_bus_set_depth` 或 `arex_bus_set_dive_time` 触发。
+
+**错误 3：追加点的深度和调用 `arex_bus_set_depth` 的深度不一致**
+
+导致图表上曲线和 NOW 点位置不匹配。两者应使用同一个深度值。
+
+### 42.6 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-05-05 | `AREX_ARCH.md` | 新增 Section 42，记录轨迹追加正确用法 |
+

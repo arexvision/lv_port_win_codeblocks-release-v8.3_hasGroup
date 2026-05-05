@@ -3,7 +3,7 @@
 #include "arex_ui/arex_screen.h"
 #include "arex_ui/arex_data.h"
 #include "lvgl/lvgl.h"
-#include "arex_hal_sim/arex_input_pc.h"
+#include "UI_main.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -332,17 +332,19 @@ static void sim_tick_cb(lv_timer_t *t)
                 }
                 break;
         }
+        printf("g_sensor_data.dive_time_s: %d\r\n", g_sensor_data.dive_time_s);
+        arex_dive_log_append((float)g_sensor_data.dive_time_s, current_sim_depth);
         arex_bus_set_depth(current_sim_depth);
 
-    //     /* 深度超过 12m 时，推送模拟减压站序列 */
-    //     if (current_sim_depth > 12.0f) {
-    //         arex_deco_stop_t sim_stops[] = {
-    //             { .depth_m = 9.0f, .stay_min = 2.0f },
-    //             { .depth_m = 6.0f, .stay_min = 3.0f },
-    //             { .depth_m = 3.0f, .stay_min = 1.0f },
-    //         };
-    //         arex_bus_set_deco_plan(sim_stops, 3);
-    //     }
+        // /* 深度超过 12m 时，推送模拟减压站序列 */
+        if (current_sim_depth > 12.0f) {
+            arex_deco_stop_t sim_stops[] = {
+                { .depth_m = 9.0f, .stay_min = 2.0f },
+                { .depth_m = 6.0f, .stay_min = 3.0f },
+                { .depth_m = 3.0f, .stay_min = 1.0f },
+            };
+            arex_bus_set_deco_plan(sim_stops, 3);
+        }
     // }
 
     /* 模拟 TTS 递增 */
@@ -361,9 +363,6 @@ static void sim_tick_cb(lv_timer_t *t)
     if (new_ppo2 < 0.21f) new_ppo2 = 0.21f;
     if (new_ppo2 > 1.6f) new_ppo2 = 1.6f;
     arex_bus_set_ppo2(2, new_ppo2);
-
-    /* 推流历史轨迹点到 4F 曲线图 */
-    arex_dive_log_append((float)g_sensor_data.dive_time_s, g_sensor_data.depth);
 
     /* ============================================================
      * 告警模拟测试：每 5 秒切换一次 DEPTH 告警
