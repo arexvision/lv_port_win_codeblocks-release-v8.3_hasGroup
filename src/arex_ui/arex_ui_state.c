@@ -213,6 +213,7 @@ void ui_handle_click(void)
 
         case UI_EDIT_GAS:
             g_ui.state = UI_MODAL_GAS;
+            g_ui.gas_modal_from_submenu = false;  // HOTFIX: Route GAS modal exit based on context.
             arex_screen_show_modal_gas();
             break;
 
@@ -221,12 +222,18 @@ void ui_handle_click(void)
             if (g_sensor_data.depth <= AREX_GAS_MOD_M[ci]) {
                 g_sensor_data.gas_active_idx = ci;
                 arex_screen_hide_modal();
-                g_ui.state = UI_DASH;
                 strncpy(g_sensor_data.gas_name,
                         AREX_GAS_NAMES[ci], 15);
                 g_sensor_data.gas_name[15] = '\0';
                 arex_screen_refresh_gas_menu();
                 arex_screen_refresh_left_panel();
+                // HOTFIX: Route GAS modal exit based on context.
+                if (g_ui.gas_modal_from_submenu) {
+                    g_ui.gas_modal_from_submenu = false;
+                    arex_screen_close_submenu();
+                } else {
+                    g_ui.state = UI_DASH;
+                }
             } else {
                 arex_screen_pulse_modal();
             }
@@ -276,7 +283,13 @@ void ui_handle_back(void)
 
         case UI_MODAL_GAS:
             arex_screen_hide_modal();
-            g_ui.state = UI_EDIT_GAS;
+            // HOTFIX: Route GAS modal exit based on context.
+            if (g_ui.gas_modal_from_submenu) {
+                g_ui.gas_modal_from_submenu = false;
+                arex_screen_close_submenu();
+            } else {
+                g_ui.state = UI_EDIT_GAS;
+            }
             break;
 
         case UI_MODAL_COMPASS:

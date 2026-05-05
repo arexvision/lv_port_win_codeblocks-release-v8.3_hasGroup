@@ -748,10 +748,8 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      *
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h 由 MCU 样式表自动推导
      */
-    /* 兼容新架构: 使用 custom_cards[] 存储多张自定义卡片的配置 */
-    cfg->custom_card_count = 3;
-
-    /* ---- 自定义卡片 [0]: 核心数据 (DEPTH + NDL + CNS + TTS + ...) ---- */
+    /* 兼容新架构: 使用 custom_cards[0] 存储单张卡片的配置 */
+    cfg->custom_card_count = 1;
     cfg->custom_cards[0].widget_count = 12;
     cfg->custom_cards[0].widgets[0]  = (arex_grid_widget_t){ WIDGET_DEPTH_1612,      0, 0 };
     cfg->custom_cards[0].widgets[1]  = (arex_grid_widget_t){ WIDGET_TEMP_0806,      2, 0 };
@@ -765,39 +763,6 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->custom_cards[0].widgets[9]  = (arex_grid_widget_t){ WIDGET_POD_0806,       0, 4 };
     cfg->custom_cards[0].widgets[10] = (arex_grid_widget_t){ WIDGET_POD_0806,       2, 4 };
     cfg->custom_cards[0].widgets[11] = (arex_grid_widget_t){ WIDGET_EMPTY,          4, 4 };  /* 保留空槽 */
-
-    /* ---- 自定义卡片 [1]: 技术潜水数据 (MOD + GF + CEILING + SAC + ...) ----
-     *  5列布局示意（5列=10格，6行）：
-     *  col:  0  1  2  3  4
-     *  row0: [MOD   ] [GF99  ] [CEILING]
-     *  row2: [SURF GF] [空槽  ] [OTU    ]
-     *  row3: [WTIME  ] [SAC   ] [ASCENT ]
-     *  row4: [空槽   ] [空槽  ] [空槽   ]
-     */
-    cfg->custom_cards[1].widget_count = 8;
-    cfg->custom_cards[1].widgets[0]  = (arex_grid_widget_t){ WIDGET_MOD_0806,       0, 0 };
-    cfg->custom_cards[1].widgets[1]  = (arex_grid_widget_t){ WIDGET_GF99_0806,      2, 0 };
-    cfg->custom_cards[1].widgets[2]  = (arex_grid_widget_t){ WIDGET_CEILING_0806,  4, 0 };
-    cfg->custom_cards[1].widgets[3]  = (arex_grid_widget_t){ WIDGET_SURF_GF_0806,  0, 2 };
-    cfg->custom_cards[1].widgets[4]  = (arex_grid_widget_t){ WIDGET_EMPTY,          2, 2 };
-    cfg->custom_cards[1].widgets[5]  = (arex_grid_widget_t){ WIDGET_OTU_0806,      4, 2 };
-    cfg->custom_cards[1].widgets[6]  = (arex_grid_widget_t){ WIDGET_PPO2_0806,    0, 3 };
-    cfg->custom_cards[1].widgets[7]  = (arex_grid_widget_t){ WIDGET_EMPTY,          2, 3 };
-
-    /* ---- 自定义卡片 [2]: 深度/温度数据 (DEPTH_MAX + DEPTH_AVG + TEMP_MIN + ...) ----
-     *  5列布局示意（5列=10格，6行）：
-     *  col:  0       3        4
-     *  row0: [最大深度 ] [水平速率  ] [空   ]
-     *  row2: [平均深度 ] [空        ] [空   ]
-     *  row3: [最低水温 ] [平均水温  ] [空   ]
-     *  row4: [空       ] [空        ] [空   ]
-     */
-    cfg->custom_cards[2].widget_count = 5;
-    cfg->custom_cards[2].widgets[0]  = (arex_grid_widget_t){ WIDGET_DEPTH_MAX_0806, 0, 0 };
-    cfg->custom_cards[2].widgets[1]  = (arex_grid_widget_t){ WIDGET_EMPTY,           3, 0 };
-    cfg->custom_cards[2].widgets[2]  = (arex_grid_widget_t){ WIDGET_DEPTH_AVG_0806, 0, 2 };
-    cfg->custom_cards[2].widgets[3]  = (arex_grid_widget_t){ WIDGET_TEMP_MIN_0806,  0, 3 };
-    cfg->custom_cards[2].widgets[4]  = (arex_grid_widget_t){ WIDGET_TEMP_AVG_0806,  3, 3 };
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
      * 160x420 区域 = 2列(80px) x 7行(60px)，由 arex_render_left_anchor_grid() 渲染
@@ -815,8 +780,9 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->left_widgets[1] = (arex_grid_widget_t){ WIDGET_DEPTH_1612,      0, 1 };
     cfg->left_widgets[2] = (arex_grid_widget_t){ WIDGET_DIVE_TIME_1606,  0, 3 };  /* 潜水时间 */
     cfg->left_widgets[3] = (arex_grid_widget_t){ WIDGET_GAS_1606,        0, 4 };
-    cfg->left_widgets[4] = (arex_grid_widget_t){ WIDGET_EMPTY,         0, 5 };  /* POD1 关闭 */
-    cfg->left_widgets[5] = (arex_grid_widget_t){ WIDGET_EMPTY,         1, 5 };  /* POD2 关闭 */
+    /* HOTFIX: Remove POD1 and POD2 from left anchor */
+    cfg->left_widgets[4] = (arex_grid_widget_t){ WIDGET_EMPTY,           0, 5 };
+    cfg->left_widgets[5] = (arex_grid_widget_t){ WIDGET_EMPTY,           1, 5 };
     cfg->left_widgets[6] = (arex_grid_widget_t){ WIDGET_SYS_1606,        0, 6 };
 
     /* 动态计算实际 widget 数量（以最后一个非零 widget 为准） */
@@ -832,29 +798,24 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * INFO(0) 固定，SETUP(13) 固定，中间 12 张可由 APP 重排
      * 必须初始化所有 14 个位置！
      */
-    /* 未使用的槽位用 0xFF 标记，card_order[INFO] 和 card_order[SETUP] 单独设置 */
-    for (size_t i = 0; i < sizeof(cfg->card_order); i++) {
-        cfg->card_order[i] = CARD_ID_UNUSED;
-    }
-    cfg->card_order[CARD_POS_INFO]   = CARD_ID_INFO; //注意这个叫菜单，不叫卡片，指示器不能在此显示
+    memset(cfg->card_order, CARD_ID_BLANK, sizeof(cfg->card_order));
+    cfg->card_order[CARD_POS_INFO]   = CARD_ID_INFO;
     cfg->card_order[CARD_POS_1]      = CARD_ID_COMPASS;
     cfg->card_order[CARD_POS_2]      = CARD_ID_DECO;
     cfg->card_order[CARD_POS_3]      = CARD_ID_PLAN;
     cfg->card_order[CARD_POS_4]      = CARD_ID_GAS;
-    cfg->card_order[CARD_POS_5]      = CARD_ID_CUSTOM_GRID;  /* 自定义卡片[0] */
-    cfg->card_order[CARD_POS_6]      = CARD_ID_CUSTOM_GRID;  /* 自定义卡片[1] - 技术潜水数据 */
-    cfg->card_order[CARD_POS_7]      = CARD_ID_CUSTOM_GRID;  /* 自定义卡片[2] - 传感器数据 */
-    /* CARD_POS_8 ~ CARD_POS_12 保持 CARD_ID_UNUSED */
-    cfg->card_order[CARD_POS_SETUP]  = CARD_ID_SETUP; //注意这个叫菜单，不叫卡片，指示器不能在此显示
+    cfg->card_order[CARD_POS_5]      = CARD_ID_CUSTOM_GRID;
+    cfg->card_order[CARD_POS_6]      = CARD_ID_BLANK;      /* 空白卡片 */
+    /* CARD_POS_7 ~ CARD_POS_12 保持 CARD_ID_BLANK */
+    cfg->card_order[CARD_POS_SETUP]  = CARD_ID_SETUP;
 
     /* ========== [A] 卡片槽位映射 ==========
      * custom_card_slot[pos] = custom_card_index (0~11)
      * pos 对应 card_order 中的动态槽位置
+     * 默认：第一个 CUSTOM_GRID 卡片映射到 custom_cards[0]
      */
     memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
-    cfg->custom_card_slot[CARD_POS_5] = 0;  /* 自定义卡片[0] - 核心数据 */
-    cfg->custom_card_slot[CARD_POS_6] = 1;  /* 自定义卡片[1] - 技术潜水数据 */
-    cfg->custom_card_slot[CARD_POS_7] = 2;  /* 自定义卡片[2] - 传感器数据 */
+    cfg->custom_card_slot[CARD_POS_5] = 0;  /* CUSTOM_GRID 映射到 custom_cards[0] */
 
     /* ========== [A] 用户设置默认值 ========== */
     cfg->mod_ppo2       = 1.4f;
@@ -1113,7 +1074,7 @@ void arex_ui_init(void)
 
     strcpy(g_sensor_data.gas_name, "AIR");
     /* 2. 传感器数据清零 */
-    memset(&g_sensor_data, 0, sizeof(g_sensor_data));
+    arex_data_init();
 }
 
 /* =========================================================
@@ -1139,7 +1100,7 @@ void arex_ui_apply_config(void)
  * ========================================================= */
 uint8_t g_sys_card_order(uint8_t pos)
 {
-    if (pos >= AREX_CARD_COUNT) return CARD_ID_UNUSED;
+    if (pos >= AREX_CARD_COUNT) return 0;
     return g_sys_config.card_order[pos];
 }
 
@@ -2785,12 +2746,11 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
                             span_w, span_h, (arex_font_id_t)255);
     }
 
-    /* 左侧横线统一由锚点容器绘制，避免各组件各画各的导致不对齐 */
-    arex_add_left_anchor_sep_line(left_anchor, AREX_LEFT_CELL_H);
-    arex_add_left_anchor_sep_line(left_anchor, AREX_LEFT_CELL_H * 3);
-    arex_add_left_anchor_sep_line(left_anchor, AREX_LEFT_CELL_H * 4);
-    arex_add_left_anchor_sep_line(left_anchor, AREX_LEFT_CELL_H * 5);
-    arex_add_left_anchor_sep_line(left_anchor, AREX_LEFT_CELL_H * 6);
+    /* 左侧横线按物理行间隙绘制，独立于 widget 渲染路径 */
+    for (uint8_t row = 1; row < AREX_LEFT_ROWS; row++) {
+        if (row == 2) continue;  /* DEPTH 跨 row 1~2，保留原有无横线视觉 */
+        arex_add_left_anchor_sep_line(left_anchor, (lv_coord_t)(row * cell_h));  // HOTFIX: Ensure separator lines are drawn even for EMPTY widgets.
+    }
 }
 
 /* =========================================================

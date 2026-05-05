@@ -7,6 +7,10 @@ extern "C" {
 
 #include "lvgl/lvgl.h"
 
+/* Wall blocks 需要固定使用 Courier 方块字形（U+25A0），
+ * 因此无论当前主字体家族是什么，都要保证该字体声明可见。 */
+extern const lv_font_t lv_font_courier_28;
+
 /* ========================
  * Font Family Selection
  * ========================

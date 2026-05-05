@@ -15,11 +15,11 @@ void arex_screen_register_info_list(lv_obj_t *list);
  * ========================================================= */
 static const arex_menu_item_cfg_t s_info_items[] = {
     /*  title_text,         badge,  title_font,       val_font,       border, height_u */
-    { "> LAST DIVE",      NULL,   AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "> DIVE PLAN",      NULL,   AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "> TISSUE & TOX",  NULL,   AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "> GAS & CALC",     NULL,   AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "> SENSOR & DEVICE", NULL,  AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "LAST DIVE",      NULL,   AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "DIVE PLAN",      NULL,   AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "TISSUE & TOX",  NULL,   AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "GAS & CALC",     NULL,   AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "SENSOR & DEVICE", NULL,  AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
 };
 #define INFO_ITEM_COUNT (sizeof(s_info_items) / sizeof(s_info_items[0]))
 
@@ -32,7 +32,7 @@ static lv_obj_t *s_list;
 
 void card_info_create(lv_obj_t *parent)
 {
-    arex_render_card_title(parent, "> INFO MENU");
+    arex_render_card_title(parent, "INFO MENU");
 
     int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
                        - ((int)g_sys_config.gap_u * AREX_BASE_U);

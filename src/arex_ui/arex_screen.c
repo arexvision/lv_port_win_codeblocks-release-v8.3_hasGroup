@@ -504,13 +504,12 @@ void arex_screen_rebuild_tileview(void)
     submenu_layer_create();
     modal_create();
     {
-        /* 计算逻辑索引：从 DYNAMIC_FIRST 到当前卡片之间有多少个有效卡片 */
+        uint8_t visible_dash = arex_visible_dash_count();
         uint8_t active_idx = 0;
         if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos()) {
-            for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++) {
-                if (g_sys_card_order(pos) != CARD_ID_UNUSED) {
-                    active_idx++;
-                }
+            active_idx = (uint8_t)(g_ui.dash_card - CARD_POS_DYNAMIC_FIRST);
+            if (active_idx >= visible_dash) {
+                active_idx = visible_dash ? (uint8_t)(visible_dash - 1) : 0;
             }
         }
         arex_screen_update_scroll_dots(active_idx, true);
@@ -695,14 +694,7 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
 
     /* SETUP(最后一页) 不显示 dots，只有 DASH 动态卡片才更新 */
     if (tile_pos >= CARD_POS_DYNAMIC_FIRST && tile_pos < arex_setup_display_pos()) {
-        /* 计算逻辑索引：从 DYNAMIC_FIRST 到 tile_pos 之间有多少个有效卡片 */
-        uint8_t active_idx = 0;
-        for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < tile_pos; pos++) {
-            if (g_sys_card_order(pos) != CARD_ID_UNUSED) {
-                active_idx++;
-            }
-        }
-        arex_screen_update_scroll_dots(active_idx, true);
+        arex_screen_update_scroll_dots(tile_pos - CARD_POS_DYNAMIC_FIRST, true);
     } else {
         arex_screen_update_scroll_dots(0, false);
     }
@@ -1009,10 +1001,13 @@ void arex_screen_set_submenu_selection(uint8_t idx)
         /* 正在编辑的 item 由 begin_edit_value 单独管理，不参与选中态刷新 */
         if (g_ui.edit_ctx.active && (uint8_t)i == g_ui.edit_ctx.item_index) continue;
         if (i == idx) {
+            lv_obj_add_state(item, LV_STATE_FOCUSED);  // HOTFIX: Clear LVGL states to fix bold residue.
             lv_obj_set_style_bg_color(item, AREX_GREEN, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
             if (lbl) lv_obj_set_style_text_color(lbl, AREX_BLACK, 0);
         } else {
+            lv_obj_clear_state(item, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);  // HOTFIX: Clear LVGL states to fix bold residue.
+            if (lbl) lv_obj_clear_state(lbl, LV_STATE_ANY);  // HOTFIX: Clear LVGL states to fix bold residue.
             lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
             if (lbl) lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
@@ -1028,6 +1023,7 @@ static const char *s_info_titles[] = {
 static char s_info_str[5][5][32];
 static const char *s_info_dyn[5][6];
 
+// HOTFIX: Removed soft BACK buttons.
 static void build_info_submenu(uint8_t idx)
 {
     uint8_t n = 0;
@@ -1038,12 +1034,10 @@ static void build_info_submenu(uint8_t idx)
             s_info_dyn[0][n++] = s_info_str[0][0];
             s_info_dyn[0][n++] = s_info_str[0][1];
             s_info_dyn[0][n++] = "SURFACE INT: 2h 10m";
-            s_info_dyn[0][n++] = "< BACK";
             break;
         case 1:
             s_info_dyn[1][n++] = "VIEW PROFILE";
             s_info_dyn[1][n++] = "RECALCULATE";
-            s_info_dyn[1][n++] = "< BACK";
             break;
         case 2:
             snprintf(s_info_str[2][0], 32, "GF: %d/%d", 30, 70);
@@ -1053,13 +1047,11 @@ static void build_info_submenu(uint8_t idx)
             s_info_dyn[2][n++] = s_info_str[2][0];
             s_info_dyn[2][n++] = s_info_str[2][1];
             s_info_dyn[2][n++] = s_info_str[2][2];
-            s_info_dyn[2][n++] = "< BACK";
             break;
         case 3:
             snprintf(s_info_str[3][0], 32, "GAS 1: %s", g_sensor_data.gas_name);
             s_info_dyn[3][n++] = s_info_str[3][0];
             s_info_dyn[3][n++] = "ALGO: ZHL-16C";
-            s_info_dyn[3][n++] = "< BACK";
             break;
         case 4:
             if (g_sensor_data.pod1_bar <= 0.0f)
@@ -1076,10 +1068,8 @@ static void build_info_submenu(uint8_t idx)
             s_info_dyn[4][n++] = s_info_str[4][1];
             s_info_dyn[4][n++] = s_info_str[4][2];
             s_info_dyn[4][n++] = s_info_str[4][3];
-            s_info_dyn[4][n++] = "< BACK";
             break;
         default:
-            s_info_dyn[idx][n++] = "< BACK";
             break;
     }
     s_info_dyn[idx][n] = NULL;
@@ -1100,23 +1090,25 @@ void arex_screen_open_info_submenu(uint8_t item_idx)
 }
 
 /* SETUP sub-menu */
-static const char *s_setup_sub[][7] = {
-    { "SELECT AIR", "SELECT NX 32", "SELECT TX 18/45", "SELECT O2 100%", "< BACK", NULL },
-    { "LOW (GF 40/85)", "MED (GF 30/70)", "HIGH (GF 20/65)", "< BACK", NULL },
-    { "LOW", "MED", "HIGH", "MAX", "< BACK", NULL },
-    { "START CALIBRATION", "< BACK", NULL },
-    { "LIGHT ON/OFF", "RED COLOR >", "GREEN COLOR >", "BLUE COLOR >", "WHITE COLOR >", "< BACK", NULL },
-    { "MODE SETUP >", "DIVE SETUP >", "AI SETUP >", "ALERTS SETUP >", "DISPLAY / SYS >", "< BACK", NULL },
+// Remove 'SELECT ' prefix
+static const char *s_setup_sub[][6] = {
+    { "AIR", "NX 32", "TX 18/45", "O2 100%", NULL },
+    { "LOW (GF 40/85)", "MED (GF 30/70)", "HIGH (GF 20/65)", NULL },
+    { "LOW", "MED", "HIGH", "MAX", NULL },
+    { "START CALIBRATION", NULL },
+    { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
+    { "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY / SYS", NULL },
 };
+
 static const char *s_setup_titles[] = {
-    "> GAS SWITCH", "> CONSERVATISM", "> BRIGHTNESS", "> COMPASS CAL", "> LIGHT CONTROL", "> SYSTEM SETUP"
+    "GAS SWITCH", "CONSERATISM", "BRIGHTNESS", "COMPASS CAL", "LIGHT CONTROL", "SYSTEMS SETUP"
 };
 
 void arex_screen_open_setup_submenu(uint8_t item_idx)
 {
     if (item_idx >= 6) return;
     uint8_t count = 0;
-    while (count < 7 && s_setup_sub[item_idx][count]) count++;
+    while (count < 6 && s_setup_sub[item_idx][count]) count++;
     submenu_populate(s_setup_titles[item_idx], s_setup_sub[item_idx], count);
     g_ui.sub_item_count = count;
     g_ui.sub_menu_idx   = 0;
@@ -1126,13 +1118,13 @@ void arex_screen_open_setup_submenu(uint8_t item_idx)
 }
 
 /* Nested sub-menus */
-static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS NX", "GAUGE", "< BACK", NULL };
-static const char *s_nested_ai_setup[]     = { "PAIR T1", "PAIR T2", "GTR MODE: ON", "< BACK", NULL };
-static const char *s_nested_alerts_setup[] = { "DEPTH ALARM: 40m", "TIME ALARM: 60m", "LOW NDL: 5m", "TEST VIBRATION", "< BACK", NULL };
-static const char *s_nested_display_sys[]  = { "UNITS: METRIC", "DATE & CLOCK", "LOG RATE: 10s", "BLUETOOTH: OFF", "RESET DEFAULTS", "< BACK", NULL };
+static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS NX", "GAUGE", NULL };
+static const char *s_nested_ai_setup[]     = { "PAIR T1", "PAIR T2", "GTR MODE: ON", NULL };
+static const char *s_nested_alerts_setup[] = { "DEPTH ALARM: 40m", "TIME ALARM: 60m", "LOW NDL: 5m", "TEST VIBRATION", NULL };
+static const char *s_nested_display_sys[]  = { "UNITS: METRIC", "DATE & CLOCK", "LOG RATE: 10s", "BLUETOOTH: OFF", "RESET DEFAULTS", NULL };
 
 static char s_modppo2_str[20];
-static const char *s_nested_dive_setup[6];
+static const char *s_nested_dive_setup[5];
 
 static void build_nested_dive_setup(void)
 {
@@ -1143,14 +1135,13 @@ static void build_nested_dive_setup(void)
     s_nested_dive_setup[1] = s_modppo2_str;
     s_nested_dive_setup[2] = "SAFETY STOP: 3 MIN";
     s_nested_dive_setup[3] = "ALTITUDE: AUTO";
-    s_nested_dive_setup[4] = "< BACK";
-    s_nested_dive_setup[5] = NULL;
+    s_nested_dive_setup[4] = NULL;
 }
 
-static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", "< BACK", NULL };
-static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", "< BACK", NULL };
-static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", "< BACK", NULL };
-static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", "< BACK", NULL };
+static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", NULL };
+static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
+static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
+static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
 
 static const char **nested_items_for(const char *title, uint8_t *out_count)
 {
@@ -1215,6 +1206,14 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
+    // HOTFIX: Block action for Info items.
+    if (strcmp(cur_title, "LAST DIVE") == 0 ||
+        strcmp(cur_title, "TISSUE & TOX") == 0 ||
+        strcmp(cur_title, "GAS & CALC") == 0 ||
+        strcmp(cur_title, "SENSOR & DEVICE") == 0) {
+        return;
+    }
+
     /* LIGHT CONTROL 颜色选项处理（必须在通用 > 处理之前） */
     if (strcmp(cur_title, "LIGHT CONTROL") == 0 && strstr(text, "COLOR >") != NULL) {
         /* 从 "RED COLOR >" 提取颜色名 */
@@ -1238,7 +1237,8 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         extern void arex_bus_set_light_power(bool on);
         g_light_power_state = !g_light_power_state;
         arex_bus_set_light_power(g_light_power_state);
-        arex_screen_show_modal_act(g_light_power_state ? "LIGHT: ON" : "LIGHT: OFF");
+        // HOTFIX: Silent toggle and back.
+        // arex_screen_close_submenu();
         return;
     }
 
@@ -1265,12 +1265,11 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         extern const char *AREX_GAS_NAMES[4];
         for (uint8_t i = 0; i < 4; i++) {
             if (strcmp(AREX_GAS_NAMES[i], gas_name) == 0) {
-                g_sensor_data.gas_active_idx = i;
-                strncpy(g_sensor_data.gas_name, gas_name, 15);
-                g_sensor_data.gas_name[15] = '\0';
-                arex_screen_refresh_gas_menu();
-                arex_screen_refresh_left_panel();
-                arex_screen_close_submenu();
+                // HOTFIX: Route gas switch to safety modal.
+                g_ui.gas_cursor = i;
+                g_ui.gas_modal_from_submenu = true;  // HOTFIX: Route GAS modal exit based on context.
+                arex_screen_show_modal_gas();
+                g_ui.state = UI_MODAL_GAS;
                 return;
             }
         }

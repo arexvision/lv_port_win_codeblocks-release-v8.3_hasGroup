@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#define PC_SIMULATOR  //移植硬件后需要注释
+
 /**
  * @file UI_main.h
  * @brief AREX UI entry point & simulation HAL

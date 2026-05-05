@@ -13,12 +13,12 @@ void arex_screen_register_setup_list(lv_obj_t *list);
  * ========================================================= */
 static const arex_menu_item_cfg_t s_setup_items[] = {
     /*  title_text,          badge,       title_font,       val_font,       border, height_u */
-    { "> GAS SWITCH",    NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "> CONSERVATISM",  "MED",        AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "> BRIGHTNESS",    "HIGH",       AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "> COMPASS CAL",   NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "> LIGHT CONTROL", NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "> SYSTEM SETUP",  NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "GAS SWITCH",    NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "CONSERVATISM",  "MED",        AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "BRIGHTNESS",    "HIGH",       AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "COMPASS CAL",   NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "LIGHT CONTROL", NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "SYSTEM SETUP",  NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
 };
 #define SETUP_ITEM_COUNT (sizeof(s_setup_items) / sizeof(s_setup_items[0]))
 
@@ -35,7 +35,7 @@ static lv_obj_t *s_setup_badge_lbls[SETUP_ITEM_COUNT];
 
 void card_setup_create(lv_obj_t *parent)
 {
-    arex_render_card_title(parent, "> DIVE SETUP");
+    arex_render_card_title(parent, "DIVE SETUP");
 
     int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
                        - ((int)g_sys_config.gap_u * AREX_BASE_U);

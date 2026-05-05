@@ -31,6 +31,11 @@ static uint32_t _depth_sample_count = 0;  /* 深度采样次数 */
 static float    _temp_sum = 0.0f;        /* 温度累计和 */
 static uint32_t _temp_sample_count = 0;  /* 温度采样次数 */
 
+void arex_data_init(void)
+{
+    memset(&g_sensor_data, 0, sizeof(g_sensor_data));  // HOTFIX: Explicitly zero out sensor data.
+}
+
 void arex_bus_set_depth(float depth_m)
 {
     /* 实时计算速率：m/min = (delta_depth_m / delta_time_s) * 60
@@ -247,9 +252,7 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 #endif
 
     /* 1. 兼容旧协议：旧 payload 只有 8 个 card_order 槽位，不能按新运行时数组长度整块 memcpy */
-    for (size_t i = 0; i < sizeof(g_sys_config.card_order); i++) {
-        g_sys_config.card_order[i] = CARD_ID_UNUSED;
-    }
+    memset(g_sys_config.card_order, CARD_ID_BLANK, sizeof(g_sys_config.card_order));
     g_sys_config.card_order[CARD_POS_INFO] = CARD_ID_INFO;
     g_sys_config.card_order[CARD_POS_SETUP] = CARD_ID_SETUP;
     for (int i = 0; i < 8 && (CARD_POS_DYNAMIC_FIRST + i) < CARD_POS_SETUP; i++) {
@@ -398,7 +401,9 @@ void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
  *   2. 一次临界区保护，减少中断关闭时间
  *   3. 合并 DIRTY_NDL | DIRTY_NDL_STOP 脏标记
  * ========================================================= */
-void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,float depth_m, uint16_t time_s)
+void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
+                          float depth_m, uint16_t total_time_s,
+                          uint16_t time_s, bool in_stop_zone)
 {
     /* 计算合并脏标记：停留相关才打 DIRTY_NDL_STOP */
     uint32_t new_dirty = DIRTY_NDL;  /* NDL 始终需要检查 */
@@ -407,7 +412,9 @@ void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,float dept
     bool ndl_changed  = (g_sensor_data.ndl != ndl_min);
     bool stop_changed = (g_sensor_data.stop_type != stop_type ||
                          g_sensor_data.stop_depth_m != depth_m ||
-                         g_sensor_data.stop_time_left_s != time_s);
+                         g_sensor_data.stop_time_total_s != total_time_s ||
+                         g_sensor_data.stop_time_left_s != time_s ||
+                         g_sensor_data.in_stop_zone != in_stop_zone);
 
     if (!ndl_changed && !stop_changed) {
         return;  /* 无变化，快速返回 */
@@ -423,7 +430,9 @@ void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,float dept
     if (stop_changed) {
         g_sensor_data.stop_type = stop_type;
         g_sensor_data.stop_depth_m = depth_m;
+        g_sensor_data.stop_time_total_s = total_time_s;
         g_sensor_data.stop_time_left_s = time_s;
+        g_sensor_data.in_stop_zone = in_stop_zone;
         new_dirty |= DIRTY_NDL_STOP;  /* 停留数据变化才打此标记 */
     }
 

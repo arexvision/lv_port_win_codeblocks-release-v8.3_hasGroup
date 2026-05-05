@@ -1,13 +1,13 @@
 #ifndef AREX_DATA_H
 #define AREX_DATA_H
 
+#include "UI_Main.h"
 /* =========================================================
  * 平台兼容层 — 必须在所有 include 之前
  *
  * 真机 (RT-Thread): 使用 rt_hw_interrupt_disable/enable 临界区
  * PC 仿真器:        替换为空操作，防止编译报错
  * ========================================================= */
-#define PC_SIMULATOR  //移植硬件后需要注释
 #ifdef PC_SIMULATOR
     typedef int rt_base_t;
     #define rt_hw_interrupt_disable()   ((rt_base_t)0)
@@ -84,6 +84,8 @@ typedef struct {
  * Data Bus Setter 接口
  * ========================================================= */
 
+void arex_data_init(void);
+
 /* --- 传感器数据写入接口 --- */
 void arex_bus_set_depth(float depth_m);               /* 防抖阈值 0.05m */
 void arex_bus_set_tts(uint16_t tts_min);
@@ -129,7 +131,9 @@ void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y);
  * @param depth_m        停留深度（米，0=不在停留）
  * @param time_s         停留剩余时间（秒），UI 直接显示倒计时
  * ========================================================= */
-void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,float depth_m, uint16_t time_s);
+void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
+                          float depth_m, uint16_t total_time_s,
+                          uint16_t time_s, bool in_stop_zone);
 
 /* --- NDL 独立接口（快速轮询，仅更新 NDL 数值） --- */
 /* 注意：优先使用 arex_bus_update_deco() 一次性更新所有减压数据 */

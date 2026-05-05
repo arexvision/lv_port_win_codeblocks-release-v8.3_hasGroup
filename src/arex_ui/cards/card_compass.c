@@ -175,7 +175,7 @@ lv_obj_t *s_heading_hint_lbl = NULL;   /* 顶部操作提示 */
 void render_compass_custom(lv_obj_t *parent_card)
 {
     /* 1. 统一标题 */
-    arex_render_card_title(parent_card, "1F: NAV COMPASS");
+    arex_render_card_title(parent_card, "NAV COMPASS");
 
     /* 计算右侧区域宽度 */
     int right_canvas_w = (int)g_sys_config.safe_zone_w - (int)AREX_LEFT_ANCHOR_W

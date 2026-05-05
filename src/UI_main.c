@@ -197,7 +197,7 @@ static void arex_test_set_ui_offset(void)
 static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
-
+// arex_bus_toggle_layout_order();
     // /* 布局切换测试：每秒切换一次布局（phase: 0→1→0 循环，DEPTH 2x1 ↔ 2x2） */
     // static uint16_t s_layout_tick = 0;
     // static bool s_started = false;
@@ -244,60 +244,59 @@ static void sim_tick_cb(lv_timer_t *t)
      * 纯净版完美模拟剧本：常态下潜 -> 安全停留 -> 强制减压
      * 保证你在 90 秒内看完所有最完美的形态转换与动画！
      * ============================================================ */
-    {
-        static uint32_t s_sim_ticks = 0;
-        s_sim_ticks++;
+    // {
+    //     static uint32_t s_sim_ticks = 0;
+    //     s_sim_ticks++;
 
-        float current_sim_depth = 0.0f;
+    //     float current_sim_depth = 0.0f;
 
-        if (s_sim_ticks < 5) {
-            /* 阶段 1：平滑下潜 (0~30秒) 5m 缓缓沉入 18.5m */
-            current_sim_depth = 5.0f + (s_sim_ticks * 0.45f);
+    //     if (s_sim_ticks < 5) {
+    //         /* 阶段 1：平滑下潜 (0~30秒) 5m 缓缓沉入 18.5m */
+    //         current_sim_depth = 5.0f + (s_sim_ticks * 0.45f);
 
-            /* 常态 NDL 模式：使用综合接口一次性更新 */
-            arex_bus_update_deco(
-                45,              /* ndl_min: NDL 充足 */
-                AREX_STOP_NONE,   /* stop_type: 无停留 */
-                0.0f,            /* depth_m: 无停留深度 */
-                0                /* time_s: 无停留时间 */
-            );
-        }
-        else if (s_sim_ticks < 10) {
-            /* 阶段 2：快速上升到 5m，触发安全停留 (30~60秒) */
-            current_sim_depth = 4.8f;
-            uint16_t elapsed_s = (s_sim_ticks - 30) * 6;
-            uint16_t left_s = (elapsed_s > 180) ? 0 : (180 - elapsed_s);
+    //         /* 常态 NDL 模式：使用综合接口一次性更新 */
+    //         arex_bus_update_deco(
+    //             45,              /* ndl_min: NDL 充足 */
+    //             AREX_STOP_NONE,   /* stop_type: 无停留 */
+    //             0.0f,            /* depth_m: 无停留深度 */
+    //             0                /* time_s: 无停留时间 */
+    //         );
+    //     }
+    //     else if (s_sim_ticks < 10) {
+    //         /* 阶段 2：快速上升到 5m，触发安全停留 (30~60秒) */
+    //         current_sim_depth = 4.8f;
+    //         uint16_t elapsed_s = (s_sim_ticks - 30) * 6;
+    //         uint16_t left_s = (elapsed_s > 180) ? 0 : (180 - elapsed_s);
 
-            /* 安全停留模式：使用综合接口一次性更新 */
-            arex_bus_update_deco(
-                45,                 /* ndl_min: NDL 充足 */
-                AREX_STOP_SAFETY,    /* stop_type: 安全停留 */
-                5.0f,               /* depth_m: 3m 停留深度 */
-                180               /* time_s: 剩余秒数 */
-            );
-        }
-        else if (s_sim_ticks < 15) {
-            /* 阶段 3：突发状况，下沉到 6.2m，NDL 耗尽触发强制减压 (60~90秒) */
-            current_sim_depth = 6.2f;
-            uint16_t elapsed_s = (s_sim_ticks - 60) * 10;
-            uint16_t left_s = (elapsed_s > 300) ? 0 : (300 - elapsed_s);
+    //         /* 安全停留模式：使用综合接口一次性更新 */
+    //         arex_bus_update_deco(
+    //             45,                 /* ndl_min: NDL 充足 */
+    //             AREX_STOP_SAFETY,    /* stop_type: 安全停留 */
+    //             5.0f,               /* depth_m: 3m 停留深度 */
+    //             180               /* time_s: 剩余秒数 */
+    //         );
+    //     }
+    //     else if (s_sim_ticks < 15) {
+    //         /* 阶段 3：突发状况，下沉到 6.2m，NDL 耗尽触发强制减压 (60~90秒) */
+    //         current_sim_depth = 6.2f;
+    //         uint16_t elapsed_s = (s_sim_ticks - 60) * 10;
+    //         uint16_t left_s = (elapsed_s > 300) ? 0 : (300 - elapsed_s);
 
-            /* 减压停留模式：使用综合接口一次性更新 */
-            arex_bus_update_deco(
-                0,                    /* ndl_min: NDL 归零，进入减压区 */
-                AREX_STOP_DECO,       /* stop_type: 减压停留 */
-                6.0f,               /* depth_m: 6m 停留深度 */
-                50                /* time_s: 剩余秒数 */
-            );
-        }
-        else {
-            /* 循环重置 */
-            s_sim_ticks = 0;
-            current_sim_depth = 5.0f;
-        }
-    }
+    //         /* 减压停留模式：使用综合接口一次性更新 */
+    //         arex_bus_update_deco(
+    //             0,                    /* ndl_min: NDL 归零，进入减压区 */
+    //             AREX_STOP_DECO,       /* stop_type: 减压停留 */
+    //             6.0f,               /* depth_m: 6m 停留深度 */
+    //             50                /* time_s: 剩余秒数 */
+    //         );
+    //     }
+    //     else {
+    //         /* 循环重置 */
+    //         s_sim_ticks = 0;
+    //         current_sim_depth = 5.0f;
+    //     }
 
-        // /* 剧本：下降 → 停留5秒 → 上升 → 循环 */
+        /* 剧本：下降 → 停留5秒 → 上升 → 循环 */
         static uint16_t i = 0;
         static uint8_t phase = 0;  /* 0=下降, 1=停留, 2=上升 */
         static float current_sim_depth = 0.0f;
@@ -363,9 +362,6 @@ static void sim_tick_cb(lv_timer_t *t)
     if (new_ppo2 > 1.6f) new_ppo2 = 1.6f;
     arex_bus_set_ppo2(2, new_ppo2);
 
-    /* 推流历史轨迹点到 4F 曲线图 */
-    arex_dive_log_append((float)g_sensor_data.dive_time_s, g_sensor_data.depth);
-
     /* ============================================================
      * 告警模拟测试：每 5 秒切换一次 DEPTH 告警
      * 验证左侧锚点 DEPTH 组件是否能同步闪烁
@@ -426,6 +422,6 @@ void UI_main(void)
     /* 7. 启动 UI 消费任务定时器：50ms 周期（20 FPS） */
     s_update_task_timer = lv_timer_create(arex_ui_update_task, 50, NULL);
 
-    /* 8. 启动模拟数据定时器：1Hz */
+    // /* 8. 启动模拟数据定时器：1Hz */
     lv_timer_create(sim_tick_cb, 1000, NULL);
 }

@@ -140,7 +140,7 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 
 void card_deco_create(lv_obj_t *parent)
 {
-    arex_render_card_title(parent, "2F: TISSUES & DECO");
+    arex_render_card_title(parent, "TISSUES & DECO");
 
     int right_canvas_w = (int)g_sys_config.safe_zone_w - 160 - (int)(g_sys_config.gap_u * 10);
 
@@ -247,17 +247,8 @@ void card_deco_update(void)
 
     tissue_flash_ensure();
 
-    /* 🚨 核心修复 3: 智能 Mock 数据注入，防止定时器把你全是0的真实数据刷回 2px！ */
-    bool has_real_data = false;
     for (int i = 0; i < 16; i++) {
-        if (g_sensor_data.tissue_pct[i] > 0) { has_real_data = true; break; }
-    }
-    
-    // 如果硬件还没传数据，就用这个漂亮的数据模拟一下视觉效果
-    const uint8_t mock_pct[16] = {95, 88, 80, 75, 65, 55, 45, 35, 25, 18, 12, 8, 5, 3, 1, 0};
-
-    for (int i = 0; i < 16; i++) {
-        uint8_t pct = has_real_data ? g_sensor_data.tissue_pct[i] : mock_pct[i];
+        uint8_t pct = g_sensor_data.tissue_pct[i];  // HOTFIX: Removed mock tissue data.
         
         lv_obj_t *bar_fill = lv_obj_get_child(s_bars[i], 0);
         if (bar_fill) {

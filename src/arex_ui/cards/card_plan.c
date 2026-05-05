@@ -389,7 +389,7 @@ static lv_obj_t *s_chart_obj;
 
 void card_plan_create(lv_obj_t *parent)
 {
-    arex_render_card_title(parent, "4F: DIVE PLAN TRACK");
+    arex_render_card_title(parent, "DIVE PLAN TRACK");
 
     init_test_data();
 

@@ -45,6 +45,7 @@ typedef struct {
     uint8_t  menu_setup_idx;
     uint8_t  sub_menu_idx;
     uint8_t  gas_cursor;
+    bool     gas_modal_from_submenu;  // HOTFIX: Route GAS modal exit based on context.
 
     /* Wall-charge: consecutive scroll presses at boundary */
     uint8_t  wall_charge;       /* 0~3; reach 3 → cross boundary */

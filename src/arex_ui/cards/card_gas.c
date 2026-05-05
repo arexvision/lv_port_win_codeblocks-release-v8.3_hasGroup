@@ -18,7 +18,7 @@ void card_gas_update(void); /* forward declaration */
 
 void card_gas_create(lv_obj_t *parent)
 {
-    arex_render_card_title(parent, "3F: GAS SWITCH");
+    arex_render_card_title(parent, "GAS SWITCH");
 
     int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
                        - ((int)g_sys_config.gap_u * AREX_BASE_U);
@@ -83,6 +83,7 @@ void card_gas_create(lv_obj_t *parent)
 
 void card_gas_update(void)
 {
+    return;
     for (int i = 0; i < AREX_GAS_COUNT; i++) {
         bool is_active  = (g_sensor_data.gas_active_idx == (uint8_t)i);
         bool is_cursor  = (g_ui.state == UI_EDIT_GAS && g_ui.gas_cursor == (uint8_t)i);

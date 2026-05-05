@@ -98,18 +98,20 @@ static arex_card_t g_cards[AREX_CARD_ID_COUNT] = {
 
 uint8_t arex_visible_dash_count(void)
 {
-    /* 统计有效卡片数量（排除 INFO/SETUP 菜单，以及未使用的槽位） */
-    uint8_t count = 0;
+    int8_t last_nonblank = -1;
 
     for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; ++pos) {
         uint8_t id = g_sys_card_order(pos);
-        /* 有效卡片：不是 UNUSED（0xFF），也不是 INFO/SETUP（虽然它们不在这个范围内） */
-        if (id != CARD_ID_UNUSED) {
-            count++;
+        if (id != CARD_ID_BLANK) {
+            last_nonblank = (int8_t)pos;
         }
     }
 
-    return (count > 0) ? count : 1;
+    if (last_nonblank < (int8_t)CARD_POS_DYNAMIC_FIRST) {
+        return 1;
+    }
+
+    return (uint8_t)(last_nonblank - CARD_POS_DYNAMIC_FIRST + 1);
 }
 
 uint8_t arex_setup_display_pos(void)
@@ -143,7 +145,7 @@ uint8_t arex_card_id_at(uint8_t display_pos)
 {
     uint8_t storage_pos = arex_card_storage_pos(display_pos);
     if (storage_pos == 0xFF) {
-        return CARD_ID_UNUSED;
+        return CARD_ID_BLANK;
     }
     return g_sys_card_order(storage_pos);
 }

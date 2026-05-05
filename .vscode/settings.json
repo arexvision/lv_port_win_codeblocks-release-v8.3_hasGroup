@@ -60,6 +60,7 @@
         "math.h": "c",
         "win32drv.h": "c",
         "arex_screen.h": "c",
-        "arex_input_pc.h": "c"
+        "arex_input_pc.h": "c",
+        "ui_main.h": "c"
     }
 }
