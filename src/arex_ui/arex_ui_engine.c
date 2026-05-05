@@ -42,6 +42,8 @@ static uint32_t s_alarm_start_tick = 0;
 static bool s_alarm_active = false;
 /* 用户已确认清除，等待满足最短显示时间后自动消失 */
 static bool s_alarm_clear_armed = false;
+/* 保存清除前的目标 ID，用于恢复时精确定位 */
+static arex_widget_id_t s_last_alarm_target = WIDGET_EMPTY;
 
 /* ============================================================
  * 罗盘卡片静态句柄（由 card_compass.c 持有）
@@ -2207,6 +2209,9 @@ void arex_clear_all_alarm_styles(void)
         return;  /* 未达到最短显示期，不清除 */
     }
 
+    /* 保存清除前的目标 ID（用于恢复时精确定位，避免误伤分割线等非告警元素） */
+    s_last_alarm_target = g_current_alarm_target;
+
     if (s_alarm_banner) {
         lv_obj_add_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);  /* 藏起横幅 */
     }
@@ -2361,28 +2366,47 @@ void arex_ui_update_task(lv_timer_t *timer)
                 }
             }
         } else if (s_last_alarm_flash) {
-            /* 如果报警被清除了，但刚才还在亮着，需要强行复原一次透明色 */
+            /* 如果报警被清除了，但刚才还在亮着，需要精确复原目标控件 */
             s_last_alarm_flash = false;
 
-            /* 复原所有可能闪烁过的组件 */
-            uint8_t max_count = (g_card_custom_obj_count < AREX_MAX_CUSTOM_CARDS)
-                ? g_card_custom_obj_count : AREX_MAX_CUSTOM_CARDS;
-            for (int c = 0; c <= max_count; c++) {
-                lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
-                if (!container) continue;
+            /* 横幅也一起复原 */
+            if (s_alarm_banner && s_alarm_banner_lbl) {
+                lv_obj_set_style_bg_color(s_alarm_banner, AREX_BLACK, 0);
+                lv_obj_set_style_text_color(s_alarm_banner_lbl, AREX_GREEN, 0);
+            }
 
-                for (int i = 0; i < lv_obj_get_child_cnt(container); i++) {
-                    lv_obj_t *child = lv_obj_get_child(container, i);
-                    lv_obj_set_style_bg_color(child, AREX_BLACK, 0);
-                    lv_obj_set_style_bg_opa(child, LV_OPA_TRANSP, 0);
-                    for (int j = 0; j < lv_obj_get_child_cnt(child); j++) {
-                        lv_obj_t *lbl = lv_obj_get_child(child, j);
-                        if (lv_obj_check_type(lbl, &lv_label_class)) {
-                            lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+            /* 只恢复 s_last_alarm_target 指定的目标控件（避免误伤分割线等非告警元素） */
+            if (s_last_alarm_target != WIDGET_EMPTY) {
+                /* 扫描所有容器，精确恢复目标控件的样式 */
+                lv_obj_t *targets[3];
+                uint8_t target_count = 0;
+                if (g_left_anchor_obj) targets[target_count++] = g_left_anchor_obj;
+                for (int c = 0; c < g_card_custom_obj_count && c < AREX_MAX_CUSTOM_CARDS; c++) {
+                    if (g_card_custom_objs[c]) targets[target_count++] = g_card_custom_objs[c];
+                }
+
+                for (int tc = 0; tc < target_count; tc++) {
+                    lv_obj_t *container = targets[tc];
+                    for (int i = 0; i < lv_obj_get_child_cnt(container); i++) {
+                        lv_obj_t *child = lv_obj_get_child(container, i);
+                        /* 精确匹配目标 ID */
+                        if ((uintptr_t)lv_obj_get_user_data(child) == s_last_alarm_target) {
+                            /* 恢复目标控件：背景透明 + 文字绿色 */
+                            lv_obj_set_style_bg_color(child, AREX_BLACK, 0);
+                            lv_obj_set_style_bg_opa(child, LV_OPA_TRANSP, 0);
+                            /* 让里面的文字也恢复绿色 */
+                            for (int j = 0; j < lv_obj_get_child_cnt(child); j++) {
+                                lv_obj_t *lbl = lv_obj_get_child(child, j);
+                                if (lv_obj_check_type(lbl, &lv_label_class)) {
+                                    lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+                                }
+                            }
+                            break;  /* 找到目标就退出，无需继续遍历 */
                         }
                     }
                 }
             }
+            s_last_alarm_target = WIDGET_EMPTY;  /* 清除备份 */
         }
     }
 

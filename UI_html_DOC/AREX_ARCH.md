@@ -4457,3 +4457,127 @@ if (mask & DIRTY_TRAJECTORY) {
 |------|------|------|
 | 2026-05-05 | `AREX_ARCH.md` | 新增 Section 42，记录轨迹追加正确用法 |
 
+---
+
+## 43. 告警恢复逻辑修复：上下文保存与精确恢复 (v2026-05-05)
+
+### 43.1 问题描述
+
+**根源问题**：代码在执行 `arex_clear_all_alarm_styles()` 时，已将 `g_current_alarm_target` 设为 `WIDGET_EMPTY`（即 0），导致恢复分支执行时，丢失了"当初到底是哪个控件在闪烁"的上下文信息。
+
+**粗暴处理逻辑**：为省事，采用了"宁可错杀一千，绝不放过一个"的策略，无差别遍历左侧锚点容器里的所有子对象，将它们的背景色设为黑色、背景透明度设为完全透明。
+
+**直接后果**：界面中的分割横线本质是带有背景色和高度的 `lv_obj`，在被透明化处理后，就从屏幕上消失了。
+
+**核心问题总结**：
+- 上下文丢失：`g_current_alarm_target` 被提前清空，无法定位需要恢复的目标控件
+- 操作无差别：恢复逻辑没有针对性，对容器内所有子控件执行了背景透明化
+- 副作用明显：误将非告警闪烁的界面元素（如分割线）也透明化，导致界面异常
+
+### 43.2 修复方案
+
+**核心思想**：在清除告警时保存目标 ID 的副本，恢复时只恢复目标控件的样式。
+
+**第一步：添加静态变量保存清除前的目标 ID**
+
+```c
+// arex_ui_engine.c 顶部
+/* 告警活跃标记：触发告警后持续闪烁，直到速度降到安全范围 */
+static bool s_alarm_active = false;
+/* 用户已确认清除，等待满足最短显示时间后自动消失 */
+static bool s_alarm_clear_armed = false;
+/* 保存清除前的目标 ID，用于恢复时精确定位 */
+static arex_widget_id_t s_last_alarm_target = WIDGET_EMPTY;
+```
+
+**第二步：在 `arex_clear_all_alarm_styles()` 中保存目标 ID**
+
+```c
+void arex_clear_all_alarm_styles(void)
+{
+    /* 检查是否满足最小显示时间 */
+    uint32_t elapsed = lv_tick_elaps(s_alarm_start_tick);
+    if (elapsed < ALARM_MIN_DISPLAY_MS) {
+        return;  /* 未达到最短显示期，不清除 */
+    }
+
+    /* 保存清除前的目标 ID（用于恢复时精确定位，避免误伤分割线等非告警元素） */
+    s_last_alarm_target = g_current_alarm_target;
+
+    if (s_alarm_banner) {
+        lv_obj_add_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);  /* 藏起横幅 */
+    }
+
+    g_current_alarm_target = WIDGET_EMPTY;  /* 清除靶心 */
+    g_current_alarm_level = 0;
+    s_alarm_active = false;
+    s_alarm_clear_armed = false;
+}
+```
+
+**第三步：修复恢复逻辑，精确恢复目标控件**
+
+```c
+} else if (s_last_alarm_flash) {
+    /* 如果报警被清除了，但刚才还在亮着，需要精确复原目标控件 */
+    s_last_alarm_flash = false;
+
+    /* 横幅也一起复原 */
+    if (s_alarm_banner && s_alarm_banner_lbl) {
+        lv_obj_set_style_bg_color(s_alarm_banner, AREX_BLACK, 0);
+        lv_obj_set_style_text_color(s_alarm_banner_lbl, AREX_GREEN, 0);
+    }
+
+    /* 只恢复 s_last_alarm_target 指定的目标控件（避免误伤分割线等非告警元素） */
+    if (s_last_alarm_target != WIDGET_EMPTY) {
+        /* 扫描所有容器，精确恢复目标控件的样式 */
+        lv_obj_t *targets[3];
+        uint8_t target_count = 0;
+        if (g_left_anchor_obj) targets[target_count++] = g_left_anchor_obj;
+        for (int c = 0; c < g_card_custom_obj_count && c < AREX_MAX_CUSTOM_CARDS; c++) {
+            if (g_card_custom_objs[c]) targets[target_count++] = g_card_custom_objs[c];
+        }
+
+        for (int tc = 0; tc < target_count; tc++) {
+            lv_obj_t *container = targets[tc];
+            for (int i = 0; i < lv_obj_get_child_cnt(container); i++) {
+                lv_obj_t *child = lv_obj_get_child(container, i);
+                /* 精确匹配目标 ID */
+                if ((uintptr_t)lv_obj_get_user_data(child) == s_last_alarm_target) {
+                    /* 恢复目标控件：背景透明 + 文字绿色 */
+                    lv_obj_set_style_bg_color(child, AREX_BLACK, 0);
+                    lv_obj_set_style_bg_opa(child, LV_OPA_TRANSP, 0);
+                    /* 让里面的文字也恢复绿色 */
+                    for (int j = 0; j < lv_obj_get_child_cnt(child); j++) {
+                        lv_obj_t *lbl = lv_obj_get_child(child, j);
+                        if (lv_obj_check_type(lbl, &lv_label_class)) {
+                            lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+                        }
+                    }
+                    break;  /* 找到目标就退出，无需继续遍历 */
+                }
+            }
+        }
+    }
+    s_last_alarm_target = WIDGET_EMPTY;  /* 清除备份 */
+}
+```
+
+### 43.3 修复效果
+
+| 对比项 | 修复前 | 修复后 |
+|--------|--------|--------|
+| 上下文保存 | `g_current_alarm_target` 被立即清空 | `s_last_alarm_target` 保存清除前的值 |
+| 恢复范围 | 所有子控件（误伤分割线） | 只恢复目标控件 |
+| 分割线 | 消失 ❌ | 正常显示 ✅ |
+| 告警控件 | 可能残留样式 | 精确恢复 ✅ |
+
+### 43.4 变更文件清单
+
+| 日期 | 文件 | 变更 |
+|------|------|------|
+| 2026-05-05 | `arex_ui_engine.c` | 新增 `s_last_alarm_target` 静态变量保存清除前的目标 ID |
+| 2026-05-05 | `arex_ui_engine.c` | `arex_clear_all_alarm_styles()` 中先保存 `s_last_alarm_target` 再清空 |
+| 2026-05-05 | `arex_ui_engine.c` | 恢复逻辑改用 `s_last_alarm_target` 精确匹配，避免误伤分割线 |
+| 2026-05-05 | `AREX_ARCH.md` | 新增 Section 43，记录本次告警恢复逻辑修复 |
+
