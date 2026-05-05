@@ -799,7 +799,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
      * 必须初始化所有 14 个位置！
      */
     memset(cfg->card_order, CARD_ID_BLANK, sizeof(cfg->card_order));
-    cfg->card_order[CARD_POS_INFO]   = CARD_ID_INFO;
+    cfg->card_order[CARD_POS_INFO]   = CARD_ID_INFO;//菜单，不算卡片
     cfg->card_order[CARD_POS_1]      = CARD_ID_COMPASS;
     cfg->card_order[CARD_POS_2]      = CARD_ID_DECO;
     cfg->card_order[CARD_POS_3]      = CARD_ID_PLAN;
@@ -807,7 +807,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->card_order[CARD_POS_5]      = CARD_ID_CUSTOM_GRID;
     cfg->card_order[CARD_POS_6]      = CARD_ID_BLANK;      /* 空白卡片 */
     /* CARD_POS_7 ~ CARD_POS_12 保持 CARD_ID_BLANK */
-    cfg->card_order[CARD_POS_SETUP]  = CARD_ID_SETUP;
+    cfg->card_order[CARD_POS_SETUP]  = CARD_ID_SETUP;//菜单，不算卡片
 
     /* ========== [A] 卡片槽位映射 ==========
      * custom_card_slot[pos] = custom_card_index (0~11)

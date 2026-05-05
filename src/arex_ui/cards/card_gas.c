@@ -83,7 +83,6 @@ void card_gas_create(lv_obj_t *parent)
 
 void card_gas_update(void)
 {
-    return;
     for (int i = 0; i < AREX_GAS_COUNT; i++) {
         bool is_active  = (g_sensor_data.gas_active_idx == (uint8_t)i);
         bool is_cursor  = (g_ui.state == UI_EDIT_GAS && g_ui.gas_cursor == (uint8_t)i);

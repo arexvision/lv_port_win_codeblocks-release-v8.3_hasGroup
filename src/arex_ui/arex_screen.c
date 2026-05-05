@@ -508,13 +508,13 @@ void arex_screen_rebuild_tileview(void)
         uint8_t active_idx = 0;
         if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos()) 
         {
-            for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++) 
+            for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++)
             {
-                if (g_sys_card_order(pos) != CARD_ID_UNUSED) 
+                if (g_sys_card_order(pos) != CARD_ID_BLANK)
                 {
                     active_idx++;
                 }
-            }        
+            }
         }
         arex_screen_update_scroll_dots(active_idx, true);
     }
@@ -701,9 +701,9 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
     {
         /* 计算逻辑索引：从 DYNAMIC_FIRST 到 tile_pos 之间有多少个有效卡片 */
         uint8_t active_idx = 0;
-        for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < tile_pos; pos++) 
+        for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
         {
-            if (g_sys_card_order(pos) != CARD_ID_UNUSED) {
+            if (g_sys_card_order(pos) != CARD_ID_BLANK) {
                 active_idx++;
             }
         }
