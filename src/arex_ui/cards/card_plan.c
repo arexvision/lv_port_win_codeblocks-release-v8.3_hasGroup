@@ -22,40 +22,59 @@ arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
 uint16_t         g_deco_stop_count;
 
 /* ============================================================
- * 历史轨迹推流接口（供 arex_data.h 导出，外部 1Hz 定时器调用）
+ * 历史轨迹推流接口（供外部 1Hz 定时器调用）
+ * 动态抽稀算法：200 点固定内存，无限兼容潜水时长
  * ============================================================ */
+
+/* 静态变量：记录当前的采样间隔（秒） */
+static uint32_t s_log_interval_sec = 1;
+
 void arex_dive_log_append(float current_time_s, float current_depth_m)
 {
-    if (current_time_s < 0.0f) {
+    /* 1. 刚下水（清零重置） */
+    if (g_dive_log_count == 0) {
+        s_log_interval_sec = 1;
+        g_dive_log[0].time_s = current_time_s;
+        g_dive_log[0].depth_m = current_depth_m;
+        g_dive_log_count = 1;
+        g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
         return;
     }
 
-    if (g_dive_log_count > 0) {
-        arex_dive_pt_t *last = &g_dive_log[g_dive_log_count - 1];
-
-        /* 丢弃回退时间点，避免旧缓存/跨线程时序异常污染轨迹 */
-        if (current_time_s < last->time_s) {
-            return;
-        }
-
-        /* 同一秒内的重复采样只更新最后一个点，避免轨迹堆积和折返 */
-        if (fabsf(current_time_s - last->time_s) < 0.001f) {
-            last->depth_m = current_depth_m;
-            return;
-        }
+    /* 2. 维持最大深度（同一秒内可能出现更深深度） */
+    if (current_depth_m > g_dive_log[g_dive_log_count - 1].depth_m) {
+        g_dive_log[g_dive_log_count - 1].depth_m = current_depth_m;
     }
 
-    if (g_dive_log_count < MAX_DIVE_LOG) {
-        g_dive_log[g_dive_log_count].time_s  = current_time_s;
-        g_dive_log[g_dive_log_count].depth_m = current_depth_m;
-        g_dive_log_count++;
+    /* 3. 数组已满？执行抽稀降维！200 点压缩为 100 点 */
+    if (g_dive_log_count >= MAX_DIVE_LOG) {
+        int new_count = 0;
+        for (int i = 0; i < MAX_DIVE_LOG - 1; i += 2) {
+            /* 时间取后一个点，深度取相邻两个点的最大值（宁可偏深，绝不漏报） */
+            g_dive_log[new_count].time_s  = g_dive_log[i + 1].time_s;
+            g_dive_log[new_count].depth_m = fmaxf(g_dive_log[i].depth_m, g_dive_log[i + 1].depth_m);
+            new_count++;
+        }
+        g_dive_log_count = new_count;
+
+        /* 采样间隔翻倍：1->2->4->8->16... 无限兼容潜水时间 */
+        s_log_interval_sec *= 2;
     }
+
+    /* 4. 安全追加新数据点 */
+    g_dive_log[g_dive_log_count].time_s  = current_time_s;
+    g_dive_log[g_dive_log_count].depth_m = current_depth_m;
+    g_dive_log_count++;
+
+    /* 触发图表刷新 */
+    g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
 }
 
 void arex_dive_log_reset(void)
 {
     g_dive_log_count = 0;
     g_deco_stop_count = 0;
+    s_log_interval_sec = 1;
 }
 
 /* ============================================================
@@ -424,6 +443,16 @@ void card_plan_create(lv_obj_t *parent)
 void card_plan_update(void)
 {
     if (s_chart_obj) {
+        /* 每 5 秒打印一次轨迹状态，验证抽稀算法 */
+        static uint32_t s_last_debug_tick = 0;
+        uint32_t now = lv_tick_get();
+        if (now - s_last_debug_tick >= 5000) {
+            s_last_debug_tick = now;
+            printf("[TRAJ] count=%d, interval=%us, dive_time=%us\n",
+                   g_dive_log_count,
+                   s_log_interval_sec,
+                   (unsigned int)g_sensor_data.dive_time_s);
+        }
         lv_obj_invalidate(s_chart_obj);
     }
 }

@@ -505,7 +505,8 @@ extern uint8_t      s_ndl_handle_count;
 typedef struct { float time_s; float depth_m; } arex_dive_pt_t;
 typedef struct { float depth_m; float stay_min; }  arex_deco_stop_t;
 
-#define MAX_DIVE_LOG   100
+/* 潜水轨迹缓冲区：200 点固定大小，永不溢出 */
+#define MAX_DIVE_LOG   200
 #ifndef MAX_DECO_STOPS
 #define MAX_DECO_STOPS 10
 #endif
