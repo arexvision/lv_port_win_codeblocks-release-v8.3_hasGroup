@@ -395,6 +395,10 @@ static void sim_tick_cb(lv_timer_t *t)
     s_temp_offset += 1.0f;
     if (s_temp_offset > 5.0f) s_temp_offset = -5.0f;
     arex_bus_set_temperature(25.0f + s_temp_offset);
+
+    /* 组织舱模拟：硬编码 16 舱饱和度 */
+    static uint8_t s_tissue[16] = { 20, 30, 40, 50, 60, 65, 70, 72, 74, 76, 78, 80, 82, 85, 88, 90 };
+    arex_bus_set_tissues(s_tissue);
 }
 
 /* =========================================================
