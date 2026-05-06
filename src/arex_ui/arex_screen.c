@@ -20,6 +20,7 @@ static lv_obj_t *s_tile_objs[AREX_CARD_COUNT];
 
 /* 灯光控制状态（供 LIGHT CONTROL 子菜单全局共享） */
 bool g_light_power_state = false;
+static lv_obj_t *s_light_status_lbl = NULL;  /* LIGHT ON/OFF 状态标签 */
 
 /* Wall indicators */
 static lv_obj_t *s_wall_top;
@@ -970,6 +971,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
 {
     lv_label_set_text(s_submenu_title, title);
     lv_obj_clean(s_submenu_list);
+    s_light_status_lbl = NULL;  /* 重置 LIGHT 状态标签 */
 
     /* right_w 从缓存读取，fallback = safe_zone_w - left_anchor_w - panel_gap */
     uint16_t right_w = (s_cached_right_w > 0)
@@ -993,6 +995,33 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         lv_obj_set_style_pad_all(item, 0, LV_PART_MAIN);
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
 
+        /* LIGHT CONTROL 特殊布局: LIGHT 左, ON/OFF 右 */
+        if (strcmp(title, "LIGHT CONTROL") == 0 && i == 0) {
+            /* "LIGHT" 标签在左侧 */
+            lv_obj_t *lbl_light = lv_label_create(item);
+            lv_obj_set_style_text_color(lbl_light, AREX_GREEN, 0);
+            lv_obj_set_style_text_font(lbl_light, arex_get_font(AREX_FONT_ID_TITLE), 0);
+            lv_obj_set_size(lbl_light, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_align(lbl_light, LV_ALIGN_LEFT_MID, 12, 0);
+            lv_obj_set_style_text_align(lbl_light, LV_TEXT_ALIGN_LEFT, 0);
+            lv_label_set_text(lbl_light, "LIGHT");
+
+            /* "ON"/"OFF" 标签在右侧 */
+            lv_obj_t *lbl_status = lv_label_create(item);
+            lv_obj_set_style_text_color(lbl_status, g_light_power_state ? AREX_GREEN : AREX_LIGHT, 0);
+            lv_obj_set_style_text_font(lbl_status, arex_get_font(AREX_FONT_ID_TITLE), 0);
+            lv_obj_set_size(lbl_status, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_align(lbl_status, LV_ALIGN_RIGHT_MID, -12, 0);
+            lv_obj_set_style_text_align(lbl_status, LV_TEXT_ALIGN_RIGHT, 0);
+            lv_label_set_text(lbl_status, g_light_power_state ? "ON" : "OFF");
+
+            /* 保存状态标签引用，用于点击时更新 */
+            s_light_status_lbl = lbl_status;
+            current_y += item_h + gap_y;
+            continue;
+        }
+
+        /* 普通菜单项 */
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
         lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
@@ -1020,12 +1049,18 @@ void arex_screen_set_submenu_selection(uint8_t idx)
             lv_obj_set_style_bg_color(item, AREX_GREEN, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
             if (lbl) lv_obj_set_style_text_color(lbl, AREX_BLACK, 0);
+            /* LIGHT CONTROL 特殊处理：第二列（ON/OFF）也变黑色 */
+            lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
+            if (lbl2) lv_obj_set_style_text_color(lbl2, AREX_BLACK, 0);
         } else {
             lv_obj_clear_state(item, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);  // HOTFIX: Clear LVGL states to fix bold residue.
             if (lbl) lv_obj_clear_state(lbl, LV_STATE_ANY);  // HOTFIX: Clear LVGL states to fix bold residue.
             lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
             if (lbl) lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+            /* LIGHT CONTROL 特殊处理：第二列（ON/OFF）恢复状态色 */
+            lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
+            if (lbl2) lv_obj_set_style_text_color(lbl2, g_light_power_state ? AREX_GREEN : AREX_LIGHT, 0);
         }
     }
 }
@@ -1247,13 +1282,18 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
-    /* LIGHT CONTROL 开关处理 */
-    if (strcmp(cur_title, "LIGHT CONTROL") == 0 && strcmp(text, "LIGHT ON/OFF") == 0) {
+    /* LIGHT CONTROL 开关处理（第一项，点击切换 ON/OFF 状态） */
+    if (strcmp(cur_title, "LIGHT CONTROL") == 0 && item_idx == 0) {
         extern void arex_bus_set_light_power(bool on);
         g_light_power_state = !g_light_power_state;
         arex_bus_set_light_power(g_light_power_state);
-        // HOTFIX: Silent toggle and back.
-        // arex_screen_close_submenu();
+
+        /* 更新状态标签 */
+        if (s_light_status_lbl) {
+            lv_label_set_text(s_light_status_lbl, g_light_power_state ? "ON" : "OFF");
+        }
+        /* 重新设置选中态，确保 ON/OFF 变黑色 */
+        arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
         return;
     }
 

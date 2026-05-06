@@ -2818,11 +2818,13 @@ extern lv_obj_t *s_heading_hint_lbl;
 ```
 DIVE SETUP
   ├─ > LIGHT CONTROL          ← 新增入口
-  │     ├─ LIGHT ON/OFF      ← 开关切换
-  │     ├─ RED COLOR >       ─┐
-  │     ├─ GREEN COLOR >     ─┼─ 颜色子菜单（嵌套）
-  │     ├─ BLUE COLOR >     ─┤
-  │     ├─ WHITE COLOR >     ─┘
+  │     ├─ LIGHT | ON/OFF    ← 开关切换（点击切换状态，无弹窗）
+  │     │                      ├─ LIGHT 固定在左侧
+  │     │                      └─ ON/OFF 显示在右侧（ON=绿色，OFF=浅绿色）
+  │     ├─ RED COLOR >
+  │     ├─ GREEN COLOR >
+  │     ├─ BLUE COLOR >
+  │     ├─ WHITE COLOR >
   │     └─ < BACK
   │
   └─ > SYSTEM SETUP
