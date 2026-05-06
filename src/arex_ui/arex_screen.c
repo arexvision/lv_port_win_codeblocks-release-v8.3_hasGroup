@@ -1375,8 +1375,6 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         strcmp(cur_title, "BLUE") == 0 || strcmp(cur_title, "WHITE") == 0) {
         /* 用户选择了亮度百分比 */
         if (strcmp(text, "< BACK") != 0) {
-            char action[40];
-            snprintf(action, sizeof(action), "%s: %s", cur_title, text);
             /* 回调给业务层处理 */
             extern void arex_ui_on_light_color_set(const char *color, const char *level);
             arex_ui_on_light_color_set(cur_title, text);
@@ -1387,9 +1385,8 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
                 extern void arex_bus_set_light_power(bool on);
                 arex_bus_set_light_power(true);
             }
-
-            arex_screen_show_modal_act(action);
         }
+        /* 直接关闭子菜单返回上级，不弹窗 */
         arex_screen_close_submenu();
         return;
     }
