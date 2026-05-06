@@ -1144,15 +1144,20 @@ void arex_screen_open_info_submenu(uint8_t item_idx)
 static const char *s_setup_sub[][6] = {
     { "AIR", "NX 32", "TX 18/45", "O2 100%", NULL },
     { "LOW (GF 40/85)", "MED (GF 30/70)", "HIGH (GF 20/65)", NULL },
-    { "LOW", "MED", "HIGH", "MAX", NULL },
+    { "800", "1200", "1600", "2400", NULL },
     { "START CALIBRATION", NULL },
     { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
-    { "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY / SYS", NULL },
+    { "MODE SETUP", "DIVE MENU", "AI SETUP", "ALERTS SETUP", "DISPLAY", NULL },
 };
 
 static const char *s_setup_titles[] = {
     "GAS SWITCH", "CONSERATISM", "BRIGHTNESS", "COMPASS CAL", "LIGHT CONTROL", "SYSTEMS SETUP"
 };
+
+static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", NULL };
+static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
+static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
+static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
 
 void arex_screen_open_setup_submenu(uint8_t item_idx)
 {
@@ -1188,23 +1193,18 @@ static void build_nested_dive_setup(void)
     s_nested_dive_setup[4] = NULL;
 }
 
-static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
-
 static const char **nested_items_for(const char *title, uint8_t *out_count)
 {
     const char **tbl = NULL;
     if      (strcmp(title, "MODE SETUP")    == 0) tbl = s_nested_mode_setup;
-    else if (strcmp(title, "DIVE SETUP")    == 0) { build_nested_dive_setup(); tbl = s_nested_dive_setup; }
+    else if (strcmp(title, "DIVE MENU")    == 0) { build_nested_dive_setup(); tbl = s_nested_dive_setup; }
     else if (strcmp(title, "AI SETUP")      == 0) tbl = s_nested_ai_setup;
     else if (strcmp(title, "ALERTS SETUP")  == 0) tbl = s_nested_alerts_setup;
-    else if (strcmp(title, "DISPLAY / SYS") == 0) tbl = s_nested_display_sys;
+    else if (strcmp(title, "DISPLAY") == 0) tbl = s_nested_display_sys;
     else if (strcmp(title, "RED")    == 0) tbl = s_nested_red;
     else if (strcmp(title, "GREEN")  == 0) tbl = s_nested_green;
     else if (strcmp(title, "BLUE")   == 0) tbl = s_nested_blue;
-    else if (strcmp(title, "WHITE") == 0) tbl = s_nested_white;
+    else if (strcmp(title, "WHITE")  == 0) tbl = s_nested_white;
 
     if (tbl && out_count) {
         *out_count = 0;
@@ -1265,7 +1265,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     }
 
     /* LIGHT CONTROL 颜色选项处理（必须在通用 > 处理之前） */
-    if (strcmp(cur_title, "LIGHT CONTROL") == 0 && strstr(text, "COLOR >") != NULL) {
+    if (strcmp(cur_title, "LIGHT CONTROL") == 0 && strstr(text, "COLOR") != NULL) {
         /* 从 "RED COLOR >" 提取颜色名 */
         char color_name[20] = {0};
         if (strncmp(text, "RED", 3) == 0) strcpy(color_name, "RED");
@@ -1394,7 +1394,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
-    if (strcmp(cur_title, "DIVE SETUP") == 0) {
+    if (strcmp(cur_title, "DIVE MENU") == 0) {
         if (strncmp(text, "MOD PO2:", 8) == 0 || strncmp(text, "MOD PO2 ", 8) == 0) {
             arex_screen_begin_edit_value(item_idx, 1.4f, 1.0f, 1.6f, 0.1f);
             return;

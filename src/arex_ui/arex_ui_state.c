@@ -69,7 +69,7 @@ void ui_handle_rotate(int8_t dir)
             } else if (g_ui.dash_card == dash_max && dir == 1) {
                 g_ui.wall_charge++;
                 arex_screen_show_wall(WALL_BOTTOM, g_ui.wall_charge,
-                                     "<<< ENTER DIVE SETUP <<<");
+                                     "<<< ENTER DIVE MENU <<<");
                 if (g_ui.wall_charge >= 3) {
                     g_ui.wall_charge = 0;
                     arex_screen_hide_walls_snap();

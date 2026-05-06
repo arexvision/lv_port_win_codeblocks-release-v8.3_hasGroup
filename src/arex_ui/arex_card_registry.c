@@ -86,7 +86,7 @@ static arex_card_t g_cards[AREX_CARD_ID_COUNT] = {
     },
     [CARD_ID_SETUP] = {
         .id          = CARD_ID_SETUP,
-        .title       = "DIVE SETUP",
+        .title       = "DIVE MENU",
         .engine_type = CARD_ENGINE_MENU,
         .config_data = &setup_menu_cfg,
         .tile_obj    = NULL,
