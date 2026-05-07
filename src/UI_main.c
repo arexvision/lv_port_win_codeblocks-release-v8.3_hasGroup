@@ -199,22 +199,22 @@ static void sim_tick_cb(lv_timer_t *t)
     (void)t;
 // arex_bus_toggle_layout_order();
     // /* 布局切换测试：每秒切换一次布局（phase: 0→1→0 循环，DEPTH 2x1 ↔ 2x2） */
-    // static uint16_t s_layout_tick = 0;
-    // static bool s_started = false;
-    // if (!s_started) {
-    //     printf("[TEST] DEPTH layout switch test started (every 1s): 2x1 ↔ 2x2\r\n");
-    //     s_started = true;
-    // }
-    // s_layout_tick++;
-    // if (s_layout_tick % 1 == 0) {  /* 每秒触发一次 */
-    //     static uint8_t s_layout_phase = 0;
-    //     printf("[TEST] Switching to phase %u: DEPTH %s\r\n",
-    //            s_layout_phase, (s_layout_phase == 0) ? "WIDGET_DEPTH_1606 (2x1)" : "WIDGET_DEPTH_1612 (2x2)");
+    static uint16_t s_layout_tick = 0;
+    static bool s_started = false;
+    if (!s_started) {
+        printf("[TEST] DEPTH layout switch test started (every 1s): 2x1 ↔ 2x2\r\n");
+        s_started = true;
+    }
+    s_layout_tick++;
+    if (s_layout_tick % 1 == 0) {  /* 每秒触发一次 */
+        static uint8_t s_layout_phase = 0;
+        printf("[TEST] Switching to phase %u: DEPTH %s\r\n",
+               s_layout_phase, (s_layout_phase == 0) ? "WIDGET_DEPTH_1606 (2x1)" : "WIDGET_DEPTH_1612 (2x2)");
 
-    //     arex_test_set_ui_layout(s_layout_phase);
+        arex_test_set_ui_layout(s_layout_phase);
 
-    //     s_layout_phase = 1 - s_layout_phase;  /* 0↔1 切换 */
-    // }
+        s_layout_phase = 1 - s_layout_phase;  /* 0↔1 切换 */
+    }
 
     /* 航向缓慢顺时针旋转 */
     uint16_t new_heading = (g_sensor_data.heading + 1) % 360;
