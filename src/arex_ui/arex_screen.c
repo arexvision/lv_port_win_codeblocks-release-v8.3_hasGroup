@@ -1139,6 +1139,7 @@ void arex_screen_open_info_submenu(uint8_t item_idx)
     submenu_slide_in();
 }
 
+
 /* SETUP sub-menu */
 // Remove 'SELECT ' prefix
 static const char *s_setup_sub[][6] = {
@@ -1147,7 +1148,7 @@ static const char *s_setup_sub[][6] = {
     { "800", "1200", "1600", "2400", NULL },
     { "START CALIBRATION", NULL },
     { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
-    { "MODE SETUP", "DIVE MENU", "AI SETUP", "ALERTS SETUP", "DISPLAY", NULL },
+    { "VERSION: " AREX_SYSTEM_VERSION, "MODE SETUP", "DIVE MENU", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
 };
 
 static const char *s_setup_titles[] = {
