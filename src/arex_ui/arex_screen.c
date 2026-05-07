@@ -273,20 +273,72 @@ static void safe_zone_reposition(void)
 
     s_cached_right_w = right_w;
 
-    /* 5. 重新定位 scroll dots（如果存在且位置模式为 LEFT） */
-    if (s_dot_cont && g_sys_config.dots_position == AREX_DOTS_LEFT) {
-        lv_coord_t gap_center_x;
+    /* 5. 重新定位 scroll dots（处理所有位置模式） */
+    if (s_dot_cont) {
+        lv_coord_t dot_x, dot_y;
         uint16_t dot_cont_h = arex_visible_dash_count() * 14;
-        lv_coord_t gap_center_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2);
 
-        if (g_sys_config.layout_order == AREX_ORDER_NORMAL) {
-            /* NORMAL 布局：间隙中间 X = AREX_LEFT_ANCHOR_W + panel_gap / 2 */
-            gap_center_x = (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap / 2);
+        printf("[SAFE_ZONE] reposition dots: position=%d, visible_dash=%u, dot_cont_h=%u, safe_zone=%ux%u\r\n",
+               g_sys_config.dots_position, arex_visible_dash_count(), dot_cont_h,
+               g_sys_config.safe_zone_w, g_sys_config.safe_zone_h);
+
+        /* 更新容器大小以匹配实际显示数量 */
+        lv_obj_set_size(s_dot_cont, 10, (lv_coord_t)dot_cont_h);
+
+        if (g_sys_config.dots_position == AREX_DOTS_LEFT) {
+            /* 左侧：间隙中间 */
+            lv_coord_t gap_center_x;
+            lv_coord_t gap_center_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2);
+            if (g_sys_config.layout_order == AREX_ORDER_NORMAL) {
+                gap_center_x = (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap / 2);
+            } else {
+                gap_center_x = (lv_coord_t)(right_w + panel_gap / 2);
+            }
+            dot_x = gap_center_x - 5;
+            dot_y = gap_center_y - (lv_coord_t)(dot_cont_h / 2);
+        } else if (g_sys_config.dots_position == AREX_DOTS_RIGHT) {
+            /* 右侧：相对于右侧容器的右边缘 */
+            lv_coord_t right_cont_x = (g_sys_config.layout_order == AREX_ORDER_NORMAL)
+                ? (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap)
+                : 0;
+            dot_x = right_cont_x + (lv_coord_t)right_w - 18;
+            dot_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2 - (int)dot_cont_h / 2);
+        } else if (g_sys_config.dots_position == AREX_DOTS_BOTTOM) {
+            /* 底部：水平居中 */
+            dot_x = (lv_coord_t)(g_sys_config.safe_zone_w / 2 - 5);
+            dot_y = (lv_coord_t)(g_sys_config.safe_zone_h - 18);
         } else {
-            /* FLIPPED 布局：间隙中间 X = right_w + panel_gap / 2 */
-            gap_center_x = (lv_coord_t)(right_w + panel_gap / 2);
+            /* AREX_DOTS_NONE: 隐藏 dots */
+            dot_x = -1000;  /* 移出可见区域 */
+            dot_y = -1000;
         }
-        lv_obj_set_pos(s_dot_cont, gap_center_x - 5, gap_center_y - dot_cont_h / 2);
+        lv_obj_set_pos(s_dot_cont, dot_x, dot_y);
+
+        /* 更新每个 dot 的绝对位置（使用绝对定位） */
+        for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++) {
+            if (s_scroll_dots[i]) {
+                lv_obj_set_pos(s_scroll_dots[i], 2, (lv_coord_t)(i * 14));
+                /* 超出 visible_dash 的 dot 隐藏 */
+                if (i >= arex_visible_dash_count()) {
+                    lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
+                } else {
+                    lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
+                }
+            }
+        }
+
+        /* 调用 arex_screen_update_scroll_dots() 来根据 UI 状态更新可见性 */
+        /* 计算逻辑索引 */
+        uint8_t active_idx = 0;
+        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos()) {
+            for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++) {
+                if (g_sys_card_order(pos) != CARD_ID_UNUSED) {
+                    active_idx++;
+                }
+            }
+        }
+        bool show_dots = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
+        arex_screen_update_scroll_dots(active_idx, show_dots);
     }
 }
 
@@ -363,14 +415,13 @@ static void right_panel_create(void)
 
     /* Scroll dots - 父对象为 s_safe_zone，可定位到间隙中间 */
     s_dot_cont = lv_obj_create(s_safe_zone);
+    /* 容器高度根据实际显示数量计算 */
     uint16_t dot_cont_h = arex_visible_dash_count() * 14;
     lv_obj_set_size(s_dot_cont, 10, dot_cont_h);
     lv_obj_set_style_bg_opa(s_dot_cont, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_dot_cont, 0, 0);
     lv_obj_set_style_pad_all(s_dot_cont, 0, 0);
-    lv_obj_set_flex_flow(s_dot_cont, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_flex_align(s_dot_cont, LV_FLEX_ALIGN_SPACE_EVENLY,
-                           LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    /* 不使用 flex 布局，改用绝对定位，避免隐藏元素占用空间 */
     lv_obj_set_scrollbar_mode(s_dot_cont, LV_SCROLLBAR_MODE_OFF);
 
     /* Dots 位置跟随配置 - 使用绝对坐标（相对于 s_safe_zone） */
@@ -403,9 +454,11 @@ static void right_panel_create(void)
     }
     /* AREX_DOTS_NONE 时不显示 dot_cont */
 
+    /* 使用绝对定位创建 dots，避免隐藏时仍占用空间的问题 */
     for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++) {
         s_scroll_dots[i] = lv_obj_create(s_dot_cont);
         lv_obj_set_size(s_scroll_dots[i], 6, 6);
+        lv_obj_set_pos(s_scroll_dots[i], 2, (lv_coord_t)(i * 14));  /* 绝对定位，垂直均匀分布 */
         lv_obj_set_style_radius(s_scroll_dots[i], 0, 0);
         lv_obj_set_style_bg_color(s_scroll_dots[i], AREX_DARK, 0);
         lv_obj_set_style_bg_opa(s_scroll_dots[i], LV_OPA_COVER, 0);
@@ -415,9 +468,14 @@ static void right_panel_create(void)
         lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_SCROLLABLE);
         if (g_sys_config.dots_position == AREX_DOTS_NONE)
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
+    /* 超出 visible_dash 的 dot 也隐藏 */
+    if (i >= arex_visible_dash_count())
+        lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
     }
 
-    arex_screen_update_scroll_dots(0, true);
+    /* 只在 DASH/EDIT 状态才显示 dots，INFO/SETUP 菜单不显示 */
+    bool show_dots = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
+    arex_screen_update_scroll_dots(0, show_dots);
 }
 
 /* =========================================================
@@ -426,6 +484,9 @@ static void right_panel_create(void)
  * ========================================================= */
 void arex_screen_rebuild_layout(void)
 {
+    printf("[REBUILD_LAYOUT] Enter: visible_dash=%u, dots_pos=%d, layout_order=%d\r\n",
+           arex_visible_dash_count(), g_sys_config.dots_position, g_sys_config.layout_order);
+
     /* 【问题四修复】必须在清空对象前重新启用 invalidation
      * 因为 arex_ui_timer_cb() 中禁用了 invalidation 以优化刷屏性能，
      * 任何涉及删除 LVGL 对象的代码都应该假设 invalidation 可能被禁用。 */
@@ -448,20 +509,10 @@ void arex_screen_rebuild_layout(void)
     /* 4. 重建所有自定义网格卡片 */
     arex_5f_grid_rebuild_all();
 
-    /* 5. 重建 Safe Zone 内部定位 */
+    /* 5. 重建 Safe Zone 内部定位（包括 dots 位置和可见性） */
     safe_zone_reposition();
 
-    /* 6. 重建滚动指示器 */
-    for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++) {
-        if (s_scroll_dots[i]) {
-            if (g_sys_config.dots_position == AREX_DOTS_NONE)
-                lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
-            else
-                lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
-        }
-    }
-
-    /* 7. 强制把所有常规数据的脏标记置 1！
+    /* 6. 强制把所有常规数据的脏标记置 1！
      * 因为新建的 Label 里面全是 "--"，必须让定时器在下一帧把真实数据刷进去！ */
     g_sensor_data.dirty_mask |= (DIRTY_DEPTH | DIRTY_BATT | DIRTY_TEMP | DIRTY_POD);
 }
@@ -480,8 +531,12 @@ void arex_screen_rebuild_tileview(void)
 
     uint8_t count = arex_card_count();
 
-    /* 【问题二修复】保存当前焦点位置（使用 g_ui.dash_card，它已经保存了当前卡片位置） */
+    /* 【问题二修复】保存当前焦点位置和状态机上下文 */
     uint8_t saved_dash_card = g_ui.dash_card;
+    arex_ui_state_t saved_state = g_ui.state;
+    uint8_t saved_menu_idx = (saved_state == UI_INFO) ? g_ui.menu_info_idx
+                            : (saved_state == UI_SETUP) ? g_ui.menu_setup_idx
+                            : 0;
 
     memset(s_tile_objs, 0, sizeof(s_tile_objs));
     memset(g_card_custom_objs, 0, sizeof(g_card_custom_objs));
@@ -526,10 +581,23 @@ void arex_screen_rebuild_tileview(void)
         lv_obj_set_tile(s_tileview, s_tile_objs[saved_dash_card], LV_ANIM_OFF);
     }
 
+    /* 【问题X修复】恢复 UI 状态机
+     * 布局重建后只恢复了 tile 位置，但没有恢复状态机，
+     * 导致 g_ui.state 不同步，滑动行为异常，左侧指示器显示错误 */
+    if (saved_dash_card == CARD_POS_INFO) {
+        g_ui.state = UI_INFO;
+        g_ui.menu_info_idx = saved_menu_idx;
+    } else if (saved_dash_card == arex_setup_display_pos()) {
+        g_ui.state = UI_SETUP;
+        g_ui.menu_setup_idx = saved_menu_idx;
+    } else {
+        g_ui.state = UI_DASH;
+    }
+
     {
         /* 计算逻辑索引：从 DYNAMIC_FIRST 到当前卡片之间有多少个有效卡片 */
         uint8_t active_idx = 0;
-        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos()) 
+        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos())
         {
             for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++)
             {
@@ -539,7 +607,9 @@ void arex_screen_rebuild_tileview(void)
                 }
             }
         }
-        arex_screen_update_scroll_dots(active_idx, true);
+        /* INFO/SETUP 菜单不显示 dots，只更新活跃索引 */
+        bool show_dots = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
+        arex_screen_update_scroll_dots(active_idx, show_dots);
     }
 }
 
@@ -889,8 +959,17 @@ void arex_screen_update_scroll_dots(uint8_t active_idx, bool visible)
     bool dots_enabled = (g_sys_config.dots_position != AREX_DOTS_NONE);
     uint8_t visible_dash = arex_visible_dash_count();
 
+    printf("[DOTS] update: active=%u, visible=%d, state=%d, dots_pos=%d, visible_dash=%u, dot_cont_children=%d\r\n",
+           active_idx, visible, g_ui.state, g_sys_config.dots_position, visible_dash,
+           s_dot_cont ? lv_obj_get_child_cnt(s_dot_cont) : -1);
+
     for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++) {
-        if (!s_scroll_dots[i]) continue;
+        if (!s_scroll_dots[i]) {
+            if (i < visible_dash) {
+                printf("[DOTS] WARN: s_scroll_dots[%u] is NULL but visible_dash=%u!\r\n", i, visible_dash);
+            }
+            continue;
+        }
         bool show = visible && in_dash_or_edit && dots_enabled && (i < visible_dash);
         if (!show) {
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);

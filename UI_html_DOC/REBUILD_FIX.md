@@ -12,6 +12,7 @@
 | 问题二 | 切换布局后焦点丢失 | 未保存/恢复 tile 焦点 | 保存并恢复焦点 |
 | 问题三 | 旋转时程序崩溃 | 悬空指针访问 | 添加 NULL 检查 |
 | 问题四 | 布局切换后卡死 | invalidation 被禁用 | 启用 invalidation |
+| 问题五 | 布局切换后滑动异常 | UI 状态机未同步 | 保存并恢复状态机 |
 
 ---
 
@@ -234,9 +235,9 @@ static void sim_tick_cb(lv_timer_t *t)
 
 | 文件路径 | 修改类型 | 主要变更 |
 |----------|----------|----------|
-| `src/arex_ui/arex_screen.c` | 修改 | 修复问题一~四 |
+| `src/arex_ui/arex_screen.c` | 修改 | 修复问题一~五 |
 | `src/UI_main.c` | 修改 | 启用自动布局切换测试 |
-| `UI_html_DOC/REBUILD_FIX.md` | 新增 | 本文档 |
+| `UI_html_DOC/REBUILD_FIX.md` | 修改 | 新增问题五记录 |
 
 ---
 
@@ -259,3 +260,66 @@ static void sim_tick_cb(lv_timer_t *t)
 3. **共享指针需要 NULL 检查**：对于被多处引用的静态指针（如 `s_tileview`），在所有访问点都要进行 NULL 检查。
 
 4. **不要重复调用已调用的函数**：如果一个函数内部已经调用了子函数，不要在该函数末尾再次调用，代码审查时注意这种模式。
+
+---
+
+## 问题五：布局切换后 UI 状态机未同步导致滑动行为异常
+
+### 现象
+布局更新后，从空白页面下滑直接跳到 SETUP MENU，SETUP MENU 再往下滑一次没反应，再滑动一次出现 wallcharge，之后再往下滑动两次依旧是 SETUP MENU，此时选项才可滑动。**同时左侧指示器位置出现12个指示器的方格。**
+
+### 根因分析
+`arex_screen_rebuild_tileview()` 在删除并重建 tileview 时：
+
+1. **保存了 tile 位置**：`saved_dash_card = g_ui.dash_card`
+2. **恢复了 tile 位置**：调用 `lv_obj_set_tile()` 跳转到正确页面
+3. **但没有恢复 UI 状态机**：`g_ui.state` 保持原值（如 `UI_INFO`），没有根据焦点位置同步
+
+**后果1：滑动行为异常**
+
+`ui_handle_rotate()` 依赖 `g_ui.state` 来决定如何处理滚动：
+- 如果 `g_ui.state = UI_INFO`，向上滑会进入 INFO 菜单，向下滑到末尾会触发 wall 提示
+- 如果 `g_ui.state = UI_SETUP`，向下滑会进入 SETUP 菜单，向上滑到开头会触发 wall 提示
+- 如果 `g_ui.state = UI_DASH`，正常在动态卡片之间滑动
+
+当 tile 实际显示 SETUP 页面但 `g_ui.state = UI_INFO` 时：
+- 用户向下滑动，代码检查 `UI_INFO` 状态，在最后一项时触发 wall 而不是进入 SETUP
+- 用户继续滑动，wall 提示出现，但此时行为完全错乱
+
+**后果2：12个指示器方格**
+
+在 `arex_screen_update_scroll_dots()` 中：
+```c
+bool in_dash_or_edit = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
+bool show = visible && in_dash_or_edit && dots_enabled && (i < visible_dash);
+```
+
+当 `g_ui.state = UI_INFO` 时，`in_dash_or_edit = false`，理论上 dots 应该全部隐藏。
+
+但由于 `saved_dash_card = 6`（SETUP 位置），导致 `active_idx = 6`，代码错误地将 `s_scroll_dots[6]` 高亮为绿色，而数组可能只有 2 个可见 dots。
+
+### 修复方案
+在恢复 tile 焦点后，同步恢复 UI 状态机：
+
+```c
+/* 【问题五修复】恢复 UI 状态机
+ * 布局重建后只恢复了 tile 位置，但没有恢复状态机，
+ * 导致 g_ui.state 不同步，滑动行为异常，左侧指示器显示错误 */
+if (saved_dash_card == CARD_POS_INFO) {
+    g_ui.state = UI_INFO;
+    g_ui.menu_info_idx = saved_menu_idx;
+} else if (saved_dash_card == arex_setup_display_pos()) {
+    g_ui.state = UI_SETUP;
+    g_ui.menu_setup_idx = saved_menu_idx;
+} else {
+    g_ui.state = UI_DASH;
+}
+```
+
+### 修复代码位置
+`src/arex_ui/arex_screen.c` 第 533-544 行
+
+### 验证项目
+- [x] 布局切换后滑动行为恢复正常
+- [x] 布局切换后左侧指示器显示正确（不再出现12个方格）
+- [x] 在 SETUP 页面时，向下滑动能正确进入 SETUP 菜单选项

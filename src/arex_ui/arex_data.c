@@ -247,7 +247,10 @@ void arex_bus_set_temperature(float temp_c)
 
 void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 {
+    printf("[BUS] arex_bus_set_ui_layout called, version=0x%02X\r\n", payload ? payload->version : 0);
+
     if (payload == NULL || payload->version != AREX_BLE_CFG_VERSION) {
+        printf("[BUS] REJECTED: payload=%p, version=0x%02X\r\n", payload, payload ? payload->version : 0);
         return;
     }
 
@@ -259,10 +262,10 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 #endif
 
     /* 1. 兼容旧协议：旧 payload 只有 8 个 card_order 槽位，不能按新运行时数组长度整块 memcpy */
-    for (size_t i = 0; i < sizeof(g_sys_config.card_order); i++) 
+    for (size_t i = 0; i < sizeof(g_sys_config.card_order); i++)
     {
         g_sys_config.card_order[i] = CARD_ID_UNUSED;
-    }    
+    }
     g_sys_config.card_order[CARD_POS_INFO] = CARD_ID_INFO;
     g_sys_config.card_order[CARD_POS_SETUP] = CARD_ID_SETUP;
     for (int i = 0; i < 8 && (CARD_POS_DYNAMIC_FIRST + i) < CARD_POS_SETUP; i++) {
@@ -305,6 +308,7 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 
     /* 4. 打上终极脏标记，通知 UI 推倒重建 */
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    printf("[BUS] DIRTY_UI_LAYOUT set, dirty_mask=0x%08X\r\n", g_sensor_data.dirty_mask);
 
 #ifdef PC_SIMULATOR
     (void)level;

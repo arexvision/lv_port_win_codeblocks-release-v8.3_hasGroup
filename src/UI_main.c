@@ -24,9 +24,6 @@ static void arex_test_set_ui_layout(uint8_t phase)
     memset(&s_payload, 0, sizeof(s_payload));
     s_payload.version = 0x01; // AREX_BLE_CFG_VERSION
 
-    /* ========== 卡片顺序：固定不变 ========== */
-    uint8_t card_order[] = { 0, 1, 2, 3, 4, 5, 6 };
-    memcpy(s_payload.card_order, card_order, sizeof(card_order));
 
     if (phase == 0) {
         /* ========== 布局 A: DEPTH 2x1 (短条形) ========== */
@@ -142,9 +139,6 @@ static void arex_test_set_ui_layout(uint8_t phase)
         }
     }
 
-    printf("[TEST] arex_bus_set_ui_layout(phase=%u, left=%u, 5f=%u)\r\n",
-           phase, s_payload.left_count, s_payload.custom_5f_count);
-           
     /* 触发底层总线数据装载与清屏重建 */
     arex_bus_set_ui_layout(&s_payload);
 }
@@ -164,7 +158,6 @@ static void arex_test_set_ui_offset(void)
 
     if (s_offset_start_tick == 0) {
         s_offset_start_tick = lv_tick_get();
-        printf("[TEST] arex_bus_set_ui_offset test started\r\n");
     }
 
     uint32_t elapsed_s = (lv_tick_get() - s_offset_start_tick) / 1000;
@@ -200,19 +193,10 @@ static void sim_tick_cb(lv_timer_t *t)
 // arex_bus_toggle_layout_order();
     // /* 布局切换测试：每秒切换一次布局（phase: 0→1→0 循环，DEPTH 2x1 ↔ 2x2） */
     static uint16_t s_layout_tick = 0;
-    static bool s_started = false;
-    if (!s_started) {
-        printf("[TEST] DEPTH layout switch test started (every 1s): 2x1 ↔ 2x2\r\n");
-        s_started = true;
-    }
     s_layout_tick++;
     if (s_layout_tick % 1 == 0) {  /* 每秒触发一次 */
         static uint8_t s_layout_phase = 0;
-        printf("[TEST] Switching to phase %u: DEPTH %s\r\n",
-               s_layout_phase, (s_layout_phase == 0) ? "WIDGET_DEPTH_1606 (2x1)" : "WIDGET_DEPTH_1612 (2x2)");
-
         arex_test_set_ui_layout(s_layout_phase);
-
         s_layout_phase = 1 - s_layout_phase;  /* 0↔1 切换 */
     }
 
@@ -429,5 +413,5 @@ void UI_main(void)
     s_update_task_timer = lv_timer_create(arex_ui_update_task, 50, NULL);
 
     // /* 8. 启动模拟数据定时器：1Hz */
-    lv_timer_create(sim_tick_cb, 1000, NULL);
+    // lv_timer_create(sim_tick_cb, 1000, NULL);
 }
