@@ -426,6 +426,12 @@ static void right_panel_create(void)
  * ========================================================= */
 void arex_screen_rebuild_layout(void)
 {
+    /* 【问题四修复】必须在清空对象前重新启用 invalidation
+     * 因为 arex_ui_timer_cb() 中禁用了 invalidation 以优化刷屏性能，
+     * 任何涉及删除 LVGL 对象的代码都应该假设 invalidation 可能被禁用。 */
+    lv_disp_t *disp = lv_disp_get_default();
+    if (disp) lv_disp_enable_invalidation(disp, true);
+
     /* 1. 必须在清空对象前，把指针全部洗白！断绝悬空指针！ */
     clear_widget_arrays();
 
@@ -466,7 +472,17 @@ void arex_screen_rebuild_layout(void)
  * ========================================================= */
 void arex_screen_rebuild_tileview(void)
 {
+    /* 【问题四修复】必须在删除对象前重新启用 invalidation
+     * 因为 arex_ui_timer_cb() 中禁用了 invalidation 以优化刷屏性能，
+     * 任何涉及删除 LVGL 对象的代码都应该假设 invalidation 可能被禁用。 */
+    lv_disp_t *disp = lv_disp_get_default();
+    if (disp) lv_disp_enable_invalidation(disp, true);
+
     uint8_t count = arex_card_count();
+
+    /* 【问题二修复】保存当前焦点位置（使用 g_ui.dash_card，它已经保存了当前卡片位置） */
+    uint8_t saved_dash_card = g_ui.dash_card;
+
     memset(s_tile_objs, 0, sizeof(s_tile_objs));
     memset(g_card_custom_objs, 0, sizeof(g_card_custom_objs));
     g_card_custom_obj_count = 0;
@@ -501,9 +517,15 @@ void arex_screen_rebuild_tileview(void)
     }
 
     right_panel_create();
-    wall_create();
-    submenu_layer_create();
-    modal_create();
+    /* 【问题一修复】不再重复调用 wall_create/submenu_layer_create/modal_create
+     * 因为它们已经在 right_panel_create() 内部被正确调用了 */
+
+    /* 【问题二修复】恢复 tile 焦点到保存的位置
+     * 注意：g_ui.dash_card 已经在外部保存了，这里使用 saved_dash_card */
+    if (s_tileview && saved_dash_card < AREX_CARD_COUNT && s_tile_objs[saved_dash_card]) {
+        lv_obj_set_tile(s_tileview, s_tile_objs[saved_dash_card], LV_ANIM_OFF);
+    }
+
     {
         /* 计算逻辑索引：从 DYNAMIC_FIRST 到当前卡片之间有多少个有效卡片 */
         uint8_t active_idx = 0;
@@ -682,6 +704,9 @@ void arex_screen_create(void)
  * ========================================================= */
 void arex_screen_scroll_to_card(uint8_t tile_pos)
 {
+    /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
+    if (!s_tileview) return;
+
     if (tile_pos >= arex_card_count()) {
         return;
     }
@@ -789,6 +814,9 @@ static const char *charge_blocks[] = {
 
 static void wall_nudge_tileview(lv_coord_t offset_y)
 {
+    /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
+    if (!s_tileview) return;
+
     lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
     lv_coord_t cur_y = lv_obj_get_y(s_tileview);
 
@@ -804,6 +832,9 @@ static void wall_nudge_tileview(lv_coord_t offset_y)
 
 void arex_screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
 {
+    /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
+    if (!s_tileview) return;
+
     if (charge > 3) charge = 3;
 
     lv_obj_t *wall    = (side == WALL_TOP) ? s_wall_top    : s_wall_bottom;
@@ -820,6 +851,9 @@ void arex_screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
 
 void arex_screen_hide_walls(void)
 {
+    /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
+    if (!s_tileview) return;
+
     lv_obj_add_flag(s_wall_top,    LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
     lv_coord_t cur_y = lv_obj_get_y(s_tileview);
@@ -837,6 +871,9 @@ void arex_screen_hide_walls(void)
 
 void arex_screen_hide_walls_snap(void)
 {
+    /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
+    if (!s_tileview) return;
+
     lv_obj_add_flag(s_wall_top,    LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
     lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
