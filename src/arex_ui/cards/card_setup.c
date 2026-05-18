@@ -3,7 +3,6 @@
 #include "../arex_ui_state.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
-#include "../../../drivers/sensor_drivers/mag_calibration.h"
 #include <stdio.h>
 #include <string.h>
 

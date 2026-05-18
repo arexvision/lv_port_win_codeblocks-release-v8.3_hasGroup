@@ -4,8 +4,6 @@
 #include "arex_ui_state.h"
 #include "fonts/arex_fonts.h"
 #include "arex_data.h"
-#include "../../ble/ble_sensor_debug_config.h"
-#include "../../ble/ble_sensor_debug_data.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>

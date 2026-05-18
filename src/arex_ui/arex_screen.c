@@ -4,14 +4,9 @@
 #include "arex_ui_state.h"
 #include "arex_card_registry.h"
 #include "fonts/arex_fonts.h"
-#include "../../drivers/sensor_drivers/mag_calibration.h"
-#include "../../ble/ble_sensor_debug_config.h"
-#include "../../ble/ble_sensor_debug_data.h"
-
 #include <stdio.h>
 #include <string.h>
 
-extern void rt_kprintf(const char *fmt, ...);
 extern lv_obj_t *s_compass_tape_obj;
 extern lv_obj_t *s_heading_val_lbl;
 extern lv_obj_t *s_heading_hint_lbl;
@@ -946,11 +941,6 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
 #if BLE_COMPASS_DIAG_LOG_ENABLED
         ble_sensor_debug_note_ui_force_refresh(g_sensor_data.heading);
 #if BLE_COMPASS_DIAG_SYSTEM_LOG_ENABLED
-        rt_kprintf("[COMPASS_UI] force_refresh heading=%u label=%d tape=%d tile=%u\r\n",
-                   g_sensor_data.heading,
-                   s_heading_val_lbl ? 1 : 0,
-                   s_compass_tape_obj ? 1 : 0,
-                   tile_pos);
 #endif
 #endif
         if (s_heading_val_lbl)
@@ -1847,7 +1837,6 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         {
             arex_request_compass_calibration_start();
             arex_set_compass_calibration_ui_state(AREX_COMPASS_CAL_RUNNING);
-            rt_kprintf("[COMPASS_CAL_UI] AUTO CAL START requested\r\n");
             arex_screen_refresh_setup_menu();
             refresh_compass_cal_submenu();
             return;
@@ -1856,7 +1845,6 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         {
             arex_request_compass_calibration_reset();
             arex_set_compass_calibration_ui_state(AREX_COMPASS_CAL_IDLE);
-            rt_kprintf("[COMPASS_CAL_UI] AUTO CAL RESET requested\r\n");
             arex_screen_refresh_setup_menu();
             refresh_compass_cal_submenu();
             return;

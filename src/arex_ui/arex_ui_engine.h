@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "arex_card_registry.h"
+#include "UI_main.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,9 +15,12 @@ extern "C" {
 /* =========================================================
  * System version macro (统一使用 app_version_auto.h 中的版本号)
  * ========================================================= */
+#ifdef PC_SIMULATOR
+#define AREX_SYSTEM_VERSION  "20260101.01"
+#else
 #include "../config/app_version_auto.h"
 #define AREX_SYSTEM_VERSION  APP_VERSION_SEMVER
-
+#endif
 /* =========================================================
  * 系统核心宏定义
  * ========================================================= */
