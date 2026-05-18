@@ -26,26 +26,31 @@ uint16_t         g_deco_stop_count;
  * ============================================================ */
 void arex_dive_log_append(float current_time_s, float current_depth_m)
 {
-    if (current_time_s < 0.0f) {
+    if (current_time_s < 0.0f)
+    {
         return;
     }
 
-    if (g_dive_log_count > 0) {
+    if (g_dive_log_count > 0)
+    {
         arex_dive_pt_t *last = &g_dive_log[g_dive_log_count - 1];
 
         /* 丢弃回退时间点，避免旧缓存/跨线程时序异常污染轨迹 */
-        if (current_time_s < last->time_s) {
+        if (current_time_s < last->time_s)
+        {
             return;
         }
 
         /* 同一秒内的重复采样只更新最后一个点，避免轨迹堆积和折返 */
-        if (fabsf(current_time_s - last->time_s) < 0.001f) {
+        if (fabsf(current_time_s - last->time_s) < 0.001f)
+        {
             last->depth_m = current_depth_m;
             return;
         }
     }
 
-    if (g_dive_log_count < MAX_DIVE_LOG) {
+    if (g_dive_log_count < MAX_DIVE_LOG)
+    {
         g_dive_log[g_dive_log_count].time_s  = current_time_s;
         g_dive_log[g_dive_log_count].depth_m = current_depth_m;
         g_dive_log_count++;
@@ -66,9 +71,12 @@ static void init_test_data(void)
     /* 清空历史轨迹，每次启动都是从零生长 */
     arex_dive_log_reset();
 
-    /* 算法预测的未来减压路线：需要在 3m 停留 3 分钟 */
+    /* 算法预测的未来减压路线：默认最终减压站为 6m */
     g_deco_stop_count = 1;
-    g_deco_stops[0] = (arex_deco_stop_t){.depth_m = 3.0f, .stay_min = 3.0f};
+    g_deco_stops[0] = (arex_deco_stop_t)
+    {
+        .depth_m = 6.0f, .stay_min = 3.0f
+    };
 }
 
 /* ============================================================
@@ -93,17 +101,20 @@ static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,
     solid_dsc.dash_width = 0;
     solid_dsc.dash_gap   = 0;
 
-    for (int i = 0; i < num_steps; i++) {
+    for (int i = 0; i < num_steps; i++)
+    {
         float t1 = (i * step) / dist;
         float t2 = (i * step + dash_len) / dist;
         if (t1 > 1.0f) break;
         if (t2 > 1.0f) t2 = 1.0f;
 
-        lv_point_t seg_p1 = {
+        lv_point_t seg_p1 =
+        {
             p1.x + (lv_coord_t)(dx * t1),
             p1.y + (lv_coord_t)(dy * t1)
         };
-        lv_point_t seg_p2 = {
+        lv_point_t seg_p2 =
+        {
             p1.x + (lv_coord_t)(dx * t2),
             p1.y + (lv_coord_t)(dy * t2)
         };
@@ -131,7 +142,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
     lv_area_t *area = &obj->coords;
 
     /* 等待下水 */
-    if (g_sensor_data.depth <= 0.5f && g_dive_log_count == 0) {
+    if (g_sensor_data.depth <= 0.5f && g_dive_log_count == 0)
+    {
         return;
     }
 
@@ -139,11 +151,13 @@ static void plan_chart_draw_cb(lv_event_t *e)
     float pad_x      = 45.0f;
     float pad_y_top  = 15.0f;
     float pad_y_bot  = 25.0f;
-    float pad_right  = 15.0f;
+    float pad_right  = 24.0f;
     float chart_w    = (float)(area->x2 - area->x1);
     float chart_h    = (float)(area->y2 - area->y1);
     float w          = chart_w - pad_x - pad_right;
     float h          = chart_h - pad_y_top - pad_y_bot;
+    float x_axis_left = (float)area->x1 + pad_x;
+    float x_axis_right = (float)area->x1 + chart_w - pad_right;
 
     /* 2. 核心：全量提取为"秒"进行推演 */
     float current_t_sec = (float)g_sensor_data.dive_time_s;
@@ -152,7 +166,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
     /* 预测所需总时间（基于 6秒/米 的升水速度，即 10m/min） */
     float predicted_t_sec = current_t_sec;
     float sim_d = current_d;
-    for (int i = 0; i < g_deco_stop_count; i++) {
+    for (int i = 0; i < g_deco_stop_count; i++)
+    {
         float asc_t = (sim_d > g_deco_stops[i].depth_m)
                       ? (sim_d - g_deco_stops[i].depth_m) * 6.0f : 0;
         predicted_t_sec += asc_t;
@@ -163,11 +178,13 @@ static void plan_chart_draw_cb(lv_event_t *e)
 
     /* 3. 动态扩展 Y 轴 */
     float max_log_d = current_d;
-    for (int i = 0; i < g_dive_log_count; i++) {
+    for (int i = 0; i < g_dive_log_count; i++)
+    {
         if (g_dive_log[i].depth_m > max_log_d) max_log_d = g_dive_log[i].depth_m;
     }
     float max_d_axis = 60.0f;
-    if (max_log_d >= max_d_axis * 0.9f) {
+    if (max_log_d >= max_d_axis * 0.9f)
+    {
         max_d_axis = ceilf((max_log_d + 15.0f) / 20.0f) * 20.0f;
     }
 
@@ -191,8 +208,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
     if (max_t_axis_sec > 3600)  x_step = 600;
 
     /* 5. 秒数映射宏 */
-    #define MAP_X(t_sec) (area->x1 + (lv_coord_t)(pad_x + ((t_sec) / max_t_axis_sec) * w))
-    #define MAP_Y(d)     (area->y1 + (lv_coord_t)(pad_y_top + ((d) / max_d_axis) * h))
+#define MAP_X(t_sec) ((lv_coord_t)(x_axis_left + ((t_sec) / max_t_axis_sec) * w))
+#define MAP_Y(d)     (area->y1 + (lv_coord_t)(pad_y_top + ((d) / max_d_axis) * h))
 
     lv_draw_line_dsc_t line_dsc;
     lv_draw_line_dsc_init(&line_dsc);
@@ -211,11 +228,13 @@ static void plan_chart_draw_cb(lv_event_t *e)
     line_dsc.dash_gap   = 4;
 
     int y_step = (max_d_axis >= 200.0f) ? 50 : ((max_d_axis >= 100.0f) ? 20 : 10);
-    for (int d = 0; d <= (int)max_d_axis; d += y_step) {
+    for (int d = 0; d <= (int)max_d_axis; d += y_step)
+    {
         lv_coord_t y = MAP_Y((float)d);
-        lv_point_t pts[2] = {
-            {area->x1 + (lv_coord_t)pad_x,               y},
-            {area->x1 + (lv_coord_t)(chart_w - pad_right), y}
+        lv_point_t pts[2] =
+        {
+            {(lv_coord_t)x_axis_left,  y},
+            {(lv_coord_t)x_axis_right, y}
         };
         lv_draw_line(draw_ctx, &line_dsc, &pts[0], &pts[1]);
 
@@ -230,24 +249,41 @@ static void plan_chart_draw_cb(lv_event_t *e)
      * 绘制 X 轴网格（时间：秒，居中对齐刻度数字）
      * ========================================== */
     txt_dsc.align = LV_TEXT_ALIGN_CENTER;
-    for (int t = 0; t <= (int)max_t_axis_sec; t += x_step) {
+    for (int t = 0; t <= (int)max_t_axis_sec; t += x_step)
+    {
         lv_coord_t x = MAP_X((float)t);
-        lv_point_t pts[2] = {
+        lv_point_t pts[2] =
+        {
             {x, area->y1 + (lv_coord_t)pad_y_top},
             {x, area->y1 + (lv_coord_t)(chart_h - pad_y_bot)}
         };
         lv_draw_line(draw_ctx, &line_dsc, &pts[0], &pts[1]);
 
         char buf[16];
-        if (max_t_axis_sec >= 120.0f) {
+        if (max_t_axis_sec >= 120.0f)
+        {
             if (t % 60 == 0)
                 snprintf(buf, sizeof(buf), "%d", t / 60);
             else
                 snprintf(buf, sizeof(buf), "%.1f", (float)t / 60.0f);
-        } else {
+        }
+        else
+        {
             snprintf(buf, sizeof(buf), "%d", t);
         }
-        lv_area_t t_area = {x - 20, area->y2 - 18, x + 20, area->y2};
+        lv_coord_t lbl_left = x - 20;
+        lv_coord_t lbl_right = x + 20;
+        if (lbl_left < (lv_coord_t)x_axis_left)
+        {
+            lbl_left = (lv_coord_t)x_axis_left;
+            lbl_right = lbl_left + 40;
+        }
+        if (lbl_right > (lv_coord_t)x_axis_right)
+        {
+            lbl_right = (lv_coord_t)x_axis_right;
+            lbl_left = lbl_right - 40;
+        }
+        lv_area_t t_area = {lbl_left, area->y2 - 18, lbl_right, area->y2};
         lv_draw_label(draw_ctx, &txt_dsc, &t_area, buf, NULL);
     }
     txt_dsc.align = LV_TEXT_ALIGN_LEFT;
@@ -261,7 +297,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
     unit_dsc.color = AREX_LIGHT;
     unit_dsc.opa = 191;
 
-    lv_area_t unit_area = {
+    lv_area_t unit_area =
+    {
         area->x1 + 2,
         area->y2 - 14,
         area->x1 + 60,
@@ -278,19 +315,24 @@ static void plan_chart_draw_cb(lv_event_t *e)
     line_dsc.dash_gap   = 0;
 
     lv_point_t last_p;
-    if (g_dive_log_count > 0) {
+    if (g_dive_log_count > 0)
+    {
         last_p.x = MAP_X(g_dive_log[0].time_s);
         last_p.y = MAP_Y(g_dive_log[0].depth_m);
 
-        for (int i = 1; i < g_dive_log_count; i++) {
-            lv_point_t next_p = {
+        for (int i = 1; i < g_dive_log_count; i++)
+        {
+            lv_point_t next_p =
+            {
                 MAP_X(g_dive_log[i].time_s),
                 MAP_Y(g_dive_log[i].depth_m)
             };
             lv_draw_line(draw_ctx, &line_dsc, &last_p, &next_p);
             last_p = next_p;
         }
-    } else {
+    }
+    else
+    {
         last_p.x = MAP_X(0.0f);
         last_p.y = MAP_Y(0.0f);
     }
@@ -308,12 +350,25 @@ static void plan_chart_draw_cb(lv_event_t *e)
     lv_area_t now_area = {now_p.x - 6, now_p.y - 6, now_p.x + 6, now_p.y + 6};
     lv_draw_rect(draw_ctx, &now_dsc, &now_area);
 
-    /* NOW 文字背景（绿底） */
+    /* NOW 文字背景（绿底）
+     * 按真实字宽留白，避免不同字库/字重下右侧字符被裁掉。 */
+    lv_point_t now_text_size;
+    lv_txt_get_size(&now_text_size, "NOW", txt_dsc.font, txt_dsc.letter_space,
+                    txt_dsc.line_space, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+
     lv_draw_rect_dsc_t now_bg;
     lv_draw_rect_dsc_init(&now_bg);
     now_bg.bg_color = AREX_GREEN;
     now_bg.bg_opa   = LV_OPA_COVER;
-    lv_area_t now_bg_area = {now_p.x + 10, now_p.y - 8, now_p.x + 46, now_p.y + 8};
+    lv_coord_t now_bg_pad_x = 6;
+    lv_coord_t now_bg_pad_y = 4;
+    lv_area_t now_bg_area =
+    {
+        now_p.x + 10,
+        now_p.y - (now_text_size.y / 2) - now_bg_pad_y,
+        now_p.x + 10 + now_text_size.x + now_bg_pad_x * 2,
+        now_p.y + (now_text_size.y / 2) + now_bg_pad_y
+    };
     lv_draw_rect(draw_ctx, &now_bg, &now_bg_area);
 
     /* NOW 文字（黑字） */
@@ -325,7 +380,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
     /* ==========================================
      * 绘制预测减压轨迹（斜虚线）
      * ========================================== */
-    if (g_deco_stop_count > 0) {
+    if (g_deco_stop_count > 0)
+    {
         line_dsc.opa   = LV_OPA_COVER;
         line_dsc.width = 3;
 
@@ -333,7 +389,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
         float draw_d   = current_d;
         lv_point_t p1  = now_p;
 
-        for (int i = 0; i < g_deco_stop_count; i++) {
+        for (int i = 0; i < g_deco_stop_count; i++)
+        {
             /* 上升段（斜虚线，6秒/米） */
             float asc_t = (draw_d > g_deco_stops[i].depth_m)
                           ? (draw_d - g_deco_stops[i].depth_m) * 6.0f : 0;
@@ -378,8 +435,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
         draw_diagonal_dashed_line(draw_ctx, &line_dsc, p1, p_end);
     }
 
-    #undef MAP_X
-    #undef MAP_Y
+#undef MAP_X
+#undef MAP_Y
 }
 
 /* ============================================================
@@ -395,7 +452,7 @@ void card_plan_create(lv_obj_t *parent)
 
     /* 动态推算图表尺寸：以标题区下方为 Y=0 起点 */
     int right_w = (int)g_sys_config.safe_zone_w - (int)AREX_LEFT_ANCHOR_W
-                - (int)(g_sys_config.gap_u * AREX_BASE_U);
+                  - (int)(g_sys_config.gap_u * AREX_BASE_U);
     int tile_h  = (int)g_sys_config.safe_zone_h;
     int chart_x = CHART_PAD;
     int chart_y = AREX_CARD_TITLE_H;
@@ -409,7 +466,7 @@ void card_plan_create(lv_obj_t *parent)
     lv_obj_set_style_bg_color(shell, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(shell, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(shell, AREX_DARK, 0);
-        lv_obj_set_style_border_width(shell, AREX_GRID_BORDER_W, 0);
+    lv_obj_set_style_border_width(shell, AREX_GRID_BORDER_W, 0);
     lv_obj_set_style_radius(shell, 0, 0);
     lv_obj_set_style_pad_all(shell, 0, 0);
 
@@ -423,7 +480,8 @@ void card_plan_create(lv_obj_t *parent)
 
 void card_plan_update(void)
 {
-    if (s_chart_obj) {
+    if (s_chart_obj)
+    {
         lv_obj_invalidate(s_chart_obj);
     }
 }

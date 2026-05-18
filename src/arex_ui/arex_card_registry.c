@@ -13,13 +13,20 @@
 #include "arex_ui_engine.h"
 
 /* 前向声明：各卡片的具体创建/更新实现（由具体卡片模块提供） */
-void card_info_create(lv_obj_t *parent);    void card_info_update(void);
-void card_compass_create(lv_obj_t *parent); void card_compass_update(void);
-void card_deco_create(lv_obj_t *parent);    void card_deco_update(void);
-void card_gas_create(lv_obj_t *parent);     void card_gas_update(void);
-void card_plan_create(lv_obj_t *parent);    void card_plan_update(void);
-void card_blank_create(lv_obj_t *parent);   void card_blank_update(void);
-void card_setup_create(lv_obj_t *parent);   void card_setup_update(void);
+void card_info_create(lv_obj_t *parent);
+void card_info_update(void);
+void card_compass_create(lv_obj_t *parent);
+void card_compass_update(void);
+void card_deco_create(lv_obj_t *parent);
+void card_deco_update(void);
+void card_gas_create(lv_obj_t *parent);
+void card_gas_update(void);
+void card_plan_create(lv_obj_t *parent);
+void card_plan_update(void);
+void card_blank_create(lv_obj_t *parent);
+void card_blank_update(void);
+void card_setup_create(lv_obj_t *parent);
+void card_setup_update(void);
 
 /* 菜单配置（INFO/SETUP 两个菜单卡片使用） */
 extern const arex_menu_list_cfg_t info_menu_cfg;
@@ -34,7 +41,8 @@ extern const arex_menu_list_cfg_t setup_menu_cfg;
  * @note CARD_ID_CUSTOM_GRID 的 create_cb/update_cb 为 NULL，
  *       因为 GRID 引擎由 arex_screen.c 的 switch 分支直接调度，不走回调。
  */
-static arex_card_t g_cards[AREX_CARD_ID_COUNT] = {
+static arex_card_t g_cards[AREX_CARD_ID_COUNT] =
+{
     [CARD_ID_INFO] = {
         .id          = CARD_ID_INFO,
         .title       = "INFO MENU",
@@ -117,21 +125,36 @@ static arex_card_t g_cards[AREX_CARD_ID_COUNT] = {
     },
 };
 
+static uint8_t arex_dynamic_card_count_all(void)
+{
+    uint8_t count = 0;
+    for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; ++pos)
+    {
+        uint8_t id = g_sys_card_order(pos);
+        if (id != CARD_ID_UNUSED)
+        {
+            count++;
+        }
+    }
+    return (count > 0) ? count : 1;
+}
+
 /**
  * @brief 统计可见动态卡片数量
  *
- * 遍历 CARD_POS_DYNAMIC_FIRST ~ CARD_POS_SETUP 范围，
- * 统计 card_order[] 中非 CARD_ID_UNUSED 的槽位数量。
- * 至少返回 1，保证 INFO 左侧有可滑动目标。
+ * 仅用于 dots / 指示器计数。
+ * 空白页仍然保留在 tileview 序列中，但不参与 dots 统计。
  *
  * @return 有效动态卡片数量（1~AREX_MAX_DYNAMIC_SLOTS）
  */
 uint8_t arex_visible_dash_count(void)
 {
     uint8_t count = 0;
-    for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; ++pos) {
+    for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; ++pos)
+    {
         uint8_t id = g_sys_card_order(pos);
-        if (id != CARD_ID_UNUSED) {
+        if (id != CARD_ID_UNUSED && id != CARD_ID_BLANK)
+        {
             count++;
         }
     }
@@ -148,7 +171,7 @@ uint8_t arex_visible_dash_count(void)
  */
 uint8_t arex_setup_display_pos(void)
 {
-    return (uint8_t)(CARD_POS_DYNAMIC_FIRST + arex_visible_dash_count());
+    return (uint8_t)(CARD_POS_DYNAMIC_FIRST + arex_dynamic_card_count_all());
 }
 
 /**
@@ -178,13 +201,16 @@ uint8_t arex_card_storage_pos(uint8_t display_pos)
 {
     uint8_t setup_pos = arex_setup_display_pos();
 
-    if (display_pos == CARD_POS_INFO) {
+    if (display_pos == CARD_POS_INFO)
+    {
         return CARD_POS_INFO;
     }
-    if (display_pos >= CARD_POS_DYNAMIC_FIRST && display_pos < setup_pos) {
+    if (display_pos >= CARD_POS_DYNAMIC_FIRST && display_pos < setup_pos)
+    {
         return display_pos;
     }
-    if (display_pos == setup_pos) {
+    if (display_pos == setup_pos)
+    {
         return CARD_POS_SETUP;
     }
 
@@ -200,7 +226,8 @@ uint8_t arex_card_storage_pos(uint8_t display_pos)
 uint8_t arex_card_id_at(uint8_t display_pos)
 {
     uint8_t storage_pos = arex_card_storage_pos(display_pos);
-    if (storage_pos == 0xFF) {
+    if (storage_pos == 0xFF)
+    {
         return CARD_ID_UNUSED;
     }
     return g_sys_card_order(storage_pos);

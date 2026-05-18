@@ -1,10 +1,14 @@
 #include "arex_data.h"
 #include <math.h>
 #include <string.h>
-
+#include "stdio.h"
 /* card_plan.c 中的减压站序列全局数组（由减压引擎写入，UI 消费） */
 extern arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
 extern uint16_t         g_deco_stop_count;
+
+#ifdef PC_SIMULATOR
+#include "lvgl.h"
+#endif
 
 /* =========================================================
  * 告警待处理标志（由数据层设置，由 arex_ui_update_task 统一处理）
@@ -19,9 +23,30 @@ arex_widget_id_t g_pending_alarm_target = WIDGET_EMPTY;
  * 铁律：仅更新数值 + 打脏标记，绝不碰 LVGL！
  * ========================================================= */
 
-/* 速率计算用：记录上一次深度更新的时间戳和深度值 */
-static uint32_t _last_depth_tick_ms = 0;
-static float    _prev_depth = 0.0f;
+/* UI 速率通道：3s 窗口，偏响应；告警通道：5s 窗口，偏稳定 */
+#define AREX_DEPTH_UI_RATE_WINDOW_SIZE     6U
+#define AREX_DEPTH_ALARM_RATE_WINDOW_SIZE  10U
+#define AREX_DEPTH_DISPLAY_DEBOUNCE_M      0.05f
+#define AREX_ASCENT_RATE_UI_EPSILON        0.2f
+#define AREX_ASCENT_RATE_UI_SMOOTH_ALPHA   0.45f
+#define AREX_ASCENT_ALARM_THRESHOLD_MPM    12.0f
+#define AREX_ASCENT_ALARM_RELEASE_MPM      10.0f
+#define AREX_ASCENT_ALARM_HOLD_SAMPLES     3U
+
+typedef struct
+{
+    uint32_t timestamp_ms;
+    float    depth_m;
+} arex_depth_sample_t;
+
+static arex_depth_sample_t _ui_depth_rate_window[AREX_DEPTH_UI_RATE_WINDOW_SIZE];
+static arex_depth_sample_t _alarm_depth_rate_window[AREX_DEPTH_ALARM_RATE_WINDOW_SIZE];
+static uint8_t             _ui_depth_rate_count = 0;
+static uint8_t             _ui_depth_rate_head = 0;
+static uint8_t             _alarm_depth_rate_count = 0;
+static uint8_t             _alarm_depth_rate_head = 0;
+static uint8_t             _ascent_alarm_over_limit_count = 0;
+static float               _ui_rate_filtered_mpm = 0.0f;
 
 /* 深度统计累计值 */
 static float    _depth_sum = 0.0f;       /* 深度累计和 */
@@ -31,9 +56,114 @@ static uint32_t _depth_sample_count = 0;  /* 深度采样次数 */
 static float    _temp_sum = 0.0f;        /* 温度累计和 */
 static uint32_t _temp_sample_count = 0;  /* 温度采样次数 */
 
+static uint32_t arex_depth_now_ms(void)
+{
+#ifdef PC_SIMULATOR
+    return lv_tick_get();
+#else
+    return rt_tick_get_millisecond();
+#endif
+}
+
+static void arex_depth_rate_reset(void)
+{
+    memset(_ui_depth_rate_window, 0, sizeof(_ui_depth_rate_window));
+    memset(_alarm_depth_rate_window, 0, sizeof(_alarm_depth_rate_window));
+    _ui_depth_rate_count = 0;
+    _ui_depth_rate_head = 0;
+    _alarm_depth_rate_count = 0;
+    _alarm_depth_rate_head = 0;
+    _ascent_alarm_over_limit_count = 0;
+    _ui_rate_filtered_mpm = 0.0f;
+}
+
+static void arex_depth_rate_push_sample(arex_depth_sample_t *window,
+                                        uint8_t window_size,
+                                        uint8_t *head,
+                                        uint8_t *count,
+                                        uint32_t now_ms,
+                                        float depth_m)
+{
+    window[*head].timestamp_ms = now_ms;
+    window[*head].depth_m = depth_m;
+    *head = (uint8_t)((*head + 1U) % window_size);
+
+    if (*count < window_size)
+    {
+        (*count)++;
+    }
+}
+
+static float arex_depth_rate_estimate_mpm(const arex_depth_sample_t *window,
+        uint8_t window_size,
+        uint8_t count,
+        uint8_t head)
+{
+    if (count < 3U)
+    {
+        return 0.0f;
+    }
+
+    float sum_t = 0.0f;
+    float sum_d = 0.0f;
+    float sum_tt = 0.0f;
+    float sum_td = 0.0f;
+    uint8_t oldest = (uint8_t)((head + window_size - count) % window_size);
+    uint32_t base_ms = window[oldest].timestamp_ms;
+
+    for (uint8_t i = 0; i < count; i++)
+    {
+        uint8_t idx = (uint8_t)((oldest + i) % window_size);
+        float t_min = ((float)(window[idx].timestamp_ms - base_ms)) / 60000.0f;
+        float depth_m = window[idx].depth_m;
+
+        sum_t += t_min;
+        sum_d += depth_m;
+        sum_tt += t_min * t_min;
+        sum_td += t_min * depth_m;
+    }
+
+    float n = (float)count;
+    float denominator = n * sum_tt - sum_t * sum_t;
+    if (fabsf(denominator) < 1e-6f)
+    {
+        return 0.0f;
+    }
+
+    return (n * sum_td - sum_t * sum_d) / denominator;
+}
+
 void arex_data_init(void)
 {
     memset(&g_sensor_data, 0, sizeof(g_sensor_data));
+    arex_depth_rate_reset();
+    _depth_sum = 0.0f;
+    _depth_sample_count = 0;
+    _temp_sum = 0.0f;
+    _temp_sample_count = 0;
+
+    g_sensor_data.gas_active_idx = 0;
+    strncpy(g_sensor_data.gas_name, "AIR", sizeof(g_sensor_data.gas_name) - 1);
+
+    strncpy(g_sensor_data.gas_slot_name[0], "AIR", sizeof(g_sensor_data.gas_slot_name[0]) - 1);
+    g_sensor_data.gas_slot_o2_pct[0] = 21;
+    g_sensor_data.gas_slot_he_pct[0] = 0;
+    g_sensor_data.gas_slot_mod_m[0] = 56.0f;
+
+    strncpy(g_sensor_data.gas_slot_name[1], "NX 32", sizeof(g_sensor_data.gas_slot_name[1]) - 1);
+    g_sensor_data.gas_slot_o2_pct[1] = 32;
+    g_sensor_data.gas_slot_he_pct[1] = 0;
+    g_sensor_data.gas_slot_mod_m[1] = 34.0f;
+
+    strncpy(g_sensor_data.gas_slot_name[2], "TX 18/45", sizeof(g_sensor_data.gas_slot_name[2]) - 1);
+    g_sensor_data.gas_slot_o2_pct[2] = 18;
+    g_sensor_data.gas_slot_he_pct[2] = 45;
+    g_sensor_data.gas_slot_mod_m[2] = 68.0f;
+
+    strncpy(g_sensor_data.gas_slot_name[3], "O2 100%", sizeof(g_sensor_data.gas_slot_name[3]) - 1);
+    g_sensor_data.gas_slot_o2_pct[3] = 100;
+    g_sensor_data.gas_slot_he_pct[3] = 0;
+    g_sensor_data.gas_slot_mod_m[3] = 6.0f;
 
     /* 减压站预测数据初始化（仅初始化节数，数据本身由减压引擎填充） */
     g_deco_stop_count = 0;
@@ -41,54 +171,104 @@ void arex_data_init(void)
 
 void arex_bus_set_depth(float depth_m)
 {
-    /* 实时计算速率：m/min = (delta_depth_m / delta_time_s) * 60
-     * 注意：深度增加=下潜(rate正)，深度减少=上升(rate负) */
-    uint32_t now_ms = lv_tick_get();
-    if (_last_depth_tick_ms > 0) {
-        uint32_t dt_ms = now_ms - _last_depth_tick_ms;
-        if (dt_ms > 0) {
-            float dt_min = dt_ms / 60000.0f;
-            float rate = (depth_m - _prev_depth) / dt_min;  /* m/min：正=下潜，负=上升 */
+    uint32_t now_ms = arex_depth_now_ms();
+    float prev_ui_rate = g_sensor_data.ascent_rate;
+    bool prev_is_moving = fabsf(prev_ui_rate) >= AREX_RATE_STILL_THRESHOLD;
+    float ui_depth_rate_mpm;
+    float alarm_depth_rate_mpm;
 
-            /* 更新 UI 显示用的速率（取反：正=上升箭头，负=下潜箭头） */
-            g_sensor_data.ascent_rate = -rate;
+    arex_depth_rate_push_sample(_ui_depth_rate_window,
+                                AREX_DEPTH_UI_RATE_WINDOW_SIZE,
+                                &_ui_depth_rate_head,
+                                &_ui_depth_rate_count,
+                                now_ms,
+                                depth_m);
+    arex_depth_rate_push_sample(_alarm_depth_rate_window,
+                                AREX_DEPTH_ALARM_RATE_WINDOW_SIZE,
+                                &_alarm_depth_rate_head,
+                                &_alarm_depth_rate_count,
+                                now_ms,
+                                depth_m);
 
-            /* 上升速率过快告警：>10m/min 标记待处理 */
-            if (rate < -10.0f) {
-                g_alarm_pending = true;
-                g_pending_alarm_level = AREX_ALARM_CRIT;
-                g_pending_alarm_text = "ASCENT RATE FAST";
-                g_pending_alarm_target = WIDGET_DEPTH_1606;
-            }
+    ui_depth_rate_mpm = arex_depth_rate_estimate_mpm(_ui_depth_rate_window,
+                        AREX_DEPTH_UI_RATE_WINDOW_SIZE,
+                        _ui_depth_rate_count,
+                        _ui_depth_rate_head);
+    alarm_depth_rate_mpm = arex_depth_rate_estimate_mpm(_alarm_depth_rate_window,
+                           AREX_DEPTH_ALARM_RATE_WINDOW_SIZE,
+                           _alarm_depth_rate_count,
+                           _alarm_depth_rate_head);
+
+    /* UI 通道更关注连续观感：短窗口 + 轻量平滑 */
+    {
+        float ui_rate_target_mpm = -ui_depth_rate_mpm;  /* 正=上升，负=下潜 */
+        float ui_rate_mpm;
+        bool current_is_moving;
+
+        _ui_rate_filtered_mpm += AREX_ASCENT_RATE_UI_SMOOTH_ALPHA *
+                                 (ui_rate_target_mpm - _ui_rate_filtered_mpm);
+        ui_rate_mpm = _ui_rate_filtered_mpm;
+
+        if (fabsf(ui_rate_mpm) < AREX_ASCENT_RATE_UI_EPSILON)
+        {
+            ui_rate_mpm = 0.0f;
+            _ui_rate_filtered_mpm = 0.0f;
+        }
+
+        g_sensor_data.ascent_rate = ui_rate_mpm;
+        current_is_moving = fabsf(ui_rate_mpm) >= AREX_RATE_STILL_THRESHOLD;
+
+        if ((fabsf(ui_rate_mpm - prev_ui_rate) >= AREX_ASCENT_RATE_UI_EPSILON) ||
+                (current_is_moving != prev_is_moving))
+        {
+            g_sensor_data.dirty_mask |= DIRTY_DEPTH;
         }
     }
-    _last_depth_tick_ms = now_ms;
-    _prev_depth = depth_m;
 
-    /* 防抖：只有变化超过 0.05m 才触发 UI 刷新，极大节省 CPU
-     * 停留时虽然不刷新UI，但ascent_rate已在上面被清零/保持正确 */
-    if (fabsf(g_sensor_data.depth - depth_m) > 0.05f) {
+    /* 告警通道更关注误报控制：长窗口 + 迟滞 + 持续判定 */
+    if (alarm_depth_rate_mpm <= -AREX_ASCENT_ALARM_THRESHOLD_MPM)
+    {
+        if (_ascent_alarm_over_limit_count < 0xFFU)
+        {
+            _ascent_alarm_over_limit_count++;
+        }
+    }
+    else if (alarm_depth_rate_mpm > -AREX_ASCENT_ALARM_RELEASE_MPM)
+    {
+        _ascent_alarm_over_limit_count = 0;
+    }
+
+    if (_ascent_alarm_over_limit_count >= AREX_ASCENT_ALARM_HOLD_SAMPLES)
+    {
+        g_alarm_pending = true;
+        g_pending_alarm_level = AREX_ALARM_CRIT;
+        g_pending_alarm_text = "ASCENT RATE FAST";
+        g_pending_alarm_target = WIDGET_DEPTH_1606;
+    }
+
+    /* 深度数值显示继续保留轻量防抖，避免数字末位来回跳 */
+    if (fabsf(g_sensor_data.depth - depth_m) > AREX_DEPTH_DISPLAY_DEBOUNCE_M)
+    {
         g_sensor_data.depth = depth_m;
         g_sensor_data.dirty_mask |= DIRTY_DEPTH;
         /* 轨迹+减压站图表需要刷新 */
         g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
 
         /* 统计计算：最大深度 + 平均深度 */
-        if (depth_m > g_sensor_data.max_depth) {
+        if (depth_m > g_sensor_data.max_depth)
+        {
             g_sensor_data.max_depth = depth_m;
         }
         _depth_sum += depth_m;
         _depth_sample_count++;
         g_sensor_data.avg_depth = (_depth_sample_count > 0) ? (_depth_sum / _depth_sample_count) : 0.0f;
-    } else {
-        /* 深度未变 → 速率必为0（静止），确保停留时图标显示level0不闪烁 */
-        g_sensor_data.ascent_rate = 0.0f;
     }
 }
 
 void arex_bus_set_ndl(int16_t ndl_min)
 {
-    if (g_sensor_data.ndl != ndl_min) {
+    if (g_sensor_data.ndl != ndl_min)
+    {
         g_sensor_data.ndl = ndl_min;
         g_sensor_data.dirty_mask |= DIRTY_NDL;
     }
@@ -96,7 +276,8 @@ void arex_bus_set_ndl(int16_t ndl_min)
 
 void arex_bus_set_tts(uint16_t tts_min)
 {
-    if (g_sensor_data.tts != tts_min) {
+    if (g_sensor_data.tts != tts_min)
+    {
         g_sensor_data.tts = tts_min;
         g_sensor_data.dirty_mask |= DIRTY_TTS;
     }
@@ -104,10 +285,13 @@ void arex_bus_set_tts(uint16_t tts_min)
 
 void arex_bus_set_pod(uint8_t pod_idx, float bar)
 {
-    if (pod_idx == 0 && g_sensor_data.pod1_bar != bar) {
+    if (pod_idx == 0 && g_sensor_data.pod1_bar != bar)
+    {
         g_sensor_data.pod1_bar = bar;
         g_sensor_data.dirty_mask |= DIRTY_POD;
-    } else if (pod_idx == 1 && g_sensor_data.pod2_bar != bar) {
+    }
+    else if (pod_idx == 1 && g_sensor_data.pod2_bar != bar)
+    {
         g_sensor_data.pod2_bar = bar;
         g_sensor_data.dirty_mask |= DIRTY_POD;
     }
@@ -115,7 +299,20 @@ void arex_bus_set_pod(uint8_t pod_idx, float bar)
 
 void arex_bus_set_battery(float pct)
 {
-    if (fabsf(g_sensor_data.battery_pct - pct) > 0.1f) {
+    static bool s_battery_initialized = false;
+
+    if (pct < 0.0f)
+    {
+        pct = 0.0f;
+    }
+    else if (pct > 100.0f)
+    {
+        pct = 100.0f;
+    }
+
+    if (!s_battery_initialized || fabsf(g_sensor_data.battery_pct - pct) > 0.1f)
+    {
+        s_battery_initialized = true;
         g_sensor_data.battery_pct = pct;
         g_sensor_data.dirty_mask |= DIRTY_BATT;
     }
@@ -123,7 +320,8 @@ void arex_bus_set_battery(float pct)
 
 void arex_bus_set_heading(uint16_t heading_deg)
 {
-    if (g_sensor_data.heading != heading_deg) {
+    if (g_sensor_data.heading != heading_deg)
+    {
         g_sensor_data.heading = heading_deg;
         g_sensor_data.dirty_mask |= DIRTY_HEADING;
     }
@@ -131,7 +329,8 @@ void arex_bus_set_heading(uint16_t heading_deg)
 
 void arex_bus_set_dive_time(uint32_t dive_s)
 {
-    if (g_sensor_data.dive_time_s != dive_s) {
+    if (g_sensor_data.dive_time_s != dive_s)
+    {
         g_sensor_data.dive_time_s = dive_s;
         g_sensor_data.dirty_mask |= DIRTY_DIVE_TIME;
         /* 潜水时间推进，图表的 NOW 点会随之右移 */
@@ -141,7 +340,8 @@ void arex_bus_set_dive_time(uint32_t dive_s)
 
 void arex_bus_set_surface_time(uint32_t surface_s)
 {
-    if (g_sensor_data.surface_time_s != surface_s) {
+    if (g_sensor_data.surface_time_s != surface_s)
+    {
         g_sensor_data.surface_time_s = surface_s;
         g_sensor_data.dirty_mask |= DIRTY_DIVE_TIME;
     }
@@ -149,7 +349,8 @@ void arex_bus_set_surface_time(uint32_t surface_s)
 
 void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val)
 {
-    if (sensor_idx < 3 && g_sensor_data.ppo2[sensor_idx] != ppo2_val) {
+    if (sensor_idx < AREX_GAS_COUNT && g_sensor_data.ppo2[sensor_idx] != ppo2_val)
+    {
         g_sensor_data.ppo2[sensor_idx] = ppo2_val;
         g_sensor_data.dirty_mask |= DIRTY_PPO2;
     }
@@ -157,19 +358,60 @@ void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val)
 
 void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name)
 {
-    if (g_sensor_data.gas_active_idx != gas_idx) {
+    if (g_sensor_data.gas_active_idx != gas_idx)
+    {
         g_sensor_data.gas_active_idx = gas_idx;
     }
-    if (gas_name != NULL && strncmp(g_sensor_data.gas_name, gas_name, 15) != 0) {
+    if (gas_name != NULL && strncmp(g_sensor_data.gas_name, gas_name, 15) != 0)
+    {
         strncpy(g_sensor_data.gas_name, gas_name, 15);
         g_sensor_data.gas_name[15] = '\0';
     }
     g_sensor_data.dirty_mask |= DIRTY_GAS;
 }
 
+void arex_bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
+                           uint8_t o2_pct, uint8_t he_pct, float mod_m)
+{
+    if (gas_idx >= AREX_GAS_COUNT)
+    {
+        return;
+    }
+
+    bool changed = false;
+
+    if (gas_name != NULL && strncmp(g_sensor_data.gas_slot_name[gas_idx], gas_name, 15) != 0)
+    {
+        strncpy(g_sensor_data.gas_slot_name[gas_idx], gas_name, 15);
+        g_sensor_data.gas_slot_name[gas_idx][15] = '\0';
+        changed = true;
+    }
+    if (g_sensor_data.gas_slot_o2_pct[gas_idx] != o2_pct)
+    {
+        g_sensor_data.gas_slot_o2_pct[gas_idx] = o2_pct;
+        changed = true;
+    }
+    if (g_sensor_data.gas_slot_he_pct[gas_idx] != he_pct)
+    {
+        g_sensor_data.gas_slot_he_pct[gas_idx] = he_pct;
+        changed = true;
+    }
+    if (fabsf(g_sensor_data.gas_slot_mod_m[gas_idx] - mod_m) > 0.05f)
+    {
+        g_sensor_data.gas_slot_mod_m[gas_idx] = mod_m;
+        changed = true;
+    }
+
+    if (changed)
+    {
+        g_sensor_data.dirty_mask |= DIRTY_GAS;
+    }
+}
+
 void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min)
 {
-    if (g_sensor_data.next_stop_m != stop_m || g_sensor_data.next_stop_min != stop_min) {
+    if (g_sensor_data.next_stop_m != stop_m || g_sensor_data.next_stop_min != stop_min)
+    {
         g_sensor_data.next_stop_m = stop_m;
         g_sensor_data.next_stop_min = stop_min;
         g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
@@ -178,7 +420,8 @@ void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min)
 
 void arex_bus_set_cns(uint8_t cns_pct)
 {
-    if (g_sensor_data.cns_pct != cns_pct) {
+    if (g_sensor_data.cns_pct != cns_pct)
+    {
         g_sensor_data.cns_pct = cns_pct;
         g_sensor_data.dirty_mask |= DIRTY_CNS;
     }
@@ -186,9 +429,28 @@ void arex_bus_set_cns(uint8_t cns_pct)
 
 void arex_bus_set_otu(uint16_t otu_val)
 {
-    if (g_sensor_data.otu != otu_val) {
+    if (g_sensor_data.otu != otu_val)
+    {
         g_sensor_data.otu = otu_val;
         g_sensor_data.dirty_mask |= DIRTY_OTU;
+    }
+}
+
+void arex_bus_set_gf99(float gf99)
+{
+    if (fabsf(g_sensor_data.gf99 - gf99) > 0.1f)
+    {
+        g_sensor_data.gf99 = gf99;
+        g_sensor_data.dirty_mask |= DIRTY_CNS;
+    }
+}
+
+void arex_bus_set_surf_gf(float surf_gf)
+{
+    if (fabsf(g_sensor_data.surf_gf - surf_gf) > 0.1f)
+    {
+        g_sensor_data.surf_gf = surf_gf;
+        g_sensor_data.dirty_mask |= DIRTY_CNS;
     }
 }
 
@@ -212,15 +474,38 @@ void arex_bus_set_tissues(const uint8_t tissue_pct[16])
 /* 完整减压站序列写入（可变长度，必须包临界区） */
 void arex_bus_set_deco_plan(const arex_deco_stop_t *stops, uint8_t count)
 {
-    if (count > MAX_DECO_STOPS) {
+    if (count > MAX_DECO_STOPS)
+    {
         count = MAX_DECO_STOPS;
     }
     rt_base_t level = rt_hw_interrupt_disable();
     g_deco_stop_count = count;
-    if (count > 0 && stops != NULL) {
+    if (count > 0 && stops != NULL)
+    {
         memcpy(g_deco_stops, stops, count * sizeof(arex_deco_stop_t));
     }
     g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
+    rt_hw_interrupt_enable(level);
+}
+
+uint32_t arex_bus_take_dirty(void)
+{
+    rt_base_t level = rt_hw_interrupt_disable();
+    uint32_t mask = g_sensor_data.dirty_mask;
+    g_sensor_data.dirty_mask = DIRTY_NONE;
+    rt_hw_interrupt_enable(level);
+    return mask;
+}
+
+void arex_bus_requeue_dirty(uint32_t mask)
+{
+    if (mask == DIRTY_NONE)
+    {
+        return;
+    }
+
+    rt_base_t level = rt_hw_interrupt_disable();
+    g_sensor_data.dirty_mask |= mask;
     rt_hw_interrupt_enable(level);
 }
 
@@ -231,12 +516,14 @@ void arex_bus_clear_all_dirty(void)
 
 void arex_bus_set_temperature(float temp_c)
 {
-    if (fabsf(g_sensor_data.temperature_c - temp_c) > 0.1f) {
+    if (fabsf(g_sensor_data.temperature_c - temp_c) > 0.1f)
+    {
         g_sensor_data.temperature_c = temp_c;
         g_sensor_data.dirty_mask |= DIRTY_TEMP;
 
         /* 统计计算：最低温度 + 平均温度 */
-        if (_temp_sample_count == 0 || temp_c < g_sensor_data.min_temp) {
+        if (_temp_sample_count == 0 || temp_c < g_sensor_data.min_temp)
+        {
             g_sensor_data.min_temp = temp_c;
         }
         _temp_sum += temp_c;
@@ -249,7 +536,8 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 {
     printf("[BUS] arex_bus_set_ui_layout called, version=0x%02X\r\n", payload ? payload->version : 0);
 
-    if (payload == NULL || payload->version != AREX_BLE_CFG_VERSION) {
+    if (payload == NULL || payload->version != AREX_BLE_CFG_VERSION)
+    {
         printf("[BUS] REJECTED: payload=%p, version=0x%02X\r\n", payload, payload ? payload->version : 0);
         return;
     }
@@ -268,15 +556,29 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
     }
     g_sys_config.card_order[CARD_POS_INFO] = CARD_ID_INFO;
     g_sys_config.card_order[CARD_POS_SETUP] = CARD_ID_SETUP;
-    for (int i = 0; i < 8 && (CARD_POS_DYNAMIC_FIRST + i) < CARD_POS_SETUP; i++) {
-        g_sys_config.card_order[CARD_POS_DYNAMIC_FIRST + i] = payload->card_order[i];
+    {
+        uint8_t dynamic_pos = CARD_POS_DYNAMIC_FIRST;
+
+        for (int i = 0; i < 8 && dynamic_pos < CARD_POS_SETUP; i++)
+        {
+            uint8_t card_id = payload->card_order[i];
+
+            if (card_id == CARD_ID_UNUSED)
+            {
+                continue;
+            }
+
+            g_sys_config.card_order[dynamic_pos++] = card_id;
+        }
     }
 
     /* 2. 映射左侧 2x7 锚点配置到 g_sys_config */
+    memset(g_sys_config.left_widgets, 0, sizeof(g_sys_config.left_widgets));
     g_sys_config.left_widget_count = (payload->left_count > AREX_LEFT_MAX_WIDGETS)
-                        ? AREX_LEFT_MAX_WIDGETS
-                        : payload->left_count;
-    for (int i = 0; i < g_sys_config.left_widget_count; i++) {
+                                     ? AREX_LEFT_MAX_WIDGETS
+                                     : payload->left_count;
+    for (int i = 0; i < g_sys_config.left_widget_count; i++)
+    {
         g_sys_config.left_widgets[i].widget_id = (arex_widget_id_t)payload->left_widgets[i].widget_id;
         g_sys_config.left_widgets[i].x         = payload->left_widgets[i].x;
         g_sys_config.left_widgets[i].y         = payload->left_widgets[i].y;
@@ -287,20 +589,24 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
     memset(g_sys_config.custom_card_slot, 0xFF, sizeof(g_sys_config.custom_card_slot));
     g_sys_config.custom_card_count = 0;
 
-    if (payload->custom_5f_count > 0) {
+    if (payload->custom_5f_count > 0)
+    {
         g_sys_config.custom_card_count = 1;
         /* 在 card_order 中查找 CUSTOM_GRID 卡片的位置，设置正确的 slot 映射 */
-        for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; pos++) {
-            if (g_sys_config.card_order[pos] == CARD_ID_CUSTOM_GRID) {
+        for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; pos++)
+        {
+            if (g_sys_config.card_order[pos] == CARD_ID_CUSTOM_GRID)
+            {
                 g_sys_config.custom_card_slot[pos] = 0;
                 break;
             }
         }
         g_sys_config.custom_cards[0].widget_count = (payload->custom_5f_count > AREX_5F_MAX_WIDGETS)
-                          ? AREX_5F_MAX_WIDGETS
-                          : payload->custom_5f_count;
+            ? AREX_5F_MAX_WIDGETS
+            : payload->custom_5f_count;
     }
-    for (int i = 0; i < g_sys_config.custom_cards[0].widget_count; i++) {
+    for (int i = 0; i < g_sys_config.custom_cards[0].widget_count; i++)
+    {
         g_sys_config.custom_cards[0].widgets[i].widget_id = (arex_widget_id_t)payload->custom_5f_widgets[i].widget_id;
         g_sys_config.custom_cards[0].widgets[i].x = payload->custom_5f_widgets[i].c;  /* 列 -> x */
         g_sys_config.custom_cards[0].widgets[i].y = payload->custom_5f_widgets[i].r;  /* 行 -> y */
@@ -392,7 +698,8 @@ void arex_bus_toggle_split_outward(void)
 
 void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
 {
-    if (g_sys_config.offset_x == offset_x && g_sys_config.offset_y == offset_y) {
+    if (g_sys_config.offset_x == offset_x && g_sys_config.offset_y == offset_y)
+    {
         return;
     }
 
@@ -430,18 +737,21 @@ void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
                          g_sensor_data.stop_time_left_s != time_s ||
                          g_sensor_data.in_stop_zone != in_stop_zone);
 
-    if (!ndl_changed && !stop_changed) {
+    if (!ndl_changed && !stop_changed)
+    {
         return;  /* 无变化，快速返回 */
     }
 
     /* 临界区保护：一次性更新所有字段 */
     rt_base_t level = rt_hw_interrupt_disable();
 
-    if (ndl_changed) {
+    if (ndl_changed)
+    {
         g_sensor_data.ndl = ndl_min;
     }
 
-    if (stop_changed) {
+    if (stop_changed)
+    {
         g_sensor_data.stop_type = stop_type;
         g_sensor_data.stop_depth_m = depth_m;
         g_sensor_data.stop_time_total_s = total_time_s;
@@ -455,10 +765,65 @@ void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
     rt_hw_interrupt_enable(level);
 }
 
-void arex_bus_set_conservatism(uint8_t level)
+/* GF Low/High 设定值同步接口（由 buhlmann_task 调用） */
+void arex_bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high)
 {
-    if (g_sys_config.conservatism != level) {
-        g_sys_config.conservatism = level;
+    if (g_sensor_data.gf_low != gf_low || g_sensor_data.gf_high != gf_high)
+    {
+        g_sensor_data.gf_low = gf_low;
+        g_sensor_data.gf_high = gf_high;
+        g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
+    }
+}
+
+/* MOD（最大操作深度）同步接口 */
+void arex_bus_set_mod(float mod_m)
+{
+    if (g_sensor_data.mod_m != mod_m)
+    {
+        g_sensor_data.mod_m = mod_m;
+        g_sensor_data.dirty_mask |= DIRTY_MOD;
+    }
+}
+
+/* Ceiling（减压上限）同步接口 */
+void arex_bus_set_ceiling(float ceiling_m)
+{
+    if (g_sensor_data.ceiling_m != ceiling_m)
+    {
+        g_sensor_data.ceiling_m = ceiling_m;
+        g_sensor_data.dirty_mask |= DIRTY_CEILING;
+    }
+}
+
+/* 气体混合比（O2/He）同步接口 */
+void arex_bus_set_gas_mix(uint8_t o2_pct, uint8_t he_pct)
+{
+    if (g_sensor_data.gas_o2_pct != o2_pct || g_sensor_data.gas_he_pct != he_pct)
+    {
+        g_sensor_data.gas_o2_pct = o2_pct;
+        g_sensor_data.gas_he_pct = he_pct;
+        g_sensor_data.dirty_mask |= DIRTY_GAS_MIX;
+    }
+}
+
+/* 气体密度同步接口 */
+void arex_bus_set_gas_density(float density)
+{
+    if (g_sensor_data.gas_density != density)
+    {
+        g_sensor_data.gas_density = density;
+        g_sensor_data.dirty_mask |= DIRTY_GAS_DENS;
+    }
+}
+
+/* FiO2（实际吸入氧浓度）同步接口 */
+void arex_bus_set_fio2(float fio2_pct)
+{
+    if (g_sensor_data.fio2_pct != fio2_pct)
+    {
+        g_sensor_data.fio2_pct = fio2_pct;
+        g_sensor_data.dirty_mask |= DIRTY_FIO2;
     }
 }
 

@@ -11,7 +11,8 @@ extern "C" {
 /* =========================================
    Card IDs — stable identifiers
    ========================================= */
-typedef enum {
+typedef enum
+{
     CARD_ID_INFO         = 0,
     CARD_ID_COMPASS      = 1,
     CARD_ID_DECO         = 2,
@@ -35,7 +36,8 @@ typedef enum {
    ========================================= */
 #define AREX_MAX_DYNAMIC_SLOTS  12
 
-typedef enum {
+typedef enum
+{
     CARD_POS_INFO          = 0,
     CARD_POS_DYNAMIC_FIRST = 1,
     CARD_POS_SETUP         = CARD_POS_DYNAMIC_FIRST + AREX_MAX_DYNAMIC_SLOTS,
@@ -62,7 +64,8 @@ typedef enum {
 /* =========================================
    Card engine type
    ========================================= */
-typedef enum {
+typedef enum
+{
     CARD_ENGINE_MENU   = 0,   /* arex_render_dynamic_menu()   */
     CARD_ENGINE_GRID   = 1,   /* arex_render_5f_custom_grid() */
     CARD_ENGINE_CHART  = 2,   /* reserved */
@@ -74,7 +77,8 @@ typedef enum {
    ROM fields (engine_type, config_data) are set at init and never changed.
    RAM field (tile_obj) is filled by right_panel_create().
    ========================================= */
-typedef struct {
+typedef struct
+{
     arex_card_id_t      id;
     const char         *title;
     arex_card_engine_t  engine_type;

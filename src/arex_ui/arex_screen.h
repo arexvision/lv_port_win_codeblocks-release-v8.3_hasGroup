@@ -38,7 +38,8 @@ extern "C" {
 /* =========================================
    Wall indicator side
    ========================================= */
-typedef enum {
+typedef enum
+{
     WALL_TOP,
     WALL_BOTTOM,
 } wall_side_t;
@@ -47,6 +48,7 @@ typedef enum {
    Safe Zone rebuild — called after config change
    ========================================= */
 void arex_screen_rebuild_layout(void);
+void arex_screen_rebuild_full(void);
 
 /* 获取 Safe Zone 容器对象（供告警横幅使用） */
 lv_obj_t *arex_get_safe_zone(void);
@@ -105,6 +107,7 @@ void arex_screen_open_info_submenu(uint8_t item_idx);
 void arex_screen_open_setup_submenu(uint8_t item_idx);
 void arex_screen_handle_submenu_select(uint8_t item_idx);
 void arex_screen_close_submenu(void);
+void arex_screen_refresh_compass_cal_submenu_if_open(void);
 
 void arex_screen_open_nested_submenu(const char *title, const char **items, uint8_t count);
 
@@ -113,7 +116,7 @@ void arex_screen_update_setup_badge(uint8_t item_idx, const char *value);
 void arex_screen_show_modal_act(const char *action_text);
 
 void arex_screen_begin_edit_value(uint8_t item_idx, float value,
-                                   float min, float max, float step);
+                                  float min, float max, float step);
 
 /* =========================================
    Modal dialogs
@@ -157,7 +160,9 @@ void arex_screen_register_setup_list(lv_obj_t *list);
 extern bool g_light_power_state;        /* 灯光开关状态（共享） */
 void arex_bus_set_light_power(bool on);           /* 开关灯光 */
 void arex_ui_on_light_color_set(const char *color, const char *level);  /* 颜色亮度设置 */
-void arex_set_brightness(uint8_t level);           /* 设置屏幕亮度 (0-3) */
+void arex_set_software_brightness_enabled(bool enabled); /* 开关软件亮度遮罩 */
+void arex_apply_software_brightness(uint8_t level); /* 软件亮度遮罩 (0-5) */
+void arex_set_brightness(uint8_t level);           /* 设置屏幕亮度 (0-5) */
 void arex_ui_on_conservatism_set(uint8_t level);   /* 设置算法保守度 */
 #ifdef __cplusplus
 }

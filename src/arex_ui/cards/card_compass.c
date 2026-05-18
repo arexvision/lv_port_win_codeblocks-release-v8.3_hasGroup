@@ -80,7 +80,8 @@ static void compass_tape_draw_cb(lv_event_t *e)
     /* ---- 4. 绘制精密刻度 ---- */
     line_dsc.opa = LV_OPA_COVER;  /* 刻度线全亮 */
 
-    for (int i = start_deg; i <= end_deg; i++) {
+    for (int i = start_deg; i <= end_deg; i++)
+    {
         /* 每 3 度一根密集短线 */
         if (i % 3 != 0) continue;
 
@@ -96,13 +97,15 @@ static void compass_tape_draw_cb(lv_event_t *e)
         line_dsc.width = 1;
 
         /* 逢 15 度画中长线 */
-        if (i % 15 == 0) {
+        if (i % 15 == 0)
+        {
             tick_h = 9;
             line_dsc.width = 2;
         }
 
         /* 逢 45 度画最长的线，并绘制 N, NE 等纯正方位字母 */
-        if (i % 45 == 0) {
+        if (i % 45 == 0)
+        {
             tick_h = 14;
 
             /* 处理 360 度循环取模 (比如 -45度 变成 315度) */
@@ -136,7 +139,8 @@ static void compass_tape_draw_cb(lv_event_t *e)
     lv_draw_line(draw_ctx, &line_dsc, &center_pts[0], &center_pts[1]);
 
     /* ---- 6. 目标锁定游标 (如果用户锁定了航向) ---- */
-    if (g_sensor_data.heading_locked) {
+    if (g_sensor_data.heading_locked)
+    {
         float target_dx = (float)(g_sensor_data.heading_target - heading);
 
         /* 处理捷径逻辑 (如当前350，目标10，应向右走20度而不是向左走340度) */
@@ -145,7 +149,8 @@ static void compass_tape_draw_cb(lv_event_t *e)
 
         int tx = center_x + (int)(target_dx * PX_PER_DEGREE);
 
-        if (tx >= area->x1 && tx <= area->x2) {
+        if (tx >= area->x1 && tx <= area->x2)
+        {
             /* 在目标方位画一个向上的小实心绿块 */
             lv_draw_rect_dsc_t rect_dsc;
             lv_draw_rect_dsc_init(&rect_dsc);
@@ -190,9 +195,12 @@ void render_compass_custom(lv_obj_t *parent_card)
     lv_obj_set_style_text_color(s_heading_hint_lbl, AREX_LIGHT, 0);
     lv_obj_align(s_heading_hint_lbl, LV_ALIGN_TOP_MID, 0, AREX_CARD_TITLE_H + 20);
 
-    if (g_sensor_data.heading_locked) {
+    if (g_sensor_data.heading_locked)
+    {
         lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d ]", g_sensor_data.heading_target);
-    } else {
+    }
+    else
+    {
         lv_label_set_text(s_heading_hint_lbl, "[ ENTER ] mark heading");
     }
 

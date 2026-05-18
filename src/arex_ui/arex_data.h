@@ -9,14 +9,14 @@
  * PC 仿真器:        替换为空操作，防止编译报错
  * ========================================================= */
 #ifdef PC_SIMULATOR
-    typedef int rt_base_t;
-    #define rt_hw_interrupt_disable()   ((rt_base_t)0)
-    #define rt_hw_interrupt_enable(lvl) ((void)(lvl))
-    #define rt_enter_critical()       ((void)0)
-    #define rt_exit_critical(lvl)     ((void)(lvl))
+typedef int rt_base_t;
+#define rt_hw_interrupt_disable()   ((rt_base_t)0)
+#define rt_hw_interrupt_enable(lvl) ((void)(lvl))
+#define rt_enter_critical()       ((void)0)
+#define rt_exit_critical(lvl)     ((void)(lvl))
 #else
-    #include <rtthread.h>
-    #include <rthw.h>
+#include <rtthread.h>
+#include <rthw.h>
 #endif
 
 /* =========================================================
@@ -51,21 +51,24 @@ extern "C" {
  * ========================================================= */
 #pragma pack(push, 1)
 /* 左侧 2x7 组件描述 (3 Bytes) */
-typedef struct {
+typedef struct
+{
     uint8_t widget_id;    /* arex_widget_id_t (0~52) */
     uint8_t x;           /* 列索引 0~1 */
     uint8_t y;           /* 行索引 0~6 */
 } ble_sync_left_widget_t;
 
 /* 5F 自定义组件描述 (3 Bytes) - span_w/h 由 MCU 从样式表自动推导 */
-typedef struct {
+typedef struct
+{
     uint8_t widget_id;   /* arex_widget_id_t (0~52) */
     uint8_t r;           /* 起始行 0~5 */
     uint8_t c;           /* 起始列 0~4 */
 } ble_sync_5f_widget_t;
 
 /* BLE UI 布局同步帧 */
-typedef struct {
+typedef struct
+{
     uint8_t  version;                      /* 协议版本，0x01 */
     uint8_t  card_order[8];               /* 卡片滑动顺序数组 */
     uint8_t  left_count;                  /* 左侧组件数量 */
@@ -96,9 +99,13 @@ void arex_bus_set_dive_time(uint32_t dive_s);
 void arex_bus_set_surface_time(uint32_t surface_s);
 void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val); /* sensor_idx: 0~2 */
 void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name);
+void arex_bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
+                           uint8_t o2_pct, uint8_t he_pct, float mod_m);
 void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min);
 void arex_bus_set_cns(uint8_t cns_pct);
 void arex_bus_set_otu(uint16_t otu_val);
+void arex_bus_set_gf99(float gf99);
+void arex_bus_set_surf_gf(float surf_gf);
 void arex_bus_set_temperature(float temp_c);
 /* --- System Data 接口[状态参数] --- */
 // void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
@@ -140,7 +147,14 @@ void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
 void arex_bus_set_ndl(int16_t ndl_min);
 
 /* --- 用户设置接口 --- */
-void arex_bus_set_conservatism(uint8_t level);
+void arex_bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high);
+
+/* --- 技术潜水参数接口 --- */
+void arex_bus_set_mod(float mod_m);
+void arex_bus_set_ceiling(float ceiling_m);
+void arex_bus_set_gas_mix(uint8_t o2_pct, uint8_t he_pct);
+void arex_bus_set_gas_density(float density);
+void arex_bus_set_fio2(float fio2_pct);
 
 /* --- 历史轨迹推流（已在 card_plan.c 中实现，此处声明导出） --- */
 void arex_dive_log_append(float current_time_s, float current_depth_m);
@@ -148,6 +162,10 @@ void arex_dive_log_reset(void);
 
 /* --- BLE 布局同步接口（由 BLE 任务调用） --- */
 void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload);
+
+/* 原子取走当前脏标记：UI 消费本帧 mask，新写入的 dirty 留给下一帧 */
+uint32_t arex_bus_take_dirty(void);
+void arex_bus_requeue_dirty(uint32_t mask);
 
 /* 清除所有脏标记 */
 void arex_bus_clear_all_dirty(void);

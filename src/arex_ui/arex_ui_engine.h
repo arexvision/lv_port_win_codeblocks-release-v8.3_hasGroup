@@ -12,9 +12,10 @@ extern "C" {
 
 
 /* =========================================================
- * System version macro (easy to adjust)
+ * System version macro (统一使用 app_version_auto.h 中的版本号)
  * ========================================================= */
-#define AREX_SYSTEM_VERSION  "20260507"
+#include "../config/app_version_auto.h"
+#define AREX_SYSTEM_VERSION  APP_VERSION_SEMVER
 
 /* =========================================================
  * 系统核心宏定义
@@ -69,7 +70,7 @@ extern "C" {
 #define AREX_ANCHOR_SEP_STYLE  AREX_SEP_SOLID  /* 分割线样式: SOLID/DASHED/DOTTED */
 
 /* 上升速率图标相关常量（供全局引用） */
-#define MAX_ASCENT_ICONS  4         /* 最多支持屏幕上出现 MAX_ASCENT_ICONS 个深度模块 */
+#define MAX_ASCENT_ICONS  12        /* 覆盖固定区 + 多张自定义卡中的全部 2x2 深度动画图标实例 */
 
 /* 速率阈值宏（可调整以修改 level1 触发灵敏度） */
 /* Level1 触发阈值：速率绝对值 >= 此值时显示 level1 */
@@ -108,7 +109,8 @@ extern uint8_t g_sys_card_order(uint8_t pos);
  * 渲染引擎通过 arex_get_font(id) 映射为真实 lvgl 字体指针。
  * 禁止在配置结构体中保存 lv_font_t*，只允许保存此枚举值！
  */
-typedef enum {
+typedef enum
+{
     AREX_FONT_ID_SMALL = 0,  /* 20px  标签/单位/Badge */
     AREX_FONT_ID_TITLE,       /* 20px  菜单项/卡片标题 */
     AREX_FONT_ID_MEDIUM,      /* 32px  数据值 */
@@ -117,36 +119,42 @@ typedef enum {
     AREX_FONT_ID_NDL,         /* 48px  NDL减压时间 */
 } arex_font_id_t;
 
-typedef enum {
+typedef enum
+{
     AREX_THEME_TECH = 0,   /* Left Grid + Right Cards（当前使用） */
     AREX_THEME_CLASSIC      /* 上下流式布局（预留，渲染代码未实现） */
 } arex_theme_t;
 
-typedef enum {
+typedef enum
+{
     AREX_ORDER_NORMAL = 0,  /* 标准 (左/又) */
     AREX_ORDER_REVERSE      /* 翻转 (上/下) */
 } arex_order_t;
 
-typedef enum {
+typedef enum
+{
     AREX_DOTS_RIGHT = 0,
     AREX_DOTS_LEFT,
     AREX_DOTS_BOTTOM,
     AREX_DOTS_NONE
 } arex_dots_pos_t;
 
-typedef enum {
+typedef enum
+{
     AREX_COMPASS_CLASSIC = 0, /* 战术横带 (Tape) */
     AREX_COMPASS_AERO,        /* 战斗机平显 (HUD) */
     AREX_COMPASS_SUB          /* 潜艇声呐 (Sonar) */
 } arex_compass_style_t;
 
-typedef enum {
+typedef enum
+{
     AREX_ALIGN_LEFT   = 0,
     AREX_ALIGN_CENTER,
     AREX_ALIGN_RIGHT
 } arex_align_t;
 
-typedef enum {
+typedef enum
+{
     AREX_SEP_NONE    = 0,
     AREX_SEP_SOLID,
     AREX_SEP_DASHED,
@@ -171,7 +179,8 @@ typedef enum {
  * AREX 全局组件 ID 字典 (Strictly mapped from Protobuf)
  * 警告：此枚举必须与 APP 端的 WidgetType 保持 100% 对齐！
  * ========================================================= */
-typedef enum {
+typedef enum
+{
     WIDGET_TYPE_UNSPECIFIED = 0,
     WIDGET_EMPTY            = 0,  /* C语言内部别名：空槽位占位符 */
 
@@ -216,13 +225,13 @@ typedef enum {
     WIDGET_DEPTH_AVG_0806   = 35,
     WIDGET_TEMP_MIN_0806    = 36,
     WIDGET_TEMP_AVG_0806    = 37
-    /* 🚨 架构师警告：APP 端的 Protobuf 中移除了以下 ID：
-     * WIDGET_TEMP_MAX_0806 (原38)
-     * WIDGET_SAC_RATE_0806 (原39, 耗气率)
-     * WIDGET_WTIME_0806 (原40, 水面休息时间)
-     * WIDGET_PPO2_SAFE_0806 等边界安全组件 (原50+)
-     * 请务必确认产品经理确实删除了这些模块！
-     */
+                              /* 🚨 架构师警告：APP 端的 Protobuf 中移除了以下 ID：
+                               * WIDGET_TEMP_MAX_0806 (原38)
+                               * WIDGET_SAC_RATE_0806 (原39, 耗气率)
+                               * WIDGET_WTIME_0806 (原40, 水面休息时间)
+                               * WIDGET_PPO2_SAFE_0806 等边界安全组件 (原50+)
+                               * 请务必确认产品经理确实删除了这些模块！
+                               */
 } arex_widget_id_t;
 
 /* =========================================================
@@ -238,7 +247,8 @@ typedef enum {
  *   - AREX_ALARM_WARN  (2Hz) : 中优先级警告，黄底黑字，中速闪烁
  *   - AREX_ALARM_CRIT  (4Hz) : 高优先级危险，红底黑字，极速狂闪
  * ========================================================= */
-typedef enum {
+typedef enum
+{
     AREX_ALARM_NONE  = 0,   /* 无告警 */
     AREX_ALARM_INFO  = 1,   /* INFO: 低优先级提醒（1Hz 闪烁）*/
     AREX_ALARM_WARN  = 2,   /* WARN: 中优先级警告（2Hz 闪烁）*/
@@ -257,19 +267,22 @@ typedef enum {
 #define AREX_5F_MAX_WIDGETS   30
 #define AREX_MAX_CUSTOM_CARDS AREX_MAX_DYNAMIC_SLOTS
 
-typedef struct {
+typedef struct
+{
     arex_widget_id_t widget_id;
     uint8_t x;   /* 列索引 */
     uint8_t y;   /* 行索引 */
 } arex_grid_widget_t;
 
-typedef struct {
+typedef struct
+{
     uint8_t            widget_count;
     arex_grid_widget_t widgets[AREX_5F_MAX_WIDGETS];
 } arex_custom_card_cfg_t;
 
 #pragma pack(push, 1)
-typedef struct {
+typedef struct
+{
     /* --- 光学与安全区 (Safe Zone) --- */
     uint16_t safe_zone_w;    /* 默认 580 */
     uint16_t safe_zone_h;    /* 默认 420 */
@@ -325,7 +338,7 @@ typedef struct {
     /* --- 用户设置 (运行时可修改) --- */
     float   mod_ppo2;           /* 默认 1.4f */
     uint8_t conservatism;       /* 默认 1 (MED) */
-    uint8_t brightness;         /* 默认 2 (HIGH) */
+    uint8_t brightness;         /* 默认 1 (ECO) */
 
 } arex_sys_config_t;
 #pragma pack(pop)
@@ -335,13 +348,15 @@ typedef struct {
  * ========================================================= */
 
 /* 停留状态枚举 */
-typedef enum {
+typedef enum
+{
     AREX_STOP_NONE = 0,    /* 0: 常态，无停留 */
     AREX_STOP_SAFETY,      /* 1: 安全停留 */
     AREX_STOP_DECO         /* 2: 强制减压停留 */
 } arex_stop_type_t;
 
-typedef struct {
+typedef struct
+{
     /* =========================================================
      * 核心数据 (Core)
      * ========================================================= */
@@ -372,7 +387,11 @@ typedef struct {
     uint16_t heading;           /* 当前航向 0~359 */
     bool    heading_locked;     /* 航向是否锁定 */
     uint16_t heading_target;    /* 锁定目标航向 */
-    float   ppo2[3];           /* 三段 PPO2 */
+    float   ppo2[AREX_GAS_COUNT]; /* 每个气体槽位的 PPO2 */
+    char    gas_slot_name[AREX_GAS_COUNT][16]; /* 每个气体槽位的显示名称 */
+    uint8_t gas_slot_o2_pct[AREX_GAS_COUNT];   /* 每个气体槽位 O2 百分比 */
+    uint8_t gas_slot_he_pct[AREX_GAS_COUNT];   /* 每个气体槽位 He 百分比 */
+    float   gas_slot_mod_m[AREX_GAS_COUNT];    /* 每个气体槽位 MOD */
     int16_t next_stop_m;       /* 下一减压站深度 m */
     uint8_t next_stop_min;     /* 下一减压站停留时间 min */
 
@@ -427,7 +446,8 @@ typedef struct {
 /* =========================================================
  * Data Bus 脏标记位掩码枚举
  * ========================================================= */
-typedef enum {
+typedef enum
+{
     DIRTY_NONE       = 0,
     /* 核心数据 */
     DIRTY_DEPTH      = (1U << 0),   /* 深度数据 */
@@ -487,7 +507,8 @@ extern arex_sensor_data_t g_sensor_data;
  * 三种状态: NDL常态 / Safety停留 / Deco停留
  * ========================================================= */
 #define MAX_NDL_ICONS 4
-typedef struct {
+typedef struct
+{
     lv_obj_t *comp;
     lv_obj_t *horiz_bg;    /* 十宫格画布（0 RAM 数学绘制） */
     lv_obj_t *main_val;
@@ -496,7 +517,6 @@ typedef struct {
 } ndl_handle_t;
 
 /* 速率图标指针阵列（最多支持 MAX_ASCENT_ICONS 个 DEPTH 模块） */
-#define MAX_ASCENT_ICONS 4
 extern lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
 extern uint8_t  s_ascent_icon_count;
 
@@ -507,8 +527,16 @@ extern uint8_t      s_ndl_handle_count;
 /* =========================================================
  * 6b. 潜水轨迹与减压停留（供 card_plan.c 和 UI_main.c 共享）
  * ========================================================= */
-typedef struct { float time_s; float depth_m; } arex_dive_pt_t;
-typedef struct { float depth_m; float stay_min; }  arex_deco_stop_t;
+typedef struct
+{
+    float time_s;
+    float depth_m;
+} arex_dive_pt_t;
+typedef struct
+{
+    float depth_m;
+    float stay_min;
+}  arex_deco_stop_t;
 
 /* 潜水轨迹缓冲区：200 点固定大小，永不溢出 */
 #define MAX_DIVE_LOG   200
@@ -552,10 +580,10 @@ void arex_calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
 
 /* 5x6 网格坐标推算 */
 void arex_calc_widget_cell(uint16_t parent_w, uint16_t parent_h,
-                          uint8_t row, uint8_t col,
-                          uint8_t w_span, uint8_t h_span,
-                          int16_t *out_x, int16_t *out_y,
-                          uint16_t *out_w, uint16_t *out_h);
+                           uint8_t row, uint8_t col,
+                           uint8_t w_span, uint8_t h_span,
+                           int16_t *out_x, int16_t *out_y,
+                           uint16_t *out_w, uint16_t *out_h);
 
 /* 16 柱组织图 X 坐标推算 */
 void arex_calc_tissue_bars(uint16_t total_w, uint16_t bar_max_h,
@@ -576,8 +604,8 @@ const lv_font_t *arex_get_font(uint8_t font_id);
  * 9. 布局矩形计算 (供 rebuild 调用)
  * ========================================================= */
 void arex_calc_layout_rect(int16_t *out_x, int16_t *out_y,
-                          uint16_t *out_w, uint16_t *out_h,
-                          int16_t anchor_offset_x, int16_t anchor_offset_y);
+                           uint16_t *out_w, uint16_t *out_h,
+                           int16_t anchor_offset_x, int16_t anchor_offset_y);
 
 /* =========================================================
  * 9b. 右侧卡片动态菜单配置 (APP 同步核心)
@@ -585,7 +613,8 @@ void arex_calc_layout_rect(int16_t *out_x, int16_t *out_y,
  * 每个菜单选项的描述结构体。APP 下发 JSON 即可改变菜单外观，
  * 渲染引擎通过 arex_render_dynamic_menu() 统一遍历，不做硬编码判断。
  * ========================================================= */
-typedef struct {
+typedef struct
+{
     const char *title_text;      /* 左侧主文本 (可为空) */
     const char *value_badge;     /* 右侧数值/状态徽章 (可为空) */
     uint8_t     title_font_id;   /* 标题字体 ID: arex_font_id_t */
@@ -595,7 +624,8 @@ typedef struct {
 } arex_menu_item_cfg_t;
 
 /* 菜单列表包装体 — 作为 arex_card_t.config_data 传入注册表 */
-typedef struct {
+typedef struct
+{
     const arex_menu_item_cfg_t *items;
     uint8_t                     count;
 } arex_menu_list_cfg_t;
@@ -616,8 +646,8 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
  * left_anchor_obj 传入用于告警引擎跨区搜索烙印对象。
  * custom_card_idx 指定使用哪张卡片的配置。 */
 void arex_render_5f_custom_grid(lv_obj_t *card_custom,
-                                 lv_obj_t *left_anchor_obj,
-                                 uint8_t custom_card_idx);
+                                lv_obj_t *left_anchor_obj,
+                                uint8_t custom_card_idx);
 
 /* 按 widget_id 设置数值（由 update 循环调用，绝不触发重绘） */
 void arex_widget_set_value(arex_widget_id_t id, float value);
@@ -678,7 +708,8 @@ const char *arex_get_widget_name(arex_widget_id_t id);
 /* APP 下发数据结构（只含位置，无样式）已迁移到 arex_grid_widget_t */
 
 /* 组件布局类型 */
-typedef enum {
+typedef enum
+{
     AREX_LAYOUT_CENTER      = 0,  /* 通用居中：标题上 + 数值中 + 单位下 */
     AREX_LAYOUT_DIAGONAL   = 1,  /* 对角线：标题左上 + 数值右下 */
     AREX_LAYOUT_TOP_BOTTOM = 2,  /* 上下：标题顶部 + 数值底部 */
@@ -696,7 +727,8 @@ typedef enum {
 #define AREX_MAX_WIDGETS 30
 
 #pragma pack(push, 1)
-typedef struct {
+typedef struct
+{
     arex_widget_id_t widget_id;  /* 组件类型 ID（必须与枚举严格对齐） */
     uint8_t x;                    /* 列索引 0~4 */
     uint8_t y;                    /* 行索引 0~5 */
@@ -712,7 +744,8 @@ typedef struct {
 
 /* DEPTH 专属样式参数
  * 用于 DEPTH_1612/1606 等深度组件，实现整数+小数+单位+箭头图标分离排版 */
-typedef struct {
+typedef struct
+{
     int8_t  int_offset_x;    /* 整数部分 X 偏移 */
     int8_t  int_offset_y;    /* 整数部分 Y 偏移 */
     uint8_t int_align;       /* 整数部分对齐方式 */
@@ -727,7 +760,8 @@ typedef struct {
 
 /* NDL 专属样式参数
  * 用于 NDL_STOP_1606 等停留组件，实现进度条+数值分离排版 */
-typedef struct {
+typedef struct
+{
     int8_t  bar_offset_x;   /* 进度条 X 偏移 */
     int8_t  bar_offset_y;   /* 进度条 Y 偏移 */
     uint8_t bar_align;      /* 进度条对齐方式 */
@@ -738,7 +772,8 @@ typedef struct {
 
 /* NDL_STOP 多形态专属样式参数
  * 用于 NDL_STOP_1606，支持三种状态：NDL常态/Safety停留/Deco停留 */
-typedef struct {
+typedef struct
+{
     /* 垂直进度条（NDL常态显示） */
     int8_t  vert_offset_x;  /* 垂直条 X 偏移 */
     int8_t  vert_offset_y;  /* 垂直条 Y 偏移 */
@@ -754,20 +789,31 @@ typedef struct {
     /* =======================================
      * 常态 (Normal) 排版参数
      * ======================================= */
-    int8_t  norm_main_x;  int8_t norm_main_y;  uint8_t norm_main_align; /* NDL 巨大数字 */
-    int8_t  norm_sub_x;   int8_t norm_sub_y;   uint8_t norm_sub_align;  /* 底部 NDL 文本 */
+    int8_t  norm_main_x;
+    int8_t norm_main_y;
+    uint8_t norm_main_align; /* NDL 巨大数字 */
+    int8_t  norm_sub_x;
+    int8_t norm_sub_y;
+    uint8_t norm_sub_align;  /* 底部 NDL 文本 */
 
     /* =======================================
      * 停留态 (Deco/Safety) 排版参数
      * ======================================= */
-    int8_t  deco_title_x;  int8_t deco_title_y;  uint8_t deco_title_align; /* 顶部 SAFETY/DECO */
-    int8_t  deco_main_x;   int8_t deco_main_y;   uint8_t deco_main_align;  /* 停留倒计时 MM:SS */
-    int8_t  deco_sub_x;    int8_t deco_sub_y;    uint8_t deco_sub_align;   /* Safety 悬浮的 NDL 文本 */
+    int8_t  deco_title_x;
+    int8_t deco_title_y;
+    uint8_t deco_title_align; /* 顶部 SAFETY/DECO */
+    int8_t  deco_main_x;
+    int8_t deco_main_y;
+    uint8_t deco_main_align;  /* 停留倒计时 MM:SS */
+    int8_t  deco_sub_x;
+    int8_t deco_sub_y;
+    uint8_t deco_sub_align;   /* Safety 悬浮的 NDL 文本 */
 } arex_style_ndl_stop_t;
 
 /* TISSUE 组织图专属样式参数
  * 用于 TISSUE_GF_4012/TISSUE_RAW_4012，实现16柱组织图排版 */
-typedef struct {
+typedef struct
+{
     int8_t  chart_offset_x; /* 柱状图 X 偏移 */
     int8_t  chart_offset_y; /* 柱状图 Y 偏移 */
     uint8_t chart_align;     /* 柱状图对齐方式 */
@@ -777,7 +823,8 @@ typedef struct {
 
 /* COMPASS 罗盘专属样式参数
  * 用于 COMPASS_1612，实现卷尺+数值分离排版 */
-typedef struct {
+typedef struct
+{
     int8_t  tape_offset_x;  /* 卷尺 X 偏移 */
     int8_t  tape_offset_y;  /* 卷尺 Y 偏移 */
     uint8_t tape_align;      /* 卷尺对齐方式 */
@@ -788,7 +835,8 @@ typedef struct {
 
 /* 通用基础样式（无特殊参数的组件使用）
  * 用于 TEMP/TIME/TTS/BATT/POD 等1x1或2x1通用组件 */
-typedef struct {
+typedef struct
+{
     int8_t  value_offset_x; /* 数值 X 偏移 */
     int8_t  value_offset_y; /* 数值 Y 偏移 */
     uint8_t value_align;     /* 数值对齐方式 */
@@ -816,7 +864,8 @@ typedef struct {
 
 /* MCU 本地样式字典（Union 共享内存，大小永远等于最大成员） */
 #define AREX_MAX_STYLE_SPEC_SIZE 32
-typedef struct {
+typedef struct
+{
     arex_widget_id_t widget_id;   /* 绑定的组件 ID */
     uint8_t span_w;              /* 跨越列数 */
     uint8_t span_h;              /* 跨越行数 */
@@ -832,7 +881,8 @@ typedef struct {
     uint8_t title_align;
 
     /* 专属样式 Union（强制共享内存，防止膨胀） */
-    union {
+    union
+    {
         arex_style_depth_t        depth;                            /* DEPTH专属排版参数 */
         arex_style_ndl_t          ndl;                              /* NDL 专属参数（进度条/停留态） */
         arex_style_ndl_stop_t     ndl_stop;                         /* NDL_STOP专属排版参数 */
@@ -900,11 +950,11 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor);
  * cfg_font_id 可覆盖默认字号计算（设为 255 则自动计算）。
  * 返回组件容器对象句柄。 */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,
-                               arex_widget_id_t w_id,
-                               int16_t abs_x, int16_t abs_y,
-                               uint16_t abs_w, uint16_t abs_h,
-                               uint8_t span_w, uint8_t span_h,
-                               arex_font_id_t cfg_font_id);
+                              arex_widget_id_t w_id,
+                              int16_t abs_x, int16_t abs_y,
+                              uint16_t abs_w, uint16_t abs_h,
+                              uint8_t span_w, uint8_t span_h,
+                              arex_font_id_t cfg_font_id);
 
 /* =========================================================
  * 第五步：新简化工厂函数（APP下发位置 + MCU本地查样式表）
@@ -920,9 +970,9 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
  * @return         组件容器对象句柄
  * ========================================================= */
 lv_obj_t* arex_render_widget(lv_obj_t *parent,
-                              const arex_widget_pos_t *pos,
-                              uint16_t cell_w, uint16_t cell_h,
-                              uint16_t title_h);
+                             const arex_widget_pos_t *pos,
+                             uint16_t cell_w, uint16_t cell_h,
+                             uint16_t title_h);
 
 /* UI 消费任务 — 全系统唯一允许执行 lv_label_set_text 的地方（50ms 定时器驱动） */
 void arex_ui_update_task(lv_timer_t *timer);
