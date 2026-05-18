@@ -1793,6 +1793,9 @@
 		<Unit filename="src/arex_hal_sim/arex_input_pc.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/arex_hal_sim/arex_sim_data.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="src/arex_ui/arex_card_registry.c">
 			<Option compilerVar="CC" />
 		</Unit>
