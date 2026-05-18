@@ -12,19 +12,19 @@ extern lv_obj_t *s_heading_val_lbl;
 extern lv_obj_t *s_heading_hint_lbl;
 
 /* =========================================================
- * 鍐呴儴鍙ユ焺
+ * 内部句柄
  * ========================================================= */
 static lv_obj_t *s_scr;
-static lv_obj_t *s_safe_zone;        /* 瀹夊叏鍖哄鍣?(缁濆鍧愭爣鍘熺偣) */
-static lv_obj_t *s_left_anchor;      /* 宸︿晶閿氱偣 (10U 娌欑洅) */
+static lv_obj_t *s_safe_zone;        /* 安全区容器(绝对坐标原点) */
+static lv_obj_t *s_left_anchor;      /* 左侧锚点 (10U 沙盒) */
 static lv_obj_t *s_right_cont;       /* clip container */
 static lv_obj_t *s_tileview;
 static lv_obj_t *s_tile_objs[AREX_CARD_COUNT];
 
-/* 鐏厜鎺у埗鐘舵€侊紙渚?LIGHT CONTROL 瀛愯彍鍗曞叏灞€鍏变韩锛?*/
-/* 闂4淇锛氱伅鍏夌‖浠堕粯璁ゅ紑鍚紝UI 鍒濆鍊煎繀椤诲尮閰嶇‖浠剁姸鎬?*/
+/* 灯光控制状态（LIGHT CONTROL 子菜单全局共享） */
+/* 问题4修复：灯光硬件默认开启，UI 初始值必须匹配硬件状态 */
 bool g_light_power_state = false;
-static lv_obj_t *s_light_status_lbl = NULL;  /* LIGHT ON/OFF 鐘舵€佹爣绛?*/
+static lv_obj_t *s_light_status_lbl = NULL;  /* LIGHT ON/OFF 状态标签 */
 
 /* Wall indicators */
 static lv_obj_t *s_wall_top;
@@ -33,7 +33,7 @@ static lv_obj_t *s_wall_text_top,    *s_wall_blocks_top;
 static lv_obj_t *s_wall_text_bottom, *s_wall_blocks_bottom;
 
 /* Scroll dots */
-static lv_obj_t *s_dot_cont;  /* dots 瀹瑰櫒锛堢埗瀵硅薄涓?s_safe_zone锛屽彲瀹氫綅鍒伴棿闅欎腑闂达級 */
+static lv_obj_t *s_dot_cont;  /* dots 容器（父对象 s_safe_zone，可定位到间隙中间） */
 static lv_obj_t *s_scroll_dots[AREX_DASH_CARD_COUNT];
 
 /* Modal overlay */
@@ -57,7 +57,7 @@ static lv_obj_t   *s_edit_flash_badge;
 static lv_obj_t   *s_edit_flash_val_lbl;
 static bool        s_edit_flash_on;
 
-/* 鎺掔増缂撳瓨 (閬垮厤姣忔閲嶇畻) */
+/* 排版缓存 (避免每次重算) */
 static uint16_t s_cached_right_w = 0;
 
 /* Forward declarations for static functions */
@@ -69,7 +69,7 @@ static void edit_flash_stop(void);
 static void restore_brightness_overlay_state(void);
 
 /* =========================================================
- * 鏍峰紡 (闈欐€佸垵濮嬪寲涓€娆?
+ * 样式 (静态初始化一次)
  * ========================================================= */
 static lv_style_t s_style_screen;
 static lv_style_t s_style_panel;
@@ -140,7 +140,7 @@ static void styles_init(void)
     lv_style_set_bg_opa(&s_style_anchor_bg, LV_OPA_COVER);
     lv_style_set_border_color(&s_style_anchor_bg, AREX_DARK);
     lv_style_set_border_width(&s_style_anchor_bg, AREX_DEBUG_BORDERS ? 1 : 0);
-    lv_style_set_pad_all(&s_style_anchor_bg, 0);     /* 蹇呴』鏄惧紡娓呴浂锛屽惁鍒?LVGL 榛樿 padding 浼氬亸绉绘墍鏈夊瓙缁勪欢鍧愭爣 */
+    lv_style_set_pad_all(&s_style_anchor_bg, 0);     /* 必须显式清零，否则 LVGL 默认 padding 会偏移所有子组件坐标 */
     lv_style_set_radius(&s_style_anchor_bg, 0);
 
     lv_style_init(&s_style_panel);
@@ -191,81 +191,81 @@ static void styles_init(void)
 }
 
 /* =========================================================
- * 杈呭姪鍑芥暟
+ * 辅助函数
  * ========================================================= */
 
-/* 娓呯┖ ascent/NDL widget 鍙ユ焺鏁扮粍锛堝湪浠讳綍缃戞牸娓叉煋涔嬪墠璋冪敤锛?
- * 鍦?arex_screen_rebuild_layout() 鍜?left_anchor_create() 鍏ュ彛鍚勮皟鐢ㄤ竴娆★紝
- * 纭繚鏁扮粍浠庡共鍑€鐘舵€佸紑濮嬶紝涓や晶缃戞牸娓叉煋鍑芥暟鍧囦互杩藉姞妯″紡杩愯銆?*/
+/* 清空 ascent/NDL widget 句柄数组（在任何网格渲染之前调用）
+ * arex_screen_rebuild_layout() 和 left_anchor_create() 入口各调用一次，
+ * 确保数组从干净状态开始，两侧网格渲染函数均以追加模式运行。 */
 /* =========================================================
- * 缁熶竴閲嶇疆 UI 娓叉煋鐘舵€侊紙闃叉鎮┖鎸囬拡璁块棶锛?
- * 璋冪敤閾撅細arex_screen_rebuild_layout 鈫?clear_widget_arrays
+ * 统一重置 UI 渲染状态（防止悬空指针访问）
+ * 调用链：arex_screen_rebuild_layout -> clear_widget_arrays
  * ========================================================= */
 static void clear_widget_arrays(void)
 {
-    /* 閲嶇疆閫熺巼鍥炬爣闃靛垪 */
+    /* 重置速率图标阵列 */
     memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
     s_ascent_icon_count = 0;
 
-    /* 閲嶇疆 NDL 鐘舵€佹満 */
+    /* 重置 NDL 状态机 */
     memset(s_ndl_handles, 0, sizeof(s_ndl_handles));
     s_ndl_handle_count = 0;
 
-    /* 閲嶇疆娓叉煋璁℃暟鍣ㄥ拰 SystemData 闈欐€佸彞鏌?*/
+    /* 重置渲染计数器和 SystemData 静态句柄 */
     arex_reset_widget_render_state();
 }
 
 /* =========================================================
- * 宸︿晶閿氱偣锛氱粷瀵瑰潗鏍囬噸寤?
+ * 左侧锚点：绝对坐标重建
  *
- * 鏍稿績閾佸緥锛氭墍鏈夊瓙缁勪欢浠?s_left_anchor 宸︿笂瑙掍负鍘熺偣 (0,0)锛?
- * 涓嶄娇鐢ㄤ换浣?LV_FLEX / LV_GRID锛屽畬鍏ㄩ€氳繃鏁板绱姞 current_y銆?
+ * 核心铁律：所有子组件以 s_left_anchor 左上角为原点 (0,0)
+ * 不使用任何 LV_FLEX / LV_GRID，完全通过数学累加 current_y
  *
- * Tech 妯″紡涓嬶細
- *   - DEPTH: (0, cur_y), 瀹?160px, 楂?h_depth*10
- *   - NDL/TTS 鍙屾嫾琛? cur_y += h_depth*10 + gap
- *     NDL: (0, cur_y), 瀹?80px, 楂?h_ndl*10
- *     TTS: (80, cur_y), 瀹?80px, 楂?h_ndl*10
- *   - 浠ユ绫绘帹...
+ * Tech 模式下：
+ *   - DEPTH: (0, cur_y), 宽 160px, 高 h_depth*10
+ *   - NDL/TTS 双拼行: cur_y += h_depth*10 + gap
+ *     NDL: (0, cur_y), 宽 80px, 高 h_ndl*10
+ *     TTS: (80, cur_y), 宽 80px, 高 h_ndl*10
+ *   - 以此类推...
  *
- * Classic 妯″紡涓嬶細浣跨敤鍚屾牱閫昏緫锛屽搴︽墿灞曚负 safe_zone_w
+ * Classic 模式下：使用同样逻辑，宽度扩展为 safe_zone_w
  * ========================================================= */
 /* =========================================================
- * 宸︿晶閿氱偣閲嶅缓 (閰嶇疆鍙樻洿鏃惰皟鐢?
+ * 左侧锚点重建 (配置变更时调用)
  *
- * 2x7 缁濆缃戞牸鐗堟湰锛氱洿鎺ヨ皟鐢ㄧ綉鏍兼覆鏌撳紩鎿庨噸寤恒€?
+ * 2x7 绝对网格版本：直接调用网格渲染引擎重建。
  * ========================================================= */
 static void left_anchor_rebuild(uint8_t comp_count)
 {
     (void)comp_count;
     if (!s_left_anchor || !s_safe_zone) return;
 
-    /* 閲嶅缓閿氱偣瀹瑰櫒灏哄锛堝竷灞€椤哄簭鍙兘鍙樺寲锛?*/
+    /* 重建锚点容器尺寸（布局顺序可能变化） */
     uint16_t anchor_w = AREX_LEFT_ANCHOR_W;
     uint16_t anchor_h = g_sys_config.safe_zone_h;
     lv_obj_set_size(s_left_anchor, anchor_w, anchor_h);
 
-    /* 娓呴櫎鎵€鏈夊瓙瀵硅薄 */
+    /* 清除所有子对象 */
     lv_obj_clean(s_left_anchor);
 
-    /* 閲嶆柊璋冪敤 2x7 缁濆缃戞牸娓叉煋寮曟搸 */
+    /* 重新调用 2x7 绝对网格渲染引擎 */
     arex_render_left_anchor_grid(s_left_anchor);
 }
 
 /* =========================================================
- * 宸︿晶閿氱偣鍒涘缓 (棣栨鍒濆鍖?
+ * 左侧锚点创建 (首次初始化)
  * ========================================================= */
 /* =========================================================
- * 宸︿晶閿氱偣鍒涘缓 (2x7 缁濆缃戞牸鐗堟湰)
+ * 左侧锚点创建 (2x7 绝对网格版本)
  *
- * 搴熷純 current_y 绱姞鎺掔増锛屾敼涓?2鍒?80px) x 7琛?60px) 缁濆缃戞牸鐭╅樀銆?
- * 鎵€鏈夌粍浠堕€氳繃 arex_render_left_anchor_grid() 浣跨敤 render_widget_by_id 宸ュ巶娓叉煋锛?
- * 骞舵敞鍏?arex_widget_id_t 鐑欏嵃渚?arex_widget_set_value() 瀹氫綅鏇存柊銆?
- * SystemData 宸蹭綔涓?g_sys_config.left_widgets[6] 鍙備笌缃戞牸鎺掔増锛屼笉鍐嶇嫭绔嬫覆鏌撱€?
+ * 废弃 current_y 累加排版，改为 2 列(80px) x 7 行(60px) 绝对网格矩阵。
+ * 所有组件通过 arex_render_left_anchor_grid() 使用 render_widget_by_id 工厂渲染
+ * 并注入 arex_widget_id_t 烙印，供 arex_widget_set_value() 定位更新。
+ * SystemData 已作为 g_sys_config.left_widgets[6] 参与网格排版，不再独立渲染。
  * ========================================================= */
 static void left_anchor_create(void)
 {
-    /* 1. 鍒涘缓閿氱偣瀹瑰櫒 */
+    /* 1. 创建锚点容器 */
     s_left_anchor = lv_obj_create(s_safe_zone);
     lv_obj_set_size(s_left_anchor, AREX_LEFT_ANCHOR_W, g_sys_config.safe_zone_h);
     if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
@@ -285,38 +285,38 @@ static void left_anchor_create(void)
 
     lv_obj_clean(s_left_anchor);
 
-    /* 娓呯┖ widget 鍙ユ焺鏁扮粍锛堥娆″垱寤烘椂閲嶇疆锛?*/
+    /* 清空 widget 句柄数组（首次创建时重置） */
     clear_widget_arrays();
 
-    /* 2. 璋冪敤 2x7 缁濆缃戞牸娓叉煋寮曟搸锛堝甫 sudu 閫熺巼鍥炬爣锛?*/
+    /* 2. 调用 2x7 绝对网格渲染引擎（带 sudu 速率图标） */
     arex_render_left_anchor_grid(s_left_anchor);
 }
 
 /* =========================================================
- * 鍙充晶鍖哄煙: Safe Zone 鍔ㄦ€佹帓鐗?
+ * 右侧区域: Safe Zone 动态排版
  *
- * Safe Zone 鍐呴儴甯冨眬 (缁濆鍧愭爣):
+ * Safe Zone 内部布局 (绝对坐标):
  *
  *  [s_left_anchor] | [s_right_cont]
- *  (Tech 妯″紡)
+ *  (Tech 模式)
  *
- * Safe Zone 鍧愭爣鍘熺偣涓?(0,0) 鍦?s_safe_zone 宸︿笂瑙掋€?
- * 鎵€鏈夊瓙缁勪欢鐨勫潗鏍囦互姝や负鍩哄噯璁＄畻銆?
+ * Safe Zone 坐标原点 (0,0) 在 s_safe_zone 左上角。
+ * 所有子组件的坐标以此为基准计算。
  * ========================================================= */
 static void safe_zone_reposition(void)
 {
     if (!s_safe_zone) return;
 
-    /* 1. 瀹夊叏鍖哄鍣ㄥ畾浣?*/
+    /* 1. 安全区容器定位 */
     lv_obj_set_size(s_safe_zone, g_sys_config.safe_zone_w, g_sys_config.safe_zone_h);
     lv_obj_align(s_safe_zone, LV_ALIGN_CENTER,
                  g_sys_config.offset_x, g_sys_config.offset_y);
 
-    /* 2. 璁＄畻宸﹀彸鍒嗙晫绾?*/
+    /* 2. 计算左右分界线 */
     uint16_t panel_gap = g_sys_config.panel_gap_u * AREX_BASE_U;
     uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - panel_gap;
 
-    /* 3. 瀹氫綅宸︿晶閿氱偣 */
+    /* 3. 定位左侧锚点 */
     if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
     {
         lv_obj_set_pos(s_left_anchor, 0, 0);
@@ -324,24 +324,24 @@ static void safe_zone_reposition(void)
     }
     else
     {
-        /* 缈昏浆: 鍙充晶瀹瑰櫒鏀惧乏杈? 宸︿晶閿氱偣鏀惧彸杈?*/
+        /* 翻转: 右侧容器放左侧，左侧锚点放右侧 */
         lv_obj_set_pos(s_right_cont, 0, 0);
         lv_obj_set_pos(s_left_anchor, (lv_coord_t)right_w + panel_gap, 0);
     }
 
-    /* 鍥哄畾鍖哄湪宸﹀彸浜掓崲鍚庝粛瑕佷繚鎸佽嚜宸辩殑灞傜骇鍜岄噸缁樹紭鍏堢骇锛岄槻姝㈠垎闅旂嚎琚悗缁鍣ㄨ鐩?*/
+    /* 固定区在左右互换后仍要保持自己的层级和重绘优先级，防止分隔线被后续容器覆盖。 */
     if (s_left_anchor)
     {
         lv_obj_move_foreground(s_left_anchor);
         lv_obj_invalidate(s_left_anchor);
     }
 
-    /* 4. 璁剧疆鍙充晶瀹瑰櫒灏哄 */
+    /* 4. 设置右侧容器尺寸 */
     lv_obj_set_size(s_right_cont, right_w, g_sys_config.safe_zone_h);
 
     s_cached_right_w = right_w;
 
-    /* 5. 閲嶆柊瀹氫綅 scroll dots锛堝鐞嗘墍鏈変綅缃ā寮忥級 */
+    /* 5. 重新定位 scroll dots（处理所有位置模式） */
     if (s_dot_cont)
     {
         lv_coord_t dot_x, dot_y;
@@ -351,12 +351,12 @@ static void safe_zone_reposition(void)
                g_sys_config.dots_position, arex_visible_dash_count(), dot_cont_h,
                g_sys_config.safe_zone_w, g_sys_config.safe_zone_h);
 
-        /* 鏇存柊瀹瑰櫒澶у皬浠ュ尮閰嶅疄闄呮樉绀烘暟閲?*/
+        /* 更新容器大小以匹配实际显示数量 */
         lv_obj_set_size(s_dot_cont, 10, (lv_coord_t)dot_cont_h);
 
         if (g_sys_config.dots_position == AREX_DOTS_LEFT)
         {
-            /* 宸︿晶锛氶棿闅欎腑闂?*/
+            /* 左侧：间隙中间 */
             lv_coord_t gap_center_x;
             lv_coord_t gap_center_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2);
             if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
@@ -372,7 +372,7 @@ static void safe_zone_reposition(void)
         }
         else if (g_sys_config.dots_position == AREX_DOTS_RIGHT)
         {
-            /* 鍙充晶锛氱浉瀵逛簬鍙充晶瀹瑰櫒鐨勫彸杈圭紭 */
+            /* 右侧：相对于右侧容器的右边缘 */
             lv_coord_t right_cont_x = (g_sys_config.layout_order == AREX_ORDER_NORMAL)
                                       ? (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap)
                                       : 0;
@@ -381,25 +381,25 @@ static void safe_zone_reposition(void)
         }
         else if (g_sys_config.dots_position == AREX_DOTS_BOTTOM)
         {
-            /* 搴曢儴锛氭按骞冲眳涓?*/
+            /* 底部：水平居中 */
             dot_x = (lv_coord_t)(g_sys_config.safe_zone_w / 2 - 5);
             dot_y = (lv_coord_t)(g_sys_config.safe_zone_h - 18);
         }
         else
         {
-            /* AREX_DOTS_NONE: 闅愯棌 dots */
-            dot_x = -1000;  /* 绉诲嚭鍙鍖哄煙 */
+            /* AREX_DOTS_NONE: 隐藏 dots */
+            dot_x = -1000;  /* 移出可见区域 */
             dot_y = -1000;
         }
         lv_obj_set_pos(s_dot_cont, dot_x, dot_y);
 
-        /* 鏇存柊姣忎釜 dot 鐨勭粷瀵逛綅缃紙浣跨敤缁濆瀹氫綅锛?*/
+        /* 更新每个 dot 的绝对位置（使用绝对定位） */
         for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++)
         {
             if (s_scroll_dots[i])
             {
                 lv_obj_set_pos(s_scroll_dots[i], 2, (lv_coord_t)(i * 14));
-                /* 瓒呭嚭 visible_dash 鐨?dot 闅愯棌 */
+                /* 超出 visible_dash 的 dot 隐藏 */
                 if (i >= arex_visible_dash_count())
                 {
                     lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
@@ -411,8 +411,8 @@ static void safe_zone_reposition(void)
             }
         }
 
-        /* 璋冪敤 arex_screen_update_scroll_dots() 鏉ユ牴鎹?UI 鐘舵€佹洿鏂板彲瑙佹€?*/
-        /* 璁＄畻閫昏緫绱㈠紩 */
+        /* 调用 arex_screen_update_scroll_dots() 根据 UI 状态更新可见性 */
+        /* 计算逻辑索引 */
         uint8_t active_idx = 0;
         if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos())
         {
@@ -431,16 +431,16 @@ static void safe_zone_reposition(void)
 }
 
 /* =========================================================
- * 鍙充晶鍖哄煙: clip container + tileview
+ * 右侧区域: clip container + tileview
  * ========================================================= */
 static void right_panel_create(void)
 {
-    /* 璁＄畻鍙充晶瀹瑰櫒瀹藉害 */
+    /* 计算右侧容器宽度 */
     uint16_t panel_gap = g_sys_config.panel_gap_u * AREX_BASE_U;
     uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - panel_gap;
     s_cached_right_w = right_w;
 
-    /* 鍒涘缓鍙充晶瀹瑰櫒 鈥?鏍规嵁 layout_order 鍐冲畾宸﹀彸浣嶇疆 */
+    /* 创建右侧容器，根据 layout_order 决定左右位置 */
     s_right_cont = lv_obj_create(s_safe_zone);
     lv_obj_set_size(s_right_cont, right_w, g_sys_config.safe_zone_h);
     if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
@@ -467,7 +467,7 @@ static void right_panel_create(void)
     lv_obj_set_scrollbar_mode(s_tileview, LV_SCROLLBAR_MODE_OFF);
     lv_obj_clear_flag(s_tileview, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* 鍒涘缓 tiles */
+    /* 创建 tiles */
     memset(s_tile_objs, 0, sizeof(s_tile_objs));
     uint8_t count = arex_card_count();
     for (uint8_t i = 0; i < count; i++)
@@ -489,7 +489,7 @@ static void right_panel_create(void)
         {
         case CARD_ENGINE_GRID:
         {
-            /* 鑾峰彇姝?tile 瀵瑰簲鐨?custom_card_slot 绱㈠紩 */
+            /* 获取当前 tile 对应的 custom_card_slot 索引 */
             uint8_t storage_pos = arex_card_storage_pos(i);
             uint8_t custom_card_idx = (storage_pos < AREX_CARD_COUNT)
                                       ? g_sys_config.custom_card_slot[storage_pos]
@@ -508,39 +508,39 @@ static void right_panel_create(void)
         }
     }
 
-    /* Scroll dots - 鐖跺璞′负 s_safe_zone锛屽彲瀹氫綅鍒伴棿闅欎腑闂?*/
+    /* Scroll dots - 父对象为 s_safe_zone，可定位到间隙中间 */
     s_dot_cont = lv_obj_create(s_safe_zone);
-    /* 瀹瑰櫒楂樺害鏍规嵁瀹為檯鏄剧ず鏁伴噺璁＄畻 */
+    /* 容器高度根据实际显示数量计算 */
     uint16_t dot_cont_h = arex_visible_dash_count() * 14;
     lv_obj_set_size(s_dot_cont, 10, dot_cont_h);
     lv_obj_set_style_bg_opa(s_dot_cont, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_dot_cont, 0, 0);
     lv_obj_set_style_pad_all(s_dot_cont, 0, 0);
-    /* 涓嶄娇鐢?flex 甯冨眬锛屾敼鐢ㄧ粷瀵瑰畾浣嶏紝閬垮厤闅愯棌鍏冪礌鍗犵敤绌洪棿 */
+    /* 不使用 flex 布局，改用绝对定位，避免隐藏元素占用空间 */
     lv_obj_set_scrollbar_mode(s_dot_cont, LV_SCROLLBAR_MODE_OFF);
 
-    /* Dots 浣嶇疆璺熼殢閰嶇疆 - 浣跨敤缁濆鍧愭爣锛堢浉瀵逛簬 s_safe_zone锛?*/
+    /* Dots 位置跟随配置 - 使用绝对坐标（相对于 s_safe_zone） */
     if (g_sys_config.dots_position == AREX_DOTS_LEFT)
     {
-        /* 鏀惧湪宸︿晶鍥哄畾鍖哄拰鍙充晶鍗＄墖鍖虹殑闂撮殭涓棿 */
+        /* 放在左侧固定区和右侧卡片区的间隙中间 */
         lv_coord_t gap_center_x;
         lv_coord_t gap_center_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2);
 
         if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
         {
-            /* NORMAL 甯冨眬锛氶棿闅欎腑闂?X = AREX_LEFT_ANCHOR_W + panel_gap / 2 */
+            /* NORMAL 布局：间隙中间 X = AREX_LEFT_ANCHOR_W + panel_gap / 2 */
             gap_center_x = (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap / 2);
         }
         else
         {
-            /* FLIPPED 甯冨眬锛氶棿闅欎腑闂?X = right_w + panel_gap / 2 */
+            /* FLIPPED 布局：间隙中间 X = right_w + panel_gap / 2 */
             gap_center_x = (lv_coord_t)(right_w + panel_gap / 2);
         }
         lv_obj_set_pos(s_dot_cont, gap_center_x - 5, gap_center_y - dot_cont_h / 2);
     }
     else if (g_sys_config.dots_position == AREX_DOTS_RIGHT)
     {
-        /* 鍙充晶锛氱浉瀵逛簬鍙充晶瀹瑰櫒鐨勫彸杈圭紭 */
+        /* 右侧：相对于右侧容器的右边缘 */
         lv_coord_t right_cont_x = (g_sys_config.layout_order == AREX_ORDER_NORMAL)
                                   ? (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap)
                                   : 0;
@@ -550,19 +550,19 @@ static void right_panel_create(void)
     }
     else if (g_sys_config.dots_position == AREX_DOTS_BOTTOM)
     {
-        /* 搴曢儴锛氭按骞冲眳涓?*/
+        /* 底部：水平居中 */
         lv_coord_t dots_x = (lv_coord_t)(g_sys_config.safe_zone_w / 2 - 5);
         lv_coord_t dots_y = (lv_coord_t)(g_sys_config.safe_zone_h - 18);
         lv_obj_set_pos(s_dot_cont, dots_x, dots_y);
     }
-    /* AREX_DOTS_NONE 鏃朵笉鏄剧ず dot_cont */
+    /* AREX_DOTS_NONE 时不显示 dot_cont */
 
-    /* 浣跨敤缁濆瀹氫綅鍒涘缓 dots锛岄伩鍏嶉殣钘忔椂浠嶅崰鐢ㄧ┖闂寸殑闂 */
+    /* 使用绝对定位创建 dots，避免隐藏时仍占用空间的问题 */
     for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++)
     {
         s_scroll_dots[i] = lv_obj_create(s_dot_cont);
         lv_obj_set_size(s_scroll_dots[i], 6, 6);
-        lv_obj_set_pos(s_scroll_dots[i], 2, (lv_coord_t)(i * 14));  /* 缁濆瀹氫綅锛屽瀭鐩村潎鍖€鍒嗗竷 */
+        lv_obj_set_pos(s_scroll_dots[i], 2, (lv_coord_t)(i * 14));  /* 绝对定位，垂直均匀分布 */
         lv_obj_set_style_radius(s_scroll_dots[i], 0, 0);
         lv_obj_set_style_bg_color(s_scroll_dots[i], AREX_DARK, 0);
         lv_obj_set_style_bg_opa(s_scroll_dots[i], LV_OPA_COVER, 0);
@@ -572,50 +572,50 @@ static void right_panel_create(void)
         lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_SCROLLABLE);
         if (g_sys_config.dots_position == AREX_DOTS_NONE)
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
-        /* 瓒呭嚭 visible_dash 鐨?dot 涔熼殣钘?*/
+        /* 超出 visible_dash 的 dot 也隐藏 */
         if (i >= arex_visible_dash_count())
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
     }
 
-    /* 鍙湪 DASH/EDIT 鐘舵€佹墠鏄剧ず dots锛孖NFO/SETUP 鑿滃崟涓嶆樉绀?*/
+    /* 只在 DASH/EDIT 状态才显示 dots，INFO/SETUP 菜单不显示 */
     bool show_dots = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
     arex_screen_update_scroll_dots(0, show_dots);
 }
 
 /* =========================================================
- * Safe Zone 瀹瑰櫒閲嶅缓 (閰嶇疆鍙樻洿鍚庤皟鐢?
- * 涓嶉噸寤?cards锛屽彧閲嶅缓甯冨眬妗嗘灦
+ * Safe Zone 容器重建 (配置变更后调用)
+ * 不重建 cards，只重建布局框架
  * ========================================================= */
 void arex_screen_rebuild_layout(void)
 {
     printf("[REBUILD_LAYOUT] Enter: visible_dash=%u, dots_pos=%d, layout_order=%d\r\n",
            arex_visible_dash_count(), g_sys_config.dots_position, g_sys_config.layout_order);
 
-    /* 銆愰棶棰樺洓淇銆戝繀椤诲湪娓呯┖瀵硅薄鍓嶉噸鏂板惎鐢?invalidation
-     * 鍥犱负 arex_ui_timer_cb() 涓鐢ㄤ簡 invalidation 浠ヤ紭鍖栧埛灞忔€ц兘锛?
-     * 浠讳綍娑夊強鍒犻櫎 LVGL 瀵硅薄鐨勪唬鐮侀兘搴旇鍋囪 invalidation 鍙兘琚鐢ㄣ€?*/
+    /* 【问题四修复】必须在清空对象前重新启用 invalidation
+     * 因为 arex_ui_timer_cb() 中禁用了 invalidation 以优化刷屏性能
+     * 任何涉及删除 LVGL 对象的代码都应该假设 invalidation 可能被禁用。 */
     lv_disp_t *disp = lv_disp_get_default();
     if (disp) lv_disp_enable_invalidation(disp, true);
 
-    /* 1. 蹇呴』鍦ㄦ竻绌哄璞″墠锛屾妸鎸囬拡鍏ㄩ儴娲楃櫧锛佹柇缁濇偓绌烘寚閽堬紒 */
+    /* 1. 必须在清空对象前，把指针全部洗白！断绝悬空指针！ */
     clear_widget_arrays();
 
-    /* 2. 娓呯┖宸︿晶閿氱偣锛堟媶鎴垮瓙锛?*/
+    /* 2. 清空左侧锚点 */
     if (s_left_anchor)
     {
         lv_obj_clean(s_left_anchor);
     }
 
-    /* 3. 閲嶅缓宸︿晶閿氱偣鎺掔増锛?x7 缁濆缃戞牸鐗堟湰锛屽缓鎴垮瓙锛?*/
+    /* 3. 重建左侧锚点排版（2x7 绝对网格版本） */
     if (s_left_anchor)
     {
         left_anchor_rebuild(0);
     }
 
-    /* 4. 閲嶅缓鎵€鏈夎嚜瀹氫箟缃戞牸鍗＄墖 */
+    /* 4. 重建所有自定义网格卡片 */
     arex_5f_grid_rebuild_all();
 
-    /* 5. 閲嶅缓 Safe Zone 鍐呴儴瀹氫綅锛堝寘鎷?dots 浣嶇疆鍜屽彲瑙佹€э級 */
+    /* 5. 重建 Safe Zone 内部定位（包括 dots 位置和可见性） */
     safe_zone_reposition();
 
     /* 5.1 重建后立即把当前数据灌入全部 widget 实例，避免多实例场景下部分组件长时间停留在 "--" */
@@ -624,26 +624,26 @@ void arex_screen_rebuild_layout(void)
     /* 5.2 APP 下发布局/翻转后，亮度现象必须与默认布局保持一致。 */
     restore_brightness_overlay_state();
 
-    /* 6. 寮哄埗鎶婃墍鏈夊父瑙勬暟鎹殑鑴忔爣璁扮疆 1锛?
-     * 鍥犱负鏂板缓鐨?Label 閲岄潰鍏ㄦ槸 "--"锛屽繀椤昏瀹氭椂鍣ㄥ湪涓嬩竴甯ф妸鐪熷疄鏁版嵁鍒疯繘鍘伙紒 */
+    /* 6. 强制把所有常规数据的脏标记置 1
+     * 因为新建 Label 里面全是 "--"，必须让定时器在下一帧把真实数据刷进去！ */
     g_sensor_data.dirty_mask |= (DIRTY_DEPTH | DIRTY_BATT | DIRTY_TEMP | DIRTY_POD);
 }
 
 
 /* =========================================================
- * Tileview 閲嶅缓 (鍗＄墖椤哄簭鍙樻洿鏃惰皟鐢?
+ * Tileview 重建 (卡片顺序变更时调用)
  * ========================================================= */
 void arex_screen_rebuild_tileview(void)
 {
-    /* 銆愰棶棰樺洓淇銆戝繀椤诲湪鍒犻櫎瀵硅薄鍓嶉噸鏂板惎鐢?invalidation
-     * 鍥犱负 arex_ui_timer_cb() 涓鐢ㄤ簡 invalidation 浠ヤ紭鍖栧埛灞忔€ц兘锛?
-     * 浠讳綍娑夊強鍒犻櫎 LVGL 瀵硅薄鐨勪唬鐮侀兘搴旇鍋囪 invalidation 鍙兘琚鐢ㄣ€?*/
+    /* 【问题四修复】必须在删除对象前重新启用 invalidation
+     * 因为 arex_ui_timer_cb() 中禁用了 invalidation 以优化刷屏性能
+     * 任何涉及删除 LVGL 对象的代码都应该假设 invalidation 可能被禁用。 */
     lv_disp_t *disp = lv_disp_get_default();
     if (disp) lv_disp_enable_invalidation(disp, true);
 
     uint8_t count = arex_card_count();
 
-    /* 銆愰棶棰樹簩淇銆戜繚瀛樺綋鍓嶇劍鐐逛綅缃拰鐘舵€佹満涓婁笅鏂?*/
+    /* 【问题二修复】保存当前焦点位置和状态机上下文 */
     uint8_t saved_dash_card = g_ui.dash_card;
     arex_ui_state_t saved_state = g_ui.state;
     uint8_t saved_menu_idx = (saved_state == UI_INFO) ? g_ui.menu_info_idx
@@ -667,7 +667,7 @@ void arex_screen_rebuild_tileview(void)
         reset_transient_ui_refs();
     }
 
-    /* 鍗曠嫭鍒犻櫎 s_dot_cont锛堢埗瀵硅薄涓?s_safe_zone锛屼笉浼氶殢 s_right_cont 鍒犻櫎锛?*/
+    /* 单独删除 s_dot_cont（父对象 s_safe_zone，不会随 s_right_cont 删除） */
     if (s_dot_cont)
     {
         lv_obj_del(s_dot_cont);
@@ -677,24 +677,24 @@ void arex_screen_rebuild_tileview(void)
     }
 
     right_panel_create();
-    /* right_panel_create() 鍙噸寤哄彸渚?tileview / dots銆?
-     * tileview 鍒犻櫎鍚庯紝鎸傚湪 s_right_cont 涓婄殑 wall / submenu / modal 鍙ユ焺涔熷凡澶辨晥锛?
-     * 蹇呴』鍚屾閲嶅缓锛屽惁鍒欏悗缁姸鎬佹満璺緞浼氭妸 NULL 浼犺繘 lv_obj_add_flag/clear_flag銆?*/
+    /* right_panel_create() 只重建右侧 tileview / dots
+     * tileview 删除后，挂在 s_right_cont 上的 wall / submenu / modal 句柄也已失效
+     * 必须同步重建，否则后续状态机路径会把 NULL 传进 lv_obj_add_flag/clear_flag。 */
     wall_create();
     submenu_layer_create();
     modal_create();
     restore_brightness_overlay_state();
 
-    /* 銆愰棶棰樹簩淇銆戞仮澶?tile 鐒︾偣鍒颁繚瀛樼殑浣嶇疆
-     * 娉ㄦ剰锛歡_ui.dash_card 宸茬粡鍦ㄥ閮ㄤ繚瀛樹簡锛岃繖閲屼娇鐢?saved_dash_card */
+    /* 【问题二修复】恢复 tile 焦点到保存的位置
+     * 注意：g_ui.dash_card 已经在外部保存了，这里使用 saved_dash_card */
     if (s_tileview && saved_dash_card < AREX_CARD_COUNT && s_tile_objs[saved_dash_card])
     {
         lv_obj_set_tile(s_tileview, s_tile_objs[saved_dash_card], LV_ANIM_OFF);
     }
 
-    /* 銆愰棶棰榅淇銆戞仮澶?UI 鐘舵€佹満
-     * 甯冨眬閲嶅缓鍚庡彧鎭㈠浜?tile 浣嶇疆锛屼絾娌℃湁鎭㈠鐘舵€佹満锛?
-     * 瀵艰嚧 g_ui.state 涓嶅悓姝ワ紝婊戝姩琛屼负寮傚父锛屽乏渚ф寚绀哄櫒鏄剧ず閿欒 */
+    /* 【问题X修复】恢复 UI 状态机
+     * 布局重建后只恢复 tile 位置，但没有恢复状态机
+     * 导致 g_ui.state 不同步，滑动行为异常，左侧指示器显示错误 */
     if (AREX_ENABLE_INFO_MENU && saved_dash_card == CARD_POS_INFO)
     {
         g_ui.state = UI_INFO;
@@ -719,7 +719,7 @@ void arex_screen_rebuild_tileview(void)
     }
 
     {
-        /* 璁＄畻閫昏緫绱㈠紩锛氫粠 DYNAMIC_FIRST 鍒板綋鍓嶅崱鐗囦箣闂存湁澶氬皯涓湁鏁堝崱鐗?*/
+        /* 计算逻辑索引：从 DYNAMIC_FIRST 到当前卡片之间有多少个有效卡*/
         uint8_t active_idx = 0;
         if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos())
         {
@@ -732,7 +732,7 @@ void arex_screen_rebuild_tileview(void)
                 }
             }
         }
-        /* INFO/SETUP 鑿滃崟涓嶆樉绀?dots锛屽彧鏇存柊娲昏穬绱㈠紩 */
+        /* INFO/SETUP 菜单不显示 dots，只更新活跃索引 */
         bool show_dots = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
         arex_screen_update_scroll_dots(active_idx, show_dots);
     }
@@ -740,10 +740,10 @@ void arex_screen_rebuild_tileview(void)
 
 void arex_screen_rebuild_full(void)
 {
-    /* 瀹屾暣閲嶅缓鍏ュ彛锛?
-     * 1. card_order/custom_card_slot/custom_cards 鍙樺寲鏃跺繀椤婚噸寤?tileview
-     * 2. tileview 閲嶅缓鍚庯紝safe zone / left anchor / dots 浼氶殢涔嬫寜褰撳墠 g_sys_config 閲嶅缓
-     * 杩欐牱鍙互淇濊瘉鎭㈠榛樿甯冨眬鍚庯紝Dive Menu 瀵瑰簲椤甸潰缁撴瀯鍜岃繍琛屾椂閰嶇疆瀹屽叏涓€鑷淬€?*/
+    /* 完整重建入口
+     * 1. card_order/custom_card_slot/custom_cards 变化时必须重建 tileview
+     * 2. tileview 重建后，safe zone / left anchor / dots 会随之按当前 g_sys_config 重建
+     * 这样可以保证恢复默认布局后，Dive Menu 对应页面结构和运行时配置完全一致。 */
     arex_screen_rebuild_tileview();
     arex_screen_rebuild_layout();
 }
@@ -778,7 +778,7 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 
     lv_obj_t *blk = lv_label_create(w);
     lv_obj_set_style_text_color(blk, AREX_GREEN, 0);
-    /* Wall blocks 蹇呴』浣跨敤 Courier 鍐呯疆瀛椾綋浠ユ敮鎸?鈻?(U+25A0) 鏂瑰潡瀛楃 */
+    /* Wall blocks 必须使用 Courier 内置字体以支持 ■ (U+25A0) 方块字符 */
     lv_obj_set_style_text_font(blk, &lv_font_courier_28, 0);
     lv_obj_set_width(blk, wall_w);
     lv_obj_set_style_text_align(blk, LV_TEXT_ALIGN_CENTER, 0);
@@ -873,7 +873,7 @@ static void submenu_layer_create(void)
 }
 
 /* =========================================================
- * arex_screen_create 鈥?鍏紑鍏ュ彛
+ * arex_screen_create - 公开入口
  * ========================================================= */
 void arex_screen_create(void)
 {
@@ -882,7 +882,7 @@ void arex_screen_create(void)
     s_scr = lv_obj_create(NULL);
     lv_obj_add_style(s_scr, &s_style_screen, 0);
 
-    /* 瀹夊叏鍖哄鍣?(鐩稿浜?s_scr 灞呬腑瀹氫綅) */
+    /* 安全区容器(相对 s_scr 居中定位) */
     s_safe_zone = lv_obj_create(s_scr);
     lv_obj_set_size(s_safe_zone, g_sys_config.safe_zone_w, g_sys_config.safe_zone_h);
     lv_obj_align(s_safe_zone, LV_ALIGN_CENTER,
@@ -906,11 +906,11 @@ void arex_screen_create(void)
 }
 
 /* =========================================================
- * Tileview 瀵艰埅
+ * Tileview 导航
  * ========================================================= */
 void arex_screen_scroll_to_card(uint8_t tile_pos)
 {
-    /* 銆愰棶棰樹笁淇銆憇_tileview 鍙兘涓?NULL锛堝竷灞€閲嶅缓鏈熼棿锛?*/
+    /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
 
     if (tile_pos >= arex_card_count())
@@ -931,8 +931,8 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
 
     lv_obj_set_tile(s_tileview, tile, AREX_TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
 
-    /* 棣栧睆/閲嶅缓鍚庨娆¤繘鍗℃椂锛屽綋鍓?tile 鍙兘娌℃湁鍚庣画鑴忔暟鎹┍鍔ㄥ埛鏂般€?
-     * 杩欓噷涓诲姩琛ヤ竴娆″綋鍓嶅彲瑙侀〉鐨勫竷灞€鍜岄噸缁橈紝閬垮厤蹇呴』绛夌敤鎴锋棆閽氦浜掑悗鎵嶅畬鏁存樉绀恒€?*/
+    /* 首屏/重建后首次进卡时，当前 tile 可能没有后续脏数据驱动刷新
+     * 这里主动补一次当前可见页的布局和重绘，避免必须等用户旋钮交互后才完整显示。 */
     lv_obj_update_layout(tile);
     lv_obj_invalidate(tile);
 
@@ -964,10 +964,10 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
         }
     }
 
-    /* SETUP(鏈€鍚庝竴椤? 涓嶆樉绀?dots锛屽彧鏈?DASH 鍔ㄦ€佸崱鐗囨墠鏇存柊 */
+    /* SETUP（最后一页）不显示 dots，只有 DASH 动态卡片才更新 */
     if (tile_pos >= CARD_POS_DYNAMIC_FIRST && tile_pos < arex_setup_display_pos())
     {
-        /* 璁＄畻閫昏緫绱㈠紩锛氫粠 DYNAMIC_FIRST 鍒?tile_pos 涔嬮棿鏈夊灏戜釜鏈夋晥鍗＄墖 */
+        /* 计算逻辑索引：从 DYNAMIC_FIRST 到 tile_pos 之间有多少个有效卡片 */
         uint8_t active_idx = 0;
         for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
         {
@@ -986,35 +986,35 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
 }
 
 /* =========================================================
- * 宸︿晶闈㈡澘鍒锋柊 (浣跨敤 arex_widget_set_value API)
+ * 左侧面板刷新 (使用 arex_widget_set_value API)
  *
- * 褰诲簳濮旀墭缁?arex_widget_set_value()锛岄€氳繃 user_data 鐑欏嵃鑷姩瀹氫綅
- * 宸︿晶閿氱偣 + 5F 缃戞牸涓墍鏈夋墦浜嗙儥鍗扮殑缁勪欢骞舵洿鏂版暟鍊笺€?
- * 涓嶅啀鐩存帴鎿嶄綔 s_lbl_* 鍙ユ焺锛屽交搴曡В鑰︼紒
+ * 彻底委托 arex_widget_set_value()，通过 user_data 烙印自动定位
+ * 左侧锚点 + 5F 网格中所有打了烙印的组件并更新数值
+ * 不再直接操作 s_lbl_* 句柄，彻底解耦！
  *
- * 2x7 缃戞牸甯冨眬:
+ * 2x7 网格布局:
  *   Row 0: NDL      | (2x1)
- *   Row 1-2: DEPTH  | (2x2, 甯?sudu 閫熺巼鍥炬爣)
- *   Row 3: POD1     | POD2   (鍚?1x1)
- *   Row 4: TIME     | (2x1, 娼滄按鏃堕棿 MM:SS)
- *   Row 5: GAS      | (2x1, 褰撳墠姘斾綋鍚嶇О)
- *   Row 6: SYS      | (2x1, 绯荤粺鏃堕棿)
+ *   Row 1-2: DEPTH  | (2x2, 带 sudu 速率图标)
+ *   Row 3: POD1     | POD2   (各 1x1)
+ *   Row 4: TIME     | (2x1, 潜水时间 MM:SS)
+ *   Row 5: GAS      | (2x1, 当前气体名称)
+ *   Row 6: SYS      | (2x1, 系统时间)
  * ========================================================= */
 /* =========================================================
- * 宸︿晶闈㈡澘鍒锋柊 鈥?鏁版嵁婧愯嚜鍔ㄦ帹瀵煎紩鎿?
+ * 左侧面板刷新 - 数据源自动推导引擎
  *
- * 閾佸緥锛氬彧璇?g_sys_config.left_widgets[] 鏁扮粍锛屾牴鎹?widget_id 璺敱鍒板搴旂殑 g_sensor_data 瀛楁銆?
- * 姣忔淇敼甯冨眬锛堣皟鏁?g_left_widgets[] 椤哄簭/绫诲瀷锛夊悗锛屾鍑芥暟鑷姩鍚屾锛屾棤闇€鎵嬪姩缁存姢銆?
+ * 铁律：只读 g_sys_config.left_widgets[] 数组，根据 widget_id 路由到对应的 g_sensor_data 字段
+ * 每次修改布局（调整 g_left_widgets[] 顺序/类型）后，此函数自动同步，无需手动维护
  * ========================================================= */
 /* =========================================================
- * 鍏ㄥ睆缁勪欢鏁版嵁鍚屾鎺ュ彛
+ * 全屏组件数据同步接口
  *
- * 鍚屾椂鍒锋柊宸︿晶閿氱偣鍜屽彸渚?5F 鑷畾涔夌綉鏍肩殑鎵€鏈夌粍浠躲€?
- * 鍐呴儴璋冪敤 arex_widget_sync_data() 璺敱鍒嗗彂鍣紝瀹炵幇鍏ㄩ噺鏁版嵁鑷姩瀵归綈銆?
+ * 同时刷新左侧锚点和右侧 5F 自定义网格的所有组件
+ * 内部调用 arex_widget_sync_data() 路由分发器，实现全量数据自动对齐
  * ========================================================= */
 void arex_screen_refresh_all_widgets(void)
 {
-    /* 1. 鍚屾宸︿晶鍥哄畾鍖洪厤缃?*/
+    /* 1. 同步左侧固定区配置 */
     for (uint8_t i = 0; i < g_sys_config.left_widget_count; i++)
     {
         if (g_sys_config.left_widgets[i].widget_id != WIDGET_EMPTY)
@@ -1023,7 +1023,7 @@ void arex_screen_refresh_all_widgets(void)
         }
     }
 
-    /* 2. 鍚屾鍙充晶鍏ㄩ儴鑷畾涔夊崱鐗囬厤缃?*/
+    /* 2. 同步右侧全部自定义卡片配置 */
     for (uint8_t card_idx = 0;
             card_idx < g_sys_config.custom_card_count && card_idx < AREX_MAX_CUSTOM_CARDS;
             card_idx++)
@@ -1039,8 +1039,8 @@ void arex_screen_refresh_all_widgets(void)
 }
 
 /* =========================================================
- * 鍏煎鏃ф帴鍙ｏ細浠呭埛鏂板乏渚ч潰鏉?
- * 鍐呴儴濮旀墭缁?arex_widget_sync_data()锛屾秷闄ゅ啑浣?switch-case
+ * 兼容旧接口：仅刷新左侧面板
+ * 内部委托 arex_widget_sync_data()，消除冗余 switch-case
  * ========================================================= */
 void arex_screen_refresh_left_panel(void)
 {
@@ -1066,7 +1066,7 @@ static const char *charge_blocks[] =
 
 static void wall_nudge_tileview(lv_coord_t offset_y)
 {
-    /* 銆愰棶棰樹笁淇銆憇_tileview 鍙兘涓?NULL锛堝竷灞€閲嶅缓鏈熼棿锛?*/
+    /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
 
     lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
@@ -1084,7 +1084,7 @@ static void wall_nudge_tileview(lv_coord_t offset_y)
 
 void arex_screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
 {
-    /* 銆愰棶棰樹笁淇銆憇_tileview 鍙兘涓?NULL锛堝竷灞€閲嶅缓鏈熼棿锛?*/
+    /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
 
     if (charge > 3) charge = 3;
@@ -1104,7 +1104,7 @@ void arex_screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
 
 void arex_screen_hide_walls(void)
 {
-    /* 銆愰棶棰樹笁淇銆憇_tileview 鍙兘涓?NULL锛堝竷灞€閲嶅缓鏈熼棿锛?*/
+    /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
     if (!s_wall_top || !s_wall_bottom) return;
 
@@ -1125,7 +1125,7 @@ void arex_screen_hide_walls(void)
 
 void arex_screen_hide_walls_snap(void)
 {
-    /* 銆愰棶棰樹笁淇銆憇_tileview 鍙兘涓?NULL锛堝竷灞€閲嶅缓鏈熼棿锛?*/
+    /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
     if (!s_wall_top || !s_wall_bottom) return;
 
@@ -1317,9 +1317,9 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
 
     lv_label_set_text(s_submenu_title, title);
     lv_obj_clean(s_submenu_list);
-    s_light_status_lbl = NULL;  /* 閲嶇疆 LIGHT 鐘舵€佹爣绛?*/
+    s_light_status_lbl = NULL;  /* 重置 LIGHT 状态标签 */
 
-    /* right_w 浠庣紦瀛樿鍙栵紝fallback = safe_zone_w - left_anchor_w - panel_gap */
+    /* right_w 从缓存读取，fallback = safe_zone_w - left_anchor_w - panel_gap */
     uint16_t right_w = (s_cached_right_w > 0)
                        ? s_cached_right_w
                        : (g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - g_sys_config.panel_gap_u * AREX_BASE_U);
@@ -1342,10 +1342,10 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         lv_obj_set_style_pad_all(item, 0, LV_PART_MAIN);
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
 
-        /* LIGHT CONTROL 鐗规畩甯冨眬: LIGHT 宸? ON/OFF 鍙?*/
+        /* LIGHT CONTROL 特殊布局: LIGHT 左侧，ON/OFF 右侧 */
         if (strcmp(title, "LIGHT CONTROL") == 0 && i == 0)
         {
-            /* "LIGHT" 鏍囩鍦ㄥ乏渚?*/
+            /* "LIGHT" 标签在左侧 */
             lv_obj_t *lbl_light = lv_label_create(item);
             lv_obj_set_style_text_color(lbl_light, AREX_GREEN, 0);
             lv_obj_set_style_text_font(lbl_light, arex_get_font(AREX_FONT_ID_TITLE), 0);
@@ -1354,7 +1354,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
             lv_obj_set_style_text_align(lbl_light, LV_TEXT_ALIGN_LEFT, 0);
             lv_label_set_text(lbl_light, "LIGHT");
 
-            /* "ON"/"OFF" 鏍囩鍦ㄥ彸渚?*/
+            /* "ON"/"OFF" 标签在右侧 */
             lv_obj_t *lbl_status = lv_label_create(item);
             lv_obj_set_style_text_color(lbl_status, g_light_power_state ? AREX_GREEN : AREX_LIGHT, 0);
             lv_obj_set_style_text_font(lbl_status, arex_get_font(AREX_FONT_ID_TITLE), 0);
@@ -1363,13 +1363,13 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
             lv_obj_set_style_text_align(lbl_status, LV_TEXT_ALIGN_RIGHT, 0);
             lv_label_set_text(lbl_status, g_light_power_state ? "ON" : "OFF");
 
-            /* 淇濆瓨鐘舵€佹爣绛惧紩鐢紝鐢ㄤ簬鐐瑰嚮鏃舵洿鏂?*/
+            /* 保存状态标签引用，用于点击时更新 */
             s_light_status_lbl = lbl_status;
             current_y += item_h + gap_y;
             continue;
         }
 
-        /* 鏅€氳彍鍗曢」 */
+        /* 普通菜单项 */
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
         lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
@@ -1392,7 +1392,7 @@ void arex_screen_set_submenu_selection(uint8_t idx)
     {
         lv_obj_t *item = lv_obj_get_child(s_submenu_list, i);
         lv_obj_t *lbl  = lv_obj_get_child(item, 0);
-        /* 姝ｅ湪缂栬緫鐨?item 鐢?begin_edit_value 鍗曠嫭绠＄悊锛屼笉鍙備笌閫変腑鎬佸埛鏂?*/
+        /* 正在编辑的 item 由 begin_edit_value 单独管理，不参与选中态刷新 */
         if (g_ui.edit_ctx.active && (uint8_t)i == g_ui.edit_ctx.item_index) continue;
         if (i == idx)
         {
@@ -1427,7 +1427,7 @@ void arex_screen_set_submenu_selection(uint8_t idx)
                 lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
                 lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
             }
-            /* LIGHT CONTROL 鐗规畩澶勭悊锛氱浜屽垪锛圤N/OFF锛夋仮澶嶇姸鎬佽壊 */
+            /* LIGHT CONTROL 特殊处理：第二列（ON/OFF）恢复状态色 */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
@@ -1732,17 +1732,17 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
-    /* LIGHT CONTROL 棰滆壊閫夐」澶勭悊锛堝繀椤诲湪閫氱敤 > 澶勭悊涔嬪墠锛?*/
+    /* LIGHT CONTROL 颜色选项处理（必须在通用处理之前） */
     if (strcmp(cur_title, "LIGHT CONTROL") == 0 && strstr(text, "COLOR") != NULL)
     {
-        /* 浠?"RED COLOR >" 鎻愬彇棰滆壊鍚?*/
+        /* 从 "RED COLOR >" 提取颜色名 */
         char color_name[20] = {0};
         if (strncmp(text, "RED", 3) == 0) strcpy(color_name, "RED");
         else if (strncmp(text, "GREEN", 5) == 0) strcpy(color_name, "GREEN");
         else if (strncmp(text, "BLUE", 4) == 0) strcpy(color_name, "BLUE");
         else if (strncmp(text, "WHITE", 5) == 0) strcpy(color_name, "WHITE");
 
-        /* 閫氳繃 nested_items_for 鑾峰彇棰滆壊浜害閫夐」锛堜笓闂ㄧ殑浜岀骇宓屽鑿滃崟锛?*/
+        /* 通过 nested_items_for 获取颜色亮度选项（专门的二级嵌套菜单） */
         uint8_t ncnt = 0;
         const char **color_items = nested_items_for(color_name, &ncnt);
         if (color_items && ncnt > 0)
@@ -1752,19 +1752,18 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
-    /* LIGHT CONTROL 寮€鍏冲鐞嗭紙绗竴椤癸紝鐐瑰嚮鍒囨崲 ON/OFF 鐘舵€侊級 */
+    /* LIGHT CONTROL 第一项：切换 ON/OFF 状态 */
     if (strcmp(cur_title, "LIGHT CONTROL") == 0 && item_idx == 0)
     {
-        extern void arex_bus_set_light_power(bool on);
         g_light_power_state = !g_light_power_state;
         arex_bus_set_light_power(g_light_power_state);
 
-        /* 鏇存柊鐘舵€佹爣绛?*/
+        /* 同步当前子菜单显示 */
         if (s_light_status_lbl)
         {
             lv_label_set_text(s_light_status_lbl, g_light_power_state ? "ON" : "OFF");
         }
-        /* 閲嶆柊璁剧疆閫変腑鎬侊紝纭繚 ON/OFF 鍙橀粦鑹?*/
+        /* 保持选中项停留在 ON/OFF 行 */
         arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
         return;
     }
@@ -1813,15 +1812,14 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     {
         if (strcmp(text, "< BACK") != 0)
         {
-            /* 瑙ｆ瀽 conservatism 绾у埆锛歀OW/MED/HIGH/GF 50/70 */
-            uint8_t level = 1;  /* 榛樿 MED */
+            /* 解析 conservatism 等级：LOW/MED/HIGH/GF 50/70 */
+            uint8_t level = 1;  /* 默认 MED */
             if (strncmp(text, "LOW", 3) == 0) level = 0;
             else if (strncmp(text, "MED", 3) == 0) level = 1;
             else if (strncmp(text, "HIGH", 4) == 0) level = 2;
             else if (strncmp(text, "GF 50/70", 8) == 0) level = 3;
 
-            /* 璋冪敤澶栭儴涓氬姟灞傚洖璋冿紙weak 瀹炵幇浼氳皟鐢ㄥ唴閮?bus锛?*/
-            extern void arex_ui_on_conservatism_set(uint8_t level);
+            /* 通知业务层应用保守度设置 */
             arex_ui_on_conservatism_set(level);
 
             arex_screen_refresh_setup_menu();
@@ -1856,7 +1854,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     {
         if (strcmp(text, "< BACK") != 0)
         {
-            /* 璁剧疆浜害骞舵洿鏂?badge */
+            /* 更新亮度配置并刷新 badge */
             if (strcmp(text, "LOW") == 0)
             {
                 g_sys_config.brightness = 0;
@@ -1881,7 +1879,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
             {
                 g_sys_config.brightness = 5;
             }
-            /* 瀹為檯璁剧疆灞忓箷浜害锛堟ā鎷熷櫒鐗堟湰锛?*/
+            /* 通过业务回调应用亮度 */
             arex_set_brightness(g_sys_config.brightness);
         }
         arex_screen_update_setup_badge(2, text);
@@ -1889,19 +1887,18 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
-    /* 棰滆壊浜害璋冭妭瀛愯彍鍗曞鐞嗭紙RED/GREEN/BLUE/WHITE锛?*/
+    /* 颜色子菜单：RED/GREEN/BLUE/WHITE */
     if (strcmp(cur_title, "RED") == 0 || strcmp(cur_title, "GREEN") == 0 ||
             strcmp(cur_title, "BLUE") == 0 || strcmp(cur_title, "WHITE") == 0)
     {
-        /* 鐢ㄦ埛閫夋嫨浜嗕寒搴︾櫨鍒嗘瘮 */
+        /* 非返回项表示选择了亮度档位 */
         if (strcmp(text, "< BACK") != 0)
         {
-            /* 鍥炶皟缁欎笟鍔″眰澶勭悊 */
-            extern void arex_ui_on_light_color_set(const char *color, const char *level);
+            /* 通知业务层处理灯光颜色亮度 */
             arex_ui_on_light_color_set(cur_title, text);
 
         }
-        /* 鐩存帴鍏抽棴瀛愯彍鍗曡繑鍥炰笂绾э紝涓嶅脊绐?*/
+        /* 完成后关闭颜色子菜单 */
         arex_screen_close_submenu();
         return;
     }
@@ -2127,7 +2124,7 @@ static void edit_flash_timer_cb(lv_timer_t *t)
     s_edit_flash_on = !s_edit_flash_on;
     if (s_edit_flash_val_lbl)
     {
-        /* 鏂囧瓧棰滆壊鍦ㄧ豢/鏆楃豢涔嬮棿闂儊锛屾棤鑳屾櫙鑹插垏鎹?*/
+        /* 文字颜色在绿/暗绿之间闪烁，无背景色切换 */
         lv_color_t fg = s_edit_flash_on ? AREX_GREEN : AREX_DARK;
         lv_obj_set_style_text_color(s_edit_flash_val_lbl, fg, 0);
     }
@@ -2162,7 +2159,7 @@ void arex_screen_refresh_edit_value(void)
     if (!g_ui.edit_ctx.active || !s_edit_flash_val_lbl || !s_submenu_list) return;
     static float last_drawn = -9999.f;
     float cur = g_ui.edit_ctx.value;
-    if (cur == last_drawn) return;   /* dirty check锛氬€兼湭鍙樺垯璺宠繃锛屼笉瑙﹀彂閲嶇粯 */
+    if (cur == last_drawn) return;   /* dirty check：值未变则跳过，不触发重绘 */
     last_drawn = cur;
     char buf[16];
     snprintf(buf, sizeof(buf), "%.1f ^v", cur);
@@ -2191,13 +2188,13 @@ void arex_screen_begin_edit_value(uint8_t item_idx, float value,
         return;
     }
 
-    /* 浠庨€変腑鎬佸垏鎹㈠埌缂栬緫鎬侊細缁垮簳鈫掗粦搴曠豢妗嗭紝title 鏂囧瓧鎭㈠缁胯壊 */
+    /* 从选中态切换到编辑态：绿底→黑底绿框，title 文字恢复绿色 */
     lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
     lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(item, AREX_GREEN, 0);
     lv_obj_set_style_border_width(item, 2, 0);
 
-    /* 澶嶇敤 child 0 浣滀负宸︿晶鏍囩锛屾仮澶嶇豢鑹叉枃瀛?*/
+    /* 复用 child 0 作为左侧标签，恢复绿色文字 */
     lv_obj_t *prefix_lbl = lv_obj_get_child(item, 0);
     if (prefix_lbl)
     {
@@ -2207,11 +2204,11 @@ void arex_screen_begin_edit_value(uint8_t item_idx, float value,
         lv_obj_align(prefix_lbl, LV_ALIGN_LEFT_MID, 12, 0);
     }
 
-    /* child 1 鏄?badge label锛圕ONSERVATISM 绛夋棤 badge 鏃朵负 NULL锛夛紝鎭㈠棰滆壊 */
+    /* child 1 badge label（CONSERVATISM 等无 badge 时为 NULL），恢复颜色 */
     lv_obj_t *old_badge = lv_obj_get_child(item, 1);
     if (old_badge) lv_obj_set_style_text_color(old_badge, AREX_GREEN, 0);
 
-    /* 鍒涘缓鍙充晶鏁板€?+ 绠ご label锛岄€忔槑鑳屾櫙锛岄潬鍙冲眳涓?*/
+    /* 创建右侧数值 + 箭头 label，透明背景，靠右居中 */
     lv_obj_t *val_lbl = lv_label_create(item);
     lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
     lv_obj_set_style_text_font(val_lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
@@ -2224,7 +2221,7 @@ void arex_screen_begin_edit_value(uint8_t item_idx, float value,
     snprintf(buf, sizeof(buf), "%.1f ^v", value);
     lv_label_set_text(val_lbl, buf);
 
-    s_edit_flash_badge    = val_lbl;   /* 澶嶇敤鎸囬拡鐢ㄤ簬闂儊 */
+    s_edit_flash_badge    = val_lbl;   /* 复用指针用于闪烁 */
     s_edit_flash_val_lbl  = val_lbl;
 
     edit_flash_start();
@@ -2306,108 +2303,8 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
 }
 
 /* =========================================================
- * Light control callbacks (渚涗笟鍔″眰瀵规帴)
- *
- * 浠ヤ笅涓や釜鍑芥暟鏄?UI 灞備笌涓氬姟灞?纭欢灞傜殑瀵规帴鍏ュ彛锛?
- *   - arex_bus_set_light_power()  : 鐢变笟鍔″眰瀹炵幇锛屾帶鍒剁伅鍏夊紑鍏?
- *   - arex_ui_on_light_color_set(): 鐢变笟鍔″眰瀹炵幇锛岃缃鑹蹭寒搴?
+ * Software brightness overlay
  * ========================================================= */
-
-/**
- * 鐏厜寮€鍏虫帶鍒跺洖璋?
- *
- * 璋冪敤鏃舵満锛氬綋鐢ㄦ埛鍦?SETUP > LIGHT CONTROL > LIGHT ON/OFF 鐐瑰嚮鏃惰Е鍙?
- * 璋冪敤鏂瑰悜锛歛rex_screen.c -> 涓氬姟灞?
- *
- * @param on  true=寮€鐏? false=鍏崇伅
- *
- * 銆愪笟鍔″眰瀵规帴鏂瑰紡銆?
- * 鍦ㄤ笟鍔″眰閲嶆柊瀹氫箟姝ゅ嚱鏁帮紝鎺у埗 GPIO锛?
- *
- *   void arex_bus_set_light_power(bool on) {
- *       if (on) {
- *           GPIO_SetBits(PORT_LIGHT_EN, PIN_LIGHT_EN);
- *       } else {
- *           GPIO_ResetBits(PORT_LIGHT_EN, PIN_LIGHT_EN);
- *       }
- *   }
- */
-#ifdef PC_SIMULATOR
-#else
-__attribute__((weak))    //杩欎釜鍦ㄧ湡鏈洪渶瑕佹墦寮€锛岃繖涓槸鐢ㄦ潵寮卞畾涔夌殑
-#endif
-void arex_bus_set_light_power(bool on)
-{
-    /* TODO: 涓氬姟灞傚疄鐜?
-     *
-     * 绀轰緥浼唬鐮侊細
-     *   extern void hw_light_set_power(bool state);
-     *   hw_light_set_power(on);
-     *
-     * 姝ゅ浠呮墦鍗版棩蹇椾緵璋冭瘯
-     */
-    printf("[LIGHT] Power: %s\n", on ? "ON" : "OFF");
-}
-
-/**
- * 鐏厜棰滆壊浜害璁剧疆鍥炶皟
- *
- * 璋冪敤鏃舵満锛氬綋鐢ㄦ埛鍦?SETUP > LIGHT CONTROL > [COLOR] > [LEVEL] 鐐瑰嚮鏃惰Е鍙?
- * 璋冪敤鏂瑰悜锛歛rex_screen.c -> 涓氬姟灞?
- *
- * @param color  棰滆壊鍚嶇О: "RED", "GREEN", "BLUE", "WHITE"
- * @param level 浜害绾у埆: "10%", "30%", "50%", "70%", "100%"
- *
- * 銆愪笟鍔″眰瀵规帴鏂瑰紡銆?
- * 鍦ㄤ笟鍔″眰瀹炵幇姝ゅ嚱鏁帮紝澶勭悊 RGBW PWM 鎺у埗锛?
- *
- *   void arex_ui_on_light_color_set(const char *color, const char *level) {
- *       uint8_t duty = 0;
- *       if (strncmp(level, "10", 2) == 0) duty = 25;
- *       else if (strncmp(level, "30", 2) == 0) duty = 76;
- *       else if (strncmp(level, "50", 2) == 0) duty = 127;
- *       else if (strncmp(level, "70", 2) == 0) duty = 178;
- *       else duty = 255;
- *       if (strncmp(color, "RED", 3) == 0) set_pwm(CH_RED, duty);
- *       else if (strncmp(color, "GREEN", 5) == 0) set_pwm(CH_GREEN, duty);
- *       else if (strncmp(color, "BLUE", 4) == 0) set_pwm(CH_BLUE, duty);
- *       else if (strncmp(color, "WHITE", 5) == 0) set_pwm(CH_WHITE, duty);
- *   }
- */
-#ifdef PC_SIMULATOR
-#else
-__attribute__((weak))    //杩欎釜鍦ㄧ湡鏈洪渶瑕佹墦寮€锛岃繖涓槸鐢ㄦ潵寮卞畾涔夌殑
-#endif
-void arex_ui_on_light_color_set(const char *color, const char *level)
-{
-    /* TODO: 涓氬姟灞傚疄鐜?
-     *
-     * 姝ゅ浠呮墦鍗版棩蹇椾緵璋冭瘯
-     */
-    printf("[LIGHT] Color: %s, Level: %s\n", color, level);
-}
-
-/**
- * 灞忓箷浜害璁剧疆鍥炶皟
- *
- * 调用时机：当用户在 SETUP > BRIGHTNESS 选择六档亮度时触发
- * 调用方向：arex_screen.c -> 业务层
- *
- * @param level 亮度级别: 0=LOW, 1=ECO, 2=MED, 3=HIGH, 4=MAX, 5=SUN
- *
- * 銆愪笟鍔″眰瀵规帴鏂瑰紡銆?
- * 鍦ㄤ笟鍔″眰瀹炵幇姝ゅ嚱鏁帮紝鎺у埗灞忓箷鑳屽厜 PWM锛?
- *
- *   void arex_set_brightness(uint8_t level) {
- *       static const uint8_t brightness_map[6] = {25, 40, 60, 80, 100, 120};
- *       uint8_t duty = brightness_map[level < 6 ? level : 0];
- *       set_pwm(BACKLIGHT_CHANNEL, duty);
- *   }
- */
-#ifdef PC_SIMULATOR
-#else
-__attribute__((weak))    //杩欎釜鍦ㄧ湡鏈洪渶瑕佹墦寮€锛岃繖涓槸鐢ㄦ潵寮卞畾涔夌殑
-#endif
 void arex_apply_software_brightness(uint8_t level)
 {
     /* 当前正式策略：面板固定在安全硬件亮度，UI 侧只做温和遮罩。
@@ -2452,68 +2349,21 @@ void arex_set_software_brightness_enabled(bool enabled)
 {
     s_software_brightness_enabled = enabled;
 
-    if (s_brightness_overlay != NULL)
+    if (s_brightness_overlay == NULL)
     {
-        if (enabled)
-        {
-            lv_obj_clear_flag(s_brightness_overlay, LV_OBJ_FLAG_HIDDEN);
-        }
-        else
-        {
-            lv_obj_add_flag(s_brightness_overlay, LV_OBJ_FLAG_HIDDEN);
-        }
+        return;
+    }
+
+    if (enabled)
+    {
+        lv_obj_clear_flag(s_brightness_overlay, LV_OBJ_FLAG_HIDDEN);
+    }
+    else
+    {
+        lv_obj_add_flag(s_brightness_overlay, LV_OBJ_FLAG_HIDDEN);
     }
 }
 
-#ifdef PC_SIMULATOR
-#else
-__attribute__((weak))
-#endif
-void arex_set_brightness(uint8_t level)
-{
-    arex_apply_software_brightness(level);
-}
-
-/**
- * CONSERVATISM 淇濆畧搴﹁缃洖璋?
- *
- * 璋冪敤鏃舵満锛氬綋鐢ㄦ埛鍦?SETUP > CONSERVATISM 閫夋嫨 LOW/MED/HIGH 鏃惰Е鍙?
- * 璋冪敤鏂瑰悜锛歛rex_screen.c -> 涓氬姟灞?
- *
- * @param level 淇濆畧搴︾骇鍒? 0=LOW, 1=MED, 2=HIGH
- *
- * 銆愪笟鍔″眰瀵规帴鏂瑰紡銆?
- * 鍦ㄤ笟鍔″眰瀹炵幇姝ゅ嚱鏁帮紝鎺у埗鍑忓帇绠楁硶鐨勪繚瀹堝害鍙傛暟锛?
- *
- *   void arex_ui_on_conservatism_set(uint8_t level) {
- *       g_sys_config.conservatism = level;
- *       recalculate_deco_plan();  // 閲嶆柊璁＄畻鍑忓帇璁″垝
- *   }
- */
-#ifdef PC_SIMULATOR
-#else
-__attribute__((weak))
-#endif
-void arex_ui_on_conservatism_set(uint8_t level)
-{
-    static const uint8_t gf_table[][2] = {
-        { 40, 85 },
-        { 30, 70 },
-        { 20, 65 },
-        { 50, 70 },
-    };
-
-    if (level >= (sizeof(gf_table) / sizeof(gf_table[0]))) {
-        level = 1;
-    }
-
-    g_sys_config.conservatism = level;
-    arex_bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
-
-    /* Strong target implementation is provided by buhlmann_task.cpp. */
-}
-
-/* 鑾峰彇 Safe Zone 瀹瑰櫒瀵硅薄锛堜緵鍛婅妯箙浣跨敤锛?*/
 lv_obj_t *arex_get_safe_zone(void)
 {
     return s_safe_zone;
