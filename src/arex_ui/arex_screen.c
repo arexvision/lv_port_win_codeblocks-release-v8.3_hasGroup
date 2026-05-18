@@ -2496,8 +2496,21 @@ __attribute__((weak))
 #endif
 void arex_ui_on_conservatism_set(uint8_t level)
 {
+    static const uint8_t gf_table[][2] = {
+        { 40, 85 },
+        { 30, 70 },
+        { 20, 65 },
+        { 50, 70 },
+    };
+
+    if (level >= (sizeof(gf_table) / sizeof(gf_table[0]))) {
+        level = 1;
+    }
+
+    g_sys_config.conservatism = level;
+    arex_bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
+
     /* Strong target implementation is provided by buhlmann_task.cpp. */
-    (void)level;
 }
 
 /* 鑾峰彇 Safe Zone 瀹瑰櫒瀵硅薄锛堜緵鍛婅妯箙浣跨敤锛?*/
