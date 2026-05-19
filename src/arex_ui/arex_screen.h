@@ -153,17 +153,6 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text);
    ========================================= */
 void arex_screen_register_info_list(lv_obj_t *list);
 void arex_screen_register_setup_list(lv_obj_t *list);
-
-/* =========================================
-   Light control callbacks (供业务层对接)
-   ========================================= */
-extern bool g_light_power_state;        /* 灯光开关状态（共享） */
-void arex_bus_set_light_power(bool on);           /* 开关灯光 */
-void arex_ui_on_light_color_set(const char *color, const char *level);  /* 颜色亮度设置 */
-void arex_set_software_brightness_enabled(bool enabled); /* 开关软件亮度遮罩 */
-void arex_apply_software_brightness(uint8_t level); /* 软件亮度遮罩 (0-5) */
-void arex_set_brightness(uint8_t level);           /* 设置屏幕亮度 (0-5) */
-void arex_ui_on_conservatism_set(uint8_t level);   /* 设置算法保守度 */
 #ifdef __cplusplus
 }
 #endif

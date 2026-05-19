@@ -3,6 +3,7 @@
 #include "arex_data.h"
 #include "arex_ui_state.h"
 #include "arex_card_registry.h"
+#include "arex_callbacks.h"
 #include "fonts/arex_fonts.h"
 #include <stdio.h>
 #include <string.h>
