@@ -20,6 +20,10 @@ There is no command-line build script. There are no automated tests integrated i
 
 Do not modify `LittlevGL.cbp` during routine code changes. Only update the CodeBlocks project file when the user explicitly asks for it.
 
+## Git / Commit
+
+本仓库的 commit message 默认使用中文；只有用户明确要求时，才使用其他语言。
+
 ## Architecture
 
 Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative, 207KB). Read it before making structural changes.
