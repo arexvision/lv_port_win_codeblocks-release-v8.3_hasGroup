@@ -86,7 +86,7 @@ static uint8_t s_salinity_mode = 0;      /* 0=FRESH, 1=SALT, 2=EN13319 */
 static uint8_t s_safety_stop_mode = 1;   /* 0=OFF, 1=3min, 2=4min, 3=5min */
 static uint8_t s_last_deco_mode = 0;     /* 0=3m, 1=6m */
 static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1=SEA, 2=L1, 3=L2 */
-static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS */
+static uint8_t s_dive_mode = 2;          /* 0=AIR, 1=NITROX, 2=3 GAS */
 static uint8_t s_nitrox_o2_pct = 32;
 static uint8_t s_three_gas_o2_pct[3] = { 21, 32, 100 };
 static uint8_t s_three_gas_count = 3;

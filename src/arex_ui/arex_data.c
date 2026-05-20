@@ -337,7 +337,7 @@ void arex_data_init(void)
     _temp_sample_count = 0;
 
     g_sensor_data.gas_active_idx = 0;
-    g_sensor_data.gas_slot_count = 1;
+    g_sensor_data.gas_slot_count = 3;
     strncpy(g_sensor_data.gas_name, "AIR", sizeof(g_sensor_data.gas_name) - 1);
 
     strncpy(g_sensor_data.gas_slot_name[0], "AIR", sizeof(g_sensor_data.gas_slot_name[0]) - 1);
