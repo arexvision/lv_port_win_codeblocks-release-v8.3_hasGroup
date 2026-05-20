@@ -665,6 +665,10 @@ void arex_widget_set_text(arex_widget_id_t id, const char *text);
 /* 全局组件数据路由分发器：根据 widget_id 自动从 g_sensor_data 取值并刷新界面 */
 void arex_widget_sync_data(arex_widget_id_t w_id);
 
+/* SYS / speed icon refresh helpers live with widget render handles. */
+void arex_widget_refresh_sys(uint32_t dirty_mask);
+void arex_widget_refresh_ascent_icons(float rate);
+
 
 /* =========================================================
  * 2d. 告警系统 API (Alarm System)
