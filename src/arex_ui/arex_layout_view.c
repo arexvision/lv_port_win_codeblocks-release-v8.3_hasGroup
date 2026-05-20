@@ -2,6 +2,152 @@
 
 #define WIDGET_GAP  0
 
+bool arex_safe_zone_in_danger(void)
+{
+    int16_t max_offset_x = (int16_t)((AREX_PHYSICAL_W - g_sys_config.safe_zone_w) / 2);
+    int16_t max_offset_y = (int16_t)((AREX_PHYSICAL_H - g_sys_config.safe_zone_h) / 2);
+
+    if (g_sys_config.offset_x < -max_offset_x || g_sys_config.offset_x > max_offset_x)
+    {
+        return true;
+    }
+    if (g_sys_config.offset_y < -max_offset_y || g_sys_config.offset_y > max_offset_y)
+    {
+        return true;
+    }
+
+    if (g_sys_config.mask_enabled)
+    {
+        int16_t bottom_edge = (int16_t)(AREX_PHYSICAL_H / 2 + g_sys_config.safe_zone_h / 2 + g_sys_config.offset_y);
+        if (bottom_edge > AREX_PHYSICAL_H - AREX_MASK_EDGE_GUARD)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void arex_calc_layout_rect(int16_t *out_x, int16_t *out_y,
+                           uint16_t *out_w, uint16_t *out_h,
+                           int16_t anchor_offset_x, int16_t anchor_offset_y)
+{
+    int16_t center_x = (int16_t)(AREX_PHYSICAL_W / 2) + anchor_offset_x;
+    int16_t center_y = (int16_t)(AREX_PHYSICAL_H / 2) + anchor_offset_y;
+
+    *out_x = center_x - (int16_t)(g_sys_config.safe_zone_w / 2);
+    *out_y = center_y - (int16_t)(g_sys_config.safe_zone_h / 2);
+    *out_w = g_sys_config.safe_zone_w;
+    *out_h = g_sys_config.safe_zone_h;
+}
+
+void arex_calc_tech_layout(int16_t *out_lx, int16_t *out_ly,
+                           uint16_t *out_lw, uint16_t *out_lh,
+                           int16_t *out_rx, int16_t *out_ry,
+                           uint16_t *out_rw, uint16_t *out_rh)
+{
+    uint16_t gap = g_sys_config.gap_u * AREX_BASE_U;
+
+    if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
+    {
+        *out_lx = 0;
+        *out_rx = (int16_t)(AREX_LEFT_ANCHOR_W + gap);
+    }
+    else
+    {
+        *out_lx = (int16_t)(g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - gap);
+        *out_rx = 0;
+    }
+
+    *out_ly = 0;
+    *out_ry = 0;
+    *out_lw = AREX_LEFT_ANCHOR_W;
+    *out_lh = g_sys_config.safe_zone_h;
+    *out_rw = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - gap;
+    *out_rh = g_sys_config.safe_zone_h;
+}
+
+void arex_calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
+                              uint16_t *out_top_w, uint16_t *out_top_h,
+                              int16_t *out_bot_x, int16_t *out_bot_y,
+                              uint16_t *out_bot_w, uint16_t *out_bot_h)
+{
+    uint16_t gap = g_sys_config.gap_u * AREX_BASE_U;
+    uint16_t top_h = 0;
+
+    top_h += g_sys_config.h_depth * AREX_BASE_U;
+    top_h += g_sys_config.h_ndl * AREX_BASE_U + gap;
+    top_h += g_sys_config.h_pod * AREX_BASE_U + gap;
+    top_h += g_sys_config.h_batt * AREX_BASE_U + gap;
+    top_h += g_sys_config.h_gas * AREX_BASE_U + gap;
+    top_h += g_sys_config.h_time * AREX_BASE_U;
+
+    if (top_h < AREX_MIN_CLASSIC_TOP_H)
+    {
+        top_h = AREX_MIN_CLASSIC_TOP_H;
+    }
+
+    uint16_t bottom_h = (g_sys_config.safe_zone_h > top_h + gap)
+                        ? (g_sys_config.safe_zone_h - top_h - gap)
+                        : AREX_MIN_CLASSIC_TOP_H;
+
+    if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
+    {
+        *out_top_x = 0;
+        *out_bot_x = 0;
+        *out_top_y = 0;
+        *out_bot_y = (int16_t)(top_h + gap);
+    }
+    else
+    {
+        *out_top_x = 0;
+        *out_bot_x = 0;
+        *out_top_y = (int16_t)(bottom_h + gap);
+        *out_bot_y = 0;
+    }
+
+    *out_top_w = g_sys_config.safe_zone_w;
+    *out_top_h = top_h;
+    *out_bot_w = g_sys_config.safe_zone_w;
+    *out_bot_h = bottom_h;
+}
+
+void arex_calc_widget_cell(uint16_t parent_w, uint16_t parent_h,
+                           uint8_t row, uint8_t col,
+                           uint8_t w_span, uint8_t h_span,
+                           int16_t *out_x, int16_t *out_y,
+                           uint16_t *out_w, uint16_t *out_h)
+{
+    uint16_t unit_w = parent_w / AREX_WIDGET_COLS;
+    uint16_t unit_h = parent_h / AREX_WIDGET_ROWS;
+
+    *out_x = (int16_t)(col * unit_w);
+    *out_y = (int16_t)(row * unit_h);
+    *out_w = w_span * unit_w;
+    *out_h = h_span * unit_h;
+
+    if (*out_x + *out_w > parent_w)
+    {
+        *out_w = parent_w - *out_x;
+    }
+    if (*out_y + *out_h > parent_h)
+    {
+        *out_h = parent_h - *out_y;
+    }
+}
+
+void arex_calc_tissue_bars(uint16_t total_w, uint16_t bar_max_h,
+                           int16_t out_x[16], uint16_t out_w[16])
+{
+    uint16_t col_w = total_w / 16;
+    for (uint8_t i = 0; i < 16; i++)
+    {
+        out_x[i] = (int16_t)(i * col_w);
+        out_w[i] = col_w;
+    }
+    (void)bar_max_h;
+}
+
 void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
                            uint8_t row, uint8_t col,
                            uint8_t span_w, uint8_t span_h,
