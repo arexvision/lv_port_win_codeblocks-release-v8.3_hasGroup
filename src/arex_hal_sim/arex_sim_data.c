@@ -278,20 +278,23 @@ void arex_sim_data_start(void)
         return;
     }
 
-    // arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
-    // arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
-    // arex_bus_set_pod(0, 200.0f);
-    // arex_bus_set_pod(1, 185.0f);
-    // arex_bus_set_gf_setting(30, 70);
-    // arex_bus_set_surf_gf(85.0f);
-    // arex_bus_set_gf99(42.0f);
-    // arex_bus_set_mod(33.0f);
-    // arex_bus_set_ceiling(0.0f);
-    // arex_bus_set_gas_mix(32, 0);
-    // arex_bus_set_gas_density(5.2f);
-    // arex_bus_set_fio2(21.0f);
+    arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
+    arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
+    arex_bus_set_pod(0, 200.0f);
+    arex_bus_set_pod(1, 185.0f);
+    arex_bus_set_gf_setting(30, 70);
+    arex_bus_set_surf_gf(85.0f);
+    arex_bus_set_gf99(42.0f);
+    arex_bus_set_mod(33.0f);
+    arex_bus_set_ceiling(0.0f);
+    arex_bus_set_gas_mix(32, 0);
+    arex_bus_set_gas_density(5.2f);
+    arex_bus_set_fio2(21.0f);
 
-    s_l1_alarm_timer = lv_timer_create(sim_l1_alarm_timer_cb, 1000, NULL);
 
-    // s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
+    s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
+
+
+    // s_l1_alarm_timer = lv_timer_create(sim_l1_alarm_timer_cb, 1000, NULL);
+
 }
