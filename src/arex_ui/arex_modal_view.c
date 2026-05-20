@@ -106,9 +106,15 @@ void arex_screen_show_modal_gas(void)
     }
 
     uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+    if (gas_count > AREX_GAS_COUNT)
     {
-        gas_count = 1U;
+        gas_count = AREX_GAS_COUNT;
+    }
+    if (gas_count == 0U)
+    {
+        modal_set_content("CONFIRM GAS", "NO ACTIVE GAS", "[ ESC CANCEL ]");
+        lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
+        return;
     }
     uint8_t ci = (g_ui.gas_cursor < gas_count) ? g_ui.gas_cursor : 0U;
     char body[32];

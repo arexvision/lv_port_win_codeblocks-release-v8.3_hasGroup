@@ -97,7 +97,7 @@ void arex_bus_set_battery(float pct);
 void arex_bus_set_heading(uint16_t heading_deg);
 void arex_bus_set_dive_time(uint32_t dive_s);
 void arex_bus_set_surface_time(uint32_t surface_s);
-void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val); /* sensor_idx: 0~2 */
+void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val); /* sensor_idx: 0~4 */
 void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name);
 void arex_bus_set_gas_slot_count(uint8_t count);
 void arex_bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,

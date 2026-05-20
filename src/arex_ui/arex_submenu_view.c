@@ -522,9 +522,9 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     if (strcmp(cur_title, "GAS SWITCH") == 0)
     {
         uint8_t gas_count = g_sensor_data.gas_slot_count;
-        if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+        if (gas_count > AREX_GAS_COUNT)
         {
-            gas_count = 1U;
+            gas_count = AREX_GAS_COUNT;
         }
         if (item_idx < gas_count)
         {

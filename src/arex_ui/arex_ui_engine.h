@@ -85,7 +85,7 @@ extern "C" {
 /* =========================================================
  * 1b. 气体表常量 (供全局引用)
  * ========================================================= */
-#define AREX_GAS_COUNT  4
+#define AREX_GAS_COUNT  5
 
 extern const char  *AREX_GAS_NAMES[AREX_GAS_COUNT];
 extern const uint8_t AREX_GAS_MOD_M[AREX_GAS_COUNT];

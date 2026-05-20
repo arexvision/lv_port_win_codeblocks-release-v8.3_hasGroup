@@ -87,9 +87,9 @@ void card_gas_create(lv_obj_t *parent)
 void card_gas_update(void)
 {
     uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+    if (gas_count > AREX_GAS_COUNT)
     {
-        gas_count = 1U;
+        gas_count = AREX_GAS_COUNT;
     }
 
     for (int i = 0; i < AREX_GAS_COUNT; i++)
@@ -164,9 +164,13 @@ void card_gas_update(void)
     /* Update hint text based on edit state */
     if (s_hint)
     {
-        lv_label_set_text(s_hint,
-                          (g_ui.state == UI_EDIT_GAS)
-                          ? "[ SCROLL TO SELECT / PRESS TO CONFIRM ]"
-                          : "[ PRESS TO SWITCH GAS ]");
+        const char *hint = "[ NO ACTIVE GAS ]";
+        if (gas_count > 0U)
+        {
+            hint = (g_ui.state == UI_EDIT_GAS)
+                   ? "[ SCROLL TO SELECT / PRESS TO CONFIRM ]"
+                   : "[ PRESS TO SWITCH GAS ]";
+        }
+        lv_label_set_text(s_hint, hint);
     }
 }

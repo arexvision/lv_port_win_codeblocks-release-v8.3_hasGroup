@@ -175,7 +175,7 @@ static float arex_depth_rate_estimate_latest_mpm(const arex_depth_sample_t *wind
 static float arex_alarm_active_ppo2(void)
 {
     uint8_t active_idx = g_sensor_data.gas_active_idx;
-    if (active_idx >= AREX_GAS_COUNT)
+    if (g_sensor_data.gas_slot_count == 0U || active_idx >= AREX_GAS_COUNT)
     {
         return 0.0f;
     }
@@ -283,7 +283,7 @@ static void arex_alarm_eval_gas_switch(void)
                         g_sensor_data.gas_slot_o2_pct[active_idx] : 0U;
 
     uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+    if (gas_count > AREX_GAS_COUNT)
     {
         gas_count = AREX_GAS_COUNT;
     }
@@ -354,6 +354,16 @@ void arex_data_init(void)
     g_sensor_data.gas_slot_o2_pct[2] = 100;
     g_sensor_data.gas_slot_he_pct[2] = 0;
     g_sensor_data.gas_slot_mod_m[2] = 6.0f;
+
+    g_sensor_data.gas_slot_name[3][0] = '\0';
+    g_sensor_data.gas_slot_o2_pct[3] = 0;
+    g_sensor_data.gas_slot_he_pct[3] = 0;
+    g_sensor_data.gas_slot_mod_m[3] = 0.0f;
+
+    g_sensor_data.gas_slot_name[4][0] = '\0';
+    g_sensor_data.gas_slot_o2_pct[4] = 0;
+    g_sensor_data.gas_slot_he_pct[4] = 0;
+    g_sensor_data.gas_slot_mod_m[4] = 0.0f;
 
     /* 减压站预测数据初始化（仅初始化节数，数据本身由减压引擎填充） */
     g_deco_stop_count = 0;
@@ -566,9 +576,14 @@ void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val)
 void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name)
 {
     uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+    if (gas_count > AREX_GAS_COUNT)
     {
         gas_count = AREX_GAS_COUNT;
+    }
+    if (gas_count == 0U)
+    {
+        gas_idx = 0;
+        gas_name = gas_name ? gas_name : "--";
     }
     if (gas_idx >= gas_count)
     {
@@ -591,10 +606,6 @@ void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name)
 
 void arex_bus_set_gas_slot_count(uint8_t count)
 {
-    if (count == 0U)
-    {
-        count = 1U;
-    }
     if (count > AREX_GAS_COUNT)
     {
         count = AREX_GAS_COUNT;
@@ -603,7 +614,12 @@ void arex_bus_set_gas_slot_count(uint8_t count)
     if (g_sensor_data.gas_slot_count != count)
     {
         g_sensor_data.gas_slot_count = count;
-        if (g_sensor_data.gas_active_idx >= count)
+        if (count == 0U)
+        {
+            g_sensor_data.gas_active_idx = 0;
+            snprintf(g_sensor_data.gas_name, sizeof(g_sensor_data.gas_name), "--");
+        }
+        else if (g_sensor_data.gas_active_idx >= count)
         {
             g_sensor_data.gas_active_idx = 0;
             snprintf(g_sensor_data.gas_name,
