@@ -98,7 +98,7 @@ void arex_ui_on_altitude_range_set(uint8_t level)
 AREX_WEAK_CALLBACK
 void arex_ui_on_dive_mode_set(uint8_t mode)
 {
-    static const char *labels[] = { "AIR", "NITROX", "3 GAS NX", "GAUGE", "CCR" };
+    static const char *labels[] = { "AIR", "NITROX", "3 GAS" };
     if (mode >= (sizeof(labels) / sizeof(labels[0])))
     {
         mode = 0;

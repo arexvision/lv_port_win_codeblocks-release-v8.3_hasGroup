@@ -282,11 +282,17 @@ static void arex_alarm_eval_gas_switch(void)
     uint8_t active_o2 = (active_idx < AREX_GAS_COUNT) ?
                         g_sensor_data.gas_slot_o2_pct[active_idx] : 0U;
 
+    uint8_t gas_count = g_sensor_data.gas_slot_count;
+    if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+    {
+        gas_count = AREX_GAS_COUNT;
+    }
+
     if (g_sensor_data.depth > 0.1f &&
             g_sensor_data.ascent_rate > AREX_ALARM_GAS_SWITCH_ASCENT_MPM &&
-            active_idx < AREX_GAS_COUNT)
+            active_idx < gas_count)
     {
-        for (uint8_t i = 0; i < AREX_GAS_COUNT; i++)
+        for (uint8_t i = 0; i < gas_count; i++)
         {
             if (i == active_idx)
             {
@@ -331,6 +337,7 @@ void arex_data_init(void)
     _temp_sample_count = 0;
 
     g_sensor_data.gas_active_idx = 0;
+    g_sensor_data.gas_slot_count = 1;
     strncpy(g_sensor_data.gas_name, "AIR", sizeof(g_sensor_data.gas_name) - 1);
 
     strncpy(g_sensor_data.gas_slot_name[0], "AIR", sizeof(g_sensor_data.gas_slot_name[0]) - 1);
@@ -343,15 +350,10 @@ void arex_data_init(void)
     g_sensor_data.gas_slot_he_pct[1] = 0;
     g_sensor_data.gas_slot_mod_m[1] = 34.0f;
 
-    strncpy(g_sensor_data.gas_slot_name[2], "TX 18/45", sizeof(g_sensor_data.gas_slot_name[2]) - 1);
-    g_sensor_data.gas_slot_o2_pct[2] = 18;
-    g_sensor_data.gas_slot_he_pct[2] = 45;
-    g_sensor_data.gas_slot_mod_m[2] = 68.0f;
-
-    strncpy(g_sensor_data.gas_slot_name[3], "O2 100%", sizeof(g_sensor_data.gas_slot_name[3]) - 1);
-    g_sensor_data.gas_slot_o2_pct[3] = 100;
-    g_sensor_data.gas_slot_he_pct[3] = 0;
-    g_sensor_data.gas_slot_mod_m[3] = 6.0f;
+    strncpy(g_sensor_data.gas_slot_name[2], "O2 100%", sizeof(g_sensor_data.gas_slot_name[2]) - 1);
+    g_sensor_data.gas_slot_o2_pct[2] = 100;
+    g_sensor_data.gas_slot_he_pct[2] = 0;
+    g_sensor_data.gas_slot_mod_m[2] = 6.0f;
 
     /* 减压站预测数据初始化（仅初始化节数，数据本身由减压引擎填充） */
     g_deco_stop_count = 0;
@@ -563,6 +565,16 @@ void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val)
 
 void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name)
 {
+    uint8_t gas_count = g_sensor_data.gas_slot_count;
+    if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+    {
+        gas_count = AREX_GAS_COUNT;
+    }
+    if (gas_idx >= gas_count)
+    {
+        gas_idx = 0;
+    }
+
     if (g_sensor_data.gas_active_idx != gas_idx)
     {
         g_sensor_data.gas_active_idx = gas_idx;
@@ -575,6 +587,34 @@ void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name)
     g_sensor_data.dirty_mask |= DIRTY_GAS;
     arex_alarm_eval_ppo2();
     arex_alarm_eval_gas_switch();
+}
+
+void arex_bus_set_gas_slot_count(uint8_t count)
+{
+    if (count == 0U)
+    {
+        count = 1U;
+    }
+    if (count > AREX_GAS_COUNT)
+    {
+        count = AREX_GAS_COUNT;
+    }
+
+    if (g_sensor_data.gas_slot_count != count)
+    {
+        g_sensor_data.gas_slot_count = count;
+        if (g_sensor_data.gas_active_idx >= count)
+        {
+            g_sensor_data.gas_active_idx = 0;
+            snprintf(g_sensor_data.gas_name,
+                     sizeof(g_sensor_data.gas_name),
+                     "%s",
+                     g_sensor_data.gas_slot_name[0][0] ? g_sensor_data.gas_slot_name[0] : "AIR");
+        }
+        g_sensor_data.dirty_mask |= DIRTY_GAS | DIRTY_PPO2;
+        arex_alarm_eval_ppo2();
+        arex_alarm_eval_gas_switch();
+    }
 }
 
 void arex_bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,

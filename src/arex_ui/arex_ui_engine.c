@@ -18,8 +18,8 @@ const char *AREX_GAS_NAMES[AREX_GAS_COUNT] =
 {
     "AIR",
     "NX 32",
-    "TX 18/45",
-    "O2 100%"
+    "O2 100%",
+    "GAS 4"
 };
 
 /* 气体 MOD 表 (单位: 米) */
@@ -27,8 +27,8 @@ const uint8_t AREX_GAS_MOD_M[AREX_GAS_COUNT] =
 {
     56,  /* AIR */
     34,  /* NX 32 */
-    68,  /* TX 18/45 */
-    6    /* O2 100% */
+    6,   /* O2 100% */
+    0    /* unused */
 };
 
 

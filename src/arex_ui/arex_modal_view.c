@@ -105,7 +105,12 @@ void arex_screen_show_modal_gas(void)
         return;
     }
 
-    uint8_t ci = g_ui.gas_cursor;
+    uint8_t gas_count = g_sensor_data.gas_slot_count;
+    if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+    {
+        gas_count = 1U;
+    }
+    uint8_t ci = (g_ui.gas_cursor < gas_count) ? g_ui.gas_cursor : 0U;
     char body[32];
     const char *gas_name = g_sensor_data.gas_slot_name[ci][0]
                            ? g_sensor_data.gas_slot_name[ci]

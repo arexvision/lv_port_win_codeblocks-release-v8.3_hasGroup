@@ -337,6 +337,8 @@ static void dispatch_submenu_setting_callback(const arex_submenu_setting_confirm
     {
     case AREX_SUBMENU_SETTING_DIVE_MODE:
         arex_ui_on_dive_mode_set((uint8_t)setting->value);
+        arex_screen_refresh_gas_menu();
+        arex_screen_refresh_left_panel();
         break;
     case AREX_SUBMENU_SETTING_SALINITY:
         arex_ui_on_salinity_set((uint8_t)setting->value);
@@ -519,20 +521,19 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
 
     if (strcmp(cur_title, "GAS SWITCH") == 0)
     {
-        const char *gas_name = text;
-        if (strncmp(text, "SELECT ", 7) == 0) gas_name = text + 7;
-        extern const char *AREX_GAS_NAMES[4];
-        for (uint8_t i = 0; i < 4; i++)
+        uint8_t gas_count = g_sensor_data.gas_slot_count;
+        if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
         {
-            if (strcmp(AREX_GAS_NAMES[i], gas_name) == 0)
-            {
-                // HOTFIX: Route gas switch to safety modal.
-                g_ui.gas_cursor = i;
-                g_ui.gas_modal_from_submenu = true;  // HOTFIX: Route GAS modal exit based on context.
-                arex_screen_show_modal_gas();
-                g_ui.state = UI_MODAL_GAS;
-                return;
-            }
+            gas_count = 1U;
+        }
+        if (item_idx < gas_count)
+        {
+            // HOTFIX: Route gas switch to safety modal.
+            g_ui.gas_cursor = item_idx;
+            g_ui.gas_modal_from_submenu = true;  // HOTFIX: Route GAS modal exit based on context.
+            arex_screen_show_modal_gas();
+            g_ui.state = UI_MODAL_GAS;
+            return;
         }
         return;
     }

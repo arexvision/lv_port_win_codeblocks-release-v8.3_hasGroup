@@ -392,6 +392,7 @@ typedef struct
     uint8_t gas_slot_o2_pct[AREX_GAS_COUNT];   /* 每个气体槽位 O2 百分比 */
     uint8_t gas_slot_he_pct[AREX_GAS_COUNT];   /* 每个气体槽位 He 百分比 */
     float   gas_slot_mod_m[AREX_GAS_COUNT];    /* 每个气体槽位 MOD */
+    uint8_t gas_slot_count;                     /* 当前模式启用的气体槽数量 */
     int16_t next_stop_m;       /* 下一减压站深度 m */
     uint8_t next_stop_min;     /* 下一减压站停留时间 min */
 

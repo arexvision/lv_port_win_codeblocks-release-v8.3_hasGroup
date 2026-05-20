@@ -112,7 +112,12 @@ void ui_handle_rotate(int8_t dir)
     /* --- EDIT_GAS --- */
     case UI_EDIT_GAS:
     {
-        int8_t next = ((int8_t)g_ui.gas_cursor + dir + AREX_GAS_COUNT) % AREX_GAS_COUNT;
+        uint8_t gas_count = g_sensor_data.gas_slot_count;
+        if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+        {
+            gas_count = 1U;
+        }
+        int8_t next = ((int8_t)g_ui.gas_cursor + dir + gas_count) % gas_count;
         g_ui.gas_cursor = (uint8_t)next;
         arex_screen_refresh_gas_menu();
         break;
@@ -262,6 +267,15 @@ void ui_handle_click(void)
     case UI_MODAL_GAS:
     {
         uint8_t ci = g_ui.gas_cursor;
+        uint8_t gas_count = g_sensor_data.gas_slot_count;
+        if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+        {
+            gas_count = 1U;
+        }
+        if (ci >= gas_count)
+        {
+            ci = 0;
+        }
         float mod_m = g_sensor_data.gas_slot_mod_m[ci] > 0.0f
                       ? g_sensor_data.gas_slot_mod_m[ci]
                       : (float)AREX_GAS_MOD_M[ci];

@@ -1294,6 +1294,12 @@ static void format_edit_committed_text(char *buf,
     case AREX_SUBMENU_SETTING_MOD_PPO2:
         snprintf(buf, buf_size, "MOD PO2: %.1f", (double)value);
         break;
+    case AREX_SUBMENU_SETTING_NITROX_O2:
+        snprintf(buf, buf_size, "O2: %.0f%%", (double)value);
+        break;
+    case AREX_SUBMENU_SETTING_3GAS_O2:
+        snprintf(buf, buf_size, "GAS %u: %.0f%%", (unsigned)(arg + 1U), (double)value);
+        break;
     case AREX_SUBMENU_SETTING_DEPTH_ALARM:
         snprintf(buf, buf_size, "DEPTH ALARM: %.0fm", (double)value);
         break;

@@ -16,10 +16,12 @@ static const char *s_info_titles[AREX_SUBMENU_INFO_COUNT] =
 
 static char s_info_str[AREX_SUBMENU_INFO_COUNT][5][32];
 static const char *s_info_dyn[AREX_SUBMENU_INFO_COUNT][6];
+static char s_gas_switch_str[AREX_GAS_COUNT][20];
+static const char *s_gas_switch_dyn[AREX_GAS_COUNT + 1];
 
 static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
 {
-    { "AIR", "NX 32", "TX 18/45", "O2 100%", NULL },
+    { NULL },
     { "LOW (GF 30/70)", "MED (GF 40/85)", "HIGH (GF 50/90)", "CUSTOM (GF 50/70)", NULL },
     { "LOW", "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
@@ -39,7 +41,7 @@ static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", NUL
 static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS NX", "GAUGE", "CCR", NULL };
+static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS", NULL };
 static const uint8_t s_safety_stop_values[] = { 0, 3, 4, 5 };
 static const uint8_t s_last_deco_values[] = { 3, 6 };
 static const uint8_t s_log_rate_values[]    = { 2, 5, 10, 30 };
@@ -74,11 +76,20 @@ static char s_datetime_hour_str[20];
 static char s_datetime_minute_str[20];
 static const char *s_nested_datetime[6];
 
+static char s_nitrox_o2_str[24];
+static const char *s_nested_nitrox[3];
+static char s_three_gas_o2_str[3][24];
+static char s_three_gas_count_str[24];
+static const char *s_nested_three_gas[6];
+
 static uint8_t s_salinity_mode = 0;      /* 0=FRESH, 1=SALT, 2=EN13319 */
 static uint8_t s_safety_stop_mode = 1;   /* 0=OFF, 1=3min, 2=4min, 3=5min */
 static uint8_t s_last_deco_mode = 0;     /* 0=3m, 1=6m */
 static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1=SEA, 2=L1, 3=L2 */
-static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS NX, 3=GAUGE, 4=CCR */
+static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS */
+static uint8_t s_nitrox_o2_pct = 32;
+static uint8_t s_three_gas_o2_pct[3] = { 21, 32, 100 };
+static uint8_t s_three_gas_count = 3;
 static uint8_t s_ai_tank_state[2] = { 0, 0 }; /* 0=UNPAIRED, 1=PAIRING, 2=PAIRED */
 static uint8_t s_gtr_enabled = 1;        /* 0=OFF, 1=ON */
 static uint16_t s_depth_alarm_m = 40;
@@ -153,6 +164,95 @@ static void normalize_menu_key(const char *text, char *out, uint8_t out_size)
     }
 }
 
+static float gas_mod_for_o2(uint8_t o2_pct)
+{
+    if (o2_pct == 0U)
+    {
+        return 0.0f;
+    }
+    return ((g_sys_config.mod_ppo2 * 100.0f) / (float)o2_pct - 1.0f) * 10.0f;
+}
+
+static void format_gas_name(char *out, size_t out_size, uint8_t o2_pct)
+{
+    if (!out || out_size == 0U)
+    {
+        return;
+    }
+    if (o2_pct == 21U)
+    {
+        lv_snprintf(out, out_size, "AIR");
+    }
+    else if (o2_pct == 100U)
+    {
+        lv_snprintf(out, out_size, "O2 100%%");
+    }
+    else
+    {
+        lv_snprintf(out, out_size, "NX %u", (unsigned)o2_pct);
+    }
+}
+
+static void apply_air_mode_gases(void)
+{
+    arex_bus_set_gas_slot_count(1);
+    arex_bus_set_gas_slot(0, "AIR", 21, 0, gas_mod_for_o2(21));
+    arex_bus_set_gas(0, "AIR");
+    arex_bus_set_gas_mix(21, 0);
+    arex_bus_set_fio2(21.0f);
+}
+
+static void apply_nitrox_mode_gases(void)
+{
+    char name[16];
+    format_gas_name(name, sizeof(name), s_nitrox_o2_pct);
+    arex_bus_set_gas_slot_count(1);
+    arex_bus_set_gas_slot(0, name, s_nitrox_o2_pct, 0, gas_mod_for_o2(s_nitrox_o2_pct));
+    arex_bus_set_gas(0, name);
+    arex_bus_set_gas_mix(s_nitrox_o2_pct, 0);
+    arex_bus_set_fio2((float)s_nitrox_o2_pct);
+}
+
+static void apply_three_gas_mode_gases(void)
+{
+    char name[3][16];
+    uint8_t gas_count = s_three_gas_count;
+    if (gas_count == 0U || gas_count > 3U)
+    {
+        gas_count = 3U;
+    }
+
+    for (uint8_t i = 0; i < 3U; i++)
+    {
+        format_gas_name(name[i], sizeof(name[i]), s_three_gas_o2_pct[i]);
+        arex_bus_set_gas_slot(i,
+                              name[i],
+                              s_three_gas_o2_pct[i],
+                              0,
+                              gas_mod_for_o2(s_three_gas_o2_pct[i]));
+    }
+    arex_bus_set_gas_slot_count(gas_count);
+    arex_bus_set_gas(0, name[0]);
+    arex_bus_set_gas_mix(s_three_gas_o2_pct[0], 0);
+    arex_bus_set_fio2((float)s_three_gas_o2_pct[0]);
+}
+
+static void apply_dive_mode_gases(uint8_t mode)
+{
+    switch (mode)
+    {
+    case 1:
+        apply_nitrox_mode_gases();
+        break;
+    case 2:
+        apply_three_gas_mode_gases();
+        break;
+    default:
+        apply_air_mode_gases();
+        break;
+    }
+}
+
 static const char *compass_cal_status_text(void)
 {
     arex_compass_cal_ui_state_t st = arex_get_compass_calibration_ui_state();
@@ -214,7 +314,7 @@ static const char *altitude_label(uint8_t value)
 
 static const char *dive_mode_label(uint8_t value)
 {
-    if (value >= 5)
+    if (value >= 3)
     {
         value = 0;
     }
@@ -392,6 +492,79 @@ static const char **build_systems_setup_items(uint8_t *out_count)
     return s_system_setup_dyn;
 }
 
+static const char **build_gas_switch_items(uint8_t *out_count)
+{
+    uint8_t gas_count = g_sensor_data.gas_slot_count;
+    if (gas_count == 0U || gas_count > AREX_GAS_COUNT)
+    {
+        gas_count = 1U;
+    }
+
+    for (uint8_t i = 0; i < gas_count; i++)
+    {
+        const char *slot_name = g_sensor_data.gas_slot_name[i][0]
+                                ? g_sensor_data.gas_slot_name[i]
+                                : AREX_GAS_NAMES[i];
+        if (gas_count > 1U)
+        {
+            lv_snprintf(s_gas_switch_str[i],
+                        sizeof(s_gas_switch_str[i]),
+                        "GAS %u: %s",
+                        (unsigned)(i + 1U),
+                        slot_name);
+        }
+        else
+        {
+            lv_snprintf(s_gas_switch_str[i], sizeof(s_gas_switch_str[i]), "%s", slot_name);
+        }
+        s_gas_switch_dyn[i] = s_gas_switch_str[i];
+    }
+    s_gas_switch_dyn[gas_count] = NULL;
+    if (out_count)
+    {
+        *out_count = gas_count;
+    }
+    return s_gas_switch_dyn;
+}
+
+static const char **build_nested_nitrox(uint8_t *out_count)
+{
+    snprintf(s_nitrox_o2_str, sizeof(s_nitrox_o2_str), "O2: %u%%", s_nitrox_o2_pct);
+    s_nested_nitrox[0] = s_nitrox_o2_str;
+    s_nested_nitrox[1] = "CONFIRM";
+    s_nested_nitrox[2] = NULL;
+    if (out_count)
+    {
+        *out_count = count_items(s_nested_nitrox, 3);
+    }
+    return s_nested_nitrox;
+}
+
+static const char **build_nested_three_gas(uint8_t *out_count)
+{
+    for (uint8_t i = 0; i < 3U; i++)
+    {
+        snprintf(s_three_gas_o2_str[i],
+                 sizeof(s_three_gas_o2_str[i]),
+                 "GAS %u: %u%%",
+                 (unsigned)(i + 1U),
+                 (unsigned)s_three_gas_o2_pct[i]);
+        s_nested_three_gas[i] = s_three_gas_o2_str[i];
+    }
+    snprintf(s_three_gas_count_str,
+             sizeof(s_three_gas_count_str),
+             "ACTIVE GASES: %u",
+             (unsigned)s_three_gas_count);
+    s_nested_three_gas[3] = s_three_gas_count_str;
+    s_nested_three_gas[4] = "CONFIRM";
+    s_nested_three_gas[5] = NULL;
+    if (out_count)
+    {
+        *out_count = count_items(s_nested_three_gas, 6);
+    }
+    return s_nested_three_gas;
+}
+
 const char **arex_submenu_build_setup_items(uint8_t index, uint8_t *out_count)
 {
     if (out_count)
@@ -401,6 +574,10 @@ const char **arex_submenu_build_setup_items(uint8_t index, uint8_t *out_count)
     if (index >= AREX_SUBMENU_SETUP_COUNT)
     {
         return NULL;
+    }
+    if (strcmp(s_setup_titles[index], "GAS SWITCH") == 0)
+    {
+        return build_gas_switch_items(out_count);
     }
     if (strcmp(s_setup_titles[index], "COMPASS CAL") == 0)
     {
@@ -529,6 +706,8 @@ const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count
     }
 
     if      (strcmp(clean_title, "MODE SETUP") == 0) items = s_nested_mode_setup;
+    else if (strcmp(clean_title, "NITROX") == 0) return build_nested_nitrox(out_count);
+    else if (strcmp(clean_title, "3 GAS") == 0) return build_nested_three_gas(out_count);
     else if (strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) return build_nested_dive_setup(out_count);
     else if (strcmp(clean_title, "AI SETUP") == 0) return build_nested_ai_setup(out_count);
     else if (strcmp(clean_title, "ALERTS SETUP") == 0) return build_nested_alerts_setup(out_count);
@@ -612,6 +791,21 @@ const char **arex_submenu_child_items_for(const char *current_title,
             key[0] = '\0';
         }
     }
+    else if (clean_current_title && strcmp(clean_current_title, "MODE SETUP") == 0)
+    {
+        if (item_index == 1)
+        {
+            lv_snprintf(key, sizeof(key), "%s", "NITROX");
+        }
+        else if (item_index == 2)
+        {
+            lv_snprintf(key, sizeof(key), "%s", "3 GAS");
+        }
+        else
+        {
+            key[0] = '\0';
+        }
+    }
     else
     {
         normalize_menu_key(item_text, key, sizeof(key));
@@ -658,12 +852,30 @@ bool arex_submenu_setting_from_selection(const char *current_title,
 
     memset(out_setting, 0, sizeof(*out_setting));
 
-    if (strcmp(clean_title, "MODE SETUP") == 0 && item_index < 5)
+    if (strcmp(clean_title, "MODE SETUP") == 0 && item_index == 0)
     {
         out_setting->kind = AREX_SUBMENU_SETTING_DIVE_MODE;
-        out_setting->value = item_index;
+        out_setting->value = 0;
         lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DIVE MODE\n%s", dive_mode_label(item_index));
+                    "DIVE MODE\nAIR");
+        return true;
+    }
+
+    if (strcmp(clean_title, "NITROX") == 0 && item_index == 1)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_DIVE_MODE;
+        out_setting->value = 1;
+        lv_snprintf(out_setting->body, sizeof(out_setting->body),
+                    "DIVE MODE\nNITROX %u%%", (unsigned)s_nitrox_o2_pct);
+        return true;
+    }
+
+    if (strcmp(clean_title, "3 GAS") == 0 && item_index == 4)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_DIVE_MODE;
+        out_setting->value = 2;
+        lv_snprintf(out_setting->body, sizeof(out_setting->body),
+                    "DIVE MODE\n3 GAS / %u ACTIVE", (unsigned)s_three_gas_count);
         return true;
     }
 
@@ -773,6 +985,13 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
+    if (strcmp(clean_title, "3 GAS") == 0 && item_index == 3)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_3GAS_COUNT;
+        out_setting->value = (s_three_gas_count >= 3U) ? 1U : (uint16_t)(s_three_gas_count + 1U);
+        return true;
+    }
+
     return false;
 }
 
@@ -798,6 +1017,31 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
         out_spec->step = 0.1f;
         out_spec->decimals = 1;
         lv_snprintf(out_spec->label, sizeof(out_spec->label), "MOD PO2:");
+        return true;
+    }
+
+    if (strcmp(clean_title, "NITROX") == 0 && item_index == 0)
+    {
+        out_spec->kind = AREX_SUBMENU_SETTING_NITROX_O2;
+        out_spec->value = (float)s_nitrox_o2_pct;
+        out_spec->min = 21.0f;
+        out_spec->max = 40.0f;
+        out_spec->step = 1.0f;
+        out_spec->decimals = 0;
+        lv_snprintf(out_spec->label, sizeof(out_spec->label), "O2:");
+        return true;
+    }
+
+    if (strcmp(clean_title, "3 GAS") == 0 && item_index < 3)
+    {
+        out_spec->kind = AREX_SUBMENU_SETTING_3GAS_O2;
+        out_spec->arg = item_index;
+        out_spec->value = (float)s_three_gas_o2_pct[item_index];
+        out_spec->min = 21.0f;
+        out_spec->max = 100.0f;
+        out_spec->step = 1.0f;
+        out_spec->decimals = 0;
+        lv_snprintf(out_spec->label, sizeof(out_spec->label), "GAS %u:", (unsigned)(item_index + 1U));
         return true;
     }
 
@@ -881,7 +1125,11 @@ void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, u
     switch (kind)
     {
     case AREX_SUBMENU_SETTING_DIVE_MODE:
-        s_dive_mode = (value > 4) ? 0 : (uint8_t)value;
+        s_dive_mode = (value > 2) ? 0 : (uint8_t)value;
+        apply_dive_mode_gases(s_dive_mode);
+        break;
+    case AREX_SUBMENU_SETTING_3GAS_COUNT:
+        s_three_gas_count = (value < 1 || value > 3) ? 3 : (uint8_t)value;
         break;
     case AREX_SUBMENU_SETTING_SALINITY:
         s_salinity_mode = (value > 2) ? 0 : (uint8_t)value;
@@ -957,6 +1205,15 @@ void arex_submenu_apply_edit_value(arex_submenu_setting_kind_t kind, uint8_t arg
     {
     case AREX_SUBMENU_SETTING_MOD_PPO2:
         g_sys_config.mod_ppo2 = value;
+        break;
+    case AREX_SUBMENU_SETTING_NITROX_O2:
+        s_nitrox_o2_pct = (uint8_t)(value + 0.5f);
+        break;
+    case AREX_SUBMENU_SETTING_3GAS_O2:
+        if (arg < 3U)
+        {
+            s_three_gas_o2_pct[arg] = (uint8_t)(value + 0.5f);
+        }
         break;
     case AREX_SUBMENU_SETTING_DEPTH_ALARM:
         s_depth_alarm_m = (uint16_t)(value + 0.5f);

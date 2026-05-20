@@ -234,10 +234,9 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.otu++;
     arex_bus_set_otu(s_sim.otu);
 
-    arex_bus_set_ppo2(0, arex_sim_calc_ppo2(21, s_sim.depth_m));
-    arex_bus_set_ppo2(1, arex_sim_calc_ppo2(32, s_sim.depth_m));
-    arex_bus_set_ppo2(2, arex_sim_calc_ppo2(18, s_sim.depth_m));
-    arex_bus_set_ppo2(3, arex_sim_calc_ppo2(100, s_sim.depth_m));
+    for (uint8_t i = 0; i < AREX_GAS_COUNT; i++) {
+        arex_bus_set_ppo2(i, arex_sim_calc_ppo2(g_sensor_data.gas_slot_o2_pct[i], s_sim.depth_m));
+    }
 
     s_sim.battery_pct += 1.2f;
     arex_bus_set_battery(s_sim.battery_pct);
