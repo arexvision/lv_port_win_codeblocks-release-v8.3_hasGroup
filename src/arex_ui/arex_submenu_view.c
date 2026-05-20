@@ -471,11 +471,6 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
                                        direct_setting.arg,
                                        direct_setting.value);
             dispatch_submenu_setting_callback(&direct_setting);
-            if (direct_setting.kind == AREX_SUBMENU_SETTING_DATETIME_FIELD)
-            {
-                arex_screen_close_submenu();
-                return;
-            }
             refresh_current_submenu_page(cur_title, item_idx);
             return;
         }

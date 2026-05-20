@@ -163,7 +163,7 @@ void arex_ui_on_units_set(uint8_t units)
 AREX_WEAK_CALLBACK
 void arex_ui_on_datetime_field_set(uint8_t field, uint16_t value)
 {
-    static const char *labels[] = { "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND" };
+    static const char *labels[] = { "YEAR", "MONTH", "DAY", "HOUR", "MINUTE" };
     if (field >= (sizeof(labels) / sizeof(labels[0])))
     {
         field = 0;

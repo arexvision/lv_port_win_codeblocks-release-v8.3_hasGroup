@@ -70,21 +70,7 @@ static char s_datetime_month_str[20];
 static char s_datetime_day_str[20];
 static char s_datetime_hour_str[20];
 static char s_datetime_minute_str[20];
-static char s_datetime_second_str[20];
-static const char *s_nested_datetime[8];
-
-static char s_year_item_str[12][8];
-static const char *s_year_items[13];
-static char s_month_item_str[12][4];
-static const char *s_month_items[13];
-static char s_day_item_str[31][4];
-static const char *s_day_items[32];
-static char s_hour_item_str[24][4];
-static const char *s_hour_items[25];
-static char s_minute_item_str[60][4];
-static const char *s_minute_items[61];
-static char s_second_item_str[60][4];
-static const char *s_second_items[61];
+static const char *s_nested_datetime[6];
 
 static uint8_t s_salinity_mode = 0;      /* 0=FRESH, 1=SALT, 2=EN13319 */
 static uint8_t s_safety_stop_mode = 1;   /* 0=OFF, 1=3min, 2=4min, 3=5min */
@@ -103,7 +89,6 @@ static uint8_t s_datetime_month = 5;
 static uint8_t s_datetime_day = 20;
 static uint8_t s_datetime_hour = 12;
 static uint8_t s_datetime_minute = 0;
-static uint8_t s_datetime_second = 0;
 
 enum
 {
@@ -112,7 +97,6 @@ enum
     AREX_DATETIME_FIELD_DAY,
     AREX_DATETIME_FIELD_HOUR,
     AREX_DATETIME_FIELD_MINUTE,
-    AREX_DATETIME_FIELD_SECOND,
 };
 
 static uint8_t count_items(const char **items, uint8_t max_count)
@@ -498,51 +482,17 @@ static const char **build_nested_datetime(uint8_t *out_count)
     snprintf(s_datetime_day_str, sizeof(s_datetime_day_str), "DAY: %02u", s_datetime_day);
     snprintf(s_datetime_hour_str, sizeof(s_datetime_hour_str), "HOUR: %02u", s_datetime_hour);
     snprintf(s_datetime_minute_str, sizeof(s_datetime_minute_str), "MINUTE: %02u", s_datetime_minute);
-    snprintf(s_datetime_second_str, sizeof(s_datetime_second_str), "SECOND: %02u", s_datetime_second);
     s_nested_datetime[0] = s_datetime_year_str;
     s_nested_datetime[1] = s_datetime_month_str;
     s_nested_datetime[2] = s_datetime_day_str;
     s_nested_datetime[3] = s_datetime_hour_str;
     s_nested_datetime[4] = s_datetime_minute_str;
-    s_nested_datetime[5] = s_datetime_second_str;
-    s_nested_datetime[6] = "SYNC CURRENT TIME";
-    s_nested_datetime[7] = NULL;
+    s_nested_datetime[5] = NULL;
     if (out_count)
     {
-        *out_count = count_items(s_nested_datetime, 8);
+        *out_count = count_items(s_nested_datetime, 6);
     }
     return s_nested_datetime;
-}
-
-static const char **build_year_items(uint8_t *out_count)
-{
-    for (uint8_t i = 0; i < 12; i++)
-    {
-        snprintf(s_year_item_str[i], sizeof(s_year_item_str[i]), "%04u", (unsigned)(2024 + i));
-        s_year_items[i] = s_year_item_str[i];
-    }
-    s_year_items[12] = NULL;
-    if (out_count) *out_count = 12;
-    return s_year_items;
-}
-
-static const char **build_two_digit_items(char items_str[][4],
-                                          const char **items,
-                                          uint8_t count,
-                                          uint8_t start,
-                                          uint8_t *out_count)
-{
-    for (uint8_t i = 0; i < count; i++)
-    {
-        snprintf(items_str[i], 4, "%02u", (unsigned)(start + i));
-        items[i] = items_str[i];
-    }
-    items[count] = NULL;
-    if (out_count)
-    {
-        *out_count = count;
-    }
-    return items;
 }
 
 const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count)
@@ -568,12 +518,6 @@ const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count
     else if (strcmp(clean_title, "ALERTS SETUP") == 0) return build_nested_alerts_setup(out_count);
     else if (strcmp(clean_title, "DISPLAY") == 0) return build_nested_display_sys(out_count);
     else if (strcmp(clean_title, "DATE & CLOCK") == 0) return build_nested_datetime(out_count);
-    else if (strcmp(clean_title, "YEAR") == 0) return build_year_items(out_count);
-    else if (strcmp(clean_title, "MONTH") == 0) return build_two_digit_items(s_month_item_str, s_month_items, 12, 1, out_count);
-    else if (strcmp(clean_title, "DAY") == 0) return build_two_digit_items(s_day_item_str, s_day_items, 31, 1, out_count);
-    else if (strcmp(clean_title, "HOUR") == 0) return build_two_digit_items(s_hour_item_str, s_hour_items, 24, 0, out_count);
-    else if (strcmp(clean_title, "MINUTE") == 0) return build_two_digit_items(s_minute_item_str, s_minute_items, 60, 0, out_count);
-    else if (strcmp(clean_title, "SECOND") == 0) return build_two_digit_items(s_second_item_str, s_second_items, 60, 0, out_count);
     else if (strcmp(clean_title, "RED") == 0) items = s_nested_red;
     else if (strcmp(clean_title, "GREEN") == 0) items = s_nested_green;
     else if (strcmp(clean_title, "BLUE") == 0) items = s_nested_blue;
@@ -660,28 +604,6 @@ const char **arex_submenu_child_items_for(const char *current_title,
             if (item_index == 1)
             {
                 lv_snprintf(key, sizeof(key), "%s", "DATE & CLOCK");
-            }
-            else
-            {
-                key[0] = '\0';
-            }
-        }
-        else if (strcmp(clean_current_title ? clean_current_title : "", "DATE & CLOCK") == 0)
-        {
-            static const char *datetime_child_titles[] =
-            {
-                "YEAR",
-                "MONTH",
-                "DAY",
-                "HOUR",
-                "MINUTE",
-                "SECOND",
-                NULL,
-            };
-            if (item_index < (sizeof(datetime_child_titles) / sizeof(datetime_child_titles[0])) &&
-                datetime_child_titles[item_index])
-            {
-                lv_snprintf(key, sizeof(key), "%s", datetime_child_titles[item_index]);
             }
             else
             {
@@ -826,61 +748,6 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if (strcmp(clean_title, "YEAR") == 0 && item_index < 12)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_YEAR;
-        out_setting->value = (uint16_t)item_index;
-        return true;
-    }
-
-    if (strcmp(clean_title, "MONTH") == 0 && item_index < 12)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_MONTH;
-        out_setting->value = (uint16_t)(item_index + 1);
-        return true;
-    }
-
-    if (strcmp(clean_title, "DAY") == 0 && item_index < 31)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_DAY;
-        out_setting->value = (uint16_t)(item_index + 1);
-        return true;
-    }
-
-    if (strcmp(clean_title, "HOUR") == 0 && item_index < 24)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_HOUR;
-        out_setting->value = item_index;
-        return true;
-    }
-
-    if (strcmp(clean_title, "MINUTE") == 0 && item_index < 60)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_MINUTE;
-        out_setting->value = item_index;
-        return true;
-    }
-
-    if (strcmp(clean_title, "SECOND") == 0 && item_index < 60)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_SECOND;
-        out_setting->value = item_index;
-        return true;
-    }
-
-    if (strcmp(clean_title, "DATE & CLOCK") == 0 && item_index == 6)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_ACTION;
-        out_setting->value = 0;
-        return true;
-    }
-
     return false;
 }
 
@@ -933,6 +800,54 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
         return true;
     }
 
+    if (strcmp(clean_title, "DATE & CLOCK") == 0)
+    {
+        out_spec->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
+        out_spec->decimals = 0;
+        out_spec->step = 1.0f;
+
+        switch (item_index)
+        {
+        case 0:
+            out_spec->arg = AREX_DATETIME_FIELD_YEAR;
+            out_spec->value = (float)s_datetime_year;
+            out_spec->min = 2000.0f;
+            out_spec->max = 2099.0f;
+            lv_snprintf(out_spec->label, sizeof(out_spec->label), "YEAR:");
+            return true;
+        case 1:
+            out_spec->arg = AREX_DATETIME_FIELD_MONTH;
+            out_spec->value = (float)s_datetime_month;
+            out_spec->min = 1.0f;
+            out_spec->max = 12.0f;
+            lv_snprintf(out_spec->label, sizeof(out_spec->label), "MONTH:");
+            return true;
+        case 2:
+            out_spec->arg = AREX_DATETIME_FIELD_DAY;
+            out_spec->value = (float)s_datetime_day;
+            out_spec->min = 1.0f;
+            out_spec->max = 31.0f;
+            lv_snprintf(out_spec->label, sizeof(out_spec->label), "DAY:");
+            return true;
+        case 3:
+            out_spec->arg = AREX_DATETIME_FIELD_HOUR;
+            out_spec->value = (float)s_datetime_hour;
+            out_spec->min = 0.0f;
+            out_spec->max = 23.0f;
+            lv_snprintf(out_spec->label, sizeof(out_spec->label), "HOUR:");
+            return true;
+        case 4:
+            out_spec->arg = AREX_DATETIME_FIELD_MINUTE;
+            out_spec->value = (float)s_datetime_minute;
+            out_spec->min = 0.0f;
+            out_spec->max = 59.0f;
+            lv_snprintf(out_spec->label, sizeof(out_spec->label), "MINUTE:");
+            return true;
+        default:
+            break;
+        }
+    }
+
     return false;
 }
 
@@ -974,7 +889,7 @@ void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, u
         switch (arg)
         {
         case AREX_DATETIME_FIELD_YEAR:
-            s_datetime_year = (uint16_t)(2024 + value);
+            s_datetime_year = (value < 2000 || value > 2099) ? 2026 : value;
             break;
         case AREX_DATETIME_FIELD_MONTH:
             s_datetime_month = (value < 1 || value > 12) ? 1 : value;
@@ -987,9 +902,6 @@ void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, u
             break;
         case AREX_DATETIME_FIELD_MINUTE:
             s_datetime_minute = (value > 59) ? 0 : value;
-            break;
-        case AREX_DATETIME_FIELD_SECOND:
-            s_datetime_second = (value > 59) ? 0 : value;
             break;
         default:
             break;
@@ -1013,7 +925,6 @@ void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, u
 
 void arex_submenu_apply_edit_value(arex_submenu_setting_kind_t kind, uint8_t arg, float value)
 {
-    (void)arg;
     switch (kind)
     {
     case AREX_SUBMENU_SETTING_MOD_PPO2:
@@ -1025,6 +936,31 @@ void arex_submenu_apply_edit_value(arex_submenu_setting_kind_t kind, uint8_t arg
     case AREX_SUBMENU_SETTING_TIME_ALARM:
         s_time_alarm_min = (uint16_t)(value + 0.5f);
         break;
+    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
+    {
+        uint16_t int_value = (uint16_t)(value + 0.5f);
+        switch (arg)
+        {
+        case AREX_DATETIME_FIELD_YEAR:
+            s_datetime_year = (int_value < 2000 || int_value > 2099) ? 2026 : int_value;
+            break;
+        case AREX_DATETIME_FIELD_MONTH:
+            s_datetime_month = (int_value < 1 || int_value > 12) ? 1 : (uint8_t)int_value;
+            break;
+        case AREX_DATETIME_FIELD_DAY:
+            s_datetime_day = (int_value < 1 || int_value > 31) ? 1 : (uint8_t)int_value;
+            break;
+        case AREX_DATETIME_FIELD_HOUR:
+            s_datetime_hour = (int_value > 23) ? 0 : (uint8_t)int_value;
+            break;
+        case AREX_DATETIME_FIELD_MINUTE:
+            s_datetime_minute = (int_value > 59) ? 0 : (uint8_t)int_value;
+            break;
+        default:
+            break;
+        }
+        break;
+    }
     default:
         break;
     }

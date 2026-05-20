@@ -1263,6 +1263,7 @@ static void format_edit_value_text(char *buf, size_t buf_size, float value, uint
 static void format_edit_committed_text(char *buf,
                                        size_t buf_size,
                                        arex_submenu_setting_kind_t kind,
+                                       uint8_t arg,
                                        float value)
 {
     switch (kind)
@@ -1276,13 +1277,36 @@ static void format_edit_committed_text(char *buf,
     case AREX_SUBMENU_SETTING_TIME_ALARM:
         snprintf(buf, buf_size, "TIME ALARM: %.0fmin", (double)value);
         break;
+    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
+        switch (arg)
+        {
+        case 0:
+            snprintf(buf, buf_size, "YEAR: %04u", (unsigned)(value + 0.5f));
+            break;
+        case 1:
+            snprintf(buf, buf_size, "MONTH: %02u", (unsigned)(value + 0.5f));
+            break;
+        case 2:
+            snprintf(buf, buf_size, "DAY: %02u", (unsigned)(value + 0.5f));
+            break;
+        case 3:
+            snprintf(buf, buf_size, "HOUR: %02u", (unsigned)(value + 0.5f));
+            break;
+        case 4:
+            snprintf(buf, buf_size, "MINUTE: %02u", (unsigned)(value + 0.5f));
+            break;
+        default:
+            snprintf(buf, buf_size, "%.0f", (double)value);
+            break;
+        }
+        break;
     default:
         snprintf(buf, buf_size, "%.1f", (double)value);
         break;
     }
 }
 
-static void dispatch_edit_setting_callback(arex_submenu_setting_kind_t kind, float value)
+static void dispatch_edit_setting_callback(arex_submenu_setting_kind_t kind, uint8_t arg, float value)
 {
     switch (kind)
     {
@@ -1294,6 +1318,9 @@ static void dispatch_edit_setting_callback(arex_submenu_setting_kind_t kind, flo
         break;
     case AREX_SUBMENU_SETTING_TIME_ALARM:
         arex_ui_on_time_alarm_set((uint16_t)(value + 0.5f));
+        break;
+    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
+        arex_ui_on_datetime_field_set(arg, (uint16_t)(value + 0.5f));
         break;
     default:
         break;
@@ -1414,6 +1441,7 @@ void arex_screen_commit_edit_value(void)
         format_edit_committed_text(buf,
                                    sizeof(buf),
                                    g_ui.edit_ctx.setting_kind,
+                                   g_ui.edit_ctx.setting_arg,
                                    g_ui.edit_ctx.value);
         lv_label_set_text(lbl, buf);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
@@ -1421,7 +1449,9 @@ void arex_screen_commit_edit_value(void)
     arex_submenu_apply_edit_value(g_ui.edit_ctx.setting_kind,
                                   g_ui.edit_ctx.setting_arg,
                                   g_ui.edit_ctx.value);
-    dispatch_edit_setting_callback(g_ui.edit_ctx.setting_kind, g_ui.edit_ctx.value);
+    dispatch_edit_setting_callback(g_ui.edit_ctx.setting_kind,
+                                   g_ui.edit_ctx.setting_arg,
+                                   g_ui.edit_ctx.value);
     g_ui.edit_ctx.active = false;
     arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
 }
@@ -1448,6 +1478,7 @@ void arex_screen_cancel_edit_value(void)
         format_edit_committed_text(buf,
                                    sizeof(buf),
                                    g_ui.edit_ctx.setting_kind,
+                                   g_ui.edit_ctx.setting_arg,
                                    g_ui.edit_ctx.original);
         lv_label_set_text(lbl, buf);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
