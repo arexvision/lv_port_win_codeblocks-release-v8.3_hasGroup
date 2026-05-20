@@ -595,10 +595,13 @@ void arex_screen_confirm_submenu_setting(void)
         return;
     }
 
-    arex_submenu_apply_setting(s_pending_setting.kind, s_pending_setting.value);
+    arex_submenu_apply_setting(s_pending_setting.kind, s_pending_setting.arg, s_pending_setting.value);
 
     switch (s_pending_setting.kind)
     {
+    case AREX_SUBMENU_SETTING_DIVE_MODE:
+        arex_ui_on_dive_mode_set(s_pending_setting.value);
+        break;
     case AREX_SUBMENU_SETTING_SALINITY:
         arex_ui_on_salinity_set(s_pending_setting.value);
         break;
@@ -607,6 +610,49 @@ void arex_screen_confirm_submenu_setting(void)
         break;
     case AREX_SUBMENU_SETTING_ALTITUDE:
         arex_ui_on_altitude_range_set(s_pending_setting.value);
+        break;
+    case AREX_SUBMENU_SETTING_AI_PAIR:
+        arex_ui_on_ai_pair(s_pending_setting.value);
+        break;
+    case AREX_SUBMENU_SETTING_GTR_MODE:
+        arex_ui_on_gtr_mode_set(s_pending_setting.value != 0);
+        break;
+    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
+        arex_ui_on_depth_alarm_set(s_pending_setting.value);
+        break;
+    case AREX_SUBMENU_SETTING_TIME_ALARM:
+        arex_ui_on_time_alarm_set(s_pending_setting.value);
+        break;
+    case AREX_SUBMENU_SETTING_NDL_ALARM:
+        arex_ui_on_ndl_alarm_set(s_pending_setting.value);
+        break;
+    case AREX_SUBMENU_SETTING_VIBRATION_TEST:
+        arex_ui_on_vibration_test();
+        break;
+    case AREX_SUBMENU_SETTING_UNITS:
+        arex_ui_on_units_set(s_pending_setting.value);
+        break;
+    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
+    {
+        uint16_t field_value = s_pending_setting.value;
+        if (s_pending_setting.arg == 0)
+        {
+            field_value = (uint16_t)(2024 + s_pending_setting.value);
+        }
+        arex_ui_on_datetime_field_set(s_pending_setting.arg, field_value);
+        break;
+    }
+    case AREX_SUBMENU_SETTING_DATETIME_ACTION:
+        arex_ui_on_datetime_action(s_pending_setting.value);
+        break;
+    case AREX_SUBMENU_SETTING_LOG_RATE:
+        arex_ui_on_log_rate_set(s_pending_setting.value);
+        break;
+    case AREX_SUBMENU_SETTING_BLUETOOTH:
+        arex_ui_on_bluetooth_set(s_pending_setting.value != 0);
+        break;
+    case AREX_SUBMENU_SETTING_RESET_DEFAULTS:
+        arex_ui_on_reset_defaults();
         break;
     default:
         break;

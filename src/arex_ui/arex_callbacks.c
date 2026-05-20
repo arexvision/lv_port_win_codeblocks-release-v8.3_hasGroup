@@ -75,3 +75,96 @@ void arex_ui_on_altitude_range_set(uint8_t level)
     }
     printf("[DIVE_SETUP] Altitude: %s\n", labels[level]);
 }
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_dive_mode_set(uint8_t mode)
+{
+    static const char *labels[] = { "AIR", "NITROX", "3 GAS NX", "GAUGE" };
+    if (mode >= (sizeof(labels) / sizeof(labels[0])))
+    {
+        mode = 0;
+    }
+    printf("[SYSTEM_SETUP] Dive mode: %s\n", labels[mode]);
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_ai_pair(uint8_t tank_index)
+{
+    printf("[SYSTEM_SETUP] Pair AI tank: T%u\n", (unsigned)(tank_index + 1));
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_gtr_mode_set(bool enabled)
+{
+    printf("[SYSTEM_SETUP] GTR mode: %s\n", enabled ? "ON" : "OFF");
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_depth_alarm_set(uint16_t depth_m)
+{
+    printf("[ALERT_SETUP] Depth alarm: %um\n", depth_m);
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_time_alarm_set(uint16_t minutes)
+{
+    printf("[ALERT_SETUP] Time alarm: %umin\n", minutes);
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_ndl_alarm_set(uint16_t minutes)
+{
+    printf("[ALERT_SETUP] NDL alarm: %umin\n", minutes);
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_vibration_test(void)
+{
+    printf("[ALERT_SETUP] Test vibration\n");
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_units_set(uint8_t units)
+{
+    printf("[DISPLAY_SETUP] Units: %s\n", units == 1 ? "IMPERIAL" : "METRIC");
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_datetime_field_set(uint8_t field, uint16_t value)
+{
+    static const char *labels[] = { "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND" };
+    if (field >= (sizeof(labels) / sizeof(labels[0])))
+    {
+        field = 0;
+    }
+    printf("[DISPLAY_SETUP] Date/time %s: %u\n", labels[field], value);
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_datetime_action(uint8_t action)
+{
+    static const char *labels[] = { "SYNC CURRENT TIME" };
+    if (action >= (sizeof(labels) / sizeof(labels[0])))
+    {
+        action = 0;
+    }
+    printf("[DISPLAY_SETUP] Date/time action: %s\n", labels[action]);
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_log_rate_set(uint8_t seconds)
+{
+    printf("[DISPLAY_SETUP] Log rate: %us\n", seconds);
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_bluetooth_set(bool enabled)
+{
+    printf("[DISPLAY_SETUP] Bluetooth: %s\n", enabled ? "ON" : "OFF");
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_reset_defaults(void)
+{
+    printf("[DISPLAY_SETUP] Reset defaults\n");
+}
