@@ -1,0 +1,479 @@
+#include "arex_alarm_view.h"
+#include "arex_alarm.h"
+
+#include <stdio.h>
+
+#define AREX_ALARM_L1_ANIM_MS    220U
+#define AREX_ALARM_L1_SLIDE_PX   16
+
+static lv_obj_t *s_alarm_banner;
+static lv_obj_t *s_alarm_banner_lbl;
+
+static lv_color_t alarm_view_level_color(arex_alarm_level_t level)
+{
+    (void)level;
+    return AREX_GREEN;
+}
+
+static lv_color_t alarm_view_dim_green(uint8_t percent)
+{
+    uint8_t channel = (uint8_t)((255U * (uint16_t)percent) / 100U);
+    return lv_color_make(0x00, channel, 0x00);
+}
+
+static void alarm_view_banner_set_opa(void *obj, int32_t opa)
+{
+    lv_obj_set_style_opa((lv_obj_t *)obj, (lv_opa_t)opa, 0);
+}
+
+static void alarm_view_banner_hide_ready(lv_anim_t *anim)
+{
+    if (anim && anim->var)
+    {
+        lv_obj_add_flag((lv_obj_t *)anim->var, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static void alarm_view_banner_cancel_anim(void)
+{
+    if (!s_alarm_banner)
+    {
+        return;
+    }
+
+    lv_anim_del(s_alarm_banner, (lv_anim_exec_xcb_t)lv_obj_set_y);
+    lv_anim_del(s_alarm_banner, alarm_view_banner_set_opa);
+}
+
+static void alarm_view_banner_anim_y(lv_coord_t start_y, lv_coord_t end_y, uint16_t time_ms)
+{
+    lv_anim_t anim;
+    lv_anim_init(&anim);
+    lv_anim_set_var(&anim, s_alarm_banner);
+    lv_anim_set_exec_cb(&anim, (lv_anim_exec_xcb_t)lv_obj_set_y);
+    lv_anim_set_time(&anim, time_ms);
+    lv_anim_set_values(&anim, start_y, end_y);
+    lv_anim_start(&anim);
+}
+
+static void alarm_view_banner_anim_opa(lv_opa_t start_opa,
+                                       lv_opa_t end_opa,
+                                       uint16_t time_ms,
+                                       lv_anim_ready_cb_t ready_cb)
+{
+    lv_anim_t anim;
+    lv_anim_init(&anim);
+    lv_anim_set_var(&anim, s_alarm_banner);
+    lv_anim_set_exec_cb(&anim, alarm_view_banner_set_opa);
+    lv_anim_set_time(&anim, time_ms);
+    lv_anim_set_values(&anim, start_opa, end_opa);
+    if (ready_cb)
+    {
+        lv_anim_set_ready_cb(&anim, ready_cb);
+    }
+    lv_anim_start(&anim);
+}
+
+static void alarm_view_banner_animate_in(void)
+{
+    if (!s_alarm_banner)
+    {
+        return;
+    }
+
+    alarm_view_banner_cancel_anim();
+
+    lv_coord_t end_y = lv_obj_get_y(s_alarm_banner);
+    lv_obj_set_y(s_alarm_banner, end_y - AREX_ALARM_L1_SLIDE_PX);
+    lv_obj_set_style_opa(s_alarm_banner, LV_OPA_TRANSP, 0);
+
+    alarm_view_banner_anim_y(end_y - AREX_ALARM_L1_SLIDE_PX,
+                             end_y,
+                             AREX_ALARM_L1_ANIM_MS);
+    alarm_view_banner_anim_opa(LV_OPA_TRANSP,
+                               LV_OPA_COVER,
+                               AREX_ALARM_L1_ANIM_MS,
+                               NULL);
+}
+
+static void alarm_view_banner_animate_out(void)
+{
+    if (!s_alarm_banner)
+    {
+        return;
+    }
+
+    alarm_view_banner_cancel_anim();
+
+    lv_coord_t start_y = lv_obj_get_y(s_alarm_banner);
+    alarm_view_banner_anim_y(start_y,
+                             start_y - AREX_ALARM_L1_SLIDE_PX,
+                             AREX_ALARM_L1_ANIM_MS);
+    alarm_view_banner_anim_opa(LV_OPA_COVER,
+                               LV_OPA_TRANSP,
+                               AREX_ALARM_L1_ANIM_MS,
+                               alarm_view_banner_hide_ready);
+}
+
+static void alarm_view_reset_banner_if_invalid(lv_obj_t *safe_zone)
+{
+    if (!s_alarm_banner)
+    {
+        return;
+    }
+
+    if (!lv_obj_is_valid(s_alarm_banner) || lv_obj_get_parent(s_alarm_banner) != safe_zone)
+    {
+        s_alarm_banner = NULL;
+        s_alarm_banner_lbl = NULL;
+    }
+}
+
+static void alarm_view_show_banner(const arex_alarm_view_context_t *ctx,
+                                   arex_alarm_level_t level,
+                                   const char *text)
+{
+    if (!ctx || !ctx->safe_zone)
+    {
+        return;
+    }
+
+    alarm_view_reset_banner_if_invalid(ctx->safe_zone);
+
+    int card_canvas_w = (int)ctx->safe_zone_w - (int)ctx->left_anchor_w - (int)ctx->panel_gap_px;
+    if (card_canvas_w < 0)
+    {
+        card_canvas_w = 0;
+    }
+
+    if (!s_alarm_banner)
+    {
+        s_alarm_banner = lv_obj_create(ctx->safe_zone);
+        lv_obj_remove_style_all(s_alarm_banner);
+        lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
+
+        s_alarm_banner_lbl = lv_label_create(s_alarm_banner);
+        lv_obj_set_style_text_font(s_alarm_banner_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+        lv_obj_align(s_alarm_banner_lbl, LV_ALIGN_LEFT_MID, 20, 0);
+    }
+
+    lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
+    if (ctx->layout_order == AREX_ORDER_NORMAL)
+    {
+        lv_obj_align(s_alarm_banner, LV_ALIGN_TOP_RIGHT, 0, 0);
+    }
+    else
+    {
+        lv_obj_align(s_alarm_banner, LV_ALIGN_TOP_LEFT, 0, 0);
+    }
+
+    lv_obj_move_foreground(s_alarm_banner);
+    lv_obj_clear_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_bg_color(s_alarm_banner, AREX_BLACK, 0);
+    lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+    lv_obj_set_style_text_color(s_alarm_banner_lbl, AREX_GREEN, 0);
+
+    (void)level;
+    lv_label_set_text(s_alarm_banner_lbl, text ? text : "");
+}
+
+static bool alarm_view_target_match(uintptr_t raw, arex_widget_id_t target)
+{
+    if (raw == (uintptr_t)target)
+    {
+        return true;
+    }
+    if (target == WIDGET_POD_0806)
+    {
+        return (raw % 1000U) == (uintptr_t)WIDGET_POD_0806;
+    }
+    return false;
+}
+
+static void alarm_view_set_text_color_recursive(lv_obj_t *obj, lv_color_t color)
+{
+    if (!obj)
+    {
+        return;
+    }
+    if (lv_obj_check_type(obj, &lv_label_class))
+    {
+        lv_obj_set_style_text_color(obj, color, 0);
+    }
+    int16_t child_count = lv_obj_get_child_cnt(obj);
+    for (int16_t i = 0; i < child_count; i++)
+    {
+        alarm_view_set_text_color_recursive(lv_obj_get_child(obj, i), color);
+    }
+}
+
+static void alarm_view_restore_widget_style(lv_obj_t *obj);
+
+static void alarm_view_apply_widget_style(lv_obj_t *obj,
+                                          arex_alarm_level_t level,
+                                          bool phase_on)
+{
+    lv_color_t alarm_color = alarm_view_level_color(level);
+    lv_color_t text_color = AREX_GREEN;
+
+    if (level >= AREX_ALARM_CRIT)
+    {
+        if (phase_on)
+        {
+            lv_obj_set_style_bg_color(obj, alarm_color, 0);
+            lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(obj, alarm_color, 0);
+            lv_obj_set_style_border_width(obj, 2, 0);
+            text_color = AREX_BLACK;
+        }
+        else
+        {
+            alarm_view_restore_widget_style(obj);
+            return;
+        }
+    }
+    else if (level == AREX_ALARM_WARN)
+    {
+        lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
+        lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_color(obj, alarm_color, 0);
+        lv_obj_set_style_border_width(obj, phase_on ? 4 : 1, 0);
+        text_color = AREX_GREEN;
+    }
+
+    alarm_view_set_text_color_recursive(obj, text_color);
+}
+
+static void alarm_view_restore_widget_style(lv_obj_t *obj)
+{
+    if (!obj)
+    {
+        return;
+    }
+    lv_obj_set_style_bg_color(obj, AREX_BLACK, 0);
+    lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(obj, AREX_DARK, 0);
+    lv_obj_set_style_border_width(obj, AREX_DEBUG_BORDERS ? 1 : 0, 0);
+    alarm_view_set_text_color_recursive(obj, AREX_GREEN);
+}
+
+static void alarm_view_visit_targets(const arex_alarm_view_context_t *ctx,
+                                     const arex_widget_id_t *targets,
+                                     uint8_t target_count,
+                                     arex_alarm_level_t level,
+                                     bool phase_on,
+                                     bool restore)
+{
+    if (!ctx)
+    {
+        return;
+    }
+
+    uint8_t max_count = (ctx->custom_card_count < ctx->max_custom_cards)
+                        ? ctx->custom_card_count : ctx->max_custom_cards;
+
+    for (uint8_t c = 0; c <= max_count; c++)
+    {
+        lv_obj_t *container = (c < max_count && ctx->custom_cards) ? ctx->custom_cards[c] : ctx->left_anchor;
+        if (!container)
+        {
+            continue;
+        }
+
+        int16_t child_count = lv_obj_get_child_cnt(container);
+        for (int16_t i = 0; i < child_count; i++)
+        {
+            lv_obj_t *child = lv_obj_get_child(container, i);
+            uintptr_t raw = (uintptr_t)lv_obj_get_user_data(child);
+            bool matched = false;
+
+            for (uint8_t t = 0; t < target_count; t++)
+            {
+                if (alarm_view_target_match(raw, targets[t]))
+                {
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (!matched)
+            {
+                continue;
+            }
+
+            if (restore)
+            {
+                alarm_view_restore_widget_style(child);
+            }
+            else
+            {
+                alarm_view_apply_widget_style(child, level, phase_on);
+            }
+        }
+    }
+}
+
+static void alarm_view_restore_targets(const arex_alarm_view_context_t *ctx,
+                                       const arex_widget_id_t *targets,
+                                       uint8_t count)
+{
+    alarm_view_visit_targets(ctx, targets, count, AREX_ALARM_NONE, false, true);
+}
+
+static void alarm_view_format_banner(const arex_alarm_display_t *display,
+                                     char *buf,
+                                     size_t buf_size)
+{
+    const char *text = display->text ? display->text : "";
+
+    if (display->level >= AREX_ALARM_CRIT)
+    {
+        snprintf(buf, buf_size, "CRITICAL: %s", text);
+    }
+    else if (display->level == AREX_ALARM_WARN)
+    {
+        snprintf(buf, buf_size, "WARNING: %s", text);
+    }
+    else
+    {
+        snprintf(buf, buf_size, "%s", text);
+    }
+}
+
+void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx)
+{
+    static arex_widget_id_t s_prev_targets[AREX_ALARM_TARGET_MAX];
+    static uint8_t s_prev_target_count;
+    static uint32_t s_last_revision = 0xFFFFFFFFU;
+    static arex_alarm_level_t s_last_level = AREX_ALARM_NONE;
+    static bool s_last_phase;
+    static bool s_last_visible;
+
+    uint32_t now = lv_tick_get();
+    arex_alarm_tick(now);
+
+    const arex_alarm_display_t *display = arex_alarm_get_display();
+    bool phase_on = true;
+
+    if (display->level >= AREX_ALARM_CRIT)
+    {
+        phase_on = ((now / 333U) % 2U) == 0U;
+    }
+    else if (display->level == AREX_ALARM_WARN)
+    {
+        phase_on = ((now / 500U) % 2U) == 0U;
+    }
+
+    if (!display->visible)
+    {
+        if (s_last_visible)
+        {
+            if (s_alarm_banner)
+            {
+                if (s_last_level == AREX_ALARM_INFO)
+                {
+                    alarm_view_banner_animate_out();
+                }
+                else
+                {
+                    alarm_view_banner_cancel_anim();
+                    lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
+                    lv_obj_add_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);
+                }
+            }
+            alarm_view_restore_targets(ctx, s_prev_targets, s_prev_target_count);
+            s_prev_target_count = 0;
+            if (ctx && ctx->alarm_pending_click)
+            {
+                *ctx->alarm_pending_click = false;
+            }
+        }
+
+        s_last_visible = false;
+        s_last_level = AREX_ALARM_NONE;
+        s_last_revision = display->revision;
+        return;
+    }
+
+    bool need_update = (!s_last_visible ||
+                        s_last_revision != display->revision ||
+                        s_last_level != display->level ||
+                        s_last_phase != phase_on);
+    if (!need_update)
+    {
+        return;
+    }
+
+    if (s_prev_target_count > 0U)
+    {
+        alarm_view_restore_targets(ctx, s_prev_targets, s_prev_target_count);
+        s_prev_target_count = 0;
+    }
+
+    char banner_text[128];
+    bool was_visible = s_last_visible;
+    arex_alarm_level_t prev_level = s_last_level;
+    uint32_t prev_revision = s_last_revision;
+
+    alarm_view_format_banner(display, banner_text, sizeof(banner_text));
+    alarm_view_show_banner(ctx, display->level, banner_text);
+
+    if (s_alarm_banner && s_alarm_banner_lbl)
+    {
+        lv_color_t alarm_color = alarm_view_level_color(display->level);
+
+        if (display->level >= AREX_ALARM_CRIT)
+        {
+            alarm_view_banner_cancel_anim();
+            lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
+            lv_obj_set_style_bg_color(s_alarm_banner, phase_on ? alarm_color : AREX_BLACK, 0);
+            lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
+            lv_obj_set_style_border_width(s_alarm_banner, 2, 0);
+            lv_obj_set_style_text_color(s_alarm_banner_lbl, phase_on ? AREX_BLACK : alarm_color, 0);
+        }
+        else if (display->level == AREX_ALARM_WARN)
+        {
+            alarm_view_banner_cancel_anim();
+            lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
+            lv_obj_set_style_bg_color(s_alarm_banner, alarm_view_dim_green(20), 0);
+            lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
+            lv_obj_set_style_border_width(s_alarm_banner, phase_on ? 4 : 1, 0);
+            lv_obj_set_style_text_color(s_alarm_banner_lbl, alarm_color, 0);
+        }
+        else
+        {
+            lv_obj_set_style_bg_color(s_alarm_banner, alarm_view_dim_green(10), 0);
+            lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
+            lv_obj_set_style_border_width(s_alarm_banner, 1, 0);
+            lv_obj_set_style_text_color(s_alarm_banner_lbl, alarm_color, 0);
+
+            if (!was_visible ||
+                prev_level != display->level ||
+                prev_revision != display->revision)
+            {
+                alarm_view_banner_animate_in();
+            }
+        }
+    }
+
+    s_prev_target_count = arex_alarm_get_active_targets(display->level,
+                                                        s_prev_targets,
+                                                        AREX_ALARM_TARGET_MAX);
+    if (s_prev_target_count > 0U)
+    {
+        alarm_view_visit_targets(ctx, s_prev_targets, s_prev_target_count,
+                                 display->level, phase_on, false);
+    }
+
+    if (ctx && ctx->alarm_pending_click)
+    {
+        *ctx->alarm_pending_click = (display->level >= AREX_ALARM_WARN);
+    }
+    s_last_visible = true;
+    s_last_level = display->level;
+    s_last_phase = phase_on;
+    s_last_revision = display->revision;
+}

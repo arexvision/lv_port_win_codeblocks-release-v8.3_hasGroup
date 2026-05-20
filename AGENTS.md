@@ -23,6 +23,7 @@ Do not modify `LittlevGL.cbp` during routine code changes. Only update the CodeB
 ## Git / Commit
 
 本仓库的 commit message 默认使用中文；只有用户明确要求时，才使用其他语言。
+每完成一个完整、可验证的任务后，必须及时创建一次 commit；不要把已完成的改动长时间留在未提交状态。
 
 ## Architecture
 
