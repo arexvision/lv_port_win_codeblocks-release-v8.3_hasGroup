@@ -21,7 +21,6 @@ typedef struct
     float battery_pct;
     float temperature_c;
     float temp_offset;
-    uint8_t gas_toggle;
     uint16_t layout_tick;
     uint8_t layout_phase;
     uint16_t phase_tick;
@@ -39,12 +38,20 @@ static arex_sim_state_t s_sim = {
     .battery_pct = 85.0f,
     .temperature_c = 25.0f,
     .temp_offset = 0.0f,
-    .gas_toggle = 0,
     .layout_tick = 0,
     .layout_phase = 0,
     .phase_tick = 0,
     .depth_phase = 0,
 };
+
+static float arex_sim_calc_ppo2(uint8_t o2_pct, float depth_m)
+{
+    float ambient_bar = 1.0f + (depth_m / 10.0f);
+    if (ambient_bar < 1.0f) {
+        ambient_bar = 1.0f;
+    }
+    return ((float)o2_pct / 100.0f) * ambient_bar;
+}
 
 static void arex_test_set_ui_layout(uint8_t phase)
 {
@@ -196,14 +203,6 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
     arex_bus_set_heading(s_sim.heading_deg);
 
-    if (s_sim.gas_toggle == 0U) {
-        arex_bus_set_gas(0, "AIR");
-        s_sim.gas_toggle = 1U;
-    } else {
-        arex_bus_set_gas(1, "NX 32");
-        s_sim.gas_toggle = 0U;
-    }
-
     s_sim.dive_time_s++;
     arex_bus_set_dive_time(s_sim.dive_time_s);
 
@@ -235,16 +234,10 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.otu++;
     arex_bus_set_otu(s_sim.otu);
 
-    {
-        float new_ppo2 = s_sim.depth_m * 0.21f;
-        if (new_ppo2 < 0.21f) {
-            new_ppo2 = 0.21f;
-        }
-        if (new_ppo2 > 1.6f) {
-            new_ppo2 = 1.6f;
-        }
-        arex_bus_set_ppo2(2, new_ppo2);
-    }
+    arex_bus_set_ppo2(0, arex_sim_calc_ppo2(21, s_sim.depth_m));
+    arex_bus_set_ppo2(1, arex_sim_calc_ppo2(32, s_sim.depth_m));
+    arex_bus_set_ppo2(2, arex_sim_calc_ppo2(18, s_sim.depth_m));
+    arex_bus_set_ppo2(3, arex_sim_calc_ppo2(100, s_sim.depth_m));
 
     s_sim.battery_pct += 1.2f;
     arex_bus_set_battery(s_sim.battery_pct);
@@ -280,6 +273,7 @@ void arex_sim_data_start(void)
 
     arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
     arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
+    arex_bus_set_gas(0, "AIR");
     arex_bus_set_pod(0, 200.0f);
     arex_bus_set_pod(1, 185.0f);
     arex_bus_set_gf_setting(30, 70);
@@ -287,7 +281,7 @@ void arex_sim_data_start(void)
     arex_bus_set_gf99(42.0f);
     arex_bus_set_mod(33.0f);
     arex_bus_set_ceiling(0.0f);
-    arex_bus_set_gas_mix(32, 0);
+    arex_bus_set_gas_mix(21, 0);
     arex_bus_set_gas_density(5.2f);
     arex_bus_set_fio2(21.0f);
 

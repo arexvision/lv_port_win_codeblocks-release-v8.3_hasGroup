@@ -49,6 +49,8 @@ extern uint16_t         g_deco_stop_count;
 #define AREX_ALARM_CNS_HIGH_PCT            80U          /* WARN.CNS_HIGH：CNS >= 80% */
 #define AREX_ALARM_OTU_HIGH                250U         /* WARN.OTU_HIGH：OTU >= 250 */
 
+#define AREX_ALARM_GAS_SWITCH_ASCENT_MPM   0.5f         /* INFO.GAS_SWITCH：只在上升趋势中提示更优气体 */
+
 typedef struct
 {
     uint32_t timestamp_ms;
@@ -170,26 +172,23 @@ static float arex_depth_rate_estimate_latest_mpm(const arex_depth_sample_t *wind
     return (window[newest].depth_m - window[prev].depth_m) * 60000.0f / (float)dt_ms;
 }
 
-static float arex_alarm_active_ppo2_max(void)
+static float arex_alarm_active_ppo2(void)
 {
-    float max_ppo2 = 0.0f;
-    for (uint8_t i = 0; i < AREX_GAS_COUNT; i++)
+    uint8_t active_idx = g_sensor_data.gas_active_idx;
+    if (active_idx >= AREX_GAS_COUNT)
     {
-        if (g_sensor_data.ppo2[i] > max_ppo2)
-        {
-            max_ppo2 = g_sensor_data.ppo2[i];
-        }
+        return 0.0f;
     }
-    return max_ppo2;
+    return g_sensor_data.ppo2[active_idx];
 }
 
 static void arex_alarm_eval_ppo2(void)
 {
-    float max_ppo2 = arex_alarm_active_ppo2_max();
+    float active_ppo2 = arex_alarm_active_ppo2();
     /* WARN.PO2_ELEVATED：优先使用系统设置的 PPO2 上限；未配置时按 1.4bar 默认安全线。 */
     float elevated_limit = (g_sys_config.mod_ppo2 > 0.1f) ? g_sys_config.mod_ppo2 : 1.4f;
-    bool critical = (max_ppo2 > AREX_ALARM_PO2_CRIT_BAR);
-    bool elevated = (!critical && max_ppo2 > elevated_limit);
+    bool critical = (active_ppo2 > AREX_ALARM_PO2_CRIT_BAR);
+    bool elevated = (!critical && active_ppo2 > elevated_limit);
 
     arex_alarm_set_active(AREX_ALARM_ID_CRIT_PO2_MAX, critical);
     arex_alarm_set_active(AREX_ALARM_ID_WARN_PO2_ELEVATED, elevated);
@@ -283,7 +282,9 @@ static void arex_alarm_eval_gas_switch(void)
     uint8_t active_o2 = (active_idx < AREX_GAS_COUNT) ?
                         g_sensor_data.gas_slot_o2_pct[active_idx] : 0U;
 
-    if (g_sensor_data.depth > 0.1f && active_idx < AREX_GAS_COUNT)
+    if (g_sensor_data.depth > 0.1f &&
+            g_sensor_data.ascent_rate > AREX_ALARM_GAS_SWITCH_ASCENT_MPM &&
+            active_idx < AREX_GAS_COUNT)
     {
         for (uint8_t i = 0; i < AREX_GAS_COUNT; i++)
         {
@@ -572,6 +573,7 @@ void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name)
         g_sensor_data.gas_name[15] = '\0';
     }
     g_sensor_data.dirty_mask |= DIRTY_GAS;
+    arex_alarm_eval_ppo2();
     arex_alarm_eval_gas_switch();
 }
 
