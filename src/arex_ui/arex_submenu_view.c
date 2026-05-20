@@ -543,6 +543,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         {
             /* 解析 conservatism 等级：LOW/MED/HIGH/CUSTOM */
             uint8_t level = 1;  /* 默认 MED */
+            static const char *badge_text[] = { "LOW", "MED", "HIGH", "CUSTOM" };
             if (strncmp(text, "LOW", 3) == 0) level = 0;
             else if (strncmp(text, "MED", 3) == 0) level = 1;
             else if (strncmp(text, "HIGH", 4) == 0) level = 2;
@@ -552,8 +553,8 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
             arex_ui_on_conservatism_set(level);
 
             arex_screen_refresh_setup_menu();
+            arex_screen_update_setup_badge(1, badge_text[level]);
         }
-        arex_screen_update_setup_badge(1, text);
         arex_screen_close_submenu();
         return;
     }
