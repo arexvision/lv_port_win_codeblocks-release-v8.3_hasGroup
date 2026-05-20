@@ -7,13 +7,10 @@
 #include "arex_ui_state.h"
 #include "arex_card_registry.h"
 #include "arex_callbacks.h"
+#include "cards/card_compass.h"
 #include "fonts/arex_fonts.h"
 #include <stdio.h>
 #include <string.h>
-
-extern lv_obj_t *s_compass_tape_obj;
-extern lv_obj_t *s_heading_val_lbl;
-extern lv_obj_t *s_heading_hint_lbl;
 
 /* =========================================================
  * 内部句柄
@@ -942,30 +939,7 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
 
     if (g_sys_card_order(tile_pos) == CARD_ID_COMPASS)
     {
-#if BLE_COMPASS_DIAG_LOG_ENABLED
-        ble_sensor_debug_note_ui_force_refresh(g_sensor_data.heading);
-#if BLE_COMPASS_DIAG_SYSTEM_LOG_ENABLED
-#endif
-#endif
-        if (s_heading_val_lbl)
-        {
-            lv_label_set_text_fmt(s_heading_val_lbl, "%03d", g_sensor_data.heading);
-        }
-        if (s_heading_hint_lbl)
-        {
-            if (g_sensor_data.heading_locked)
-            {
-                lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d掳 ]", g_sensor_data.heading_target);
-            }
-            else
-            {
-                lv_label_set_text(s_heading_hint_lbl, "[ ENTER ] mark heading");
-            }
-        }
-        if (s_compass_tape_obj)
-        {
-            lv_obj_invalidate(s_compass_tape_obj);
-        }
+        card_compass_refresh_heading(true);
     }
 
     /* SETUP（最后一页）不显示 dots，只有 DASH 动态卡片才更新 */

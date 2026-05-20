@@ -10,20 +10,10 @@
 #include "arex_widget_style.h"
 #include "arex_widget_update.h"
 #include "arex_widget_view.h"
+#include "cards/card_compass.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-
-extern void rt_kprintf(const char *fmt, ...);
-
-
-/* ============================================================
- * 罗盘卡片静态句柄（card_compass.c 持有
- * 用于 arex_ui_update_task 中的零内存引擎刷
- * ============================================================ */
-extern lv_obj_t *s_compass_tape_obj;
-extern lv_obj_t *s_heading_val_lbl;
-extern lv_obj_t *s_heading_hint_lbl;
 
 /* 减压跟踪节流时间戳（arex_ui_update_task 使用*/
 static uint32_t _deco_last_refresh_ms = 0;
@@ -590,54 +580,7 @@ void arex_ui_update_task(lv_timer_t *timer)
     /* 罗盘航向 零内存数学引擎，触发 invalidate + 更新标签 */
     if (mask & DIRTY_HEADING)
     {
-#if BLE_COMPASS_DIAG_LOG_ENABLED
-        {
-            static uint32_t s_last_compass_ui_log_tick = 0;
-            static uint16_t s_last_compass_ui_heading = 0xFFFFU;
-            uint32_t now_tick = lv_tick_get();
-            bool heading_changed = (s_last_compass_ui_heading != g_sensor_data.heading);
-            bool heartbeat_due =
-            (s_last_compass_ui_log_tick == 0U) ||
-            ((now_tick - s_last_compass_ui_log_tick) >= 2000U);
-
-            if (heading_changed || heartbeat_due)
-            {
-                s_last_compass_ui_log_tick = now_tick;
-                s_last_compass_ui_heading = g_sensor_data.heading;
-                ble_sensor_debug_note_ui_dirty(g_sensor_data.heading);
-#if BLE_COMPASS_DIAG_SYSTEM_LOG_ENABLED
-                rt_kprintf("[COMPASS_UI] dirty heading=%u label=%d tape=%d card=%u dash=%u\r\n",
-                           g_sensor_data.heading,
-                           s_heading_val_lbl ? 1 : 0,
-                           s_compass_tape_obj ? 1 : 0,
-                           g_sys_config.card_order[g_ui.dash_card],
-                           g_ui.dash_card);
-#endif
-            }
-        }
-#endif
-        /* 更新卷尺下方的巨型文*/
-        if (s_heading_val_lbl)
-        {
-            lv_label_set_text_fmt(s_heading_val_lbl, "%03d", g_sensor_data.heading);
-        }
-        /* 触发卷尺画板的底层数学重绘（极其轻量*/
-        if (s_compass_tape_obj)
-        {
-            lv_obj_invalidate(s_compass_tape_obj);
-        }
-        /* 如果有锁定，更新提示文本 */
-        if (s_heading_hint_lbl)
-        {
-            if (g_sensor_data.heading_locked)
-            {
-                lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d掳 ]", g_sensor_data.heading_target);
-            }
-            else
-            {
-                lv_label_set_text(s_heading_hint_lbl, "[ ENTER ] mark heading");
-            }
-        }
+        card_compass_refresh_heading(false);
     }
 
     /* 潜水时间 + W.TIME —全屏刷新，确5F 网格中的时间组件同步更新 */

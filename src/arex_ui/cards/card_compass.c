@@ -3,11 +3,14 @@
 #include "../arex_ui_engine.h"
 #include "../arex_ui_state.h"
 #include "../arex_layout_view.h"
+#include "card_compass.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+
+extern void rt_kprintf(const char *fmt, ...);
 
 /* ============================================================
  * 1F: NAV COMPASS — 零内存数学绘制引擎
@@ -166,9 +169,9 @@ static void compass_tape_draw_cb(lv_event_t *e)
 /* ============================================================
  * 静态句柄声明（供外部 arex_ui_engine.c 引用）
  * ============================================================ */
-lv_obj_t *s_compass_tape_obj = NULL;   /* 卷尺绘制对象 */
-lv_obj_t *s_heading_val_lbl = NULL;    /* 巨型航向文本 */
-lv_obj_t *s_heading_hint_lbl = NULL;   /* 顶部操作提示 */
+static lv_obj_t *s_compass_tape_obj = NULL;   /* 卷尺绘制对象 */
+static lv_obj_t *s_heading_val_lbl = NULL;    /* 巨型航向文本 */
+static lv_obj_t *s_heading_hint_lbl = NULL;   /* 顶部操作提示 */
 
 /* ============================================================
  * 罗盘卡片工厂渲染函数
@@ -247,10 +250,66 @@ void card_compass_create(lv_obj_t *parent)
     render_compass_custom(parent);
 }
 
+void card_compass_refresh_heading(bool force_refresh)
+{
+#if BLE_COMPASS_DIAG_LOG_ENABLED
+    static uint32_t s_last_compass_ui_log_tick = 0;
+    static uint16_t s_last_compass_ui_heading = 0xFFFFU;
+
+    if (force_refresh)
+    {
+        ble_sensor_debug_note_ui_force_refresh(g_sensor_data.heading);
+    }
+    else
+    {
+        uint32_t now_tick = lv_tick_get();
+        bool heading_changed = (s_last_compass_ui_heading != g_sensor_data.heading);
+        bool heartbeat_due =
+            (s_last_compass_ui_log_tick == 0U) ||
+            ((now_tick - s_last_compass_ui_log_tick) >= 2000U);
+
+        if (heading_changed || heartbeat_due)
+        {
+            s_last_compass_ui_log_tick = now_tick;
+            s_last_compass_ui_heading = g_sensor_data.heading;
+            ble_sensor_debug_note_ui_dirty(g_sensor_data.heading);
+#if BLE_COMPASS_DIAG_SYSTEM_LOG_ENABLED
+            rt_kprintf("[COMPASS_UI] dirty heading=%u label=%d tape=%d card=%u dash=%u\r\n",
+                       g_sensor_data.heading,
+                       s_heading_val_lbl ? 1 : 0,
+                       s_compass_tape_obj ? 1 : 0,
+                       g_sys_config.card_order[g_ui.dash_card],
+                       g_ui.dash_card);
+#endif
+        }
+    }
+#else
+    (void)force_refresh;
+#endif
+
+    if (s_heading_val_lbl)
+    {
+        lv_label_set_text_fmt(s_heading_val_lbl, "%03d", g_sensor_data.heading);
+    }
+    if (s_compass_tape_obj)
+    {
+        lv_obj_invalidate(s_compass_tape_obj);
+    }
+    if (s_heading_hint_lbl)
+    {
+        if (g_sensor_data.heading_locked)
+        {
+            lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d ]", g_sensor_data.heading_target);
+        }
+        else
+        {
+            lv_label_set_text(s_heading_hint_lbl, "[ ENTER ] mark heading");
+        }
+    }
+}
+
 void card_compass_update(void)
 {
-    /* 零内存引擎不需要 update，脏标记触发 invalidate 即可 */
-    (void)s_compass_tape_obj;
-    (void)s_heading_val_lbl;
-    (void)s_heading_hint_lbl;
+    /* Keep compass labels and the custom tape draw surface in sync. */
+    card_compass_refresh_heading(false);
 }
