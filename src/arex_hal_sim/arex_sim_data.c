@@ -1,11 +1,13 @@
 #include "arex_sim_data.h"
 
+#include "../arex_ui/arex_alarm.h"
 #include "../arex_ui/arex_data.h"
 #include "lvgl/lvgl.h"
 
 #include <string.h>
 
 static lv_timer_t *s_sim_timer;
+static lv_timer_t *s_l1_alarm_timer;
 
 typedef struct
 {
@@ -263,24 +265,33 @@ static void sim_tick_cb(lv_timer_t *t)
     }
 }
 
+static void sim_l1_alarm_timer_cb(lv_timer_t *t)
+{
+    arex_alarm_set_active(AREX_ALARM_ID_INFO_SAFETY_STOP, true);
+    s_l1_alarm_timer = NULL;
+    lv_timer_del(t);
+}
+
 void arex_sim_data_start(void)
 {
     if (s_sim_timer != NULL) {
         return;
     }
 
-    arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
-    arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
-    arex_bus_set_pod(0, 200.0f);
-    arex_bus_set_pod(1, 185.0f);
-    arex_bus_set_gf_setting(30, 70);
-    arex_bus_set_surf_gf(85.0f);
-    arex_bus_set_gf99(42.0f);
-    arex_bus_set_mod(33.0f);
-    arex_bus_set_ceiling(0.0f);
-    arex_bus_set_gas_mix(32, 0);
-    arex_bus_set_gas_density(5.2f);
-    arex_bus_set_fio2(21.0f);
+    // arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
+    // arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
+    // arex_bus_set_pod(0, 200.0f);
+    // arex_bus_set_pod(1, 185.0f);
+    // arex_bus_set_gf_setting(30, 70);
+    // arex_bus_set_surf_gf(85.0f);
+    // arex_bus_set_gf99(42.0f);
+    // arex_bus_set_mod(33.0f);
+    // arex_bus_set_ceiling(0.0f);
+    // arex_bus_set_gas_mix(32, 0);
+    // arex_bus_set_gas_density(5.2f);
+    // arex_bus_set_fio2(21.0f);
 
-    s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
+    s_l1_alarm_timer = lv_timer_create(sim_l1_alarm_timer_cb, 1000, NULL);
+
+    // s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
 }

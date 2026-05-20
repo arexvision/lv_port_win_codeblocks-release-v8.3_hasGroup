@@ -6,6 +6,13 @@
 #define AREX_ALARM_INFO_DISPLAY_MS  3000U
 #define AREX_ALARM_BANNER_ROTATE_MS 3000U
 
+typedef enum
+{
+    AREX_ALARM_CLEAR_CONDITION_ONLY = 0, /* 条件解除前强制驻留，ACK 不隐藏 */
+    AREX_ALARM_CLEAR_ACK_HIDE,           /* ACK 后隐藏，直到条件先解除再重新触发 */
+    AREX_ALARM_CLEAR_AUTO_TIMEOUT        /* 通知类：自动超时隐藏 */
+} arex_alarm_clear_policy_t;
+
 typedef struct
 {
     arex_alarm_id_t id;
@@ -13,6 +20,7 @@ typedef struct
     const char *text;
     arex_widget_id_t target;
     bool connected;
+    arex_alarm_clear_policy_t clear_policy;
 } arex_alarm_def_t;
 
 typedef struct
@@ -32,33 +40,36 @@ typedef struct
     arex_widget_id_t target;
     uint32_t first_tick;
     uint32_t seq;
+    bool acked;
+    arex_alarm_clear_policy_t clear_policy;
 } arex_alarm_custom_t;
 
 static const arex_alarm_def_t s_alarm_defs[AREX_ALARM_ID_COUNT] =
 {
-    { AREX_ALARM_ID_CRIT_ASCENT_RATE,    AREX_ALARM_CRIT, "ASCENT TOO FAST",       WIDGET_DEPTH_1606,    true  },
-    { AREX_ALARM_ID_CRIT_PO2_MAX,        AREX_ALARM_CRIT, "PO2 CRITICAL",          WIDGET_PPO2_0806,     true  },
-    { AREX_ALARM_ID_CRIT_CEIL_BROKEN,    AREX_ALARM_CRIT, "CEILING BROKEN",        WIDGET_NDL_STOP_1606, true  },
-    { AREX_ALARM_ID_CRIT_ALGO_LOCK,      AREX_ALARM_CRIT, "ALGORITHM LOCKED",      WIDGET_EMPTY,         false },
-    { AREX_ALARM_ID_CRIT_TANK_EMPTY,     AREX_ALARM_CRIT, "TANK EMPTY",            WIDGET_POD_0806,      true  },
-    { AREX_ALARM_ID_CRIT_BATTERY_DEAD,   AREX_ALARM_CRIT, "BATTERY DEAD",          WIDGET_BATTERY_0806,  true  },
+    { AREX_ALARM_ID_CRIT_ASCENT_RATE,    AREX_ALARM_CRIT, "ASCENT TOO FAST",       WIDGET_DEPTH_1606,    true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { AREX_ALARM_ID_CRIT_PO2_MAX,        AREX_ALARM_CRIT, "PO2 CRITICAL",          WIDGET_PPO2_0806,     true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { AREX_ALARM_ID_CRIT_CEIL_BROKEN,    AREX_ALARM_CRIT, "CEILING BROKEN",        WIDGET_NDL_STOP_1606, true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { AREX_ALARM_ID_CRIT_ALGO_LOCK,      AREX_ALARM_CRIT, "ALGORITHM LOCKED",      WIDGET_EMPTY,         false, AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { AREX_ALARM_ID_CRIT_TANK_EMPTY,     AREX_ALARM_CRIT, "TANK EMPTY",            WIDGET_POD_0806,      true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { AREX_ALARM_ID_CRIT_BATTERY_DEAD,   AREX_ALARM_CRIT, "BATTERY DEAD",          WIDGET_BATTERY_0806,  true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
 
-    { AREX_ALARM_ID_WARN_PO2_ELEVATED,   AREX_ALARM_WARN, "HIGH PO2",              WIDGET_PPO2_0806,     true  },
-    { AREX_ALARM_ID_WARN_NDL_LOW,        AREX_ALARM_WARN, "NDL LOW",               WIDGET_NDL_STOP_1606, true  },
-    { AREX_ALARM_ID_WARN_CNS_HIGH,       AREX_ALARM_WARN, "HIGH CNS",              WIDGET_CNS_0806,      true  },
-    { AREX_ALARM_ID_WARN_OTU_HIGH,       AREX_ALARM_WARN, "HIGH OTU",              WIDGET_OTU_0806,      true  },
-    { AREX_ALARM_ID_WARN_SAFETY_BROKEN,  AREX_ALARM_WARN, "SAFETY BROKEN",         WIDGET_NDL_STOP_1606, true  },
-    { AREX_ALARM_ID_WARN_TANK_TURN,      AREX_ALARM_WARN, "TURN PRESSURE",         WIDGET_POD_0806,      true  },
-    { AREX_ALARM_ID_WARN_SIDEMOUNT_DIFF, AREX_ALARM_WARN, "TANK PRESSURE DIFF",    WIDGET_POD_0806,      true  },
-    { AREX_ALARM_ID_WARN_DEPTH_LIMIT,    AREX_ALARM_WARN, "DEPTH LIMIT",           WIDGET_DEPTH_1606,    true  },
-    { AREX_ALARM_ID_WARN_TIME_LIMIT,     AREX_ALARM_WARN, "TIME LIMIT",            WIDGET_DIVE_TIME_1606,true  },
-    { AREX_ALARM_ID_WARN_BATTERY_LOW,    AREX_ALARM_WARN, "BATTERY LOW",           WIDGET_BATTERY_0806,  true  },
-    { AREX_ALARM_ID_WARN_POD_LOST,       AREX_ALARM_WARN, "POD LOST",              WIDGET_POD_0806,      false },
+    { AREX_ALARM_ID_WARN_PO2_ELEVATED,   AREX_ALARM_WARN, "HIGH PO2",              WIDGET_PPO2_0806,     true,  AREX_ALARM_CLEAR_ACK_HIDE },
+    { AREX_ALARM_ID_WARN_NDL_LOW,        AREX_ALARM_WARN, "NDL LOW",               WIDGET_NDL_STOP_1606, true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { AREX_ALARM_ID_WARN_CNS_HIGH,       AREX_ALARM_WARN, "HIGH CNS",              WIDGET_CNS_0806,      true,  AREX_ALARM_CLEAR_ACK_HIDE },
+    { AREX_ALARM_ID_WARN_OTU_HIGH,       AREX_ALARM_WARN, "HIGH OTU",              WIDGET_OTU_0806,      true,  AREX_ALARM_CLEAR_ACK_HIDE },
+    { AREX_ALARM_ID_WARN_SAFETY_BROKEN,  AREX_ALARM_WARN, "SAFETY BROKEN",         WIDGET_NDL_STOP_1606, true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { AREX_ALARM_ID_WARN_TANK_TURN,      AREX_ALARM_WARN, "TURN PRESSURE",         WIDGET_POD_0806,      true,  AREX_ALARM_CLEAR_ACK_HIDE },
+    { AREX_ALARM_ID_WARN_SIDEMOUNT_DIFF, AREX_ALARM_WARN, "TANK PRESSURE DIFF",    WIDGET_POD_0806,      true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { AREX_ALARM_ID_WARN_DEPTH_LIMIT,    AREX_ALARM_WARN, "DEPTH LIMIT",           WIDGET_DEPTH_1606,    true,  AREX_ALARM_CLEAR_ACK_HIDE },
+    { AREX_ALARM_ID_WARN_TIME_LIMIT,     AREX_ALARM_WARN, "TIME LIMIT",            WIDGET_DIVE_TIME_1606,true,  AREX_ALARM_CLEAR_ACK_HIDE },
+    { AREX_ALARM_ID_WARN_BATTERY_LOW,    AREX_ALARM_WARN, "BATTERY LOW",           WIDGET_BATTERY_0806,  true,  AREX_ALARM_CLEAR_ACK_HIDE },
+    { AREX_ALARM_ID_WARN_POD_LOST,       AREX_ALARM_WARN, "POD LOST",              WIDGET_POD_0806,      false, AREX_ALARM_CLEAR_CONDITION_ONLY },
 
-    { AREX_ALARM_ID_INFO_SAFETY_STOP,    AREX_ALARM_INFO, "SAFETY STOP ACTIVE",    WIDGET_NDL_STOP_1606, true  },
-    { AREX_ALARM_ID_INFO_GAS_SWITCH,     AREX_ALARM_INFO, "BETTER GAS AVAILABLE",  WIDGET_GAS_1606,      true  },
-    { AREX_ALARM_ID_INFO_STOP_DONE,      AREX_ALARM_INFO, "STOP CLEARED",          WIDGET_NDL_STOP_1606, true  },
-    { AREX_ALARM_ID_INFO_COMPASS_CALI,   AREX_ALARM_INFO, "CALIBRATE COMPASS",     WIDGET_HEADING_0806,  false },
+    /* L1 lifetime is per event: state prompts persist until the owner clears them. */
+    { AREX_ALARM_ID_INFO_SAFETY_STOP,    AREX_ALARM_INFO, "SAFETY STOP ACTIVE",    WIDGET_NDL_STOP_1606, true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { AREX_ALARM_ID_INFO_GAS_SWITCH,     AREX_ALARM_INFO, "BETTER GAS AVAILABLE",  WIDGET_GAS_1606,      true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { AREX_ALARM_ID_INFO_STOP_DONE,      AREX_ALARM_INFO, "STOP CLEARED",          WIDGET_NDL_STOP_1606, true,  AREX_ALARM_CLEAR_AUTO_TIMEOUT },
+    { AREX_ALARM_ID_INFO_COMPASS_CALI,   AREX_ALARM_INFO, "CALIBRATE COMPASS",     WIDGET_HEADING_0806,  false, AREX_ALARM_CLEAR_CONDITION_ONLY },
 };
 
 static arex_alarm_state_t s_alarm_states[AREX_ALARM_ID_COUNT];
@@ -76,6 +87,24 @@ static void alarm_mark_dirty(void)
 static uint32_t alarm_now(void)
 {
     return lv_tick_get();
+}
+
+static bool alarm_is_ack_hidden(uint8_t id)
+{
+    return s_alarm_states[id].acked &&
+           s_alarm_defs[id].clear_policy == AREX_ALARM_CLEAR_ACK_HIDE;
+}
+
+static bool alarm_is_displayable(uint8_t id)
+{
+    return s_alarm_states[id].active && !alarm_is_ack_hidden(id);
+}
+
+static bool alarm_custom_is_displayable(void)
+{
+    return s_custom_alarm.active &&
+           !(s_custom_alarm.acked &&
+             s_custom_alarm.clear_policy == AREX_ALARM_CLEAR_ACK_HIDE);
 }
 
 static bool alarm_target_add(arex_widget_id_t *targets, uint8_t *count,
@@ -110,7 +139,7 @@ static arex_alarm_level_t alarm_highest_level(void)
 
     for (uint8_t i = 0; i < AREX_ALARM_ID_COUNT; i++)
     {
-        if (!s_alarm_states[i].active)
+        if (!alarm_is_displayable(i))
         {
             continue;
         }
@@ -120,7 +149,7 @@ static arex_alarm_level_t alarm_highest_level(void)
         }
     }
 
-    if (s_custom_alarm.active && s_custom_alarm.level > level)
+    if (alarm_custom_is_displayable() && s_custom_alarm.level > level)
     {
         level = s_custom_alarm.level;
     }
@@ -134,14 +163,14 @@ static uint8_t alarm_collect_level(arex_alarm_level_t level, int16_t *items, uin
 
     for (uint8_t i = 0; i < AREX_ALARM_ID_COUNT && count < max_items; i++)
     {
-        if (s_alarm_states[i].active &&
+        if (alarm_is_displayable(i) &&
                 s_alarm_defs[i].level == level)
         {
             items[count++] = (int16_t)i;
         }
     }
 
-    if (s_custom_alarm.active && s_custom_alarm.level == level && count < max_items)
+    if (alarm_custom_is_displayable() && s_custom_alarm.level == level && count < max_items)
     {
         items[count++] = -1;
     }
@@ -170,7 +199,7 @@ static uint32_t alarm_level_first_tick(arex_alarm_level_t level)
 
     for (uint8_t i = 0; i < AREX_ALARM_ID_COUNT; i++)
     {
-        if (s_alarm_states[i].active &&
+        if (alarm_is_displayable(i) &&
                 s_alarm_defs[i].level == level &&
                 s_alarm_states[i].first_tick < first)
         {
@@ -178,7 +207,7 @@ static uint32_t alarm_level_first_tick(arex_alarm_level_t level)
         }
     }
 
-    if (s_custom_alarm.active &&
+    if (alarm_custom_is_displayable() &&
             s_custom_alarm.level == level &&
             s_custom_alarm.first_tick < first)
     {
@@ -299,6 +328,10 @@ bool arex_alarm_raise_custom(arex_alarm_level_t level,
     s_custom_alarm.target = target;
     s_custom_alarm.first_tick = alarm_now();
     s_custom_alarm.seq = ++s_seq;
+    s_custom_alarm.acked = false;
+    s_custom_alarm.clear_policy = (level == AREX_ALARM_INFO) ?
+                                  AREX_ALARM_CLEAR_AUTO_TIMEOUT :
+                                  AREX_ALARM_CLEAR_ACK_HIDE;
     alarm_mark_dirty();
     return true;
 }
@@ -314,6 +347,10 @@ bool arex_alarm_ack_current(void)
 {
     if (s_display_key >= 0)
     {
+        if (s_alarm_defs[s_display_key].clear_policy != AREX_ALARM_CLEAR_ACK_HIDE)
+        {
+            return false;
+        }
         s_alarm_states[s_display_key].acked = true;
         alarm_mark_dirty();
         return true;
@@ -321,6 +358,11 @@ bool arex_alarm_ack_current(void)
 
     if (s_display_key == -1)
     {
+        if (s_custom_alarm.clear_policy != AREX_ALARM_CLEAR_ACK_HIDE)
+        {
+            return false;
+        }
+        s_custom_alarm.acked = true;
         alarm_mark_dirty();
         return true;
     }
@@ -335,7 +377,7 @@ void arex_alarm_tick(uint32_t now_ms)
     for (uint8_t i = 0; i < AREX_ALARM_ID_COUNT; i++)
     {
         if (s_alarm_states[i].active &&
-                s_alarm_defs[i].level == AREX_ALARM_INFO &&
+                s_alarm_defs[i].clear_policy == AREX_ALARM_CLEAR_AUTO_TIMEOUT &&
                 now_ms - s_alarm_states[i].first_tick >= AREX_ALARM_INFO_DISPLAY_MS)
         {
             s_alarm_states[i].active = false;
@@ -344,7 +386,7 @@ void arex_alarm_tick(uint32_t now_ms)
     }
 
     if (s_custom_alarm.active &&
-            s_custom_alarm.level == AREX_ALARM_INFO &&
+            s_custom_alarm.clear_policy == AREX_ALARM_CLEAR_AUTO_TIMEOUT &&
             now_ms - s_custom_alarm.first_tick >= AREX_ALARM_INFO_DISPLAY_MS)
     {
         s_custom_alarm.active = false;
@@ -377,14 +419,14 @@ uint8_t arex_alarm_get_active_targets(arex_alarm_level_t level,
 
     for (uint8_t i = 0; i < AREX_ALARM_ID_COUNT; i++)
     {
-        if (s_alarm_states[i].active &&
+        if (alarm_is_displayable(i) &&
                 s_alarm_defs[i].level == level)
         {
             (void)alarm_target_add(targets, &count, max_targets, s_alarm_defs[i].target);
         }
     }
 
-    if (s_custom_alarm.active && s_custom_alarm.level == level)
+    if (alarm_custom_is_displayable() && s_custom_alarm.level == level)
     {
         (void)alarm_target_add(targets, &count, max_targets, s_custom_alarm.target);
     }

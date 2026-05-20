@@ -300,9 +300,9 @@ static void arex_alarm_eval_gas_switch(void)
         }
     }
 
-    if (available && !s_gas_switch_condition)
+    if (available != s_gas_switch_condition)
     {
-        arex_alarm_set_active(AREX_ALARM_ID_INFO_GAS_SWITCH, true);
+        arex_alarm_set_active(AREX_ALARM_ID_INFO_GAS_SWITCH, available);
     }
     s_gas_switch_condition = available;
 }
@@ -312,9 +312,9 @@ static void arex_alarm_eval_safety_stop_info(void)
     static bool s_safety_stop_condition = false;
     bool active = (g_sensor_data.stop_type == AREX_STOP_SAFETY);
 
-    if (active && !s_safety_stop_condition)
+    if (active != s_safety_stop_condition)
     {
-        arex_alarm_set_active(AREX_ALARM_ID_INFO_SAFETY_STOP, true);
+        arex_alarm_set_active(AREX_ALARM_ID_INFO_SAFETY_STOP, active);
     }
     s_safety_stop_condition = active;
 }
