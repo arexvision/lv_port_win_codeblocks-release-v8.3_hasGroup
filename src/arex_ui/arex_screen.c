@@ -1,4 +1,7 @@
 #include "arex_screen.h"
+#include "arex_layout_view.h"
+#include "arex_widget_update.h"
+#include "arex_widget_view.h"
 #include "arex_ui_engine.h"
 #include "arex_data.h"
 #include "arex_ui_state.h"

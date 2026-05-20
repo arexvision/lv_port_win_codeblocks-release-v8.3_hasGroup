@@ -564,34 +564,18 @@ void arex_ui_update_data(void);
 void arex_sys_config_defaults(arex_sys_config_t *cfg);
 
 /* 安全区边界检测 */
-bool arex_safe_zone_in_danger(void);
 
 /* =========================================================
  * 8. 绝对坐标推算引擎 (供 arex_screen.c 调用)
  * ========================================================= */
 
 /* Tech 模式布局 */
-void arex_calc_tech_layout(int16_t *out_lx, int16_t *out_ly,
-                           uint16_t *out_lw, uint16_t *out_lh,
-                           int16_t *out_rx, int16_t *out_ry,
-                           uint16_t *out_rw, uint16_t *out_rh);
 
 /* Classic 模式布局 */
-void arex_calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
-                              uint16_t *out_top_w, uint16_t *out_top_h,
-                              int16_t *out_bot_x, int16_t *out_bot_y,
-                              uint16_t *out_bot_w, uint16_t *out_bot_h);
 
 /* 5x6 网格坐标推算 */
-void arex_calc_widget_cell(uint16_t parent_w, uint16_t parent_h,
-                           uint8_t row, uint8_t col,
-                           uint8_t w_span, uint8_t h_span,
-                           int16_t *out_x, int16_t *out_y,
-                           uint16_t *out_w, uint16_t *out_h);
 
 /* 16 柱组织图 X 坐标推算 */
-void arex_calc_tissue_bars(uint16_t total_w, uint16_t bar_max_h,
-                           int16_t out_x[16], uint16_t out_w[16]);
 
 /* LVGL 辅助 */
 lv_text_align_t arex_align_to_lv(uint8_t align);
@@ -599,7 +583,6 @@ lv_align_t arex_align_to_lv_align(uint8_t align);
 
 /* 通用卡片标题渲染器：标题区固定 AREX_CARD_TITLE_H(40px)，
  * 文字 Y=5，分割线 Y=AREX_CARD_TITLE_H-2。下方内容区以 AREX_CARD_TITLE_H 为 Y=0 起点。 */
-void arex_render_card_title(lv_obj_t *parent_card, const char *title_text);
 
 /* 字体映射器：唯一允许将字体 ID 转换为真实 lvgl 字体指针的地方 */
 const lv_font_t *arex_get_font(uint8_t font_id);
@@ -607,9 +590,6 @@ const lv_font_t *arex_get_font(uint8_t font_id);
 /* =========================================================
  * 9. 布局矩形计算 (供 rebuild 调用)
  * ========================================================= */
-void arex_calc_layout_rect(int16_t *out_x, int16_t *out_y,
-                           uint16_t *out_w, uint16_t *out_h,
-                           int16_t anchor_offset_x, int16_t anchor_offset_y);
 
 /* =========================================================
  * 9b. 右侧卡片动态菜单配置 (APP 同步核心)
@@ -635,11 +615,6 @@ typedef struct
 } arex_menu_list_cfg_t;
 
 /* 通用动态菜单工厂声明 */
-void arex_render_dynamic_menu(lv_obj_t *parent_card,
-                              const arex_menu_item_cfg_t *items,
-                              uint8_t item_count,
-                              int start_y,
-                              lv_obj_t **out_item_handles);
 
 /* =========================================================
  * 10. 5F 自定义网格渲染引擎 (靶向告警同步核心)
@@ -649,25 +624,16 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
  * 用纯数学行×列→绝对坐标映射渲染所有组件。
  * left_anchor_obj 传入用于告警引擎跨区搜索烙印对象。
  * custom_card_idx 指定使用哪张卡片的配置。 */
-void arex_render_5f_custom_grid(lv_obj_t *card_custom,
-                                lv_obj_t *left_anchor_obj,
-                                uint8_t custom_card_idx);
 
 /* 按 widget_id 设置数值（由 update 循环调用，绝不触发重绘） */
-void arex_widget_set_value(arex_widget_id_t id, float value);
 
 /* 5F 自定义网格重建（由 arex_screen_rebuild_layout 调用） */
-void arex_5f_grid_rebuild_all(void);
 
 /* 按 widget_id 设置字符串（用于 GAS 等非数值组件） */
-void arex_widget_set_text(arex_widget_id_t id, const char *text);
 
 /* 全局组件数据路由分发器：根据 widget_id 自动从 g_sensor_data 取值并刷新界面 */
-void arex_widget_sync_data(arex_widget_id_t w_id);
 
 /* SYS / speed icon refresh helpers live with widget render handles. */
-void arex_widget_refresh_sys(uint32_t dirty_mask);
-void arex_widget_refresh_ascent_icons(float rate);
 
 
 /* =========================================================
@@ -902,7 +868,6 @@ typedef struct
 } arex_widget_style_t;
 
 /* 辅助查表函数声明 */
-const arex_widget_style_t* arex_get_widget_style(arex_widget_id_t id);
 
 /* =========================================================
  * POD 渲染状态机（POD1/POD2 共用同一枚举值，靠计数器区分）
@@ -910,7 +875,6 @@ const arex_widget_style_t* arex_get_widget_style(arex_widget_id_t id);
  * 策略：静态渲染计数器，同一渲染批次内按顺序分配 POD1→POD2。
  * 每次网格重建/重绘前必须调用 arex_reset_widget_render_state() 归零。
  * ========================================================= */
-void arex_reset_widget_render_state(void);
 #define ALIGN_TL LV_ALIGN_TOP_LEFT
 #define ALIGN_TM LV_ALIGN_TOP_MID
 #define ALIGN_TR LV_ALIGN_TOP_RIGHT
@@ -929,11 +893,6 @@ extern lv_obj_t *g_card_custom_objs[AREX_MAX_CUSTOM_CARDS];
 extern uint8_t   g_card_custom_obj_count;
 
 /* 5F 网格坐标推算：支持 title_zone_h 避让偏移，确保网格落在标题区下方 */
-void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
-                           uint8_t row, uint8_t col,
-                           uint8_t span_w, uint8_t span_h,
-                           int16_t *out_x, int16_t *out_y,
-                           uint16_t *out_w, uint16_t *out_h);
 
 /* =========================================================
  * 12. 左侧 2x7 绝对网格渲染引擎
@@ -947,19 +906,12 @@ void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
 /* 左侧网格总线渲染器：遍历 g_left_widgets[] 数组，
  * 用纯数学 cell_w * cell_h 推算绝对坐标并渲染所有组件。
  * left_anchor 传入用于告警引擎跨区搜索烙印对象。 */
-void arex_render_left_anchor_grid(lv_obj_t *left_anchor);
 
 /* 通用组件工厂（左侧网格 + 5F 共用）：
  * 接收绝对物理坐标，生成标准化组件容器。
  * 渲染时自主查字典判断是否需要绘制速率图标（根据 elements & ELEM_BAR 决定）。
  * cfg_font_id 可覆盖默认字号计算（设为 255 则自动计算）。
  * 返回组件容器对象句柄。 */
-lv_obj_t *render_widget_by_id(lv_obj_t *parent,
-                              arex_widget_id_t w_id,
-                              int16_t abs_x, int16_t abs_y,
-                              uint16_t abs_w, uint16_t abs_h,
-                              uint8_t span_w, uint8_t span_h,
-                              arex_font_id_t cfg_font_id);
 
 /* =========================================================
  * 第五步：新简化工厂函数（APP下发位置 + MCU本地查样式表）
@@ -974,10 +926,6 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
  * @param title_h  标题区高度偏移（0则无偏移）
  * @return         组件容器对象句柄
  * ========================================================= */
-lv_obj_t* arex_render_widget(lv_obj_t *parent,
-                             const arex_widget_pos_t *pos,
-                             uint16_t cell_w, uint16_t cell_h,
-                             uint16_t title_h);
 
 /* UI 消费任务 — 全系统唯一允许执行 lv_label_set_text 的地方（50ms 定时器驱动） */
 void arex_ui_update_task(lv_timer_t *timer);

@@ -1,4 +1,7 @@
 #include "arex_ui_engine.h"
+#include "arex_layout_view.h"
+#include "arex_widget_style.h"
+#include "arex_widget_view.h"
 
 #define WIDGET_GAP  0
 

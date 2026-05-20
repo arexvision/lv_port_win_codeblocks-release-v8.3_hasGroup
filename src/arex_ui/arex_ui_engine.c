@@ -6,6 +6,10 @@
 #include "arex_data.h"
 #include "arex_alarm.h"
 #include "arex_alarm_view.h"
+#include "arex_layout_view.h"
+#include "arex_widget_style.h"
+#include "arex_widget_update.h"
+#include "arex_widget_view.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>

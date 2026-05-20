@@ -1,6 +1,7 @@
 #include "../arex_screen.h"
 #include "../arex_data.h"
 #include "../arex_ui_engine.h"
+#include "../arex_layout_view.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
 #include <stdio.h>

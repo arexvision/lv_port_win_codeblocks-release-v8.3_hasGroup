@@ -1,4 +1,6 @@
 #include "arex_ui_engine.h"
+#include "arex_widget_update.h"
+#include "arex_widget_view.h"
 
 #include <math.h>
 #include <stdio.h>
