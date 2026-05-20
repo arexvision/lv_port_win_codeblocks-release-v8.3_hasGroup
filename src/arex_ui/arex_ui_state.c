@@ -298,6 +298,10 @@ void ui_handle_click(void)
         g_ui.state = UI_DASH;
         break;
 
+    case UI_MODAL_SETUP_CONFIRM:
+        arex_screen_confirm_submenu_setting();
+        break;
+
     case UI_EDIT_VALUE:
         g_ui.edit_ctx.active = false;
         g_ui.state = UI_SUB_MENU;
@@ -364,6 +368,10 @@ void ui_handle_back(void)
         {
             g_ui.state = UI_DASH;
         }
+        break;
+
+    case UI_MODAL_SETUP_CONFIRM:
+        arex_screen_cancel_submenu_setting();
         break;
 
     case UI_EDIT_VALUE:

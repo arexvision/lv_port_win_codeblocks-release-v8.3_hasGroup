@@ -114,6 +114,9 @@ void arex_screen_open_nested_submenu(const char *title, const char **items, uint
 void arex_screen_update_setup_badge(uint8_t item_idx, const char *value);
 
 void arex_screen_show_modal_act(const char *action_text);
+void arex_screen_show_modal_setup_confirm(const char *body);
+void arex_screen_confirm_submenu_setting(void);
+void arex_screen_cancel_submenu_setting(void);
 
 void arex_screen_begin_edit_value(uint8_t item_idx, float value,
                                   float min, float max, float step);

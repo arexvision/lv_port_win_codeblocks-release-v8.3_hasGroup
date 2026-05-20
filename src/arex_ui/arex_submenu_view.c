@@ -14,6 +14,7 @@ static lv_obj_t *s_submenu_list = NULL;
 static lv_obj_t *s_light_status_lbl = NULL;
 static uint16_t s_submenu_width = 0;
 static uint16_t s_submenu_height = 0;
+static arex_submenu_setting_confirm_t s_pending_setting;
 
 void arex_submenu_view_reset(void)
 {
@@ -23,6 +24,7 @@ void arex_submenu_view_reset(void)
     s_light_status_lbl = NULL;
     s_submenu_width = 0;
     s_submenu_height = 0;
+    memset(&s_pending_setting, 0, sizeof(s_pending_setting));
 }
 
 lv_obj_t *arex_submenu_view_get_list(void)
@@ -355,6 +357,13 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
+    if (arex_submenu_setting_from_selection(cur_title, item_idx, text, &s_pending_setting))
+    {
+        arex_screen_show_modal_setup_confirm(s_pending_setting.body);
+        g_ui.state = UI_MODAL_SETUP_CONFIRM;
+        return;
+    }
+
     if (strcmp(cur_title, "LIGHT CONTROL") == 0 && item_idx == 0)
     {
         g_light_power_state = !g_light_power_state;
@@ -575,4 +584,42 @@ void arex_screen_close_submenu(void)
     }
     submenu_slide_out();
     g_ui.state = g_ui.sub_parent;
+}
+
+void arex_screen_confirm_submenu_setting(void)
+{
+    if (s_pending_setting.kind == AREX_SUBMENU_SETTING_NONE)
+    {
+        arex_screen_hide_modal();
+        g_ui.state = UI_SUB_MENU;
+        return;
+    }
+
+    arex_submenu_apply_setting(s_pending_setting.kind, s_pending_setting.value);
+
+    switch (s_pending_setting.kind)
+    {
+    case AREX_SUBMENU_SETTING_SALINITY:
+        arex_ui_on_salinity_set(s_pending_setting.value);
+        break;
+    case AREX_SUBMENU_SETTING_SAFETY_STOP:
+        arex_ui_on_safety_stop_depth_set(arex_submenu_safety_stop_depth_m(s_pending_setting.value));
+        break;
+    case AREX_SUBMENU_SETTING_ALTITUDE:
+        arex_ui_on_altitude_range_set(s_pending_setting.value);
+        break;
+    default:
+        break;
+    }
+
+    memset(&s_pending_setting, 0, sizeof(s_pending_setting));
+    arex_screen_hide_modal();
+    arex_screen_close_submenu();
+}
+
+void arex_screen_cancel_submenu_setting(void)
+{
+    memset(&s_pending_setting, 0, sizeof(s_pending_setting));
+    arex_screen_hide_modal();
+    g_ui.state = UI_SUB_MENU;
 }

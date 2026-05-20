@@ -26,6 +26,7 @@ typedef enum
     UI_SUB_MENU     = 6,  /* sub-menu layer visible */
     UI_MODAL_ACT    = 7,  /* generic action modal */
     UI_EDIT_VALUE   = 8,  /* inline value editor (e.g. MOD PO2) */
+    UI_MODAL_SETUP_CONFIRM = 9,  /* confirm setup item from sub-menu */
 } arex_ui_state_t;
 
 /* Sub-menu history entry */

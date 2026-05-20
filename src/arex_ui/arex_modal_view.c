@@ -87,6 +87,17 @@ void arex_screen_show_modal_act(const char *action_text)
     lv_timer_create(modal_act_timer_cb, 1000, NULL);
 }
 
+void arex_screen_show_modal_setup_confirm(const char *body)
+{
+    if (!s_modal)
+    {
+        return;
+    }
+    modal_set_content("CONFIRM SETTING", body ? body : "",
+                      "[ ENTER CONFIRM ]  [ ESC CANCEL ]");
+    lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
+}
+
 void arex_screen_show_modal_gas(void)
 {
     if (!s_modal)

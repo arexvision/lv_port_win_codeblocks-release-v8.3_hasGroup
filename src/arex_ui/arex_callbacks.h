@@ -16,6 +16,9 @@ void arex_set_software_brightness_enabled(bool enabled);
 void arex_apply_software_brightness(uint8_t level);
 void arex_set_brightness(uint8_t level);
 void arex_ui_on_conservatism_set(uint8_t level);
+void arex_ui_on_salinity_set(uint8_t mode);
+void arex_ui_on_safety_stop_depth_set(uint8_t depth_m);
+void arex_ui_on_altitude_range_set(uint8_t level);
 
 #ifdef __cplusplus
 }

@@ -45,3 +45,33 @@ void arex_ui_on_conservatism_set(uint8_t level)
     g_sys_config.conservatism = level;
     arex_bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
 }
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_salinity_set(uint8_t mode)
+{
+    printf("[DIVE_SETUP] Salinity: %s\n", mode == 1 ? "SEA WATER" : "FRESH WATER");
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_safety_stop_depth_set(uint8_t depth_m)
+{
+    printf("[DIVE_SETUP] Safety stop depth: %um\n", depth_m);
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_altitude_range_set(uint8_t level)
+{
+    static const char *labels[] =
+    {
+        "AUTO",
+        "0-700m",
+        "700-1500m",
+        "1500-2400m",
+        "2400-3700m",
+    };
+    if (level >= (sizeof(labels) / sizeof(labels[0])))
+    {
+        level = 0;
+    }
+    printf("[DIVE_SETUP] Altitude: %s\n", labels[level]);
+}

@@ -36,6 +36,17 @@ static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", NUL
 static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
+static const char *s_nested_salinity[]    = { "FRESH WATER", "SEA WATER", NULL };
+static const char *s_nested_safety_stop[] = { "3m", "6m", NULL };
+static const char *s_nested_altitude[] =
+{
+    "AUTO",
+    "0-700m",
+    "700-1500m",
+    "1500-2400m",
+    "2400-3700m",
+    NULL
+};
 static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS NX", "GAUGE", NULL };
 static const char *s_nested_ai_setup[]     = { "PAIR T1", "PAIR T2", "GTR MODE: ON", NULL };
 static const char *s_nested_alerts_setup[] = { "DEPTH ALARM: 40m", "TIME ALARM: 60m", "LOW NDL: 5m", "TEST VIBRATION", NULL };
@@ -45,7 +56,14 @@ static char s_compass_cal_status_str[24];
 static const char *s_compass_cal_items[] = { s_compass_cal_status_str, "RESET AUTO CAL", NULL };
 
 static char s_modppo2_str[20];
+static char s_salinity_str[24];
+static char s_safety_stop_str[24];
+static char s_altitude_str[32];
 static const char *s_nested_dive_setup[5];
+
+static uint8_t s_salinity_mode = 0;      /* 0=FRESH WATER, 1=SEA WATER */
+static uint8_t s_safety_stop_mode = 0;   /* 0=3m, 1=6m */
+static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1..4=altitude ranges */
 
 static uint8_t count_items(const char **items, uint8_t max_count)
 {
@@ -104,6 +122,30 @@ static const char *compass_cal_status_text(void)
     if (st == AREX_COMPASS_CAL_RUNNING) return "LEARN";
     if (st == AREX_COMPASS_CAL_READY) return "OK";
     return "AUTO";
+}
+
+uint8_t arex_submenu_safety_stop_depth_m(uint8_t value)
+{
+    return value == 1 ? 6 : 3;
+}
+
+static const char *salinity_label(uint8_t value)
+{
+    return value == 1 ? "SEA WATER" : "FRESH WATER";
+}
+
+static const char *safety_stop_label(uint8_t value)
+{
+    return value == 1 ? "6m" : "3m";
+}
+
+static const char *altitude_label(uint8_t value)
+{
+    if (value >= 5)
+    {
+        value = 0;
+    }
+    return s_nested_altitude[value];
 }
 
 const char *arex_submenu_info_title(uint8_t index)
@@ -261,10 +303,13 @@ const char **arex_submenu_build_setup_items(uint8_t index, uint8_t *out_count)
 static const char **build_nested_dive_setup(uint8_t *out_count)
 {
     snprintf(s_modppo2_str, sizeof(s_modppo2_str), "MOD PO2: %.1f", 1.4f);
-    s_nested_dive_setup[0] = "SALINITY: FRESH";
+    snprintf(s_salinity_str, sizeof(s_salinity_str), "SALINITY: %s", salinity_label(s_salinity_mode));
+    snprintf(s_safety_stop_str, sizeof(s_safety_stop_str), "SAFETY STOP: %s", safety_stop_label(s_safety_stop_mode));
+    snprintf(s_altitude_str, sizeof(s_altitude_str), "ALTITUDE: %s", altitude_label(s_altitude_level));
+    s_nested_dive_setup[0] = s_salinity_str;
     s_nested_dive_setup[1] = s_modppo2_str;
-    s_nested_dive_setup[2] = "SAFETY STOP: 3 MIN";
-    s_nested_dive_setup[3] = "ALTITUDE: AUTO";
+    s_nested_dive_setup[2] = s_safety_stop_str;
+    s_nested_dive_setup[3] = s_altitude_str;
     s_nested_dive_setup[4] = NULL;
     if (out_count)
     {
@@ -292,6 +337,9 @@ const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count
 
     if      (strcmp(clean_title, "MODE SETUP") == 0) items = s_nested_mode_setup;
     else if (strcmp(clean_title, "DIVE MENU") == 0) return build_nested_dive_setup(out_count);
+    else if (strcmp(clean_title, "SALINITY") == 0) items = s_nested_salinity;
+    else if (strcmp(clean_title, "SAFETY STOP") == 0) items = s_nested_safety_stop;
+    else if (strcmp(clean_title, "ALTITUDE") == 0) items = s_nested_altitude;
     else if (strcmp(clean_title, "AI SETUP") == 0) items = s_nested_ai_setup;
     else if (strcmp(clean_title, "ALERTS SETUP") == 0) items = s_nested_alerts_setup;
     else if (strcmp(clean_title, "DISPLAY") == 0) items = s_nested_display_sys;
@@ -376,6 +424,21 @@ const char **arex_submenu_child_items_for(const char *current_title,
     else
     {
         normalize_menu_key(item_text, key, sizeof(key));
+        if (strcmp(clean_current_title ? clean_current_title : "", "DIVE MENU") == 0)
+        {
+            static const char *dive_child_titles[] =
+            {
+                "SALINITY",
+                NULL,
+                "SAFETY STOP",
+                "ALTITUDE",
+            };
+            if (item_index < (sizeof(dive_child_titles) / sizeof(dive_child_titles[0])) &&
+                dive_child_titles[item_index])
+            {
+                lv_snprintf(key, sizeof(key), "%s", dive_child_titles[item_index]);
+            }
+        }
     }
 
     items = arex_submenu_nested_items_for(key, &count);
@@ -393,6 +456,67 @@ const char **arex_submenu_child_items_for(const char *current_title,
         *out_count = count;
     }
     return items;
+}
+
+bool arex_submenu_setting_from_selection(const char *current_title,
+                                         uint8_t item_index,
+                                         const char *item_text,
+                                         arex_submenu_setting_confirm_t *out_setting)
+{
+    const char *clean_title = strip_title_prefix(current_title);
+    if (!clean_title || !item_text || !out_setting)
+    {
+        return false;
+    }
+
+    memset(out_setting, 0, sizeof(*out_setting));
+
+    if (strcmp(clean_title, "SALINITY") == 0 && item_index < 2)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_SALINITY;
+        out_setting->value = item_index;
+        lv_snprintf(out_setting->body, sizeof(out_setting->body),
+                    "SALINITY\n%s", salinity_label(item_index));
+        return true;
+    }
+
+    if (strcmp(clean_title, "SAFETY STOP") == 0 && item_index < 2)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_SAFETY_STOP;
+        out_setting->value = item_index;
+        lv_snprintf(out_setting->body, sizeof(out_setting->body),
+                    "SAFETY STOP\n%s", safety_stop_label(item_index));
+        return true;
+    }
+
+    if (strcmp(clean_title, "ALTITUDE") == 0 && item_index < 5)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_ALTITUDE;
+        out_setting->value = item_index;
+        lv_snprintf(out_setting->body, sizeof(out_setting->body),
+                    "ALTITUDE\n%s", altitude_label(item_index));
+        return true;
+    }
+
+    return false;
+}
+
+void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t value)
+{
+    switch (kind)
+    {
+    case AREX_SUBMENU_SETTING_SALINITY:
+        s_salinity_mode = (value > 1) ? 0 : value;
+        break;
+    case AREX_SUBMENU_SETTING_SAFETY_STOP:
+        s_safety_stop_mode = (value > 1) ? 0 : value;
+        break;
+    case AREX_SUBMENU_SETTING_ALTITUDE:
+        s_altitude_level = (value > 4) ? 0 : value;
+        break;
+    default:
+        break;
+    }
 }
 
 bool arex_submenu_is_readonly_info_title(const char *title)
