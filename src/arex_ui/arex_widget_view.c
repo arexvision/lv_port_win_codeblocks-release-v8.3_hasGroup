@@ -710,6 +710,84 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     return obj;
 }
 
+void arex_widget_refresh_ndl_stop(uint32_t dirty_mask)
+{
+    if (s_ndl_handle_count == 0)
+    {
+        return;
+    }
+    if ((dirty_mask & (DIRTY_NDL_STOP | DIRTY_DEPTH | DIRTY_NDL)) == 0)
+    {
+        return;
+    }
+
+    const arex_widget_style_t *style = arex_get_widget_style(WIDGET_NDL_STOP_1606);
+    if (!style)
+    {
+        return;
+    }
+    (void)style;
+
+    for (int i = 0; i < s_ndl_handle_count; i++)
+    {
+        ndl_handle_t *h = &s_ndl_handles[i];
+
+        lv_obj_clear_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_invalidate(h->horiz_bg);
+
+        if (g_sensor_data.stop_type == AREX_STOP_NONE)
+        {
+            lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+
+            lv_label_set_text(h->sub_bot, "NDL");
+            lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
+
+            lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_NDL), 0);
+            lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
+            lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
+        }
+        else if (g_sensor_data.stop_type == AREX_STOP_SAFETY)
+        {
+            lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+
+            lv_label_set_text_fmt(h->title_top, "SAFE %dm", (int)g_sensor_data.stop_depth_m);
+            lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 8, 2);
+
+            if (g_sensor_data.in_stop_zone)
+            {
+                lv_label_set_text(h->sub_bot, "IN STOP");
+            }
+            else
+            {
+                lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
+            }
+            lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16);
+
+            int m = g_sensor_data.stop_time_left_s / 60;
+            int s = g_sensor_data.stop_time_left_s % 60;
+            lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+            lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
+            lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
+        }
+        else if (g_sensor_data.stop_type == AREX_STOP_DECO)
+        {
+            lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+
+            lv_label_set_text_fmt(h->title_top, "DECO %dm", (int)g_sensor_data.stop_depth_m);
+            lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 8, 2);
+
+            int m = g_sensor_data.stop_time_left_s / 60;
+            int s = g_sensor_data.stop_time_left_s % 60;
+            lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+            lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
+            lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
+        }
+    }
+}
+
 void arex_widget_refresh_sys(uint32_t dirty_mask)
 {
     if ((dirty_mask & DIRTY_BATT) && s_sys_batt_lbl)

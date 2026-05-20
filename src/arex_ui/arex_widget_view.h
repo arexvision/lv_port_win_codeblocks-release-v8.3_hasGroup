@@ -17,6 +17,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                               arex_font_id_t cfg_font_id);
 
 void arex_widget_refresh_sys(uint32_t dirty_mask);
+void arex_widget_refresh_ndl_stop(uint32_t dirty_mask);
 void arex_widget_refresh_ascent_icons(float rate);
 
 #ifdef __cplusplus
