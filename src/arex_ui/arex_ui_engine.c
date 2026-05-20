@@ -4,6 +4,7 @@
 #include "arex_ui_state.h"
 #include "fonts/arex_fonts.h"
 #include "arex_data.h"
+#include "arex_alarm.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -2490,7 +2491,18 @@ void arex_trigger_alarm(arex_alarm_level_t level,
                         const char *eng_text,
                         arex_widget_id_t target_id)
 {
-    /* 如果已有活跃告警且未达到最小显示时间，重置计时器（而不是忽略） */
+    (void)arex_alarm_raise_custom(level, eng_text, target_id);
+    g_ui.alarm_pending_click = (level >= AREX_ALARM_WARN);
+    return;
+
+    if (s_alarm_active &&
+            g_current_alarm_level == level &&
+            g_current_alarm_target == target_id)
+    {
+        return;
+    }
+
+    /* Different active alarms wait for the current minimum display window. */
     if (s_alarm_active && g_current_alarm_level != AREX_ALARM_NONE)
     {
         uint32_t elapsed = lv_tick_elaps(s_alarm_start_tick);
@@ -2518,6 +2530,13 @@ void arex_trigger_alarm(arex_alarm_level_t level,
  * ========================================================= */
 void arex_clear_all_alarm_styles(void)
 {
+    arex_alarm_clear_all();
+    g_current_alarm_target = WIDGET_EMPTY;
+    g_current_alarm_level = AREX_ALARM_NONE;
+    s_alarm_active = false;
+    s_alarm_clear_armed = false;
+    return;
+
     /* 检查是否满足最小显示时*/
     uint32_t elapsed = lv_tick_elaps(s_alarm_start_tick);
     if (elapsed < ALARM_MIN_DISPLAY_MS)
@@ -2541,8 +2560,7 @@ void arex_clear_all_alarm_styles(void)
 
 bool arex_alarm_mark_clear_requested(void)
 {
-    s_alarm_clear_armed = true;
-    return true;
+    return arex_alarm_ack_current();
 }
 
 /* =========================================================
@@ -2589,19 +2607,285 @@ void arex_show_alarm_banner(arex_alarm_level_t level, const char *eng_text)
     lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(s_alarm_banner_lbl, AREX_BLACK, 0);
 
-#if AREX_ALARM_SHOW_PREFIX
-    /* 拼接前缀 */
-    const char *prefix = "INFO";
-    if (level >= 3) prefix = "CRITICAL";
-    else if (level >= 2) prefix = "WARNING";
-
-    char full_text[128];
-    snprintf(full_text, sizeof(full_text), "%s: %s", prefix, eng_text ? eng_text : "");
-    lv_label_set_text(s_alarm_banner_lbl, full_text);
-#else
-    /* 直接显示传入的文字，不带前缀 */
+    (void)level;
     lv_label_set_text(s_alarm_banner_lbl, eng_text ? eng_text : "");
-#endif
+    /* 拼接前缀 */
+    /* 直接显示传入的文字，不带前缀 */
+}
+
+static lv_color_t arex_alarm_level_color(arex_alarm_level_t level)
+{
+    (void)level;
+    return AREX_GREEN;
+}
+
+static lv_color_t arex_alarm_dim_green(uint8_t percent)
+{
+    uint8_t channel = (uint8_t)((255U * (uint16_t)percent) / 100U);
+    return lv_color_make(0x00, channel, 0x00);
+}
+
+static bool arex_alarm_target_match(uintptr_t raw, arex_widget_id_t target)
+{
+    if (raw == (uintptr_t)target)
+    {
+        return true;
+    }
+    if (target == WIDGET_POD_0806)
+    {
+        return (raw % 1000U) == (uintptr_t)WIDGET_POD_0806;
+    }
+    return false;
+}
+
+static void arex_alarm_set_text_color_recursive(lv_obj_t *obj, lv_color_t color)
+{
+    if (!obj)
+    {
+        return;
+    }
+    if (lv_obj_check_type(obj, &lv_label_class))
+    {
+        lv_obj_set_style_text_color(obj, color, 0);
+    }
+    int16_t child_count = lv_obj_get_child_cnt(obj);
+    for (int16_t i = 0; i < child_count; i++)
+    {
+        arex_alarm_set_text_color_recursive(lv_obj_get_child(obj, i), color);
+    }
+}
+
+static void arex_alarm_restore_widget_style(lv_obj_t *obj);
+
+static void arex_alarm_apply_widget_style(lv_obj_t *obj,
+                                          arex_alarm_level_t level,
+                                          bool phase_on)
+{
+    lv_color_t alarm_color = arex_alarm_level_color(level);
+    lv_color_t text_color = AREX_GREEN;
+
+    if (level >= AREX_ALARM_CRIT)
+    {
+        if (phase_on)
+        {
+            lv_obj_set_style_bg_color(obj, alarm_color, 0);
+            lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(obj, alarm_color, 0);
+            lv_obj_set_style_border_width(obj, 2, 0);
+            text_color = AREX_BLACK;
+        }
+        else
+        {
+            arex_alarm_restore_widget_style(obj);
+            return;
+        }
+    }
+    else if (level == AREX_ALARM_WARN)
+    {
+        lv_obj_set_style_bg_color(obj, arex_alarm_dim_green(15), 0);
+        lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_color(obj, alarm_color, 0);
+        lv_obj_set_style_border_width(obj, phase_on ? 4 : 1, 0);
+        text_color = AREX_GREEN;
+    }
+
+    arex_alarm_set_text_color_recursive(obj, text_color);
+}
+
+static void arex_alarm_restore_widget_style(lv_obj_t *obj)
+{
+    if (!obj)
+    {
+        return;
+    }
+    lv_obj_set_style_bg_color(obj, AREX_BLACK, 0);
+    lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(obj, AREX_DARK, 0);
+    lv_obj_set_style_border_width(obj, AREX_DEBUG_BORDERS ? 1 : 0, 0);
+    arex_alarm_set_text_color_recursive(obj, AREX_GREEN);
+}
+
+static void arex_alarm_visit_targets(const arex_widget_id_t *targets,
+                                     uint8_t target_count,
+                                     arex_alarm_level_t level,
+                                     bool phase_on,
+                                     bool restore)
+{
+    uint8_t max_count = (g_card_custom_obj_count < AREX_MAX_CUSTOM_CARDS)
+                        ? g_card_custom_obj_count : AREX_MAX_CUSTOM_CARDS;
+
+    for (uint8_t c = 0; c <= max_count; c++)
+    {
+        lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
+        if (!container)
+        {
+            continue;
+        }
+
+        int16_t child_count = lv_obj_get_child_cnt(container);
+        for (int16_t i = 0; i < child_count; i++)
+        {
+            lv_obj_t *child = lv_obj_get_child(container, i);
+            uintptr_t raw = (uintptr_t)lv_obj_get_user_data(child);
+            bool matched = false;
+
+            for (uint8_t t = 0; t < target_count; t++)
+            {
+                if (arex_alarm_target_match(raw, targets[t]))
+                {
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (!matched)
+            {
+                continue;
+            }
+
+            if (restore)
+            {
+                arex_alarm_restore_widget_style(child);
+            }
+            else
+            {
+                arex_alarm_apply_widget_style(child, level, phase_on);
+            }
+        }
+    }
+}
+
+static void arex_alarm_restore_targets(const arex_widget_id_t *targets, uint8_t count)
+{
+    arex_alarm_visit_targets(targets, count, AREX_ALARM_NONE, false, true);
+}
+
+static void arex_alarm_format_banner(const arex_alarm_display_t *display,
+                                     char *buf,
+                                     size_t buf_size)
+{
+    const char *text = display->text ? display->text : "";
+
+    if (display->level >= AREX_ALARM_CRIT)
+    {
+        snprintf(buf, buf_size, "CRITICAL: %s", text);
+    }
+    else if (display->level == AREX_ALARM_WARN)
+    {
+        snprintf(buf, buf_size, "WARNING: %s", text);
+    }
+    else
+    {
+        snprintf(buf, buf_size, "%s", text);
+    }
+}
+
+static void arex_alarm_render_tick(void)
+{
+    static arex_widget_id_t s_prev_targets[AREX_ALARM_TARGET_MAX];
+    static uint8_t s_prev_target_count = 0;
+    static uint32_t s_last_revision = 0xFFFFFFFFU;
+    static arex_alarm_level_t s_last_level = AREX_ALARM_NONE;
+    static bool s_last_phase = false;
+    static bool s_last_visible = false;
+
+    uint32_t now = lv_tick_get();
+    arex_alarm_tick(now);
+
+    const arex_alarm_display_t *display = arex_alarm_get_display();
+    bool phase_on = true;
+
+    if (display->level >= AREX_ALARM_CRIT)
+    {
+        phase_on = ((now / 333U) % 2U) == 0U;
+    }
+    else if (display->level == AREX_ALARM_WARN)
+    {
+        phase_on = ((now / 500U) % 2U) == 0U;
+    }
+
+    if (!display->visible)
+    {
+        if (s_last_visible)
+        {
+            if (s_alarm_banner)
+            {
+                lv_obj_add_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);
+            }
+            arex_alarm_restore_targets(s_prev_targets, s_prev_target_count);
+            s_prev_target_count = 0;
+            g_ui.alarm_pending_click = false;
+        }
+
+        s_last_visible = false;
+        s_last_level = AREX_ALARM_NONE;
+        s_last_revision = display->revision;
+        return;
+    }
+
+    bool need_update = (!s_last_visible ||
+                        s_last_revision != display->revision ||
+                        s_last_level != display->level ||
+                        s_last_phase != phase_on);
+    if (!need_update)
+    {
+        return;
+    }
+
+    if (s_prev_target_count > 0U)
+    {
+        arex_alarm_restore_targets(s_prev_targets, s_prev_target_count);
+        s_prev_target_count = 0;
+    }
+
+    char banner_text[128];
+    arex_alarm_format_banner(display, banner_text, sizeof(banner_text));
+    arex_show_alarm_banner(display->level, banner_text);
+
+    if (s_alarm_banner && s_alarm_banner_lbl)
+    {
+        lv_color_t alarm_color = arex_alarm_level_color(display->level);
+
+        if (display->level >= AREX_ALARM_CRIT)
+        {
+            lv_obj_set_style_bg_color(s_alarm_banner, phase_on ? alarm_color : AREX_BLACK, 0);
+            lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
+            lv_obj_set_style_border_width(s_alarm_banner, 2, 0);
+            lv_obj_set_style_text_color(s_alarm_banner_lbl, phase_on ? AREX_BLACK : alarm_color, 0);
+        }
+        else if (display->level == AREX_ALARM_WARN)
+        {
+            lv_obj_set_style_bg_color(s_alarm_banner, arex_alarm_dim_green(20), 0);
+            lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
+            lv_obj_set_style_border_width(s_alarm_banner, phase_on ? 4 : 1, 0);
+            lv_obj_set_style_text_color(s_alarm_banner_lbl, alarm_color, 0);
+        }
+        else
+        {
+            lv_obj_set_style_bg_color(s_alarm_banner, arex_alarm_dim_green(10), 0);
+            lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
+            lv_obj_set_style_border_width(s_alarm_banner, 1, 0);
+            lv_obj_set_style_text_color(s_alarm_banner_lbl, alarm_color, 0);
+        }
+    }
+
+    s_prev_target_count = arex_alarm_get_active_targets(display->level,
+                                                        s_prev_targets,
+                                                        AREX_ALARM_TARGET_MAX);
+    if (s_prev_target_count > 0U)
+    {
+        arex_alarm_visit_targets(s_prev_targets, s_prev_target_count,
+                                 display->level, phase_on, false);
+    }
+
+    g_ui.alarm_pending_click = (display->level >= AREX_ALARM_WARN);
+    s_last_visible = true;
+    s_last_level = display->level;
+    s_last_phase = phase_on;
+    s_last_revision = display->revision;
 }
 
 /* =========================================================
@@ -2628,6 +2912,8 @@ void arex_ui_update_data(void)
 void arex_ui_update_task(lv_timer_t *timer)
 {
     (void)timer;
+
+    arex_alarm_render_tick();
 
     {
         static arex_compass_cal_ui_state_t s_last_compass_cal_state = AREX_COMPASS_CAL_IDLE;
@@ -3155,15 +3441,11 @@ void arex_ui_update_task(lv_timer_t *timer)
     }
 
     /* ============================================================
-     * 🚨 告警待处理标志统一处理
-     * arex_bus_set_depth 等函数设置标志位，在此统一触发
+     * Alarm event consumption. Data bus writers raise DIRTY_ALARM.
      * ============================================================ */
-    if (g_alarm_pending)
+    if (mask & DIRTY_ALARM)
     {
-        g_alarm_pending = false;
-        arex_trigger_alarm(g_pending_alarm_level,
-                           g_pending_alarm_text,
-                           g_pending_alarm_target);
+        arex_alarm_render_tick();
     }
 
 }

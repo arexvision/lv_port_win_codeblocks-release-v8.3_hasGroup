@@ -1,4 +1,5 @@
 #include "arex_data.h"
+#include "arex_alarm.h"
 #include <math.h>
 #include <string.h>
 #include "stdio.h"
@@ -11,27 +12,42 @@ extern uint16_t         g_deco_stop_count;
 #endif
 
 /* =========================================================
- * 告警待处理标志（由数据层设置，由 arex_ui_update_task 统一处理）
- * ========================================================= */
-volatile bool g_alarm_pending = false;
-arex_alarm_level_t g_pending_alarm_level = AREX_ALARM_NONE;
-const char *g_pending_alarm_text = NULL;
-arex_widget_id_t g_pending_alarm_target = WIDGET_EMPTY;
-
-/* =========================================================
  * Data Bus Setter 实现 — 硬件/模拟层专用
  * 铁律：仅更新数值 + 打脏标记，绝不碰 LVGL！
  * ========================================================= */
 
-/* UI 速率通道：3s 窗口，偏响应；告警通道：5s 窗口，偏稳定 */
-#define AREX_DEPTH_UI_RATE_WINDOW_SIZE     6U
-#define AREX_DEPTH_ALARM_RATE_WINDOW_SIZE  10U
-#define AREX_DEPTH_DISPLAY_DEBOUNCE_M      0.05f
-#define AREX_ASCENT_RATE_UI_EPSILON        0.2f
-#define AREX_ASCENT_RATE_UI_SMOOTH_ALPHA   0.45f
-#define AREX_ASCENT_ALARM_THRESHOLD_MPM    12.0f
-#define AREX_ASCENT_ALARM_RELEASE_MPM      10.0f
-#define AREX_ASCENT_ALARM_HOLD_SAMPLES     3U
+/* =========================================================
+ * 模拟/业务告警阈值集中配置
+ *
+ * 说明：
+ * - 当前第一版不接 NVDS/APP 持久化，这里就是默认阈值入口。
+ * - 后续如果设置菜单要支持用户自定义阈值，优先把这些宏改为
+ *   g_sys_config 或用户配置字段，而不是在 setter 中分散硬编码。
+ * - UI 速率图标和上升过快告警使用两套窗口：图标追求灵敏，
+ *   告警追求稳定，避免模拟数据轻微抖动导致误报。
+ * ========================================================= */
+#define AREX_DEPTH_UI_RATE_WINDOW_SIZE     3U       /* 速度图标采样窗口：越小越灵敏 */
+#define AREX_DEPTH_ALARM_RATE_WINDOW_SIZE  4U       /* 上升过快告警采样窗口：越大越稳 */
+#define AREX_DEPTH_DISPLAY_DEBOUNCE_M      0.05f    /* 深度显示防抖：小于 0.05m 不刷新数字 */
+#define AREX_ASCENT_RATE_UI_EPSILON        0.2f     /* 速度图标变化阈值：低于该值认为无明显变化 */
+#define AREX_ASCENT_RATE_UI_SMOOTH_ALPHA   0.75f    /* 速度图标平滑系数：越大响应越快 */
+#define AREX_ASCENT_ALARM_THRESHOLD_MPM    10.0f    /* CRIT.ASCENT_RATE：上升速度 >= 10m/min 触发 */
+#define AREX_ASCENT_ALARM_RELEASE_MPM      8.0f     /* CRIT.ASCENT_RATE：回落到 8m/min 以下解除 */
+#define AREX_ASCENT_ALARM_HOLD_SAMPLES     2U       /* CRIT.ASCENT_RATE：连续满足的采样次数 */
+
+#define AREX_ALARM_DEPTH_LIMIT_M           40.0f        /* WARN.DEPTH_LIMIT：深度 >= 40m */
+#define AREX_ALARM_TIME_LIMIT_S            (60U * 60U)  /* WARN.TIME_LIMIT：潜水时间 >= 60min */
+#define AREX_ALARM_NDL_LOW_MIN             5            /* WARN.NDL_LOW：NDL < 5min */
+#define AREX_ALARM_TURN_PRESSURE_BAR       100.0f       /* WARN.TANK_TURN：任一有效 POD < 100bar */
+#define AREX_ALARM_TANK_EMPTY_BAR          50.0f        /* CRIT.TANK_EMPTY：任一有效 POD < 50bar */
+#define AREX_ALARM_SIDEMOUNT_DIFF_BAR      50.0f        /* WARN.SIDEMOUNT_DIFF：双瓶压差 >= 50bar */
+#define AREX_ALARM_BATTERY_LOW_PCT         20.0f        /* WARN.BATTERY_LOW：电量 < 20% */
+#define AREX_ALARM_BATTERY_DEAD_PCT        5.0f         /* CRIT.BATTERY_DEAD：电量 < 5% */
+#define AREX_ALARM_PO2_CRIT_BAR            1.6f         /* CRIT.PO2_MAX：PPO2 > 1.6bar */
+#define AREX_ALARM_CEILING_MARGIN_M        0.6f         /* CRIT.CEIL_BROKEN：浅于 ceiling 0.6m */
+#define AREX_ALARM_SAFETY_BROKEN_M         2.4f         /* WARN.SAFETY_BROKEN：安全停留时浅于 2.4m */
+#define AREX_ALARM_CNS_HIGH_PCT            80U          /* WARN.CNS_HIGH：CNS >= 80% */
+#define AREX_ALARM_OTU_HIGH                250U         /* WARN.OTU_HIGH：OTU >= 250 */
 
 typedef struct
 {
@@ -133,10 +149,181 @@ static float arex_depth_rate_estimate_mpm(const arex_depth_sample_t *window,
     return (n * sum_td - sum_t * sum_d) / denominator;
 }
 
+static float arex_depth_rate_estimate_latest_mpm(const arex_depth_sample_t *window,
+        uint8_t window_size,
+        uint8_t count,
+        uint8_t head)
+{
+    if (count < 2U)
+    {
+        return 0.0f;
+    }
+
+    uint8_t newest = (uint8_t)((head + window_size - 1U) % window_size);
+    uint8_t prev = (uint8_t)((head + window_size - 2U) % window_size);
+    uint32_t dt_ms = window[newest].timestamp_ms - window[prev].timestamp_ms;
+    if (dt_ms == 0U)
+    {
+        return 0.0f;
+    }
+
+    return (window[newest].depth_m - window[prev].depth_m) * 60000.0f / (float)dt_ms;
+}
+
+static float arex_alarm_active_ppo2_max(void)
+{
+    float max_ppo2 = 0.0f;
+    for (uint8_t i = 0; i < AREX_GAS_COUNT; i++)
+    {
+        if (g_sensor_data.ppo2[i] > max_ppo2)
+        {
+            max_ppo2 = g_sensor_data.ppo2[i];
+        }
+    }
+    return max_ppo2;
+}
+
+static void arex_alarm_eval_ppo2(void)
+{
+    float max_ppo2 = arex_alarm_active_ppo2_max();
+    /* WARN.PO2_ELEVATED：优先使用系统设置的 PPO2 上限；未配置时按 1.4bar 默认安全线。 */
+    float elevated_limit = (g_sys_config.mod_ppo2 > 0.1f) ? g_sys_config.mod_ppo2 : 1.4f;
+    bool critical = (max_ppo2 > AREX_ALARM_PO2_CRIT_BAR);
+    bool elevated = (!critical && max_ppo2 > elevated_limit);
+
+    arex_alarm_set_active(AREX_ALARM_ID_CRIT_PO2_MAX, critical);
+    arex_alarm_set_active(AREX_ALARM_ID_WARN_PO2_ELEVATED, elevated);
+}
+
+static void arex_alarm_eval_battery(void)
+{
+    bool dead = (g_sensor_data.battery_pct < AREX_ALARM_BATTERY_DEAD_PCT);
+    bool low = (!dead && g_sensor_data.battery_pct < AREX_ALARM_BATTERY_LOW_PCT);
+
+    arex_alarm_set_active(AREX_ALARM_ID_CRIT_BATTERY_DEAD, dead);
+    arex_alarm_set_active(AREX_ALARM_ID_WARN_BATTERY_LOW, low);
+}
+
+static void arex_alarm_eval_pod(void)
+{
+    bool pod1_valid = (g_sensor_data.pod1_bar > 0.0f);
+    bool pod2_valid = (g_sensor_data.pod2_bar > 0.0f);
+    bool tank_empty = false;
+    bool tank_turn = false;
+    bool sidemount_diff = false;
+
+    if (pod1_valid)
+    {
+        tank_empty = tank_empty || (g_sensor_data.pod1_bar < AREX_ALARM_TANK_EMPTY_BAR);
+        tank_turn = tank_turn || (g_sensor_data.pod1_bar < AREX_ALARM_TURN_PRESSURE_BAR);
+    }
+    if (pod2_valid)
+    {
+        tank_empty = tank_empty || (g_sensor_data.pod2_bar < AREX_ALARM_TANK_EMPTY_BAR);
+        tank_turn = tank_turn || (g_sensor_data.pod2_bar < AREX_ALARM_TURN_PRESSURE_BAR);
+    }
+
+    tank_turn = tank_turn && !tank_empty;
+    if (pod1_valid && pod2_valid)
+    {
+        sidemount_diff = (fabsf(g_sensor_data.pod1_bar - g_sensor_data.pod2_bar) >=
+                          AREX_ALARM_SIDEMOUNT_DIFF_BAR);
+    }
+
+    arex_alarm_set_active(AREX_ALARM_ID_CRIT_TANK_EMPTY, tank_empty);
+    arex_alarm_set_active(AREX_ALARM_ID_WARN_TANK_TURN, tank_turn);
+    arex_alarm_set_active(AREX_ALARM_ID_WARN_SIDEMOUNT_DIFF, sidemount_diff);
+}
+
+static void arex_alarm_eval_depth_limit(void)
+{
+    arex_alarm_set_active(AREX_ALARM_ID_WARN_DEPTH_LIMIT,
+                          g_sensor_data.depth >= AREX_ALARM_DEPTH_LIMIT_M);
+}
+
+static void arex_alarm_eval_time_limit(void)
+{
+    arex_alarm_set_active(AREX_ALARM_ID_WARN_TIME_LIMIT,
+                          g_sensor_data.dive_time_s >= AREX_ALARM_TIME_LIMIT_S);
+}
+
+static void arex_alarm_eval_ndl(void)
+{
+    arex_alarm_set_active(AREX_ALARM_ID_WARN_NDL_LOW,
+                          g_sensor_data.stop_type == AREX_STOP_NONE &&
+                          g_sensor_data.ndl >= 0 &&
+                          g_sensor_data.ndl < AREX_ALARM_NDL_LOW_MIN);
+}
+
+static void arex_alarm_eval_oxygen_toxicity(void)
+{
+    arex_alarm_set_active(AREX_ALARM_ID_WARN_CNS_HIGH,
+                          g_sensor_data.cns_pct >= AREX_ALARM_CNS_HIGH_PCT);
+    arex_alarm_set_active(AREX_ALARM_ID_WARN_OTU_HIGH,
+                          g_sensor_data.otu >= AREX_ALARM_OTU_HIGH);
+}
+
+static void arex_alarm_eval_deco_limits(void)
+{
+    bool ceiling_broken = (g_sensor_data.stop_type == AREX_STOP_DECO &&
+                           g_sensor_data.ceiling_m > 0.0f &&
+                           g_sensor_data.depth < (g_sensor_data.ceiling_m - AREX_ALARM_CEILING_MARGIN_M));
+    bool safety_broken = (g_sensor_data.stop_type == AREX_STOP_SAFETY &&
+                          g_sensor_data.depth < AREX_ALARM_SAFETY_BROKEN_M);
+
+    arex_alarm_set_active(AREX_ALARM_ID_CRIT_CEIL_BROKEN, ceiling_broken);
+    arex_alarm_set_active(AREX_ALARM_ID_WARN_SAFETY_BROKEN, safety_broken);
+}
+
+static void arex_alarm_eval_gas_switch(void)
+{
+    static bool s_gas_switch_condition = false;
+    bool available = false;
+    uint8_t active_idx = g_sensor_data.gas_active_idx;
+    uint8_t active_o2 = (active_idx < AREX_GAS_COUNT) ?
+                        g_sensor_data.gas_slot_o2_pct[active_idx] : 0U;
+
+    if (g_sensor_data.depth > 0.1f && active_idx < AREX_GAS_COUNT)
+    {
+        for (uint8_t i = 0; i < AREX_GAS_COUNT; i++)
+        {
+            if (i == active_idx)
+            {
+                continue;
+            }
+            if (g_sensor_data.gas_slot_o2_pct[i] > active_o2 &&
+                    g_sensor_data.gas_slot_mod_m[i] + 0.05f >= g_sensor_data.depth)
+            {
+                available = true;
+                break;
+            }
+        }
+    }
+
+    if (available && !s_gas_switch_condition)
+    {
+        arex_alarm_set_active(AREX_ALARM_ID_INFO_GAS_SWITCH, true);
+    }
+    s_gas_switch_condition = available;
+}
+
+static void arex_alarm_eval_safety_stop_info(void)
+{
+    static bool s_safety_stop_condition = false;
+    bool active = (g_sensor_data.stop_type == AREX_STOP_SAFETY);
+
+    if (active && !s_safety_stop_condition)
+    {
+        arex_alarm_set_active(AREX_ALARM_ID_INFO_SAFETY_STOP, true);
+    }
+    s_safety_stop_condition = active;
+}
+
 void arex_data_init(void)
 {
     memset(&g_sensor_data, 0, sizeof(g_sensor_data));
     arex_depth_rate_reset();
+    arex_alarm_init();
     _depth_sum = 0.0f;
     _depth_sample_count = 0;
     _temp_sum = 0.0f;
@@ -169,6 +356,13 @@ void arex_data_init(void)
     g_deco_stop_count = 0;
 }
 
+void arex_bus_raise_alarm(arex_alarm_level_t level,
+                          const char *text,
+                          arex_widget_id_t target)
+{
+    (void)arex_alarm_raise_custom(level, text, target);
+}
+
 void arex_bus_set_depth(float depth_m)
 {
     uint32_t now_ms = arex_depth_now_ms();
@@ -190,7 +384,7 @@ void arex_bus_set_depth(float depth_m)
                                 now_ms,
                                 depth_m);
 
-    ui_depth_rate_mpm = arex_depth_rate_estimate_mpm(_ui_depth_rate_window,
+    ui_depth_rate_mpm = arex_depth_rate_estimate_latest_mpm(_ui_depth_rate_window,
                         AREX_DEPTH_UI_RATE_WINDOW_SIZE,
                         _ui_depth_rate_count,
                         _ui_depth_rate_head);
@@ -240,10 +434,11 @@ void arex_bus_set_depth(float depth_m)
 
     if (_ascent_alarm_over_limit_count >= AREX_ASCENT_ALARM_HOLD_SAMPLES)
     {
-        g_alarm_pending = true;
-        g_pending_alarm_level = AREX_ALARM_CRIT;
-        g_pending_alarm_text = "ASCENT RATE FAST";
-        g_pending_alarm_target = WIDGET_DEPTH_1606;
+        arex_alarm_set_active(AREX_ALARM_ID_CRIT_ASCENT_RATE, true);
+    }
+    else if (alarm_depth_rate_mpm > -AREX_ASCENT_ALARM_RELEASE_MPM)
+    {
+        arex_alarm_set_active(AREX_ALARM_ID_CRIT_ASCENT_RATE, false);
     }
 
     /* 深度数值显示继续保留轻量防抖，避免数字末位来回跳 */
@@ -262,6 +457,10 @@ void arex_bus_set_depth(float depth_m)
         _depth_sum += depth_m;
         _depth_sample_count++;
         g_sensor_data.avg_depth = (_depth_sample_count > 0) ? (_depth_sum / _depth_sample_count) : 0.0f;
+
+        arex_alarm_eval_depth_limit();
+        arex_alarm_eval_deco_limits();
+        arex_alarm_eval_gas_switch();
     }
 }
 
@@ -271,6 +470,7 @@ void arex_bus_set_ndl(int16_t ndl_min)
     {
         g_sensor_data.ndl = ndl_min;
         g_sensor_data.dirty_mask |= DIRTY_NDL;
+        arex_alarm_eval_ndl();
     }
 }
 
@@ -295,6 +495,7 @@ void arex_bus_set_pod(uint8_t pod_idx, float bar)
         g_sensor_data.pod2_bar = bar;
         g_sensor_data.dirty_mask |= DIRTY_POD;
     }
+    arex_alarm_eval_pod();
 }
 
 void arex_bus_set_battery(float pct)
@@ -315,6 +516,7 @@ void arex_bus_set_battery(float pct)
         s_battery_initialized = true;
         g_sensor_data.battery_pct = pct;
         g_sensor_data.dirty_mask |= DIRTY_BATT;
+        arex_alarm_eval_battery();
     }
 }
 
@@ -333,6 +535,7 @@ void arex_bus_set_dive_time(uint32_t dive_s)
     {
         g_sensor_data.dive_time_s = dive_s;
         g_sensor_data.dirty_mask |= DIRTY_DIVE_TIME;
+        arex_alarm_eval_time_limit();
         /* 潜水时间推进，图表的 NOW 点会随之右移 */
         g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
     }
@@ -353,6 +556,7 @@ void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val)
     {
         g_sensor_data.ppo2[sensor_idx] = ppo2_val;
         g_sensor_data.dirty_mask |= DIRTY_PPO2;
+        arex_alarm_eval_ppo2();
     }
 }
 
@@ -368,6 +572,7 @@ void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name)
         g_sensor_data.gas_name[15] = '\0';
     }
     g_sensor_data.dirty_mask |= DIRTY_GAS;
+    arex_alarm_eval_gas_switch();
 }
 
 void arex_bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
@@ -405,6 +610,7 @@ void arex_bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
     if (changed)
     {
         g_sensor_data.dirty_mask |= DIRTY_GAS;
+        arex_alarm_eval_gas_switch();
     }
 }
 
@@ -424,6 +630,7 @@ void arex_bus_set_cns(uint8_t cns_pct)
     {
         g_sensor_data.cns_pct = cns_pct;
         g_sensor_data.dirty_mask |= DIRTY_CNS;
+        arex_alarm_eval_oxygen_toxicity();
     }
 }
 
@@ -433,6 +640,7 @@ void arex_bus_set_otu(uint16_t otu_val)
     {
         g_sensor_data.otu = otu_val;
         g_sensor_data.dirty_mask |= DIRTY_OTU;
+        arex_alarm_eval_oxygen_toxicity();
     }
 }
 
@@ -730,6 +938,8 @@ void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
     uint32_t new_dirty = DIRTY_NDL;  /* NDL 始终需要检查 */
 
     /* 计算是否需要更新 */
+    arex_stop_type_t prev_stop_type = g_sensor_data.stop_type;
+    uint16_t prev_stop_time_left_s = g_sensor_data.stop_time_left_s;
     bool ndl_changed  = (g_sensor_data.ndl != ndl_min);
     bool stop_changed = (g_sensor_data.stop_type != stop_type ||
                          g_sensor_data.stop_depth_m != depth_m ||
@@ -763,6 +973,14 @@ void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
     g_sensor_data.dirty_mask |= new_dirty;
 
     rt_hw_interrupt_enable(level);
+
+    arex_alarm_eval_ndl();
+    arex_alarm_eval_deco_limits();
+    arex_alarm_eval_safety_stop_info();
+    if (prev_stop_type != AREX_STOP_NONE && prev_stop_time_left_s > 0U && time_s == 0U)
+    {
+        arex_alarm_set_active(AREX_ALARM_ID_INFO_STOP_DONE, true);
+    }
 }
 
 /* GF Low/High 设定值同步接口（由 buhlmann_task 调用） */
@@ -793,6 +1011,7 @@ void arex_bus_set_ceiling(float ceiling_m)
     {
         g_sensor_data.ceiling_m = ceiling_m;
         g_sensor_data.dirty_mask |= DIRTY_CEILING;
+        arex_alarm_eval_deco_limits();
     }
 }
 

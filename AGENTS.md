@@ -18,6 +18,8 @@ Both targets define `-DLV_CONF_INCLUDE_SIMPLE=1 -DWINVER=0x0601` and link `mingw
 
 There is no command-line build script. There are no automated tests integrated into the build.
 
+Do not modify `LittlevGL.cbp` during routine code changes. Only update the CodeBlocks project file when the user explicitly asks for it.
+
 ## Architecture
 
 Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative, 207KB). Read it before making structural changes.

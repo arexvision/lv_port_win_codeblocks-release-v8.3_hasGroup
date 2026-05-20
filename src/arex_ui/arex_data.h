@@ -173,11 +173,9 @@ void arex_bus_clear_all_dirty(void);
 // /* 重置潜水统计值（开始新潜水时调用） */
 // void arex_bus_reset_stats(void);
 
-/* 告警待处理标志（由 arex_bus_set_depth 等函数设置，由 arex_ui_update_task 统一处理） */
-extern volatile bool g_alarm_pending;
-extern arex_alarm_level_t g_pending_alarm_level;
-extern const char *g_pending_alarm_text;
-extern arex_widget_id_t g_pending_alarm_target;
+void arex_bus_raise_alarm(arex_alarm_level_t level,
+                          const char *text,
+                          arex_widget_id_t target);
 
 /* --- 配置持久化（weak 实现由具体平台覆盖） --- */
 bool arex_config_load(arex_sys_config_t *cfg);
