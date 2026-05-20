@@ -348,6 +348,9 @@ static void dispatch_submenu_setting_callback(const arex_submenu_setting_confirm
             arex_ui_on_safety_stop_time_set(minutes[setting->value]);
         }
         break;
+    case AREX_SUBMENU_SETTING_LAST_DECO:
+        arex_ui_on_last_deco_stop_set(setting->value == 1 ? 6 : 3);
+        break;
     case AREX_SUBMENU_SETTING_ALTITUDE:
         arex_ui_on_altitude_range_set((uint8_t)setting->value);
         break;

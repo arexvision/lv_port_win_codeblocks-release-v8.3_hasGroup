@@ -19,6 +19,7 @@ void arex_ui_on_conservatism_set(uint8_t level);
 void arex_ui_on_salinity_set(uint8_t mode);
 void arex_ui_on_safety_stop_depth_set(uint8_t depth_m);
 void arex_ui_on_safety_stop_time_set(uint8_t minutes);
+void arex_ui_on_last_deco_stop_set(uint8_t depth_m);
 void arex_ui_on_altitude_range_set(uint8_t level);
 void arex_ui_on_dive_mode_set(uint8_t mode);
 void arex_ui_on_ai_pair(uint8_t tank_index);

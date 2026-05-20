@@ -41,6 +41,7 @@ static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NUL
 static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS NX", "GAUGE", "CCR", NULL };
 static const uint8_t s_safety_stop_values[] = { 0, 3, 4, 5 };
+static const uint8_t s_last_deco_values[] = { 3, 6 };
 static const uint8_t s_log_rate_values[]    = { 2, 5, 10, 30 };
 
 static char s_compass_cal_status_str[24];
@@ -49,8 +50,9 @@ static const char *s_compass_cal_items[] = { s_compass_cal_status_str, "RESET AU
 static char s_modppo2_str[20];
 static char s_salinity_str[24];
 static char s_safety_stop_str[24];
+static char s_last_deco_str[24];
 static char s_altitude_str[32];
-static const char *s_nested_dive_setup[5];
+static const char *s_nested_dive_setup[6];
 
 static char s_ai_gtr_str[24];
 static const char *s_nested_ai_setup[4];
@@ -74,6 +76,7 @@ static const char *s_nested_datetime[6];
 
 static uint8_t s_salinity_mode = 0;      /* 0=FRESH, 1=SALT, 2=EN13319 */
 static uint8_t s_safety_stop_mode = 1;   /* 0=OFF, 1=3min, 2=4min, 3=5min */
+static uint8_t s_last_deco_mode = 0;     /* 0=3m, 1=6m */
 static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1=SEA, 2=L1, 3=L2 */
 static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS NX, 3=GAUGE, 4=CCR */
 static uint8_t s_ai_tank_state[2] = { 0, 0 }; /* 0=UNPAIRED, 1=PAIRING, 2=PAIRED */
@@ -185,6 +188,17 @@ static const char *safety_stop_label(uint8_t value)
     }
     static char label[8];
     snprintf(label, sizeof(label), "%umin", s_safety_stop_values[value]);
+    return label;
+}
+
+static const char *last_deco_label(uint8_t value)
+{
+    if (value >= (sizeof(s_last_deco_values) / sizeof(s_last_deco_values[0])))
+    {
+        value = 0;
+    }
+    static char label[8];
+    snprintf(label, sizeof(label), "%um", s_last_deco_values[value]);
     return label;
 }
 
@@ -410,15 +424,17 @@ static const char **build_nested_dive_setup(uint8_t *out_count)
     snprintf(s_modppo2_str, sizeof(s_modppo2_str), "MOD PO2: %.1f", (double)g_sys_config.mod_ppo2);
     snprintf(s_salinity_str, sizeof(s_salinity_str), "SALINITY: %s", salinity_label(s_salinity_mode));
     snprintf(s_safety_stop_str, sizeof(s_safety_stop_str), "SAFETY STOP: %s", safety_stop_label(s_safety_stop_mode));
+    snprintf(s_last_deco_str, sizeof(s_last_deco_str), "LAST DECO: %s", last_deco_label(s_last_deco_mode));
     snprintf(s_altitude_str, sizeof(s_altitude_str), "ALTITUDE: %s", altitude_label(s_altitude_level));
     s_nested_dive_setup[0] = s_salinity_str;
     s_nested_dive_setup[1] = s_modppo2_str;
     s_nested_dive_setup[2] = s_safety_stop_str;
-    s_nested_dive_setup[3] = s_altitude_str;
-    s_nested_dive_setup[4] = NULL;
+    s_nested_dive_setup[3] = s_last_deco_str;
+    s_nested_dive_setup[4] = s_altitude_str;
+    s_nested_dive_setup[5] = NULL;
     if (out_count)
     {
-        *out_count = count_items(s_nested_dive_setup, 5);
+        *out_count = count_items(s_nested_dive_setup, 6);
     }
     return s_nested_dive_setup;
 }
@@ -696,6 +712,15 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
 
     if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 3)
     {
+        uint8_t next = (uint8_t)((s_last_deco_mode + 1) %
+                       (sizeof(s_last_deco_values) / sizeof(s_last_deco_values[0])));
+        out_setting->kind = AREX_SUBMENU_SETTING_LAST_DECO;
+        out_setting->value = next;
+        return true;
+    }
+
+    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 4)
+    {
         uint8_t next = (uint8_t)((s_altitude_level + 1) % 4);
         out_setting->kind = AREX_SUBMENU_SETTING_ALTITUDE;
         out_setting->value = next;
@@ -863,6 +888,9 @@ void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, u
         break;
     case AREX_SUBMENU_SETTING_SAFETY_STOP:
         s_safety_stop_mode = (value > 3) ? 1 : (uint8_t)value;
+        break;
+    case AREX_SUBMENU_SETTING_LAST_DECO:
+        s_last_deco_mode = (value > 1) ? 0 : (uint8_t)value;
         break;
     case AREX_SUBMENU_SETTING_ALTITUDE:
         s_altitude_level = (value > 3) ? 0 : (uint8_t)value;

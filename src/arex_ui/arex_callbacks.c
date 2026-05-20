@@ -72,6 +72,12 @@ void arex_ui_on_safety_stop_time_set(uint8_t minutes)
 }
 
 AREX_WEAK_CALLBACK
+void arex_ui_on_last_deco_stop_set(uint8_t depth_m)
+{
+    printf("[DIVE_SETUP] Last deco stop: %um\n", depth_m);
+}
+
+AREX_WEAK_CALLBACK
 void arex_ui_on_altitude_range_set(uint8_t level)
 {
     static const char *labels[] =
