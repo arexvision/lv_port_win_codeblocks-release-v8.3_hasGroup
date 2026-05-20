@@ -24,7 +24,7 @@ static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
     { "LOW", "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
     { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
-    { "VERSION: " AREX_SYSTEM_VERSION, "MODE SETUP", "DIVE MENU", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
+    { "VERSION: " AREX_SYSTEM_VERSION, "MODE SETUP >", "DIVE MENU >", "AI SETUP >", "ALERTS SETUP >", "DISPLAY >" },
 };
 
 static const char *s_setup_titles[AREX_SUBMENU_SETUP_COUNT] =
