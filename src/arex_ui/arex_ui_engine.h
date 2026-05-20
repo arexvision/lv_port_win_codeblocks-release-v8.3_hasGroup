@@ -73,8 +73,6 @@ extern "C" {
 #define AREX_ANCHOR_SEP_THICK  3   /* 模块间分割线粗细 px */
 #define AREX_ANCHOR_SEP_STYLE  AREX_SEP_SOLID  /* 分割线样式: SOLID/DASHED/DOTTED */
 
-/* 上升速率图标相关常量（供全局引用） */
-#define MAX_ASCENT_ICONS  12        /* 覆盖固定区 + 多张自定义卡中的全部 2x2 深度动画图标实例 */
 
 /* 速率阈值宏（可调整以修改 level1 触发灵敏度） */
 /* Level1 触发阈值：速率绝对值 >= 此值时显示 level1 */
@@ -83,8 +81,6 @@ extern "C" {
 #define AREX_RATE_LEVEL2_THRESHOLD  9.0f   /* m/min */
 /* 静止判定阈值：速率绝对值 < 此值时视为静止（不闪烁） */
 #define AREX_RATE_STILL_THRESHOLD   3.0f   /* m/min */
-extern lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
-extern uint8_t  s_ascent_icon_count;
 
 /* =========================================================
  * 1b. 气体表常量 (供全局引用)
@@ -510,23 +506,6 @@ extern arex_sensor_data_t g_sensor_data;
  * 支持屏幕上多个 NDL 模块（左侧锚点 1 个 + 5F 多个）
  * 三种状态: NDL常态 / Safety停留 / Deco停留
  * ========================================================= */
-#define MAX_NDL_ICONS 4
-typedef struct
-{
-    lv_obj_t *comp;
-    lv_obj_t *horiz_bg;    /* 十宫格画布（0 RAM 数学绘制） */
-    lv_obj_t *main_val;
-    lv_obj_t *title_top;
-    lv_obj_t *sub_bot;
-} ndl_handle_t;
-
-/* 速率图标指针阵列（最多支持 MAX_ASCENT_ICONS 个 DEPTH 模块） */
-extern lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
-extern uint8_t  s_ascent_icon_count;
-
-/* NDL_STOP 多形态组件句柄数组 */
-extern ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
-extern uint8_t      s_ndl_handle_count;
 
 /* =========================================================
  * 6b. 潜水轨迹与减压停留（供 card_plan.c 和 UI_main.c 共享）

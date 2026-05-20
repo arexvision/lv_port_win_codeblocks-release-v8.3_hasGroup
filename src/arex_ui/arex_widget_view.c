@@ -5,6 +5,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 /* ============================================================
  * 速率指示器图片资源（6级动态箭头）
@@ -15,6 +16,18 @@ LV_IMG_DECLARE(sudo_up_level2);
 LV_IMG_DECLARE(sudo_down_level0);
 LV_IMG_DECLARE(sudo_down_level1);
 LV_IMG_DECLARE(sudo_down_level2);
+
+#define MAX_ASCENT_ICONS  12
+#define MAX_NDL_ICONS     4
+
+typedef struct
+{
+    lv_obj_t *comp;
+    lv_obj_t *horiz_bg;
+    lv_obj_t *main_val;
+    lv_obj_t *title_top;
+    lv_obj_t *sub_bot;
+} ndl_handle_t;
 
 /* ============================================================
  * 速率图标指针阵列（支持多DEPTH 模块同时存在
@@ -27,10 +40,10 @@ LV_IMG_DECLARE(sudo_down_level2);
  * 支持屏幕上多NDL 模块（左侧锚1 + 5F 多个
  * 三种状 NDL常/ Safety停留 / Deco停留
  * ============================================================ */
-lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
-uint8_t  s_ascent_icon_count = 0;
-ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
-uint8_t      s_ndl_handle_count = 0;
+static lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
+static uint8_t  s_ascent_icon_count = 0;
+static ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
+static uint8_t      s_ndl_handle_count = 0;
 
 static uint8_t arex_ui_clamp_battery_pct(float pct)
 {
@@ -105,6 +118,11 @@ static uint8_t arex_get_pod_index(void)
  * ========================================================= */
 void arex_reset_widget_render_state(void)
 {
+    memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
+    s_ascent_icon_count = 0;
+    memset(s_ndl_handles, 0, sizeof(s_ndl_handles));
+    s_ndl_handle_count = 0;
+
     s_pod_render_count = 0;
 
     /* 归零底部 SystemData 静态句柄，防止 lv_timer 访问死内*/

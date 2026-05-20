@@ -204,14 +204,6 @@ static void styles_init(void)
  * ========================================================= */
 static void clear_widget_arrays(void)
 {
-    /* 重置速率图标阵列 */
-    memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
-    s_ascent_icon_count = 0;
-
-    /* 重置 NDL 状态机 */
-    memset(s_ndl_handles, 0, sizeof(s_ndl_handles));
-    s_ndl_handle_count = 0;
-
     /* 重置渲染计数器和 SystemData 静态句柄 */
     arex_reset_widget_render_state();
 }
