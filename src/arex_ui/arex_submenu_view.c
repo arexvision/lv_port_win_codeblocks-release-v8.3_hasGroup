@@ -355,27 +355,6 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
-    /* LIGHT CONTROL 颜色选项处理（必须在通用处理之前） */
-    if (strcmp(cur_title, "LIGHT CONTROL") == 0 && strstr(text, "COLOR") != NULL)
-    {
-        /* 从 "RED COLOR >" 提取颜色名 */
-        char color_name[20] = {0};
-        if (strncmp(text, "RED", 3) == 0) strcpy(color_name, "RED");
-        else if (strncmp(text, "GREEN", 5) == 0) strcpy(color_name, "GREEN");
-        else if (strncmp(text, "BLUE", 4) == 0) strcpy(color_name, "BLUE");
-        else if (strncmp(text, "WHITE", 5) == 0) strcpy(color_name, "WHITE");
-
-        /* 通过 nested_items_for 获取颜色亮度选项（专门的二级嵌套菜单） */
-        uint8_t ncnt = 0;
-        const char **color_items = arex_submenu_nested_items_for(color_name, &ncnt);
-        if (color_items && ncnt > 0)
-        {
-            arex_screen_open_nested_submenu(color_name, color_items, ncnt);
-        }
-        return;
-    }
-
-    /* LIGHT CONTROL 第一项：切换 ON/OFF 状态 */
     if (strcmp(cur_title, "LIGHT CONTROL") == 0 && item_idx == 0)
     {
         g_light_power_state = !g_light_power_state;
@@ -391,24 +370,20 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
-    if (text[strlen(text) - 1] == '>')
     {
-        char nested_name[40] = {0};
-        size_t len = strlen(text);
-        size_t copy_len = (len >= 2) ? len - 2 : 0;
-        if (copy_len >= sizeof(nested_name)) copy_len = sizeof(nested_name) - 1;
-        memcpy(nested_name, text, copy_len);
-        while (copy_len > 0 && nested_name[copy_len - 1] == ' ')
-        {
-            nested_name[--copy_len] = '\0';
-        }
+        char child_title[40] = {0};
         uint8_t ncnt = 0;
-        const char **nitems = arex_submenu_nested_items_for(nested_name, &ncnt);
+        const char **nitems = arex_submenu_child_items_for(cur_title,
+                                                           item_idx,
+                                                           text,
+                                                           child_title,
+                                                           sizeof(child_title),
+                                                           &ncnt);
         if (nitems && ncnt > 0)
         {
-            arex_screen_open_nested_submenu(nested_name, nitems, ncnt);
+            arex_screen_open_nested_submenu(child_title, nitems, ncnt);
+            return;
         }
-        return;
     }
 
     if (strcmp(cur_title, "GAS SWITCH") == 0)

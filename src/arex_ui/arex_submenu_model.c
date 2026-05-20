@@ -24,7 +24,7 @@ static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
     { "LOW", "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
     { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
-    { "VERSION: " AREX_SYSTEM_VERSION, "MODE SETUP >", "DIVE MENU >", "AI SETUP >", "ALERTS SETUP >", "DISPLAY >" },
+    { "VERSION: " AREX_SYSTEM_VERSION, "MODE SETUP", "DIVE MENU", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
 };
 
 static const char *s_setup_titles[AREX_SUBMENU_SETUP_COUNT] =
@@ -68,6 +68,34 @@ static const char *strip_title_prefix(const char *title)
         return title + 2;
     }
     return title;
+}
+
+static void normalize_menu_key(const char *text, char *out, uint8_t out_size)
+{
+    if (!out || out_size == 0)
+    {
+        return;
+    }
+    out[0] = '\0';
+    if (!text)
+    {
+        return;
+    }
+
+    lv_snprintf(out, out_size, "%s", strip_title_prefix(text));
+    size_t len = strlen(out);
+    while (len > 0 && out[len - 1] == ' ')
+    {
+        out[--len] = '\0';
+    }
+    if (len > 0 && out[len - 1] == '>')
+    {
+        out[--len] = '\0';
+    }
+    while (len > 0 && out[len - 1] == ' ')
+    {
+        out[--len] = '\0';
+    }
 }
 
 static const char *compass_cal_status_text(void)
@@ -247,7 +275,9 @@ static const char **build_nested_dive_setup(uint8_t *out_count)
 
 const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count)
 {
-    const char *clean_title = strip_title_prefix(title);
+    char clean_title_buf[40];
+    normalize_menu_key(title, clean_title_buf, sizeof(clean_title_buf));
+    const char *clean_title = clean_title_buf;
     const char **items = NULL;
     uint8_t max_count = 8;
 
@@ -255,7 +285,7 @@ const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count
     {
         *out_count = 0;
     }
-    if (!clean_title)
+    if (clean_title[0] == '\0')
     {
         return NULL;
     }
@@ -273,6 +303,94 @@ const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count
     if (items && out_count)
     {
         *out_count = count_items(items, max_count);
+    }
+    return items;
+}
+
+const char **arex_submenu_child_items_for(const char *current_title,
+                                          uint8_t item_index,
+                                          const char *item_text,
+                                          char *out_title,
+                                          uint8_t out_title_size,
+                                          uint8_t *out_count)
+{
+    char key[40];
+    uint8_t count = 0;
+    const char **items = NULL;
+
+    if (out_count)
+    {
+        *out_count = 0;
+    }
+    if (out_title && out_title_size > 0)
+    {
+        out_title[0] = '\0';
+    }
+    if (!item_text)
+    {
+        return NULL;
+    }
+
+    const char *clean_current_title = strip_title_prefix(current_title);
+    if (clean_current_title && strcmp(clean_current_title, "SYSTEMS SETUP") == 0)
+    {
+        static const char *system_child_titles[] =
+        {
+            NULL,
+            "MODE SETUP",
+            "DIVE MENU",
+            "AI SETUP",
+            "ALERTS SETUP",
+            "DISPLAY",
+        };
+        if (item_index < (sizeof(system_child_titles) / sizeof(system_child_titles[0])) &&
+            system_child_titles[item_index])
+        {
+            lv_snprintf(key, sizeof(key), "%s", system_child_titles[item_index]);
+        }
+        else
+        {
+            key[0] = '\0';
+        }
+    }
+    else if (clean_current_title && strcmp(clean_current_title, "LIGHT CONTROL") == 0)
+    {
+        static const char *light_child_titles[] =
+        {
+            NULL,
+            "RED",
+            "GREEN",
+            "BLUE",
+            "WHITE",
+        };
+        if (item_index < (sizeof(light_child_titles) / sizeof(light_child_titles[0])) &&
+            light_child_titles[item_index])
+        {
+            lv_snprintf(key, sizeof(key), "%s", light_child_titles[item_index]);
+        }
+        else
+        {
+            key[0] = '\0';
+        }
+    }
+    else
+    {
+        normalize_menu_key(item_text, key, sizeof(key));
+    }
+
+    items = arex_submenu_nested_items_for(key, &count);
+    if (!items || count == 0)
+    {
+        return NULL;
+    }
+
+    if (out_title && out_title_size > 0)
+    {
+        lv_snprintf(out_title, out_title_size, "%s", key);
+    }
+    if (out_count)
+    {
+        *out_count = count;
     }
     return items;
 }

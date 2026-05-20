@@ -20,6 +20,12 @@ const char **arex_submenu_build_setup_items(uint8_t index, uint8_t *out_count);
 
 const char **arex_submenu_build_compass_cal_items(uint8_t *out_count);
 const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count);
+const char **arex_submenu_child_items_for(const char *current_title,
+                                          uint8_t item_index,
+                                          const char *item_text,
+                                          char *out_title,
+                                          uint8_t out_title_size,
+                                          uint8_t *out_count);
 
 bool arex_submenu_is_readonly_info_title(const char *title);
 
