@@ -152,11 +152,11 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     };
     cfg->custom_cards[0].widgets[1]  = (arex_grid_widget_t)
     {
-        WIDGET_TEMP_0806,      2, 0
+        WIDGET_DEPTH_1612,      2, 0
     };
     cfg->custom_cards[0].widgets[2]  = (arex_grid_widget_t)
     {
-        WIDGET_HEADING_0806,   3, 0
+        WIDGET_HEADING_0806,   4, 0
     };
     cfg->custom_cards[0].widgets[3]  = (arex_grid_widget_t)
     {
@@ -184,16 +184,12 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     };
     cfg->custom_cards[0].widgets[9]  = (arex_grid_widget_t)
     {
-        WIDGET_POD_0806,       0, 4
+        WIDGET_DEPTH_1612,       0, 4
     };
     cfg->custom_cards[0].widgets[10] = (arex_grid_widget_t)
     {
-        WIDGET_POD_0806,       2, 4
+        WIDGET_DEPTH_1612,       2, 4
     };
-    cfg->custom_cards[0].widgets[11] = (arex_grid_widget_t)
-    {
-        WIDGET_EMPTY,          4, 4
-    };  /* 淇濈暀绌烘Ы */
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
      * 160x420 区域 = 280px) x 760px)，由 arex_render_left_anchor_grid() 渲染
