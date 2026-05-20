@@ -75,7 +75,7 @@ void card_setup_update(void)
 {
     if (!s_list) return;
 
-    static const char *cons_str[] = { "LOW", "MED", "HIGH", "50/70" };
+    static const char *cons_str[] = { "LOW", "MED", "HIGH", "CUSTOM" };
     static const char *brt_str[]  = { "LOW", "ECO", "MED", "HIGH", "MAX", "SUN" };
     static const char *cal_str[]   = { "AUTO", "LEARN", "OK" };
     static arex_compass_cal_ui_state_t last_cal_state = AREX_COMPASS_CAL_IDLE;

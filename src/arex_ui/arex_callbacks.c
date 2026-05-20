@@ -31,9 +31,9 @@ void arex_ui_on_conservatism_set(uint8_t level)
 {
     static const uint8_t gf_table[][2] =
     {
-        { 40, 85 },
         { 30, 70 },
-        { 20, 65 },
+        { 40, 85 },
+        { 50, 90 },
         { 50, 70 },
     };
 

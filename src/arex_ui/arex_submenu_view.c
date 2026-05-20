@@ -541,12 +541,12 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     {
         if (strcmp(text, "< BACK") != 0)
         {
-            /* 解析 conservatism 等级：LOW/MED/HIGH/GF 50/70 */
+            /* 解析 conservatism 等级：LOW/MED/HIGH/CUSTOM */
             uint8_t level = 1;  /* 默认 MED */
             if (strncmp(text, "LOW", 3) == 0) level = 0;
             else if (strncmp(text, "MED", 3) == 0) level = 1;
             else if (strncmp(text, "HIGH", 4) == 0) level = 2;
-            else if (strncmp(text, "GF 50/70", 8) == 0) level = 3;
+            else if (strncmp(text, "CUSTOM", 6) == 0) level = 3;
 
             /* 通知业务层应用保守度设置 */
             arex_ui_on_conservatism_set(level);

@@ -20,7 +20,7 @@ static const char *s_info_dyn[AREX_SUBMENU_INFO_COUNT][6];
 static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
 {
     { "AIR", "NX 32", "TX 18/45", "O2 100%", NULL },
-    { "LOW (GF 40/85)", "MED (GF 30/70)", "HIGH (GF 20/65)", "GF 50/70", NULL },
+    { "LOW", "MED", "HIGH", "CUSTOM", NULL },
     { "LOW", "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
     { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
