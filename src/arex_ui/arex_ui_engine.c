@@ -5,18 +5,13 @@
 #include "fonts/arex_fonts.h"
 #include "arex_data.h"
 #include "arex_alarm.h"
-#include "arex_alarm_view.h"
 #include "arex_layout_view.h"
 #include "arex_widget_style.h"
 #include "arex_widget_update.h"
 #include "arex_widget_view.h"
-#include "cards/card_compass.h"
+#include "arex_ui_update_router.h"
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
-
-/* 减压跟踪节流时间戳（arex_ui_update_task 使用*/
-static uint32_t _deco_last_refresh_ms = 0;
 
 /* 气体名称(供全局引用) */
 const char *AREX_GAS_NAMES[AREX_GAS_COUNT] =
@@ -461,23 +456,6 @@ bool arex_alarm_mark_clear_requested(void)
 
 
 
-static void arex_alarm_render_tick(void)
-{
-    arex_alarm_view_context_t ctx;
-    ctx.safe_zone = arex_get_safe_zone();
-    ctx.left_anchor = g_left_anchor_obj;
-    ctx.custom_cards = g_card_custom_objs;
-    ctx.custom_card_count = g_card_custom_obj_count;
-    ctx.max_custom_cards = AREX_MAX_CUSTOM_CARDS;
-    ctx.layout_order = g_sys_config.layout_order;
-    ctx.safe_zone_w = g_sys_config.safe_zone_w;
-    ctx.left_anchor_w = AREX_LEFT_ANCHOR_W;
-    ctx.panel_gap_px = (uint16_t)(g_sys_config.gap_u * AREX_BASE_U);
-    ctx.alarm_pending_click = &g_ui.alarm_pending_click;
-
-    arex_alarm_view_tick(&ctx);
-}
-
 /* =========================================================
  * 定时数据更新 (lv_timer 1Hz/2Hz 调用)
  * 仅更lv_label 文字，绝不触发排版重
@@ -494,7 +472,6 @@ void arex_ui_update_data(void)
  *
  * 架构铁律
  *   - 硬件工程师：只能调用 arex_bus_set_*() 系列函数（仅写数打脏标记
- *   - UI 工程 ：只能修arex_ui_update_task() 消费
  *   - 两者通过 g_sensor_data.dirty_mask 完全解
  *
  * lv_timer 驱动，建50ms 周期0 FPS 足够覆盖所有传感器变化
@@ -503,173 +480,13 @@ void arex_ui_update_task(lv_timer_t *timer)
 {
     (void)timer;
 
-    arex_alarm_render_tick();
-
-    {
-        static arex_compass_cal_ui_state_t s_last_compass_cal_state = AREX_COMPASS_CAL_IDLE;
-        arex_compass_cal_ui_state_t cal_state = arex_get_compass_calibration_ui_state();
-        if (cal_state != s_last_compass_cal_state)
-        {
-            s_last_compass_cal_state = cal_state;
-            arex_screen_refresh_setup_menu();
-        }
-    }
-
-    /* ============================================================
-     * 🚨 核心修复：独立于数据时间心跳引擎"必须放在最前面
-     *
-     * 即使没有任何脏标记，只要处于运动状|rate|>=3.0 m/min)
-     * 或者有活跃告警，我们就强行注入 DIRTY_DEPTH 脏标记，
-     * 唤醒 UI 引擎去画闪烁动画
-     * ============================================================ */
-    {
-        static bool last_flash_state = false;
-        bool current_flash_state = (lv_tick_get() / 500) % 2 == 0;
-
-        if (current_flash_state != last_flash_state)
-        {
-            last_flash_state = current_flash_state;
-
-            float rate = g_sensor_data.ascent_rate;
-            /* 速度超过静止阈值时，保持心跳刷新速率图标。 */
-            if (fabsf(rate) >= AREX_RATE_STILL_THRESHOLD)
-            {
-                g_sensor_data.dirty_mask |= DIRTY_DEPTH;
-            }
-        }
-    }
+    arex_ui_update_router_tick();
 
     uint32_t mask = arex_bus_take_dirty();
-    if (mask == DIRTY_NONE) return;
-
-    /* 最高优先级：UI 布局重建（BLE 配置同步触发）
-     * 重建耗时较长，锁LVGL invalidation 防止闪烁，本帧直接退出*/
-    if (mask & DIRTY_UI_LAYOUT)
+    if (mask == DIRTY_NONE)
     {
-        lv_disp_t *disp = lv_disp_get_default();
-        if (disp) lv_disp_enable_invalidation(disp, false);
-        arex_screen_rebuild_full();
-        if (disp) lv_disp_enable_invalidation(disp, true);
-        arex_bus_requeue_dirty(mask & ~DIRTY_UI_LAYOUT);
         return;
     }
 
-    /* 深度 + NDL + TTS + 组织—全屏刷新（包含左侧锚+ 5F 网格 2F Deco 卡片刷新 */
-    /* Depth / NDL / TTS / tissues trigger full widget refresh plus speed icon heartbeat. */
-    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES))
-    {
-        arex_screen_refresh_all_widgets();
-        card_deco_update();
-        arex_widget_refresh_ascent_icons(g_sensor_data.ascent_rate);
-    }
-
-    arex_widget_refresh_ndl_stop(mask);
-
-    /* 气瓶压力 —全屏刷新，确5F 网格中的 POD 同步更新 */
-    if (mask & DIRTY_POD)
-    {
-        arex_screen_refresh_all_widgets();
-    }
-
-    /* 电池刷新 —数据驱动网格自动更新 */
-    if (mask & DIRTY_BATT)
-    {
-        arex_widget_set_value(WIDGET_BATTERY_0806, g_sensor_data.battery_pct);
-    }
-
-    /* 罗盘航向 零内存数学引擎，触发 invalidate + 更新标签 */
-    if (mask & DIRTY_HEADING)
-    {
-        card_compass_refresh_heading(false);
-    }
-
-    /* 潜水时间 + W.TIME —全屏刷新，确5F 网格中的时间组件同步更新 */
-    if (mask & DIRTY_DIVE_TIME)
-    {
-        arex_screen_refresh_all_widgets();
-    }
-
-    /* PO2 —全屏刷新，确5F 网格中的 PPO2 组件同步更新 */
-    if (mask & DIRTY_PPO2)
-    {
-        arex_screen_refresh_all_widgets();
-    }
-
-    /* 气体切换 */
-    if (mask & DIRTY_GAS)
-    {
-        arex_screen_refresh_gas_menu();
-        arex_screen_refresh_all_widgets();
-    }
-
-    /* 潜水轨迹+减压站图表刷
-     * 轨迹追加由调用方sim_tick_cb 中直接调arex_dive_log_append
-     * 此处仅负责刷新图表（AREX_DECO_REFRESH_MS 节流保护*/
-    if (mask & DIRTY_TRAJECTORY)
-    {
-        uint32_t now = lv_tick_get();
-#if AREX_DECO_REFRESH_MS > 0
-        if (now - _deco_last_refresh_ms >= AREX_DECO_REFRESH_MS)
-        {
-            _deco_last_refresh_ms = now;
-            card_plan_update();
-        }
-#else
-        (void)_deco_last_refresh_ms;
-        card_plan_update();
-#endif
-    }
-
-    /* CNS 氧中—2F Deco 卡片 + 5F 网格 */
-    if (mask & DIRTY_CNS)
-    {
-        card_deco_update();
-        arex_screen_refresh_all_widgets();
-    }
-
-    /* OTU 氧中—2F Deco 卡片 + 5F 网格 */
-    if (mask & DIRTY_OTU)
-    {
-        card_deco_update();
-        arex_screen_refresh_all_widgets();
-    }
-
-    /* 温度刷新 —数据驱动网格自动更新 */
-    if (mask & DIRTY_TEMP)
-    {
-        arex_widget_set_value(WIDGET_TEMP_0806, g_sensor_data.temperature_c);
-    }
-
-    /* 深度/温度统计刷新 —最平均/最低随主数据同步更*/
-    if (mask & DIRTY_DEPTH)
-    {
-        arex_widget_set_value(WIDGET_DEPTH_MAX_0806, g_sensor_data.max_depth);
-        arex_widget_set_value(WIDGET_DEPTH_AVG_0806, g_sensor_data.avg_depth);
-    }
-    if (mask & DIRTY_TEMP)
-    {
-        arex_widget_set_value(WIDGET_TEMP_MIN_0806, g_sensor_data.min_temp);
-        arex_widget_set_value(WIDGET_TEMP_AVG_0806, g_sensor_data.avg_temp);
-    }
-
-    /* 技术潜水参数刷—全屏刷新（包含左侧锚+ 5F 网格*/
-    if (mask & (DIRTY_GF_SETTING | DIRTY_MOD | DIRTY_CEILING | DIRTY_GAS_MIX | DIRTY_GAS_DENS | DIRTY_FIO2))
-    {
-        arex_screen_refresh_all_widgets();
-    }
-
-        /* O(1) SYS_1606 refresh: label handles live in arex_widget_view.c. */
-    if (mask & (DIRTY_BATT | DIRTY_TEMP))
-    {
-        arex_widget_refresh_sys(mask);
-    }
-
-    /* ============================================================
-     * Alarm event consumption. Data bus writers raise DIRTY_ALARM.
-     * ============================================================ */
-    if (mask & DIRTY_ALARM)
-    {
-        arex_alarm_render_tick();
-    }
-
+    arex_ui_update_router_dispatch(mask);
 }
