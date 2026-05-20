@@ -712,6 +712,7 @@ void arex_screen_close_submenu(void)
 
 void arex_screen_confirm_submenu_setting(void)
 {
+    bool close_extra_mode_layer = false;
     if (s_pending_setting.kind == AREX_SUBMENU_SETTING_NONE)
     {
         arex_screen_hide_modal();
@@ -719,12 +720,20 @@ void arex_screen_confirm_submenu_setting(void)
         return;
     }
 
+    close_extra_mode_layer =
+        (s_pending_setting.kind == AREX_SUBMENU_SETTING_DIVE_MODE &&
+         s_pending_setting.value != 0);
+
     arex_submenu_apply_setting(s_pending_setting.kind, s_pending_setting.arg, s_pending_setting.value);
     dispatch_submenu_setting_callback(&s_pending_setting);
 
     memset(&s_pending_setting, 0, sizeof(s_pending_setting));
     arex_screen_hide_modal();
     arex_screen_close_submenu();
+    if (close_extra_mode_layer)
+    {
+        arex_screen_close_submenu();
+    }
 }
 
 void arex_screen_cancel_submenu_setting(void)
