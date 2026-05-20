@@ -326,6 +326,103 @@ void arex_screen_open_nested_submenu(const char *title, const char **items, uint
     g_ui.state = UI_SUB_MENU;
 }
 
+static void dispatch_submenu_setting_callback(const arex_submenu_setting_confirm_t *setting)
+{
+    if (!setting)
+    {
+        return;
+    }
+
+    switch (setting->kind)
+    {
+    case AREX_SUBMENU_SETTING_DIVE_MODE:
+        arex_ui_on_dive_mode_set((uint8_t)setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_SALINITY:
+        arex_ui_on_salinity_set((uint8_t)setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_SAFETY_STOP:
+        if (setting->value < 4)
+        {
+            static const uint8_t minutes[] = { 0, 3, 4, 5 };
+            arex_ui_on_safety_stop_time_set(minutes[setting->value]);
+        }
+        break;
+    case AREX_SUBMENU_SETTING_ALTITUDE:
+        arex_ui_on_altitude_range_set((uint8_t)setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_AI_PAIR:
+        arex_ui_on_ai_pair((uint8_t)setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_AI_TANK_STATE:
+        arex_ui_on_ai_tank_state_set(setting->arg, (uint8_t)setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_GTR_MODE:
+        arex_ui_on_gtr_mode_set(setting->value != 0);
+        break;
+    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
+        arex_ui_on_depth_alarm_set(setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_TIME_ALARM:
+        arex_ui_on_time_alarm_set(setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_NDL_ALARM:
+        arex_ui_on_ndl_alarm_set(setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_VIBRATION_TEST:
+        arex_ui_on_vibration_test();
+        break;
+    case AREX_SUBMENU_SETTING_UNITS:
+        arex_ui_on_units_set((uint8_t)setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
+    {
+        uint16_t field_value = setting->value;
+        if (setting->arg == 0)
+        {
+            field_value = (uint16_t)(2024 + setting->value);
+        }
+        arex_ui_on_datetime_field_set(setting->arg, field_value);
+        break;
+    }
+    case AREX_SUBMENU_SETTING_DATETIME_ACTION:
+        arex_ui_on_datetime_action((uint8_t)setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_LOG_RATE:
+        arex_ui_on_log_rate_set((uint8_t)setting->value);
+        break;
+    case AREX_SUBMENU_SETTING_BLUETOOTH:
+        arex_ui_on_bluetooth_set(setting->value != 0);
+        break;
+    case AREX_SUBMENU_SETTING_RESET_DEFAULTS:
+        arex_ui_on_reset_defaults();
+        break;
+    default:
+        break;
+    }
+}
+
+static void refresh_current_submenu_page(const char *cur_title, uint8_t keep_idx)
+{
+    uint8_t count = 0;
+    const char **items = arex_submenu_nested_items_for(cur_title, &count);
+    if (!items || count == 0)
+    {
+        return;
+    }
+
+    char full_title[40];
+    lv_snprintf(full_title, sizeof(full_title), "> %s", cur_title);
+    submenu_populate(full_title, items, count);
+    g_ui.sub_item_count = count;
+    if (keep_idx >= count)
+    {
+        keep_idx = (uint8_t)(count - 1);
+    }
+    g_ui.sub_menu_idx = keep_idx;
+    arex_screen_set_submenu_selection(keep_idx);
+}
+
 void arex_screen_handle_submenu_select(uint8_t item_idx)
 {
     if (!s_submenu_list || !s_submenu_title) return;
@@ -355,6 +452,33 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     if (arex_submenu_is_readonly_info_title(cur_title))
     {
         return;
+    }
+
+    {
+        arex_submenu_edit_spec_t edit_spec;
+        if (arex_submenu_edit_spec_from_selection(cur_title, item_idx, text, &edit_spec))
+        {
+            arex_screen_begin_edit_value(item_idx, &edit_spec);
+            return;
+        }
+    }
+
+    {
+        arex_submenu_setting_confirm_t direct_setting;
+        if (arex_submenu_direct_setting_from_selection(cur_title, item_idx, text, &direct_setting))
+        {
+            arex_submenu_apply_setting(direct_setting.kind,
+                                       direct_setting.arg,
+                                       direct_setting.value);
+            dispatch_submenu_setting_callback(&direct_setting);
+            if (direct_setting.kind == AREX_SUBMENU_SETTING_DATETIME_FIELD)
+            {
+                arex_screen_close_submenu();
+                return;
+            }
+            refresh_current_submenu_page(cur_title, item_idx);
+            return;
+        }
     }
 
     if (arex_submenu_setting_from_selection(cur_title, item_idx, text, &s_pending_setting))
@@ -510,14 +634,14 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
-    if (strcmp(cur_title, "DIVE MENU") == 0)
+    if (strcmp(cur_title, "DIVE MENU") == 0 || strcmp(cur_title, "DIVE SETUP") == 0)
     {
-        if (strncmp(text, "MOD PO2:", 8) == 0 || strncmp(text, "MOD PO2 ", 8) == 0)
-        {
-            arex_screen_begin_edit_value(item_idx, 1.4f, 1.0f, 1.6f, 0.1f);
-            return;
-        }
         arex_screen_show_modal_act(text);
+        return;
+    }
+
+    if (strcmp(cur_title, "ALERTS SETUP") == 0 && item_idx == 2)
+    {
         return;
     }
 
@@ -596,67 +720,7 @@ void arex_screen_confirm_submenu_setting(void)
     }
 
     arex_submenu_apply_setting(s_pending_setting.kind, s_pending_setting.arg, s_pending_setting.value);
-
-    switch (s_pending_setting.kind)
-    {
-    case AREX_SUBMENU_SETTING_DIVE_MODE:
-        arex_ui_on_dive_mode_set(s_pending_setting.value);
-        break;
-    case AREX_SUBMENU_SETTING_SALINITY:
-        arex_ui_on_salinity_set(s_pending_setting.value);
-        break;
-    case AREX_SUBMENU_SETTING_SAFETY_STOP:
-        arex_ui_on_safety_stop_depth_set(arex_submenu_safety_stop_depth_m(s_pending_setting.value));
-        break;
-    case AREX_SUBMENU_SETTING_ALTITUDE:
-        arex_ui_on_altitude_range_set(s_pending_setting.value);
-        break;
-    case AREX_SUBMENU_SETTING_AI_PAIR:
-        arex_ui_on_ai_pair(s_pending_setting.value);
-        break;
-    case AREX_SUBMENU_SETTING_GTR_MODE:
-        arex_ui_on_gtr_mode_set(s_pending_setting.value != 0);
-        break;
-    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
-        arex_ui_on_depth_alarm_set(s_pending_setting.value);
-        break;
-    case AREX_SUBMENU_SETTING_TIME_ALARM:
-        arex_ui_on_time_alarm_set(s_pending_setting.value);
-        break;
-    case AREX_SUBMENU_SETTING_NDL_ALARM:
-        arex_ui_on_ndl_alarm_set(s_pending_setting.value);
-        break;
-    case AREX_SUBMENU_SETTING_VIBRATION_TEST:
-        arex_ui_on_vibration_test();
-        break;
-    case AREX_SUBMENU_SETTING_UNITS:
-        arex_ui_on_units_set(s_pending_setting.value);
-        break;
-    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
-    {
-        uint16_t field_value = s_pending_setting.value;
-        if (s_pending_setting.arg == 0)
-        {
-            field_value = (uint16_t)(2024 + s_pending_setting.value);
-        }
-        arex_ui_on_datetime_field_set(s_pending_setting.arg, field_value);
-        break;
-    }
-    case AREX_SUBMENU_SETTING_DATETIME_ACTION:
-        arex_ui_on_datetime_action(s_pending_setting.value);
-        break;
-    case AREX_SUBMENU_SETTING_LOG_RATE:
-        arex_ui_on_log_rate_set(s_pending_setting.value);
-        break;
-    case AREX_SUBMENU_SETTING_BLUETOOTH:
-        arex_ui_on_bluetooth_set(s_pending_setting.value != 0);
-        break;
-    case AREX_SUBMENU_SETTING_RESET_DEFAULTS:
-        arex_ui_on_reset_defaults();
-        break;
-    default:
-        break;
-    }
+    dispatch_submenu_setting_callback(&s_pending_setting);
 
     memset(&s_pending_setting, 0, sizeof(s_pending_setting));
     arex_screen_hide_modal();

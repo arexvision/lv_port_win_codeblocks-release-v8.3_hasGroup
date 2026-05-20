@@ -59,6 +59,19 @@ void arex_ui_on_safety_stop_depth_set(uint8_t depth_m)
 }
 
 AREX_WEAK_CALLBACK
+void arex_ui_on_safety_stop_time_set(uint8_t minutes)
+{
+    if (minutes == 0)
+    {
+        printf("[DIVE_SETUP] Safety stop: OFF\n");
+    }
+    else
+    {
+        printf("[DIVE_SETUP] Safety stop: %umin\n", minutes);
+    }
+}
+
+AREX_WEAK_CALLBACK
 void arex_ui_on_altitude_range_set(uint8_t level)
 {
     static const char *labels[] =
@@ -79,7 +92,7 @@ void arex_ui_on_altitude_range_set(uint8_t level)
 AREX_WEAK_CALLBACK
 void arex_ui_on_dive_mode_set(uint8_t mode)
 {
-    static const char *labels[] = { "AIR", "NITROX", "3 GAS NX", "GAUGE" };
+    static const char *labels[] = { "AIR", "NITROX", "3 GAS NX", "GAUGE", "CCR" };
     if (mode >= (sizeof(labels) / sizeof(labels[0])))
     {
         mode = 0;
@@ -94,9 +107,27 @@ void arex_ui_on_ai_pair(uint8_t tank_index)
 }
 
 AREX_WEAK_CALLBACK
+void arex_ui_on_ai_tank_state_set(uint8_t tank_index, uint8_t state)
+{
+    static const char *labels[] = { "UNPAIRED", "PAIRING", "PAIRED" };
+    if (state >= (sizeof(labels) / sizeof(labels[0])))
+    {
+        state = 0;
+    }
+    printf("[SYSTEM_SETUP] AI T%u: %s\n", (unsigned)(tank_index + 1), labels[state]);
+}
+
+AREX_WEAK_CALLBACK
 void arex_ui_on_gtr_mode_set(bool enabled)
 {
     printf("[SYSTEM_SETUP] GTR mode: %s\n", enabled ? "ON" : "OFF");
+}
+
+AREX_WEAK_CALLBACK
+void arex_ui_on_mod_ppo2_set(float ppo2)
+{
+    g_sys_config.mod_ppo2 = ppo2;
+    printf("[DIVE_SETUP] MOD PPO2: %.1f\n", (double)ppo2);
 }
 
 AREX_WEAK_CALLBACK

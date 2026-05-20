@@ -1248,6 +1248,58 @@ static void edit_flash_start(void)
 
 static void edit_value_cleanup(lv_obj_t *item);
 
+static void format_edit_value_text(char *buf, size_t buf_size, float value, uint8_t decimals)
+{
+    if (decimals == 0)
+    {
+        snprintf(buf, buf_size, "%.0f ^v", (double)value);
+    }
+    else
+    {
+        snprintf(buf, buf_size, "%.1f ^v", (double)value);
+    }
+}
+
+static void format_edit_committed_text(char *buf,
+                                       size_t buf_size,
+                                       arex_submenu_setting_kind_t kind,
+                                       float value)
+{
+    switch (kind)
+    {
+    case AREX_SUBMENU_SETTING_MOD_PPO2:
+        snprintf(buf, buf_size, "MOD PO2: %.1f", (double)value);
+        break;
+    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
+        snprintf(buf, buf_size, "DEPTH ALARM: %.0fm", (double)value);
+        break;
+    case AREX_SUBMENU_SETTING_TIME_ALARM:
+        snprintf(buf, buf_size, "TIME ALARM: %.0fmin", (double)value);
+        break;
+    default:
+        snprintf(buf, buf_size, "%.1f", (double)value);
+        break;
+    }
+}
+
+static void dispatch_edit_setting_callback(arex_submenu_setting_kind_t kind, float value)
+{
+    switch (kind)
+    {
+    case AREX_SUBMENU_SETTING_MOD_PPO2:
+        arex_ui_on_mod_ppo2_set(value);
+        break;
+    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
+        arex_ui_on_depth_alarm_set((uint16_t)(value + 0.5f));
+        break;
+    case AREX_SUBMENU_SETTING_TIME_ALARM:
+        arex_ui_on_time_alarm_set((uint16_t)(value + 0.5f));
+        break;
+    default:
+        break;
+    }
+}
+
 void arex_screen_refresh_edit_value(void)
 {
     if (!g_ui.edit_ctx.active || !s_edit_flash_val_lbl || !arex_submenu_view_get_list()) return;
@@ -1256,23 +1308,26 @@ void arex_screen_refresh_edit_value(void)
     if (cur == last_drawn) return;   /* dirty check：值未变则跳过，不触发重绘 */
     last_drawn = cur;
     char buf[16];
-    snprintf(buf, sizeof(buf), "%.1f ^v", cur);
+    format_edit_value_text(buf, sizeof(buf), cur, g_ui.edit_ctx.decimals);
     lv_label_set_text(s_edit_flash_val_lbl, buf);
 }
 
-void arex_screen_begin_edit_value(uint8_t item_idx, float value,
-                                  float min, float max, float step)
+void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec_t *spec)
 {
     lv_obj_t *submenu_list = arex_submenu_view_get_list();
-    if (!submenu_list) return;
+    if (!submenu_list || !spec) return;
 
-    g_ui.edit_ctx.value      = value;
-    g_ui.edit_ctx.original   = value;
-    g_ui.edit_ctx.min        = min;
-    g_ui.edit_ctx.max        = max;
-    g_ui.edit_ctx.step       = step;
+    g_ui.edit_ctx.value      = spec->value;
+    g_ui.edit_ctx.original   = spec->value;
+    g_ui.edit_ctx.min        = spec->min;
+    g_ui.edit_ctx.max        = spec->max;
+    g_ui.edit_ctx.step       = spec->step;
+    g_ui.edit_ctx.setting_kind = spec->kind;
+    g_ui.edit_ctx.setting_arg = spec->arg;
+    g_ui.edit_ctx.decimals   = spec->decimals;
     g_ui.edit_ctx.item_index = item_idx;
     g_ui.edit_ctx.active     = true;
+    lv_snprintf(g_ui.edit_ctx.label, sizeof(g_ui.edit_ctx.label), "%s", spec->label);
     g_ui.state = UI_EDIT_VALUE;
 
     lv_obj_t *item = lv_obj_get_child(submenu_list, item_idx);
@@ -1293,7 +1348,7 @@ void arex_screen_begin_edit_value(uint8_t item_idx, float value,
     lv_obj_t *prefix_lbl = lv_obj_get_child(item, 0);
     if (prefix_lbl)
     {
-        lv_label_set_text(prefix_lbl, "MOD PO2:");
+        lv_label_set_text(prefix_lbl, g_ui.edit_ctx.label);
         lv_obj_set_style_text_color(prefix_lbl, AREX_GREEN, 0);
         lv_obj_set_size(prefix_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(prefix_lbl, LV_ALIGN_LEFT_MID, 12, 0);
@@ -1313,7 +1368,7 @@ void arex_screen_begin_edit_value(uint8_t item_idx, float value,
     lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
     lv_label_set_long_mode(val_lbl, LV_LABEL_LONG_DOT);
     char buf[16];
-    snprintf(buf, sizeof(buf), "%.1f ^v", value);
+    format_edit_value_text(buf, sizeof(buf), spec->value, spec->decimals);
     lv_label_set_text(val_lbl, buf);
 
     s_edit_flash_badge    = val_lbl;   /* 复用指针用于闪烁 */
@@ -1356,17 +1411,48 @@ void arex_screen_commit_edit_value(void)
     if (lbl)
     {
         char buf[32];
-        snprintf(buf, sizeof(buf), "MOD PO2: %.1f", g_ui.edit_ctx.value);
+        format_edit_committed_text(buf,
+                                   sizeof(buf),
+                                   g_ui.edit_ctx.setting_kind,
+                                   g_ui.edit_ctx.value);
         lv_label_set_text(lbl, buf);
         lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
     }
+    arex_submenu_apply_edit_value(g_ui.edit_ctx.setting_kind,
+                                  g_ui.edit_ctx.setting_arg,
+                                  g_ui.edit_ctx.value);
+    dispatch_edit_setting_callback(g_ui.edit_ctx.setting_kind, g_ui.edit_ctx.value);
     g_ui.edit_ctx.active = false;
     arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
 }
 
 void arex_screen_cancel_edit_value(void)
 {
-    arex_screen_commit_edit_value();
+    lv_obj_t *submenu_list = arex_submenu_view_get_list();
+    if (!submenu_list)
+    {
+        edit_flash_stop();
+        return;
+    }
+    lv_obj_t *item = lv_obj_get_child(submenu_list, g_ui.edit_ctx.item_index);
+    if (!item)
+    {
+        edit_flash_stop();
+        return;
+    }
+    edit_value_cleanup(item);
+    lv_obj_t *lbl = lv_obj_get_child(item, 0);
+    if (lbl)
+    {
+        char buf[32];
+        format_edit_committed_text(buf,
+                                   sizeof(buf),
+                                   g_ui.edit_ctx.setting_kind,
+                                   g_ui.edit_ctx.original);
+        lv_label_set_text(lbl, buf);
+        lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+    }
+    arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
 }
 
 /* =========================================================

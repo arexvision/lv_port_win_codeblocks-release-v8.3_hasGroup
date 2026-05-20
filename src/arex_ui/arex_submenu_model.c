@@ -24,7 +24,7 @@ static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
     { "LOW", "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
     { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
-    { "VERSION: " AREX_SYSTEM_VERSION, "MODE SETUP", "DIVE MENU", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
+    { "VERSION: " AREX_SYSTEM_VERSION, "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
 };
 
 static const char *s_setup_titles[AREX_SUBMENU_SETUP_COUNT] =
@@ -39,29 +39,9 @@ static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", NUL
 static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_salinity[]    = { "FRESH WATER", "SEA WATER", NULL };
-static const char *s_nested_safety_stop[] = { "3m", "6m", NULL };
-static const char *s_nested_altitude[] =
-{
-    "AUTO",
-    "0-700m",
-    "700-1500m",
-    "1500-2400m",
-    "2400-3700m",
-    NULL
-};
-static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS NX", "GAUGE", NULL };
-static const char *s_nested_gtr_mode[]     = { "ON", "OFF", NULL };
-static const char *s_nested_depth_alarm[]  = { "10m", "20m", "30m", "40m", "50m", "60m", "70m", "80m", "90m", "100m", NULL };
-static const char *s_nested_time_alarm[]   = { "10min", "20min", "30min", "40min", "50min", "60min", "90min", "120min", NULL };
-static const char *s_nested_ndl_alarm[]    = { "1min", "3min", "5min", "10min", "15min", NULL };
-static const char *s_nested_units[]        = { "METRIC (m)", "IMPERIAL (ft)", NULL };
-static const char *s_nested_log_rate[]     = { "2s", "4s", "6s", "8s", "10s", NULL };
-static const char *s_nested_bluetooth[]    = { "ON", "OFF", NULL };
-static const uint8_t s_depth_alarm_values[] = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
-static const uint8_t s_time_alarm_values[]  = { 10, 20, 30, 40, 50, 60, 90, 120 };
-static const uint8_t s_ndl_alarm_values[]   = { 1, 3, 5, 10, 15 };
-static const uint8_t s_log_rate_values[]    = { 2, 4, 6, 8, 10 };
+static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS NX", "GAUGE", "CCR", NULL };
+static const uint8_t s_safety_stop_values[] = { 0, 3, 4, 5 };
+static const uint8_t s_log_rate_values[]    = { 2, 5, 10, 30 };
 
 static char s_compass_cal_status_str[24];
 static const char *s_compass_cal_items[] = { s_compass_cal_status_str, "RESET AUTO CAL", NULL };
@@ -77,8 +57,8 @@ static const char *s_nested_ai_setup[4];
 
 static char s_alert_depth_str[28];
 static char s_alert_time_str[28];
-static char s_alert_ndl_str[24];
-static const char *s_nested_alerts_setup[5];
+static char s_alert_ndl_str[28];
+static const char *s_nested_alerts_setup[4];
 
 static char s_display_units_str[28];
 static char s_display_log_rate_str[24];
@@ -106,14 +86,15 @@ static const char *s_minute_items[61];
 static char s_second_item_str[60][4];
 static const char *s_second_items[61];
 
-static uint8_t s_salinity_mode = 0;      /* 0=FRESH WATER, 1=SEA WATER */
-static uint8_t s_safety_stop_mode = 0;   /* 0=3m, 1=6m */
-static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1..4=altitude ranges */
-static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS NX, 3=GAUGE */
+static uint8_t s_salinity_mode = 0;      /* 0=FRESH, 1=SALT, 2=EN13319 */
+static uint8_t s_safety_stop_mode = 1;   /* 0=OFF, 1=3min, 2=4min, 3=5min */
+static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1=SEA, 2=L1, 3=L2 */
+static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS NX, 3=GAUGE, 4=CCR */
+static uint8_t s_ai_tank_state[2] = { 0, 0 }; /* 0=UNPAIRED, 1=PAIRING, 2=PAIRED */
 static uint8_t s_gtr_enabled = 1;        /* 0=OFF, 1=ON */
-static uint8_t s_depth_alarm_m = 40;
-static uint8_t s_time_alarm_min = 60;
-static uint8_t s_ndl_alarm_min = 5;
+static uint16_t s_depth_alarm_m = 40;
+static uint16_t s_time_alarm_min = 60;
+static const uint8_t s_ndl_alarm_min = 5;
 static uint8_t s_units_mode = 0;         /* 0=METRIC, 1=IMPERIAL */
 static uint8_t s_log_rate_s = 10;
 static uint8_t s_bluetooth_enabled = 0;  /* 0=OFF, 1=ON */
@@ -200,30 +181,56 @@ uint8_t arex_submenu_safety_stop_depth_m(uint8_t value)
 
 static const char *salinity_label(uint8_t value)
 {
-    return value == 1 ? "SEA WATER" : "FRESH WATER";
+    static const char *labels[] = { "FRESH", "SALT", "EN13319" };
+    if (value >= (sizeof(labels) / sizeof(labels[0])))
+    {
+        value = 0;
+    }
+    return labels[value];
 }
 
 static const char *safety_stop_label(uint8_t value)
 {
-    return value == 1 ? "6m" : "3m";
+    if (value >= (sizeof(s_safety_stop_values) / sizeof(s_safety_stop_values[0])))
+    {
+        value = 1;
+    }
+    if (s_safety_stop_values[value] == 0)
+    {
+        return "OFF";
+    }
+    static char label[8];
+    snprintf(label, sizeof(label), "%umin", s_safety_stop_values[value]);
+    return label;
 }
 
 static const char *altitude_label(uint8_t value)
+{
+    static const char *labels[] = { "AUTO", "SEA", "L1", "L2" };
+    if (value >= (sizeof(labels) / sizeof(labels[0])))
+    {
+        value = 0;
+    }
+    return labels[value];
+}
+
+static const char *dive_mode_label(uint8_t value)
 {
     if (value >= 5)
     {
         value = 0;
     }
-    return s_nested_altitude[value];
+    return s_nested_mode_setup[value];
 }
 
-static const char *dive_mode_label(uint8_t value)
+static const char *ai_state_label(uint8_t value)
 {
-    if (value >= 4)
+    static const char *labels[] = { "UNPAIRED", "PAIRING", "PAIRED" };
+    if (value >= (sizeof(labels) / sizeof(labels[0])))
     {
         value = 0;
     }
-    return s_nested_mode_setup[value];
+    return labels[value];
 }
 
 static const char *gtr_label(uint8_t enabled)
@@ -239,15 +246,6 @@ static const char *units_label(uint8_t value)
 static const char *bluetooth_label(uint8_t enabled)
 {
     return enabled ? "ON" : "OFF";
-}
-
-static uint8_t value_from_table(const uint8_t *values, uint8_t count, uint8_t index, uint8_t fallback)
-{
-    if (!values || index >= count)
-    {
-        return fallback;
-    }
-    return values[index];
 }
 
 const char *arex_submenu_info_title(uint8_t index)
@@ -384,7 +382,7 @@ static const char **build_systems_setup_items(uint8_t *out_count)
     snprintf(s_system_mode_str, sizeof(s_system_mode_str), "MODE SETUP: %s", dive_mode_label(s_dive_mode));
     s_system_setup_dyn[0] = "VERSION: " AREX_SYSTEM_VERSION;
     s_system_setup_dyn[1] = s_system_mode_str;
-    s_system_setup_dyn[2] = "DIVE MENU";
+    s_system_setup_dyn[2] = "DIVE SETUP";
     s_system_setup_dyn[3] = "AI SETUP";
     s_system_setup_dyn[4] = "ALERTS SETUP";
     s_system_setup_dyn[5] = "DISPLAY";
@@ -425,7 +423,7 @@ const char **arex_submenu_build_setup_items(uint8_t index, uint8_t *out_count)
 
 static const char **build_nested_dive_setup(uint8_t *out_count)
 {
-    snprintf(s_modppo2_str, sizeof(s_modppo2_str), "MOD PO2: %.1f", 1.4f);
+    snprintf(s_modppo2_str, sizeof(s_modppo2_str), "MOD PO2: %.1f", (double)g_sys_config.mod_ppo2);
     snprintf(s_salinity_str, sizeof(s_salinity_str), "SALINITY: %s", salinity_label(s_salinity_mode));
     snprintf(s_safety_stop_str, sizeof(s_safety_stop_str), "SAFETY STOP: %s", safety_stop_label(s_safety_stop_mode));
     snprintf(s_altitude_str, sizeof(s_altitude_str), "ALTITUDE: %s", altitude_label(s_altitude_level));
@@ -444,8 +442,12 @@ static const char **build_nested_dive_setup(uint8_t *out_count)
 static const char **build_nested_ai_setup(uint8_t *out_count)
 {
     snprintf(s_ai_gtr_str, sizeof(s_ai_gtr_str), "GTR MODE: %s", gtr_label(s_gtr_enabled));
-    s_nested_ai_setup[0] = "PAIR T1";
-    s_nested_ai_setup[1] = "PAIR T2";
+    static char t1_str[28];
+    static char t2_str[28];
+    snprintf(t1_str, sizeof(t1_str), "T1 MAIN: %s", ai_state_label(s_ai_tank_state[0]));
+    snprintf(t2_str, sizeof(t2_str), "T2 BUDDY: %s", ai_state_label(s_ai_tank_state[1]));
+    s_nested_ai_setup[0] = t1_str;
+    s_nested_ai_setup[1] = t2_str;
     s_nested_ai_setup[2] = s_ai_gtr_str;
     s_nested_ai_setup[3] = NULL;
     if (out_count)
@@ -459,15 +461,14 @@ static const char **build_nested_alerts_setup(uint8_t *out_count)
 {
     snprintf(s_alert_depth_str, sizeof(s_alert_depth_str), "DEPTH ALARM: %um", s_depth_alarm_m);
     snprintf(s_alert_time_str, sizeof(s_alert_time_str), "TIME ALARM: %umin", s_time_alarm_min);
-    snprintf(s_alert_ndl_str, sizeof(s_alert_ndl_str), "LOW NDL: %umin", s_ndl_alarm_min);
+    snprintf(s_alert_ndl_str, sizeof(s_alert_ndl_str), "LOW NDL ALARM: %umin", s_ndl_alarm_min);
     s_nested_alerts_setup[0] = s_alert_depth_str;
     s_nested_alerts_setup[1] = s_alert_time_str;
     s_nested_alerts_setup[2] = s_alert_ndl_str;
-    s_nested_alerts_setup[3] = "TEST VIBRATION";
-    s_nested_alerts_setup[4] = NULL;
+    s_nested_alerts_setup[3] = NULL;
     if (out_count)
     {
-        *out_count = count_items(s_nested_alerts_setup, 5);
+        *out_count = count_items(s_nested_alerts_setup, 4);
     }
     return s_nested_alerts_setup;
 }
@@ -562,18 +563,10 @@ const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count
     }
 
     if      (strcmp(clean_title, "MODE SETUP") == 0) items = s_nested_mode_setup;
-    else if (strcmp(clean_title, "DIVE MENU") == 0) return build_nested_dive_setup(out_count);
-    else if (strcmp(clean_title, "SALINITY") == 0) items = s_nested_salinity;
-    else if (strcmp(clean_title, "SAFETY STOP") == 0) items = s_nested_safety_stop;
-    else if (strcmp(clean_title, "ALTITUDE") == 0) items = s_nested_altitude;
+    else if (strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) return build_nested_dive_setup(out_count);
     else if (strcmp(clean_title, "AI SETUP") == 0) return build_nested_ai_setup(out_count);
-    else if (strcmp(clean_title, "GTR MODE") == 0) items = s_nested_gtr_mode;
     else if (strcmp(clean_title, "ALERTS SETUP") == 0) return build_nested_alerts_setup(out_count);
-    else if (strcmp(clean_title, "DEPTH ALARM") == 0) items = s_nested_depth_alarm;
-    else if (strcmp(clean_title, "TIME ALARM") == 0) items = s_nested_time_alarm;
-    else if (strcmp(clean_title, "LOW NDL") == 0) items = s_nested_ndl_alarm;
     else if (strcmp(clean_title, "DISPLAY") == 0) return build_nested_display_sys(out_count);
-    else if (strcmp(clean_title, "UNITS") == 0) items = s_nested_units;
     else if (strcmp(clean_title, "DATE & CLOCK") == 0) return build_nested_datetime(out_count);
     else if (strcmp(clean_title, "YEAR") == 0) return build_year_items(out_count);
     else if (strcmp(clean_title, "MONTH") == 0) return build_two_digit_items(s_month_item_str, s_month_items, 12, 1, out_count);
@@ -581,8 +574,6 @@ const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count
     else if (strcmp(clean_title, "HOUR") == 0) return build_two_digit_items(s_hour_item_str, s_hour_items, 24, 0, out_count);
     else if (strcmp(clean_title, "MINUTE") == 0) return build_two_digit_items(s_minute_item_str, s_minute_items, 60, 0, out_count);
     else if (strcmp(clean_title, "SECOND") == 0) return build_two_digit_items(s_second_item_str, s_second_items, 60, 0, out_count);
-    else if (strcmp(clean_title, "LOG RATE") == 0) items = s_nested_log_rate;
-    else if (strcmp(clean_title, "BLUETOOTH") == 0) items = s_nested_bluetooth;
     else if (strcmp(clean_title, "RED") == 0) items = s_nested_red;
     else if (strcmp(clean_title, "GREEN") == 0) items = s_nested_green;
     else if (strcmp(clean_title, "BLUE") == 0) items = s_nested_blue;
@@ -626,7 +617,7 @@ const char **arex_submenu_child_items_for(const char *current_title,
         {
             NULL,
             "MODE SETUP",
-            "DIVE MENU",
+            "DIVE SETUP",
             "AI SETUP",
             "ALERTS SETUP",
             "DISPLAY",
@@ -664,65 +655,11 @@ const char **arex_submenu_child_items_for(const char *current_title,
     else
     {
         normalize_menu_key(item_text, key, sizeof(key));
-        if (strcmp(clean_current_title ? clean_current_title : "", "DIVE MENU") == 0)
+        if (strcmp(clean_current_title ? clean_current_title : "", "DISPLAY") == 0)
         {
-            static const char *dive_child_titles[] =
+            if (item_index == 1)
             {
-                "SALINITY",
-                NULL,
-                "SAFETY STOP",
-                "ALTITUDE",
-            };
-            if (item_index < (sizeof(dive_child_titles) / sizeof(dive_child_titles[0])) &&
-                dive_child_titles[item_index])
-            {
-                lv_snprintf(key, sizeof(key), "%s", dive_child_titles[item_index]);
-            }
-        }
-        else if (strcmp(clean_current_title ? clean_current_title : "", "AI SETUP") == 0)
-        {
-            if (item_index == 2)
-            {
-                lv_snprintf(key, sizeof(key), "%s", "GTR MODE");
-            }
-            else
-            {
-                key[0] = '\0';
-            }
-        }
-        else if (strcmp(clean_current_title ? clean_current_title : "", "ALERTS SETUP") == 0)
-        {
-            static const char *alerts_child_titles[] =
-            {
-                "DEPTH ALARM",
-                "TIME ALARM",
-                "LOW NDL",
-                NULL,
-            };
-            if (item_index < (sizeof(alerts_child_titles) / sizeof(alerts_child_titles[0])) &&
-                alerts_child_titles[item_index])
-            {
-                lv_snprintf(key, sizeof(key), "%s", alerts_child_titles[item_index]);
-            }
-            else
-            {
-                key[0] = '\0';
-            }
-        }
-        else if (strcmp(clean_current_title ? clean_current_title : "", "DISPLAY") == 0)
-        {
-            static const char *display_child_titles[] =
-            {
-                "UNITS",
-                "DATE & CLOCK",
-                "LOG RATE",
-                "BLUETOOTH",
-                NULL,
-            };
-            if (item_index < (sizeof(display_child_titles) / sizeof(display_child_titles[0])) &&
-                display_child_titles[item_index])
-            {
-                lv_snprintf(key, sizeof(key), "%s", display_child_titles[item_index]);
+                lv_snprintf(key, sizeof(key), "%s", "DATE & CLOCK");
             }
             else
             {
@@ -783,214 +720,12 @@ bool arex_submenu_setting_from_selection(const char *current_title,
 
     memset(out_setting, 0, sizeof(*out_setting));
 
-    if (strcmp(clean_title, "MODE SETUP") == 0 && item_index < 4)
+    if (strcmp(clean_title, "MODE SETUP") == 0 && item_index < 5)
     {
         out_setting->kind = AREX_SUBMENU_SETTING_DIVE_MODE;
         out_setting->value = item_index;
         lv_snprintf(out_setting->body, sizeof(out_setting->body),
                     "DIVE MODE\n%s", dive_mode_label(item_index));
-        return true;
-    }
-
-    if (strcmp(clean_title, "SALINITY") == 0 && item_index < 2)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_SALINITY;
-        out_setting->value = item_index;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "SALINITY\n%s", salinity_label(item_index));
-        return true;
-    }
-
-    if (strcmp(clean_title, "SAFETY STOP") == 0 && item_index < 2)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_SAFETY_STOP;
-        out_setting->value = item_index;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "SAFETY STOP\n%s", safety_stop_label(item_index));
-        return true;
-    }
-
-    if (strcmp(clean_title, "ALTITUDE") == 0 && item_index < 5)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_ALTITUDE;
-        out_setting->value = item_index;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "ALTITUDE\n%s", altitude_label(item_index));
-        return true;
-    }
-
-    if (strcmp(clean_title, "AI SETUP") == 0 && item_index < 2)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_AI_PAIR;
-        out_setting->value = item_index;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "PAIR WIRELESS TANK\nT%u", (unsigned)(item_index + 1));
-        return true;
-    }
-
-    if (strcmp(clean_title, "GTR MODE") == 0 && item_index < 2)
-    {
-        uint8_t enabled = (item_index == 0) ? 1 : 0;
-        out_setting->kind = AREX_SUBMENU_SETTING_GTR_MODE;
-        out_setting->value = enabled;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "GTR MODE\n%s", gtr_label(enabled));
-        return true;
-    }
-
-    if (strcmp(clean_title, "ALERTS SETUP") == 0 && item_index == 3)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_VIBRATION_TEST;
-        out_setting->value = 0;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "TEST VIBRATION\nRUN NOW");
-        return true;
-    }
-
-    if (strcmp(clean_title, "DEPTH ALARM") == 0 &&
-        item_index < (sizeof(s_depth_alarm_values) / sizeof(s_depth_alarm_values[0])))
-    {
-        uint8_t depth_m = value_from_table(s_depth_alarm_values,
-                                           sizeof(s_depth_alarm_values) / sizeof(s_depth_alarm_values[0]),
-                                           item_index,
-                                           s_depth_alarm_m);
-        out_setting->kind = AREX_SUBMENU_SETTING_DEPTH_ALARM;
-        out_setting->value = depth_m;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DEPTH ALARM\n%um", depth_m);
-        return true;
-    }
-
-    if (strcmp(clean_title, "TIME ALARM") == 0 &&
-        item_index < (sizeof(s_time_alarm_values) / sizeof(s_time_alarm_values[0])))
-    {
-        uint8_t minutes = value_from_table(s_time_alarm_values,
-                                           sizeof(s_time_alarm_values) / sizeof(s_time_alarm_values[0]),
-                                           item_index,
-                                           s_time_alarm_min);
-        out_setting->kind = AREX_SUBMENU_SETTING_TIME_ALARM;
-        out_setting->value = minutes;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "TIME ALARM\n%umin", minutes);
-        return true;
-    }
-
-    if (strcmp(clean_title, "LOW NDL") == 0 &&
-        item_index < (sizeof(s_ndl_alarm_values) / sizeof(s_ndl_alarm_values[0])))
-    {
-        uint8_t minutes = value_from_table(s_ndl_alarm_values,
-                                           sizeof(s_ndl_alarm_values) / sizeof(s_ndl_alarm_values[0]),
-                                           item_index,
-                                           s_ndl_alarm_min);
-        out_setting->kind = AREX_SUBMENU_SETTING_NDL_ALARM;
-        out_setting->value = minutes;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "LOW NDL ALARM\n%umin", minutes);
-        return true;
-    }
-
-    if (strcmp(clean_title, "UNITS") == 0 && item_index < 2)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_UNITS;
-        out_setting->value = item_index;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "UNITS\n%s", units_label(item_index));
-        return true;
-    }
-
-    if (strcmp(clean_title, "YEAR") == 0 && item_index < 12)
-    {
-        uint16_t year = (uint16_t)(2024 + item_index);
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_YEAR;
-        out_setting->value = item_index;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "YEAR\n%04u", year);
-        return true;
-    }
-
-    if (strcmp(clean_title, "MONTH") == 0 && item_index < 12)
-    {
-        uint8_t month = (uint8_t)(item_index + 1);
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_MONTH;
-        out_setting->value = month;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "MONTH\n%02u", month);
-        return true;
-    }
-
-    if (strcmp(clean_title, "DAY") == 0 && item_index < 31)
-    {
-        uint8_t day = (uint8_t)(item_index + 1);
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_DAY;
-        out_setting->value = day;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DAY\n%02u", day);
-        return true;
-    }
-
-    if (strcmp(clean_title, "HOUR") == 0 && item_index < 24)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_HOUR;
-        out_setting->value = item_index;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "HOUR\n%02u", item_index);
-        return true;
-    }
-
-    if (strcmp(clean_title, "MINUTE") == 0 && item_index < 60)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_MINUTE;
-        out_setting->value = item_index;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "MINUTE\n%02u", item_index);
-        return true;
-    }
-
-    if (strcmp(clean_title, "SECOND") == 0 && item_index < 60)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
-        out_setting->arg = AREX_DATETIME_FIELD_SECOND;
-        out_setting->value = item_index;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "SECOND\n%02u", item_index);
-        return true;
-    }
-
-    if (strcmp(clean_title, "DATE & CLOCK") == 0 && item_index == 6)
-    {
-        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_ACTION;
-        out_setting->value = 0;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DATE & CLOCK\n%s", item_text);
-        return true;
-    }
-
-    if (strcmp(clean_title, "LOG RATE") == 0 &&
-        item_index < (sizeof(s_log_rate_values) / sizeof(s_log_rate_values[0])))
-    {
-        uint8_t seconds = value_from_table(s_log_rate_values,
-                                           sizeof(s_log_rate_values) / sizeof(s_log_rate_values[0]),
-                                           item_index,
-                                           s_log_rate_s);
-        out_setting->kind = AREX_SUBMENU_SETTING_LOG_RATE;
-        out_setting->value = seconds;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "LOG RATE\n%us", seconds);
-        return true;
-    }
-
-    if (strcmp(clean_title, "BLUETOOTH") == 0 && item_index < 2)
-    {
-        uint8_t enabled = (item_index == 0) ? 1 : 0;
-        out_setting->kind = AREX_SUBMENU_SETTING_BLUETOOTH;
-        out_setting->value = enabled;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "BLUETOOTH\n%s", bluetooth_label(enabled));
         return true;
     }
 
@@ -1006,21 +741,222 @@ bool arex_submenu_setting_from_selection(const char *current_title,
     return false;
 }
 
-void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, uint8_t value)
+bool arex_submenu_direct_setting_from_selection(const char *current_title,
+                                                uint8_t item_index,
+                                                const char *item_text,
+                                                arex_submenu_setting_confirm_t *out_setting)
+{
+    const char *clean_title = strip_title_prefix(current_title);
+    (void)item_text;
+    if (!clean_title || !out_setting)
+    {
+        return false;
+    }
+
+    memset(out_setting, 0, sizeof(*out_setting));
+
+    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 0)
+    {
+        uint8_t next = (uint8_t)((s_salinity_mode + 1) % 3);
+        out_setting->kind = AREX_SUBMENU_SETTING_SALINITY;
+        out_setting->value = next;
+        return true;
+    }
+
+    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 2)
+    {
+        uint8_t next = (uint8_t)((s_safety_stop_mode + 1) %
+                       (sizeof(s_safety_stop_values) / sizeof(s_safety_stop_values[0])));
+        out_setting->kind = AREX_SUBMENU_SETTING_SAFETY_STOP;
+        out_setting->value = next;
+        return true;
+    }
+
+    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 3)
+    {
+        uint8_t next = (uint8_t)((s_altitude_level + 1) % 4);
+        out_setting->kind = AREX_SUBMENU_SETTING_ALTITUDE;
+        out_setting->value = next;
+        return true;
+    }
+
+    if (strcmp(clean_title, "AI SETUP") == 0 && item_index < 2)
+    {
+        uint8_t next = (uint8_t)((s_ai_tank_state[item_index] + 1) % 3);
+        out_setting->kind = AREX_SUBMENU_SETTING_AI_TANK_STATE;
+        out_setting->arg = item_index;
+        out_setting->value = next;
+        return true;
+    }
+
+    if (strcmp(clean_title, "AI SETUP") == 0 && item_index == 2)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_GTR_MODE;
+        out_setting->value = s_gtr_enabled ? 0 : 1;
+        return true;
+    }
+
+    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 0)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_UNITS;
+        out_setting->value = (s_units_mode == 0) ? 1 : 0;
+        return true;
+    }
+
+    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 2)
+    {
+        uint8_t next_index = 0;
+        for (uint8_t i = 0; i < (sizeof(s_log_rate_values) / sizeof(s_log_rate_values[0])); i++)
+        {
+            if (s_log_rate_values[i] == s_log_rate_s)
+            {
+                next_index = (uint8_t)((i + 1) % (sizeof(s_log_rate_values) / sizeof(s_log_rate_values[0])));
+                break;
+            }
+        }
+        out_setting->kind = AREX_SUBMENU_SETTING_LOG_RATE;
+        out_setting->value = s_log_rate_values[next_index];
+        return true;
+    }
+
+    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 3)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_BLUETOOTH;
+        out_setting->value = s_bluetooth_enabled ? 0 : 1;
+        return true;
+    }
+
+    if (strcmp(clean_title, "YEAR") == 0 && item_index < 12)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
+        out_setting->arg = AREX_DATETIME_FIELD_YEAR;
+        out_setting->value = (uint16_t)item_index;
+        return true;
+    }
+
+    if (strcmp(clean_title, "MONTH") == 0 && item_index < 12)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
+        out_setting->arg = AREX_DATETIME_FIELD_MONTH;
+        out_setting->value = (uint16_t)(item_index + 1);
+        return true;
+    }
+
+    if (strcmp(clean_title, "DAY") == 0 && item_index < 31)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
+        out_setting->arg = AREX_DATETIME_FIELD_DAY;
+        out_setting->value = (uint16_t)(item_index + 1);
+        return true;
+    }
+
+    if (strcmp(clean_title, "HOUR") == 0 && item_index < 24)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
+        out_setting->arg = AREX_DATETIME_FIELD_HOUR;
+        out_setting->value = item_index;
+        return true;
+    }
+
+    if (strcmp(clean_title, "MINUTE") == 0 && item_index < 60)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
+        out_setting->arg = AREX_DATETIME_FIELD_MINUTE;
+        out_setting->value = item_index;
+        return true;
+    }
+
+    if (strcmp(clean_title, "SECOND") == 0 && item_index < 60)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
+        out_setting->arg = AREX_DATETIME_FIELD_SECOND;
+        out_setting->value = item_index;
+        return true;
+    }
+
+    if (strcmp(clean_title, "DATE & CLOCK") == 0 && item_index == 6)
+    {
+        out_setting->kind = AREX_SUBMENU_SETTING_DATETIME_ACTION;
+        out_setting->value = 0;
+        return true;
+    }
+
+    return false;
+}
+
+bool arex_submenu_edit_spec_from_selection(const char *current_title,
+                                           uint8_t item_index,
+                                           const char *item_text,
+                                           arex_submenu_edit_spec_t *out_spec)
+{
+    const char *clean_title = strip_title_prefix(current_title);
+    (void)item_text;
+    if (!clean_title || !out_spec)
+    {
+        return false;
+    }
+    memset(out_spec, 0, sizeof(*out_spec));
+
+    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 1)
+    {
+        out_spec->kind = AREX_SUBMENU_SETTING_MOD_PPO2;
+        out_spec->value = g_sys_config.mod_ppo2;
+        out_spec->min = 1.0f;
+        out_spec->max = 1.6f;
+        out_spec->step = 0.1f;
+        out_spec->decimals = 1;
+        lv_snprintf(out_spec->label, sizeof(out_spec->label), "MOD PO2:");
+        return true;
+    }
+
+    if (strcmp(clean_title, "ALERTS SETUP") == 0 && item_index == 0)
+    {
+        out_spec->kind = AREX_SUBMENU_SETTING_DEPTH_ALARM;
+        out_spec->value = (float)s_depth_alarm_m;
+        out_spec->min = 10.0f;
+        out_spec->max = 150.0f;
+        out_spec->step = 10.0f;
+        out_spec->decimals = 0;
+        lv_snprintf(out_spec->label, sizeof(out_spec->label), "DEPTH:");
+        return true;
+    }
+
+    if (strcmp(clean_title, "ALERTS SETUP") == 0 && item_index == 1)
+    {
+        out_spec->kind = AREX_SUBMENU_SETTING_TIME_ALARM;
+        out_spec->value = (float)s_time_alarm_min;
+        out_spec->min = 10.0f;
+        out_spec->max = 300.0f;
+        out_spec->step = 10.0f;
+        out_spec->decimals = 0;
+        lv_snprintf(out_spec->label, sizeof(out_spec->label), "TIME:");
+        return true;
+    }
+
+    return false;
+}
+
+void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, uint16_t value)
 {
     switch (kind)
     {
     case AREX_SUBMENU_SETTING_DIVE_MODE:
-        s_dive_mode = (value > 3) ? 0 : value;
+        s_dive_mode = (value > 4) ? 0 : (uint8_t)value;
         break;
     case AREX_SUBMENU_SETTING_SALINITY:
-        s_salinity_mode = (value > 1) ? 0 : value;
+        s_salinity_mode = (value > 2) ? 0 : (uint8_t)value;
         break;
     case AREX_SUBMENU_SETTING_SAFETY_STOP:
-        s_safety_stop_mode = (value > 1) ? 0 : value;
+        s_safety_stop_mode = (value > 3) ? 1 : (uint8_t)value;
         break;
     case AREX_SUBMENU_SETTING_ALTITUDE:
-        s_altitude_level = (value > 4) ? 0 : value;
+        s_altitude_level = (value > 3) ? 0 : (uint8_t)value;
+        break;
+    case AREX_SUBMENU_SETTING_AI_TANK_STATE:
+        if (arg < 2)
+        {
+            s_ai_tank_state[arg] = (value > 2) ? 0 : (uint8_t)value;
+        }
         break;
     case AREX_SUBMENU_SETTING_GTR_MODE:
         s_gtr_enabled = value ? 1 : 0;
@@ -1031,11 +967,8 @@ void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, u
     case AREX_SUBMENU_SETTING_TIME_ALARM:
         s_time_alarm_min = value;
         break;
-    case AREX_SUBMENU_SETTING_NDL_ALARM:
-        s_ndl_alarm_min = value;
-        break;
     case AREX_SUBMENU_SETTING_UNITS:
-        s_units_mode = (value > 1) ? 0 : value;
+        s_units_mode = (value > 1) ? 0 : (uint8_t)value;
         break;
     case AREX_SUBMENU_SETTING_DATETIME_FIELD:
         switch (arg)
@@ -1063,7 +996,7 @@ void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, u
         }
         break;
     case AREX_SUBMENU_SETTING_LOG_RATE:
-        s_log_rate_s = value;
+        s_log_rate_s = (uint8_t)value;
         break;
     case AREX_SUBMENU_SETTING_BLUETOOTH:
         s_bluetooth_enabled = value ? 1 : 0;
@@ -1072,6 +1005,25 @@ void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, u
         s_units_mode = 0;
         s_log_rate_s = 10;
         s_bluetooth_enabled = 0;
+        break;
+    default:
+        break;
+    }
+}
+
+void arex_submenu_apply_edit_value(arex_submenu_setting_kind_t kind, uint8_t arg, float value)
+{
+    (void)arg;
+    switch (kind)
+    {
+    case AREX_SUBMENU_SETTING_MOD_PPO2:
+        g_sys_config.mod_ppo2 = value;
+        break;
+    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
+        s_depth_alarm_m = (uint16_t)(value + 0.5f);
+        break;
+    case AREX_SUBMENU_SETTING_TIME_ALARM:
+        s_time_alarm_min = (uint16_t)(value + 0.5f);
         break;
     default:
         break;

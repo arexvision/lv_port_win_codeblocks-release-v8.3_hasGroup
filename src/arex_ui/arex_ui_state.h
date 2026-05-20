@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "arex_submenu_model.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -100,7 +101,11 @@ typedef struct
         float   max;
         float   step;
         float   original;
+        arex_submenu_setting_kind_t setting_kind;
+        uint8_t setting_arg;
+        uint8_t decimals;
         uint8_t item_index;     /* which sub-menu item is being edited */
+        char    label[20];
         bool    active;
     } edit_ctx;
 

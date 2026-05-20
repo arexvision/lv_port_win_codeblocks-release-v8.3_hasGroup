@@ -3,6 +3,7 @@
 
 #include "lvgl/lvgl.h"
 #include "arex_ui_engine.h"
+#include "arex_submenu_model.h"
 #include "fonts/arex_fonts.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -118,8 +119,7 @@ void arex_screen_show_modal_setup_confirm(const char *body);
 void arex_screen_confirm_submenu_setting(void);
 void arex_screen_cancel_submenu_setting(void);
 
-void arex_screen_begin_edit_value(uint8_t item_idx, float value,
-                                  float min, float max, float step);
+void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec_t *spec);
 
 /* =========================================
    Modal dialogs
