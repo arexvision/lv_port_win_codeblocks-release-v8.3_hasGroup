@@ -1242,21 +1242,44 @@ static void edit_flash_start(void)
         lv_timer_del(s_edit_flash_timer);
         s_edit_flash_timer = NULL;
     }
-    s_edit_flash_on = true;
-    s_edit_flash_timer = lv_timer_create(edit_flash_timer_cb, 350, NULL);
+    s_edit_flash_on = false;
+    edit_flash_timer_cb(NULL);
+    if (s_edit_flash_val_lbl)
+    {
+        lv_obj_set_style_bg_color(s_edit_flash_val_lbl, AREX_GREEN, 0);
+        lv_obj_set_style_bg_opa(s_edit_flash_val_lbl, LV_OPA_COVER, 0);
+        lv_obj_set_style_text_color(s_edit_flash_val_lbl, AREX_BLACK, 0);
+    }
 }
 
 static void edit_value_cleanup(lv_obj_t *item);
 
-static void format_edit_value_text(char *buf, size_t buf_size, float value, uint8_t decimals)
+static void format_edit_value_text(char *buf,
+                                   size_t buf_size,
+                                   arex_submenu_setting_kind_t kind,
+                                   uint8_t arg,
+                                   float value,
+                                   uint8_t decimals)
 {
-    if (decimals == 0)
+    if (kind == AREX_SUBMENU_SETTING_DATETIME_FIELD)
     {
-        snprintf(buf, buf_size, "%.0f ^v", (double)value);
+        unsigned int v = (unsigned int)(value + 0.5f);
+        if (arg == 0)
+        {
+            snprintf(buf, buf_size, "%04u", v);
+        }
+        else
+        {
+            snprintf(buf, buf_size, "%02u", v);
+        }
+    }
+    else if (decimals == 0)
+    {
+        snprintf(buf, buf_size, "%.0f", (double)value);
     }
     else
     {
-        snprintf(buf, buf_size, "%.1f ^v", (double)value);
+        snprintf(buf, buf_size, "%.1f", (double)value);
     }
 }
 
@@ -1335,7 +1358,12 @@ void arex_screen_refresh_edit_value(void)
     if (cur == last_drawn) return;   /* dirty check：值未变则跳过，不触发重绘 */
     last_drawn = cur;
     char buf[16];
-    format_edit_value_text(buf, sizeof(buf), cur, g_ui.edit_ctx.decimals);
+    format_edit_value_text(buf,
+                           sizeof(buf),
+                           g_ui.edit_ctx.setting_kind,
+                           g_ui.edit_ctx.setting_arg,
+                           cur,
+                           g_ui.edit_ctx.decimals);
     lv_label_set_text(s_edit_flash_val_lbl, buf);
 }
 
@@ -1370,6 +1398,15 @@ void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec
     lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(item, AREX_GREEN, 0);
     lv_obj_set_style_border_width(item, 2, 0);
+    lv_obj_set_layout(item, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(item, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(item,
+                          LV_FLEX_ALIGN_SPACE_BETWEEN,
+                          LV_FLEX_ALIGN_CENTER,
+                          LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_left(item, 12, 0);
+    lv_obj_set_style_pad_right(item, 12, 0);
+    lv_obj_set_style_pad_column(item, 8, 0);
 
     /* 复用 child 0 作为左侧标签，恢复绿色文字 */
     lv_obj_t *prefix_lbl = lv_obj_get_child(item, 0);
@@ -1378,7 +1415,7 @@ void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec
         lv_label_set_text(prefix_lbl, g_ui.edit_ctx.label);
         lv_obj_set_style_text_color(prefix_lbl, AREX_GREEN, 0);
         lv_obj_set_size(prefix_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-        lv_obj_align(prefix_lbl, LV_ALIGN_LEFT_MID, 12, 0);
+        lv_obj_set_style_bg_opa(prefix_lbl, LV_OPA_TRANSP, 0);
     }
 
     /* child 1 badge label（CONSERVATISM 等无 badge 时为 NULL），恢复颜色 */
@@ -1387,18 +1424,32 @@ void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec
 
     /* 创建右侧数值 + 箭头 label，透明背景，靠右居中 */
     lv_obj_t *val_lbl = lv_label_create(item);
-    lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
+    lv_obj_set_style_text_color(val_lbl, AREX_BLACK, 0);
     lv_obj_set_style_text_font(val_lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
-    lv_obj_set_style_bg_opa(val_lbl, LV_OPA_TRANSP, 0);
-    lv_obj_set_size(val_lbl, 120, LV_SIZE_CONTENT);
-    lv_obj_align(val_lbl, LV_ALIGN_RIGHT_MID, -12, 0);
-    lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_label_set_long_mode(val_lbl, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_bg_color(val_lbl, AREX_GREEN, 0);
+    lv_obj_set_style_bg_opa(val_lbl, LV_OPA_COVER, 0);
+    lv_obj_set_style_pad_left(val_lbl, 8, 0);
+    lv_obj_set_style_pad_right(val_lbl, 8, 0);
+    lv_obj_set_style_pad_top(val_lbl, 1, 0);
+    lv_obj_set_style_pad_bottom(val_lbl, 1, 0);
+    lv_obj_set_size(val_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_text_align(val_lbl, LV_TEXT_ALIGN_CENTER, 0);
     char buf[16];
-    format_edit_value_text(buf, sizeof(buf), spec->value, spec->decimals);
+    format_edit_value_text(buf,
+                           sizeof(buf),
+                           spec->kind,
+                           spec->arg,
+                           spec->value,
+                           spec->decimals);
     lv_label_set_text(val_lbl, buf);
 
     s_edit_flash_badge    = val_lbl;   /* 复用指针用于闪烁 */
+    lv_obj_t *arrow_lbl = lv_label_create(item);
+    lv_obj_set_style_text_color(arrow_lbl, AREX_GREEN, 0);
+    lv_obj_set_style_text_font(arrow_lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_style_bg_opa(arrow_lbl, LV_OPA_TRANSP, 0);
+    lv_label_set_text(arrow_lbl, "▲▼");
+
     s_edit_flash_val_lbl  = val_lbl;
 
     edit_flash_start();
@@ -1410,10 +1461,20 @@ static void edit_value_cleanup(lv_obj_t *item)
     edit_flash_stop();
     lv_obj_set_style_border_color(item, AREX_DARK, 0);
     uint32_t cnt = lv_obj_get_child_cnt(item);
-    if (cnt > 2) lv_obj_del(lv_obj_get_child(item, 2));
-    cnt = lv_obj_get_child_cnt(item);
-    if (cnt > 1) lv_obj_del(lv_obj_get_child(item, 1));
+    while (cnt > 1)
+    {
+        lv_obj_del(lv_obj_get_child(item, 1));
+        cnt = lv_obj_get_child_cnt(item);
+    }
     lv_obj_set_layout(item, 0);
+    lv_obj_set_style_pad_left(item, 0, 0);
+    lv_obj_set_style_pad_right(item, 0, 0);
+    lv_obj_t *lbl = lv_obj_get_child(item, 0);
+    if (lbl)
+    {
+        lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
+    }
     lv_obj_update_layout(item);
 }
 
