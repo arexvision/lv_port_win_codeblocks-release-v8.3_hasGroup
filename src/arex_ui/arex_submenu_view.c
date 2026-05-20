@@ -1,13 +1,11 @@
 #include "arex_submenu_view.h"
 
 #include "arex_callbacks.h"
-#include "arex_data.h"
-#include "arex_modal_view.h"
 #include "arex_screen.h"
+#include "arex_submenu_model.h"
 #include "arex_ui_state.h"
 #include "fonts/arex_fonts.h"
 
-#include <stdio.h>
 #include <string.h>
 
 static lv_obj_t *s_submenu_layer = NULL;
@@ -234,134 +232,19 @@ void arex_screen_set_submenu_selection(uint8_t idx)
 }
 
 /* INFO sub-menu */
-static const char *s_info_titles[] =
-{
-    "> LAST DIVE", "> DIVE PLAN", "> TISSUE & TOX", "> GAS & CALC", "> SENSOR & DEVICE"
-};
-
-static char s_info_str[5][5][32];
-static const char *s_info_dyn[5][6];
-
-// HOTFIX: Removed soft BACK buttons.
-static void build_info_submenu(uint8_t idx)
-{
-    uint8_t n = 0;
-    switch (idx)
-    {
-    case 0:
-        snprintf(s_info_str[0][0], 32, "MAX DEPTH: %dm", (int)g_sensor_data.depth);
-        snprintf(s_info_str[0][1], 32, "DIVE TIME: %dm", (int)(g_sensor_data.dive_time_s / 60));
-        s_info_dyn[0][n++] = s_info_str[0][0];
-        s_info_dyn[0][n++] = s_info_str[0][1];
-        s_info_dyn[0][n++] = "SURFACE INT: 2h 10m";
-        break;
-    case 1:
-        s_info_dyn[1][n++] = "VIEW PROFILE";
-        s_info_dyn[1][n++] = "RECALCULATE";
-        break;
-    case 2:
-        snprintf(s_info_str[2][0], 32, "GF: %d/%d", 30, 70);
-        snprintf(s_info_str[2][1], 32, "CNS: %d%%", g_sensor_data.cns_pct);
-        snprintf(s_info_str[2][2], 32, "OTU: %d", g_sensor_data.otu);
-        s_info_dyn[2][n++] = "VIEW BAR GRAPH";
-        s_info_dyn[2][n++] = s_info_str[2][0];
-        s_info_dyn[2][n++] = s_info_str[2][1];
-        s_info_dyn[2][n++] = s_info_str[2][2];
-        break;
-    case 3:
-        snprintf(s_info_str[3][0], 32, "GAS 1: %s", g_sensor_data.gas_name);
-        s_info_dyn[3][n++] = s_info_str[3][0];
-        s_info_dyn[3][n++] = "ALGO: ZHL-16C";
-        break;
-    case 4:
-        if (g_sensor_data.pod1_bar <= 0.0f)
-            snprintf(s_info_str[4][0], 32, "POD 1: -- BAR");
-        else
-            snprintf(s_info_str[4][0], 32, "POD 1: %.0f BAR", g_sensor_data.pod1_bar);
-        if (g_sensor_data.pod2_bar <= 0.0f)
-            snprintf(s_info_str[4][1], 32, "POD 2: -- BAR");
-        else
-            snprintf(s_info_str[4][1], 32, "POD 2: %.0f BAR", g_sensor_data.pod2_bar);
-        float battery_pct = g_sensor_data.battery_pct;
-        if (battery_pct < 0.0f)
-        {
-            battery_pct = 0.0f;
-        }
-        else if (battery_pct > 100.0f)
-        {
-            battery_pct = 100.0f;
-        }
-        snprintf(s_info_str[4][2], 32, "BATTERY: %.0f%%", battery_pct);
-        snprintf(s_info_str[4][3], 32, "TEMP: 24C");
-        s_info_dyn[4][n++] = s_info_str[4][0];
-        s_info_dyn[4][n++] = s_info_str[4][1];
-        s_info_dyn[4][n++] = s_info_str[4][2];
-        s_info_dyn[4][n++] = s_info_str[4][3];
-        break;
-    default:
-        break;
-    }
-    s_info_dyn[idx][n] = NULL;
-}
-
 void arex_screen_open_info_submenu(uint8_t item_idx)
 {
-    if (item_idx >= 5) return;
-    build_info_submenu(item_idx);
     uint8_t count = 0;
-    while (count < 6 && s_info_dyn[item_idx][count]) count++;
-    submenu_populate(s_info_titles[item_idx], s_info_dyn[item_idx], count);
+    const char *title = arex_submenu_info_title(item_idx);
+    const char **items = arex_submenu_build_info_items(item_idx, &count);
+    if (!title || !items || count == 0) return;
+
+    submenu_populate(title, items, count);
     g_ui.sub_item_count = count;
     g_ui.sub_menu_idx   = 0;
     g_ui.sub_parent     = UI_INFO;
     g_ui.state          = UI_SUB_MENU;
     submenu_slide_in();
-}
-
-
-/* SETUP sub-menu */
-// Remove 'SELECT ' prefix
-static const char *s_setup_sub[][7] =
-{
-    { "AIR", "NX 32", "TX 18/45", "O2 100%", NULL },
-    { "LOW (GF 40/85)", "MED (GF 30/70)", "HIGH (GF 20/65)", "GF 50/70", NULL },
-    { "LOW", "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
-    { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
-    { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
-    { "VERSION: " AREX_SYSTEM_VERSION, "MODE SETUP", "DIVE MENU", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
-};
-
-static const char *s_setup_titles[] =
-{
-    "GAS SWITCH", "CONSERVATISM", "BRIGHTNESS", "COMPASS CAL", "LIGHT CONTROL", "SYSTEMS SETUP"
-};
-
-static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
-static char s_compass_cal_status_str[24];
-static const char *s_compass_cal_items[] = { s_compass_cal_status_str, "RESET AUTO CAL", NULL };
-
-static const char *compass_cal_status_text(void)
-{
-    arex_compass_cal_ui_state_t st = arex_get_compass_calibration_ui_state();
-    if (st == AREX_COMPASS_CAL_RUNNING) return "LEARN";
-    if (st == AREX_COMPASS_CAL_READY) return "OK";
-    return "AUTO";
-}
-
-static const char **build_compass_cal_submenu(uint8_t *out_count)
-{
-    lv_snprintf(s_compass_cal_status_str,
-                sizeof(s_compass_cal_status_str),
-                "AUTO CAL: %s",
-                compass_cal_status_text());
-    if (out_count)
-    {
-        *out_count = 2;
-    }
-    return s_compass_cal_items;
 }
 
 static bool refresh_compass_cal_submenu(void)
@@ -383,8 +266,8 @@ static bool refresh_compass_cal_submenu(void)
     }
 
     uint8_t count = 0;
-    const char **items = build_compass_cal_submenu(&count);
-    if (count == 0)
+    const char **items = arex_submenu_build_compass_cal_items(&count);
+    if (!items || count == 0)
     {
         return false;
     }
@@ -400,18 +283,12 @@ static bool refresh_compass_cal_submenu(void)
 
 void arex_screen_open_setup_submenu(uint8_t item_idx)
 {
-    if (item_idx >= 6) return;
     uint8_t count = 0;
-    const char **items = s_setup_sub[item_idx];
-    if (strcmp(s_setup_titles[item_idx], "COMPASS CAL") == 0)
-    {
-        items = build_compass_cal_submenu(&count);
-    }
-    else
-    {
-        while (count < 7 && items[count]) count++;
-    }
-    submenu_populate(s_setup_titles[item_idx], items, count);
+    const char *title = arex_submenu_setup_title(item_idx);
+    const char **items = arex_submenu_build_setup_items(item_idx, &count);
+    if (!title || !items || count == 0) return;
+
+    submenu_populate(title, items, count);
     g_ui.sub_item_count = count;
     g_ui.sub_menu_idx   = 0;
     g_ui.sub_parent     = UI_SETUP;
@@ -422,52 +299,6 @@ void arex_screen_open_setup_submenu(uint8_t item_idx)
 void arex_screen_refresh_compass_cal_submenu_if_open(void)
 {
     (void)refresh_compass_cal_submenu();
-}
-
-/* Nested sub-menus */
-static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS NX", "GAUGE", NULL };
-static const char *s_nested_ai_setup[]     = { "PAIR T1", "PAIR T2", "GTR MODE: ON", NULL };
-static const char *s_nested_alerts_setup[] = { "DEPTH ALARM: 40m", "TIME ALARM: 60m", "LOW NDL: 5m", "TEST VIBRATION", NULL };
-static const char *s_nested_display_sys[]  = { "UNITS: METRIC", "DATE & CLOCK", "LOG RATE: 10s", "BLUETOOTH: OFF", "RESET DEFAULTS", NULL };
-
-static char s_modppo2_str[20];
-static const char *s_nested_dive_setup[5];
-
-static void build_nested_dive_setup(void)
-{
-    extern arex_sensor_data_t g_sensor_data;
-    (void)g_sensor_data;
-    snprintf(s_modppo2_str, sizeof(s_modppo2_str), "MOD PO2: %.1f", 1.4f);
-    s_nested_dive_setup[0] = "SALINITY: FRESH";
-    s_nested_dive_setup[1] = s_modppo2_str;
-    s_nested_dive_setup[2] = "SAFETY STOP: 3 MIN";
-    s_nested_dive_setup[3] = "ALTITUDE: AUTO";
-    s_nested_dive_setup[4] = NULL;
-}
-
-static const char **nested_items_for(const char *title, uint8_t *out_count)
-{
-    const char **tbl = NULL;
-    if      (strcmp(title, "MODE SETUP")    == 0) tbl = s_nested_mode_setup;
-    else if (strcmp(title, "DIVE MENU")    == 0)
-    {
-        build_nested_dive_setup();
-        tbl = s_nested_dive_setup;
-    }
-    else if (strcmp(title, "AI SETUP")      == 0) tbl = s_nested_ai_setup;
-    else if (strcmp(title, "ALERTS SETUP")  == 0) tbl = s_nested_alerts_setup;
-    else if (strcmp(title, "DISPLAY") == 0) tbl = s_nested_display_sys;
-    else if (strcmp(title, "RED")    == 0) tbl = s_nested_red;
-    else if (strcmp(title, "GREEN")  == 0) tbl = s_nested_green;
-    else if (strcmp(title, "BLUE")   == 0) tbl = s_nested_blue;
-    else if (strcmp(title, "WHITE")  == 0) tbl = s_nested_white;
-
-    if (tbl && out_count)
-    {
-        *out_count = 0;
-        while (*out_count < 8 && tbl[*out_count]) (*out_count)++;
-    }
-    return tbl;
 }
 
 static void submenu_history_push(void)
@@ -518,11 +349,8 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
-    // HOTFIX: Block action for Info items.
-    if (strcmp(cur_title, "LAST DIVE") == 0 ||
-            strcmp(cur_title, "TISSUE & TOX") == 0 ||
-            strcmp(cur_title, "GAS & CALC") == 0 ||
-            strcmp(cur_title, "SENSOR & DEVICE") == 0)
+    // HOTFIX: Block action for Info detail rows.
+    if (arex_submenu_is_readonly_info_title(cur_title))
     {
         return;
     }
@@ -539,7 +367,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
 
         /* 通过 nested_items_for 获取颜色亮度选项（专门的二级嵌套菜单） */
         uint8_t ncnt = 0;
-        const char **color_items = nested_items_for(color_name, &ncnt);
+        const char **color_items = arex_submenu_nested_items_for(color_name, &ncnt);
         if (color_items && ncnt > 0)
         {
             arex_screen_open_nested_submenu(color_name, color_items, ncnt);
@@ -575,7 +403,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
             nested_name[--copy_len] = '\0';
         }
         uint8_t ncnt = 0;
-        const char **nitems = nested_items_for(nested_name, &ncnt);
+        const char **nitems = arex_submenu_nested_items_for(nested_name, &ncnt);
         if (nitems && ncnt > 0)
         {
             arex_screen_open_nested_submenu(nested_name, nitems, ncnt);
@@ -733,27 +561,18 @@ void arex_screen_close_submenu(void)
         if (prev_title[0] == '>' && prev_title[1] == ' ') prev_title += 2;
 
         bool found = false;
-        for (uint8_t i = 0; i < 5 && !found; i++)
+        int8_t setup_idx = arex_submenu_setup_index_for_title(prev_title);
+        if (setup_idx >= 0)
         {
-            const char *setup_title_stripped = s_setup_titles[i];
-            if (setup_title_stripped[0] == '>' && setup_title_stripped[1] == ' ')
-                setup_title_stripped += 2;
-            if (strcmp(prev_title, setup_title_stripped) == 0)
+            uint8_t cnt = 0;
+            const char **items = arex_submenu_build_setup_items((uint8_t)setup_idx, &cnt);
+            const char *title = arex_submenu_setup_title((uint8_t)setup_idx);
+            if (items && title && cnt > 0)
             {
-                uint8_t cnt = 0;
-                const char **items = s_setup_sub[i];
-                if (strcmp(setup_title_stripped, "COMPASS CAL") == 0)
-                {
-                    items = build_compass_cal_submenu(&cnt);
-                }
-                else
-                {
-                    while (cnt < 6 && items[cnt]) cnt++;
-                }
-                submenu_populate(s_setup_titles[i], items, cnt);
+                submenu_populate(title, items, cnt);
                 g_ui.sub_item_count = cnt;
                 g_ui.sub_menu_idx   = h->idx;
-                if (cnt > 0 && g_ui.sub_menu_idx >= cnt)
+                if (g_ui.sub_menu_idx >= cnt)
                 {
                     g_ui.sub_menu_idx = cnt - 1;
                 }
@@ -764,7 +583,7 @@ void arex_screen_close_submenu(void)
         if (!found)
         {
             uint8_t ncnt = 0;
-            const char **nitems = nested_items_for(prev_title, &ncnt);
+            const char **nitems = arex_submenu_nested_items_for(prev_title, &ncnt);
             if (nitems && ncnt > 0)
             {
                 char full_title[40];
@@ -782,4 +601,3 @@ void arex_screen_close_submenu(void)
     submenu_slide_out();
     g_ui.state = g_ui.sub_parent;
 }
-
