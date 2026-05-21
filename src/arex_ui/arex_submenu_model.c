@@ -22,7 +22,7 @@ static const char *s_gas_switch_dyn[AREX_GAS_COUNT + 1];
 static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
 {
     { NULL },
-    { "LOW (GF 30/70)", "MED (GF 40/85)", "HIGH (GF 50/90)", "CUSTOM (GF 50/70)", NULL },
+    { "LOW (GF 40/95)", "MED (GF 40/85)", "HIGH (GF 30/70)", "CUSTOM (GF 50/70)", NULL },
     { "LOW", "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
     { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
