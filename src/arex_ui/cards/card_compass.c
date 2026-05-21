@@ -63,12 +63,12 @@ static void compass_tape_draw_cb(lv_event_t *e)
 
     lv_draw_label_dsc_t lbl_dsc;
     lv_draw_label_dsc_init(&lbl_dsc);
-    lbl_dsc.color = AREX_GREEN;
-    lbl_dsc.font = arex_get_font(AREX_FONT_ID_SMALL);  /* 14px 小字 */
+    lbl_dsc.color = GREEN;
+    lbl_dsc.font = arex_get_font(FONT_ID_SMALL);  /* 14px 小字 */
     lbl_dsc.align = LV_TEXT_ALIGN_CENTER;
 
     /* ---- 2. 绘制上下轨道线 (极淡的透明度) ---- */
-    line_dsc.color = AREX_GREEN;
+    line_dsc.color = GREEN;
     line_dsc.width = 1;
     line_dsc.opa = 76;  /* 约 30% 透明度 */
     lv_point_t top_line[] = {{area->x1, area->y1}, {area->x2, area->y1}};
@@ -136,7 +136,7 @@ static void compass_tape_draw_cb(lv_event_t *e)
     }
 
     /* ---- 5. 贯穿整个卷尺的中心准星 (高亮加粗) ---- */
-    line_dsc.color = AREX_GREEN;
+    line_dsc.color = GREEN;
     line_dsc.width = 3;
     line_dsc.opa = LV_OPA_COVER;
     lv_point_t center_pts[] = {{center_x, area->y1}, {center_x, area->y2}};
@@ -158,7 +158,7 @@ static void compass_tape_draw_cb(lv_event_t *e)
             /* 在目标方位画一个向上的小实心绿块 */
             lv_draw_rect_dsc_t rect_dsc;
             lv_draw_rect_dsc_init(&rect_dsc);
-            rect_dsc.bg_color = AREX_GREEN;
+            rect_dsc.bg_color = GREEN;
             rect_dsc.bg_opa = LV_OPA_COVER;
             lv_area_t t_area = {tx - 4, area->y2 - 8, tx + 4, area->y2};
             lv_draw_rect(draw_ctx, &rect_dsc, &t_area);
@@ -187,17 +187,17 @@ void render_compass_custom(lv_obj_t *parent_card)
     arex_render_card_title(parent_card, "NAV COMPASS");
 
     /* 计算右侧区域宽度 */
-    int right_canvas_w = (int)g_sys_config.safe_zone_w - (int)AREX_LEFT_ANCHOR_W
-                         - (int)(g_sys_config.gap_u * AREX_BASE_U);
+    int right_canvas_w = (int)g_sys_config.safe_zone_w - (int)LEFT_ANCHOR_W
+                         - (int)(g_sys_config.gap_u * BASE_U);
 
     /* ========================================================
      * 1. 顶部操作提示区 (Target Locked / Enter mark)
      * 挂载在大标题下方
      * ======================================================== */
     s_heading_hint_lbl = lv_label_create(parent_card);
-    lv_obj_set_style_text_font(s_heading_hint_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-    lv_obj_set_style_text_color(s_heading_hint_lbl, AREX_LIGHT, 0);
-    lv_obj_align(s_heading_hint_lbl, LV_ALIGN_TOP_MID, 0, AREX_CARD_TITLE_H + 20);
+    lv_obj_set_style_text_font(s_heading_hint_lbl, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(s_heading_hint_lbl, LIGHT, 0);
+    lv_obj_align(s_heading_hint_lbl, LV_ALIGN_TOP_MID, 0, CARD_TITLE_H + 20);
 
     if (g_sensor_data.heading_locked)
     {
@@ -212,8 +212,8 @@ void render_compass_custom(lv_obj_t *parent_card)
      * 2. 居中巨型当前航向文本 (绝对视觉中心)
      * ======================================================== */
     s_heading_val_lbl = lv_label_create(parent_card);
-    lv_obj_set_style_text_font(s_heading_val_lbl, arex_get_font(AREX_FONT_ID_HUGE), 0);  /* 48px */
-    lv_obj_set_style_text_color(s_heading_val_lbl, AREX_GREEN, 0);
+    lv_obj_set_style_text_font(s_heading_val_lbl, arex_get_font(FONT_ID_HUGE), 0);  /* 48px */
+    lv_obj_set_style_text_color(s_heading_val_lbl, GREEN, 0);
     /* 核心修复：绝对居中，并稍微往上抬一点点 */
     lv_obj_align(s_heading_val_lbl, LV_ALIGN_CENTER, 0, -10);
     lv_label_set_text_fmt(s_heading_val_lbl, "%03d", g_sensor_data.heading);
@@ -223,7 +223,7 @@ void render_compass_custom(lv_obj_t *parent_card)
     lv_obj_remove_style_all(degree_circle);
     lv_obj_set_size(degree_circle, 10, 10);
     lv_obj_set_style_border_width(degree_circle, 2, 0);
-    lv_obj_set_style_border_color(degree_circle, AREX_GREEN, 0);
+    lv_obj_set_style_border_color(degree_circle, GREEN, 0);
     lv_obj_set_style_radius(degree_circle, LV_RADIUS_CIRCLE, 0);
     lv_obj_align_to(degree_circle, s_heading_val_lbl, LV_ALIGN_OUT_RIGHT_TOP, 4, 8);
 

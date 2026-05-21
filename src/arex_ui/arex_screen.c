@@ -22,7 +22,7 @@ static lv_obj_t *s_safe_zone;        /* 安全区容器(绝对坐标原点) */
 static lv_obj_t *s_left_anchor;      /* 左侧锚点 (10U 沙盒) */
 static lv_obj_t *s_right_cont;       /* clip container */
 static lv_obj_t *s_tileview;
-static lv_obj_t *s_tile_objs[AREX_CARD_COUNT];
+static lv_obj_t *s_tile_objs[CARD_COUNT];
 
 /* 灯光控制状态（LIGHT CONTROL 子菜单全局共享） */
 /* 问题4修复：灯光硬件默认开启，UI 初始值必须匹配硬件状态 */
@@ -36,7 +36,7 @@ static lv_obj_t *s_wall_text_bottom, *s_wall_blocks_bottom;
 
 /* Scroll dots */
 static lv_obj_t *s_dot_cont;  /* dots 容器（父对象 s_safe_zone，可定位到间隙中间） */
-static lv_obj_t *s_scroll_dots[AREX_DASH_CARD_COUNT];
+static lv_obj_t *s_scroll_dots[DASH_CARD_COUNT];
 
 static lv_obj_t *s_brightness_overlay;
 static bool s_software_brightness_enabled = true;
@@ -118,64 +118,64 @@ static void styles_init(void)
     s_styles_inited = true;
 
     lv_style_init(&s_style_screen);
-    lv_style_set_bg_color(&s_style_screen, AREX_BG);
+    lv_style_set_bg_color(&s_style_screen, BG);
     lv_style_set_bg_opa(&s_style_screen, LV_OPA_COVER);
     lv_style_set_pad_all(&s_style_screen, 0);
     lv_style_set_border_width(&s_style_screen, 0);
 
     lv_style_init(&s_style_anchor_bg);
-    lv_style_set_bg_color(&s_style_anchor_bg, AREX_BLACK);
+    lv_style_set_bg_color(&s_style_anchor_bg, BLACK);
     lv_style_set_bg_opa(&s_style_anchor_bg, LV_OPA_COVER);
-    lv_style_set_border_color(&s_style_anchor_bg, AREX_DARK);
-    lv_style_set_border_width(&s_style_anchor_bg, AREX_DEBUG_BORDERS ? 1 : 0);
+    lv_style_set_border_color(&s_style_anchor_bg, DARK);
+    lv_style_set_border_width(&s_style_anchor_bg, DEBUG_BORDERS ? 1 : 0);
     lv_style_set_pad_all(&s_style_anchor_bg, 0);     /* 必须显式清零，否则 LVGL 默认 padding 会偏移所有子组件坐标 */
     lv_style_set_radius(&s_style_anchor_bg, 0);
 
     lv_style_init(&s_style_panel);
-    lv_style_set_bg_color(&s_style_panel, AREX_BLACK);
+    lv_style_set_bg_color(&s_style_panel, BLACK);
     lv_style_set_bg_opa(&s_style_panel, LV_OPA_COVER);
     lv_style_set_pad_all(&s_style_panel, 0);
     lv_style_set_border_width(&s_style_panel, 0);
 
     lv_style_init(&s_style_label_huge);
-    lv_style_set_text_color(&s_style_label_huge, AREX_GREEN);
-    lv_style_set_text_font(&s_style_label_huge, arex_get_font(AREX_FONT_ID_HUGE));
+    lv_style_set_text_color(&s_style_label_huge, GREEN);
+    lv_style_set_text_font(&s_style_label_huge, arex_get_font(FONT_ID_HUGE));
 
     lv_style_init(&s_style_label_med);
-    lv_style_set_text_color(&s_style_label_med, AREX_GREEN);
-    lv_style_set_text_font(&s_style_label_med, arex_get_font(AREX_FONT_ID_MEDIUM));
+    lv_style_set_text_color(&s_style_label_med, GREEN);
+    lv_style_set_text_font(&s_style_label_med, arex_get_font(FONT_ID_MEDIUM));
 
     lv_style_init(&s_style_label_small);
-    lv_style_set_text_color(&s_style_label_small, AREX_LIGHT);
-    lv_style_set_text_font(&s_style_label_small, arex_get_font(AREX_FONT_ID_SMALL));
+    lv_style_set_text_color(&s_style_label_small, LIGHT);
+    lv_style_set_text_font(&s_style_label_small, arex_get_font(FONT_ID_SMALL));
 
     lv_style_init(&s_style_title_zone);
-    lv_style_set_text_color(&s_style_title_zone, AREX_LIGHT);
-    lv_style_set_text_font(&s_style_title_zone, arex_get_font(AREX_FONT_ID_SMALL));
+    lv_style_set_text_color(&s_style_title_zone, LIGHT);
+    lv_style_set_text_font(&s_style_title_zone, arex_get_font(FONT_ID_SMALL));
     lv_style_set_bg_opa(&s_style_title_zone, LV_OPA_TRANSP);
 
     lv_style_init(&s_style_val_zone);
-    lv_style_set_text_color(&s_style_val_zone, AREX_GREEN);
+    lv_style_set_text_color(&s_style_val_zone, GREEN);
     lv_style_set_bg_opa(&s_style_val_zone, LV_OPA_TRANSP);
 
     lv_style_init(&s_style_sep_line);
-    lv_style_set_bg_color(&s_style_sep_line, AREX_DARK);
+    lv_style_set_bg_color(&s_style_sep_line, DARK);
     lv_style_set_bg_opa(&s_style_sep_line, LV_OPA_50);
     lv_style_set_border_width(&s_style_sep_line, 0);
 
     lv_style_init(&s_style_menu_item);
-    lv_style_set_bg_color(&s_style_menu_item, AREX_BLACK);
+    lv_style_set_bg_color(&s_style_menu_item, BLACK);
     lv_style_set_bg_opa(&s_style_menu_item, LV_OPA_COVER);
-    lv_style_set_text_color(&s_style_menu_item, AREX_GREEN);
-    lv_style_set_border_color(&s_style_menu_item, AREX_DARK);
-    lv_style_set_border_width(&s_style_menu_item, AREX_INNER_BORDER_W);
+    lv_style_set_text_color(&s_style_menu_item, GREEN);
+    lv_style_set_border_color(&s_style_menu_item, DARK);
+    lv_style_set_border_width(&s_style_menu_item, INNER_BORDER_W);
     lv_style_set_pad_all(&s_style_menu_item, 12);
 
     lv_style_init(&s_style_menu_item_active);
-    lv_style_set_bg_color(&s_style_menu_item_active, AREX_GREEN);
+    lv_style_set_bg_color(&s_style_menu_item_active, GREEN);
     lv_style_set_bg_opa(&s_style_menu_item_active, LV_OPA_COVER);
-    lv_style_set_text_color(&s_style_menu_item_active, AREX_BLACK);
-    lv_style_set_border_color(&s_style_menu_item_active, AREX_GREEN);
+    lv_style_set_text_color(&s_style_menu_item_active, BLACK);
+    lv_style_set_border_color(&s_style_menu_item_active, GREEN);
 }
 
 /* =========================================================
@@ -221,7 +221,7 @@ static void left_anchor_rebuild(uint8_t comp_count)
     if (!s_left_anchor || !s_safe_zone) return;
 
     /* 重建锚点容器尺寸（布局顺序可能变化） */
-    uint16_t anchor_w = AREX_LEFT_ANCHOR_W;
+    uint16_t anchor_w = LEFT_ANCHOR_W;
     uint16_t anchor_h = g_sys_config.safe_zone_h;
     lv_obj_set_size(s_left_anchor, anchor_w, anchor_h);
 
@@ -240,22 +240,22 @@ static void left_anchor_rebuild(uint8_t comp_count)
  *
  * 废弃 current_y 累加排版，改为 2 列(80px) x 7 行(60px) 绝对网格矩阵。
  * 所有组件通过 arex_render_left_anchor_grid() 使用 render_widget_by_id 工厂渲染
- * 并注入 arex_widget_id_t 烙印，供 arex_widget_set_value() 定位更新。
+ * 并注入 comp_id_t 烙印，供 comp_set_value() 定位更新。
  * SystemData 已作为 g_sys_config.left_widgets[6] 参与网格排版，不再独立渲染。
  * ========================================================= */
 static void left_anchor_create(void)
 {
     /* 1. 创建锚点容器 */
     s_left_anchor = lv_obj_create(s_safe_zone);
-    lv_obj_set_size(s_left_anchor, AREX_LEFT_ANCHOR_W, g_sys_config.safe_zone_h);
-    if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
+    lv_obj_set_size(s_left_anchor, LEFT_ANCHOR_W, g_sys_config.safe_zone_h);
+    if (g_sys_config.layout_order == ORDER_NORMAL)
     {
         lv_obj_set_pos(s_left_anchor, 0, 0);
     }
     else
     {
-        uint16_t panel_gap = g_sys_config.panel_gap_u * AREX_BASE_U;
-        uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - panel_gap;
+        uint16_t panel_gap = g_sys_config.panel_gap_u * BASE_U;
+        uint16_t right_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W - panel_gap;
         lv_obj_set_pos(s_left_anchor, (lv_coord_t)(right_w + panel_gap), 0);
     }
     lv_obj_add_style(s_left_anchor, &s_style_anchor_bg, 0);
@@ -293,14 +293,14 @@ static void safe_zone_reposition(void)
                  g_sys_config.offset_x, g_sys_config.offset_y);
 
     /* 2. 计算左右分界线 */
-    uint16_t panel_gap = g_sys_config.panel_gap_u * AREX_BASE_U;
-    uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - panel_gap;
+    uint16_t panel_gap = g_sys_config.panel_gap_u * BASE_U;
+    uint16_t right_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W - panel_gap;
 
     /* 3. 定位左侧锚点 */
-    if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
+    if (g_sys_config.layout_order == ORDER_NORMAL)
     {
         lv_obj_set_pos(s_left_anchor, 0, 0);
-        lv_obj_set_pos(s_right_cont, (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap), 0);
+        lv_obj_set_pos(s_right_cont, (lv_coord_t)(LEFT_ANCHOR_W + panel_gap), 0);
     }
     else
     {
@@ -334,14 +334,14 @@ static void safe_zone_reposition(void)
         /* 更新容器大小以匹配实际显示数量 */
         lv_obj_set_size(s_dot_cont, 10, (lv_coord_t)dot_cont_h);
 
-        if (g_sys_config.dots_position == AREX_DOTS_LEFT)
+        if (g_sys_config.dots_position == DOTS_LEFT)
         {
             /* 左侧：间隙中间 */
             lv_coord_t gap_center_x;
             lv_coord_t gap_center_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2);
-            if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
+            if (g_sys_config.layout_order == ORDER_NORMAL)
             {
-                gap_center_x = (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap / 2);
+                gap_center_x = (lv_coord_t)(LEFT_ANCHOR_W + panel_gap / 2);
             }
             else
             {
@@ -350,16 +350,16 @@ static void safe_zone_reposition(void)
             dot_x = gap_center_x - 5;
             dot_y = gap_center_y - (lv_coord_t)(dot_cont_h / 2);
         }
-        else if (g_sys_config.dots_position == AREX_DOTS_RIGHT)
+        else if (g_sys_config.dots_position == DOTS_RIGHT)
         {
             /* 右侧：相对于右侧容器的右边缘 */
-            lv_coord_t right_cont_x = (g_sys_config.layout_order == AREX_ORDER_NORMAL)
-                                      ? (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap)
+            lv_coord_t right_cont_x = (g_sys_config.layout_order == ORDER_NORMAL)
+                                      ? (lv_coord_t)(LEFT_ANCHOR_W + panel_gap)
                                       : 0;
             dot_x = right_cont_x + (lv_coord_t)right_w - 18;
             dot_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2 - (int)dot_cont_h / 2);
         }
-        else if (g_sys_config.dots_position == AREX_DOTS_BOTTOM)
+        else if (g_sys_config.dots_position == DOTS_BOTTOM)
         {
             /* 底部：水平居中 */
             dot_x = (lv_coord_t)(g_sys_config.safe_zone_w / 2 - 5);
@@ -367,14 +367,14 @@ static void safe_zone_reposition(void)
         }
         else
         {
-            /* AREX_DOTS_NONE: 隐藏 dots */
+            /* DOTS_NONE: 隐藏 dots */
             dot_x = -1000;  /* 移出可见区域 */
             dot_y = -1000;
         }
         lv_obj_set_pos(s_dot_cont, dot_x, dot_y);
 
         /* 更新每个 dot 的绝对位置（使用绝对定位） */
-        for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++)
+        for (uint8_t i = 0; i < DASH_CARD_COUNT; i++)
         {
             if (s_scroll_dots[i])
             {
@@ -416,22 +416,22 @@ static void safe_zone_reposition(void)
 static void right_panel_create(void)
 {
     /* 计算右侧容器宽度 */
-    uint16_t panel_gap = g_sys_config.panel_gap_u * AREX_BASE_U;
-    uint16_t right_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - panel_gap;
+    uint16_t panel_gap = g_sys_config.panel_gap_u * BASE_U;
+    uint16_t right_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W - panel_gap;
     s_cached_right_w = right_w;
 
     /* 创建右侧容器，根据 layout_order 决定左右位置 */
     s_right_cont = lv_obj_create(s_safe_zone);
     lv_obj_set_size(s_right_cont, right_w, g_sys_config.safe_zone_h);
-    if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
+    if (g_sys_config.layout_order == ORDER_NORMAL)
     {
-        lv_obj_set_pos(s_right_cont, (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap), 0);
+        lv_obj_set_pos(s_right_cont, (lv_coord_t)(LEFT_ANCHOR_W + panel_gap), 0);
     }
     else
     {
         lv_obj_set_pos(s_right_cont, 0, 0);
     }
-    lv_obj_set_style_bg_color(s_right_cont, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(s_right_cont, BLACK, 0);
     lv_obj_set_style_bg_opa(s_right_cont, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(s_right_cont, 0, 0);
     lv_obj_set_style_border_width(s_right_cont, 0, 0);
@@ -441,7 +441,7 @@ static void right_panel_create(void)
     s_tileview = lv_tileview_create(s_right_cont);
     lv_obj_set_size(s_tileview, right_w, g_sys_config.safe_zone_h);
     lv_obj_set_pos(s_tileview, 0, 0);
-    lv_obj_set_style_bg_color(s_tileview, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(s_tileview, BLACK, 0);
     lv_obj_set_style_bg_opa(s_tileview, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(s_tileview, 0, 0);
     lv_obj_set_scrollbar_mode(s_tileview, LV_SCROLLBAR_MODE_OFF);
@@ -457,7 +457,7 @@ static void right_panel_create(void)
 
         lv_obj_t *tile = lv_tileview_add_tile(s_tileview, 0, i,
                                               LV_DIR_TOP | LV_DIR_BOTTOM);
-        lv_obj_set_style_bg_color(tile, AREX_BLACK, 0);
+        lv_obj_set_style_bg_color(tile, BLACK, 0);
         lv_obj_set_style_bg_opa(tile, LV_OPA_COVER, 0);
         lv_obj_set_style_pad_all(tile, 0, 0);
         lv_obj_set_scrollbar_mode(tile, LV_SCROLLBAR_MODE_OFF);
@@ -471,10 +471,10 @@ static void right_panel_create(void)
         {
             /* 获取当前 tile 对应的 custom_card_slot 索引 */
             uint8_t storage_pos = arex_card_storage_pos(i);
-            uint8_t custom_card_idx = (storage_pos < AREX_CARD_COUNT)
+            uint8_t custom_card_idx = (storage_pos < CARD_COUNT)
                                       ? g_sys_config.custom_card_slot[storage_pos]
                                       : 0xFF;
-            if (custom_card_idx < AREX_MAX_CUSTOM_CARDS)
+            if (custom_card_idx < MAX_CUSTOM_CARDS)
             {
                 arex_render_5f_custom_grid(tile, g_left_anchor_obj, custom_card_idx);
             }
@@ -500,16 +500,16 @@ static void right_panel_create(void)
     lv_obj_set_scrollbar_mode(s_dot_cont, LV_SCROLLBAR_MODE_OFF);
 
     /* Dots 位置跟随配置 - 使用绝对坐标（相对于 s_safe_zone） */
-    if (g_sys_config.dots_position == AREX_DOTS_LEFT)
+    if (g_sys_config.dots_position == DOTS_LEFT)
     {
         /* 放在左侧固定区和右侧卡片区的间隙中间 */
         lv_coord_t gap_center_x;
         lv_coord_t gap_center_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2);
 
-        if (g_sys_config.layout_order == AREX_ORDER_NORMAL)
+        if (g_sys_config.layout_order == ORDER_NORMAL)
         {
-            /* NORMAL 布局：间隙中间 X = AREX_LEFT_ANCHOR_W + panel_gap / 2 */
-            gap_center_x = (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap / 2);
+            /* NORMAL 布局：间隙中间 X = LEFT_ANCHOR_W + panel_gap / 2 */
+            gap_center_x = (lv_coord_t)(LEFT_ANCHOR_W + panel_gap / 2);
         }
         else
         {
@@ -518,39 +518,39 @@ static void right_panel_create(void)
         }
         lv_obj_set_pos(s_dot_cont, gap_center_x - 5, gap_center_y - dot_cont_h / 2);
     }
-    else if (g_sys_config.dots_position == AREX_DOTS_RIGHT)
+    else if (g_sys_config.dots_position == DOTS_RIGHT)
     {
         /* 右侧：相对于右侧容器的右边缘 */
-        lv_coord_t right_cont_x = (g_sys_config.layout_order == AREX_ORDER_NORMAL)
-                                  ? (lv_coord_t)(AREX_LEFT_ANCHOR_W + panel_gap)
+        lv_coord_t right_cont_x = (g_sys_config.layout_order == ORDER_NORMAL)
+                                  ? (lv_coord_t)(LEFT_ANCHOR_W + panel_gap)
                                   : 0;
         lv_coord_t dots_x = right_cont_x + right_w - 18;
         lv_coord_t dots_y = (lv_coord_t)(g_sys_config.safe_zone_h / 2 - dot_cont_h / 2);
         lv_obj_set_pos(s_dot_cont, dots_x, dots_y);
     }
-    else if (g_sys_config.dots_position == AREX_DOTS_BOTTOM)
+    else if (g_sys_config.dots_position == DOTS_BOTTOM)
     {
         /* 底部：水平居中 */
         lv_coord_t dots_x = (lv_coord_t)(g_sys_config.safe_zone_w / 2 - 5);
         lv_coord_t dots_y = (lv_coord_t)(g_sys_config.safe_zone_h - 18);
         lv_obj_set_pos(s_dot_cont, dots_x, dots_y);
     }
-    /* AREX_DOTS_NONE 时不显示 dot_cont */
+    /* DOTS_NONE 时不显示 dot_cont */
 
     /* 使用绝对定位创建 dots，避免隐藏时仍占用空间的问题 */
-    for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++)
+    for (uint8_t i = 0; i < DASH_CARD_COUNT; i++)
     {
         s_scroll_dots[i] = lv_obj_create(s_dot_cont);
         lv_obj_set_size(s_scroll_dots[i], 6, 6);
         lv_obj_set_pos(s_scroll_dots[i], 2, (lv_coord_t)(i * 14));  /* 绝对定位，垂直均匀分布 */
         lv_obj_set_style_radius(s_scroll_dots[i], 0, 0);
-        lv_obj_set_style_bg_color(s_scroll_dots[i], AREX_DARK, 0);
+        lv_obj_set_style_bg_color(s_scroll_dots[i], DARK, 0);
         lv_obj_set_style_bg_opa(s_scroll_dots[i], LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(s_scroll_dots[i], 0, 0);
         lv_obj_set_style_pad_all(s_scroll_dots[i], 0, 0);
         lv_obj_set_style_shadow_width(s_scroll_dots[i], 0, 0);
         lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_SCROLLABLE);
-        if (g_sys_config.dots_position == AREX_DOTS_NONE)
+        if (g_sys_config.dots_position == DOTS_NONE)
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
         /* 超出 visible_dash 的 dot 也隐藏 */
         if (i >= arex_visible_dash_count())
@@ -652,7 +652,7 @@ void arex_screen_rebuild_tileview(void)
     {
         lv_obj_del(s_dot_cont);
         s_dot_cont = NULL;
-        for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++)
+        for (uint8_t i = 0; i < DASH_CARD_COUNT; i++)
             s_scroll_dots[i] = NULL;
     }
 
@@ -663,19 +663,19 @@ void arex_screen_rebuild_tileview(void)
     wall_create();
     arex_submenu_view_create(s_right_cont,
                              s_cached_right_w > 0 ? s_cached_right_w :
-                             (uint16_t)(g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W -
-                                        g_sys_config.panel_gap_u * AREX_BASE_U),
+                             (uint16_t)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W -
+                                        g_sys_config.panel_gap_u * BASE_U),
                              g_sys_config.safe_zone_h);
     arex_modal_view_create(s_right_cont,
                            s_cached_right_w > 0 ? s_cached_right_w :
-                           (uint16_t)(g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W -
-                                      g_sys_config.panel_gap_u * AREX_BASE_U),
+                           (uint16_t)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W -
+                                      g_sys_config.panel_gap_u * BASE_U),
                            g_sys_config.safe_zone_h);
     restore_brightness_overlay_state();
 
     /* 【问题二修复】恢复 tile 焦点到保存的位置
      * 注意：g_ui.dash_card 已经在外部保存了，这里使用 saved_dash_card */
-    if (s_tileview && saved_dash_card < AREX_CARD_COUNT && s_tile_objs[saved_dash_card])
+    if (s_tileview && saved_dash_card < CARD_COUNT && s_tile_objs[saved_dash_card])
     {
         lv_obj_set_tile(s_tileview, s_tile_objs[saved_dash_card], LV_ANIM_OFF);
     }
@@ -742,30 +742,30 @@ void arex_screen_rebuild_full(void)
 static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 {
     lv_obj_t *w = lv_obj_create(parent);
-    lv_coord_t wall_h = g_sys_config.h_tissues_chart * AREX_BASE_U;  /* 90px = 9U */
+    lv_coord_t wall_h = g_sys_config.h_tissues_chart * BASE_U;  /* 90px = 9U */
     lv_coord_t wall_w = (s_cached_right_w > 0) ? s_cached_right_w
-                        : (lv_coord_t)(g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W);
+                        : (lv_coord_t)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W);
     lv_obj_set_size(w, wall_w, wall_h);
     lv_obj_set_pos(w, 0, y);
-    lv_obj_set_style_bg_color(w, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(w, BLACK, 0);
     lv_obj_set_style_bg_opa(w, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(w, AREX_DARK, 0);
-    lv_obj_set_style_border_width(w, AREX_INNER_BORDER_W, 0);
+    lv_obj_set_style_border_color(w, DARK, 0);
+    lv_obj_set_style_border_width(w, INNER_BORDER_W, 0);
     lv_obj_set_style_border_side(w, LV_BORDER_SIDE_TOP | LV_BORDER_SIDE_BOTTOM, 0);
     lv_obj_set_style_pad_all(w, 0, 0);
     lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(w, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *txt = lv_label_create(w);
-    lv_obj_set_style_text_color(txt, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(txt, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_color(txt, GREEN, 0);
+    lv_obj_set_style_text_font(txt, arex_get_font(FONT_ID_TITLE), 0);
     lv_obj_set_width(txt, wall_w);
     lv_obj_set_style_text_align(txt, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(txt, 0, 12);
     lv_label_set_text(txt, "");
 
     lv_obj_t *blk = lv_label_create(w);
-    lv_obj_set_style_text_color(blk, AREX_GREEN, 0);
+    lv_obj_set_style_text_color(blk, GREEN, 0);
     /* Wall blocks 必须使用 Courier 内置字体以支持 ■ (U+25A0) 方块字符 */
     lv_obj_set_style_text_font(blk, &lv_font_courier_28, 0);
     lv_obj_set_width(blk, wall_w);
@@ -778,7 +778,7 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 
 static void wall_create(void)
 {
-    lv_coord_t wall_h = g_sys_config.h_tissues_chart * AREX_BASE_U;  /* 90px = 9U */
+    lv_coord_t wall_h = g_sys_config.h_tissues_chart * BASE_U;  /* 90px = 9U */
     lv_coord_t wall_y_bottom = (g_sys_config.safe_zone_h > wall_h)
                                ? (lv_coord_t)(g_sys_config.safe_zone_h - wall_h)
                                : (lv_coord_t)(g_sys_config.safe_zone_h);
@@ -811,21 +811,21 @@ void arex_screen_create(void)
     lv_obj_set_style_pad_all(s_safe_zone, 0, 0);
     lv_obj_clear_flag(s_safe_zone, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_set_style_border_color(s_safe_zone, AREX_DARK, 0);
-    lv_obj_set_style_border_width(s_safe_zone, AREX_DEBUG_BORDERS ? 1 : 0, 0);
+    lv_obj_set_style_border_color(s_safe_zone, DARK, 0);
+    lv_obj_set_style_border_width(s_safe_zone, DEBUG_BORDERS ? 1 : 0, 0);
 
     left_anchor_create();
     right_panel_create();
     wall_create();
     arex_submenu_view_create(s_right_cont,
                              s_cached_right_w > 0 ? s_cached_right_w :
-                             (uint16_t)(g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W -
-                                        g_sys_config.panel_gap_u * AREX_BASE_U),
+                             (uint16_t)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W -
+                                        g_sys_config.panel_gap_u * BASE_U),
                              g_sys_config.safe_zone_h);
     arex_modal_view_create(s_right_cont,
                            s_cached_right_w > 0 ? s_cached_right_w :
-                           (uint16_t)(g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W -
-                                      g_sys_config.panel_gap_u * AREX_BASE_U),
+                           (uint16_t)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W -
+                                      g_sys_config.panel_gap_u * BASE_U),
                            g_sys_config.safe_zone_h);
     restore_brightness_overlay_state();
 
@@ -890,9 +890,9 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
 }
 
 /* =========================================================
- * 左侧面板刷新 (使用 arex_widget_set_value API)
+ * 左侧面板刷新 (使用 comp_set_value API)
  *
- * 彻底委托 arex_widget_set_value()，通过 user_data 烙印自动定位
+ * 彻底委托 comp_set_value()，通过 user_data 烙印自动定位
  * 左侧锚点 + 5F 网格中所有打了烙印的组件并更新数值
  * 不再直接操作 s_lbl_* 句柄，彻底解耦！
  *
@@ -914,7 +914,7 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
  * 全屏组件数据同步接口
  *
  * 同时刷新左侧锚点和右侧 5F 自定义网格的所有组件
- * 内部调用 arex_widget_sync_data() 路由分发器，实现全量数据自动对齐
+ * 内部调用 comp_sync_data() 路由分发器，实现全量数据自动对齐
  * ========================================================= */
 void arex_screen_refresh_all_widgets(void)
 {
@@ -923,20 +923,20 @@ void arex_screen_refresh_all_widgets(void)
     {
         if (g_sys_config.left_widgets[i].widget_id != COMP_EMPTY)
         {
-            arex_widget_sync_data(g_sys_config.left_widgets[i].widget_id);
+            comp_sync_data(g_sys_config.left_widgets[i].widget_id);
         }
     }
 
     /* 2. 同步右侧全部自定义卡片配置 */
     for (uint8_t card_idx = 0;
-            card_idx < g_sys_config.custom_card_count && card_idx < AREX_MAX_CUSTOM_CARDS;
+            card_idx < g_sys_config.custom_card_count && card_idx < MAX_CUSTOM_CARDS;
             card_idx++)
     {
         for (uint8_t i = 0; i < g_sys_config.custom_cards[card_idx].widget_count; i++)
         {
             if (g_sys_config.custom_cards[card_idx].widgets[i].widget_id != COMP_EMPTY)
             {
-                arex_widget_sync_data(g_sys_config.custom_cards[card_idx].widgets[i].widget_id);
+                comp_sync_data(g_sys_config.custom_cards[card_idx].widgets[i].widget_id);
             }
         }
     }
@@ -944,7 +944,7 @@ void arex_screen_refresh_all_widgets(void)
 
 /* =========================================================
  * 兼容旧接口：仅刷新左侧面板
- * 内部委托 arex_widget_sync_data()，消除冗余 switch-case
+ * 内部委托 comp_sync_data()，消除冗余 switch-case
  * ========================================================= */
 void arex_screen_refresh_left_panel(void)
 {
@@ -952,7 +952,7 @@ void arex_screen_refresh_left_panel(void)
     {
         if (g_sys_config.left_widgets[i].widget_id != COMP_EMPTY)
         {
-            arex_widget_sync_data(g_sys_config.left_widgets[i].widget_id);
+            comp_sync_data(g_sys_config.left_widgets[i].widget_id);
         }
     }
 }
@@ -1045,14 +1045,14 @@ void arex_screen_hide_walls_snap(void)
 void arex_screen_update_scroll_dots(uint8_t active_idx, bool visible)
 {
     bool in_dash_or_edit = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
-    bool dots_enabled = (g_sys_config.dots_position != AREX_DOTS_NONE);
+    bool dots_enabled = (g_sys_config.dots_position != DOTS_NONE);
     uint8_t visible_dash = arex_visible_dash_count();
 
     printf("[DOTS] update: active=%u, visible=%d, state=%d, dots_pos=%d, visible_dash=%u, dot_cont_children=%d\r\n",
            active_idx, visible, g_ui.state, g_sys_config.dots_position, visible_dash,
            s_dot_cont ? lv_obj_get_child_cnt(s_dot_cont) : -1);
 
-    for (uint8_t i = 0; i < AREX_DASH_CARD_COUNT; i++)
+    for (uint8_t i = 0; i < DASH_CARD_COUNT; i++)
     {
         if (!s_scroll_dots[i])
         {
@@ -1071,14 +1071,14 @@ void arex_screen_update_scroll_dots(uint8_t active_idx, bool visible)
         lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
         if (i == active_idx)
         {
-            lv_obj_set_style_bg_color(s_scroll_dots[i], AREX_GREEN, 0);
+            lv_obj_set_style_bg_color(s_scroll_dots[i], GREEN, 0);
             lv_obj_set_style_shadow_width(s_scroll_dots[i], 8, 0);
-            lv_obj_set_style_shadow_color(s_scroll_dots[i], AREX_GREEN, 0);
+            lv_obj_set_style_shadow_color(s_scroll_dots[i], GREEN, 0);
             lv_obj_set_style_shadow_opa(s_scroll_dots[i], 255, 0);
         }
         else
         {
-            lv_obj_set_style_bg_color(s_scroll_dots[i], AREX_DARK, 0);
+            lv_obj_set_style_bg_color(s_scroll_dots[i], DARK, 0);
             lv_obj_set_style_shadow_width(s_scroll_dots[i], 0, 0);
             lv_obj_set_style_shadow_opa(s_scroll_dots[i], 0, 0);
         }
@@ -1098,15 +1098,15 @@ void arex_screen_set_info_selection(uint8_t idx)
         lv_obj_t *lbl  = lv_obj_get_child(item, 0);
         if (i == idx)
         {
-            lv_obj_set_style_bg_color(item, AREX_GREEN, 0);
+            lv_obj_set_style_bg_color(item, GREEN, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            if (lbl) lv_obj_set_style_text_color(lbl, AREX_BLACK, 0);
+            if (lbl) lv_obj_set_style_text_color(lbl, BLACK, 0);
         }
         else
         {
-            lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
+            lv_obj_set_style_bg_color(item, BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            if (lbl) lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+            if (lbl) lv_obj_set_style_text_color(lbl, GREEN, 0);
         }
     }
 }
@@ -1128,36 +1128,36 @@ void arex_screen_set_setup_selection(uint8_t idx)
         lv_obj_t *badge = lv_obj_get_child(item, 1);
         if (i == idx)
         {
-            lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
+            lv_obj_set_style_bg_color(item, BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(item, AREX_GREEN, 0);
-            lv_obj_set_style_border_width(item, AREX_INNER_BORDER_W + 2, 0);
+            lv_obj_set_style_border_color(item, GREEN, 0);
+            lv_obj_set_style_border_width(item, INNER_BORDER_W + 2, 0);
             if (lbl)
             {
-                lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_color(lbl, LIGHT, 0);
+                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_MEDIUM), 0);
             }
             if (badge)
             {
-                lv_obj_set_style_text_color(badge, AREX_LIGHT, 0);
-                lv_obj_set_style_text_font(badge, arex_get_font(AREX_FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_color(badge, LIGHT, 0);
+                lv_obj_set_style_text_font(badge, arex_get_font(FONT_ID_TITLE), 0);
             }
         }
         else
         {
-            lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
+            lv_obj_set_style_bg_color(item, BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(item, AREX_DARK, 0);
-            lv_obj_set_style_border_width(item, AREX_INNER_BORDER_W, 0);
+            lv_obj_set_style_border_color(item, DARK, 0);
+            lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
             if (lbl)
             {
-                lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_color(lbl, GREEN, 0);
+                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
             }
             if (badge)
             {
-                lv_obj_set_style_text_color(badge, AREX_LIGHT, 0);
-                lv_obj_set_style_text_font(badge, arex_get_font(AREX_FONT_ID_SMALL), 0);
+                lv_obj_set_style_text_color(badge, LIGHT, 0);
+                lv_obj_set_style_text_font(badge, arex_get_font(FONT_ID_SMALL), 0);
             }
         }
     }
@@ -1219,7 +1219,7 @@ static void edit_flash_timer_cb(lv_timer_t *t)
     if (s_edit_flash_val_lbl)
     {
         /* 文字颜色在绿/暗绿之间闪烁，无背景色切换 */
-        lv_color_t fg = s_edit_flash_on ? AREX_GREEN : AREX_DARK;
+        lv_color_t fg = s_edit_flash_on ? GREEN : DARK;
         lv_obj_set_style_text_color(s_edit_flash_val_lbl, fg, 0);
     }
 }
@@ -1246,9 +1246,9 @@ static void edit_flash_start(void)
     edit_flash_timer_cb(NULL);
     if (s_edit_flash_val_lbl)
     {
-        lv_obj_set_style_bg_color(s_edit_flash_val_lbl, AREX_GREEN, 0);
+        lv_obj_set_style_bg_color(s_edit_flash_val_lbl, GREEN, 0);
         lv_obj_set_style_bg_opa(s_edit_flash_val_lbl, LV_OPA_COVER, 0);
-        lv_obj_set_style_text_color(s_edit_flash_val_lbl, AREX_BLACK, 0);
+        lv_obj_set_style_text_color(s_edit_flash_val_lbl, BLACK, 0);
     }
 }
 
@@ -1407,9 +1407,9 @@ void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec
     }
 
     /* 从选中态切换到编辑态：绿底→黑底绿框，title 文字恢复绿色 */
-    lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(item, BLACK, 0);
     lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(item, AREX_GREEN, 0);
+    lv_obj_set_style_border_color(item, GREEN, 0);
     lv_obj_set_style_border_width(item, 2, 0);
     lv_obj_set_layout(item, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(item, LV_FLEX_FLOW_ROW);
@@ -1426,20 +1426,20 @@ void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec
     if (prefix_lbl)
     {
         lv_label_set_text(prefix_lbl, g_ui.edit_ctx.label);
-        lv_obj_set_style_text_color(prefix_lbl, AREX_GREEN, 0);
+        lv_obj_set_style_text_color(prefix_lbl, GREEN, 0);
         lv_obj_set_size(prefix_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_set_style_bg_opa(prefix_lbl, LV_OPA_TRANSP, 0);
     }
 
     /* child 1 badge label（CONSERVATISM 等无 badge 时为 NULL），恢复颜色 */
     lv_obj_t *old_badge = lv_obj_get_child(item, 1);
-    if (old_badge) lv_obj_set_style_text_color(old_badge, AREX_GREEN, 0);
+    if (old_badge) lv_obj_set_style_text_color(old_badge, GREEN, 0);
 
     /* 创建右侧数值 + 箭头 label，透明背景，靠右居中 */
     lv_obj_t *val_lbl = lv_label_create(item);
-    lv_obj_set_style_text_color(val_lbl, AREX_BLACK, 0);
-    lv_obj_set_style_text_font(val_lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
-    lv_obj_set_style_bg_color(val_lbl, AREX_GREEN, 0);
+    lv_obj_set_style_text_color(val_lbl, BLACK, 0);
+    lv_obj_set_style_text_font(val_lbl, arex_get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_bg_color(val_lbl, GREEN, 0);
     lv_obj_set_style_bg_opa(val_lbl, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_left(val_lbl, 8, 0);
     lv_obj_set_style_pad_right(val_lbl, 8, 0);
@@ -1458,8 +1458,8 @@ void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec
 
     s_edit_flash_badge    = val_lbl;   /* 复用指针用于闪烁 */
     lv_obj_t *arrow_lbl = lv_label_create(item);
-    lv_obj_set_style_text_color(arrow_lbl, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(arrow_lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_color(arrow_lbl, GREEN, 0);
+    lv_obj_set_style_text_font(arrow_lbl, arex_get_font(FONT_ID_TITLE), 0);
     lv_obj_set_style_bg_opa(arrow_lbl, LV_OPA_TRANSP, 0);
     lv_label_set_text(arrow_lbl, "▲▼");
 
@@ -1472,7 +1472,7 @@ static void edit_value_cleanup(lv_obj_t *item)
 {
     if (!item) return;
     edit_flash_stop();
-    lv_obj_set_style_border_color(item, AREX_DARK, 0);
+    lv_obj_set_style_border_color(item, DARK, 0);
     uint32_t cnt = lv_obj_get_child_cnt(item);
     while (cnt > 1)
     {
@@ -1518,7 +1518,7 @@ void arex_screen_commit_edit_value(void)
                                    g_ui.edit_ctx.setting_arg,
                                    g_ui.edit_ctx.value);
         lv_label_set_text(lbl, buf);
-        lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+        lv_obj_set_style_text_color(lbl, GREEN, 0);
     }
     arex_submenu_apply_edit_value(g_ui.edit_ctx.setting_kind,
                                   g_ui.edit_ctx.setting_arg,
@@ -1555,7 +1555,7 @@ void arex_screen_cancel_edit_value(void)
                                    g_ui.edit_ctx.setting_arg,
                                    g_ui.edit_ctx.original);
         lv_label_set_text(lbl, buf);
-        lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
+        lv_obj_set_style_text_color(lbl, GREEN, 0);
     }
     arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
 }
@@ -1565,13 +1565,13 @@ void arex_screen_cancel_edit_value(void)
  * ========================================================= */
 lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
 {
-    uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                                - g_sys_config.panel_gap_u * AREX_BASE_U;
+    uint16_t right_w_fallback = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
+                                - g_sys_config.panel_gap_u * BASE_U;
     uint16_t right_w = (s_cached_right_w > 0) ? s_cached_right_w : right_w_fallback;
 
     lv_obj_t *lbl = lv_label_create(parent);
-    lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_color(lbl, LIGHT, 0);
+    lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
     lv_obj_set_pos(lbl, 16, 8);
     lv_obj_set_size(lbl, right_w - 32, 40);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
@@ -1580,7 +1580,7 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
     lv_obj_t *line = lv_obj_create(parent);
     lv_obj_set_size(line, right_w - 32, 2);
     lv_obj_set_pos(line, 16, 48);
-    lv_obj_set_style_bg_color(line, AREX_DARK, 0);
+    lv_obj_set_style_bg_color(line, DARK, 0);
     lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(line, 0, 0);
     lv_obj_set_style_pad_all(line, 0, 0);

@@ -45,7 +45,7 @@ typedef struct
     bool visible;
     arex_alarm_level_t level;
     const char *text;
-    arex_widget_id_t banner_target;
+    comp_id_t banner_target;
     uint32_t revision;
 } arex_alarm_display_t;
 
@@ -53,14 +53,14 @@ void arex_alarm_init(void);
 bool arex_alarm_set_active(arex_alarm_id_t id, bool active);
 bool arex_alarm_raise_custom(arex_alarm_level_t level,
                              const char *text,
-                             arex_widget_id_t target);
+                             comp_id_t target);
 void arex_alarm_clear_all(void);
 bool arex_alarm_ack_current(void);
 void arex_alarm_tick(uint32_t now_ms);
 
 const arex_alarm_display_t *arex_alarm_get_display(void);
 uint8_t arex_alarm_get_active_targets(arex_alarm_level_t level,
-                                      arex_widget_id_t *targets,
+                                      comp_id_t *targets,
                                       uint8_t max_targets);
 
 #ifdef __cplusplus

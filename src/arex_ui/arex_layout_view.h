@@ -56,7 +56,7 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor);
 void arex_refresh_left_aux_slots(void);
 
 lv_obj_t *arex_render_widget(lv_obj_t *parent,
-                             const arex_widget_pos_t *pos,
+                             const comp_pos_t *pos,
                              uint16_t cell_w, uint16_t cell_h,
                              uint16_t title_h);
 

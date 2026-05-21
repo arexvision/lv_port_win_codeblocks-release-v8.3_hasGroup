@@ -113,9 +113,9 @@ void ui_handle_rotate(int8_t dir)
     case UI_EDIT_GAS:
     {
         uint8_t gas_count = g_sensor_data.gas_slot_count;
-        if (gas_count > AREX_GAS_COUNT)
+        if (gas_count > GAS_COUNT)
         {
-            gas_count = AREX_GAS_COUNT;
+            gas_count = GAS_COUNT;
         }
         if (gas_count == 0U)
         {
@@ -272,9 +272,9 @@ void ui_handle_click(void)
     {
         uint8_t ci = g_ui.gas_cursor;
         uint8_t gas_count = g_sensor_data.gas_slot_count;
-        if (gas_count > AREX_GAS_COUNT)
+        if (gas_count > GAS_COUNT)
         {
-            gas_count = AREX_GAS_COUNT;
+            gas_count = GAS_COUNT;
         }
         if (gas_count == 0U)
         {
@@ -287,7 +287,7 @@ void ui_handle_click(void)
         }
         float mod_m = g_sensor_data.gas_slot_mod_m[ci] > 0.0f
                       ? g_sensor_data.gas_slot_mod_m[ci]
-                      : (float)AREX_GAS_MOD_M[ci];
+                      : (float)GAS_MOD_M[ci];
         if (g_sensor_data.depth <= mod_m)
         {
             /* 修复：不直接修改数据源，发送命令到队列 */

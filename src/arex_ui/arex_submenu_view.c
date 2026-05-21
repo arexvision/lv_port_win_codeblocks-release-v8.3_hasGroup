@@ -40,29 +40,29 @@ void arex_submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
     s_submenu_layer = lv_obj_create(parent);
     lv_obj_set_size(s_submenu_layer, s_submenu_width, s_submenu_height);
     lv_obj_set_pos(s_submenu_layer, s_submenu_width, 0);
-    lv_obj_set_style_bg_color(s_submenu_layer, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(s_submenu_layer, BLACK, 0);
     lv_obj_set_style_bg_opa(s_submenu_layer, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(s_submenu_layer, 0, 0);
     lv_obj_set_style_pad_all(s_submenu_layer, 0, 0);
     lv_obj_clear_flag(s_submenu_layer, LV_OBJ_FLAG_SCROLLABLE);
 
     s_submenu_title = lv_label_create(s_submenu_layer);
-    lv_obj_set_style_text_color(s_submenu_title, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(s_submenu_title, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_color(s_submenu_title, LIGHT, 0);
+    lv_obj_set_style_text_font(s_submenu_title, arex_get_font(FONT_ID_TITLE), 0);
     lv_obj_set_pos(s_submenu_title, 16, 8);
     lv_label_set_text(s_submenu_title, "> SUB MENU");
 
     lv_obj_t *title_line = lv_obj_create(s_submenu_layer);
     lv_obj_set_size(title_line, s_submenu_width - 32, 2);
-    lv_obj_set_pos(title_line, 16, AREX_CARD_TITLE_H - 2);
-    lv_obj_set_style_bg_color(title_line, AREX_DARK, 0);
+    lv_obj_set_pos(title_line, 16, CARD_TITLE_H - 2);
+    lv_obj_set_style_bg_color(title_line, DARK, 0);
     lv_obj_set_style_bg_opa(title_line, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(title_line, 0, 0);
     lv_obj_set_style_pad_all(title_line, 0, 0);
 
     s_submenu_list = lv_obj_create(s_submenu_layer);
-    lv_obj_set_size(s_submenu_list, s_submenu_width - 15, s_submenu_height - AREX_CARD_TITLE_H - 10);
-    lv_obj_set_pos(s_submenu_list, 0, AREX_CARD_TITLE_H);
+    lv_obj_set_size(s_submenu_list, s_submenu_width - 15, s_submenu_height - CARD_TITLE_H - 10);
+    lv_obj_set_pos(s_submenu_list, 0, CARD_TITLE_H);
     lv_obj_set_style_bg_opa(s_submenu_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_submenu_list, 0, 0);
     lv_obj_set_style_pad_all(s_submenu_list, 0, 0);
@@ -75,8 +75,8 @@ void arex_submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 static void submenu_slide_in(void)
 {
     if (!s_submenu_layer) return;
-    uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                                - g_sys_config.panel_gap_u * AREX_BASE_U;
+    uint16_t right_w_fallback = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
+                                - g_sys_config.panel_gap_u * BASE_U;
     uint16_t slide_w = s_submenu_width > 0 ? s_submenu_width : right_w_fallback;
 
     lv_anim_t a;
@@ -92,8 +92,8 @@ static void submenu_slide_in(void)
 static void submenu_slide_out(void)
 {
     if (!s_submenu_layer) return;
-    uint16_t right_w_fallback = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                                - g_sys_config.panel_gap_u * AREX_BASE_U;
+    uint16_t right_w_fallback = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
+                                - g_sys_config.panel_gap_u * BASE_U;
     uint16_t slide_w = s_submenu_width > 0 ? s_submenu_width : right_w_fallback;
 
     lv_anim_t a;
@@ -117,11 +117,11 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
     /* right_w 从缓存读取，fallback = safe_zone_w - left_anchor_w - panel_gap */
     uint16_t right_w = (s_submenu_width > 0)
                        ? s_submenu_width
-                       : (g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W - g_sys_config.panel_gap_u * AREX_BASE_U);
+                       : (g_sys_config.safe_zone_w - LEFT_ANCHOR_W - g_sys_config.panel_gap_u * BASE_U);
     uint16_t sub_w = right_w;
-    int item_h = (int)(g_sys_config.h_menu_item * AREX_BASE_U);  /* 5U=50px */
+    int item_h = (int)(g_sys_config.h_menu_item * BASE_U);  /* 5U=50px */
     int item_w = (int)sub_w - 15;
-    int gap_y  = (int)(g_sys_config.gap_menu * AREX_BASE_U);   /* 1U=10px */
+    int gap_y  = (int)(g_sys_config.gap_menu * BASE_U);   /* 1U=10px */
     int current_y = 0;
 
     for (uint8_t i = 0; i < count; i++)
@@ -129,10 +129,10 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         lv_obj_t *item = lv_obj_create(s_submenu_list);
         lv_obj_set_pos(item, 0, current_y);
         lv_obj_set_size(item, item_w, item_h);
-        lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
+        lv_obj_set_style_bg_color(item, BLACK, 0);
         lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(item, AREX_DARK, 0);
-        lv_obj_set_style_border_width(item, AREX_INNER_BORDER_W, LV_PART_MAIN);
+        lv_obj_set_style_border_color(item, DARK, 0);
+        lv_obj_set_style_border_width(item, INNER_BORDER_W, LV_PART_MAIN);
         lv_obj_set_style_radius(item, 0, 0);
         lv_obj_set_style_pad_all(item, 0, LV_PART_MAIN);
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
@@ -142,8 +142,8 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         {
             /* "LIGHT" 标签在左侧 */
             lv_obj_t *lbl_light = lv_label_create(item);
-            lv_obj_set_style_text_color(lbl_light, AREX_GREEN, 0);
-            lv_obj_set_style_text_font(lbl_light, arex_get_font(AREX_FONT_ID_TITLE), 0);
+            lv_obj_set_style_text_color(lbl_light, GREEN, 0);
+            lv_obj_set_style_text_font(lbl_light, arex_get_font(FONT_ID_TITLE), 0);
             lv_obj_set_size(lbl_light, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(lbl_light, LV_ALIGN_LEFT_MID, 12, 0);
             lv_obj_set_style_text_align(lbl_light, LV_TEXT_ALIGN_LEFT, 0);
@@ -151,8 +151,8 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
 
             /* "ON"/"OFF" 标签在右侧 */
             lv_obj_t *lbl_status = lv_label_create(item);
-            lv_obj_set_style_text_color(lbl_status, g_light_power_state ? AREX_GREEN : AREX_LIGHT, 0);
-            lv_obj_set_style_text_font(lbl_status, arex_get_font(AREX_FONT_ID_TITLE), 0);
+            lv_obj_set_style_text_color(lbl_status, g_light_power_state ? GREEN : LIGHT, 0);
+            lv_obj_set_style_text_font(lbl_status, arex_get_font(FONT_ID_TITLE), 0);
             lv_obj_set_size(lbl_status, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(lbl_status, LV_ALIGN_RIGHT_MID, -12, 0);
             lv_obj_set_style_text_align(lbl_status, LV_TEXT_ALIGN_RIGHT, 0);
@@ -166,8 +166,8 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
 
         /* 普通菜单项 */
         lv_obj_t *lbl = lv_label_create(item);
-        lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
-        lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
+        lv_obj_set_style_text_color(lbl, GREEN, 0);
+        lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
         lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
@@ -192,42 +192,42 @@ void arex_screen_set_submenu_selection(uint8_t idx)
         if (i == idx)
         {
             lv_obj_add_state(item, LV_STATE_FOCUSED);  // HOTFIX: Clear LVGL states to fix bold residue.
-            lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
+            lv_obj_set_style_bg_color(item, BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(item, AREX_GREEN, 0);
-            lv_obj_set_style_border_width(item, AREX_INNER_BORDER_W + 2, 0);
+            lv_obj_set_style_border_color(item, GREEN, 0);
+            lv_obj_set_style_border_width(item, INNER_BORDER_W + 2, 0);
             if (lbl)
             {
-                lv_obj_set_style_text_color(lbl, AREX_LIGHT, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_color(lbl, LIGHT, 0);
+                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_MEDIUM), 0);
             }
             /* LIGHT CONTROL second column uses the same selected emphasis. */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
-                lv_obj_set_style_text_color(lbl2, AREX_LIGHT, 0);
-                lv_obj_set_style_text_font(lbl2, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_color(lbl2, LIGHT, 0);
+                lv_obj_set_style_text_font(lbl2, arex_get_font(FONT_ID_MEDIUM), 0);
             }
         }
         else
         {
             lv_obj_clear_state(item, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);  // HOTFIX: Clear LVGL states to fix bold residue.
             if (lbl) lv_obj_clear_state(lbl, LV_STATE_ANY);  // HOTFIX: Clear LVGL states to fix bold residue.
-            lv_obj_set_style_bg_color(item, AREX_BLACK, 0);
+            lv_obj_set_style_bg_color(item, BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(item, AREX_DARK, 0);
-            lv_obj_set_style_border_width(item, AREX_INNER_BORDER_W, 0);
+            lv_obj_set_style_border_color(item, DARK, 0);
+            lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
             if (lbl)
             {
-                lv_obj_set_style_text_color(lbl, AREX_GREEN, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(AREX_FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_color(lbl, GREEN, 0);
+                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
             }
             /* LIGHT CONTROL 特殊处理：第二列（ON/OFF）恢复状态色 */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
-                lv_obj_set_style_text_color(lbl2, g_light_power_state ? AREX_GREEN : AREX_LIGHT, 0);
-                lv_obj_set_style_text_font(lbl2, arex_get_font(AREX_FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_color(lbl2, g_light_power_state ? GREEN : LIGHT, 0);
+                lv_obj_set_style_text_font(lbl2, arex_get_font(FONT_ID_TITLE), 0);
             }
         }
     }
@@ -527,9 +527,9 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     if (strcmp(cur_title, "GAS SWITCH") == 0)
     {
         uint8_t gas_count = g_sensor_data.gas_slot_count;
-        if (gas_count > AREX_GAS_COUNT)
+        if (gas_count > GAS_COUNT)
         {
-            gas_count = AREX_GAS_COUNT;
+            gas_count = GAS_COUNT;
         }
         if (item_idx < gas_count)
         {

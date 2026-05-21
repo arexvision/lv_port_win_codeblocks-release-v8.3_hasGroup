@@ -154,11 +154,11 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
      * - 安全停留：未进站前仍NDL；进站后按停留剩余时间缩
      * - 减压停留：未进站前保持满格；进站后按当前减压站剩余时间缩*/
     float pct = 0.0f;
-    if (g_sensor_data.stop_type == AREX_STOP_NONE)
+    if (g_sensor_data.stop_type == STOP_NONE)
     {
         pct = (float)g_sensor_data.ndl / 99.0f;
     }
-    else if (g_sensor_data.stop_type == AREX_STOP_SAFETY)
+    else if (g_sensor_data.stop_type == STOP_SAFETY)
     {
         if (!g_sensor_data.in_stop_zone)
         {
@@ -173,7 +173,7 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
             pct = 1.0f;
         }
     }
-    else if (g_sensor_data.stop_type == AREX_STOP_DECO)
+    else if (g_sensor_data.stop_type == STOP_DECO)
     {
         if (!g_sensor_data.in_stop_zone)
         {
@@ -203,14 +203,14 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
         if (i < active_blocks)
         {
             /* 全亮格子 */
-            rect_dsc.bg_color = AREX_GREEN;
+            rect_dsc.bg_color = GREEN;
             rect_dsc.bg_opa = LV_OPA_COVER;
             lv_draw_rect(draw_ctx, &rect_dsc, &block_area);
         }
         else if (i == active_blocks && remainder > 0.05f)
         {
             /* 半亮格子 (先画暗底，再盖亮 */
-            rect_dsc.bg_color = AREX_DARK;
+            rect_dsc.bg_color = DARK;
             rect_dsc.bg_opa = LV_OPA_COVER;
             lv_draw_rect(draw_ctx, &rect_dsc, &block_area);
 
@@ -218,14 +218,14 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
             if (partial_w > 0)
             {
                 lv_area_t partial_area = {x1, area->y1, x1 + partial_w - 1, area->y2};
-                rect_dsc.bg_color = AREX_GREEN;
+                rect_dsc.bg_color = GREEN;
                 lv_draw_rect(draw_ctx, &rect_dsc, &partial_area);
             }
         }
         else
         {
             /* 未激活的暗格 */
-            rect_dsc.bg_color = AREX_DARK;
+            rect_dsc.bg_color = DARK;
             rect_dsc.bg_opa = LV_OPA_COVER;
             lv_draw_rect(draw_ctx, &rect_dsc, &block_area);
         }
@@ -241,7 +241,7 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
  *
  * 架构铁律
  *   - 位置参数 (abs_x/y/w/h, span_w/h) 由调用方传入
- *   - 样式参数 (font, offsets) arex_get_widget_style(w_id) 自动查表
+ *   - 样式参数 (font, offsets) comp_get_style(w_id) 自动查表
  *   - cfg_font_id != 255 时强制覆盖自动字
  *   - 速率图标由工厂自主查字典决定（根elements & ELEM_BAR
  *   - 专属组件（DEPTH/NDL）走早期返回，内部仍style 参数
@@ -254,7 +254,7 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
  *   - 将标签烙印到容器 user_data
  * ========================================================= */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,
-                              arex_widget_id_t w_id,
+                              comp_id_t w_id,
                               int16_t abs_x, int16_t abs_y,
                               uint16_t abs_w, uint16_t abs_h,
                               uint8_t span_w, uint8_t span_h,
@@ -271,7 +271,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         pod_tag = arex_get_pod_tag();
     }
 
-    const arex_widget_style_t *style = arex_get_widget_style(w_id);
+    const comp_style_t *style = comp_get_style(w_id);
     if (!style) return NULL;
 
     /* 字号选择逻辑
@@ -288,15 +288,15 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         /* DEPTH 组件：自动适配尺寸 */
         if (span_w >= 2 && span_h >= 2)
         {
-            val_font_id = AREX_FONT_ID_HUGE;
+            val_font_id = FONT_ID_HUGE;
         }
         else if (span_w >= 2)
         {
-            val_font_id = AREX_FONT_ID_MEDIUM;
+            val_font_id = FONT_ID_MEDIUM;
         }
         else
         {
-            val_font_id = AREX_FONT_ID_SMALL;
+            val_font_id = FONT_ID_SMALL;
         }
     }
     else
@@ -308,10 +308,10 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     lv_obj_t *obj = lv_obj_create(parent);
     lv_obj_set_pos(obj, abs_x, abs_y);
     lv_obj_set_size(obj, abs_w, abs_h);
-    lv_obj_set_style_bg_color(obj, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(obj, BLACK, 0);
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(obj, AREX_DARK, 0);
-    lv_obj_set_style_border_width(obj, AREX_DEBUG_BORDERS ? 1 : 0, 0);
+    lv_obj_set_style_border_color(obj, DARK, 0);
+    lv_obj_set_style_border_width(obj, DEBUG_BORDERS ? 1 : 0, 0);
     lv_obj_set_style_radius(obj, 0, 0);
     lv_obj_set_style_pad_all(obj, 2, 0);
 
@@ -336,18 +336,18 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     bool is_2x2 = (span_w >= 2 && span_h >= 2);
     if (w_id == COMP_DEPTH_1612 && is_2x2)
     {
-        /* 样式参数来自 arex_widget_style_t */
+        /* 样式参数来自 comp_style_t */
         const arex_style_depth_t *s = &style->spec.depth;
 
         /* ==========================================
          * 1. 超大号整-> 宽度必须紧密包裹
          * ========================================== */
         lv_obj_t *int_lbl = lv_label_create(obj);
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(int_lbl, "--");
+        if (SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(int_lbl, "--");
         else lv_label_set_text_fmt(int_lbl, "%d", (int)g_sensor_data.depth);
         // 字体从字典读取（font_id = HUGE 58px
         lv_obj_set_style_text_font(int_lbl, arex_get_font(style->font_id), 0);
-        lv_obj_set_style_text_color(int_lbl, AREX_GREEN, 0);
+        lv_obj_set_style_text_color(int_lbl, GREEN, 0);
 
         // 绝杀技：必须设CONTENT！这样无论变"6" 还是 "45"
         // Label 的右边缘都会死死包住个位数，绝不留一丝缝隙！
@@ -360,7 +360,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
          * 2. 中号小数 -> 紧贴整数的右边界
          * ========================================== */
         lv_obj_t *dec_lbl = lv_label_create(obj);
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
+        if (SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
         else
         {
             /* 提取小数部分：只保留一位小数，范围 0-9 */
@@ -371,7 +371,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         // 字体从字典读取（title_font_id = MEDIUM 28px，小数比整数小）
         lv_obj_set_style_text_font(dec_lbl, arex_get_font(style->title_font_id), 0);
-        lv_obj_set_style_text_color(dec_lbl, AREX_GREEN, 0);
+        lv_obj_set_style_text_color(dec_lbl, GREEN, 0);
         lv_obj_set_size(dec_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
         // 因为整数的右边缘(个位被焊死了，小数挂在它右边，自然就永远贴紧个位数！
@@ -385,8 +385,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_obj_t *unit_lbl = lv_label_create(obj);
             lv_label_set_text(unit_lbl, style->unit ? style->unit : "");
             // 单位固定用小号字
-            lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-            lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
+            lv_obj_set_style_text_font(unit_lbl, arex_get_font(FONT_ID_SMALL), 0);
+            lv_obj_set_style_text_color(unit_lbl, LIGHT, 0);
             lv_obj_set_size(unit_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, s->unit_offset_x, s->unit_offset_y);
         }
@@ -424,24 +424,24 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
         /* 顶部标题（默认隐藏，停留态时显示*/
         h->title_top = lv_label_create(obj);
-        lv_obj_set_style_text_font(h->title_top, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(h->title_top, AREX_GREEN, 0);
+        lv_obj_set_style_text_font(h->title_top, arex_get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(h->title_top, GREEN, 0);
         lv_label_set_text(h->title_top, "");
         lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
 
         /* 主数(22, 3:00) - 使用48px字体 */
         h->main_val = lv_label_create(obj);
-        lv_obj_set_style_text_color(h->main_val, AREX_GREEN, 0);
-        lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_NDL), 0);
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+        lv_obj_set_style_text_color(h->main_val, GREEN, 0);
+        lv_obj_set_style_text_font(h->main_val, arex_get_font(FONT_ID_NDL), 0);
+        if (SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(h->main_val, "--");
         else
             lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
 
         /* 底部标题 (NDL 45) */
         h->sub_bot = lv_label_create(obj);
-        lv_obj_set_style_text_font(h->sub_bot, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(h->sub_bot, AREX_GREEN, 0);
+        lv_obj_set_style_text_font(h->sub_bot, arex_get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(h->sub_bot, GREEN, 0);
         lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
         return obj;
     }
@@ -451,20 +451,20 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
         /* 左侧：电Label */
         s_sys_batt_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(s_sys_batt_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
-        lv_obj_set_style_text_color(s_sys_batt_lbl, AREX_GREEN, 0);
+        lv_obj_set_style_text_font(s_sys_batt_lbl, arex_get_font(FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_color(s_sys_batt_lbl, GREEN, 0);
         lv_obj_align(s_sys_batt_lbl, LV_ALIGN_LEFT_MID, 4, 0);
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+        if (SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(s_sys_batt_lbl, "--%");
         else
             lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", arex_ui_clamp_battery_pct(g_sensor_data.battery_pct));
 
         /* 右侧：温Label */
         s_sys_temp_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(s_sys_temp_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
-        lv_obj_set_style_text_color(s_sys_temp_lbl, AREX_GREEN, 0);
+        lv_obj_set_style_text_font(s_sys_temp_lbl, arex_get_font(FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_color(s_sys_temp_lbl, GREEN, 0);
         lv_obj_align(s_sys_temp_lbl, LV_ALIGN_RIGHT_MID, -4, 0);
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+        if (SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(s_sys_temp_lbl, "-- C");
         else
         {
@@ -480,7 +480,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
      * POD1/POD2/WTIME 及所1x1/2x1 通用组件走此路径
      * ELEM_TITLE ELEM_VALUE ELEM_UNIT ELEM_BAR
      *
-     * 样式参数全部来自 arex_get_widget_style(w_id) 查表结果
+     * 样式参数全部来自 comp_get_style(w_id) 查表结果
      * title 文本和数值数据源依赖 w_id switch 分发 */
 
     /* --- 零件 1：标--- */
@@ -497,7 +497,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_label_set_text(title_lbl, style->title);
         }
         lv_obj_set_style_text_font(title_lbl, arex_get_font(style->title_font_id), 0);
-        lv_obj_set_style_text_color(title_lbl, AREX_LIGHT, 0);
+        lv_obj_set_style_text_color(title_lbl, LIGHT, 0);
         lv_obj_set_size(title_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(title_lbl, (lv_align_t)style->title_align,
                      style->title_offset_x, style->title_offset_y);
@@ -510,9 +510,9 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     {
         val_lbl = lv_label_create(obj);
         lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
-        lv_obj_set_style_text_color(val_lbl, AREX_GREEN, 0);
+        lv_obj_set_style_text_color(val_lbl, GREEN, 0);
 
-        if (AREX_SHOW_PLACEHOLDER_ON_INIT)
+        if (SHOW_PLACEHOLDER_ON_INIT)
         {
             /* 通用占位*/
             lv_label_set_text(val_lbl, "--");
@@ -658,8 +658,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     {
         lv_obj_t *unit_lbl = lv_label_create(obj);
         lv_label_set_text(unit_lbl, style->unit);
-        lv_obj_set_style_text_font(unit_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(unit_lbl, AREX_LIGHT, 0);
+        lv_obj_set_style_text_font(unit_lbl, arex_get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(unit_lbl, LIGHT, 0);
         /* 单位位于数值右侧（对于 2x1 等窄组件*/
         if ((style->elements & ELEM_VALUE) && (val_lbl != NULL))
         {
@@ -710,7 +710,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_obj_set_size(bat_bg, 60, 14);
             lv_obj_align(bat_bg, LV_ALIGN_BOTTOM_LEFT, 4, -4);
             lv_obj_set_style_border_width(bat_bg, 1, 0);
-            lv_obj_set_style_border_color(bat_bg, AREX_GREEN, 0);
+            lv_obj_set_style_border_color(bat_bg, GREEN, 0);
             lv_obj_set_style_radius(bat_bg, 2, 0);
 
             uint8_t pct = arex_ui_clamp_battery_pct(g_sensor_data.battery_pct);
@@ -718,7 +718,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_obj_remove_style_all(bat_fill);
             lv_obj_set_size(bat_fill, LV_PCT(pct > 20 ? 100 : pct), LV_PCT(100));
             lv_obj_align(bat_fill, LV_ALIGN_LEFT_MID, 0, 0);
-            lv_obj_set_style_bg_color(bat_fill, pct > 20 ? AREX_GREEN : AREX_LIGHT, 0);
+            lv_obj_set_style_bg_color(bat_fill, pct > 20 ? GREEN : LIGHT, 0);
             lv_obj_set_style_bg_opa(bat_fill, LV_OPA_COVER, 0);
             lv_obj_set_style_radius(bat_fill, 1, 0);
             (void)bat_fill;
@@ -728,7 +728,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     return obj;
 }
 
-void arex_widget_refresh_ndl_stop(uint32_t dirty_mask)
+void comp_refresh_ndl_stop(uint32_t dirty_mask)
 {
     if (s_ndl_handle_count == 0)
     {
@@ -739,7 +739,7 @@ void arex_widget_refresh_ndl_stop(uint32_t dirty_mask)
         return;
     }
 
-    const arex_widget_style_t *style = arex_get_widget_style(COMP_NDL_STOP_1606);
+    const comp_style_t *style = comp_get_style(COMP_NDL_STOP_1606);
     if (!style)
     {
         return;
@@ -753,7 +753,7 @@ void arex_widget_refresh_ndl_stop(uint32_t dirty_mask)
         lv_obj_clear_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
         lv_obj_invalidate(h->horiz_bg);
 
-        if (g_sensor_data.stop_type == AREX_STOP_NONE)
+        if (g_sensor_data.stop_type == STOP_NONE)
         {
             lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
@@ -761,11 +761,11 @@ void arex_widget_refresh_ndl_stop(uint32_t dirty_mask)
             lv_label_set_text(h->sub_bot, "NDL");
             lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
 
-            lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_NDL), 0);
+            lv_obj_set_style_text_font(h->main_val, arex_get_font(FONT_ID_NDL), 0);
             lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
             lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
         }
-        else if (g_sensor_data.stop_type == AREX_STOP_SAFETY)
+        else if (g_sensor_data.stop_type == STOP_SAFETY)
         {
             lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
@@ -785,11 +785,11 @@ void arex_widget_refresh_ndl_stop(uint32_t dirty_mask)
 
             int m = g_sensor_data.stop_time_left_s / 60;
             int s = g_sensor_data.stop_time_left_s % 60;
-            lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+            lv_obj_set_style_text_font(h->main_val, arex_get_font(FONT_ID_MEDIUM), 0);
             lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
             lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
         }
-        else if (g_sensor_data.stop_type == AREX_STOP_DECO)
+        else if (g_sensor_data.stop_type == STOP_DECO)
         {
             lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
@@ -799,14 +799,14 @@ void arex_widget_refresh_ndl_stop(uint32_t dirty_mask)
 
             int m = g_sensor_data.stop_time_left_s / 60;
             int s = g_sensor_data.stop_time_left_s % 60;
-            lv_obj_set_style_text_font(h->main_val, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+            lv_obj_set_style_text_font(h->main_val, arex_get_font(FONT_ID_MEDIUM), 0);
             lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
             lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
         }
     }
 }
 
-void arex_widget_refresh_sys(uint32_t dirty_mask)
+void comp_refresh_sys(uint32_t dirty_mask)
 {
     if ((dirty_mask & DIRTY_BATT) && s_sys_batt_lbl)
     {
@@ -820,7 +820,7 @@ void arex_widget_refresh_sys(uint32_t dirty_mask)
     }
 }
 
-void arex_widget_refresh_ascent_icons(float rate)
+void comp_refresh_ascent_icons(float rate)
 {
     static int8_t s_last_direction = 0;  /* 0=still, 1=up, -1=down */
 
@@ -829,7 +829,7 @@ void arex_widget_refresh_ascent_icons(float rate)
         return;
     }
 
-    bool is_moving = (fabsf(rate) >= AREX_RATE_STILL_THRESHOLD);
+    bool is_moving = (fabsf(rate) >= RATE_STILL_THRESHOLD);
     bool current_flash_state = (lv_tick_get() / 500) % 2 == 0;
 
     int8_t current_direction = 0;
@@ -851,11 +851,11 @@ void arex_widget_refresh_ascent_icons(float rate)
     }
     else if (current_direction > 0)
     {
-        if (rate >= AREX_RATE_LEVEL2_THRESHOLD)
+        if (rate >= RATE_LEVEL2_THRESHOLD)
         {
             target_img_src = current_flash_state ? &sudo_up_level2 : &sudo_up_level0;
         }
-        else if (rate >= AREX_RATE_LEVEL1_THRESHOLD)
+        else if (rate >= RATE_LEVEL1_THRESHOLD)
         {
             target_img_src = current_flash_state ? &sudo_up_level1 : &sudo_up_level0;
         }
@@ -866,11 +866,11 @@ void arex_widget_refresh_ascent_icons(float rate)
     }
     else
     {
-        if (rate <= -AREX_RATE_LEVEL2_THRESHOLD)
+        if (rate <= -RATE_LEVEL2_THRESHOLD)
         {
             target_img_src = current_flash_state ? &sudo_down_level2 : &sudo_down_level0;
         }
-        else if (rate <= -AREX_RATE_LEVEL1_THRESHOLD)
+        else if (rate <= -RATE_LEVEL1_THRESHOLD)
         {
             target_img_src = current_flash_state ? &sudo_down_level1 : &sudo_down_level0;
         }

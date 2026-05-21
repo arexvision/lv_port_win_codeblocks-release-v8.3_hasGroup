@@ -8,9 +8,9 @@
 #include <stdbool.h>
 
 /* deco 内容区 Y 起点 = 标题区下方 */
-#define DECO_CONTENT_Y  (AREX_CARD_TITLE_H + 20)
-#define DECO_ROW2_Y     (AREX_CARD_TITLE_H + 67)
-#define DECO_ROW3_Y     (AREX_CARD_TITLE_H + 114)
+#define DECO_CONTENT_Y  (CARD_TITLE_H + 20)
+#define DECO_ROW2_Y     (CARD_TITLE_H + 67)
+#define DECO_ROW3_Y     (CARD_TITLE_H + 114)
 #define GRID_X              16
 
 /* 显示语义：
@@ -58,7 +58,7 @@ static void tissue_danger_flash_cb(lv_timer_t *t)
         if (g_sensor_data.tissue_pct[i] >= TISSUE_DANGER_PCT)
         {
             // 危险时在 亮绿 和 暗绿空槽 之间闪烁
-            lv_color_t c = s_tissue_flash_phase ? AREX_GREEN : AREX_DARK;
+            lv_color_t c = s_tissue_flash_phase ? GREEN : DARK;
             lv_obj_t *bar_fill = lv_obj_get_child(s_bars[i], 0);
             if (bar_fill)
             {
@@ -91,10 +91,10 @@ static void tissue_flash_ensure(void)
 static lv_color_t tissue_fill_color(uint8_t pct)
 {
     if (pct >= TISSUE_DANGER_PCT)
-        return s_tissue_flash_phase ? AREX_GREEN : AREX_DARK;
+        return s_tissue_flash_phase ? GREEN : DARK;
     if (pct >= TISSUE_HIGH_MIN)
-        return AREX_LIGHT;
-    return AREX_GREEN;
+        return LIGHT;
+    return GREEN;
 }
 
 static uint8_t card_deco_get_gf_high_pct(void)
@@ -166,10 +166,10 @@ static void surf_gf_apply_style(void)
 {
     if (g_sensor_data.surf_gf > 100.0f)
     {
-        lv_obj_set_style_bg_color(s_lbl_surf_gf, AREX_BLACK, 0);
+        lv_obj_set_style_bg_color(s_lbl_surf_gf, BLACK, 0);
         lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_COVER, 0);
-        lv_obj_set_style_text_color(s_lbl_surf_gf, AREX_LIGHT, 0);
-        lv_obj_set_style_border_color(s_lbl_surf_gf, AREX_GREEN, 0);
+        lv_obj_set_style_text_color(s_lbl_surf_gf, LIGHT, 0);
+        lv_obj_set_style_border_color(s_lbl_surf_gf, GREEN, 0);
         lv_obj_set_style_border_width(s_lbl_surf_gf, 2, 0);
         lv_obj_set_style_pad_hor(s_lbl_surf_gf, 4, 0);
         lv_obj_set_style_pad_ver(s_lbl_surf_gf, 0, 0);
@@ -177,7 +177,7 @@ static void surf_gf_apply_style(void)
     else
     {
         lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_text_color(s_lbl_surf_gf, AREX_GREEN, 0);
+        lv_obj_set_style_text_color(s_lbl_surf_gf, GREEN, 0);
         lv_obj_set_style_border_width(s_lbl_surf_gf, 0, 0);
         lv_obj_set_style_pad_hor(s_lbl_surf_gf, 0, 0);
         lv_obj_set_style_pad_ver(s_lbl_surf_gf, 0, 0);
@@ -190,27 +190,27 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
                           bool dashed_bottom, int tissue_area_w)
 {
     lv_obj_t *lc = lv_label_create(parent);
-    lv_obj_set_style_text_color(lc, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(lc, arex_get_font(AREX_FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(lc, LIGHT, 0);
+    lv_obj_set_style_text_font(lc, arex_get_font(FONT_ID_SMALL), 0);
     lv_label_set_text(lc, left_cap);
     lv_obj_set_pos(lc, GRID_X, y);
 
     lv_obj_t *lv_ = lv_label_create(parent);
-    lv_obj_set_style_text_color(lv_, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(lv_, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_color(lv_, GREEN, 0);
+    lv_obj_set_style_text_font(lv_, arex_get_font(FONT_ID_TITLE), 0);
     lv_label_set_text(lv_, left_val);
     lv_obj_set_pos(lv_, GRID_X, y + 16);
     if (left_ref) *left_ref = lv_;
 
     lv_obj_t *rc = lv_label_create(parent);
-    lv_obj_set_style_text_color(rc, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(rc, arex_get_font(AREX_FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(rc, LIGHT, 0);
+    lv_obj_set_style_text_font(rc, arex_get_font(FONT_ID_SMALL), 0);
     lv_label_set_text(rc, right_cap);
     lv_obj_set_pos(rc, GRID_X + tissue_area_w / 2 + 4, y);
 
     lv_obj_t *rv = lv_label_create(parent);
-    lv_obj_set_style_text_color(rv, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(rv, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_color(rv, GREEN, 0);
+    lv_obj_set_style_text_font(rv, arex_get_font(FONT_ID_TITLE), 0);
     lv_label_set_text(rv, right_val);
     lv_obj_set_pos(rv, GRID_X + tissue_area_w / 2 + 4, y + 16);
     if (right_ref) *right_ref = rv;
@@ -221,7 +221,7 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
         lv_obj_remove_style_all(line);
         lv_obj_set_size(line, tissue_area_w, 1);
         lv_obj_set_pos(line, GRID_X, y + 40);
-        lv_obj_set_style_bg_color(line, AREX_DARK, 0);
+        lv_obj_set_style_bg_color(line, DARK, 0);
         lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
     }
 }
@@ -257,8 +257,8 @@ void card_deco_create(lv_obj_t *parent)
 
     /* 🚨 核心修复 1: 缩短标题，防止和右侧的 M-VALUE 撞车！ */
     lv_obj_t *sec_lbl = lv_label_create(parent);
-    lv_obj_set_style_text_font(sec_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-    lv_obj_set_style_text_color(sec_lbl, AREX_LIGHT, 0);
+    lv_obj_set_style_text_font(sec_lbl, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(sec_lbl, LIGHT, 0);
     lv_label_set_text(sec_lbl, "TISSUE SATURATION"); // 删掉了冗长的 (16 COMPARTMENTS)
     lv_obj_align_to(sec_lbl, chart_container, LV_ALIGN_OUT_TOP_LEFT, 0, -10);
 
@@ -273,14 +273,14 @@ void card_deco_create(lv_obj_t *parent)
 
         lv_obj_t *bar_bg = lv_obj_create(chart_container);
         lv_obj_remove_style_all(bar_bg);
-        lv_obj_set_style_bg_color(bar_bg, AREX_DARK, 0);
+        lv_obj_set_style_bg_color(bar_bg, DARK, 0);
         lv_obj_set_style_bg_opa(bar_bg, LV_OPA_COVER, 0);
         lv_obj_set_size(bar_bg, bar_w, bar_max_h);
         lv_obj_set_pos(bar_bg, exact_x + 2, 0);
 
         lv_obj_t *bar_fill = lv_obj_create(bar_bg);
         lv_obj_remove_style_all(bar_fill);
-        lv_obj_set_style_bg_color(bar_fill, AREX_GREEN, 0);
+        lv_obj_set_style_bg_color(bar_fill, GREEN, 0);
         lv_obj_set_style_bg_opa(bar_fill, LV_OPA_COVER, 0);
         // 初始化时给最小高度，具体数据由 update 注入
         lv_obj_set_size(bar_fill, LV_PCT(100), 2);
@@ -288,8 +288,8 @@ void card_deco_create(lv_obj_t *parent)
 
         lv_obj_t *num_lbl = lv_label_create(chart_container);
         lv_label_set_text_fmt(num_lbl, "%d", i + 1);
-        lv_obj_set_style_text_font(num_lbl, arex_get_font(AREX_FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(num_lbl, AREX_LIGHT, 0);
+        lv_obj_set_style_text_font(num_lbl, arex_get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(num_lbl, LIGHT, 0);
         lv_obj_set_size(num_lbl, exact_col_w, text_h);
         lv_obj_set_pos(num_lbl, exact_x, bar_max_h);
         lv_obj_set_style_text_align(num_lbl, LV_TEXT_ALIGN_CENTER, 0);
@@ -301,14 +301,14 @@ void card_deco_create(lv_obj_t *parent)
     lv_obj_remove_style_all(s_mvalue_line);
     lv_obj_set_size(s_mvalue_line, chart_w, 2);
     lv_obj_set_pos(s_mvalue_line, 0, bar_max_h / 2);
-    lv_obj_set_style_bg_color(s_mvalue_line, AREX_GREEN, 0);
+    lv_obj_set_style_bg_color(s_mvalue_line, GREEN, 0);
     lv_obj_set_style_bg_opa(s_mvalue_line, LV_OPA_COVER, 0);
 
     s_mvalue_label = lv_label_create(chart_container);
-    lv_obj_set_style_text_font(s_mvalue_label, arex_get_font(AREX_FONT_ID_SMALL), 0);
-    lv_obj_set_style_text_color(s_mvalue_label, AREX_GREEN, 0);
+    lv_obj_set_style_text_font(s_mvalue_label, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(s_mvalue_label, GREEN, 0);
     lv_obj_set_style_bg_opa(s_mvalue_label, LV_OPA_COVER, 0);
-    lv_obj_set_style_bg_color(s_mvalue_label, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(s_mvalue_label, BLACK, 0);
 
     card_deco_update();
 }

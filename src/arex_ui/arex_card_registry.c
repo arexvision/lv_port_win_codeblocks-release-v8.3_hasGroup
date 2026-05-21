@@ -41,7 +41,7 @@ extern const arex_menu_list_cfg_t setup_menu_cfg;
  * @note CARD_ID_CUSTOM_GRID 的 create_cb/update_cb 为 NULL，
  *       因为 GRID 引擎由 arex_screen.c 的 switch 分支直接调度，不走回调。
  */
-static arex_card_t g_cards[AREX_CARD_ID_COUNT] =
+static arex_card_t g_cards[CARD_ID_COUNT] =
 {
     [CARD_ID_INFO] = {
         .id          = CARD_ID_INFO,
@@ -145,7 +145,7 @@ static uint8_t arex_dynamic_card_count_all(void)
  * 仅用于 dots / 指示器计数。
  * 空白页仍然保留在 tileview 序列中，但不参与 dots 统计。
  *
- * @return 有效动态卡片数量（1~AREX_MAX_DYNAMIC_SLOTS）
+ * @return 有效动态卡片数量（1~MAX_DYNAMIC_SLOTS）
  */
 uint8_t arex_visible_dash_count(void)
 {
@@ -249,7 +249,7 @@ arex_card_t *arex_card_get(uint8_t order_pos)
 {
     if (order_pos >= arex_card_count()) return NULL;
     uint8_t id = arex_card_id_at(order_pos);
-    if (id >= AREX_CARD_ID_COUNT) return NULL;
+    if (id >= CARD_ID_COUNT) return NULL;
     return &g_cards[id];
 }
 
@@ -263,6 +263,6 @@ arex_card_t *arex_card_get(uint8_t order_pos)
  */
 arex_card_t *arex_card_get_by_id(arex_card_id_t id)
 {
-    if (id >= AREX_CARD_ID_COUNT) return NULL;
+    if (id >= CARD_ID_COUNT) return NULL;
     return &g_cards[id];
 }

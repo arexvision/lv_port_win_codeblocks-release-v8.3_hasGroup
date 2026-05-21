@@ -15,7 +15,7 @@
 
 void card_blank_create(lv_obj_t *parent)
 {
-    lv_obj_set_style_bg_color(parent, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(parent, BLACK, 0);
     lv_obj_set_style_bg_opa(parent, LV_OPA_COVER, 0);
 }
 

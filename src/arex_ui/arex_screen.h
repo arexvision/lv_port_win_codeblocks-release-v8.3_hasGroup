@@ -32,7 +32,7 @@ extern "C" {
 /* =========================================
    注意：上述宏已废弃！
    正确做法：使用 arex_font_id_t 枚举 + arex_get_font(id)
-   示例：lv_obj_set_style_text_font(obj, arex_get_font(AREX_FONT_ID_HUGE), 0);
+   示例：lv_obj_set_style_text_font(obj, arex_get_font(FONT_ID_HUGE), 0);
    保留这些宏仅为兼容旧代码，新代码禁止使用！
    ========================================= */
 
@@ -71,7 +71,7 @@ void arex_screen_rebuild_tileview(void);
    ========================================= */
 
 /* 统一全屏组件刷新接口：同时刷新左侧锚点和 5F 自定义网格
- * 内部调用 arex_widget_sync_data() 路由分发器 */
+ * 内部调用 comp_sync_data() 路由分发器 */
 void arex_screen_refresh_all_widgets(void);
 
 /* 兼容旧接口：仅刷新左侧面板（保留以避免外部引用断裂） */

@@ -32,15 +32,15 @@ typedef enum
    card_order[pos] = card_id
 
    INFO 固定在 tile 0，SETUP 固定在最后一页。
-   中间动态槽位数量由 AREX_MAX_DYNAMIC_SLOTS 决定。
+   中间动态槽位数量由 MAX_DYNAMIC_SLOTS 决定。
    ========================================= */
-#define AREX_MAX_DYNAMIC_SLOTS  12
+#define MAX_DYNAMIC_SLOTS  12
 
 typedef enum
 {
     CARD_POS_INFO          = 0,
     CARD_POS_DYNAMIC_FIRST = 1,
-    CARD_POS_SETUP         = CARD_POS_DYNAMIC_FIRST + AREX_MAX_DYNAMIC_SLOTS,
+    CARD_POS_SETUP         = CARD_POS_DYNAMIC_FIRST + MAX_DYNAMIC_SLOTS,
     CARD_POS_COUNT
 } arex_card_pos_t;
 
@@ -56,10 +56,8 @@ typedef enum
 #define CARD_POS_10  (CARD_POS_DYNAMIC_FIRST + 9)
 #define CARD_POS_11  (CARD_POS_DYNAMIC_FIRST + 10)
 #define CARD_POS_12  (CARD_POS_DYNAMIC_FIRST + 11)
-
-#define AREX_CARD_ID_COUNT   CARD_ID_COUNT
-#define AREX_CARD_COUNT      CARD_POS_COUNT
-#define AREX_DASH_CARD_COUNT AREX_MAX_DYNAMIC_SLOTS
+#define CARD_COUNT      CARD_POS_COUNT
+#define DASH_CARD_COUNT MAX_DYNAMIC_SLOTS
 
 /* =========================================
    Card engine type

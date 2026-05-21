@@ -9,8 +9,8 @@
 
 /* 图表布局常量（完全动态化，以标题区为绝对 Y=0 起点）
  * 宽高由 tile 尺寸动态推算，绝不使用魔法数字。
- * 图表 Y 起点 = AREX_CARD_TITLE_H（标题下方）
- * 图表高度 = tile_h - AREX_CARD_TITLE_H - 底部预留
+ * 图表 Y 起点 = CARD_TITLE_H（标题下方）
+ * 图表高度 = tile_h - CARD_TITLE_H - 底部预留
  * 图表宽度 = tile_w - 左右 padding */
 #define CHART_PAD   10
 
@@ -127,12 +127,12 @@ static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,
 /* ============================================================
  * 4F: DIVE PLAN TRACK — 秒级坐标引擎
  * 100% 秒 (Seconds) 为底层单位，重现 HTML "0s, 10s, 20s" 放大效果
- *   外壳：2px 实线 AREX_DARK，Padding 10px
+ *   外壳：2px 实线 DARK，Padding 10px
  *   画布：400×320px（实际绘图区：X轴45~385，Y轴15~295）
  *   背景网格：虚线，透明度 15%（opa=38）
- *   坐标轴文字：AREX_FONT_ID_SMALL，透明度 75%（opa=191）
- *   历史轨迹（Past）：实线，粗细 3px，AREX_GREEN
- *   计划轨迹（Future）：自定义插值斜虚线，粗细 3px，AREX_GREEN
+ *   坐标轴文字：FONT_ID_SMALL，透明度 75%（opa=191）
+ *   历史轨迹（Past）：实线，粗细 3px，GREEN
+ *   计划轨迹（Future）：自定义插值斜虚线，粗细 3px，GREEN
  *   NOW 标记：绿色实心圆 + 黑字绿底背景
  *   减压停留点：空心圆 + 深度停留文字
  * ============================================================ */
@@ -216,13 +216,13 @@ static void plan_chart_draw_cb(lv_event_t *e)
     lv_draw_line_dsc_init(&line_dsc);
     lv_draw_label_dsc_t txt_dsc;
     lv_draw_label_dsc_init(&txt_dsc);
-    txt_dsc.font = arex_get_font(AREX_FONT_ID_SMALL);
-    txt_dsc.color = AREX_GREEN;
+    txt_dsc.font = arex_get_font(FONT_ID_SMALL);
+    txt_dsc.color = GREEN;
 
     /* ==========================================
      * 绘制 Y 轴网格（深度）
      * ========================================== */
-    line_dsc.color = AREX_GREEN;
+    line_dsc.color = GREEN;
     line_dsc.width = 1;
     line_dsc.opa   = 38;
     line_dsc.dash_width = 4;
@@ -294,8 +294,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
      * ========================================== */
     lv_draw_label_dsc_t unit_dsc;
     lv_draw_label_dsc_init(&unit_dsc);
-    unit_dsc.font = arex_get_font(AREX_FONT_ID_SMALL);
-    unit_dsc.color = AREX_LIGHT;
+    unit_dsc.font = arex_get_font(FONT_ID_SMALL);
+    unit_dsc.color = LIGHT;
     unit_dsc.opa = 191;
 
     lv_area_t unit_area =
@@ -342,11 +342,11 @@ static void plan_chart_draw_cb(lv_event_t *e)
     lv_point_t now_p = {MAP_X(current_t_sec), MAP_Y(current_d)};
     lv_draw_line(draw_ctx, &line_dsc, &last_p, &now_p);
 
-    /* NOW 点（纯 AREX_GREEN 实心圆） */
+    /* NOW 点（纯 GREEN 实心圆） */
     lv_draw_rect_dsc_t now_dsc;
     lv_draw_rect_dsc_init(&now_dsc);
     now_dsc.radius   = LV_RADIUS_CIRCLE;
-    now_dsc.bg_color = AREX_GREEN;
+    now_dsc.bg_color = GREEN;
     now_dsc.bg_opa   = LV_OPA_COVER;
     lv_area_t now_area = {now_p.x - 6, now_p.y - 6, now_p.x + 6, now_p.y + 6};
     lv_draw_rect(draw_ctx, &now_dsc, &now_area);
@@ -359,7 +359,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
 
     lv_draw_rect_dsc_t now_bg;
     lv_draw_rect_dsc_init(&now_bg);
-    now_bg.bg_color = AREX_GREEN;
+    now_bg.bg_color = GREEN;
     now_bg.bg_opa   = LV_OPA_COVER;
     lv_coord_t now_bg_pad_x = 6;
     lv_coord_t now_bg_pad_y = 4;
@@ -373,10 +373,10 @@ static void plan_chart_draw_cb(lv_event_t *e)
     lv_draw_rect(draw_ctx, &now_bg, &now_bg_area);
 
     /* NOW 文字（黑字） */
-    txt_dsc.color = AREX_BLACK;
+    txt_dsc.color = BLACK;
     txt_dsc.opa   = LV_OPA_COVER;
     lv_draw_label(draw_ctx, &txt_dsc, &now_bg_area, "NOW", NULL);
-    txt_dsc.color = AREX_GREEN;
+    txt_dsc.color = GREEN;
 
     /* ==========================================
      * 绘制预测减压轨迹（斜虚线）
@@ -410,9 +410,9 @@ static void plan_chart_draw_cb(lv_event_t *e)
             lv_draw_rect_dsc_t deco_node;
             lv_draw_rect_dsc_init(&deco_node);
             deco_node.radius        = LV_RADIUS_CIRCLE;
-            deco_node.bg_color      = AREX_BLACK;
+            deco_node.bg_color      = BLACK;
             deco_node.bg_opa        = LV_OPA_COVER;
-            deco_node.border_color  = AREX_GREEN;
+            deco_node.border_color  = GREEN;
             deco_node.border_width  = 2;
             lv_area_t c_area = {circle_x - 4, p2.y - 4, circle_x + 4, p2.y + 4};
             lv_draw_rect(draw_ctx, &deco_node, &c_area);
@@ -452,22 +452,22 @@ void card_plan_create(lv_obj_t *parent)
     init_test_data();
 
     /* 动态推算图表尺寸：以标题区下方为 Y=0 起点 */
-    int right_w = (int)g_sys_config.safe_zone_w - (int)AREX_LEFT_ANCHOR_W
-                  - (int)(g_sys_config.gap_u * AREX_BASE_U);
+    int right_w = (int)g_sys_config.safe_zone_w - (int)LEFT_ANCHOR_W
+                  - (int)(g_sys_config.gap_u * BASE_U);
     int tile_h  = (int)g_sys_config.safe_zone_h;
     int chart_x = CHART_PAD;
-    int chart_y = AREX_CARD_TITLE_H;
+    int chart_y = CARD_TITLE_H;
     int chart_w = right_w - CHART_PAD * 2;
-    int chart_h = tile_h - AREX_CARD_TITLE_H - CHART_PAD;  /* 剩余空间自适应 */
+    int chart_h = tile_h - CARD_TITLE_H - CHART_PAD;  /* 剩余空间自适应 */
     if (chart_h < 60) chart_h = 60;
     lv_obj_t *shell = lv_obj_create(parent);
     lv_obj_remove_style_all(shell);
     lv_obj_set_size(shell, chart_w + CHART_PAD * 2, chart_h + CHART_PAD * 2);
     lv_obj_set_pos(shell, chart_x - CHART_PAD, chart_y - CHART_PAD);
-    lv_obj_set_style_bg_color(shell, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(shell, BLACK, 0);
     lv_obj_set_style_bg_opa(shell, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(shell, AREX_DARK, 0);
-    lv_obj_set_style_border_width(shell, AREX_GRID_BORDER_W, 0);
+    lv_obj_set_style_border_color(shell, DARK, 0);
+    lv_obj_set_style_border_width(shell, GRID_BORDER_W, 0);
     lv_obj_set_style_radius(shell, 0, 0);
     lv_obj_set_style_pad_all(shell, 0, 0);
 

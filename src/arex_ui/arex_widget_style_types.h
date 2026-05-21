@@ -1,5 +1,5 @@
-#ifndef AREX_WIDGET_STYLE_TYPES_H
-#define AREX_WIDGET_STYLE_TYPES_H
+#ifndef COMP_STYLE_TYPES_H
+#define COMP_STYLE_TYPES_H
 
 #include "lvgl/lvgl.h"
 #include <stdint.h>
@@ -7,7 +7,7 @@
 /*
  * Widget layout/style type definitions.
  * This header is included from arex_ui_engine.h after the core AREX enums
- * such as arex_widget_id_t and arex_font_id_t are declared.
+ * such as comp_id_t and arex_font_id_t are declared.
  */
 
 /* =========================================================
@@ -42,15 +42,15 @@ typedef enum
  * 架构铁律：APP 只下发"意图和网格坐标"，MCU 包揽所有"内部像素级排版"。
  * BLE 协议中每个网格组件仅占 3 字节，彻底压榨协议体积。
  * ========================================================= */
-#define AREX_MAX_WIDGETS 30
+#define MAX_WIDGETS 30
 
 #pragma pack(push, 1)
 typedef struct
 {
-    arex_widget_id_t widget_id;  /* 组件类型 ID（必须与枚举严格对齐） */
+    comp_id_t widget_id;  /* 组件类型 ID（必须与枚举严格对齐） */
     uint8_t x;                    /* 列索引 0~4 */
     uint8_t y;                    /* 行索引 0~5 */
-} arex_widget_pos_t;
+} comp_pos_t;
 #pragma pack(pop)
 
 /* =========================================================
@@ -184,7 +184,7 @@ typedef struct
 #define AREX_MAX_STYLE_SPEC_SIZE 32
 typedef struct
 {
-    arex_widget_id_t widget_id;   /* 绑定的组件 ID */
+    comp_id_t widget_id;   /* 绑定的组件 ID */
     uint8_t span_w;              /* 跨越列数 */
     uint8_t span_h;              /* 跨越行数 */
 
@@ -212,7 +212,7 @@ typedef struct
 
     /* 组件显示名称 */
     const char *title;
-} arex_widget_style_t;
+} comp_style_t;
 
 /* 辅助查表函数声明 */
 
@@ -233,4 +233,4 @@ typedef struct
 #define ALIGN_BR LV_ALIGN_BOTTOM_RIGHT
 
 
-#endif /* AREX_WIDGET_STYLE_TYPES_H */
+#endif /* COMP_STYLE_TYPES_H */

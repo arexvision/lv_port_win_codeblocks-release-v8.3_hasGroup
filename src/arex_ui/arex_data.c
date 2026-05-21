@@ -175,7 +175,7 @@ static float arex_depth_rate_estimate_latest_mpm(const arex_depth_sample_t *wind
 static float arex_alarm_active_ppo2(void)
 {
     uint8_t active_idx = g_sensor_data.gas_active_idx;
-    if (g_sensor_data.gas_slot_count == 0U || active_idx >= AREX_GAS_COUNT)
+    if (g_sensor_data.gas_slot_count == 0U || active_idx >= GAS_COUNT)
     {
         return 0.0f;
     }
@@ -249,7 +249,7 @@ static void arex_alarm_eval_time_limit(void)
 static void arex_alarm_eval_ndl(void)
 {
     arex_alarm_set_active(AREX_ALARM_ID_WARN_NDL_LOW,
-                          g_sensor_data.stop_type == AREX_STOP_NONE &&
+                          g_sensor_data.stop_type == STOP_NONE &&
                           g_sensor_data.ndl >= 0 &&
                           g_sensor_data.ndl < AREX_ALARM_NDL_LOW_MIN);
 }
@@ -264,10 +264,10 @@ static void arex_alarm_eval_oxygen_toxicity(void)
 
 static void arex_alarm_eval_deco_limits(void)
 {
-    bool ceiling_broken = (g_sensor_data.stop_type == AREX_STOP_DECO &&
+    bool ceiling_broken = (g_sensor_data.stop_type == STOP_DECO &&
                            g_sensor_data.ceiling_m > 0.0f &&
                            g_sensor_data.depth < (g_sensor_data.ceiling_m - AREX_ALARM_CEILING_MARGIN_M));
-    bool safety_broken = (g_sensor_data.stop_type == AREX_STOP_SAFETY &&
+    bool safety_broken = (g_sensor_data.stop_type == STOP_SAFETY &&
                           g_sensor_data.depth < AREX_ALARM_SAFETY_BROKEN_M);
 
     arex_alarm_set_active(AREX_ALARM_ID_CRIT_CEIL_BROKEN, ceiling_broken);
@@ -279,13 +279,13 @@ static void arex_alarm_eval_gas_switch(void)
     static bool s_gas_switch_condition = false;
     bool available = false;
     uint8_t active_idx = g_sensor_data.gas_active_idx;
-    uint8_t active_o2 = (active_idx < AREX_GAS_COUNT) ?
+    uint8_t active_o2 = (active_idx < GAS_COUNT) ?
                         g_sensor_data.gas_slot_o2_pct[active_idx] : 0U;
 
     uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count > AREX_GAS_COUNT)
+    if (gas_count > GAS_COUNT)
     {
-        gas_count = AREX_GAS_COUNT;
+        gas_count = GAS_COUNT;
     }
 
     if (g_sensor_data.depth > 0.1f &&
@@ -317,7 +317,7 @@ static void arex_alarm_eval_gas_switch(void)
 static void arex_alarm_eval_safety_stop_info(void)
 {
     static bool s_safety_stop_condition = false;
-    bool active = (g_sensor_data.stop_type == AREX_STOP_SAFETY);
+    bool active = (g_sensor_data.stop_type == STOP_SAFETY);
 
     if (active != s_safety_stop_condition)
     {
@@ -371,7 +371,7 @@ void arex_data_init(void)
 
 void arex_bus_raise_alarm(arex_alarm_level_t level,
                           const char *text,
-                          arex_widget_id_t target)
+                          comp_id_t target)
 {
     (void)arex_alarm_raise_custom(level, text, target);
 }
@@ -380,7 +380,7 @@ void arex_bus_set_depth(float depth_m)
 {
     uint32_t now_ms = arex_depth_now_ms();
     float prev_ui_rate = g_sensor_data.ascent_rate;
-    bool prev_is_moving = fabsf(prev_ui_rate) >= AREX_RATE_STILL_THRESHOLD;
+    bool prev_is_moving = fabsf(prev_ui_rate) >= RATE_STILL_THRESHOLD;
     float ui_depth_rate_mpm;
     float alarm_depth_rate_mpm;
 
@@ -423,7 +423,7 @@ void arex_bus_set_depth(float depth_m)
         }
 
         g_sensor_data.ascent_rate = ui_rate_mpm;
-        current_is_moving = fabsf(ui_rate_mpm) >= AREX_RATE_STILL_THRESHOLD;
+        current_is_moving = fabsf(ui_rate_mpm) >= RATE_STILL_THRESHOLD;
 
         if ((fabsf(ui_rate_mpm - prev_ui_rate) >= AREX_ASCENT_RATE_UI_EPSILON) ||
                 (current_is_moving != prev_is_moving))
@@ -565,7 +565,7 @@ void arex_bus_set_surface_time(uint32_t surface_s)
 
 void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val)
 {
-    if (sensor_idx < AREX_GAS_COUNT && g_sensor_data.ppo2[sensor_idx] != ppo2_val)
+    if (sensor_idx < GAS_COUNT && g_sensor_data.ppo2[sensor_idx] != ppo2_val)
     {
         g_sensor_data.ppo2[sensor_idx] = ppo2_val;
         g_sensor_data.dirty_mask |= DIRTY_PPO2;
@@ -576,9 +576,9 @@ void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val)
 void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name)
 {
     uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count > AREX_GAS_COUNT)
+    if (gas_count > GAS_COUNT)
     {
-        gas_count = AREX_GAS_COUNT;
+        gas_count = GAS_COUNT;
     }
     if (gas_count == 0U)
     {
@@ -606,9 +606,9 @@ void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name)
 
 void arex_bus_set_gas_slot_count(uint8_t count)
 {
-    if (count > AREX_GAS_COUNT)
+    if (count > GAS_COUNT)
     {
-        count = AREX_GAS_COUNT;
+        count = GAS_COUNT;
     }
 
     if (g_sensor_data.gas_slot_count != count)
@@ -636,7 +636,7 @@ void arex_bus_set_gas_slot_count(uint8_t count)
 void arex_bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
                            uint8_t o2_pct, uint8_t he_pct, float mod_m)
 {
-    if (gas_idx >= AREX_GAS_COUNT)
+    if (gas_idx >= GAS_COUNT)
     {
         return;
     }
@@ -862,12 +862,12 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 
     /* 2. 映射左侧 2x7 锚点配置到 g_sys_config */
     memset(g_sys_config.left_widgets, 0, sizeof(g_sys_config.left_widgets));
-    g_sys_config.left_widget_count = (payload->left_count > AREX_LEFT_MAX_WIDGETS)
-                                     ? AREX_LEFT_MAX_WIDGETS
+    g_sys_config.left_widget_count = (payload->left_count > LEFT_MAX_WIDGETS)
+                                     ? LEFT_MAX_WIDGETS
                                      : payload->left_count;
     for (int i = 0; i < g_sys_config.left_widget_count; i++)
     {
-        g_sys_config.left_widgets[i].widget_id = (arex_widget_id_t)payload->left_widgets[i].widget_id;
+        g_sys_config.left_widgets[i].widget_id = (comp_id_t)payload->left_widgets[i].widget_id;
         g_sys_config.left_widgets[i].x         = payload->left_widgets[i].x;
         g_sys_config.left_widgets[i].y         = payload->left_widgets[i].y;
     }
@@ -889,13 +889,13 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
                 break;
             }
         }
-        g_sys_config.custom_cards[0].widget_count = (payload->custom_5f_count > AREX_5F_MAX_WIDGETS)
-            ? AREX_5F_MAX_WIDGETS
+        g_sys_config.custom_cards[0].widget_count = (payload->custom_5f_count > MAX_5F_WIDGETS)
+            ? MAX_5F_WIDGETS
             : payload->custom_5f_count;
     }
     for (int i = 0; i < g_sys_config.custom_cards[0].widget_count; i++)
     {
-        g_sys_config.custom_cards[0].widgets[i].widget_id = (arex_widget_id_t)payload->custom_5f_widgets[i].widget_id;
+        g_sys_config.custom_cards[0].widgets[i].widget_id = (comp_id_t)payload->custom_5f_widgets[i].widget_id;
         g_sys_config.custom_cards[0].widgets[i].x = payload->custom_5f_widgets[i].c;  /* 列 -> x */
         g_sys_config.custom_cards[0].widgets[i].y = payload->custom_5f_widgets[i].r;  /* 行 -> y */
     }
@@ -925,23 +925,23 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 
 void arex_bus_toggle_layout_order(void)
 {
-    g_sys_config.layout_order = (g_sys_config.layout_order == AREX_ORDER_NORMAL)
-                                ? AREX_ORDER_REVERSE
-                                : AREX_ORDER_NORMAL;
+    g_sys_config.layout_order = (g_sys_config.layout_order == ORDER_NORMAL)
+                                ? ORDER_REVERSE
+                                : ORDER_NORMAL;
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 }
 
 void arex_bus_toggle_theme(void)
 {
-    g_sys_config.theme_mode = (g_sys_config.theme_mode == AREX_THEME_TECH)
-                              ? AREX_THEME_CLASSIC
-                              : AREX_THEME_TECH;
+    g_sys_config.theme_mode = (g_sys_config.theme_mode == THEME_TECH)
+                              ? THEME_CLASSIC
+                              : THEME_TECH;
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 }
 
 void arex_bus_toggle_dots_position(void)
 {
-    static const uint8_t seq[] = { AREX_DOTS_RIGHT, AREX_DOTS_LEFT, AREX_DOTS_BOTTOM, AREX_DOTS_NONE };
+    static const uint8_t seq[] = { DOTS_RIGHT, DOTS_LEFT, DOTS_BOTTOM, DOTS_NONE };
     static uint8_t idx = 0;
     idx = (idx + 1) % (sizeof(seq) / sizeof(seq[0]));
     g_sys_config.dots_position = seq[idx];
@@ -950,7 +950,7 @@ void arex_bus_toggle_dots_position(void)
 
 void arex_bus_toggle_compass_style(void)
 {
-    static const uint8_t seq[] = { AREX_COMPASS_CLASSIC, AREX_COMPASS_AERO, AREX_COMPASS_SUB };
+    static const uint8_t seq[] = { COMPASS_CLASSIC, COMPASS_AERO, COMPASS_SUB };
     static uint8_t idx = 0;
     idx = (idx + 1) % (sizeof(seq) / sizeof(seq[0]));
     g_sys_config.compass_style = seq[idx];
@@ -959,7 +959,7 @@ void arex_bus_toggle_compass_style(void)
 
 void arex_bus_toggle_sep_style(void)
 {
-    static const uint8_t seq[] = { AREX_SEP_NONE, AREX_SEP_SOLID, AREX_SEP_DASHED, AREX_SEP_DOTTED };
+    static const uint8_t seq[] = { SEP_NONE, SEP_SOLID, SEP_DASHED, SEP_DOTTED };
     static uint8_t idx = 0;
     idx = (idx + 1) % (sizeof(seq) / sizeof(seq[0]));
     g_sys_config.sep_style = seq[idx];
@@ -1057,7 +1057,7 @@ void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
     arex_alarm_eval_ndl();
     arex_alarm_eval_deco_limits();
     arex_alarm_eval_safety_stop_info();
-    if (prev_stop_type != AREX_STOP_NONE && prev_stop_time_left_s > 0U && time_s == 0U)
+    if (prev_stop_type != STOP_NONE && prev_stop_time_left_s > 0U && time_s == 0U)
     {
         arex_alarm_set_active(AREX_ALARM_ID_INFO_STOP_DONE, true);
     }

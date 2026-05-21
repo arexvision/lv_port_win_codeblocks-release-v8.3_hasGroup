@@ -10,10 +10,10 @@
 /* GAS 行高按规范锁死 49px（不可改），行间距从 gap_menu 配置推算 */
 #define GAS_ROW_H   49
 
-static lv_obj_t *s_items[AREX_GAS_COUNT];
-static lv_obj_t *s_lbl_name[AREX_GAS_COUNT];
-static lv_obj_t *s_lbl_ppo2[AREX_GAS_COUNT];
-static lv_obj_t *s_lbl_mod[AREX_GAS_COUNT];
+static lv_obj_t *s_items[GAS_COUNT];
+static lv_obj_t *s_lbl_name[GAS_COUNT];
+static lv_obj_t *s_lbl_ppo2[GAS_COUNT];
+static lv_obj_t *s_lbl_mod[GAS_COUNT];
 static lv_obj_t *s_hint;
 
 void card_gas_update(void); /* forward declaration */
@@ -22,15 +22,15 @@ void card_gas_create(lv_obj_t *parent)
 {
     arex_render_card_title(parent, "GAS SWITCH");
 
-    int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                         - ((int)g_sys_config.gap_u * AREX_BASE_U);
+    int right_canvas_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
+                         - ((int)g_sys_config.gap_u * BASE_U);
     int row_w = right_canvas_w - 15;   /* 右侧 15px 呼吸间隙 */
-    int gap_y = (int)g_sys_config.gap_menu * AREX_BASE_U;  /* 从配置推算 */
+    int gap_y = (int)g_sys_config.gap_menu * BASE_U;  /* 从配置推算 */
 
-    for (int i = 0; i < AREX_GAS_COUNT; i++)
+    for (int i = 0; i < GAS_COUNT; i++)
     {
         /* 气体行：Y 起点紧贴标题区下方，内容区自适应 */
-        lv_coord_t row_y = AREX_CARD_TITLE_H + i * (GAS_ROW_H + gap_y);
+        lv_coord_t row_y = CARD_TITLE_H + i * (GAS_ROW_H + gap_y);
 
         lv_obj_t *row = lv_obj_create(parent);
         lv_obj_remove_style_all(row);
@@ -38,8 +38,8 @@ void card_gas_create(lv_obj_t *parent)
         lv_obj_set_pos(row, 0, row_y);
         lv_obj_set_style_bg_color(row, lv_color_make(0,0,0), 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(row, AREX_DARK, 0);
-        lv_obj_set_style_border_width(row, AREX_GAS_BORDER_W, 0);
+        lv_obj_set_style_border_color(row, DARK, 0);
+        lv_obj_set_style_border_width(row, GAS_BORDER_W, 0);
         lv_obj_set_style_radius(row, 0, 0);
         lv_obj_set_style_pad_all(row, 0, LV_PART_MAIN);   /* 零边距，子元素绝对定位 */
         lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
@@ -47,18 +47,18 @@ void card_gas_create(lv_obj_t *parent)
 
         /* Gas name — 左侧 12px 呼吸，垂直居中 */
         s_lbl_name[i] = lv_label_create(row);
-        lv_obj_set_style_text_color(s_lbl_name[i], AREX_GREEN, 0);
-        lv_obj_set_style_text_font(s_lbl_name[i], arex_get_font(AREX_FONT_ID_TITLE), 0);
-        lv_label_set_text(s_lbl_name[i], AREX_GAS_NAMES[i]);
+        lv_obj_set_style_text_color(s_lbl_name[i], GREEN, 0);
+        lv_obj_set_style_text_font(s_lbl_name[i], arex_get_font(FONT_ID_TITLE), 0);
+        lv_label_set_text(s_lbl_name[i], GAS_NAMES[i]);
         lv_obj_set_size(s_lbl_name[i], LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(s_lbl_name[i], LV_ALIGN_LEFT_MID, 12, 0);
 
         /* MOD — 右侧，垂直偏上 */
         s_lbl_mod[i] = lv_label_create(row);
-        lv_obj_set_style_text_color(s_lbl_mod[i], AREX_LIGHT, 0);
-        lv_obj_set_style_text_font(s_lbl_mod[i], arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(s_lbl_mod[i], LIGHT, 0);
+        lv_obj_set_style_text_font(s_lbl_mod[i], arex_get_font(FONT_ID_SMALL), 0);
         char buf[20];
-        snprintf(buf, sizeof(buf), "MOD %dm", AREX_GAS_MOD_M[i]);
+        snprintf(buf, sizeof(buf), "MOD %dm", GAS_MOD_M[i]);
         lv_label_set_text(s_lbl_mod[i], buf);
         lv_obj_set_size(s_lbl_mod[i], LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_set_style_text_align(s_lbl_mod[i], LV_TEXT_ALIGN_RIGHT, 0);
@@ -66,8 +66,8 @@ void card_gas_create(lv_obj_t *parent)
 
         /* PPO2 — 右侧，垂直偏下 */
         s_lbl_ppo2[i] = lv_label_create(row);
-        lv_obj_set_style_text_color(s_lbl_ppo2[i], AREX_LIGHT, 0);
-        lv_obj_set_style_text_font(s_lbl_ppo2[i], arex_get_font(AREX_FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_color(s_lbl_ppo2[i], LIGHT, 0);
+        lv_obj_set_style_text_font(s_lbl_ppo2[i], arex_get_font(FONT_ID_SMALL), 0);
         lv_label_set_text(s_lbl_ppo2[i], "PO2 -.-");
         lv_obj_set_size(s_lbl_ppo2[i], LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_set_style_text_align(s_lbl_ppo2[i], LV_TEXT_ALIGN_RIGHT, 0);
@@ -76,8 +76,8 @@ void card_gas_create(lv_obj_t *parent)
 
     /* Hint text at bottom */
     s_hint = lv_label_create(parent);
-    lv_obj_set_style_text_color(s_hint, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(s_hint, arex_get_font(AREX_FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(s_hint, LIGHT, 0);
+    lv_obj_set_style_text_font(s_hint, arex_get_font(FONT_ID_SMALL), 0);
     lv_label_set_text(s_hint, "[ PRESS TO SWITCH GAS ]");
     lv_obj_align(s_hint, LV_ALIGN_BOTTOM_MID, 0, -20);
 
@@ -87,12 +87,12 @@ void card_gas_create(lv_obj_t *parent)
 void card_gas_update(void)
 {
     uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count > AREX_GAS_COUNT)
+    if (gas_count > GAS_COUNT)
     {
-        gas_count = AREX_GAS_COUNT;
+        gas_count = GAS_COUNT;
     }
 
-    for (int i = 0; i < AREX_GAS_COUNT; i++)
+    for (int i = 0; i < GAS_COUNT; i++)
     {
         if (i >= gas_count)
         {
@@ -107,12 +107,12 @@ void card_gas_update(void)
         /* 高亮条件：光标所在行始终高亮；非编辑模式下，激活气体高亮 */
         bool highlight = is_cursor || (is_active && g_ui.state != UI_EDIT_GAS);
 
-        lv_color_t fg = AREX_GREEN;
+        lv_color_t fg = GREEN;
 
-        lv_obj_set_style_bg_color(s_items[i], AREX_BLACK, 0);
+        lv_obj_set_style_bg_color(s_items[i], BLACK, 0);
         lv_obj_set_style_bg_opa(s_items[i], LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(s_items[i], highlight ? AREX_GREEN : AREX_DARK, 0);
-        lv_obj_set_style_border_width(s_items[i], highlight ? (AREX_GAS_BORDER_W + 2) : AREX_GAS_BORDER_W, 0);
+        lv_obj_set_style_border_color(s_items[i], highlight ? GREEN : DARK, 0);
+        lv_obj_set_style_border_width(s_items[i], highlight ? (GAS_BORDER_W + 2) : GAS_BORDER_W, 0);
         if (highlight)
         {
             lv_obj_add_state(s_items[i], LV_STATE_FOCUSED);
@@ -123,7 +123,7 @@ void card_gas_update(void)
         }
 
         const char *slot_name = g_sensor_data.gas_slot_name[i][0] ? g_sensor_data.gas_slot_name[i]
-                                : AREX_GAS_NAMES[i];
+                                : GAS_NAMES[i];
         float mod_m = g_sensor_data.gas_slot_mod_m[i];
         float ppo2 = g_sensor_data.ppo2[i];
 
@@ -146,18 +146,18 @@ void card_gas_update(void)
         /* Recolor children */
         if (s_lbl_name[i])
         {
-            lv_obj_set_style_text_color(s_lbl_name[i], highlight ? AREX_LIGHT : fg, 0);
+            lv_obj_set_style_text_color(s_lbl_name[i], highlight ? LIGHT : fg, 0);
             lv_obj_set_style_text_font(s_lbl_name[i],
-                                       arex_get_font(highlight ? AREX_FONT_ID_MEDIUM : AREX_FONT_ID_TITLE),
+                                       arex_get_font(highlight ? FONT_ID_MEDIUM : FONT_ID_TITLE),
                                        0);
         }
         if (s_lbl_mod[i])
         {
-            lv_obj_set_style_text_color(s_lbl_mod[i], AREX_LIGHT, 0);
+            lv_obj_set_style_text_color(s_lbl_mod[i], LIGHT, 0);
         }
         if (s_lbl_ppo2[i])
         {
-            lv_obj_set_style_text_color(s_lbl_ppo2[i], AREX_LIGHT, 0);
+            lv_obj_set_style_text_color(s_lbl_ppo2[i], LIGHT, 0);
         }
     }
 

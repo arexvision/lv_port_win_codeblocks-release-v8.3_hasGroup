@@ -12,7 +12,7 @@ static lv_obj_t *s_alarm_banner_lbl;
 static lv_color_t alarm_view_level_color(arex_alarm_level_t level)
 {
     (void)level;
-    return AREX_GREEN;
+    return GREEN;
 }
 
 static lv_color_t alarm_view_dim_green(uint8_t percent)
@@ -153,12 +153,12 @@ static void alarm_view_show_banner(const arex_alarm_view_context_t *ctx,
         lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
 
         s_alarm_banner_lbl = lv_label_create(s_alarm_banner);
-        lv_obj_set_style_text_font(s_alarm_banner_lbl, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_font(s_alarm_banner_lbl, arex_get_font(FONT_ID_MEDIUM), 0);
         lv_obj_align(s_alarm_banner_lbl, LV_ALIGN_LEFT_MID, 20, 0);
     }
 
     lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
-    if (ctx->layout_order == AREX_ORDER_NORMAL)
+    if (ctx->layout_order == ORDER_NORMAL)
     {
         lv_obj_align(s_alarm_banner, LV_ALIGN_TOP_RIGHT, 0, 0);
     }
@@ -169,15 +169,15 @@ static void alarm_view_show_banner(const arex_alarm_view_context_t *ctx,
 
     lv_obj_move_foreground(s_alarm_banner);
     lv_obj_clear_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_style_bg_color(s_alarm_banner, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(s_alarm_banner, BLACK, 0);
     lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
-    lv_obj_set_style_text_color(s_alarm_banner_lbl, AREX_GREEN, 0);
+    lv_obj_set_style_text_color(s_alarm_banner_lbl, GREEN, 0);
 
     (void)level;
     lv_label_set_text(s_alarm_banner_lbl, text ? text : "");
 }
 
-static bool alarm_view_target_match(uintptr_t raw, arex_widget_id_t target)
+static bool alarm_view_target_match(uintptr_t raw, comp_id_t target)
 {
     if (raw == (uintptr_t)target)
     {
@@ -214,9 +214,9 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
                                           bool phase_on)
 {
     lv_color_t alarm_color = alarm_view_level_color(level);
-    lv_color_t text_color = AREX_GREEN;
+    lv_color_t text_color = GREEN;
 
-    if (level >= AREX_ALARM_CRIT)
+    if (level >= ALARM_CRIT)
     {
         if (phase_on)
         {
@@ -224,7 +224,7 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
             lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
             lv_obj_set_style_border_color(obj, alarm_color, 0);
             lv_obj_set_style_border_width(obj, 2, 0);
-            text_color = AREX_BLACK;
+            text_color = BLACK;
         }
         else
         {
@@ -232,13 +232,13 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
             return;
         }
     }
-    else if (level == AREX_ALARM_WARN)
+    else if (level == ALARM_WARN)
     {
         lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
         lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(obj, alarm_color, 0);
         lv_obj_set_style_border_width(obj, phase_on ? 4 : 1, 0);
-        text_color = AREX_GREEN;
+        text_color = GREEN;
     }
 
     alarm_view_set_text_color_recursive(obj, text_color);
@@ -250,15 +250,15 @@ static void alarm_view_restore_widget_style(lv_obj_t *obj)
     {
         return;
     }
-    lv_obj_set_style_bg_color(obj, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(obj, BLACK, 0);
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(obj, AREX_DARK, 0);
-    lv_obj_set_style_border_width(obj, AREX_DEBUG_BORDERS ? 1 : 0, 0);
-    alarm_view_set_text_color_recursive(obj, AREX_GREEN);
+    lv_obj_set_style_border_color(obj, DARK, 0);
+    lv_obj_set_style_border_width(obj, DEBUG_BORDERS ? 1 : 0, 0);
+    alarm_view_set_text_color_recursive(obj, GREEN);
 }
 
 static void alarm_view_visit_targets(const arex_alarm_view_context_t *ctx,
-                                     const arex_widget_id_t *targets,
+                                     const comp_id_t *targets,
                                      uint8_t target_count,
                                      arex_alarm_level_t level,
                                      bool phase_on,
@@ -314,10 +314,10 @@ static void alarm_view_visit_targets(const arex_alarm_view_context_t *ctx,
 }
 
 static void alarm_view_restore_targets(const arex_alarm_view_context_t *ctx,
-                                       const arex_widget_id_t *targets,
+                                       const comp_id_t *targets,
                                        uint8_t count)
 {
-    alarm_view_visit_targets(ctx, targets, count, AREX_ALARM_NONE, false, true);
+    alarm_view_visit_targets(ctx, targets, count, ALARM_NONE, false, true);
 }
 
 static void alarm_view_format_banner(const arex_alarm_display_t *display,
@@ -326,11 +326,11 @@ static void alarm_view_format_banner(const arex_alarm_display_t *display,
 {
     const char *text = display->text ? display->text : "";
 
-    if (display->level >= AREX_ALARM_CRIT)
+    if (display->level >= ALARM_CRIT)
     {
         snprintf(buf, buf_size, "CRITICAL: %s", text);
     }
-    else if (display->level == AREX_ALARM_WARN)
+    else if (display->level == ALARM_WARN)
     {
         snprintf(buf, buf_size, "WARNING: %s", text);
     }
@@ -342,10 +342,10 @@ static void alarm_view_format_banner(const arex_alarm_display_t *display,
 
 void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx)
 {
-    static arex_widget_id_t s_prev_targets[AREX_ALARM_TARGET_MAX];
+    static comp_id_t s_prev_targets[AREX_ALARM_TARGET_MAX];
     static uint8_t s_prev_target_count;
     static uint32_t s_last_revision = 0xFFFFFFFFU;
-    static arex_alarm_level_t s_last_level = AREX_ALARM_NONE;
+    static arex_alarm_level_t s_last_level = ALARM_NONE;
     static bool s_last_phase;
     static bool s_last_visible;
 
@@ -355,11 +355,11 @@ void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx)
     const arex_alarm_display_t *display = arex_alarm_get_display();
     bool phase_on = true;
 
-    if (display->level >= AREX_ALARM_CRIT)
+    if (display->level >= ALARM_CRIT)
     {
         phase_on = ((now / 333U) % 2U) == 0U;
     }
-    else if (display->level == AREX_ALARM_WARN)
+    else if (display->level == ALARM_WARN)
     {
         phase_on = ((now / 500U) % 2U) == 0U;
     }
@@ -370,7 +370,7 @@ void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx)
         {
             if (s_alarm_banner)
             {
-                if (s_last_level == AREX_ALARM_INFO)
+                if (s_last_level == ALARM_INFO)
                 {
                     alarm_view_banner_animate_out();
                 }
@@ -390,7 +390,7 @@ void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx)
         }
 
         s_last_visible = false;
-        s_last_level = AREX_ALARM_NONE;
+        s_last_level = ALARM_NONE;
         s_last_revision = display->revision;
         return;
     }
@@ -422,17 +422,17 @@ void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx)
     {
         lv_color_t alarm_color = alarm_view_level_color(display->level);
 
-        if (display->level >= AREX_ALARM_CRIT)
+        if (display->level >= ALARM_CRIT)
         {
             alarm_view_banner_cancel_anim();
             lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
-            lv_obj_set_style_bg_color(s_alarm_banner, phase_on ? alarm_color : AREX_BLACK, 0);
+            lv_obj_set_style_bg_color(s_alarm_banner, phase_on ? alarm_color : BLACK, 0);
             lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
             lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
             lv_obj_set_style_border_width(s_alarm_banner, 2, 0);
-            lv_obj_set_style_text_color(s_alarm_banner_lbl, phase_on ? AREX_BLACK : alarm_color, 0);
+            lv_obj_set_style_text_color(s_alarm_banner_lbl, phase_on ? BLACK : alarm_color, 0);
         }
-        else if (display->level == AREX_ALARM_WARN)
+        else if (display->level == ALARM_WARN)
         {
             alarm_view_banner_cancel_anim();
             lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
@@ -470,7 +470,7 @@ void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx)
 
     if (ctx && ctx->alarm_pending_click)
     {
-        *ctx->alarm_pending_click = (display->level >= AREX_ALARM_WARN);
+        *ctx->alarm_pending_click = (display->level >= ALARM_WARN);
     }
     s_last_visible = true;
     s_last_level = display->level;

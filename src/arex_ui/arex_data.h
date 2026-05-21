@@ -53,7 +53,7 @@ extern "C" {
 /* 左侧 2x7 组件描述 (3 Bytes) */
 typedef struct
 {
-    uint8_t widget_id;    /* arex_widget_id_t (0~52) */
+    uint8_t widget_id;    /* comp_id_t (0~52) */
     uint8_t x;           /* 列索引 0~1 */
     uint8_t y;           /* 行索引 0~6 */
 } ble_sync_left_widget_t;
@@ -61,7 +61,7 @@ typedef struct
 /* 5F 自定义组件描述 (3 Bytes) - span_w/h 由 MCU 从样式表自动推导 */
 typedef struct
 {
-    uint8_t widget_id;   /* arex_widget_id_t (0~52) */
+    uint8_t widget_id;   /* comp_id_t (0~52) */
     uint8_t r;           /* 起始行 0~5 */
     uint8_t c;           /* 起始列 0~4 */
 } ble_sync_5f_widget_t;
@@ -178,7 +178,7 @@ void arex_bus_clear_all_dirty(void);
 
 void arex_bus_raise_alarm(arex_alarm_level_t level,
                           const char *text,
-                          arex_widget_id_t target);
+                          comp_id_t target);
 
 /* --- 配置持久化（weak 实现由具体平台覆盖） --- */
 bool arex_config_load(arex_sys_config_t *cfg);

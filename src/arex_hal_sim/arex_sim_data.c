@@ -174,22 +174,22 @@ static void arex_sim_update_depth_script(void)
 static void arex_sim_update_deco_state(void)
 {
     if (s_sim.depth_m < 10.0f) {
-        arex_bus_update_deco(45, AREX_STOP_NONE, 0.0f, 0, 0, false);
+        arex_bus_update_deco(45, STOP_NONE, 0.0f, 0, 0, false);
         return;
     }
 
     if (s_sim.depth_phase == 1U) {
-        arex_bus_update_deco(12, AREX_STOP_SAFETY, 5.0f, 180, 180, false);
+        arex_bus_update_deco(12, STOP_SAFETY, 5.0f, 180, 180, false);
         return;
     }
 
     if (s_sim.depth_phase == 2U && s_sim.depth_m <= 6.5f) {
         uint16_t left_s = (s_sim.phase_tick < 5U) ? (uint16_t)(180U - (s_sim.phase_tick * 30U)) : 0U;
-        arex_bus_update_deco(12, AREX_STOP_SAFETY, 5.0f, 180, left_s, true);
+        arex_bus_update_deco(12, STOP_SAFETY, 5.0f, 180, left_s, true);
         return;
     }
 
-    arex_bus_update_deco(0, AREX_STOP_DECO, 6.0f, 300, 120, false);
+    arex_bus_update_deco(0, STOP_DECO, 6.0f, 300, 120, false);
 }
 
 static void sim_tick_cb(lv_timer_t *t)
@@ -234,7 +234,7 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.otu++;
     arex_bus_set_otu(s_sim.otu);
 
-    for (uint8_t i = 0; i < AREX_GAS_COUNT; i++) {
+    for (uint8_t i = 0; i < GAS_COUNT; i++) {
         arex_bus_set_ppo2(i, arex_sim_calc_ppo2(g_sensor_data.gas_slot_o2_pct[i], s_sim.depth_m));
     }
 

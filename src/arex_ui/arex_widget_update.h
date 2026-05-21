@@ -1,5 +1,5 @@
-#ifndef AREX_WIDGET_UPDATE_H
-#define AREX_WIDGET_UPDATE_H
+#ifndef COMP_UPDATE_H
+#define COMP_UPDATE_H
 
 #include "arex_ui_engine.h"
 
@@ -7,12 +7,12 @@
 extern "C" {
 #endif
 
-void arex_widget_set_value(arex_widget_id_t id, float value);
-void arex_widget_set_text(arex_widget_id_t id, const char *text);
-void arex_widget_sync_data(arex_widget_id_t w_id);
+void comp_set_value(comp_id_t id, float value);
+void comp_set_text(comp_id_t id, const char *text);
+void comp_sync_data(comp_id_t w_id);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* AREX_WIDGET_UPDATE_H */
+#endif /* COMP_UPDATE_H */

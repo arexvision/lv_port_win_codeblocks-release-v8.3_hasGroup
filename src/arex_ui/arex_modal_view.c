@@ -28,9 +28,9 @@ void arex_modal_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
     s_modal_box = lv_obj_create(s_modal);
     lv_obj_set_size(s_modal_box, 400, 260);
     lv_obj_center(s_modal_box);
-    lv_obj_set_style_bg_color(s_modal_box, AREX_BLACK, 0);
+    lv_obj_set_style_bg_color(s_modal_box, BLACK, 0);
     lv_obj_set_style_bg_opa(s_modal_box, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(s_modal_box, AREX_GREEN, 0);
+    lv_obj_set_style_border_color(s_modal_box, GREEN, 0);
     lv_obj_set_style_border_width(s_modal_box, 4, 0);
     lv_obj_set_style_radius(s_modal_box, 0, 0);
     lv_obj_set_style_pad_all(s_modal_box, 30, 0);
@@ -57,20 +57,20 @@ static void modal_set_content(const char *title, const char *body, const char *h
     lv_obj_clean(s_modal_box);
 
     lv_obj_t *t = lv_label_create(s_modal_box);
-    lv_obj_set_style_text_color(t, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(t, arex_get_font(AREX_FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_color(t, GREEN, 0);
+    lv_obj_set_style_text_font(t, arex_get_font(FONT_ID_TITLE), 0);
     lv_label_set_text(t, title);
     lv_obj_set_pos(t, 0, 0);
 
     lv_obj_t *b = lv_label_create(s_modal_box);
-    lv_obj_set_style_text_color(b, AREX_GREEN, 0);
-    lv_obj_set_style_text_font(b, arex_get_font(AREX_FONT_ID_MEDIUM), 0);
+    lv_obj_set_style_text_color(b, GREEN, 0);
+    lv_obj_set_style_text_font(b, arex_get_font(FONT_ID_MEDIUM), 0);
     lv_label_set_text(b, body);
     lv_obj_set_pos(b, 0, 40);
 
     lv_obj_t *h = lv_label_create(s_modal_box);
-    lv_obj_set_style_text_color(h, AREX_LIGHT, 0);
-    lv_obj_set_style_text_font(h, arex_get_font(AREX_FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(h, LIGHT, 0);
+    lv_obj_set_style_text_font(h, arex_get_font(FONT_ID_SMALL), 0);
     lv_label_set_text(h, hint);
     lv_obj_set_pos(h, 0, 100);
 }
@@ -106,9 +106,9 @@ void arex_screen_show_modal_gas(void)
     }
 
     uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count > AREX_GAS_COUNT)
+    if (gas_count > GAS_COUNT)
     {
-        gas_count = AREX_GAS_COUNT;
+        gas_count = GAS_COUNT;
     }
     if (gas_count == 0U)
     {
@@ -120,10 +120,10 @@ void arex_screen_show_modal_gas(void)
     char body[32];
     const char *gas_name = g_sensor_data.gas_slot_name[ci][0]
                            ? g_sensor_data.gas_slot_name[ci]
-                           : AREX_GAS_NAMES[ci];
+                           : GAS_NAMES[ci];
     float mod_m = g_sensor_data.gas_slot_mod_m[ci] > 0.0f
                   ? g_sensor_data.gas_slot_mod_m[ci]
-                  : (float)AREX_GAS_MOD_M[ci];
+                  : (float)GAS_MOD_M[ci];
     snprintf(body, sizeof(body), "%s\nMOD: %.0fm", gas_name, (double)mod_m);
 
     const char *hint = (g_sensor_data.depth > mod_m)

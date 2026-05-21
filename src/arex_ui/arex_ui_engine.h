@@ -1,5 +1,5 @@
-#ifndef AREX_UI_ENGINE_H
-#define AREX_UI_ENGINE_H
+#ifndef UI_ENGINE_H
+#define UI_ENGINE_H
 
 #include "lvgl/lvgl.h"
 #include <stdint.h>
@@ -16,86 +16,84 @@ extern "C" {
  * System version macro (统一使用 app_version_auto.h 中的版本号)
  * ========================================================= */
 #ifdef PC_SIMULATOR
-#define AREX_SYSTEM_VERSION  "20260101.01"
+#define SYSTEM_VERSION  "20260101.01"
 #else
 #include "../config/app_version_auto.h"
-#define AREX_SYSTEM_VERSION  APP_VERSION_SEMVER
+#define SYSTEM_VERSION  APP_VERSION_SEMVER
 #endif
 /* =========================================================
  * 系统核心宏定义
  * ========================================================= */
 /* 上电时所有数据区显示 "--" 占位符，等 sim_tick_cb 首次触发后才显示真实数据。
  * 设为 0 恢复原有行为（初始值直接显示）。 */
-#define AREX_SHOW_PLACEHOLDER_ON_INIT  1/*只是用来模拟器使用的，实际项目也可以用来防抖，上电会显示--，传感器数据来了变为数据*/
-#define AREX_BASE_U             10   /* 物理基准单位 1U = 10px */
-#define AREX_MIN_CLASSIC_TOP_H  200  /* Classic 模式下最小上区高度 px */
-#define AREX_MASK_EDGE_GUARD    80   /* 面镜盲区掩膜底部警戒阈值 px */
-#define AREX_PHYSICAL_W    640  /* 硬件屏幕极限宽 */
-#define AREX_PHYSICAL_H    480  /* 硬件屏幕极限高 */
-#define AREX_LEFT_ANCHOR_W  160  /* 左侧锚点固定宽度 */
+#define SHOW_PLACEHOLDER_ON_INIT  1/*只是用来模拟器使用的，实际项目也可以用来防抖，上电会显示--，传感器数据来了变为数据*/
+#define BASE_U             10   /* 物理基准单位 1U = 10px */
+#define MIN_CLASSIC_TOP_H  200  /* Classic 模式下最小上区高度 px */
+#define MASK_EDGE_GUARD    80   /* 面镜盲区掩膜底部警戒阈值 px */
+#define PHYSICAL_W    640  /* 硬件屏幕极限宽 */
+#define PHYSICAL_H    480  /* 硬件屏幕极限高 */
+#define LEFT_ANCHOR_W  160  /* 左侧锚点固定宽度 */
 /* 右侧卡片全局标题区高度分配（统一控制标题文字+分割线占用高度） */
-#define AREX_CARD_TITLE_H  60  /* 标题区高度：文字(Y=8) + 分隔线(Y=48) + 下方留白，视觉底边焊死 Y=48 */
+#define CARD_TITLE_H  60  /* 标题区高度：文字(Y=8) + 分隔线(Y=48) + 下方留白，视觉底边焊死 Y=48 */
 
 /* 减压数据刷新节流宏：只允许每 N ms 刷新一次，避免高频深度变化时 UI 负载过高 */
-#define AREX_DECO_REFRESH_MS  1000   /* 图表刷新间隔（ms），设为 0 则关闭节流（每次都刷新） */
+#define DECO_REFRESH_MS  1000   /* 图表刷新间隔（ms），设为 0 则关闭节流（每次都刷新） */
 
 /* 告警横幅配置：1=显示 "CRITICAL:" / "WARNING:" 前缀，0=只显示告警文字 */
 
 /* =========================================================
  * 颜色宏 (统一集中管理)
  * ========================================================= */
-#define AREX_GREEN   lv_color_make(0x00, 0xFF, 0x00)
-#define AREX_LIGHT   lv_color_make(0x55, 0xFF, 0x55)
-#define AREX_DARK    lv_color_make(0x00, 0x33, 0x00)
-#define AREX_BLACK   lv_color_make(0x00, 0x00, 0x00)
-#define AREX_BG      lv_color_make(0x05, 0x05, 0x05)
+#define GREEN   lv_color_make(0x00, 0xFF, 0x00)
+#define LIGHT   lv_color_make(0x55, 0xFF, 0x55)
+#define DARK    lv_color_make(0x00, 0x33, 0x00)
+#define BLACK   lv_color_make(0x00, 0x00, 0x00)
+#define BG      lv_color_make(0x05, 0x05, 0x05)
 
 /* =========================================================
  * UI 调试与排版开关
  * 0 = 量产模式 (隐藏所有布局外框，极其干净)
  * 1 = 调试模式 (显示所有暗绿色外框，用于排版对齐)
  * ========================================================= */
-#define AREX_DEBUG_BORDERS   0  /* 固定区(左侧锚点/SafeZone)排版框 */
-#define AREX_CARD_DEBUG_BORDERS  1  /* 卡片区域选项排版框 */
-#define AREX_INNER_BORDER_W  2  /* 内部菜单项的暗绿色边框粗细 (0=隐藏, 1或2=显示) */
-#define AREX_GAS_BORDER_W    2  /* GAS SWITCH 卡片的边框粗细 */
-#define AREX_GRID_BORDER_W   0  /* 5F 自定义网格组件的边框粗细 */
+#define DEBUG_BORDERS   0  /* 固定区(左侧锚点/SafeZone)排版框 */
+#define CARD_DEBUG_BORDERS  1  /* 卡片区域选项排版框 */
+#define INNER_BORDER_W  2  /* 内部菜单项的暗绿色边框粗细 (0=隐藏, 1或2=显示) */
+#define GAS_BORDER_W    2  /* GAS SWITCH 卡片的边框粗细 */
+#define GRID_BORDER_W   0  /* 5F 自定义网格组件的边框粗细 */
 
 /* 5列x6行网格，最多装30个组件 */
-#define AREX_MAX_WIDGETS    30
-#define AREX_WIDGET_COLS    5
-#define AREX_WIDGET_ROWS    6
+#define MAX_WIDGETS    30
+#define COMP_GRID_COLS    5
+#define COMP_GRID_ROWS    6
 
 /* 10U 左侧锚点最大行数（布局数组长度，2x7=14格，最坏14个单格组件） */
-#define AREX_MAX_LEFT_ROWS    8
+#define MAX_LEFT_ROWS    8
 
 /* 左侧锚点模块间分割线宏 */
-#define AREX_ANCHOR_SEP_THICK  3   /* 模块间分割线粗细 px */
-#define AREX_ANCHOR_SEP_STYLE  AREX_SEP_SOLID  /* 分割线样式: SOLID/DASHED/DOTTED */
+#define ANCHOR_SEP_THICK  3   /* 模块间分割线粗细 px */
+#define ANCHOR_SEP_STYLE  SEP_SOLID  /* 分割线样式: SOLID/DASHED/DOTTED */
 
 
 /* 速率阈值宏（可调整以修改 level1 触发灵敏度） */
 /* Level1 触发阈值：速率绝对值 >= 此值时显示 level1 */
-#define AREX_RATE_LEVEL1_THRESHOLD  3.0f   /* m/min */
+#define RATE_LEVEL1_THRESHOLD  3.0f   /* m/min */
 /* Level2 触发阈值：速率绝对值 >= 此值时显示 level2 */
-#define AREX_RATE_LEVEL2_THRESHOLD  9.0f   /* m/min */
+#define RATE_LEVEL2_THRESHOLD  9.0f   /* m/min */
 /* 静止判定阈值：速率绝对值 < 此值时视为静止（不闪烁） */
-#define AREX_RATE_STILL_THRESHOLD   3.0f   /* m/min */
+#define RATE_STILL_THRESHOLD   3.0f   /* m/min */
 
 /* =========================================================
  * 1b. 气体表常量 (供全局引用)
  * ========================================================= */
-#define AREX_GAS_COUNT  5
+#define GAS_COUNT  5
 
-extern const char  *AREX_GAS_NAMES[AREX_GAS_COUNT];
-extern const uint8_t AREX_GAS_MOD_M[AREX_GAS_COUNT];
+extern const char  *GAS_NAMES[GAS_COUNT];
+extern const uint8_t GAS_MOD_M[GAS_COUNT];
 
 /* 卡片页数 / 卡片类型数常量：
- * - AREX_CARD_COUNT    : tile 页总数（INFO + 动态槽 + SETUP）
- * - AREX_CARD_ID_COUNT : 卡片类型种类数（INFO/COMPASS/.../SETUP） */
-#define AREX_CARD_COUNT     CARD_POS_COUNT
-#define AREX_CARD_ID_COUNT  CARD_ID_COUNT
-
+ * - CARD_COUNT    : tile 页总数（INFO + 动态槽 + SETUP）
+ * - CARD_ID_COUNT : 卡片类型种类数（INFO/COMPASS/.../SETUP） */
+#define CARD_COUNT     CARD_POS_COUNT
 /* 卡片顺序配置读取接口（供 arex_card_registry.c / arex_ui_state.c 使用） */
 extern uint8_t g_sys_card_order(uint8_t pos);
 
@@ -111,54 +109,54 @@ extern uint8_t g_sys_card_order(uint8_t pos);
  */
 typedef enum
 {
-    AREX_FONT_ID_SMALL = 0,  /* 20px  标签/单位/Badge */
-    AREX_FONT_ID_TITLE,       /* 20px  菜单项/卡片标题 */
-    AREX_FONT_ID_MEDIUM,      /* 32px  数据值 */
-    AREX_FONT_ID_LARGE,       /* 64px  深度大数字 */
-    AREX_FONT_ID_HUGE,        /* 64px  大字体 */
-    AREX_FONT_ID_NDL,         /* 48px  NDL减压时间 */
+    FONT_ID_SMALL = 0,  /* 20px  标签/单位/Badge */
+    FONT_ID_TITLE,       /* 20px  菜单项/卡片标题 */
+    FONT_ID_MEDIUM,      /* 32px  数据值 */
+    FONT_ID_LARGE,       /* 64px  深度大数字 */
+    FONT_ID_HUGE,        /* 64px  大字体 */
+    FONT_ID_NDL,         /* 48px  NDL减压时间 */
 } arex_font_id_t;
 
 typedef enum
 {
-    AREX_THEME_TECH = 0,   /* Left Grid + Right Cards（当前使用） */
-    AREX_THEME_CLASSIC      /* 上下流式布局（预留，渲染代码未实现） */
+    THEME_TECH = 0,   /* Left Grid + Right Cards（当前使用） */
+    THEME_CLASSIC      /* 上下流式布局（预留，渲染代码未实现） */
 } arex_theme_t;
 
 typedef enum
 {
-    AREX_ORDER_NORMAL = 0,  /* 标准 (左/又) */
-    AREX_ORDER_REVERSE      /* 翻转 (上/下) */
+    ORDER_NORMAL = 0,  /* 标准 (左/又) */
+    ORDER_REVERSE      /* 翻转 (上/下) */
 } arex_order_t;
 
 typedef enum
 {
-    AREX_DOTS_RIGHT = 0,
-    AREX_DOTS_LEFT,
-    AREX_DOTS_BOTTOM,
-    AREX_DOTS_NONE
+    DOTS_RIGHT = 0,
+    DOTS_LEFT,
+    DOTS_BOTTOM,
+    DOTS_NONE
 } arex_dots_pos_t;
 
 typedef enum
 {
-    AREX_COMPASS_CLASSIC = 0, /* 战术横带 (Tape) */
-    AREX_COMPASS_AERO,        /* 战斗机平显 (HUD) */
-    AREX_COMPASS_SUB          /* 潜艇声呐 (Sonar) */
+    COMPASS_CLASSIC = 0, /* 战术横带 (Tape) */
+    COMPASS_AERO,        /* 战斗机平显 (HUD) */
+    COMPASS_SUB          /* 潜艇声呐 (Sonar) */
 } arex_compass_style_t;
 
 typedef enum
 {
-    AREX_ALIGN_LEFT   = 0,
-    AREX_ALIGN_CENTER,
-    AREX_ALIGN_RIGHT
+    ALIGN_LEFT   = 0,
+    ALIGN_CENTER,
+    ALIGN_RIGHT
 } arex_align_t;
 
 typedef enum
 {
-    AREX_SEP_NONE    = 0,
-    AREX_SEP_SOLID,
-    AREX_SEP_DASHED,
-    AREX_SEP_DOTTED
+    SEP_NONE    = 0,
+    SEP_SOLID,
+    SEP_DASHED,
+    SEP_DOTTED
 } arex_sep_style_t;
 
 /* =========================================================
@@ -225,14 +223,7 @@ typedef enum
     COMP_DEPTH_AVG_0806   = 35,
     COMP_TEMP_MIN_0806    = 36,
     COMP_TEMP_AVG_0806    = 37
-                              /* 🚨 架构师警告：APP 端的 Protobuf 中移除了以下 ID：
-                               * COMP_TEMP_MAX_0806 (原38)
-                               * COMP_SAC_RATE_0806 (原39, 耗气率)
-                               * COMP_WTIME_0806 (原40, 水面休息时间)
-                               * COMP_PPO2_SAFE_0806 等边界安全组件 (原50+)
-                               * 请务必确认产品经理确实删除了这些模块！
-                               */
-} arex_widget_id_t;
+} comp_id_t;
 
 /* =========================================================
  * 2d. 告警系统 (Alarm System)
@@ -243,33 +234,33 @@ typedef enum
  *   - arex_ui_update_task() : 50ms 定时器执行闪烁逻辑（由心跳引擎驱动）
  *
  * 告警级别：
- *   - AREX_ALARM_INFO  (1Hz) : 低优先级提醒，绿底黑字，慢闪
- *   - AREX_ALARM_WARN  (2Hz) : 中优先级警告，黄底黑字，中速闪烁
- *   - AREX_ALARM_CRIT  (4Hz) : 高优先级危险，红底黑字，极速狂闪
+ *   - ALARM_INFO  (1Hz) : 低优先级提醒，绿底黑字，慢闪
+ *   - ALARM_WARN  (2Hz) : 中优先级警告，黄底黑字，中速闪烁
+ *   - ALARM_CRIT  (4Hz) : 高优先级危险，红底黑字，极速狂闪
  * ========================================================= */
 typedef enum
 {
-    AREX_ALARM_NONE  = 0,   /* 无告警 */
-    AREX_ALARM_INFO  = 1,   /* INFO: 低优先级提醒（1Hz 闪烁）*/
-    AREX_ALARM_WARN  = 2,   /* WARN: 中优先级警告（2Hz 闪烁）*/
-    AREX_ALARM_CRIT  = 3,   /* CRITICAL: 高优先级危险（4Hz 闪烁）*/
+    ALARM_NONE  = 0,   /* 无告警 */
+    ALARM_INFO  = 1,   /* INFO: 低优先级提醒（1Hz 闪烁）*/
+    ALARM_WARN  = 2,   /* WARN: 中优先级警告（2Hz 闪烁）*/
+    ALARM_CRIT  = 3,   /* CRITICAL: 高优先级危险（4Hz 闪烁）*/
 } arex_alarm_level_t;
 
 /* 告警横幅配置 */
-#define AREX_ALARM_SHOW_PREFIX  0   /* 1=显示 "CRITICAL:" 前缀，0=只显示告警文字 */
+#define ALARM_SHOW_PREFIX  0   /* 1=显示 "CRITICAL:" 前缀，0=只显示告警文字 */
 
 /* =========================================================
  * 3. NVDS 核心配置结构体 (字节对齐，用于持久化)
  * ========================================================= */
 
 /* 统一的左右网格组件类型 */
-#define AREX_LEFT_MAX_WIDGETS 12
-#define AREX_5F_MAX_WIDGETS   30
-#define AREX_MAX_CUSTOM_CARDS AREX_MAX_DYNAMIC_SLOTS
+#define LEFT_MAX_WIDGETS 12
+#define MAX_5F_WIDGETS   30
+#define MAX_CUSTOM_CARDS MAX_DYNAMIC_SLOTS
 
 typedef struct
 {
-    arex_widget_id_t widget_id;
+    comp_id_t widget_id;
     uint8_t x;   /* 列索引 */
     uint8_t y;   /* 行索引 */
 } arex_grid_widget_t;
@@ -277,7 +268,7 @@ typedef struct
 typedef struct
 {
     uint8_t            widget_count;
-    arex_grid_widget_t widgets[AREX_5F_MAX_WIDGETS];
+    arex_grid_widget_t widgets[MAX_5F_WIDGETS];
 } arex_custom_card_cfg_t;
 
 #pragma pack(push, 1)
@@ -321,19 +312,19 @@ typedef struct
 
     /* --- 左侧 2x7 锚点配置 --- */
     uint8_t            left_widget_count;
-    arex_grid_widget_t left_widgets[AREX_LEFT_MAX_WIDGETS];
+    arex_grid_widget_t left_widgets[LEFT_MAX_WIDGETS];
 
     /* --- 右侧多张自定义网格卡片配置 --- */
     uint8_t                custom_card_count;
-    arex_custom_card_cfg_t custom_cards[AREX_MAX_CUSTOM_CARDS];
-    uint8_t                custom_card_slot[AREX_CARD_COUNT];
+    arex_custom_card_cfg_t custom_cards[MAX_CUSTOM_CARDS];
+    uint8_t                custom_card_slot[CARD_COUNT];
 
     /* --- 卡片顺序 (APP 同步就绪)
      * card_order[pos] = card_id
      * INFO 固定在 tile 0，SETUP 固定在最后一页。
-     * CARD_POS_1 ~ CARD_POS_N 的动态槽数量由 AREX_MAX_DYNAMIC_SLOTS 控制。
+     * CARD_POS_1 ~ CARD_POS_N 的动态槽数量由 MAX_DYNAMIC_SLOTS 控制。
      */
-    uint8_t card_order[AREX_CARD_COUNT];
+    uint8_t card_order[CARD_COUNT];
 
     /* --- 用户设置 (运行时可修改) --- */
     float   mod_ppo2;           /* 默认 1.4f */
@@ -350,9 +341,9 @@ typedef struct
 /* 停留状态枚举 */
 typedef enum
 {
-    AREX_STOP_NONE = 0,    /* 0: 常态，无停留 */
-    AREX_STOP_SAFETY,      /* 1: 安全停留 */
-    AREX_STOP_DECO         /* 2: 强制减压停留 */
+    STOP_NONE = 0,    /* 0: 常态，无停留 */
+    STOP_SAFETY,      /* 1: 安全停留 */
+    STOP_DECO         /* 2: 强制减压停留 */
 } arex_stop_type_t;
 
 typedef struct
@@ -391,11 +382,11 @@ typedef struct
     uint16_t heading;           /* 当前航向 0~359 */
     bool    heading_locked;     /* 航向是否锁定 */
     uint16_t heading_target;    /* 锁定目标航向 */
-    float   ppo2[AREX_GAS_COUNT]; /* 每个气体槽位的 PPO2 */
-    char    gas_slot_name[AREX_GAS_COUNT][16]; /* 每个气体槽位的显示名称 */
-    uint8_t gas_slot_o2_pct[AREX_GAS_COUNT];   /* 每个气体槽位 O2 百分比 */
-    uint8_t gas_slot_he_pct[AREX_GAS_COUNT];   /* 每个气体槽位 He 百分比 */
-    float   gas_slot_mod_m[AREX_GAS_COUNT];    /* 每个气体槽位 MOD */
+    float   ppo2[GAS_COUNT]; /* 每个气体槽位的 PPO2 */
+    char    gas_slot_name[GAS_COUNT][16]; /* 每个气体槽位的显示名称 */
+    uint8_t gas_slot_o2_pct[GAS_COUNT];   /* 每个气体槽位 O2 百分比 */
+    uint8_t gas_slot_he_pct[GAS_COUNT];   /* 每个气体槽位 He 百分比 */
+    float   gas_slot_mod_m[GAS_COUNT];    /* 每个气体槽位 MOD */
     uint8_t gas_slot_count;                     /* 当前模式启用的气体槽数量 */
     int16_t next_stop_m;       /* 下一减压站深度 m */
     uint8_t next_stop_min;     /* 下一减压站停留时间 min */
@@ -565,8 +556,8 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg);
 lv_text_align_t arex_align_to_lv(uint8_t align);
 lv_align_t arex_align_to_lv_align(uint8_t align);
 
-/* 通用卡片标题渲染器：标题区固定 AREX_CARD_TITLE_H(40px)，
- * 文字 Y=5，分割线 Y=AREX_CARD_TITLE_H-2。下方内容区以 AREX_CARD_TITLE_H 为 Y=0 起点。 */
+/* 通用卡片标题渲染器：标题区固定 CARD_TITLE_H(40px)，
+ * 文字 Y=5，分割线 Y=CARD_TITLE_H-2。下方内容区以 CARD_TITLE_H 为 Y=0 起点。 */
 
 /* 字体映射器：唯一允许将字体 ID 转换为真实 lvgl 字体指针的地方 */
 const lv_font_t *arex_get_font(uint8_t font_id);
@@ -636,7 +627,7 @@ typedef struct
 /* 触发告警：显示横幅 + 锁定靶心组件，由 50ms 定时器执行闪烁 */
 void arex_trigger_alarm(arex_alarm_level_t level,
                         const char *eng_text,
-                        arex_widget_id_t target_id);
+                        comp_id_t target_id);
 
 /* 清除告警：隐藏横幅 + 重置靶心状态，停止闪烁 */
 void arex_clear_all_alarm_styles(void);
@@ -645,7 +636,7 @@ void arex_clear_all_alarm_styles(void);
 bool arex_alarm_mark_clear_requested(void);
 
 /* 内部：根据 widget_id 获取显示名称 */
-const char *arex_get_widget_name(arex_widget_id_t id);
+const char *comp_get_name(comp_id_t id);
 
 #include "arex_widget_style_types.h"
 
@@ -653,7 +644,7 @@ const char *arex_get_widget_name(arex_widget_id_t id);
 
 /* 外部告警状态容器（由 arex_screen.c 在创建锚点和卡片时注入） */
 extern lv_obj_t *g_left_anchor_obj;
-extern lv_obj_t *g_card_custom_objs[AREX_MAX_CUSTOM_CARDS];
+extern lv_obj_t *g_card_custom_objs[MAX_CUSTOM_CARDS];
 extern uint8_t   g_card_custom_obj_count;
 
 /* 5F 网格坐标推算：支持 title_zone_h 避让偏移，确保网格落在标题区下方 */
@@ -663,8 +654,8 @@ extern uint8_t   g_card_custom_obj_count;
  *
  * 严格将 160x420 区域划分为 2列(80px) x 7行(60px) 的绝对网格矩阵，
  * 彻底废弃 current_y 累加排版，改用 x*y*w*h 纯数学坐标推演。
- * 内部调用 render_widget_by_id 工厂函数，兼容 arex_widget_id_t 体系。
- * 样式由 arex_get_widget_style(widget_id) 自动查表获取，无需手动配置。
+ * 内部调用 render_widget_by_id 工厂函数，兼容 comp_id_t 体系。
+ * 样式由 comp_get_style(widget_id) 自动查表获取，无需手动配置。
  * ========================================================= */
 
 /* 左侧网格总线渲染器：遍历 g_left_widgets[] 数组，
@@ -698,4 +689,4 @@ void arex_ui_update_task(lv_timer_t *timer);
 }
 #endif
 
-#endif /* AREX_UI_ENGINE_H */
+#endif /* UI_ENGINE_H */

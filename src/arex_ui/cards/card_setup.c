@@ -15,12 +15,12 @@ void arex_screen_register_setup_list(lv_obj_t *list);
 static const arex_menu_item_cfg_t s_setup_items[] =
 {
     /*  title_text,          badge,       title_font,       val_font,       border, height_u */
-    { "GAS SWITCH",    NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "CONSERVATISM",  "MED",        AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "BRIGHTNESS",    "ECO",        AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "COMPASS CAL",   "IDLE",       AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "LIGHT CONTROL", NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
-    { "SYSTEM SETUP",  NULL,         AREX_FONT_ID_TITLE, AREX_FONT_ID_SMALL, 2, 0 },
+    { "GAS SWITCH",    NULL,         FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "CONSERVATISM",  "MED",        FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "BRIGHTNESS",    "ECO",        FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "COMPASS CAL",   "IDLE",       FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "LIGHT CONTROL", NULL,         FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "SYSTEM SETUP",  NULL,         FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 #define SETUP_ITEM_COUNT (sizeof(s_setup_items) / sizeof(s_setup_items[0]))
 
@@ -40,18 +40,18 @@ void card_setup_create(lv_obj_t *parent)
 {
     arex_render_card_title(parent, "DIVE MENU");
 
-    int right_canvas_w = g_sys_config.safe_zone_w - AREX_LEFT_ANCHOR_W
-                         - ((int)g_sys_config.gap_u * AREX_BASE_U);
+    int right_canvas_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
+                         - ((int)g_sys_config.gap_u * BASE_U);
 
-    uint16_t item_h_px = (uint16_t)g_sys_config.h_menu_item * AREX_BASE_U;
-    uint16_t gap_y_px  = (uint16_t)g_sys_config.gap_menu * AREX_BASE_U;
+    uint16_t item_h_px = (uint16_t)g_sys_config.h_menu_item * BASE_U;
+    uint16_t gap_y_px  = (uint16_t)g_sys_config.gap_menu * BASE_U;
     uint16_t list_h = SETUP_ITEM_COUNT * item_h_px
                       + (SETUP_ITEM_COUNT - 1) * gap_y_px;
 
     s_list = lv_obj_create(parent);
     lv_obj_remove_style_all(s_list);
     lv_obj_set_size(s_list, right_canvas_w, list_h);
-    lv_obj_set_pos(s_list, 0, AREX_CARD_TITLE_H);
+    lv_obj_set_pos(s_list, 0, CARD_TITLE_H);
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_pad_all(s_list, 0, 0);

@@ -16,8 +16,8 @@ static const char *s_info_titles[AREX_SUBMENU_INFO_COUNT] =
 
 static char s_info_str[AREX_SUBMENU_INFO_COUNT][5][32];
 static const char *s_info_dyn[AREX_SUBMENU_INFO_COUNT][6];
-static char s_gas_switch_str[AREX_GAS_COUNT][20];
-static const char *s_gas_switch_dyn[AREX_GAS_COUNT + 1];
+static char s_gas_switch_str[GAS_COUNT][20];
+static const char *s_gas_switch_dyn[GAS_COUNT + 1];
 
 static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
 {
@@ -26,7 +26,7 @@ static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
     { "LOW", "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
     { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
-    { "VERSION: " AREX_SYSTEM_VERSION, "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
+    { "VERSION: " SYSTEM_VERSION, "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
 };
 
 static const char *s_setup_titles[AREX_SUBMENU_SETUP_COUNT] =
@@ -374,7 +374,7 @@ static void apply_oc_tech_mode_gases(void)
         active_count++;
     }
 
-    for (uint8_t i = active_count; i < AREX_GAS_COUNT; i++)
+    for (uint8_t i = active_count; i < GAS_COUNT; i++)
     {
         arex_bus_set_gas_slot(i, "", 0, 0, 0.0f);
     }
@@ -639,7 +639,7 @@ const char **arex_submenu_build_compass_cal_items(uint8_t *out_count)
 static const char **build_systems_setup_items(uint8_t *out_count)
 {
     snprintf(s_system_mode_str, sizeof(s_system_mode_str), "MODE SETUP: %s", dive_mode_label(s_dive_mode));
-    s_system_setup_dyn[0] = "VERSION: " AREX_SYSTEM_VERSION;
+    s_system_setup_dyn[0] = "VERSION: " SYSTEM_VERSION;
     s_system_setup_dyn[1] = s_system_mode_str;
     s_system_setup_dyn[2] = "DIVE SETUP";
     s_system_setup_dyn[3] = "AI SETUP";
@@ -656,9 +656,9 @@ static const char **build_systems_setup_items(uint8_t *out_count)
 static const char **build_gas_switch_items(uint8_t *out_count)
 {
     uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count > AREX_GAS_COUNT)
+    if (gas_count > GAS_COUNT)
     {
-        gas_count = AREX_GAS_COUNT;
+        gas_count = GAS_COUNT;
     }
     if (gas_count == 0U)
     {
@@ -675,7 +675,7 @@ static const char **build_gas_switch_items(uint8_t *out_count)
     {
         const char *slot_name = g_sensor_data.gas_slot_name[i][0]
                                 ? g_sensor_data.gas_slot_name[i]
-                                : AREX_GAS_NAMES[i];
+                                : GAS_NAMES[i];
         if (gas_count > 1U)
         {
             lv_snprintf(s_gas_switch_str[i],

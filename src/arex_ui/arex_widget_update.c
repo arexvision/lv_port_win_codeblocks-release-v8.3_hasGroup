@@ -5,11 +5,11 @@
 #include <math.h>
 #include <stdio.h>
 
-void arex_widget_set_value(arex_widget_id_t id, float value)
+void comp_set_value(comp_id_t id, float value)
 {
-    uint8_t max_count = (g_card_custom_obj_count < AREX_MAX_CUSTOM_CARDS)
+    uint8_t max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS)
                         ? g_card_custom_obj_count
-                        : AREX_MAX_CUSTOM_CARDS;
+                        : MAX_CUSTOM_CARDS;
 
     for (uint8_t c = 0; c <= max_count; c++)
     {
@@ -107,13 +107,13 @@ void arex_widget_set_value(arex_widget_id_t id, float value)
     }
 }
 
-void arex_widget_set_text(arex_widget_id_t id, const char *text)
+void comp_set_text(comp_id_t id, const char *text)
 {
     if (!text) return;
 
-    uint8_t max_count = (g_card_custom_obj_count < AREX_MAX_CUSTOM_CARDS)
+    uint8_t max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS)
                         ? g_card_custom_obj_count
-                        : AREX_MAX_CUSTOM_CARDS;
+                        : MAX_CUSTOM_CARDS;
 
     for (uint8_t c = 0; c <= max_count; c++)
     {
@@ -126,14 +126,14 @@ void arex_widget_set_text(arex_widget_id_t id, const char *text)
             lv_obj_t *child = lv_obj_get_child(container, i);
             if (!child) continue;
 
-            if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(child) == id)
+            if ((comp_id_t)(uintptr_t)lv_obj_get_user_data(child) == id)
             {
                 int16_t sub_cnt = lv_obj_get_child_cnt(child);
                 for (int16_t j = 0; j < sub_cnt; j++)
                 {
                     lv_obj_t *sub = lv_obj_get_child(child, j);
                     if (!sub) continue;
-                    if ((arex_widget_id_t)(uintptr_t)lv_obj_get_user_data(sub) == id)
+                    if ((comp_id_t)(uintptr_t)lv_obj_get_user_data(sub) == id)
                     {
                         if (lv_obj_check_type(sub, &lv_label_class))
                         {
@@ -147,7 +147,7 @@ void arex_widget_set_text(arex_widget_id_t id, const char *text)
     }
 }
 
-void arex_widget_sync_data(arex_widget_id_t w_id)
+void comp_sync_data(comp_id_t w_id)
 {
     char buf[32];
 
@@ -164,7 +164,7 @@ void arex_widget_sync_data(arex_widget_id_t w_id)
         break;
 
     case COMP_SYS_1606:
-        arex_widget_refresh_sys(DIRTY_BATT | DIRTY_TEMP);
+        comp_refresh_sys(DIRTY_BATT | DIRTY_TEMP);
         break;
 
     /* =========================================================
@@ -172,7 +172,7 @@ void arex_widget_sync_data(arex_widget_id_t w_id)
      * ========================================================= */
     case COMP_DEPTH_1612:
     case COMP_DEPTH_1606:
-        arex_widget_set_value(w_id, g_sensor_data.depth);
+        comp_set_value(w_id, g_sensor_data.depth);
         break;
 
     /* =========================================================
@@ -182,134 +182,134 @@ void arex_widget_sync_data(arex_widget_id_t w_id)
         snprintf(buf, sizeof(buf), "%02d:%02d",
                  g_sensor_data.dive_time_s / 60,
                  g_sensor_data.dive_time_s % 60);
-        arex_widget_set_text(w_id, buf);
+        comp_set_text(w_id, buf);
         break;
 
     /* =========================================================
      * 4. 气体组件
      * ========================================================= */
     case COMP_GAS_1606:
-        arex_widget_set_text(w_id, g_sensor_data.gas_name);
+        comp_set_text(w_id, g_sensor_data.gas_name);
         break;
 
     /* =========================================================
      * 5. 基础组件 (Basic)
      * ========================================================= */
     case COMP_TEMP_0806:
-        arex_widget_set_value(w_id, g_sensor_data.temperature_c);
+        comp_set_value(w_id, g_sensor_data.temperature_c);
         break;
 
     case COMP_TIME_1606:
         snprintf(buf, sizeof(buf), "%02d:%02d",
                  g_sensor_data.sys_time_h,
                  g_sensor_data.sys_time_m);
-        arex_widget_set_text(w_id, buf);
+        comp_set_text(w_id, buf);
         break;
 
     case COMP_TTS_0806:
-        arex_widget_set_value(w_id, (float)g_sensor_data.tts);
+        comp_set_value(w_id, (float)g_sensor_data.tts);
         break;
 
     case COMP_ASCENT_0806:
     case COMP_ASCENT_0812:
-        arex_widget_set_value(w_id, g_sensor_data.ascent_rate);
+        comp_set_value(w_id, g_sensor_data.ascent_rate);
         break;
 
     case COMP_BATTERY_0806:
-        arex_widget_set_value(w_id, g_sensor_data.battery_pct);
+        comp_set_value(w_id, g_sensor_data.battery_pct);
         break;
 
     case COMP_STOP_DEPTH_0806:
-        arex_widget_set_value(w_id, g_sensor_data.stop_depth_m);
+        comp_set_value(w_id, g_sensor_data.stop_depth_m);
         break;
 
     case COMP_STOP_TIME_1606:
         snprintf(buf, sizeof(buf), "%02d:%02d",
                  g_sensor_data.stop_time_left_s / 60,
                  g_sensor_data.stop_time_left_s % 60);
-        arex_widget_set_text(w_id, buf);
+        comp_set_text(w_id, buf);
         break;
 
     case COMP_PPO2_0806:
         /* 根据激活气体索引选择对应PPO2 */
-        arex_widget_set_value(w_id, g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
+        comp_set_value(w_id, g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
         break;
 
     /* =========================================================
      * 6. 技术潜(Tech Dive)
      * ========================================================= */
     case COMP_SURF_GF_0806:
-        arex_widget_set_value(w_id, g_sensor_data.surf_gf);
+        comp_set_value(w_id, g_sensor_data.surf_gf);
         break;
 
     case COMP_GF99_0806:
-        arex_widget_set_value(w_id, g_sensor_data.gf99);
+        comp_set_value(w_id, g_sensor_data.gf99);
         break;
 
     case COMP_GF_0806:
         snprintf(buf, sizeof(buf), "%d/%d",
                  g_sensor_data.gf_low,
                  g_sensor_data.gf_high);
-        arex_widget_set_text(w_id, buf);
+        comp_set_text(w_id, buf);
         break;
 
     case COMP_CNS_0806:
-        arex_widget_set_value(w_id, (float)g_sensor_data.cns_pct);
+        comp_set_value(w_id, (float)g_sensor_data.cns_pct);
         break;
 
     case COMP_OTU_0806:
-        arex_widget_set_value(w_id, (float)g_sensor_data.otu);
+        comp_set_value(w_id, (float)g_sensor_data.otu);
         break;
 
     case COMP_MOD_0806:
-        arex_widget_set_value(w_id, g_sensor_data.mod_m);
+        comp_set_value(w_id, g_sensor_data.mod_m);
         break;
 
     case COMP_CEILING_0806:
-        arex_widget_set_value(w_id, g_sensor_data.ceiling_m);
+        comp_set_value(w_id, g_sensor_data.ceiling_m);
         break;
 
     case COMP_GAS_MIX_1606:
         snprintf(buf, sizeof(buf), "%d/%d",
                  g_sensor_data.gas_o2_pct,
                  g_sensor_data.gas_he_pct);
-        arex_widget_set_text(w_id, buf);
+        comp_set_text(w_id, buf);
         break;
 
     case COMP_GAS_DENS_0806:
-        arex_widget_set_value(w_id, g_sensor_data.gas_density);
+        comp_set_value(w_id, g_sensor_data.gas_density);
         break;
 
     case COMP_FIO2_0806:
-        arex_widget_set_value(w_id, g_sensor_data.fio2_pct);
+        comp_set_value(w_id, g_sensor_data.fio2_pct);
         break;
 
     /* =========================================================
      * 7. 传感& 拓展 (Sensors)
      * ========================================================= */
     case COMP_HEADING_0806:
-        arex_widget_set_value(w_id, (float)g_sensor_data.heading);
+        comp_set_value(w_id, (float)g_sensor_data.heading);
         break;
 
     case COMP_POD_0806:
         /* POD 由状态机使用 user_data 靶向刷新，此处做兜底 */
-        arex_widget_set_value(COMP_POD_0806, g_sensor_data.pod1_bar);
+        comp_set_value(COMP_POD_0806, g_sensor_data.pod1_bar);
         break;
 
     case COMP_DEPTH_MAX_0806:
-        arex_widget_set_value(w_id, g_sensor_data.max_depth);
+        comp_set_value(w_id, g_sensor_data.max_depth);
         break;
 
     case COMP_DEPTH_AVG_0806:
-        arex_widget_set_value(w_id, g_sensor_data.avg_depth);
+        comp_set_value(w_id, g_sensor_data.avg_depth);
         break;
 
     case COMP_TEMP_MIN_0806:
-        arex_widget_set_value(w_id, g_sensor_data.min_temp);
+        comp_set_value(w_id, g_sensor_data.min_temp);
         break;
 
     case COMP_TEMP_AVG_0806:
-        arex_widget_set_value(w_id, g_sensor_data.avg_temp);
+        comp_set_value(w_id, g_sensor_data.avg_temp);
         break;
 
     /* =========================================================
