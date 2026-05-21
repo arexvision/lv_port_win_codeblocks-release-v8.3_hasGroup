@@ -10,7 +10,7 @@ extern "C" {
 #endif
 
 #ifndef AREX_ENABLE_INFO_MENU
-#define AREX_ENABLE_INFO_MENU 0
+#define AREX_ENABLE_INFO_MENU 1
 #endif
 
 /* =========================================
