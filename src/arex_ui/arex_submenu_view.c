@@ -476,6 +476,11 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
                                        direct_setting.arg,
                                        direct_setting.value);
             dispatch_submenu_setting_callback(&direct_setting);
+            if (direct_setting.kind == AREX_SUBMENU_SETTING_OC_TECH_SAVE)
+            {
+                arex_screen_close_submenu();
+                return;
+            }
             refresh_current_submenu_page(cur_title, item_idx);
             return;
         }
@@ -713,6 +718,7 @@ void arex_screen_close_submenu(void)
 void arex_screen_confirm_submenu_setting(void)
 {
     bool close_extra_mode_layer = false;
+    bool return_dash_after_apply = false;
     if (s_pending_setting.kind == AREX_SUBMENU_SETTING_NONE)
     {
         arex_screen_hide_modal();
@@ -723,12 +729,23 @@ void arex_screen_confirm_submenu_setting(void)
     close_extra_mode_layer =
         (s_pending_setting.kind == AREX_SUBMENU_SETTING_DIVE_MODE &&
          s_pending_setting.value != 0);
+    return_dash_after_apply =
+        (s_pending_setting.kind == AREX_SUBMENU_SETTING_DIVE_MODE &&
+         s_pending_setting.value == 3);
 
     arex_submenu_apply_setting(s_pending_setting.kind, s_pending_setting.arg, s_pending_setting.value);
     dispatch_submenu_setting_callback(&s_pending_setting);
 
     memset(&s_pending_setting, 0, sizeof(s_pending_setting));
     arex_screen_hide_modal();
+    if (return_dash_after_apply)
+    {
+        g_ui.sub_history_depth = 0;
+        g_ui.edit_ctx.active = false;
+        submenu_slide_out();
+        g_ui.state = UI_DASH;
+        return;
+    }
     arex_screen_close_submenu();
     if (close_extra_mode_layer)
     {

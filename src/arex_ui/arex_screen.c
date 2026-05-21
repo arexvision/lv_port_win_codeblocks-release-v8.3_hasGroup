@@ -1303,9 +1303,8 @@ static void format_edit_committed_text(char *buf,
     case AREX_SUBMENU_SETTING_OC_TECH_GAS:
         snprintf(buf,
                  buf_size,
-                 "GAS %u %s: %.0f%%",
-                 (unsigned)((arg / 2U) + 1U),
-                 (arg % 2U) ? "He" : "O2",
+                 "%s PERCENT: %.0f%%",
+                 (arg % 2U) ? "HE" : "O2",
                  (double)value);
         break;
     case AREX_SUBMENU_SETTING_DEPTH_ALARM:
