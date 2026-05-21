@@ -921,7 +921,7 @@ void arex_screen_refresh_all_widgets(void)
     /* 1. 同步左侧固定区配置 */
     for (uint8_t i = 0; i < g_sys_config.left_widget_count; i++)
     {
-        if (g_sys_config.left_widgets[i].widget_id != WIDGET_EMPTY)
+        if (g_sys_config.left_widgets[i].widget_id != COMP_EMPTY)
         {
             arex_widget_sync_data(g_sys_config.left_widgets[i].widget_id);
         }
@@ -934,7 +934,7 @@ void arex_screen_refresh_all_widgets(void)
     {
         for (uint8_t i = 0; i < g_sys_config.custom_cards[card_idx].widget_count; i++)
         {
-            if (g_sys_config.custom_cards[card_idx].widgets[i].widget_id != WIDGET_EMPTY)
+            if (g_sys_config.custom_cards[card_idx].widgets[i].widget_id != COMP_EMPTY)
             {
                 arex_widget_sync_data(g_sys_config.custom_cards[card_idx].widgets[i].widget_id);
             }
@@ -950,7 +950,7 @@ void arex_screen_refresh_left_panel(void)
 {
     for (uint8_t i = 0; i < g_sys_config.left_widget_count; i++)
     {
-        if (g_sys_config.left_widgets[i].widget_id != WIDGET_EMPTY)
+        if (g_sys_config.left_widgets[i].widget_id != COMP_EMPTY)
         {
             arex_widget_sync_data(g_sys_config.left_widgets[i].widget_id);
         }

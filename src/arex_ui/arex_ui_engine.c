@@ -150,47 +150,47 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     cfg->custom_cards[0].widget_count = 12;
     cfg->custom_cards[0].widgets[0]  = (arex_grid_widget_t)
     {
-        WIDGET_DEPTH_1612,      0, 0
+        COMP_DEPTH_1612,      0, 0
     };
     cfg->custom_cards[0].widgets[1]  = (arex_grid_widget_t)
     {
-        WIDGET_DEPTH_1612,      2, 0
+        COMP_DEPTH_1612,      2, 0
     };
     cfg->custom_cards[0].widgets[2]  = (arex_grid_widget_t)
     {
-        WIDGET_HEADING_0806,   4, 0
+        COMP_HEADING_0806,   4, 0
     };
     cfg->custom_cards[0].widgets[3]  = (arex_grid_widget_t)
     {
-        WIDGET_EMPTY,           0, 2
+        COMP_EMPTY,           0, 2
     };  /* SAC 已移*/
     cfg->custom_cards[0].widgets[4]  = (arex_grid_widget_t)
     {
-        WIDGET_BATTERY_0806,   2, 2
+        COMP_BATTERY_0806,   2, 2
     };
     cfg->custom_cards[0].widgets[5]  = (arex_grid_widget_t)
     {
-        WIDGET_PPO2_0806,       4, 2
+        COMP_PPO2_0806,       4, 2
     };
     cfg->custom_cards[0].widgets[6]  = (arex_grid_widget_t)
     {
-        WIDGET_NDL_STOP_1606,  0, 3
+        COMP_NDL_STOP_1606,  0, 3
     };
     cfg->custom_cards[0].widgets[7]  = (arex_grid_widget_t)
     {
-        WIDGET_TTS_0806,       2, 3
+        COMP_TTS_0806,       2, 3
     };
     cfg->custom_cards[0].widgets[8]  = (arex_grid_widget_t)
     {
-        WIDGET_CNS_0806,       4, 3
+        COMP_CNS_0806,       4, 3
     };
     cfg->custom_cards[0].widgets[9]  = (arex_grid_widget_t)
     {
-        WIDGET_DEPTH_1612,       0, 4
+        COMP_DEPTH_1612,       0, 4
     };
     cfg->custom_cards[0].widgets[10] = (arex_grid_widget_t)
     {
-        WIDGET_DEPTH_1612,       2, 4
+        COMP_DEPTH_1612,       2, 4
     };
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
@@ -207,32 +207,32 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
     /* 简洁位置配置：widget_id + x/y，span_w/h MCU 样式表自动推*/
     cfg->left_widgets[0] = (arex_grid_widget_t)
     {
-        WIDGET_NDL_STOP_1606,   0, 0
+        COMP_NDL_STOP_1606,   0, 0
     };
     cfg->left_widgets[1] = (arex_grid_widget_t)
     {
-        WIDGET_DEPTH_1612,      0, 1
+        COMP_DEPTH_1612,      0, 1
     };
     cfg->left_widgets[2] = (arex_grid_widget_t)
     {
-        WIDGET_DIVE_TIME_1606,  0, 3
+        COMP_DIVE_TIME_1606,  0, 3
     };  /* 潜水时间 */
     cfg->left_widgets[3] = (arex_grid_widget_t)
     {
-        WIDGET_GAS_1606,        0, 4
+        COMP_GAS_1606,        0, 4
     };
     /* Ĭϲȹر POD1/POD2 ʾλӰ߶ */
     cfg->left_widgets[4] = (arex_grid_widget_t)
     {
-        WIDGET_EMPTY,           0, 5
+        COMP_EMPTY,           0, 5
     };
     cfg->left_widgets[5] = (arex_grid_widget_t)
     {
-        WIDGET_EMPTY,           1, 5
+        COMP_EMPTY,           1, 5
     };
     cfg->left_widgets[6] = (arex_grid_widget_t)
     {
-        WIDGET_SYS_1606,        0, 6
+        COMP_SYS_1606,        0, 6
     };
 
     /* 动态计算实widget 数量（以最后一个非widget 为准*/

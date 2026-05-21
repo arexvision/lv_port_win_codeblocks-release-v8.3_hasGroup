@@ -165,12 +165,12 @@ typedef enum
  * AREX 全量组件 ID 字典 (扁平分组枚举，APP/MCU 严格对齐)
  *
  * 架构铁律：
- *   - 组件 ID 的数值直接编码了物理尺寸信息（如 WIDGET_DEPTH_1612 = 2列×2行）
+ *   - 组件 ID 的数值直接编码了物理尺寸信息（如 COMP_DEPTH_1612 = 2列×2行）
  *   - POD_0806 (33) 是全局唯一真实存在的气瓶模具 ID
  *   - APP 下发时，同一个 POD_0806 可以出现多次
  *   - MCU 通过渲染计数器（s_pod_render_count）自动分配 POD1/POD2
  *
- * 命名规则: WIDGET_<TYPE>_<W><H>
+ * 命名规则: COMP_<TYPE>_<W><H>
  *   TYPE: DEPTH, NDL_STOP, DIVE_TIME, GAS, TEMP, ...
  *   W: 列跨度 (1~5)
  *   H: 行跨度 (1~6)
@@ -181,55 +181,55 @@ typedef enum
  * ========================================================= */
 typedef enum
 {
-    WIDGET_TYPE_UNSPECIFIED = 0,
-    WIDGET_EMPTY            = 0,  /* C语言内部别名：空槽位占位符 */
+    COMP_TYPE_UNSPECIFIED = 0,
+    COMP_EMPTY            = 0,  /* C语言内部别名：空槽位占位符 */
 
     /* --- 核心驻留区 (强制固定) --- */
-    WIDGET_NDL_STOP_1606    = 1,
-    WIDGET_DEPTH_1612       = 2,
-    WIDGET_DEPTH_1606       = 3,
-    WIDGET_DIVE_TIME_1606   = 4,
-    WIDGET_GAS_1606         = 5,
-    WIDGET_SYS_1606         = 6,
+    COMP_NDL_STOP_1606    = 1,
+    COMP_DEPTH_1612       = 2,
+    COMP_DEPTH_1606       = 3,
+    COMP_DIVE_TIME_1606   = 4,
+    COMP_GAS_1606         = 5,
+    COMP_SYS_1606         = 6,
 
     /* --- 基础组件 (Basic) --- */
-    WIDGET_TEMP_0806        = 10,
-    WIDGET_TIME_1606        = 11,
-    WIDGET_TTS_0806         = 12,
-    WIDGET_ASCENT_0806      = 13,
-    WIDGET_ASCENT_0812      = 14,
-    WIDGET_COMPASS_1612     = 15,
-    WIDGET_BATTERY_0806     = 16,
-    WIDGET_STOP_DEPTH_0806  = 17,
-    WIDGET_STOP_TIME_1606   = 18,
-    WIDGET_PPO2_0806        = 19,
+    COMP_TEMP_0806        = 10,
+    COMP_TIME_1606        = 11,
+    COMP_TTS_0806         = 12,
+    COMP_ASCENT_0806      = 13,
+    COMP_ASCENT_0812      = 14,
+    COMP_COMPASS_1612     = 15,
+    COMP_BATTERY_0806     = 16,
+    COMP_STOP_DEPTH_0806  = 17,
+    COMP_STOP_TIME_1606   = 18,
+    COMP_PPO2_0806        = 19,
 
     /* --- 技术潜水 (Tech Dive) --- */
-    WIDGET_SURF_GF_0806     = 20,
-    WIDGET_GF99_0806        = 21,
-    WIDGET_CNS_0806         = 22,
-    WIDGET_OTU_0806         = 23,
-    WIDGET_GF_0806          = 24,
-    WIDGET_MOD_0806         = 25,
-    WIDGET_CEILING_0806     = 26,
-    WIDGET_GAS_MIX_1606     = 27,
-    WIDGET_TISSUE_GF_4012   = 28,
-    WIDGET_TISSUE_RAW_4012  = 29,
-    WIDGET_GAS_DENS_0806    = 30,
-    WIDGET_FIO2_0806        = 31,
+    COMP_SURF_GF_0806     = 20,
+    COMP_GF99_0806        = 21,
+    COMP_CNS_0806         = 22,
+    COMP_OTU_0806         = 23,
+    COMP_GF_0806          = 24,
+    COMP_MOD_0806         = 25,
+    COMP_CEILING_0806     = 26,
+    COMP_GAS_MIX_1606     = 27,
+    COMP_TISSUE_GF_4012   = 28,
+    COMP_TISSUE_RAW_4012  = 29,
+    COMP_GAS_DENS_0806    = 30,
+    COMP_FIO2_0806        = 31,
 
     /* --- 传感器 (Sensors) --- */
-    WIDGET_HEADING_0806     = 32,
-    WIDGET_POD_0806         = 33,
-    WIDGET_DEPTH_MAX_0806   = 34,
-    WIDGET_DEPTH_AVG_0806   = 35,
-    WIDGET_TEMP_MIN_0806    = 36,
-    WIDGET_TEMP_AVG_0806    = 37
+    COMP_HEADING_0806     = 32,
+    COMP_POD_0806         = 33,
+    COMP_DEPTH_MAX_0806   = 34,
+    COMP_DEPTH_AVG_0806   = 35,
+    COMP_TEMP_MIN_0806    = 36,
+    COMP_TEMP_AVG_0806    = 37
                               /* 🚨 架构师警告：APP 端的 Protobuf 中移除了以下 ID：
-                               * WIDGET_TEMP_MAX_0806 (原38)
-                               * WIDGET_SAC_RATE_0806 (原39, 耗气率)
-                               * WIDGET_WTIME_0806 (原40, 水面休息时间)
-                               * WIDGET_PPO2_SAFE_0806 等边界安全组件 (原50+)
+                               * COMP_TEMP_MAX_0806 (原38)
+                               * COMP_SAC_RATE_0806 (原39, 耗气率)
+                               * COMP_WTIME_0806 (原40, 水面休息时间)
+                               * COMP_PPO2_SAFE_0806 等边界安全组件 (原50+)
                                * 请务必确认产品经理确实删除了这些模块！
                                */
 } arex_widget_id_t;
@@ -630,7 +630,7 @@ typedef struct
  *
  * @param level      告警级别（ARE X_ALARM_INFO/WARN/CRIT）
  * @param eng_text   横幅显示的英文提示文字
- * @param target_id  靶向组件 ID（WIDGET_EMPTY=仅横幅无靶向）
+ * @param target_id  靶向组件 ID（COMP_EMPTY=仅横幅无靶向）
  * ========================================================= */
 
 /* 触发告警：显示横幅 + 锁定靶心组件，由 50ms 定时器执行闪烁 */

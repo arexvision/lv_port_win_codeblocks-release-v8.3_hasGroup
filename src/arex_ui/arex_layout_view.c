@@ -364,7 +364,7 @@ static arex_grid_widget_t *arex_left_find_widget_at_cell(uint8_t col, uint8_t ro
     for (uint8_t i = 0; i < g_sys_config.left_widget_count && i < AREX_LEFT_MAX_WIDGETS; i++)
     {
         arex_grid_widget_t *cfg = &g_sys_config.left_widgets[i];
-        if (cfg->widget_id == WIDGET_EMPTY)
+        if (cfg->widget_id == COMP_EMPTY)
         {
             continue;
         }
@@ -396,7 +396,7 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
     for (uint8_t i = 0; i < g_sys_config.left_widget_count && i < AREX_LEFT_MAX_WIDGETS; i++)
     {
         arex_grid_widget_t *cfg = &g_sys_config.left_widgets[i];
-        if (cfg->widget_id == WIDGET_EMPTY) continue;
+        if (cfg->widget_id == COMP_EMPTY) continue;
 
         const arex_widget_style_t *style = arex_get_widget_style(cfg->widget_id);
         uint8_t span_w = (style != NULL) ? style->span_w : 1;
@@ -496,7 +496,7 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
         uint8_t c = widget->x;
         uint8_t r = widget->y;
 
-        if (w_id == WIDGET_EMPTY) continue;
+        if (w_id == COMP_EMPTY) continue;
         if (r >= AREX_WIDGET_ROWS || c >= AREX_WIDGET_COLS) continue;
 
         const arex_widget_style_t *style = arex_get_widget_style(w_id);
@@ -546,7 +546,7 @@ lv_obj_t* arex_render_widget(lv_obj_t *parent,
                              uint16_t title_h)
 {
     if (!parent || !pos) return NULL;
-    if (pos->widget_id == WIDGET_EMPTY) return NULL;
+    if (pos->widget_id == COMP_EMPTY) return NULL;
 
     const arex_widget_style_t *style = arex_get_widget_style(pos->widget_id);
     if (!style)

@@ -118,7 +118,7 @@ void arex_ui_update_router_dispatch(uint32_t mask)
 
     if (mask & DIRTY_BATT)
     {
-        arex_widget_set_value(WIDGET_BATTERY_0806, g_sensor_data.battery_pct);
+        arex_widget_set_value(COMP_BATTERY_0806, g_sensor_data.battery_pct);
     }
 
     if (mask & DIRTY_HEADING)
@@ -161,20 +161,20 @@ void arex_ui_update_router_dispatch(uint32_t mask)
 
     if (mask & DIRTY_TEMP)
     {
-        arex_widget_set_value(WIDGET_TEMP_0806, g_sensor_data.temperature_c);
+        arex_widget_set_value(COMP_TEMP_0806, g_sensor_data.temperature_c);
         arex_refresh_left_aux_slots();
     }
 
     if (mask & DIRTY_DEPTH)
     {
-        arex_widget_set_value(WIDGET_DEPTH_MAX_0806, g_sensor_data.max_depth);
-        arex_widget_set_value(WIDGET_DEPTH_AVG_0806, g_sensor_data.avg_depth);
+        arex_widget_set_value(COMP_DEPTH_MAX_0806, g_sensor_data.max_depth);
+        arex_widget_set_value(COMP_DEPTH_AVG_0806, g_sensor_data.avg_depth);
     }
 
     if (mask & DIRTY_TEMP)
     {
-        arex_widget_set_value(WIDGET_TEMP_MIN_0806, g_sensor_data.min_temp);
-        arex_widget_set_value(WIDGET_TEMP_AVG_0806, g_sensor_data.avg_temp);
+        arex_widget_set_value(COMP_TEMP_MIN_0806, g_sensor_data.min_temp);
+        arex_widget_set_value(COMP_TEMP_AVG_0806, g_sensor_data.avg_temp);
     }
 
     if (mask & (DIRTY_GF_SETTING | DIRTY_MOD | DIRTY_CEILING |

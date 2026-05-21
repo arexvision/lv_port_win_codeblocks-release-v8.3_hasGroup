@@ -62,27 +62,27 @@ static void arex_test_set_ui_layout(uint8_t phase)
 
     if (phase == 0) {
         uint8_t left_def[][3] = {
-            { WIDGET_NDL_STOP_1606,  0, 0 },
-            { WIDGET_DEPTH_1606,     0, 1 },
-            { WIDGET_DIVE_TIME_1606, 0, 3 },
-            { WIDGET_GAS_1606,       0, 4 },
-            { WIDGET_POD_0806,       0, 5 },
-            { WIDGET_POD_0806,       1, 5 },
-            { WIDGET_SYS_1606,       0, 6 },
+            { COMP_NDL_STOP_1606,  0, 0 },
+            { COMP_DEPTH_1606,     0, 1 },
+            { COMP_DIVE_TIME_1606, 0, 3 },
+            { COMP_GAS_1606,       0, 4 },
+            { COMP_POD_0806,       0, 5 },
+            { COMP_POD_0806,       1, 5 },
+            { COMP_SYS_1606,       0, 6 },
         };
         uint8_t custom_5f[][3] = {
-            { WIDGET_TEMP_0806,      0, 0 },
-            { WIDGET_TEMP_0806,      0, 2 },
-            { WIDGET_HEADING_0806,   0, 3 },
-            { WIDGET_EMPTY,          2, 0 },
-            { WIDGET_BATTERY_0806,   2, 2 },
-            { WIDGET_PPO2_0806,      2, 4 },
-            { WIDGET_NDL_STOP_1606,  3, 0 },
-            { WIDGET_TTS_0806,       3, 2 },
-            { WIDGET_CNS_0806,       3, 4 },
-            { WIDGET_POD_0806,       4, 0 },
-            { WIDGET_POD_0806,       4, 2 },
-            { WIDGET_EMPTY,          4, 4 },
+            { COMP_TEMP_0806,      0, 0 },
+            { COMP_TEMP_0806,      0, 2 },
+            { COMP_HEADING_0806,   0, 3 },
+            { COMP_EMPTY,          2, 0 },
+            { COMP_BATTERY_0806,   2, 2 },
+            { COMP_PPO2_0806,      2, 4 },
+            { COMP_NDL_STOP_1606,  3, 0 },
+            { COMP_TTS_0806,       3, 2 },
+            { COMP_CNS_0806,       3, 4 },
+            { COMP_POD_0806,       4, 0 },
+            { COMP_POD_0806,       4, 2 },
+            { COMP_EMPTY,          4, 4 },
         };
 
         s_payload.left_count = sizeof(left_def) / sizeof(left_def[0]);
@@ -100,21 +100,21 @@ static void arex_test_set_ui_layout(uint8_t phase)
         }
     } else {
         uint8_t left_min[][3] = {
-            { WIDGET_NDL_STOP_1606,  0, 0 },
-            { WIDGET_DEPTH_1612,     0, 1 },
-            { WIDGET_DIVE_TIME_1606, 0, 3 },
-            { WIDGET_GAS_1606,       0, 4 },
-            { WIDGET_POD_0806,       0, 5 },
-            { WIDGET_POD_0806,       1, 5 },
-            { WIDGET_SYS_1606,       0, 6 },
+            { COMP_NDL_STOP_1606,  0, 0 },
+            { COMP_DEPTH_1612,     0, 1 },
+            { COMP_DIVE_TIME_1606, 0, 3 },
+            { COMP_GAS_1606,       0, 4 },
+            { COMP_POD_0806,       0, 5 },
+            { COMP_POD_0806,       1, 5 },
+            { COMP_SYS_1606,       0, 6 },
         };
         uint8_t custom_min[][3] = {
-            { WIDGET_TEMP_0806,      0, 0 },
-            { WIDGET_TEMP_0806,      0, 2 },
-            { WIDGET_BATTERY_0806,   2, 0 },
-            { WIDGET_PPO2_0806,      2, 2 },
-            { WIDGET_NDL_STOP_1606,  3, 0 },
-            { WIDGET_EMPTY,          4, 0 },
+            { COMP_TEMP_0806,      0, 0 },
+            { COMP_TEMP_0806,      0, 2 },
+            { COMP_BATTERY_0806,   2, 0 },
+            { COMP_PPO2_0806,      2, 2 },
+            { COMP_NDL_STOP_1606,  3, 0 },
+            { COMP_EMPTY,          4, 0 },
         };
 
         s_payload.left_count = sizeof(left_min) / sizeof(left_min[0]);

@@ -11,7 +11,7 @@ static const arex_widget_style_t g_widget_styles[] =
      * ========================================================= */
     /* ========== 核心驻留组件 ========== */
     {
-        .widget_id = WIDGET_DEPTH_1612,
+        .widget_id = COMP_DEPTH_1612,
         .span_w = 2, .span_h = 2,
         .elements = ELEM_VALUE | ELEM_UNIT | ELEM_BAR,  /* 2x2 大通栏：无 title，靠 spec.depth int/dec/unit 分离 */
         .font_id = AREX_FONT_ID_HUGE,
@@ -27,7 +27,7 @@ static const arex_widget_style_t g_widget_styles[] =
         }
     },
     {
-        .widget_id = WIDGET_DEPTH_1606,
+        .widget_id = COMP_DEPTH_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -43,7 +43,7 @@ static const arex_widget_style_t g_widget_styles[] =
         }
     },
     {
-        .widget_id = WIDGET_NDL_STOP_1606,
+        .widget_id = COMP_NDL_STOP_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_BAR,
         .font_id = AREX_FONT_ID_NDL,
@@ -63,7 +63,7 @@ static const arex_widget_style_t g_widget_styles[] =
         }
     },
     {
-        .widget_id = WIDGET_DIVE_TIME_1606,
+        .widget_id = COMP_DIVE_TIME_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_BAR,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -74,7 +74,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_GAS_1606,
+        .widget_id = COMP_GAS_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -85,7 +85,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_SYS_1606,
+        .widget_id = COMP_SYS_1606,
         .span_w = 2, .span_h = 1,
         .elements = 0,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -96,7 +96,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = 0, .value_align = LV_ALIGN_CENTER }
     },
     {
-        .widget_id = WIDGET_TEMP_0806,
+        .widget_id = COMP_TEMP_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -107,7 +107,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_TIME_1606,
+        .widget_id = COMP_TIME_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -118,7 +118,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_TTS_0806,
+        .widget_id = COMP_TTS_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -129,7 +129,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_ASCENT_0806,
+        .widget_id = COMP_ASCENT_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -140,7 +140,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
-        .widget_id = WIDGET_ASCENT_0812,
+        .widget_id = COMP_ASCENT_0812,
         .span_w = 1, .span_h = 2,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_BAR,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -151,7 +151,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
-        .widget_id = WIDGET_COMPASS_1612,
+        .widget_id = COMP_COMPASS_1612,
         .span_w = 2, .span_h = 2,
         .elements = ELEM_VALUE | ELEM_BAR,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -165,7 +165,7 @@ static const arex_widget_style_t g_widget_styles[] =
         }
     },
     {
-        .widget_id = WIDGET_BATTERY_0806,
+        .widget_id = COMP_BATTERY_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -176,7 +176,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_STOP_DEPTH_0806,
+        .widget_id = COMP_STOP_DEPTH_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -187,7 +187,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_STOP_TIME_1606,
+        .widget_id = COMP_STOP_TIME_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -198,7 +198,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_PPO2_0806,
+        .widget_id = COMP_PPO2_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -209,7 +209,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_SURF_GF_0806,
+        .widget_id = COMP_SURF_GF_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -220,7 +220,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_GF99_0806,
+        .widget_id = COMP_GF99_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -231,7 +231,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_CNS_0806,
+        .widget_id = COMP_CNS_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -242,7 +242,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_OTU_0806,
+        .widget_id = COMP_OTU_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -253,7 +253,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_GF_0806,
+        .widget_id = COMP_GF_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -264,7 +264,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_MOD_0806,
+        .widget_id = COMP_MOD_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -275,7 +275,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_CEILING_0806,
+        .widget_id = COMP_CEILING_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -286,7 +286,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_GAS_MIX_1606,
+        .widget_id = COMP_GAS_MIX_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -297,7 +297,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_TISSUE_GF_4012,
+        .widget_id = COMP_TISSUE_GF_4012,
         .span_w = 4, .span_h = 2,
         .elements = ELEM_TITLE | ELEM_BAR,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -311,7 +311,7 @@ static const arex_widget_style_t g_widget_styles[] =
         }
     },
     {
-        .widget_id = WIDGET_TISSUE_RAW_4012,
+        .widget_id = COMP_TISSUE_RAW_4012,
         .span_w = 4, .span_h = 2,
         .elements = ELEM_TITLE | ELEM_BAR,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -325,7 +325,7 @@ static const arex_widget_style_t g_widget_styles[] =
         }
     },
     {
-        .widget_id = WIDGET_GAS_DENS_0806,
+        .widget_id = COMP_GAS_DENS_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -336,7 +336,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_FIO2_0806,
+        .widget_id = COMP_FIO2_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -347,7 +347,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_HEADING_0806,
+        .widget_id = COMP_HEADING_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -358,7 +358,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_POD_0806,
+        .widget_id = COMP_POD_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -369,7 +369,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -2, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_DEPTH_MAX_0806,
+        .widget_id = COMP_DEPTH_MAX_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -380,7 +380,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_DEPTH_AVG_0806,
+        .widget_id = COMP_DEPTH_AVG_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -391,7 +391,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_TEMP_MIN_0806,
+        .widget_id = COMP_TEMP_MIN_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -402,7 +402,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_TEMP_AVG_0806,
+        .widget_id = COMP_TEMP_AVG_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -413,7 +413,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = WIDGET_EMPTY,
+        .widget_id = COMP_EMPTY,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -424,7 +424,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
-        .widget_id = WIDGET_EMPTY,
+        .widget_id = COMP_EMPTY,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -435,7 +435,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
-        .widget_id = WIDGET_EMPTY,
+        .widget_id = COMP_EMPTY,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -446,7 +446,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
-        .widget_id = WIDGET_EMPTY,
+        .widget_id = COMP_EMPTY,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = AREX_FONT_ID_MEDIUM,
@@ -457,7 +457,7 @@ static const arex_widget_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
-        .widget_id = WIDGET_EMPTY,
+        .widget_id = COMP_EMPTY,
         .span_w = 1, .span_h = 1,
         .elements = 0,
         .font_id = AREX_FONT_ID_SMALL,

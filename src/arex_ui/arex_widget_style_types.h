@@ -177,7 +177,7 @@ typedef struct
 /* ELEM_EXTRA  : 附加异构元素（POD1/POD2 专属 ID 标签等） */
 #define ELEM_EXTRA (1 << 4)
 
-/* ELEM_SYS_BAR: 底部 SYS 区域标记（WIDGET_SYS_1606 组件化渲染） */
+/* ELEM_SYS_BAR: 底部 SYS 区域标记（COMP_SYS_1606 组件化渲染） */
 #define ELEM_SYS_BAR (1 << 5)
 
 /* MCU 本地样式字典（Union 共享内存，大小永远等于最大成员） */

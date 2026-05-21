@@ -61,23 +61,23 @@ static uint8_t arex_ui_clamp_battery_pct(float pct)
 /* =========================================================
  * POD 单模具轮转分配状态机
  *
- * 架构：WIDGET_POD_0806 (33) 是全局唯一真实存在的气瓶模具
+ * 架构：COMP_POD_0806 (33) 是全局唯一真实存在的气瓶模具
  * APP 下发同一POD_0806 可以出现多次（如左侧锚点POD1+POD2，或 5F 中的多个）
  * MCU 通过渲染计数s_pod_render_count 自动分配身份
  *
- * 渲染时拦WIDGET_POD_0806，根据计数器判断
+ * 渲染时拦COMP_POD_0806，根据计数器判断
  *   - 次遇(count=1, 奇数) 分配POD1
  *   - 次遇(count=2, 偶数) 分配POD2
  *
  * user_data 烙印使用高位掩码区分
- *   - POD1: 1000 + WIDGET_POD_0806 = 1033
- *   - POD2: 2000 + WIDGET_POD_0806 = 2033
+ *   - POD1: 1000 + COMP_POD_0806 = 1033
+ *   - POD2: 2000 + COMP_POD_0806 = 2033
  * ========================================================= */
 static uint8_t s_pod_render_count = 0;  /* POD 渲染计数*/
 
 #define POD_TAG_BASE  1000  /* POD 标签基准偏移 */
-#define POD1_TAG      (POD_TAG_BASE + WIDGET_POD_0806)  /* 1033 */
-#define POD2_TAG      (2 * POD_TAG_BASE + WIDGET_POD_0806)  /* 2033 */
+#define POD1_TAG      (POD_TAG_BASE + COMP_POD_0806)  /* 1033 */
+#define POD2_TAG      (2 * POD_TAG_BASE + COMP_POD_0806)  /* 2033 */
 
 /* =========================================================
  * SYS 模块全局静态指针（O(1) 直接访问，零遍历
@@ -248,7 +248,7 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
  *   - 通用组件elements 掩码装配流水线：TITLE VALUE UNIT BAR
  *
  * POD 单模具轮转分配：
- *   - 函数入口检w_id == WIDGET_POD_0806
+ *   - 函数入口检w_id == COMP_POD_0806
  *   - 调用 arex_get_pod_tag() 获得高位掩码标签 (1033/2033)
  *   - 调用 arex_get_pod_index() 获得 POD 编号 (1/2)
  *   - 将标签烙印到容器 user_data
@@ -261,7 +261,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                               arex_font_id_t cfg_font_id)
 {
     /* ===== POD 单模具拦截：提前消耗计数器 ===== */
-    bool is_pod_mold = (w_id == WIDGET_POD_0806);
+    bool is_pod_mold = (w_id == COMP_POD_0806);
     uint8_t pod_index = 0;        /* POD number 1 or 2 */
     uintptr_t pod_tag = 0;        /* POD tag 1033 or 2033 */
     if (is_pod_mold)
@@ -283,7 +283,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     {
         val_font_id = cfg_font_id;  /* 强制覆盖（运行时指定*/
     }
-    else if (w_id == WIDGET_DEPTH_1612 || w_id == WIDGET_DEPTH_1606)
+    else if (w_id == COMP_DEPTH_1612 || w_id == COMP_DEPTH_1606)
     {
         /* DEPTH 组件：自动适配尺寸 */
         if (span_w >= 2 && span_h >= 2)
@@ -330,11 +330,11 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_user_data(obj, (void *)(uintptr_t)w_id);
     }
 
-    if (w_id == WIDGET_EMPTY) return obj;
+    if (w_id == COMP_EMPTY) return obj;
 
     /* ===== DEPTH 2x2 专属渲染（整小数+单位分离===== */
     bool is_2x2 = (span_w >= 2 && span_h >= 2);
-    if (w_id == WIDGET_DEPTH_1612 && is_2x2)
+    if (w_id == COMP_DEPTH_1612 && is_2x2)
     {
         /* 样式参数来自 arex_widget_style_t */
         const arex_style_depth_t *s = &style->spec.depth;
@@ -403,7 +403,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         return obj;
     }
-    else if (w_id == WIDGET_NDL_STOP_1606)
+    else if (w_id == COMP_NDL_STOP_1606)
     {
         /* NDL 变形金刚：从 style->spec.ndl_stop 读取所有位置参*/
         if (s_ndl_handle_count >= MAX_NDL_ICONS) return obj;
@@ -445,7 +445,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
         return obj;
     }
-    else if (w_id == WIDGET_SYS_1606)
+    else if (w_id == COMP_SYS_1606)
     {
         /* ===== SYS 模块：电+ 温度横向排列 ===== */
 
@@ -522,85 +522,85 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             char buf[48] = "--";
             switch (w_id)
             {
-            case WIDGET_DEPTH_1612:
-            case WIDGET_DEPTH_1606:
+            case COMP_DEPTH_1612:
+            case COMP_DEPTH_1606:
                 snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.depth);
                 break;
-            case WIDGET_NDL_STOP_1606:
+            case COMP_NDL_STOP_1606:
                 snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl_stop_value);
                 break;
-            case WIDGET_DIVE_TIME_1606:
+            case COMP_DIVE_TIME_1606:
                 snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.dive_time_s/60, g_sensor_data.dive_time_s%60);
                 break;
-            case WIDGET_GAS_1606:
+            case COMP_GAS_1606:
                 snprintf(buf, sizeof(buf), "%s", g_sensor_data.gas_name);
                 break;
-            case WIDGET_SYS_1606:
+            case COMP_SYS_1606:
                 snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.sys_time_h, g_sensor_data.sys_time_m);
                 break;
-            case WIDGET_TEMP_0806:
+            case COMP_TEMP_0806:
                 snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.temperature_c);
                 break;
-            case WIDGET_TIME_1606:
+            case COMP_TIME_1606:
                 snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.sys_time_h, g_sensor_data.sys_time_m);
                 break;
-            case WIDGET_TTS_0806:
+            case COMP_TTS_0806:
                 snprintf(buf, sizeof(buf), "%d", g_sensor_data.tts);
                 break;
-            case WIDGET_ASCENT_0806:
-            case WIDGET_ASCENT_0812:
+            case COMP_ASCENT_0806:
+            case COMP_ASCENT_0812:
                 snprintf(buf, sizeof(buf), "%+.1f", (double)g_sensor_data.ascent_rate);
                 break;
-            case WIDGET_COMPASS_1612:
+            case COMP_COMPASS_1612:
                 snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading);
                 break;
-            case WIDGET_BATTERY_0806:
+            case COMP_BATTERY_0806:
                 snprintf(buf, sizeof(buf), "%u", arex_ui_clamp_battery_pct(g_sensor_data.battery_pct));
                 break;
-            case WIDGET_STOP_DEPTH_0806:
+            case COMP_STOP_DEPTH_0806:
                 snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.stop_depth_m);
                 break;
-            case WIDGET_STOP_TIME_1606:
+            case COMP_STOP_TIME_1606:
                 snprintf(buf, sizeof(buf), "%d", g_sensor_data.stop_time_left_s);
                 break;
-            case WIDGET_PPO2_0806:
+            case COMP_PPO2_0806:
                 snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
                 break;
-            case WIDGET_SURF_GF_0806:
+            case COMP_SURF_GF_0806:
                 snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.surf_gf);
                 break;
-            case WIDGET_GF99_0806:
+            case COMP_GF99_0806:
                 snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.gf99);
                 break;
-            case WIDGET_CNS_0806:
+            case COMP_CNS_0806:
                 snprintf(buf, sizeof(buf), "%d", g_sensor_data.cns_pct);
                 break;
-            case WIDGET_OTU_0806:
+            case COMP_OTU_0806:
                 snprintf(buf, sizeof(buf), "%d", g_sensor_data.otu);
                 break;
-            case WIDGET_GF_0806:
+            case COMP_GF_0806:
                 snprintf(buf, sizeof(buf), "%d/%d", g_sensor_data.gf_low, g_sensor_data.gf_high);
                 break;
-            case WIDGET_MOD_0806:
+            case COMP_MOD_0806:
                 snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.mod_m);
                 break;
-            case WIDGET_CEILING_0806:
+            case COMP_CEILING_0806:
                 snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.ceiling_m);
                 break;
-            case WIDGET_GAS_MIX_1606:
+            case COMP_GAS_MIX_1606:
                 snprintf(buf, sizeof(buf), "%d/%d", g_sensor_data.gas_o2_pct, g_sensor_data.gas_he_pct);
                 break;
-            case WIDGET_GAS_DENS_0806:
+            case COMP_GAS_DENS_0806:
                 snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.gas_density);
                 break;
-            case WIDGET_FIO2_0806:
+            case COMP_FIO2_0806:
                 snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.fio2_pct);
                 break;
-            case WIDGET_HEADING_0806:
+            case COMP_HEADING_0806:
                 snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading);
                 break;
             /* ===== POD 单模具：数据源根pod_index 动态分===== */
-            case WIDGET_POD_0806:
+            case COMP_POD_0806:
                 if (is_pod_mold)
                 {
                     if (pod_index == 1)
@@ -617,29 +617,29 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                     snprintf(buf, sizeof(buf), "--");
                 }
                 break;
-            case WIDGET_DEPTH_MAX_0806:
+            case COMP_DEPTH_MAX_0806:
                 snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_depth);
                 break;
-            case WIDGET_DEPTH_AVG_0806:
+            case COMP_DEPTH_AVG_0806:
                 snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_depth);
                 break;
-            case WIDGET_TEMP_MIN_0806:
+            case COMP_TEMP_MIN_0806:
                 snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.min_temp);
                 break;
-            case WIDGET_TEMP_AVG_0806:
+            case COMP_TEMP_AVG_0806:
                 snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_temp);
                 break;
             /* 🚨 以下已废弃，Protobuf 已移除对ID
-            case WIDGET_WTIME_0806: {
+            case COMP_WTIME_0806: {
                 uint32_t t = g_sensor_data.surface_time_s;
                 snprintf(buf, sizeof(buf), "%02d:%02d", t / 60, t % 60);
             break;
             }
-            case WIDGET_TEMP_MAX_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_temp); break;
-            case WIDGET_SAC_RATE_0806:  snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.sac_rate); break;
-            case WIDGET_PPO2_SAFE_0806: snprintf(buf, sizeof(buf), "%.2f", 1.4); break;
-            case WIDGET_NDL_SAFE_0806:  snprintf(buf, sizeof(buf), "%d", 5); break;
-            case WIDGET_SAC_SAFE_0806:  snprintf(buf, sizeof(buf), "%.1f", 25.0); break;
+            case COMP_TEMP_MAX_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_temp); break;
+            case COMP_SAC_RATE_0806:  snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.sac_rate); break;
+            case COMP_PPO2_SAFE_0806: snprintf(buf, sizeof(buf), "%.2f", 1.4); break;
+            case COMP_NDL_SAFE_0806:  snprintf(buf, sizeof(buf), "%d", 5); break;
+            case COMP_SAC_SAFE_0806:  snprintf(buf, sizeof(buf), "%.1f", 25.0); break;
             */
             default:
                 snprintf(buf, sizeof(buf), "--");
@@ -676,7 +676,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     /* --- 零件 4：特BAR --- */
     if (style->elements & ELEM_BAR)
     {
-        if (w_id == WIDGET_DEPTH_1612)
+        if (w_id == COMP_DEPTH_1612)
         {
             const arex_style_depth_t *s = &style->spec.depth;
             lv_obj_t *sudu_img = lv_img_create(obj);
@@ -685,7 +685,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             if (s_ascent_icon_count < MAX_ASCENT_ICONS)
                 s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
         }
-        else if (w_id == WIDGET_ASCENT_0812)
+        else if (w_id == COMP_ASCENT_0812)
         {
             /* ASCENT_0812 (1x2)：绘制上升速率方向箭头图标（工厂自主查字典决定*/
             lv_obj_t *sudu_img = lv_img_create(obj);
@@ -694,15 +694,15 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             if (s_ascent_icon_count < MAX_ASCENT_ICONS)
                 s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
         }
-        else if (w_id == WIDGET_COMPASS_1612)
+        else if (w_id == COMP_COMPASS_1612)
         {
             /* COMPASS_1612 (2x2)：卷tape 在早期分支里，ELEM_BAR 标记spec.compass 驱动 */
         }
-        else if (w_id == WIDGET_TISSUE_GF_4012 || w_id == WIDGET_TISSUE_RAW_4012)
+        else if (w_id == COMP_TISSUE_GF_4012 || w_id == COMP_TISSUE_RAW_4012)
         {
             /* TISSUE (4x2)6 柱组织图，ELEM_BAR 标记spec.tissue 驱动 */
         }
-        else if (w_id == WIDGET_SYS_1606)
+        else if (w_id == COMP_SYS_1606)
         {
             /* SYS 电池+ 外设图标（系统状态栏*/
             lv_obj_t *bat_bg = lv_obj_create(obj);
@@ -739,7 +739,7 @@ void arex_widget_refresh_ndl_stop(uint32_t dirty_mask)
         return;
     }
 
-    const arex_widget_style_t *style = arex_get_widget_style(WIDGET_NDL_STOP_1606);
+    const arex_widget_style_t *style = arex_get_widget_style(COMP_NDL_STOP_1606);
     if (!style)
     {
         return;

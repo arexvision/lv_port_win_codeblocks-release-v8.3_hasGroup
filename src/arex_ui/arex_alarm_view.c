@@ -183,9 +183,9 @@ static bool alarm_view_target_match(uintptr_t raw, arex_widget_id_t target)
     {
         return true;
     }
-    if (target == WIDGET_POD_0806)
+    if (target == COMP_POD_0806)
     {
-        return (raw % 1000U) == (uintptr_t)WIDGET_POD_0806;
+        return (raw % 1000U) == (uintptr_t)COMP_POD_0806;
     }
     return false;
 }
