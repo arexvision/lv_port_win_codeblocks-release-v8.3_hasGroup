@@ -3,6 +3,7 @@
 #include "arex_alarm_view.h"
 #include "arex_card_registry.h"
 #include "arex_data.h"
+#include "arex_layout_view.h"
 #include "arex_screen.h"
 #include "arex_ui_engine.h"
 #include "arex_ui_state.h"
@@ -118,6 +119,7 @@ void arex_ui_update_router_dispatch(uint32_t mask)
     if (mask & DIRTY_BATT)
     {
         arex_widget_set_value(WIDGET_BATTERY_0806, g_sensor_data.battery_pct);
+        arex_refresh_left_aux_slots();
     }
 
     if (mask & DIRTY_HEADING)
@@ -161,6 +163,7 @@ void arex_ui_update_router_dispatch(uint32_t mask)
     if (mask & DIRTY_TEMP)
     {
         arex_widget_set_value(WIDGET_TEMP_0806, g_sensor_data.temperature_c);
+        arex_refresh_left_aux_slots();
     }
 
     if (mask & DIRTY_DEPTH)
