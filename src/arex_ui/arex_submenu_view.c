@@ -47,18 +47,20 @@ void arex_submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
     lv_obj_clear_flag(s_submenu_layer, LV_OBJ_FLAG_SCROLLABLE);
 
     s_submenu_title = lv_label_create(s_submenu_layer);
+    lv_obj_remove_style_all(s_submenu_title);
+    lv_obj_set_pos(s_submenu_title, 16, 8);
+    lv_obj_set_size(s_submenu_title, s_submenu_width - 32, 40);
+    lv_label_set_long_mode(s_submenu_title, LV_LABEL_LONG_DOT);
+    lv_label_set_text(s_submenu_title, "> SUB MENU");
     lv_obj_set_style_text_color(s_submenu_title, LIGHT, 0);
     lv_obj_set_style_text_font(s_submenu_title, arex_get_font(FONT_ID_TITLE), 0);
-    lv_obj_set_pos(s_submenu_title, 16, 8);
-    lv_label_set_text(s_submenu_title, "> SUB MENU");
 
     lv_obj_t *title_line = lv_obj_create(s_submenu_layer);
+    lv_obj_remove_style_all(title_line);
     lv_obj_set_size(title_line, s_submenu_width - 32, 2);
-    lv_obj_set_pos(title_line, 16, CARD_TITLE_H - 2);
+    lv_obj_set_pos(title_line, 16, 48);
     lv_obj_set_style_bg_color(title_line, DARK, 0);
     lv_obj_set_style_bg_opa(title_line, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(title_line, 0, 0);
-    lv_obj_set_style_pad_all(title_line, 0, 0);
 
     s_submenu_list = lv_obj_create(s_submenu_layer);
     lv_obj_set_size(s_submenu_list, s_submenu_width - 15, s_submenu_height - CARD_TITLE_H - 10);
