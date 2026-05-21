@@ -798,6 +798,28 @@ void arex_bus_set_temperature(float temp_c)
     }
 }
 
+void arex_bus_set_bat_temperature(float temp_c)
+{
+    if (!g_sensor_data.bat_temperature_valid ||
+            fabsf(g_sensor_data.bat_temperature_c - temp_c) > 0.1f)
+    {
+        g_sensor_data.bat_temperature_valid = true;
+        g_sensor_data.bat_temperature_c = temp_c;
+        g_sensor_data.dirty_mask |= DIRTY_TEMP;
+    }
+}
+
+void arex_bus_set_prj_temperature(float temp_c)
+{
+    if (!g_sensor_data.prj_temperature_valid ||
+            fabsf(g_sensor_data.prj_temperature_c - temp_c) > 0.1f)
+    {
+        g_sensor_data.prj_temperature_valid = true;
+        g_sensor_data.prj_temperature_c = temp_c;
+        g_sensor_data.dirty_mask |= DIRTY_TEMP;
+    }
+}
+
 void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 {
     printf("[BUS] arex_bus_set_ui_layout called, version=0x%02X\r\n", payload ? payload->version : 0);

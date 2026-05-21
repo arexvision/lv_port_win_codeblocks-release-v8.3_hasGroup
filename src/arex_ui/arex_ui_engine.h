@@ -380,6 +380,10 @@ typedef struct
      * 基础数据 (Basic)
      * ========================================================= */
     float   temperature_c;      /* 当前温度 */
+    float   bat_temperature_c;  /* BAT 温度槽 */
+    float   prj_temperature_c;  /* PRJ 温度槽 */
+    bool    bat_temperature_valid;
+    bool    prj_temperature_valid;
     float   battery_pct;         /* 电池百分比 */
     uint8_t sys_time_h;         /* 当前时 (0-23) */
     uint8_t sys_time_m;         /* 当前分 (0-59) */

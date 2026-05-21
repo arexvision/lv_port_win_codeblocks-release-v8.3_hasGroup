@@ -247,6 +247,8 @@ static void sim_tick_cb(lv_timer_t *t)
     }
     s_sim.temperature_c = 25.0f + s_sim.temp_offset;
     arex_bus_set_temperature(s_sim.temperature_c);
+    arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
+    arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
 
     {
         static const uint8_t s_tissue[16] = {

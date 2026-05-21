@@ -119,7 +119,6 @@ void arex_ui_update_router_dispatch(uint32_t mask)
     if (mask & DIRTY_BATT)
     {
         arex_widget_set_value(WIDGET_BATTERY_0806, g_sensor_data.battery_pct);
-        arex_refresh_left_aux_slots();
     }
 
     if (mask & DIRTY_HEADING)

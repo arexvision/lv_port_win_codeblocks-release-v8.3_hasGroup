@@ -283,25 +283,15 @@ static void arex_add_left_anchor_sep_line(lv_obj_t *parent, lv_coord_t x, lv_coo
     lv_obj_clear_flag(line, LV_OBJ_FLAG_SCROLLABLE);
 }
 
-static void arex_format_left_bat_text(char *buf, size_t len)
+static void arex_format_left_temp_text(char *buf, size_t len, float temp_c, bool valid)
 {
-    float pct = g_sensor_data.battery_pct;
-
-    if (pct < 0.0f)
+    if (!valid)
     {
-        pct = 0.0f;
-    }
-    if (pct > 100.0f)
-    {
-        pct = 100.0f;
+        snprintf(buf, len, "--");
+        return;
     }
 
-    snprintf(buf, len, "%.0f%%", (double)pct);
-}
-
-static void arex_format_left_prj_text(char *buf, size_t len)
-{
-    snprintf(buf, len, "%.1fC", (double)g_sensor_data.temperature_c);
+    snprintf(buf, len, "%.1fC", (double)temp_c);
 }
 
 void arex_refresh_left_aux_slots(void)
@@ -310,13 +300,17 @@ void arex_refresh_left_aux_slots(void)
 
     if (s_left_bat_lbl)
     {
-        arex_format_left_bat_text(buf, sizeof(buf));
+        arex_format_left_temp_text(buf, sizeof(buf),
+                                   g_sensor_data.bat_temperature_c,
+                                   g_sensor_data.bat_temperature_valid);
         lv_label_set_text(s_left_bat_lbl, buf);
     }
 
     if (s_left_prj_lbl)
     {
-        arex_format_left_prj_text(buf, sizeof(buf));
+        arex_format_left_temp_text(buf, sizeof(buf),
+                                   g_sensor_data.prj_temperature_c,
+                                   g_sensor_data.prj_temperature_valid);
         lv_label_set_text(s_left_prj_lbl, buf);
     }
 }

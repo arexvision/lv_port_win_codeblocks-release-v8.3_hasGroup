@@ -108,6 +108,8 @@ void arex_bus_set_otu(uint16_t otu_val);
 void arex_bus_set_gf99(float gf99);
 void arex_bus_set_surf_gf(float surf_gf);
 void arex_bus_set_temperature(float temp_c);
+void arex_bus_set_bat_temperature(float temp_c);
+void arex_bus_set_prj_temperature(float temp_c);
 /* --- System Data 接口[状态参数] --- */
 // void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
 
