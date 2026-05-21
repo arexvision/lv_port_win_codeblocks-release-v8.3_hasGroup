@@ -11,11 +11,11 @@
 
 static const char *s_info_titles[AREX_SUBMENU_INFO_COUNT] =
 {
-    "> LAST DIVE", "> DIVE PLAN", "> TISSUE & TOX", "> GAS & CALC", "> SENSOR & DEVICE"
+    "LAST DIVE", "DIVE PLAN", "TISSUE & TOX", "GAS & CALC", "SENSOR & DEVICE"
 };
 
-static char s_info_str[AREX_SUBMENU_INFO_COUNT][5][32];
-static const char *s_info_dyn[AREX_SUBMENU_INFO_COUNT][6];
+static char s_info_str[AREX_SUBMENU_INFO_COUNT][6][32];
+static const char *s_info_dyn[AREX_SUBMENU_INFO_COUNT][7];
 static char s_gas_switch_str[GAS_COUNT][20];
 static const char *s_gas_switch_dyn[GAS_COUNT + 1];
 
@@ -507,6 +507,55 @@ static const char *bluetooth_label(uint8_t enabled)
     return enabled ? "ON" : "OFF";
 }
 
+static void format_duration(char *out, size_t out_size, uint32_t total_s)
+{
+    uint32_t h = total_s / 3600U;
+    uint32_t m = (total_s % 3600U) / 60U;
+    uint32_t s = total_s % 60U;
+
+    if (!out || out_size == 0U)
+    {
+        return;
+    }
+    if (h > 0U)
+    {
+        snprintf(out, out_size, "%luh %02lum", (unsigned long)h, (unsigned long)m);
+    }
+    else
+    {
+        snprintf(out, out_size, "%02lu:%02lu", (unsigned long)m, (unsigned long)s);
+    }
+}
+
+static uint8_t max_tissue_pct(void)
+{
+    uint8_t max_pct = 0;
+    for (uint8_t i = 0; i < 16U; i++)
+    {
+        if (g_sensor_data.tissue_pct[i] > max_pct)
+        {
+            max_pct = g_sensor_data.tissue_pct[i];
+        }
+    }
+    return max_pct;
+}
+
+static void format_pressure(char *out, size_t out_size, const char *label, float bar)
+{
+    if (!out || out_size == 0U)
+    {
+        return;
+    }
+    if (bar <= 0.0f)
+    {
+        snprintf(out, out_size, "%s: -- BAR", label);
+    }
+    else
+    {
+        snprintf(out, out_size, "%s: %.0f BAR", label, (double)bar);
+    }
+}
+
 const char *arex_submenu_info_title(uint8_t index)
 {
     if (index >= AREX_SUBMENU_INFO_COUNT)
@@ -531,42 +580,112 @@ const char **arex_submenu_build_info_items(uint8_t index, uint8_t *out_count)
     switch (index)
     {
     case 0:
-        snprintf(s_info_str[0][0], sizeof(s_info_str[0][0]), "MAX DEPTH: %dm", (int)g_sensor_data.depth);
-        snprintf(s_info_str[0][1], sizeof(s_info_str[0][1]), "DIVE TIME: %dm", (int)(g_sensor_data.dive_time_s / 60));
+    {
+        char dive_time[12];
+        char surface_time[12];
+        format_duration(dive_time, sizeof(dive_time), g_sensor_data.dive_time_s);
+        format_duration(surface_time, sizeof(surface_time), g_sensor_data.surface_time_s);
+        snprintf(s_info_str[0][0], sizeof(s_info_str[0][0]), "MAX DEPTH: %.1fm", (double)g_sensor_data.max_depth);
+        snprintf(s_info_str[0][1], sizeof(s_info_str[0][1]), "AVG DEPTH: %.1fm", (double)g_sensor_data.avg_depth);
+        snprintf(s_info_str[0][2], sizeof(s_info_str[0][2]), "DIVE TIME: %s", dive_time);
+        snprintf(s_info_str[0][3], sizeof(s_info_str[0][3]), "SURFACE: %s", surface_time);
         s_info_dyn[0][n++] = s_info_str[0][0];
         s_info_dyn[0][n++] = s_info_str[0][1];
-        s_info_dyn[0][n++] = "SURFACE INT: 2h 10m";
+        s_info_dyn[0][n++] = s_info_str[0][2];
+        s_info_dyn[0][n++] = s_info_str[0][3];
         break;
+    }
     case 1:
-        s_info_dyn[1][n++] = "VIEW PROFILE";
-        s_info_dyn[1][n++] = "RECALCULATE";
+        snprintf(s_info_str[1][0], sizeof(s_info_str[1][0]), "DEPTH: %.1fm", (double)g_sensor_data.depth);
+        if (g_sensor_data.ndl < 0)
+        {
+            snprintf(s_info_str[1][1], sizeof(s_info_str[1][1]), "NDL: DECO");
+        }
+        else
+        {
+            snprintf(s_info_str[1][1], sizeof(s_info_str[1][1]), "NDL: %dmin", (int)g_sensor_data.ndl);
+        }
+        snprintf(s_info_str[1][2], sizeof(s_info_str[1][2]), "TTS: %umin", (unsigned)g_sensor_data.tts);
+        if (g_sensor_data.next_stop_m > 0)
+        {
+            snprintf(s_info_str[1][3],
+                     sizeof(s_info_str[1][3]),
+                     "NEXT STOP: %dm/%umin",
+                     (int)g_sensor_data.next_stop_m,
+                     (unsigned)g_sensor_data.next_stop_min);
+        }
+        else
+        {
+            snprintf(s_info_str[1][3], sizeof(s_info_str[1][3]), "NEXT STOP: --");
+        }
+        snprintf(s_info_str[1][4], sizeof(s_info_str[1][4]), "CEILING: %.1fm", (double)g_sensor_data.ceiling_m);
+        s_info_dyn[1][n++] = s_info_str[1][0];
+        s_info_dyn[1][n++] = s_info_str[1][1];
+        s_info_dyn[1][n++] = s_info_str[1][2];
+        s_info_dyn[1][n++] = s_info_str[1][3];
+        s_info_dyn[1][n++] = s_info_str[1][4];
         break;
     case 2:
-        snprintf(s_info_str[2][0], sizeof(s_info_str[2][0]), "GF: %d/%d", 30, 70);
-        snprintf(s_info_str[2][1], sizeof(s_info_str[2][1]), "CNS: %d%%", g_sensor_data.cns_pct);
-        snprintf(s_info_str[2][2], sizeof(s_info_str[2][2]), "OTU: %d", g_sensor_data.otu);
-        s_info_dyn[2][n++] = "VIEW BAR GRAPH";
+    {
+        uint8_t gf_low = g_sensor_data.gf_low ? g_sensor_data.gf_low : 30U;
+        uint8_t gf_high = g_sensor_data.gf_high ? g_sensor_data.gf_high : 70U;
+        snprintf(s_info_str[2][0], sizeof(s_info_str[2][0]), "GF: %u/%u", (unsigned)gf_low, (unsigned)gf_high);
+        snprintf(s_info_str[2][1], sizeof(s_info_str[2][1]), "GF99: %.0f%%", (double)g_sensor_data.gf99);
+        snprintf(s_info_str[2][2], sizeof(s_info_str[2][2]), "SURF GF: %.0f%%", (double)g_sensor_data.surf_gf);
+        snprintf(s_info_str[2][3], sizeof(s_info_str[2][3]), "TISSUE: %u%%", (unsigned)max_tissue_pct());
+        snprintf(s_info_str[2][4], sizeof(s_info_str[2][4]), "CNS: %u%%", (unsigned)g_sensor_data.cns_pct);
+        snprintf(s_info_str[2][5], sizeof(s_info_str[2][5]), "OTU: %u", (unsigned)g_sensor_data.otu);
         s_info_dyn[2][n++] = s_info_str[2][0];
         s_info_dyn[2][n++] = s_info_str[2][1];
         s_info_dyn[2][n++] = s_info_str[2][2];
+        s_info_dyn[2][n++] = s_info_str[2][3];
+        s_info_dyn[2][n++] = s_info_str[2][4];
+        s_info_dyn[2][n++] = s_info_str[2][5];
         break;
+    }
     case 3:
-        snprintf(s_info_str[3][0], sizeof(s_info_str[3][0]), "GAS 1: %s", g_sensor_data.gas_name);
+    {
+        uint8_t active_idx = g_sensor_data.gas_active_idx;
+        uint8_t gas_count = g_sensor_data.gas_slot_count;
+        if (gas_count > GAS_COUNT)
+        {
+            gas_count = GAS_COUNT;
+        }
+        if (gas_count == 0U || active_idx >= gas_count)
+        {
+            active_idx = 0;
+        }
+
+        snprintf(s_info_str[3][0],
+                 sizeof(s_info_str[3][0]),
+                 "ACTIVE: G%u %s",
+                 (unsigned)(active_idx + 1U),
+                 g_sensor_data.gas_name[0] ? g_sensor_data.gas_name : "--");
+        snprintf(s_info_str[3][1],
+                 sizeof(s_info_str[3][1]),
+                 "MIX: O2 %u%% HE %u%%",
+                 (unsigned)g_sensor_data.gas_o2_pct,
+                 (unsigned)g_sensor_data.gas_he_pct);
+        snprintf(s_info_str[3][2],
+                 sizeof(s_info_str[3][2]),
+                 "MOD: %.0fm",
+                 (double)((active_idx < GAS_COUNT && g_sensor_data.gas_slot_mod_m[active_idx] > 0.0f)
+                          ? g_sensor_data.gas_slot_mod_m[active_idx]
+                          : g_sensor_data.mod_m));
+        snprintf(s_info_str[3][3],
+                 sizeof(s_info_str[3][3]),
+                 "PPO2: %.2f",
+                 (double)((active_idx < GAS_COUNT) ? g_sensor_data.ppo2[active_idx] : 0.0f));
+        snprintf(s_info_str[3][4], sizeof(s_info_str[3][4]), "DENS: %.1fg/L", (double)g_sensor_data.gas_density);
         s_info_dyn[3][n++] = s_info_str[3][0];
-        s_info_dyn[3][n++] = "ALGO: ZHL-16C";
+        s_info_dyn[3][n++] = s_info_str[3][1];
+        s_info_dyn[3][n++] = s_info_str[3][2];
+        s_info_dyn[3][n++] = s_info_str[3][3];
+        s_info_dyn[3][n++] = s_info_str[3][4];
         break;
+    }
     case 4:
     {
-        if (g_sensor_data.pod1_bar <= 0.0f)
-            snprintf(s_info_str[4][0], sizeof(s_info_str[4][0]), "POD 1: -- BAR");
-        else
-            snprintf(s_info_str[4][0], sizeof(s_info_str[4][0]), "POD 1: %.0f BAR", g_sensor_data.pod1_bar);
-
-        if (g_sensor_data.pod2_bar <= 0.0f)
-            snprintf(s_info_str[4][1], sizeof(s_info_str[4][1]), "POD 2: -- BAR");
-        else
-            snprintf(s_info_str[4][1], sizeof(s_info_str[4][1]), "POD 2: %.0f BAR", g_sensor_data.pod2_bar);
-
         float battery_pct = g_sensor_data.battery_pct;
         if (battery_pct < 0.0f)
         {
@@ -576,12 +695,41 @@ const char **arex_submenu_build_info_items(uint8_t index, uint8_t *out_count)
         {
             battery_pct = 100.0f;
         }
+        format_pressure(s_info_str[4][0], sizeof(s_info_str[4][0]), "POD 1", g_sensor_data.pod1_bar);
+        format_pressure(s_info_str[4][1], sizeof(s_info_str[4][1]), "POD 2", g_sensor_data.pod2_bar);
         snprintf(s_info_str[4][2], sizeof(s_info_str[4][2]), "BATTERY: %.0f%%", battery_pct);
-        snprintf(s_info_str[4][3], sizeof(s_info_str[4][3]), "TEMP: 24C");
+        snprintf(s_info_str[4][3], sizeof(s_info_str[4][3]), "TEMP: %.1fC", (double)g_sensor_data.temperature_c);
+        if (g_sensor_data.bat_temperature_valid && g_sensor_data.prj_temperature_valid)
+        {
+            snprintf(s_info_str[4][4],
+                     sizeof(s_info_str[4][4]),
+                     "BAT/PRJ: %.1f/%.1fC",
+                     (double)g_sensor_data.bat_temperature_c,
+                     (double)g_sensor_data.prj_temperature_c);
+        }
+        else if (g_sensor_data.bat_temperature_valid)
+        {
+            snprintf(s_info_str[4][4],
+                     sizeof(s_info_str[4][4]),
+                     "BAT TEMP: %.1fC",
+                     (double)g_sensor_data.bat_temperature_c);
+        }
+        else if (g_sensor_data.prj_temperature_valid)
+        {
+            snprintf(s_info_str[4][4],
+                     sizeof(s_info_str[4][4]),
+                     "PRJ TEMP: %.1fC",
+                     (double)g_sensor_data.prj_temperature_c);
+        }
+        else
+        {
+            snprintf(s_info_str[4][4], sizeof(s_info_str[4][4]), "BAT/PRJ: --/--C");
+        }
         s_info_dyn[4][n++] = s_info_str[4][0];
         s_info_dyn[4][n++] = s_info_str[4][1];
         s_info_dyn[4][n++] = s_info_str[4][2];
         s_info_dyn[4][n++] = s_info_str[4][3];
+        s_info_dyn[4][n++] = s_info_str[4][4];
         break;
     }
     default:
@@ -1596,6 +1744,7 @@ bool arex_submenu_is_readonly_info_title(const char *title)
     }
 
     return strcmp(clean_title, "LAST DIVE") == 0 ||
+           strcmp(clean_title, "DIVE PLAN") == 0 ||
            strcmp(clean_title, "TISSUE & TOX") == 0 ||
            strcmp(clean_title, "GAS & CALC") == 0 ||
            strcmp(clean_title, "SENSOR & DEVICE") == 0;

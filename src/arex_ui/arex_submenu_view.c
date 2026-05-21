@@ -249,6 +249,36 @@ void arex_screen_open_info_submenu(uint8_t item_idx)
     submenu_slide_in();
 }
 
+void arex_screen_refresh_info_submenu_if_open(void)
+{
+    if (!s_submenu_title || !s_submenu_list)
+    {
+        return;
+    }
+    if (g_ui.state != UI_SUB_MENU || g_ui.sub_parent != UI_INFO || g_ui.sub_history_depth != 0)
+    {
+        return;
+    }
+
+    uint8_t count = 0;
+    uint8_t keep_idx = g_ui.sub_menu_idx;
+    const char *title = arex_submenu_info_title(g_ui.menu_info_idx);
+    const char **items = arex_submenu_build_info_items(g_ui.menu_info_idx, &count);
+    if (!title || !items || count == 0)
+    {
+        return;
+    }
+
+    submenu_populate(title, items, count);
+    g_ui.sub_item_count = count;
+    if (keep_idx >= count)
+    {
+        keep_idx = (uint8_t)(count - 1U);
+    }
+    g_ui.sub_menu_idx = keep_idx;
+    arex_screen_set_submenu_selection(keep_idx);
+}
+
 static bool refresh_compass_cal_submenu(void)
 {
     if (!s_submenu_list || !s_submenu_title)

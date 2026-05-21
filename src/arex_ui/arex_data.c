@@ -792,6 +792,10 @@ void arex_bus_set_temperature(float temp_c)
         {
             g_sensor_data.min_temp = temp_c;
         }
+        if (_temp_sample_count == 0 || temp_c > g_sensor_data.max_temp)
+        {
+            g_sensor_data.max_temp = temp_c;
+        }
         _temp_sum += temp_c;
         _temp_sample_count++;
         g_sensor_data.avg_temp = (_temp_sample_count > 0) ? (_temp_sum / _temp_sample_count) : 0.0f;

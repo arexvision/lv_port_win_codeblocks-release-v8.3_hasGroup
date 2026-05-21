@@ -192,4 +192,14 @@ void arex_ui_update_router_dispatch(uint32_t mask)
     {
         arex_ui_update_router_alarm_tick();
     }
+
+    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_NDL_STOP | DIRTY_TTS |
+                DIRTY_DIVE_TIME | DIRTY_GAS | DIRTY_TEMP | DIRTY_BATT |
+                DIRTY_POD | DIRTY_PPO2 | DIRTY_CNS | DIRTY_OTU |
+                DIRTY_TISSUES | DIRTY_GF_SETTING | DIRTY_MOD |
+                DIRTY_CEILING | DIRTY_GAS_MIX | DIRTY_GAS_DENS |
+                DIRTY_FIO2))
+    {
+        arex_screen_refresh_info_submenu_if_open();
+    }
 }

@@ -108,6 +108,7 @@ void arex_screen_open_info_submenu(uint8_t item_idx);
 void arex_screen_open_setup_submenu(uint8_t item_idx);
 void arex_screen_handle_submenu_select(uint8_t item_idx);
 void arex_screen_close_submenu(void);
+void arex_screen_refresh_info_submenu_if_open(void);
 void arex_screen_refresh_compass_cal_submenu_if_open(void);
 
 void arex_screen_open_nested_submenu(const char *title, const char **items, uint8_t count);
