@@ -4,7 +4,9 @@
 #include "../arex_layout_view.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
+#include <float.h>
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 /* 图表布局常量（完全动态化，以标题区为绝对 Y=0 起点）
@@ -21,6 +23,78 @@ arex_dive_pt_t   g_dive_log[MAX_DIVE_LOG];
 uint16_t         g_dive_log_count;
 arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
 uint16_t         g_deco_stop_count;
+
+/* 满 200 点后压掉最接近直线的内部点，保留明显转折，避免轨迹失真。 */
+static float dive_log_triangle_area(const arex_dive_pt_t *a,
+                                    const arex_dive_pt_t *b,
+                                    const arex_dive_pt_t *c)
+{
+    float ab_t = b->time_s - a->time_s;
+    float ab_d = b->depth_m - a->depth_m;
+    float ac_t = c->time_s - a->time_s;
+    float ac_d = c->depth_m - a->depth_m;
+    return fabsf(ab_t * ac_d - ab_d * ac_t);
+}
+
+static void dive_log_remove_at(uint16_t index)
+{
+    if (index >= g_dive_log_count)
+    {
+        return;
+    }
+    if (index + 1U < g_dive_log_count)
+    {
+        memmove(&g_dive_log[index],
+                &g_dive_log[index + 1U],
+                (g_dive_log_count - index - 1U) * sizeof(g_dive_log[0]));
+    }
+    g_dive_log_count--;
+}
+
+static bool dive_log_make_room_for(float current_time_s, float current_depth_m)
+{
+    if (g_dive_log_count < MAX_DIVE_LOG)
+    {
+        return false;
+    }
+    if (g_dive_log_count < 3U)
+    {
+        g_dive_log[g_dive_log_count - 1U].time_s = current_time_s;
+        g_dive_log[g_dive_log_count - 1U].depth_m = current_depth_m;
+        return true;
+    }
+
+    uint16_t drop_index = 1U;
+    float drop_area = FLT_MAX;
+    for (uint16_t i = 1U; i + 1U < g_dive_log_count; i++)
+    {
+        float area = dive_log_triangle_area(&g_dive_log[i - 1U],
+                                            &g_dive_log[i],
+                                            &g_dive_log[i + 1U]);
+        if (area < drop_area)
+        {
+            drop_area = area;
+            drop_index = i;
+        }
+    }
+
+    arex_dive_pt_t next =
+    {
+        .time_s = current_time_s,
+        .depth_m = current_depth_m
+    };
+    float tail_area = dive_log_triangle_area(&g_dive_log[g_dive_log_count - 2U],
+                                             &g_dive_log[g_dive_log_count - 1U],
+                                             &next);
+    if (tail_area <= drop_area)
+    {
+        g_dive_log[g_dive_log_count - 1U] = next;
+        return true;
+    }
+
+    dive_log_remove_at(drop_index);
+    return false;
+}
 
 /* ============================================================
  * 历史轨迹推流接口（供 arex_data.h 导出，外部 1Hz 定时器调用）
@@ -48,6 +122,12 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
             last->depth_m = current_depth_m;
             return;
         }
+    }
+
+    if (g_dive_log_count >= MAX_DIVE_LOG &&
+        dive_log_make_room_for(current_time_s, current_depth_m))
+    {
+        return;
     }
 
     if (g_dive_log_count < MAX_DIVE_LOG)

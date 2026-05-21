@@ -517,7 +517,7 @@ typedef struct
     float stay_min;
 }  arex_deco_stop_t;
 
-/* 潜水轨迹缓冲区：200 点固定大小，永不溢出 */
+/* 潜水轨迹缓冲区：200 点固定大小，满后按形状保真压缩 */
 #define MAX_DIVE_LOG   200
 #ifndef MAX_DECO_STOPS
 #define MAX_DECO_STOPS 10
