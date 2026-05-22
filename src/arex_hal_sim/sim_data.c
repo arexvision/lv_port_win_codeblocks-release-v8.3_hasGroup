@@ -66,6 +66,48 @@ static float arex_sim_calc_ppo2(uint8_t o2_pct, float depth_m)
     return ((float)o2_pct / 100.0f) * ambient_bar;
 }
 
+static void arex_sim_seed_debug_defaults(void)
+{
+    arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
+    arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
+    arex_bus_set_gas_slot(2, "O2 100%", 100, 0, 6.0f);
+    arex_bus_set_gas_slot_count(3);
+    arex_bus_set_gas(0, "AIR");
+    arex_bus_set_pod(0, 200.0f);
+    arex_bus_set_pod(1, 185.0f);
+    arex_bus_set_gf_setting(30, 70);
+    arex_bus_set_surf_gf(0.0f);
+    arex_bus_set_gf99(0.0f);
+    arex_bus_set_mod(56.0f);
+    arex_bus_set_ceiling(0.0f);
+    arex_bus_set_gas_mix(21, 0);
+    arex_bus_set_gas_density(1.2f);
+    arex_bus_set_fio2(21.0f);
+    arex_bus_update_deco(99, STOP_NONE, 0.0f, 0U, 0U, false);
+}
+
+static void arex_sim_reset_for_tcp_debug(void)
+{
+    memset(&s_sim, 0, sizeof(s_sim));
+    s_sim.battery_pct = 86.0f;
+    s_sim.temperature_c = 25.0f;
+
+    arex_data_init();
+    arex_dive_log_reset();
+    arex_bus_set_depth(0.0f);
+    arex_bus_set_ascent_rate(0.0f);
+    arex_bus_set_dive_time(0U);
+    arex_bus_set_surface_time(0U);
+    arex_bus_set_battery(s_sim.battery_pct);
+    arex_bus_set_temperature(s_sim.temperature_c);
+    arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
+    arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+    arex_sim_seed_debug_defaults();
+    buhlmann_debug_reset();
+
+    arex_bus_requeue_dirty(0xFFFFFFFFU);
+}
+
 static void arex_test_set_ui_layout(uint8_t phase)
 {
     static arex_ble_ui_sync_payload_t s_payload;
@@ -212,6 +254,10 @@ static void sim_tick_cb(lv_timer_t *t)
 
     (void)t;
 
+    if (arex_debug_link_pc_consume_connect_event()) {
+        arex_sim_reset_for_tcp_debug();
+    }
+
     debug_manual_depth = arex_debug_link_pc_manual_mode();
 
     if (!debug_manual_depth) {
@@ -324,21 +370,7 @@ void arex_sim_data_start(void)
         return;
     }
 
-    arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
-    arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
-    arex_bus_set_gas_slot(2, "O2 100%", 100, 0, 6.0f);
-    arex_bus_set_gas_slot_count(3);
-    arex_bus_set_gas(0, "AIR");
-    arex_bus_set_pod(0, 200.0f);
-    arex_bus_set_pod(1, 185.0f);
-    arex_bus_set_gf_setting(30, 70);
-    arex_bus_set_surf_gf(85.0f);
-    arex_bus_set_gf99(42.0f);
-    arex_bus_set_mod(33.0f);
-    arex_bus_set_ceiling(0.0f);
-    arex_bus_set_gas_mix(21, 0);
-    arex_bus_set_gas_density(5.2f);
-    arex_bus_set_fio2(21.0f);
+    arex_sim_seed_debug_defaults();
 
     arex_debug_link_pc_start();
     buhlmann_debug_init();

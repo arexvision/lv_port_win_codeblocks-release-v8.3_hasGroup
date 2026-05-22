@@ -7,7 +7,7 @@
 | 文件 | 作用 |
 |---|---|
 | `Buhlmann.h/cpp` | 从参考工程搬来的 Buhlmann/ZHL-16C-GF 算法核心，尽量保持原算法结构。 |
-| `buhlmann_debug.h/cpp` | PC 调试适配层，把算法输出同步到 AREX UI data bus。 |
+| `buhlmann_debug.h/cpp` | PC 调试适配层，把算法输出同步到 AREX UI data bus，并提供 TCP 调试重置入口。 |
 | `rtthread.h` / `rtdevice.h` | PC 编译兼容占位，提供算法核心需要的最小 RT-Thread API。 |
 
 ## 边界

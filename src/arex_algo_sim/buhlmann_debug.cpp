@@ -195,6 +195,14 @@ void buhlmann_debug_init(void)
     s_initialized = true;
 }
 
+void buhlmann_debug_reset(void)
+{
+    s_buhlmann = Buhlmann(62.7f);
+    s_initialized = false;
+    s_diving = false;
+    buhlmann_debug_init();
+}
+
 void buhlmann_debug_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
 {
     (void)temperature_c;

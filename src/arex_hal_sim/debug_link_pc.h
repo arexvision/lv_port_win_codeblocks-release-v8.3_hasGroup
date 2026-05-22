@@ -9,6 +9,7 @@ extern "C" {
 
 void arex_debug_link_pc_start(void);
 bool arex_debug_link_pc_manual_mode(void);
+bool arex_debug_link_pc_consume_connect_event(void);
 
 #ifdef __cplusplus
 }
@@ -58,6 +59,7 @@ typedef struct
     bool loaded;
     bool started;
     bool manual_mode;
+    bool connect_event;
     SOCKET listener;
     SOCKET client;
     lv_timer_t *timer;
@@ -985,11 +987,12 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
             arex_debug_set_nonblocking(client);
             s_debug_link.client = client;
             s_debug_link.rx_len = 0;
+            s_debug_link.connect_event = true;
             s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
             arex_bus_set_ascent_rate(0.0f);
             printf("[DBG] TCP debug client connected\r\n");
             arex_debug_send_raw("AREX debug TCP ready on 127.0.0.1:7623\r\n");
-            arex_debug_send_raw("TCP disables the auto depth script; time and rate sampling keep running.\r\n");
+            arex_debug_send_raw("TCP connected: debug data will reset, auto depth is disabled, Buhlmann debug algorithm is active.\r\n");
             arex_debug_send_raw("Type help for commands.\r\n");
         }
         else if (!arex_debug_is_would_block(arex_debug_last_error()))
@@ -1094,6 +1097,13 @@ bool arex_debug_link_pc_manual_mode(void)
     return s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET;
 }
 
+bool arex_debug_link_pc_consume_connect_event(void)
+{
+    bool event = s_debug_link.connect_event;
+    s_debug_link.connect_event = false;
+    return event;
+}
+
 #else
 
 void arex_debug_link_pc_start(void)
@@ -1101,6 +1111,11 @@ void arex_debug_link_pc_start(void)
 }
 
 bool arex_debug_link_pc_manual_mode(void)
+{
+    return false;
+}
+
+bool arex_debug_link_pc_consume_connect_event(void)
 {
     return false;
 }
