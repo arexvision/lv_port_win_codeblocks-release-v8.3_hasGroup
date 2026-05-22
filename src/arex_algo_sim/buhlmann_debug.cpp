@@ -30,6 +30,21 @@ static int16_t clamp_ndl_for_display(int minutes_to_deco)
     return (int16_t)minutes_to_deco;
 }
 
+static uint8_t ndl_bar_pct_for_display(const DiveInfo &dive_info)
+{
+    if (dive_info.minutesToDeco <= 99) {
+        int pct = (dive_info.minutesToDeco * 100) / 99;
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+        return (uint8_t)pct;
+    }
+
+    float loading_pct = dive_info.gf99;
+    if (loading_pct < 0.0f) loading_pct = 0.0f;
+    if (loading_pct > 100.0f) loading_pct = 100.0f;
+    return (uint8_t)(100.0f - loading_pct + 0.5f);
+}
+
 static void format_gas_name(const Gas &gas, char *name_buf, size_t name_buf_size)
 {
     uint8_t o2_pct = (uint8_t)(gas.oxygenFraction * 100.0f + 0.5f);
@@ -114,6 +129,9 @@ static void sync_stop_data(const DiveInfo &dive_info)
                          clamp_u16_non_negative(dive_info.stopTimeTotalSeconds),
                          clamp_u16_non_negative(dive_info.stopTimeRemainingSeconds),
                          dive_info.inStopZone);
+    if (stop_type == STOP_NONE) {
+        arex_bus_set_ndl_bar_pct(ndl_bar_pct_for_display(dive_info));
+    }
 
     arex_deco_stop_t deco_stops_ui[MAX_DECO_STOPS];
     uint8_t deco_count_ui = 0;

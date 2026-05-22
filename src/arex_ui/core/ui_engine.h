@@ -354,6 +354,7 @@ typedef struct
     float   depth;              /* 当前深度 m */
     int16_t ndl;               /* 免减压时间 min */
     int16_t ndl_stop_value;    /* NDL_STOP: 停留时间/剩余 NDL 动态值 */
+    uint8_t ndl_bar_pct;       /* NDL 横向条覆盖值，0-100；255=按 ndl 推导 */
 
     /* --- 动态停留状态机 --- */
     arex_stop_type_t stop_type;        /* 当前所处的停留模式 */

@@ -156,7 +156,14 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
     float pct = 0.0f;
     if (g_sensor_data.stop_type == STOP_NONE)
     {
-        pct = (float)g_sensor_data.ndl / 99.0f;
+        if (g_sensor_data.ndl_bar_pct <= 100U)
+        {
+            pct = (float)g_sensor_data.ndl_bar_pct / 100.0f;
+        }
+        else
+        {
+            pct = (float)g_sensor_data.ndl / 99.0f;
+        }
     }
     else if (g_sensor_data.stop_type == STOP_SAFETY)
     {

@@ -227,6 +227,7 @@ void arex_data_init(void)
     _temp_sum = 0.0f;
     _temp_sample_count = 0;
 
+    g_sensor_data.ndl_bar_pct = 255U;
     g_sensor_data.gas_active_idx = 0;
     g_sensor_data.gas_slot_count = 3;
     strncpy(g_sensor_data.gas_name, "AIR", sizeof(g_sensor_data.gas_name) - 1);
@@ -923,6 +924,19 @@ void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
     if (prev_stop_type != STOP_NONE && prev_stop_time_left_s > 0U && time_s == 0U)
     {
         arex_alarm_set_active(AREX_ALARM_ID_INFO_STOP_DONE, true);
+    }
+}
+
+void arex_bus_set_ndl_bar_pct(uint8_t pct)
+{
+    if (pct > 100U)
+    {
+        pct = 100U;
+    }
+    if (g_sensor_data.ndl_bar_pct != pct)
+    {
+        g_sensor_data.ndl_bar_pct = pct;
+        g_sensor_data.dirty_mask |= DIRTY_NDL_STOP;
     }
 }
 

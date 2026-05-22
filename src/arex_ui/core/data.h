@@ -145,6 +145,7 @@ void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y);
 void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
                           float depth_m, uint16_t total_time_s,
                           uint16_t time_s, bool in_stop_zone);
+void arex_bus_set_ndl_bar_pct(uint8_t pct);
 
 /* --- NDL 独立接口（快速轮询，仅更新 NDL 数值） --- */
 /* 注意：优先使用 arex_bus_update_deco() 一次性更新所有减压数据 */
