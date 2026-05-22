@@ -13,15 +13,12 @@
 #define DECO_ROW3_Y     (CARD_TITLE_H + 114)
 #define GRID_X              16
 
-/* 显示语义：
- * UI 期望显示的是“超过海平面平衡基线(100%)的过饱和部分”：
- * - <=100%：未下水/平衡态，显示 0 格
- * - 100%~200%：从底部开始向上增长
- * - 200%：满格
+/* Tissue bars use per-compartment GF against the raw M-value:
+ * - 0..100 maps directly to bar height
+ * - GF High is drawn as the stop/reference line
+ * - >=100 means the raw M-value line is reached
  */
-#define TISSUE_BASELINE_PCT 100
-#define TISSUE_HIGH_MIN     160
-#define TISSUE_DANGER_PCT   180
+#define TISSUE_DANGER_PCT   100
 
 /* HTML --flash-speed default 0.3s → 300ms half-period for flashInvert */
 #define TISSUE_FLASH_MS     300
@@ -88,11 +85,11 @@ static void tissue_flash_ensure(void)
     }
 }
 
-static lv_color_t tissue_fill_color(uint8_t pct)
+static lv_color_t tissue_fill_color(uint8_t pct, uint8_t gf_high)
 {
     if (pct >= TISSUE_DANGER_PCT)
         return s_tissue_flash_phase ? GREEN : DARK;
-    if (pct >= TISSUE_HIGH_MIN)
+    if (pct >= gf_high)
         return LIGHT;
     return GREEN;
 }
@@ -141,12 +138,6 @@ static void card_deco_update_mvalue_line(void)
     int line_y = bar_max_h;
     uint8_t gf_high = card_deco_get_gf_high_pct();
 
-    /* 当前图表语义：
-     * - 100% 基线显示为空
-     * - 柱图只画超过 100% 的部分
-     * - 因此 M-VALUE(GF High) 线应映射到“超过基线后的 GF_HIGH 高度”
-     * - 注意：即使未入水，参考线也应固定显示在阈值位置，不能贴到底部
-     */
     line_y -= ((int)gf_high * bar_max_h) / 100;
     if (line_y < 0)
     {
@@ -344,31 +335,31 @@ void card_deco_update(void)
 
     for (int i = 0; i < 16; i++)
     {
-        uint8_t pct = g_sensor_data.tissue_pct[i];  // HOTFIX: Removed mock tissue data.
+        uint8_t pct = g_sensor_data.tissue_pct[i];
 
         lv_obj_t *bar_fill = lv_obj_get_child(s_bars[i], 0);
         if (bar_fill)
         {
             int bar_max_h = (int)lv_obj_get_height(s_bars[i]);
             int fill_h = 0;
-            int oversat_pct = (int)pct - TISSUE_BASELINE_PCT;
+            int fill_pct = (int)pct;
 
             if (!chart_active)
             {
-                oversat_pct = 0;
+                fill_pct = 0;
             }
-            else if (oversat_pct < 0)
+            else if (fill_pct < 0)
             {
-                oversat_pct = 0;
+                fill_pct = 0;
             }
-            if (oversat_pct > 100)
+            if (fill_pct > 100)
             {
-                oversat_pct = 100;
+                fill_pct = 100;
             }
 
-            if (oversat_pct > 0)
+            if (fill_pct > 0)
             {
-                fill_h = (oversat_pct * bar_max_h) / 100;
+                fill_h = (fill_pct * bar_max_h) / 100;
                 if (fill_h < 2)
                 {
                     fill_h = 2;
@@ -381,7 +372,7 @@ void card_deco_update(void)
 
             lv_obj_set_size(bar_fill, LV_PCT(100), fill_h);
             lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
-            lv_obj_set_style_bg_color(bar_fill, tissue_fill_color(pct), 0);
+            lv_obj_set_style_bg_color(bar_fill, tissue_fill_color(pct, gf_high), 0);
         }
     }
 }

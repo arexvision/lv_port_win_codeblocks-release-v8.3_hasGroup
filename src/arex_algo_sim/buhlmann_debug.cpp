@@ -63,20 +63,17 @@ static void format_gas_name(const Gas &gas, char *name_buf, size_t name_buf_size
 
 static void sync_core_data(const DiveInfo &dive_info, float depth_m)
 {
-    uint8_t tissue_sat[16];
-    float surface_n2_pressure = s_buhlmann.getSurfacePressure() * s_buhlmann.getNitrogenRateInGas();
+    uint8_t tissue_load[16];
+    float current_pressure = s_buhlmann.calculateHydrostaticPressureFromDepth(depth_m);
 
     for (int i = 0; i < 16; i++) {
-        float sat_percent = 0.0f;
-        if (surface_n2_pressure > 0.0f) {
-            sat_percent = (dive_info.compartmentPressures[i] / surface_n2_pressure) * 100.0f;
-        }
-        if (sat_percent > 200.0f) sat_percent = 200.0f;
-        if (sat_percent < 0.0f) sat_percent = 0.0f;
-        tissue_sat[i] = (uint8_t)sat_percent;
+        float load_percent = s_buhlmann.calculateGFAtAmbientPressure(current_pressure, i, false);
+        if (load_percent > 200.0f) load_percent = 200.0f;
+        if (load_percent < 0.0f) load_percent = 0.0f;
+        tissue_load[i] = (uint8_t)(load_percent + 0.5f);
     }
 
-    arex_bus_set_tissues(tissue_sat);
+    arex_bus_set_tissues(tissue_load);
     arex_bus_set_cns((uint8_t)dive_info.cns);
     arex_bus_set_otu((uint16_t)dive_info.otu);
     arex_bus_set_gf99(dive_info.gf99);
@@ -95,7 +92,6 @@ static void sync_core_data(const DiveInfo &dive_info, float depth_m)
     uint8_t he_pct = (uint8_t)(active_gas.heliumFraction * 100.0f + 0.5f);
     arex_bus_set_gas_mix(o2_pct, he_pct);
 
-    float current_pressure = s_buhlmann.calculateHydrostaticPressureFromDepth(depth_m);
     float surface_pressure = s_buhlmann.getSurfacePressure();
     float n2_fraction = 1.0f - active_gas.oxygenFraction - active_gas.heliumFraction;
     float gas_density = (active_gas.oxygenFraction * 1.429f +
