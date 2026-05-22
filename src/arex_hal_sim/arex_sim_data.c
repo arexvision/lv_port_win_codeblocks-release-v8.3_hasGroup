@@ -2,6 +2,8 @@
 
 #include "../arex_ui/arex_alarm.h"
 #include "../arex_ui/arex_data.h"
+#define AREX_DEBUG_LINK_PC_IMPLEMENTATION
+#include "arex_debug_link_pc.h"
 #include "lvgl/lvgl.h"
 
 #include <string.h>
@@ -196,6 +198,10 @@ static void sim_tick_cb(lv_timer_t *t)
 {
     (void)t;
 
+    if (arex_debug_link_pc_manual_mode()) {
+        return;
+    }
+
     s_sim.layout_tick++;
     // arex_test_set_ui_layout(s_sim.layout_phase);
     s_sim.layout_phase = (uint8_t)(1U - s_sim.layout_phase);
@@ -288,6 +294,7 @@ void arex_sim_data_start(void)
     arex_bus_set_gas_density(5.2f);
     arex_bus_set_fio2(21.0f);
 
+    arex_debug_link_pc_start();
 
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
 
