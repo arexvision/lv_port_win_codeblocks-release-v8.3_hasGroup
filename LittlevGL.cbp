@@ -18,12 +18,6 @@
 					<Add directory="." />
 					<Add directory="lvgl" />
 					<Add directory="src" />
-					<Add directory="src/arex_ui" />
-					<Add directory="src/arex_ui/alarm" />
-					<Add directory="src/arex_ui/core" />
-					<Add directory="src/arex_ui/screen" />
-					<Add directory="src/arex_ui/views" />
-					<Add directory="src/arex_ui/widgets" />
 				</Compiler>
 				<Linker>
 					<Add option="-mwindows -mconsole" />
@@ -46,14 +40,6 @@
 		<Compiler>
 			<Add option="-Wall" />
 			<Add directory="." />
-			<Add directory="lvgl" />
-			<Add directory="src" />
-			<Add directory="src/arex_ui" />
-			<Add directory="src/arex_ui/alarm" />
-			<Add directory="src/arex_ui/core" />
-			<Add directory="src/arex_ui/screen" />
-			<Add directory="src/arex_ui/views" />
-			<Add directory="src/arex_ui/widgets" />
 		</Compiler>
 		<Unit filename="lv_100ask_demo_course_3_1_1.c">
 			<Option compilerVar="CC" />
@@ -1821,63 +1807,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/alarm/arex_alarm_view.h" />
-		<Unit filename="src/arex_ui/core/arex_callbacks.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/core/arex_callbacks.h" />
-		<Unit filename="src/arex_ui/core/arex_data.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/core/arex_data.h" />
-		<Unit filename="src/arex_ui/core/arex_ui_engine.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/core/arex_ui_engine.h" />
-		<Unit filename="src/arex_ui/core/arex_ui_state.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/core/arex_ui_state.h" />
-		<Unit filename="src/arex_ui/core/arex_ui_update_router.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/core/arex_ui_update_router.h" />
-		<Unit filename="src/arex_ui/screen/arex_card_registry.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/screen/arex_card_registry.h" />
-		<Unit filename="src/arex_ui/screen/arex_layout_view.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/screen/arex_layout_view.h" />
-		<Unit filename="src/arex_ui/screen/arex_screen.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/screen/arex_screen.h" />
-		<Unit filename="src/arex_ui/widgets/arex_widget_style.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/widgets/arex_widget_style.h" />
-		<Unit filename="src/arex_ui/widgets/arex_widget_style_types.h" />
-		<Unit filename="src/arex_ui/widgets/arex_widget_update.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/widgets/arex_widget_update.h" />
-		<Unit filename="src/arex_ui/widgets/arex_widget_view.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/widgets/arex_widget_view.h" />
-		<Unit filename="src/arex_ui/views/arex_modal_view.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/views/arex_modal_view.h" />
-		<Unit filename="src/arex_ui/views/arex_submenu_model.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/views/arex_submenu_model.h" />
-		<Unit filename="src/arex_ui/views/arex_submenu_view.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/arex_ui/views/arex_submenu_view.h" />
 		<Unit filename="src/arex_ui/cards/card_blank.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -1900,6 +1829,27 @@
 		<Unit filename="src/arex_ui/cards/card_setup.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/arex_ui/core/arex_callbacks.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/core/arex_callbacks.h" />
+		<Unit filename="src/arex_ui/core/arex_data.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/core/arex_data.h" />
+		<Unit filename="src/arex_ui/core/arex_ui_engine.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/core/arex_ui_engine.h" />
+		<Unit filename="src/arex_ui/core/arex_ui_state.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/core/arex_ui_state.h" />
+		<Unit filename="src/arex_ui/core/arex_ui_update_router.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/core/arex_ui_update_router.h" />
+		<Unit filename="src/arex_ui/fonts/FONT_GUIDE.md" />
 		<Unit filename="src/arex_ui/fonts/arex_fonts.h" />
 		<Unit filename="src/arex_ui/fonts/lv_font_consola_14.c">
 			<Option compilerVar="CC" />
@@ -2006,8 +1956,45 @@
 		<Unit filename="src/arex_ui/picture/sudo_up_level2.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/lv_100ask_demo_course_3_1_1/lv_100ask_demo_course_3_1_1.h" />
-		<Unit filename="src/lv_100ask_demo_course_3_3_1/lv_100ask_demo_course_3_3_1.h" />
+		<Unit filename="src/arex_ui/screen/arex_card_registry.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/screen/arex_card_registry.h" />
+		<Unit filename="src/arex_ui/screen/arex_layout_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/screen/arex_layout_view.h" />
+		<Unit filename="src/arex_ui/screen/arex_screen.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/screen/arex_screen.h" />
+		<Unit filename="src/arex_ui/views/arex_modal_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/views/arex_modal_view.h" />
+		<Unit filename="src/arex_ui/views/arex_submenu_model.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/views/arex_submenu_model.h" />
+		<Unit filename="src/arex_ui/views/arex_submenu_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/views/arex_submenu_view.h" />
+		<Unit filename="src/arex_ui/widgets/arex_widget_style.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/widgets/arex_widget_style.h" />
+		<Unit filename="src/arex_ui/widgets/arex_widget_style_types.h" />
+		<Unit filename="src/arex_ui/widgets/arex_widget_update.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/widgets/arex_widget_update.h" />
+		<Unit filename="src/arex_ui/widgets/arex_widget_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/widgets/arex_widget_view.h" />
+		<Unit filename="src/header.py" />
+		<Unit filename="src/lv_100ask_teach_demos.h" />
 		<Extensions>
 			<code_completion>
 				<search_path add="E:\Projects\LittlevGL\" />
