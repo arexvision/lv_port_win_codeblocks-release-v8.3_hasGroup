@@ -1,7 +1,7 @@
-#include "arex_ui_state.h"
-#include "arex_ui_engine.h"
-#include "../screen/arex_card_registry.h"
-#include "../screen/arex_screen.h"
+#include "ui_state.h"
+#include "ui_engine.h"
+#include "../screen/card_registry.h"
+#include "../screen/screen.h"
 
 #include <string.h>
 

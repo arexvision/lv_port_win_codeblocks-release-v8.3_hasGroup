@@ -2,9 +2,9 @@
 #define AREX_SCREEN_HDR
 
 #include "lvgl/lvgl.h"
-#include "../core/arex_ui_engine.h"
-#include "../views/arex_submenu_model.h"
-#include "../fonts/arex_fonts.h"
+#include "../core/ui_engine.h"
+#include "../views/submenu_model.h"
+#include "../fonts/fonts.h"
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -27,7 +27,7 @@ extern "C" {
 #define AREX_TILE_ANIM_ENABLED  0
 #endif
 
-/* 向前兼容宏 (已在 arex_fonts.h 中通过 AREX_FONT_HUGE 等定义) */
+/* 向前兼容宏 (已在 fonts.h 中通过 AREX_FONT_HUGE 等定义) */
 
 /* =========================================
    注意：上述宏已废弃！

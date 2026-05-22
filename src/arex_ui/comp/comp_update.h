@@ -1,7 +1,7 @@
 #ifndef COMP_UPDATE_H
 #define COMP_UPDATE_H
 
-#include "../core/arex_ui_engine.h"
+#include "../core/ui_engine.h"
 
 #ifdef __cplusplus
 extern "C" {

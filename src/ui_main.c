@@ -1,8 +1,8 @@
-#include "arex_ui/core/arex_ui_engine.h"
-#include "arex_ui/core/arex_ui_state.h"
-#include "arex_ui/screen/arex_screen.h"
-#include "arex_hal_sim/arex_input_pc.h"
-#include "arex_hal_sim/arex_sim_data.h"
+#include "arex_ui/core/ui_engine.h"
+#include "arex_ui/core/ui_state.h"
+#include "arex_ui/screen/screen.h"
+#include "arex_hal_sim/input_pc.h"
+#include "arex_hal_sim/sim_data.h"
 #include "lvgl/lvgl.h"
 #include "ui_main.h"
 

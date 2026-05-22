@@ -43,7 +43,7 @@ arex_screen_rebuild_tileview()
 ### 修复方案
 删除 `arex_screen_rebuild_tileview()` 末尾重复的 `wall_create()`、`submenu_layer_create()`、`modal_create()` 调用，因为这三个函数已经在 `right_panel_create()` 内部被正确调用了。
 
-**修复代码位置**: `src/arex_ui/arex_screen.c` 第 517-519 行
+**修复代码位置**: `src/arex_ui/screen.c` 第 517-519 行
 
 ```c
 // 修复前（错误代码）
@@ -71,7 +71,7 @@ right_panel_create();
 1. 在删除对象前保存当前焦点位置（使用 `g_ui.dash_card`，它已经保存了当前卡片位置）
 2. 重建后在 `s_tileview` 上调用 `lv_obj_set_tile()` 恢复焦点
 
-**修复代码位置**: `src/arex_ui/arex_screen.c` 第 481-522 行
+**修复代码位置**: `src/arex_ui/screen.c` 第 481-522 行
 
 ```c
 void arex_screen_rebuild_tileview(void)
@@ -235,7 +235,7 @@ static void sim_tick_cb(lv_timer_t *t)
 
 | 文件路径 | 修改类型 | 主要变更 |
 |----------|----------|----------|
-| `src/arex_ui/arex_screen.c` | 修改 | 修复问题一~五 |
+| `src/arex_ui/screen.c` | 修改 | 修复问题一~五 |
 | `src/UI_main.c` | 修改 | 启用自动布局切换测试 |
 | `UI_html_DOC/REBUILD_FIX.md` | 修改 | 新增问题五记录 |
 
@@ -317,7 +317,7 @@ if (saved_dash_card == CARD_POS_INFO) {
 ```
 
 ### 修复代码位置
-`src/arex_ui/arex_screen.c` 第 533-544 行
+`src/arex_ui/screen.c` 第 533-544 行
 
 ### 验证项目
 - [x] 布局切换后滑动行为恢复正常

@@ -1,5 +1,5 @@
 /**
- * @file arex_card_registry.c
+ * @file card_registry.c
  * @brief 卡片注册表 — 所有卡片的元数据表 + 位置映射查询入口
  *
  * 设计核心：双层位置空间
@@ -9,8 +9,8 @@
  * 映射关系由 g_sys_card_order() 间接层实现，支持 BLE 下发动态重排。
  */
 
-#include "arex_card_registry.h"
-#include "../core/arex_ui_engine.h"
+#include "card_registry.h"
+#include "../core/ui_engine.h"
 
 /* 前向声明：各卡片的具体创建/更新实现（由具体卡片模块提供） */
 void card_info_create(lv_obj_t *parent);
@@ -35,11 +35,11 @@ extern const arex_menu_list_cfg_t setup_menu_cfg;
 /**
  * @brief 全局卡片注册表
  *
- * ROM 字段在初始化时固定，tile_obj 在屏幕创建时由 arex_screen.c 填充。
+ * ROM 字段在初始化时固定，tile_obj 在屏幕创建时由 screen.c 填充。
  * 使用指定初始化器确保字段对齐，枚举 ID 直接作为数组下标。
  *
  * @note CARD_ID_CUSTOM_GRID 的 create_cb/update_cb 为 NULL，
- *       因为 GRID 引擎由 arex_screen.c 的 switch 分支直接调度，不走回调。
+ *       因为 GRID 引擎由 screen.c 的 switch 分支直接调度，不走回调。
  */
 static arex_card_t g_cards[CARD_ID_COUNT] =
 {
@@ -99,7 +99,7 @@ static arex_card_t g_cards[CARD_ID_COUNT] =
         .engine_type = CARD_ENGINE_GRID,
         .config_data = NULL,
         .tile_obj    = NULL,
-        .create_cb   = NULL,   /* GRID 引擎由 arex_screen.c switch 分支直接调度 */
+        .create_cb   = NULL,   /* GRID 引擎由 screen.c switch 分支直接调度 */
         .update_cb   = NULL,
         .on_enter_cb = NULL,
     },
@@ -236,7 +236,7 @@ uint8_t arex_card_id_at(uint8_t display_pos)
 /**
  * @brief 按显示顺序获取卡片对象（主要入口）
  *
- * 供 arex_screen.c 遍历 tileview 时调用：
+ * 供 screen.c 遍历 tileview 时调用：
  *   for (int i = 0; i < arex_card_count(); i++) {
  *       arex_card_t *card = arex_card_get(i);
  *       lv_tileview_add_tile(..., card->tile_obj);

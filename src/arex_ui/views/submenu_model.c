@@ -1,8 +1,8 @@
-#include "arex_submenu_model.h"
+#include "submenu_model.h"
 
-#include "../core/arex_data.h"
-#include "../core/arex_ui_engine.h"
-#include "../core/arex_ui_state.h"
+#include "../core/data.h"
+#include "../core/ui_engine.h"
+#include "../core/ui_state.h"
 
 #include "lvgl/lvgl.h"
 

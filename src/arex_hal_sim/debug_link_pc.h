@@ -24,9 +24,9 @@ bool arex_debug_link_pc_manual_mode(void);
 #include <winsock2.h>
 #include <windows.h>
 
-#include "../arex_ui/alarm/arex_alarm.h"
-#include "../arex_ui/core/arex_data.h"
-#include "../arex_ui/core/arex_ui_engine.h"
+#include "../arex_ui/alarm/alarm.h"
+#include "../arex_ui/core/data.h"
+#include "../arex_ui/core/ui_engine.h"
 #include "lvgl/lvgl.h"
 
 #include <ctype.h>

@@ -1,6 +1,6 @@
-#include "../core/arex_ui_engine.h"
-#include "arex_comp_update.h"
-#include "arex_comp_view.h"
+#include "../core/ui_engine.h"
+#include "comp_update.h"
+#include "comp_view.h"
 
 #include <math.h>
 #include <stdio.h>

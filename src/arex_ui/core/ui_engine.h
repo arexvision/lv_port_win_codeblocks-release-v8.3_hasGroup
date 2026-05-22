@@ -4,7 +4,7 @@
 #include "lvgl/lvgl.h"
 #include <stdint.h>
 #include <stdbool.h>
-#include "../screen/arex_card_registry.h"
+#include "../screen/card_registry.h"
 #include "ui_main.h"
 
 #ifdef __cplusplus
@@ -94,7 +94,7 @@ extern const uint8_t GAS_MOD_M[GAS_COUNT];
  * - CARD_COUNT    : tile 页总数（INFO + 动态槽 + SETUP）
  * - CARD_ID_COUNT : 卡片类型种类数（INFO/COMPASS/.../SETUP） */
 #define CARD_COUNT     CARD_POS_COUNT
-/* 卡片顺序配置读取接口（供 arex_card_registry.c / arex_ui_state.c 使用） */
+/* 卡片顺序配置读取接口（供 card_registry.c / ui_state.c 使用） */
 extern uint8_t g_sys_card_order(uint8_t pos);
 
 /* =========================================================
@@ -541,7 +541,7 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg);
 /* 安全区边界检测 */
 
 /* =========================================================
- * 8. 绝对坐标推算引擎 (供 arex_screen.c 调用)
+ * 8. 绝对坐标推算引擎 (供 screen.c 调用)
  * ========================================================= */
 
 /* Tech 模式布局 */
@@ -632,17 +632,17 @@ void arex_trigger_alarm(arex_alarm_level_t level,
 /* 清除告警：隐藏横幅 + 重置靶心状态，停止闪烁 */
 void arex_clear_all_alarm_styles(void);
 
-/* 标记用户确认当前最高优先级告警；是否隐藏由 arex_alarm.c 的清除策略决定。 */
+/* 标记用户确认当前最高优先级告警；是否隐藏由 alarm.c 的清除策略决定。 */
 bool arex_alarm_mark_clear_requested(void);
 
 /* 内部：根据 widget_id 获取显示名称 */
 const char *comp_get_name(comp_id_t id);
 
-#include "../comp/arex_comp_style_types.h"
+#include "../comp/comp_style_types.h"
 
 /* 5F 网格组件配置已迁移到 g_sys_config.custom_cards[] */
 
-/* 外部告警状态容器（由 arex_screen.c 在创建锚点和卡片时注入） */
+/* 外部告警状态容器（由 screen.c 在创建锚点和卡片时注入） */
 extern lv_obj_t *g_left_anchor_obj;
 extern lv_obj_t *g_card_custom_objs[MAX_CUSTOM_CARDS];
 extern uint8_t   g_card_custom_obj_count;

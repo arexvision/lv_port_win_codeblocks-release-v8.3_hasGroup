@@ -1,5 +1,5 @@
-#include "arex_callbacks.h"
-#include "arex_data.h"
+#include "callbacks.h"
+#include "data.h"
 #include <stdio.h>
 
 #ifndef PC_SIMULATOR

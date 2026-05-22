@@ -6,9 +6,9 @@
 
 | 文件 | 作用 |
 |---|---|
-| `arex_input_pc.h/c` | 把 PC 键盘和模拟 encoder 事件转成 `ui_handle_rotate/click/back()`。 |
-| `arex_sim_data.h/c` | 创建模拟 tick，生成深度脚本、减压状态、气体数据、轨迹和部分告警测试数据。 |
-| `arex_debug_link_pc.h` | TCP 调试链路，供外部调试脚本控制模拟器数据和读取状态。 |
+| `input_pc.h/c` | 把 PC 键盘和模拟 encoder 事件转成 `ui_handle_rotate/click/back()`。 |
+| `sim_data.h/c` | 创建模拟 tick，生成深度脚本、减压状态、气体数据、轨迹和部分告警测试数据。 |
+| `debug_link_pc.h` | TCP 调试链路，供外部调试脚本控制模拟器数据和读取状态。 |
 
 ## 与 UI 的边界
 

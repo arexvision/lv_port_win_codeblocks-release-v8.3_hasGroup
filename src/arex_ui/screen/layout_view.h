@@ -1,7 +1,7 @@
 #ifndef AREX_LAYOUT_VIEW_H
 #define AREX_LAYOUT_VIEW_H
 
-#include "../core/arex_ui_engine.h"
+#include "../core/ui_engine.h"
 
 #ifdef __cplusplus
 extern "C" {

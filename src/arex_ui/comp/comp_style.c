@@ -1,5 +1,5 @@
-#include "../core/arex_ui_engine.h"
-#include "arex_comp_style.h"
+#include "../core/ui_engine.h"
+#include "comp_style.h"
 
 static const comp_style_t g_widget_styles[] =
 {

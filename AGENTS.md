@@ -45,18 +45,18 @@ Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative,
 
 | File | Role |
 |------|------|
-| `core/arex_ui_engine.h/c` | Global state: `g_sys_config`, `g_sensor_data`; UI init and update task |
-| `core/arex_data.h/c` | BLE sync frame struct; `arex_bus_set_*()` write API |
-| `core/arex_ui_state.h/c` | UI state machine (DASH, INFO, SETUP, …); input routing |
-| `core/arex_ui_update_router.h/c` | Periodic UI heartbeat and dirty-mask refresh routing |
-| `screen/arex_screen.h/c` | LVGL screen tree, public screen facade, scroll, walls, edit flows |
-| `screen/arex_layout_view.h/c` | Safe-zone, fixed-anchor, menu, and 5F grid layout rendering |
-| `screen/arex_card_registry.h/c` | Card lookup, registry, display/storage position mapping |
+| `core/ui_engine.h/c` | Global state: `g_sys_config`, `g_sensor_data`; UI init and update task |
+| `core/data.h/c` | BLE sync frame struct; `arex_bus_set_*()` write API |
+| `core/ui_state.h/c` | UI state machine (DASH, INFO, SETUP, …); input routing |
+| `core/update_router.h/c` | Periodic UI heartbeat and dirty-mask refresh routing |
+| `screen/screen.h/c` | LVGL screen tree, public screen facade, scroll, walls, edit flows |
+| `screen/layout_view.h/c` | Safe-zone, fixed-anchor, menu, and 5F grid layout rendering |
+| `screen/card_registry.h/c` | Card lookup, registry, display/storage position mapping |
 | `comp/arex_comp_*.h/c` | Reusable widget creation, update, and style application |
-| `views/arex_modal_view.h/c`, `views/arex_submenu_*.h/c` | Overlay dialogs and submenu drawer/model |
+| `views/modal_view.h/c`, `views/arex_submenu_*.h/c` | Overlay dialogs and submenu drawer/model |
 | `alarm/arex_alarm*.h/c` | Alarm event engine and alarm visual layer |
 | `cards/card_*.c` | 7 card implementations (compass, deco, gas, plan, info, setup, blank) |
-| `arex_hal_sim/arex_input_pc.h` | Keyboard/encoder input simulation for PC |
+| `arex_hal_sim/input_pc.h` | Keyboard/encoder input simulation for PC |
 
 ### Data flow
 
@@ -70,7 +70,7 @@ Hardware/BLE → arex_bus_set_*() → g_sensor_data (dirty_mask)
                    widgets / cards / alarms / layout rebuild
 ```
 
-**Rule:** never write `g_sensor_data` or `g_sys_config` directly from outside `arex_ui_engine.c`. Always use `arex_bus_set_*()`.
+**Rule:** never write `g_sensor_data` or `g_sys_config` directly from outside `ui_engine.c`. Always use `arex_bus_set_*()`.
 
 ### Screen layout
 

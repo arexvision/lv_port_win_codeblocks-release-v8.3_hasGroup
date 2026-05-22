@@ -1,15 +1,15 @@
-#include "arex_ui_engine.h"
-#include "../screen/arex_card_registry.h"
-#include "../screen/arex_screen.h"
-#include "arex_ui_state.h"
-#include "../fonts/arex_fonts.h"
-#include "arex_data.h"
-#include "../alarm/arex_alarm.h"
-#include "../screen/arex_layout_view.h"
-#include "../comp/arex_comp_style.h"
-#include "../comp/arex_comp_update.h"
-#include "../comp/arex_comp_view.h"
-#include "arex_ui_update_router.h"
+#include "ui_engine.h"
+#include "../screen/card_registry.h"
+#include "../screen/screen.h"
+#include "ui_state.h"
+#include "../fonts/fonts.h"
+#include "data.h"
+#include "../alarm/alarm.h"
+#include "../screen/layout_view.h"
+#include "../comp/comp_style.h"
+#include "../comp/comp_update.h"
+#include "../comp/comp_view.h"
+#include "update_router.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -389,7 +389,7 @@ void arex_ui_apply_config(void)
     }
 
     /* TODO: 触发 arex_screen_rebuild_layout() 重建排版
-     * 这将在重arex_screen.c 时实
+     * 这将在重screen.c 时实
      */
 }
 
@@ -403,7 +403,7 @@ uint8_t g_sys_card_order(uint8_t pos)
 }
 
 /* =========================================================
- * 5F 自定义网格组件外部容器（arex_screen.c 注入
+ * 5F 自定义网格组件外部容器（screen.c 注入
  * ========================================================= */
 lv_obj_t *g_left_anchor_obj = NULL;
 /* 多张自定义卡片容器数*/
@@ -460,7 +460,7 @@ bool arex_alarm_mark_clear_requested(void)
  * ========================================================= */
 void arex_ui_update_data(void)
 {
-    /* 由调用方arex_screen.c 中实现具体的 lv_label_set_text 调用
+    /* 由调用方screen.c 中实现具体的 lv_label_set_text 调用
      * 此函数作为空钩子存在，供未来扩展
      */
 }

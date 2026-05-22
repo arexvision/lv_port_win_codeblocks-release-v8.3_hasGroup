@@ -1,9 +1,9 @@
-#include "../screen/arex_screen.h"
-#include "../core/arex_ui_engine.h"
-#include "../core/arex_ui_state.h"
-#include "../screen/arex_layout_view.h"
+#include "../screen/screen.h"
+#include "../core/ui_engine.h"
+#include "../core/ui_state.h"
+#include "../screen/layout_view.h"
 #include "lvgl/lvgl.h"
-#include "../fonts/arex_fonts.h"
+#include "../fonts/fonts.h"
 #include <stdio.h>
 #include <string.h>
 

@@ -1,9 +1,9 @@
-#include "../screen/arex_screen.h"
-#include "../core/arex_data.h"
-#include "../core/arex_ui_engine.h"
-#include "../screen/arex_layout_view.h"
+#include "../screen/screen.h"
+#include "../core/data.h"
+#include "../core/ui_engine.h"
+#include "../screen/layout_view.h"
 #include "lvgl/lvgl.h"
-#include "../fonts/arex_fonts.h"
+#include "../fonts/fonts.h"
 #include <float.h>
 #include <stdio.h>
 #include <string.h>
@@ -97,7 +97,7 @@ static bool dive_log_make_room_for(float current_time_s, float current_depth_m)
 }
 
 /* ============================================================
- * 历史轨迹推流接口（供 arex_data.h 导出，外部 1Hz 定时器调用）
+ * 历史轨迹推流接口（供 data.h 导出，外部 1Hz 定时器调用）
  * ============================================================ */
 void arex_dive_log_append(float current_time_s, float current_depth_m)
 {

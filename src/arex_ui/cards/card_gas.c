@@ -1,10 +1,10 @@
-#include "../screen/arex_screen.h"
-#include "../core/arex_data.h"
-#include "../core/arex_ui_engine.h"
-#include "../core/arex_ui_state.h"
-#include "../screen/arex_layout_view.h"
+#include "../screen/screen.h"
+#include "../core/data.h"
+#include "../core/ui_engine.h"
+#include "../core/ui_state.h"
+#include "../screen/layout_view.h"
 #include "lvgl/lvgl.h"
-#include "../fonts/arex_fonts.h"
+#include "../fonts/fonts.h"
 #include <stdio.h>
 
 /* GAS 行高按规范锁死 49px（不可改），行间距从 gap_menu 配置推算 */

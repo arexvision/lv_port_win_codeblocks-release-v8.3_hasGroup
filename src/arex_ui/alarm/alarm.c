@@ -1,5 +1,5 @@
-#include "arex_alarm.h"
-#include "../core/arex_data.h"
+#include "alarm.h"
+#include "../core/data.h"
 #include "lvgl/lvgl.h"
 #include <string.h>
 

@@ -6,7 +6,7 @@
 
 /*
  * Widget layout/style type definitions.
- * This header is included from arex_ui_engine.h after the core AREX enums
+ * This header is included from ui_engine.h after the core AREX enums
  * such as comp_id_t and arex_font_id_t are declared.
  */
 

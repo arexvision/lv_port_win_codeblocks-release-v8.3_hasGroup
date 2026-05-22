@@ -1,7 +1,7 @@
 #ifndef AREX_ALARM_VIEW_H
 #define AREX_ALARM_VIEW_H
 
-#include "../core/arex_ui_engine.h"
+#include "../core/ui_engine.h"
 #include <stdbool.h>
 #include <stdint.h>
 

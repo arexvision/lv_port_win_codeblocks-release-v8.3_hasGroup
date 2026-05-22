@@ -73,11 +73,11 @@ lv_font_conv --font "E:/字体/xxx.ttf" --size 24 --bpp 4 --format lvgl -r 0x20-
 </Unit>
 ```
 
-**如果只修改 `arex_fonts.h` 加 `#include`，会导致所有字体文件编译到同一个目标文件，造成变量名冲突错误！**
+**如果只修改 `fonts.h` 加 `#include`，会导致所有字体文件编译到同一个目标文件，造成变量名冲突错误！**
 
 ### 5.3 声明和宏定义
 
-在 `src/arex_ui/fonts/arex_fonts.h` 中：
+在 `src/arex_ui/fonts/fonts.h` 中：
 
 ```c
 // 1. 添加 extern 声明（放在对应字体族下）
@@ -89,7 +89,7 @@ extern const lv_font_t lv_font_xxx_24;
 
 ## 6. 字体族切换
 
-编辑 `arex_fonts.h` 顶部的宏：
+编辑 `fonts.h` 顶部的宏：
 
 ```c
 #define AREX_USE_FONT_CONSOLA   // 当前：Consolas
@@ -115,9 +115,9 @@ extern const lv_font_t lv_font_xxx_24;
 
 ### 警告：'AREX_FONT_XXX' redefined
 
-**原因**：`arex_screen.h` 和 `arex_fonts.h` 都定义了相同的宏。
+**原因**：`screen.h` 和 `fonts.h` 都定义了相同的宏。
 
-**解决**：`arex_screen.h` 应该 `#include "fonts/arex_fonts.h"`，然后删除其中重复的宏定义。
+**解决**：`screen.h` 应该 `#include "fonts/fonts.h"`，然后删除其中重复的宏定义。
 
 ## 8. 禁止事项
 
@@ -139,4 +139,4 @@ extern const lv_font_t lv_font_xxx_24;
 - AREX_FONT_LARGE/AREX_FONT_HUGE → 64px
 - AREX_FONT_NDL → 56px
 
-切换字体族：修改 `arex_fonts.h` 的 `#define AREX_USE_FONT_*` 宏。
+切换字体族：修改 `fonts.h` 的 `#define AREX_USE_FONT_*` 宏。

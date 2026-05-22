@@ -1,8 +1,8 @@
-#include "arex_modal_view.h"
+#include "modal_view.h"
 
-#include "../core/arex_ui_engine.h"
-#include "../core/arex_ui_state.h"
-#include "../fonts/arex_fonts.h"
+#include "../core/ui_engine.h"
+#include "../core/ui_state.h"
+#include "../fonts/fonts.h"
 
 #include <stdio.h>
 

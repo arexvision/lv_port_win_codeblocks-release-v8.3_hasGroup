@@ -1,6 +1,6 @@
 # cards
 
-`cards` 放右侧 tileview 里的整页业务卡片。每张卡片通常暴露 `create` 和 `update` 函数，再由 `screen/arex_card_registry.c` 注册。
+`cards` 放右侧 tileview 里的整页业务卡片。每张卡片通常暴露 `create` 和 `update` 函数，再由 `screen/card_registry.c` 注册。
 
 ## 文件职责
 
@@ -17,5 +17,5 @@
 ## 修改入口
 
 - 改右侧某一整页业务 UI：直接从对应 `card_*.c` 开始。
-- 新增卡片：新增卡片实现后，还要更新 `screen/arex_card_registry.h/c` 和默认 `card_order`。
+- 新增卡片：新增卡片实现后，还要更新 `screen/card_registry.h/c` 和默认 `card_order`。
 - 改左侧固定组件或 5F 组件：去 `../comp/`，不要把公共组件逻辑复制进 card 文件。

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "../views/arex_submenu_model.h"
+#include "../views/submenu_model.h"
 
 #ifdef __cplusplus
 extern "C" {

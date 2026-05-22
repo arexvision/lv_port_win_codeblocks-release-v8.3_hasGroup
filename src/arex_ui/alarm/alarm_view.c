@@ -1,5 +1,5 @@
-#include "arex_alarm_view.h"
-#include "arex_alarm.h"
+#include "alarm_view.h"
+#include "alarm.h"
 
 #include <stdio.h>
 

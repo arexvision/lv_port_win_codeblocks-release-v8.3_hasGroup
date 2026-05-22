@@ -1,6 +1,6 @@
-#include "../arex_ui/screen/arex_screen.h"
-#include "../arex_ui/core/arex_data.h"
-#include "../arex_ui/core/arex_ui_state.h"
+#include "../arex_ui/screen/screen.h"
+#include "../arex_ui/core/data.h"
+#include "../arex_ui/core/ui_state.h"
 #include "lvgl/lvgl.h"
 #include "lv_drivers/win32drv/win32drv.h"
 

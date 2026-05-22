@@ -1,11 +1,11 @@
-#include "../screen/arex_screen.h"
-#include "../core/arex_data.h"
-#include "../core/arex_ui_engine.h"
-#include "../core/arex_ui_state.h"
-#include "../screen/arex_layout_view.h"
+#include "../screen/screen.h"
+#include "../core/data.h"
+#include "../core/ui_engine.h"
+#include "../core/ui_state.h"
+#include "../screen/layout_view.h"
 #include "card_compass.h"
 #include "lvgl/lvgl.h"
-#include "../fonts/arex_fonts.h"
+#include "../fonts/fonts.h"
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -167,7 +167,7 @@ static void compass_tape_draw_cb(lv_event_t *e)
 }
 
 /* ============================================================
- * 静态句柄声明（供外部 arex_ui_engine.c 引用）
+ * 静态句柄声明（供外部 ui_engine.c 引用）
  * ============================================================ */
 static lv_obj_t *s_compass_tape_obj = NULL;   /* 卷尺绘制对象 */
 static lv_obj_t *s_heading_val_lbl = NULL;    /* 巨型航向文本 */

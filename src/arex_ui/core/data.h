@@ -29,7 +29,7 @@ typedef int rt_base_t;
  *   硬件传感器 ──arex_bus_set_*()──▶ g_sensor_data (dirty_mask)
  *   BLE 任务   ──arex_bus_set_ui_layout()──▶ g_sys_config + DIRTY_UI_LAYOUT
  * ========================================================= */
-#include "arex_ui_engine.h"
+#include "ui_engine.h"
 
 #ifdef __cplusplus
 extern "C" {

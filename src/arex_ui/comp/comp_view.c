@@ -1,7 +1,7 @@
-#include "../core/arex_ui_engine.h"
-#include "arex_comp_view.h"
-#include "arex_comp_style.h"
-#include "../fonts/arex_fonts.h"
+#include "../core/ui_engine.h"
+#include "comp_view.h"
+#include "comp_style.h"
+#include "../fonts/fonts.h"
 
 #include <math.h>
 #include <stdio.h>
