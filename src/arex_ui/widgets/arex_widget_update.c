@@ -1,4 +1,4 @@
-#include "arex_ui_engine.h"
+#include "../core/arex_ui_engine.h"
 #include "arex_widget_update.h"
 #include "arex_widget_view.h"
 

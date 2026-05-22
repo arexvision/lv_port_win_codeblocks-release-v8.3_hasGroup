@@ -1,10 +1,10 @@
 #include "arex_submenu_view.h"
 
-#include "arex_callbacks.h"
-#include "arex_screen.h"
+#include "../core/arex_callbacks.h"
+#include "../screen/arex_screen.h"
 #include "arex_submenu_model.h"
-#include "arex_ui_state.h"
-#include "fonts/arex_fonts.h"
+#include "../core/arex_ui_state.h"
+#include "../fonts/arex_fonts.h"
 
 #include <string.h>
 

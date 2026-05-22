@@ -1,7 +1,7 @@
 #ifndef AREX_ALARM_H
 #define AREX_ALARM_H
 
-#include "arex_ui_engine.h"
+#include "../core/arex_ui_engine.h"
 #include <stdbool.h>
 #include <stdint.h>
 

@@ -2,9 +2,9 @@
 #define AREX_SCREEN_HDR
 
 #include "lvgl/lvgl.h"
-#include "arex_ui_engine.h"
-#include "arex_submenu_model.h"
-#include "fonts/arex_fonts.h"
+#include "../core/arex_ui_engine.h"
+#include "../views/arex_submenu_model.h"
+#include "../fonts/arex_fonts.h"
 #include <stdint.h>
 #include <stdbool.h>
 

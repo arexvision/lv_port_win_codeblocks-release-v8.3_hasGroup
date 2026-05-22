@@ -10,7 +10,7 @@
  */
 
 #include "arex_card_registry.h"
-#include "arex_ui_engine.h"
+#include "../core/arex_ui_engine.h"
 
 /* 前向声明：各卡片的具体创建/更新实现（由具体卡片模块提供） */
 void card_info_create(lv_obj_t *parent);

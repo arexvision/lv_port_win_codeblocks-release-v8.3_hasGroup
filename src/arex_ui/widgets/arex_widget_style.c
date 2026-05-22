@@ -1,4 +1,4 @@
-#include "arex_ui_engine.h"
+#include "../core/arex_ui_engine.h"
 #include "arex_widget_style.h"
 
 static const comp_style_t g_widget_styles[] =

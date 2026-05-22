@@ -1,7 +1,7 @@
 #ifndef COMP_STYLE_H
 #define COMP_STYLE_H
 
-#include "arex_ui_engine.h"
+#include "../core/arex_ui_engine.h"
 
 #ifdef __cplusplus
 extern "C" {

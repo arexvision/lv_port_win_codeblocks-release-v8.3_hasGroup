@@ -4,7 +4,7 @@
 #include "lvgl/lvgl.h"
 #include <stdint.h>
 #include <stdbool.h>
-#include "arex_card_registry.h"
+#include "../screen/arex_card_registry.h"
 #include "UI_main.h"
 
 #ifdef __cplusplus
@@ -638,7 +638,7 @@ bool arex_alarm_mark_clear_requested(void);
 /* 内部：根据 widget_id 获取显示名称 */
 const char *comp_get_name(comp_id_t id);
 
-#include "arex_widget_style_types.h"
+#include "../widgets/arex_widget_style_types.h"
 
 /* 5F 网格组件配置已迁移到 g_sys_config.custom_cards[] */
 

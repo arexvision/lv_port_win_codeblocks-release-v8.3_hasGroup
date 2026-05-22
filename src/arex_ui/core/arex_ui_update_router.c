@@ -1,15 +1,15 @@
 #include "arex_ui_update_router.h"
 
-#include "arex_alarm_view.h"
-#include "arex_card_registry.h"
+#include "../alarm/arex_alarm_view.h"
+#include "../screen/arex_card_registry.h"
 #include "arex_data.h"
-#include "arex_layout_view.h"
-#include "arex_screen.h"
+#include "../screen/arex_layout_view.h"
+#include "../screen/arex_screen.h"
 #include "arex_ui_engine.h"
 #include "arex_ui_state.h"
-#include "arex_widget_update.h"
-#include "arex_widget_view.h"
-#include "cards/card_compass.h"
+#include "../widgets/arex_widget_update.h"
+#include "../widgets/arex_widget_view.h"
+#include "../cards/card_compass.h"
 
 #include <math.h>
 
