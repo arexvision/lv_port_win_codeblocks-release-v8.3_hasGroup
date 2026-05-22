@@ -65,9 +65,19 @@ static void sync_core_data(const DiveInfo &dive_info, float depth_m)
 {
     uint8_t tissue_load[16];
     float current_pressure = s_buhlmann.calculateHydrostaticPressureFromDepth(depth_m);
+    float surface_pressure_bar = s_buhlmann.getSurfacePressure() / 1000.0f;
 
     for (int i = 0; i < 16; i++) {
-        float load_percent = s_buhlmann.calculateGFAtAmbientPressure(current_pressure, i, false);
+        /* Per-compartment SurfGF: reaches GF High when this tissue drives NDL to zero. */
+        float tissue_pressure_bar = s_buhlmann.getCompartmentTotalInertLoad(i) / 1000.0f;
+        float m_value_bar = s_buhlmann.getCompartmentCombinedA(i) +
+                            surface_pressure_bar / s_buhlmann.getCompartmentCombinedB(i);
+        float denominator = m_value_bar - surface_pressure_bar;
+        float load_percent = 0.0f;
+
+        if (denominator > 0.0001f) {
+            load_percent = ((tissue_pressure_bar - surface_pressure_bar) / denominator) * 100.0f;
+        }
         if (load_percent > 200.0f) load_percent = 200.0f;
         if (load_percent < 0.0f) load_percent = 0.0f;
         tissue_load[i] = (uint8_t)(load_percent + 0.5f);
