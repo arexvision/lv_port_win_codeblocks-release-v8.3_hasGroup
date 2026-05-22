@@ -23,14 +23,11 @@ extern uint16_t         g_deco_stop_count;
  * - 当前第一版不接 NVDS/APP 持久化，这里就是默认阈值入口。
  * - 后续如果设置菜单要支持用户自定义阈值，优先把这些宏改为
  *   g_sys_config 或用户配置字段，而不是在 setter 中分散硬编码。
- * - UI 速率图标和上升过快告警使用两套窗口：图标追求灵敏，
- *   告警追求稳定，避免模拟数据轻微抖动导致误报。
+ * - 上升/下潜速率由 arex_bus_set_ascent_rate() 显式写入，不再从深度写入自动推导。
+ *   深度 setter 只负责深度值、轨迹、统计和深度相关告警。
  * ========================================================= */
-#define AREX_DEPTH_UI_RATE_WINDOW_SIZE     3U       /* 速度图标采样窗口：越小越灵敏 */
-#define AREX_DEPTH_ALARM_RATE_WINDOW_SIZE  4U       /* 上升过快告警采样窗口：越大越稳 */
 #define AREX_DEPTH_DISPLAY_DEBOUNCE_M      0.05f    /* 深度显示防抖：小于 0.05m 不刷新数字 */
 #define AREX_ASCENT_RATE_UI_EPSILON        0.2f     /* 速度图标变化阈值：低于该值认为无明显变化 */
-#define AREX_ASCENT_RATE_UI_SMOOTH_ALPHA   0.75f    /* 速度图标平滑系数：越大响应越快 */
 #define AREX_ASCENT_ALARM_THRESHOLD_MPM    10.0f    /* CRIT.ASCENT_RATE：上升速度 >= 10m/min 触发 */
 #define AREX_ASCENT_ALARM_RELEASE_MPM      8.0f     /* CRIT.ASCENT_RATE：回落到 8m/min 以下解除 */
 #define AREX_ASCENT_ALARM_HOLD_SAMPLES     2U       /* CRIT.ASCENT_RATE：连续满足的采样次数 */
@@ -51,20 +48,7 @@ extern uint16_t         g_deco_stop_count;
 
 #define AREX_ALARM_GAS_SWITCH_ASCENT_MPM   0.5f         /* INFO.GAS_SWITCH：只在上升趋势中提示更优气体 */
 
-typedef struct
-{
-    uint32_t timestamp_ms;
-    float    depth_m;
-} arex_depth_sample_t;
-
-static arex_depth_sample_t _ui_depth_rate_window[AREX_DEPTH_UI_RATE_WINDOW_SIZE];
-static arex_depth_sample_t _alarm_depth_rate_window[AREX_DEPTH_ALARM_RATE_WINDOW_SIZE];
-static uint8_t             _ui_depth_rate_count = 0;
-static uint8_t             _ui_depth_rate_head = 0;
-static uint8_t             _alarm_depth_rate_count = 0;
-static uint8_t             _alarm_depth_rate_head = 0;
 static uint8_t             _ascent_alarm_over_limit_count = 0;
-static float               _ui_rate_filtered_mpm = 0.0f;
 
 /* 深度统计累计值 */
 static float    _depth_sum = 0.0f;       /* 深度累计和 */
@@ -74,102 +58,9 @@ static uint32_t _depth_sample_count = 0;  /* 深度采样次数 */
 static float    _temp_sum = 0.0f;        /* 温度累计和 */
 static uint32_t _temp_sample_count = 0;  /* 温度采样次数 */
 
-static uint32_t arex_depth_now_ms(void)
+static void arex_ascent_rate_reset(void)
 {
-#ifdef PC_SIMULATOR
-    return lv_tick_get();
-#else
-    return rt_tick_get_millisecond();
-#endif
-}
-
-static void arex_depth_rate_reset(void)
-{
-    memset(_ui_depth_rate_window, 0, sizeof(_ui_depth_rate_window));
-    memset(_alarm_depth_rate_window, 0, sizeof(_alarm_depth_rate_window));
-    _ui_depth_rate_count = 0;
-    _ui_depth_rate_head = 0;
-    _alarm_depth_rate_count = 0;
-    _alarm_depth_rate_head = 0;
     _ascent_alarm_over_limit_count = 0;
-    _ui_rate_filtered_mpm = 0.0f;
-}
-
-static void arex_depth_rate_push_sample(arex_depth_sample_t *window,
-                                        uint8_t window_size,
-                                        uint8_t *head,
-                                        uint8_t *count,
-                                        uint32_t now_ms,
-                                        float depth_m)
-{
-    window[*head].timestamp_ms = now_ms;
-    window[*head].depth_m = depth_m;
-    *head = (uint8_t)((*head + 1U) % window_size);
-
-    if (*count < window_size)
-    {
-        (*count)++;
-    }
-}
-
-static float arex_depth_rate_estimate_mpm(const arex_depth_sample_t *window,
-        uint8_t window_size,
-        uint8_t count,
-        uint8_t head)
-{
-    if (count < 3U)
-    {
-        return 0.0f;
-    }
-
-    float sum_t = 0.0f;
-    float sum_d = 0.0f;
-    float sum_tt = 0.0f;
-    float sum_td = 0.0f;
-    uint8_t oldest = (uint8_t)((head + window_size - count) % window_size);
-    uint32_t base_ms = window[oldest].timestamp_ms;
-
-    for (uint8_t i = 0; i < count; i++)
-    {
-        uint8_t idx = (uint8_t)((oldest + i) % window_size);
-        float t_min = ((float)(window[idx].timestamp_ms - base_ms)) / 60000.0f;
-        float depth_m = window[idx].depth_m;
-
-        sum_t += t_min;
-        sum_d += depth_m;
-        sum_tt += t_min * t_min;
-        sum_td += t_min * depth_m;
-    }
-
-    float n = (float)count;
-    float denominator = n * sum_tt - sum_t * sum_t;
-    if (fabsf(denominator) < 1e-6f)
-    {
-        return 0.0f;
-    }
-
-    return (n * sum_td - sum_t * sum_d) / denominator;
-}
-
-static float arex_depth_rate_estimate_latest_mpm(const arex_depth_sample_t *window,
-        uint8_t window_size,
-        uint8_t count,
-        uint8_t head)
-{
-    if (count < 2U)
-    {
-        return 0.0f;
-    }
-
-    uint8_t newest = (uint8_t)((head + window_size - 1U) % window_size);
-    uint8_t prev = (uint8_t)((head + window_size - 2U) % window_size);
-    uint32_t dt_ms = window[newest].timestamp_ms - window[prev].timestamp_ms;
-    if (dt_ms == 0U)
-    {
-        return 0.0f;
-    }
-
-    return (window[newest].depth_m - window[prev].depth_m) * 60000.0f / (float)dt_ms;
 }
 
 static float arex_alarm_active_ppo2(void)
@@ -329,7 +220,7 @@ static void arex_alarm_eval_safety_stop_info(void)
 void arex_data_init(void)
 {
     memset(&g_sensor_data, 0, sizeof(g_sensor_data));
-    arex_depth_rate_reset();
+    arex_ascent_rate_reset();
     arex_alarm_init();
     _depth_sum = 0.0f;
     _depth_sample_count = 0;
@@ -378,82 +269,6 @@ void arex_bus_raise_alarm(arex_alarm_level_t level,
 
 void arex_bus_set_depth(float depth_m)
 {
-    uint32_t now_ms = arex_depth_now_ms();
-    float prev_ui_rate = g_sensor_data.ascent_rate;
-    bool prev_is_moving = fabsf(prev_ui_rate) >= RATE_STILL_THRESHOLD;
-    float ui_depth_rate_mpm;
-    float alarm_depth_rate_mpm;
-
-    arex_depth_rate_push_sample(_ui_depth_rate_window,
-                                AREX_DEPTH_UI_RATE_WINDOW_SIZE,
-                                &_ui_depth_rate_head,
-                                &_ui_depth_rate_count,
-                                now_ms,
-                                depth_m);
-    arex_depth_rate_push_sample(_alarm_depth_rate_window,
-                                AREX_DEPTH_ALARM_RATE_WINDOW_SIZE,
-                                &_alarm_depth_rate_head,
-                                &_alarm_depth_rate_count,
-                                now_ms,
-                                depth_m);
-
-    ui_depth_rate_mpm = arex_depth_rate_estimate_latest_mpm(_ui_depth_rate_window,
-                        AREX_DEPTH_UI_RATE_WINDOW_SIZE,
-                        _ui_depth_rate_count,
-                        _ui_depth_rate_head);
-    alarm_depth_rate_mpm = arex_depth_rate_estimate_mpm(_alarm_depth_rate_window,
-                           AREX_DEPTH_ALARM_RATE_WINDOW_SIZE,
-                           _alarm_depth_rate_count,
-                           _alarm_depth_rate_head);
-
-    /* UI 通道更关注连续观感：短窗口 + 轻量平滑 */
-    {
-        float ui_rate_target_mpm = -ui_depth_rate_mpm;  /* 正=上升，负=下潜 */
-        float ui_rate_mpm;
-        bool current_is_moving;
-
-        _ui_rate_filtered_mpm += AREX_ASCENT_RATE_UI_SMOOTH_ALPHA *
-                                 (ui_rate_target_mpm - _ui_rate_filtered_mpm);
-        ui_rate_mpm = _ui_rate_filtered_mpm;
-
-        if (fabsf(ui_rate_mpm) < AREX_ASCENT_RATE_UI_EPSILON)
-        {
-            ui_rate_mpm = 0.0f;
-            _ui_rate_filtered_mpm = 0.0f;
-        }
-
-        g_sensor_data.ascent_rate = ui_rate_mpm;
-        current_is_moving = fabsf(ui_rate_mpm) >= RATE_STILL_THRESHOLD;
-
-        if ((fabsf(ui_rate_mpm - prev_ui_rate) >= AREX_ASCENT_RATE_UI_EPSILON) ||
-                (current_is_moving != prev_is_moving))
-        {
-            g_sensor_data.dirty_mask |= DIRTY_DEPTH;
-        }
-    }
-
-    /* 告警通道更关注误报控制：长窗口 + 迟滞 + 持续判定 */
-    if (alarm_depth_rate_mpm <= -AREX_ASCENT_ALARM_THRESHOLD_MPM)
-    {
-        if (_ascent_alarm_over_limit_count < 0xFFU)
-        {
-            _ascent_alarm_over_limit_count++;
-        }
-    }
-    else if (alarm_depth_rate_mpm > -AREX_ASCENT_ALARM_RELEASE_MPM)
-    {
-        _ascent_alarm_over_limit_count = 0;
-    }
-
-    if (_ascent_alarm_over_limit_count >= AREX_ASCENT_ALARM_HOLD_SAMPLES)
-    {
-        arex_alarm_set_active(AREX_ALARM_ID_CRIT_ASCENT_RATE, true);
-    }
-    else if (alarm_depth_rate_mpm > -AREX_ASCENT_ALARM_RELEASE_MPM)
-    {
-        arex_alarm_set_active(AREX_ALARM_ID_CRIT_ASCENT_RATE, false);
-    }
-
     /* 深度数值显示继续保留轻量防抖，避免数字末位来回跳 */
     if (fabsf(g_sensor_data.depth - depth_m) > AREX_DEPTH_DISPLAY_DEBOUNCE_M)
     {
@@ -475,6 +290,50 @@ void arex_bus_set_depth(float depth_m)
         arex_alarm_eval_deco_limits();
         arex_alarm_eval_gas_switch();
     }
+}
+
+void arex_bus_set_ascent_rate(float rate_mpm)
+{
+    float prev_rate = g_sensor_data.ascent_rate;
+    bool prev_is_moving = fabsf(prev_rate) >= RATE_STILL_THRESHOLD;
+    bool current_is_moving;
+
+    if (fabsf(rate_mpm) < AREX_ASCENT_RATE_UI_EPSILON)
+    {
+        rate_mpm = 0.0f;
+    }
+
+    current_is_moving = fabsf(rate_mpm) >= RATE_STILL_THRESHOLD;
+
+    if ((fabsf(rate_mpm - prev_rate) >= AREX_ASCENT_RATE_UI_EPSILON) ||
+            (current_is_moving != prev_is_moving))
+    {
+        g_sensor_data.ascent_rate = rate_mpm;
+        g_sensor_data.dirty_mask |= DIRTY_ASCENT;
+    }
+
+    if (rate_mpm >= AREX_ASCENT_ALARM_THRESHOLD_MPM)
+    {
+        if (_ascent_alarm_over_limit_count < 0xFFU)
+        {
+            _ascent_alarm_over_limit_count++;
+        }
+    }
+    else if (rate_mpm < AREX_ASCENT_ALARM_RELEASE_MPM)
+    {
+        _ascent_alarm_over_limit_count = 0;
+    }
+
+    if (_ascent_alarm_over_limit_count >= AREX_ASCENT_ALARM_HOLD_SAMPLES)
+    {
+        arex_alarm_set_active(AREX_ALARM_ID_CRIT_ASCENT_RATE, true);
+    }
+    else if (rate_mpm < AREX_ASCENT_ALARM_RELEASE_MPM)
+    {
+        arex_alarm_set_active(AREX_ALARM_ID_CRIT_ASCENT_RATE, false);
+    }
+
+    arex_alarm_eval_gas_switch();
 }
 
 void arex_bus_set_ndl(int16_t ndl_min)

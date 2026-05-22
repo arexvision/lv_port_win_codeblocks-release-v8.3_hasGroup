@@ -199,6 +199,8 @@ static void arex_sim_update_deco_state(void)
 
 static void sim_tick_cb(lv_timer_t *t)
 {
+    float prev_depth_m;
+
     (void)t;
 
     if (arex_debug_link_pc_manual_mode()) {
@@ -218,10 +220,12 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.surface_time_s++;
     arex_bus_set_surface_time(s_sim.surface_time_s);
 
+    prev_depth_m = s_sim.depth_m;
     arex_sim_update_depth_script();
     arex_sim_update_deco_state();
     arex_dive_log_append((float)s_sim.dive_time_s, s_sim.depth_m);
     arex_bus_set_depth(s_sim.depth_m);
+    arex_bus_set_ascent_rate((prev_depth_m - s_sim.depth_m) * 60.0f);
 
     if (s_sim.depth_m > 12.0f) {
         arex_deco_stop_t sim_stops[] = {

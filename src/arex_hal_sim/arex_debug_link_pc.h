@@ -426,7 +426,7 @@ static void arex_debug_send_help(void)
         "AREX TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | manual on|off | auto on|off\r\n"
-        "  depth <m> | sample <time_s> <depth_m> | time <s> | surface <s>\r\n"
+        "  depth <m> | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
         "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
         "  heading <deg> | ppo2 <slot> <bar> | gf <low> <high> | gf99 <pct> | surf_gf <pct>\r\n"
@@ -439,11 +439,12 @@ static void arex_debug_send_help(void)
 static void arex_debug_send_state(void)
 {
     arex_debug_sendf(
-        "STATE tcp=%u sim_pause=%u manual=%u depth=%.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u\r\n",
+        "STATE tcp=%u sim_pause=%u manual=%u depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
         (double)g_sensor_data.depth,
+        (double)g_sensor_data.ascent_rate,
         (unsigned long)g_sensor_data.dive_time_s,
         (unsigned)g_sensor_data.gas_active_idx,
         g_sensor_data.gas_name,
@@ -507,6 +508,10 @@ static void arex_debug_exec_line(char *line)
             return;
         }
         s_debug_link.manual_mode = enabled;
+        if (enabled)
+        {
+            arex_bus_set_ascent_rate(0.0f);
+        }
         arex_debug_sendf("OK manual %s\r\n", enabled ? "on" : "off");
         return;
     }
@@ -554,6 +559,19 @@ static void arex_debug_exec_line(char *line)
         arex_bus_set_depth(depth);
         s_debug_link.sample_time_s = (uint32_t)time_s;
         arex_debug_sendf("OK sample %d %.1f\r\n", time_s, (double)depth);
+        return;
+    }
+
+    if (arex_debug_streq(cmd, "rate") || arex_debug_streq(cmd, "ascent"))
+    {
+        float rate_mpm;
+        if (!arex_debug_parse_float(arex_debug_next_token(&cursor), &rate_mpm))
+        {
+            arex_debug_send_raw("ERR usage: rate <m_min>\r\n");
+            return;
+        }
+        arex_bus_set_ascent_rate(rate_mpm);
+        arex_debug_sendf("OK rate %+.1f\r\n", (double)g_sensor_data.ascent_rate);
         return;
     }
 
@@ -974,9 +992,10 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
             s_debug_link.client = client;
             s_debug_link.rx_len = 0;
             s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
+            arex_bus_set_ascent_rate(0.0f);
             printf("[DBG] TCP debug client connected\r\n");
             arex_debug_send_raw("AREX debug TCP ready on 127.0.0.1:7623\r\n");
-            arex_debug_send_raw("TCP client pauses the 1Hz simulator. Send a number like 12.3 to inject depth.\r\n");
+            arex_debug_send_raw("TCP client pauses the 1Hz simulator. Send depth and rate separately.\r\n");
             arex_debug_send_raw("Type help for commands.\r\n");
         }
         else if (!arex_debug_is_would_block(arex_debug_last_error()))

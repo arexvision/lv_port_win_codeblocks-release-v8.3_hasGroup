@@ -22,6 +22,11 @@ arex_bus_set_depth()
   -> g_sensor_data.depth + DIRTY_DEPTH
   -> arex_ui_update_task()
   -> arex_ui_update_router_dispatch(DIRTY_DEPTH)
+
+arex_bus_set_ascent_rate()
+  -> g_sensor_data.ascent_rate + DIRTY_ASCENT
+  -> arex_ui_update_task()
+  -> arex_ui_update_router_dispatch(DIRTY_ASCENT)
 ```
 
 ## 修改入口

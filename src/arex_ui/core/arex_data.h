@@ -91,6 +91,7 @@ void arex_data_init(void);
 
 /* --- 传感器数据写入接口 --- */
 void arex_bus_set_depth(float depth_m);               /* 防抖阈值 0.05m */
+void arex_bus_set_ascent_rate(float rate_mpm);        /* 正=上升，负=下潜，0=停止 */
 void arex_bus_set_tts(uint16_t tts_min);
 void arex_bus_set_pod(uint8_t pod_idx, float bar);   /* pod_idx: 0=pod1, 1=pod2 */
 void arex_bus_set_battery(float pct);

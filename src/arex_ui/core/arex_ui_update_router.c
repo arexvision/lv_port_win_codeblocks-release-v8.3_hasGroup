@@ -57,7 +57,7 @@ static void arex_ui_update_router_ascent_heartbeat(void)
 
     if (fabsf(g_sensor_data.ascent_rate) >= RATE_STILL_THRESHOLD)
     {
-        g_sensor_data.dirty_mask |= DIRTY_DEPTH;
+        g_sensor_data.dirty_mask |= DIRTY_ASCENT;
     }
 }
 
@@ -102,10 +102,13 @@ void arex_ui_update_router_dispatch(uint32_t mask)
         return;
     }
 
-    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES))
+    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES | DIRTY_ASCENT))
     {
         arex_screen_refresh_all_widgets();
-        card_deco_update();
+        if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES))
+        {
+            card_deco_update();
+        }
         comp_refresh_ascent_icons(g_sensor_data.ascent_rate);
     }
 
@@ -196,7 +199,7 @@ void arex_ui_update_router_dispatch(uint32_t mask)
     if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_NDL_STOP | DIRTY_TTS |
                 DIRTY_DIVE_TIME | DIRTY_GAS | DIRTY_TEMP | DIRTY_BATT |
                 DIRTY_POD | DIRTY_PPO2 | DIRTY_CNS | DIRTY_OTU |
-                DIRTY_TISSUES | DIRTY_GF_SETTING | DIRTY_MOD |
+                DIRTY_TISSUES | DIRTY_ASCENT | DIRTY_GF_SETTING | DIRTY_MOD |
                 DIRTY_CEILING | DIRTY_GAS_MIX | DIRTY_GAS_DENS |
                 DIRTY_FIO2))
     {
