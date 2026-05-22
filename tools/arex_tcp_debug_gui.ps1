@@ -1,242 +1,322 @@
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
+$source = @'
+using System;
+using System.Drawing;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 
-[System.Windows.Forms.Application]::EnableVisualStyles()
+public sealed class ArexTcpDebugForm : Form
+{
+    private readonly TextBox hostBox = new TextBox();
+    private readonly TextBox portBox = new TextBox();
+    private readonly Button connectButton = new Button();
+    private readonly Button disconnectButton = new Button();
+    private readonly Label statusLabel = new Label();
+    private readonly TextBox logBox = new TextBox();
+    private readonly TextBox inputBox = new TextBox();
+    private readonly Button sendButton = new Button();
 
-$script:Client = $null
-$script:Stream = $null
-$script:RxBuffer = New-Object byte[] 4096
+    private TcpClient client;
+    private NetworkStream stream;
+    private CancellationTokenSource receiveCancel;
 
-function Append-Log {
-    param([string]$Text)
+    public ArexTcpDebugForm()
+    {
+        Text = "AREX TCP Debug";
+        StartPosition = FormStartPosition.CenterScreen;
+        MinimumSize = new Size(640, 400);
+        Size = new Size(780, 520);
 
-    $logBox.AppendText($Text)
-    $logBox.SelectionStart = $logBox.TextLength
-    $logBox.ScrollToCaret()
-}
+        Panel topPanel = new Panel();
+        topPanel.Dock = DockStyle.Top;
+        topPanel.Height = 42;
+        topPanel.Padding = new Padding(8, 8, 8, 4);
+        Controls.Add(topPanel);
 
-function Set-Connected {
-    param([bool]$Connected)
+        Label hostLabel = new Label();
+        hostLabel.Text = "Host";
+        hostLabel.Location = new Point(8, 12);
+        hostLabel.AutoSize = true;
+        topPanel.Controls.Add(hostLabel);
 
-    $connectButton.Enabled = -not $Connected
-    $disconnectButton.Enabled = $Connected
-    $sendButton.Enabled = $Connected
-    $statusLabel.Text = if ($Connected) { "Connected" } else { "Disconnected" }
-}
+        hostBox.Text = "127.0.0.1";
+        hostBox.Location = new Point(48, 8);
+        hostBox.Width = 140;
+        topPanel.Controls.Add(hostBox);
 
-function Disconnect-Tcp {
-    if ($script:Stream -ne $null) {
-        try { $script:Stream.Close() } catch {}
-        $script:Stream = $null
-    }
+        Label portLabel = new Label();
+        portLabel.Text = "Port";
+        portLabel.Location = new Point(200, 12);
+        portLabel.AutoSize = true;
+        topPanel.Controls.Add(portLabel);
 
-    if ($script:Client -ne $null) {
-        try { $script:Client.Close() } catch {}
-        $script:Client = $null
-    }
+        portBox.Text = "7623";
+        portBox.Location = new Point(238, 8);
+        portBox.Width = 62;
+        topPanel.Controls.Add(portBox);
 
-    Set-Connected $false
-}
+        connectButton.Text = "Connect";
+        connectButton.Location = new Point(314, 7);
+        connectButton.Width = 86;
+        connectButton.Click += async delegate { await ConnectTcpAsync(); };
+        topPanel.Controls.Add(connectButton);
 
-function Connect-Tcp {
-    if ($script:Client -ne $null) {
-        return
-    }
+        disconnectButton.Text = "Disconnect";
+        disconnectButton.Location = new Point(408, 7);
+        disconnectButton.Width = 96;
+        disconnectButton.Enabled = false;
+        disconnectButton.Click += delegate { DisconnectTcp(); };
+        topPanel.Controls.Add(disconnectButton);
 
-    $hostText = $hostBox.Text.Trim()
-    $port = 0
-    if (-not [int]::TryParse($portBox.Text.Trim(), [ref]$port)) {
-        [System.Windows.Forms.MessageBox]::Show("Port must be a number.", "Bad port") | Out-Null
-        return
-    }
+        statusLabel.Text = "Disconnected";
+        statusLabel.Location = new Point(520, 12);
+        statusLabel.AutoSize = true;
+        topPanel.Controls.Add(statusLabel);
 
-    try {
-        $client = New-Object System.Net.Sockets.TcpClient
-        $connect = $client.BeginConnect($hostText, $port, $null, $null)
-        if (-not $connect.AsyncWaitHandle.WaitOne(3000)) {
-            $client.Close()
-            throw "Connect timeout"
+        Panel sendPanel = new Panel();
+        sendPanel.Dock = DockStyle.Bottom;
+        sendPanel.Height = 42;
+        sendPanel.Padding = new Padding(8, 4, 8, 8);
+        Controls.Add(sendPanel);
+
+        sendButton.Text = "Send";
+        sendButton.Dock = DockStyle.Right;
+        sendButton.Width = 86;
+        sendButton.Enabled = false;
+        sendButton.Click += async delegate { await SendLineAsync(inputBox.Text); };
+        sendPanel.Controls.Add(sendButton);
+
+        inputBox.Text = "state";
+        inputBox.Dock = DockStyle.Fill;
+        inputBox.KeyDown += async delegate(object sender, KeyEventArgs e) {
+            if (e.KeyCode == Keys.Enter)
+            {
+                e.SuppressKeyPress = true;
+                await SendLineAsync(inputBox.Text);
+            }
+        };
+        sendPanel.Controls.Add(inputBox);
+
+        Panel quickPanel = new Panel();
+        quickPanel.Dock = DockStyle.Bottom;
+        quickPanel.Height = 38;
+        quickPanel.Padding = new Padding(8, 2, 8, 4);
+        Controls.Add(quickPanel);
+
+        int quickX = 8;
+        string[] commands = new string[] { "help", "state", "12.3", "depth 0", "manual on", "auto on" };
+        foreach (string command in commands)
+        {
+            Button button = new Button();
+            button.Text = command;
+            button.Tag = command;
+            button.Location = new Point(quickX, 4);
+            button.Width = 86;
+            button.Click += async delegate(object sender, EventArgs e) {
+                string text = (string)((Button)sender).Tag;
+                inputBox.Text = text;
+                await SendLineAsync(text);
+            };
+            quickPanel.Controls.Add(button);
+            quickX += 92;
         }
 
-        $client.EndConnect($connect)
-        $script:Client = $client
-        $script:Stream = $client.GetStream()
-        Set-Connected $true
-        Append-Log "[APP] Connected to ${hostText}:${port}`r`n"
-    } catch {
-        Disconnect-Tcp
-        Append-Log "[APP] Connect failed: $($_.Exception.Message)`r`n"
-        Append-Log "[APP] Please rebuild/start the simulator first, then connect again.`r`n"
-    }
-}
-
-function Send-Line {
-    param([string]$Text)
-
-    if ($script:Stream -eq $null) {
-        Append-Log "[APP] Not connected.`r`n"
-        return
+        logBox.Dock = DockStyle.Fill;
+        logBox.Multiline = true;
+        logBox.ScrollBars = ScrollBars.Vertical;
+        logBox.ReadOnly = true;
+        logBox.WordWrap = false;
+        logBox.Font = new Font("Consolas", 10);
+        Controls.Add(logBox);
     }
 
-    if ([string]::IsNullOrWhiteSpace($Text)) {
-        return
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        DisconnectTcp();
+        base.OnFormClosing(e);
     }
 
-    if (-not $Text.EndsWith("`n") -and -not $Text.EndsWith("`r")) {
-        $Text = "$Text`r`n"
-    }
+    private async Task ConnectTcpAsync()
+    {
+        if (client != null)
+        {
+            return;
+        }
 
-    try {
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
-        $script:Stream.Write($bytes, 0, $bytes.Length)
-        Append-Log "> $Text"
-    } catch {
-        Append-Log "[APP] Send failed: $($_.Exception.Message)`r`n"
-        Disconnect-Tcp
-    }
-}
+        int port;
+        if (!int.TryParse(portBox.Text.Trim(), out port))
+        {
+            MessageBox.Show("Port must be a number.", "Bad port");
+            return;
+        }
 
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "AREX TCP Debug"
-$form.StartPosition = "CenterScreen"
-$form.MinimumSize = New-Object System.Drawing.Size(640, 400)
-$form.Size = New-Object System.Drawing.Size(780, 520)
+        string host = hostBox.Text.Trim();
+        TcpClient pending = new TcpClient();
 
-$topPanel = New-Object System.Windows.Forms.Panel
-$topPanel.Dock = "Top"
-$topPanel.Height = 42
-$topPanel.Padding = New-Object System.Windows.Forms.Padding(8, 8, 8, 4)
-$form.Controls.Add($topPanel)
-
-$hostLabel = New-Object System.Windows.Forms.Label
-$hostLabel.Text = "Host"
-$hostLabel.Location = New-Object System.Drawing.Point(8, 12)
-$hostLabel.AutoSize = $true
-$topPanel.Controls.Add($hostLabel)
-
-$hostBox = New-Object System.Windows.Forms.TextBox
-$hostBox.Text = "127.0.0.1"
-$hostBox.Location = New-Object System.Drawing.Point(48, 8)
-$hostBox.Width = 140
-$topPanel.Controls.Add($hostBox)
-
-$portLabel = New-Object System.Windows.Forms.Label
-$portLabel.Text = "Port"
-$portLabel.Location = New-Object System.Drawing.Point(200, 12)
-$portLabel.AutoSize = $true
-$topPanel.Controls.Add($portLabel)
-
-$portBox = New-Object System.Windows.Forms.TextBox
-$portBox.Text = "7623"
-$portBox.Location = New-Object System.Drawing.Point(238, 8)
-$portBox.Width = 62
-$topPanel.Controls.Add($portBox)
-
-$connectButton = New-Object System.Windows.Forms.Button
-$connectButton.Text = "Connect"
-$connectButton.Location = New-Object System.Drawing.Point(314, 7)
-$connectButton.Width = 86
-$connectButton.Add_Click({ Connect-Tcp })
-$topPanel.Controls.Add($connectButton)
-
-$disconnectButton = New-Object System.Windows.Forms.Button
-$disconnectButton.Text = "Disconnect"
-$disconnectButton.Location = New-Object System.Drawing.Point(408, 7)
-$disconnectButton.Width = 96
-$disconnectButton.Enabled = $false
-$disconnectButton.Add_Click({ Disconnect-Tcp })
-$topPanel.Controls.Add($disconnectButton)
-
-$statusLabel = New-Object System.Windows.Forms.Label
-$statusLabel.Text = "Disconnected"
-$statusLabel.Location = New-Object System.Drawing.Point(520, 12)
-$statusLabel.AutoSize = $true
-$topPanel.Controls.Add($statusLabel)
-
-$sendPanel = New-Object System.Windows.Forms.Panel
-$sendPanel.Dock = "Bottom"
-$sendPanel.Height = 42
-$sendPanel.Padding = New-Object System.Windows.Forms.Padding(8, 4, 8, 8)
-$form.Controls.Add($sendPanel)
-
-$sendButton = New-Object System.Windows.Forms.Button
-$sendButton.Text = "Send"
-$sendButton.Dock = "Right"
-$sendButton.Width = 86
-$sendButton.Enabled = $false
-$sendButton.Add_Click({ Send-Line $inputBox.Text })
-$sendPanel.Controls.Add($sendButton)
-
-$inputBox = New-Object System.Windows.Forms.TextBox
-$inputBox.Text = "state"
-$inputBox.Dock = "Fill"
-$inputBox.Add_KeyDown({
-    if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Enter) {
-        Send-Line $inputBox.Text
-        $_.SuppressKeyPress = $true
-    }
-})
-$sendPanel.Controls.Add($inputBox)
-
-$quickPanel = New-Object System.Windows.Forms.Panel
-$quickPanel.Dock = "Bottom"
-$quickPanel.Height = 38
-$quickPanel.Padding = New-Object System.Windows.Forms.Padding(8, 2, 8, 4)
-$form.Controls.Add($quickPanel)
-
-$quickX = 8
-foreach ($command in @("help", "state", "12.3", "depth 0", "manual on", "auto on")) {
-    $button = New-Object System.Windows.Forms.Button
-    $button.Text = $command
-    $button.Tag = $command
-    $button.Location = New-Object System.Drawing.Point($quickX, 4)
-    $button.Width = 86
-    $button.Add_Click({
-        $inputBox.Text = [string]$this.Tag
-        Send-Line $inputBox.Text
-    })
-    $quickPanel.Controls.Add($button)
-    $quickX += 92
-}
-
-$logBox = New-Object System.Windows.Forms.TextBox
-$logBox.Dock = "Fill"
-$logBox.Multiline = $true
-$logBox.ScrollBars = "Vertical"
-$logBox.ReadOnly = $true
-$logBox.WordWrap = $false
-$logBox.Font = New-Object System.Drawing.Font("Consolas", 10)
-$form.Controls.Add($logBox)
-
-$timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 50
-$timer.Add_Tick({
-    if ($script:Stream -eq $null -or $script:Client -eq $null) {
-        return
-    }
-
-    try {
-        while ($script:Stream.DataAvailable) {
-            $count = $script:Stream.Read($script:RxBuffer, 0, $script:RxBuffer.Length)
-            if ($count -le 0) {
-                Append-Log "[APP] Remote closed connection.`r`n"
-                Disconnect-Tcp
-                return
+        try
+        {
+            Task connectTask = pending.ConnectAsync(host, port);
+            Task timeoutTask = Task.Delay(3000);
+            Task finished = await Task.WhenAny(connectTask, timeoutTask);
+            if (finished != connectTask)
+            {
+                pending.Close();
+                throw new TimeoutException("Connect timeout");
             }
 
-            $text = [System.Text.Encoding]::UTF8.GetString($script:RxBuffer, 0, $count)
-            Append-Log $text
+            await connectTask;
+
+            client = pending;
+            stream = client.GetStream();
+            receiveCancel = new CancellationTokenSource();
+            SetConnected(true);
+            AppendLog("[APP] Connected to " + host + ":" + port.ToString() + "\r\n");
+            Task readTask = ReceiveLoopAsync(receiveCancel.Token);
         }
-    } catch {
-        Append-Log "[APP] Receive failed: $($_.Exception.Message)`r`n"
-        Disconnect-Tcp
+        catch (Exception ex)
+        {
+            pending.Close();
+            DisconnectTcp();
+            AppendLog("[APP] Connect failed: " + ex.Message + "\r\n");
+            AppendLog("[APP] Please rebuild/start the simulator first, then connect again.\r\n");
+        }
     }
-})
-$timer.Start()
 
-$form.Add_FormClosing({
-    $timer.Stop()
-    Disconnect-Tcp
-})
+    private async Task ReceiveLoopAsync(CancellationToken token)
+    {
+        byte[] buffer = new byte[4096];
 
-[void]$form.ShowDialog()
+        try
+        {
+            while (!token.IsCancellationRequested && stream != null)
+            {
+                int count = await stream.ReadAsync(buffer, 0, buffer.Length, token);
+                if (count <= 0)
+                {
+                    AppendLog("[APP] Remote closed connection.\r\n");
+                    break;
+                }
+
+                string text = Encoding.UTF8.GetString(buffer, 0, count);
+                AppendLog(text);
+            }
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (!token.IsCancellationRequested)
+            {
+                AppendLog("[APP] Receive failed: " + ex.Message + "\r\n");
+            }
+        }
+
+        if (!token.IsCancellationRequested)
+        {
+            BeginInvoke((Action)delegate { DisconnectTcp(); });
+        }
+    }
+
+    private async Task SendLineAsync(string text)
+    {
+        if (stream == null)
+        {
+            AppendLog("[APP] Not connected.\r\n");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        if (!text.EndsWith("\n") && !text.EndsWith("\r"))
+        {
+            text += "\r\n";
+        }
+
+        try
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(text);
+            await stream.WriteAsync(bytes, 0, bytes.Length);
+            AppendLog("> " + text);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("[APP] Send failed: " + ex.Message + "\r\n");
+            DisconnectTcp();
+        }
+    }
+
+    private void DisconnectTcp()
+    {
+        if (receiveCancel != null)
+        {
+            receiveCancel.Cancel();
+            receiveCancel.Dispose();
+            receiveCancel = null;
+        }
+
+        if (stream != null)
+        {
+            stream.Close();
+            stream = null;
+        }
+
+        if (client != null)
+        {
+            client.Close();
+            client = null;
+        }
+
+        SetConnected(false);
+    }
+
+    private void SetConnected(bool connected)
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)(() => SetConnected(connected)));
+            return;
+        }
+
+        connectButton.Enabled = !connected;
+        disconnectButton.Enabled = connected;
+        sendButton.Enabled = connected;
+        statusLabel.Text = connected ? "Connected" : "Disconnected";
+    }
+
+    private void AppendLog(string text)
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke((Action)(() => AppendLog(text)));
+            return;
+        }
+
+        logBox.AppendText(text);
+        logBox.SelectionStart = logBox.TextLength;
+        logBox.ScrollToCaret();
+    }
+}
+
+public static class ArexTcpDebugLauncher
+{
+    [STAThread]
+    public static void Main()
+    {
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        Application.Run(new ArexTcpDebugForm());
+    }
+}
+'@
+
+Add-Type -TypeDefinition $source -ReferencedAssemblies System.Windows.Forms,System.Drawing,System.dll
+
+if ($env:AREX_TCP_DEBUG_COMPILE_ONLY -ne "1") {
+    [ArexTcpDebugLauncher]::Main()
+}
