@@ -32,17 +32,22 @@ static int16_t clamp_ndl_for_display(int minutes_to_deco)
 
 static uint8_t ndl_bar_pct_for_display(const DiveInfo &dive_info)
 {
-    if (dive_info.minutesToDeco <= 99) {
-        int pct = (dive_info.minutesToDeco * 100) / 99;
-        if (pct < 0) pct = 0;
-        if (pct > 100) pct = 100;
-        return (uint8_t)pct;
+    if (dive_info.minutesToDeco <= 0) {
+        return 0U;
     }
 
-    float loading_pct = dive_info.gf99;
-    if (loading_pct < 0.0f) loading_pct = 0.0f;
-    if (loading_pct > 100.0f) loading_pct = 100.0f;
-    return (uint8_t)(100.0f - loading_pct + 0.5f);
+    float gf_high_pct = s_buhlmann.getGFHigh() * 100.0f;
+    if (gf_high_pct <= 0.0f) {
+        gf_high_pct = 100.0f;
+    }
+
+    float surf_gf = dive_info.surfGF;
+    if (surf_gf < 0.0f) surf_gf = 0.0f;
+
+    float remaining_pct = 100.0f - ((surf_gf * 100.0f) / gf_high_pct);
+    if (remaining_pct > 100.0f) remaining_pct = 100.0f;
+    if (remaining_pct < 0.0f) remaining_pct = 0.0f;
+    return (uint8_t)(remaining_pct + 0.5f);
 }
 
 static void format_gas_name(const Gas &gas, char *name_buf, size_t name_buf_size)
