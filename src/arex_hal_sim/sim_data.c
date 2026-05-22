@@ -2,6 +2,7 @@
 
 #include "../arex_ui/alarm/alarm.h"
 #include "../arex_ui/core/data.h"
+#include "../arex_algo_sim/buhlmann_debug.h"
 #ifndef PC_SIMULATOR
 #define PC_SIMULATOR
 #endif
@@ -11,6 +12,8 @@
 
 #include <stdbool.h>
 #include <string.h>
+
+#define AREX_USE_BUHLMANN_DEBUG_ALGO 1
 
 static lv_timer_t *s_sim_timer;
 static lv_timer_t *s_l1_alarm_timer;
@@ -239,7 +242,9 @@ static void sim_tick_cb(lv_timer_t *t)
         arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
     } else {
         arex_sim_update_depth_script();
+#if !AREX_USE_BUHLMANN_DEBUG_ALGO
         arex_sim_update_deco_state();
+#endif
         current_depth_m = s_sim.depth_m;
         arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
         arex_bus_set_depth(current_depth_m);
@@ -253,10 +258,21 @@ static void sim_tick_cb(lv_timer_t *t)
     }
     s_sim.rate_sample_depth_m = current_depth_m;
 
-    if (debug_manual_depth) {
-        return;
-    }
+    s_sim.battery_pct += 1.2f;
+    arex_bus_set_battery(s_sim.battery_pct);
 
+    s_sim.temp_offset += 1.0f;
+    if (s_sim.temp_offset > 5.0f) {
+        s_sim.temp_offset = -5.0f;
+    }
+    s_sim.temperature_c = 25.0f + s_sim.temp_offset;
+    arex_bus_set_temperature(s_sim.temperature_c);
+    arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
+    arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+
+#if AREX_USE_BUHLMANN_DEBUG_ALGO
+    buhlmann_debug_tick(current_depth_m, s_sim.temperature_c, 1U);
+#else
     if (current_depth_m > 12.0f) {
         arex_deco_stop_t sim_stops[] = {
             { .depth_m = 9.0f, .stay_min = 2.0f },
@@ -281,24 +297,17 @@ static void sim_tick_cb(lv_timer_t *t)
         arex_bus_set_ppo2(i, arex_sim_calc_ppo2(g_sensor_data.gas_slot_o2_pct[i], current_depth_m));
     }
 
-    s_sim.battery_pct += 1.2f;
-    arex_bus_set_battery(s_sim.battery_pct);
-
-    s_sim.temp_offset += 1.0f;
-    if (s_sim.temp_offset > 5.0f) {
-        s_sim.temp_offset = -5.0f;
-    }
-    s_sim.temperature_c = 25.0f + s_sim.temp_offset;
-    arex_bus_set_temperature(s_sim.temperature_c);
-    arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
-    arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
-
     {
         static const uint8_t s_tissue[16] = {
             20, 30, 40, 50, 60, 65, 70, 72,
             74, 76, 78, 80, 82, 85, 88, 90
         };
         arex_bus_set_tissues(s_tissue);
+    }
+#endif
+
+    if (debug_manual_depth) {
+        return;
     }
 }
 
@@ -332,6 +341,7 @@ void arex_sim_data_start(void)
     arex_bus_set_fio2(21.0f);
 
     arex_debug_link_pc_start();
+    buhlmann_debug_init();
 
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
 

@@ -18,10 +18,12 @@
 					<Add directory="." />
 					<Add directory="lvgl" />
 					<Add directory="src" />
+					<Add directory="src/arex_algo_sim" />
 				</Compiler>
 				<Linker>
 					<Add option="-mwindows -mconsole" />
 					<Add library="mingw32" />
+					<Add library="stdc++" />
 				</Linker>
 			</Target>
 			<Target title="Release">
@@ -34,12 +36,14 @@
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
+					<Add library="stdc++" />
 				</Linker>
 			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
 			<Add directory="." />
+			<Add directory="src/arex_algo_sim" />
 		</Compiler>
 		<Unit filename="lv_100ask_demo_course_3_1_1.c">
 			<Option compilerVar="CC" />
@@ -1791,6 +1795,13 @@
 		</Unit>
 		<Unit filename="src/ui_main.h" />
 		<Unit filename="src/arex_hal_sim/debug_link_pc.h" />
+		<Unit filename="src/arex_algo_sim/Buhlmann.cpp" />
+		<Unit filename="src/arex_algo_sim/Buhlmann.h" />
+		<Unit filename="src/arex_algo_sim/README.md" />
+		<Unit filename="src/arex_algo_sim/buhlmann_debug.cpp" />
+		<Unit filename="src/arex_algo_sim/buhlmann_debug.h" />
+		<Unit filename="src/arex_algo_sim/rtdevice.h" />
+		<Unit filename="src/arex_algo_sim/rtthread.h" />
 		<Unit filename="src/arex_hal_sim/input_pc.c">
 			<Option compilerVar="CC" />
 		</Unit>
