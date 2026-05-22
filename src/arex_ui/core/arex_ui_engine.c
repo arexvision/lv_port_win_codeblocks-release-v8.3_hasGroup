@@ -6,9 +6,9 @@
 #include "arex_data.h"
 #include "../alarm/arex_alarm.h"
 #include "../screen/arex_layout_view.h"
-#include "../widgets/arex_widget_style.h"
-#include "../widgets/arex_widget_update.h"
-#include "../widgets/arex_widget_view.h"
+#include "../comp/arex_comp_style.h"
+#include "../comp/arex_comp_update.h"
+#include "../comp/arex_comp_view.h"
 #include "arex_ui_update_router.h"
 #include <stdio.h>
 #include <string.h>

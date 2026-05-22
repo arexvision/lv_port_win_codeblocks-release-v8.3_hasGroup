@@ -8,7 +8,7 @@
 src/arex_ui/
 ├─ core/      数据总线、全局状态、UI 状态机、刷新路由、业务回调
 ├─ screen/    屏幕门面、布局计算、卡片注册表
-├─ widgets/   可复用组件工厂、组件刷新、组件样式
+├─ comp/      可复用组件工厂、组件刷新、组件样式
 ├─ views/     弹窗与子菜单抽屉/模型
 ├─ alarm/     告警事件引擎与告警视图
 ├─ cards/     右侧业务卡片
@@ -20,27 +20,27 @@ src/arex_ui/
 
 ```mermaid
 flowchart TD
-    UI["UI_main.c<br/>AREX UI 入口"] --> Engine["arex_ui_engine.c/h<br/>全局配置与主循环"]
+    UI["ui_main.c<br/>AREX UI 入口"] --> Engine["arex_ui_engine.c/h<br/>全局配置与主循环"]
     Engine --> Data["arex_data.c/h<br/>数据总线写入 API"]
     Engine --> State["arex_ui_state.c/h<br/>输入与 UI 状态机"]
     Engine --> UpdateRouter["arex_ui_update_router.c/h<br/>dirty mask 刷新分发"]
     Engine --> Screen["arex_screen.c/h<br/>屏幕框架与公共门面"]
 
     Screen --> Layout["arex_layout_view.c/h<br/>布局计算与网格渲染"]
-    Screen --> WidgetView["arex_widget_view.c/h<br/>组件工厂"]
+    Screen --> WidgetView["arex_comp_view.c/h<br/>组件工厂"]
     Screen --> Modal["arex_modal_view.c/h<br/>弹窗视图"]
     Screen --> SubmenuView["arex_submenu_view.c/h<br/>子菜单抽屉视图"]
     SubmenuView --> SubmenuModel["arex_submenu_model.c/h<br/>子菜单数据表"]
 
-    UpdateRouter --> WidgetUpdate["arex_widget_update.c/h<br/>组件数据刷新"]
+    UpdateRouter --> WidgetUpdate["arex_comp_update.c/h<br/>组件数据刷新"]
     UpdateRouter --> AlarmView["arex_alarm_view.c/h<br/>告警横幅与靶向闪烁"]
     Data --> AlarmEngine["arex_alarm.c/h<br/>告警事件引擎"]
     AlarmView --> AlarmEngine
 
     Screen --> Registry["arex_card_registry.c/h<br/>卡片注册表"]
     Registry --> Cards["cards/card_*.c<br/>右侧业务卡片"]
-    WidgetView --> Style["arex_widget_style.c/h<br/>组件样式应用"]
-    Style --> StyleTypes["arex_widget_style_types.h<br/>样式枚举与配置结构"]
+    WidgetView --> Style["arex_comp_style.c/h<br/>组件样式应用"]
+    Style --> StyleTypes["arex_comp_style_types.h<br/>样式枚举与配置结构"]
 ```
 
 ## 启动与刷新链路
@@ -51,7 +51,7 @@ flowchart LR
     Bus --> Sensor["g_sensor_data<br/>dirty_mask"]
     Sensor --> Tick["arex_ui_update_task"]
     Tick --> Router["arex_ui_update_router_dispatch(mask)"]
-    Router --> Widgets["arex_widget_update<br/>更新左侧与 5F 组件"]
+    Router --> Widgets["arex_comp_update<br/>更新左侧与 5F 组件"]
     Router --> Cards["card_*_update<br/>更新右侧卡片"]
     Router --> AlarmView["arex_alarm_view_tick<br/>告警横幅和靶向闪烁"]
     Router --> ScreenRebuild["arex_screen_rebuild_*<br/>布局或卡片重建"]
@@ -71,8 +71,8 @@ flowchart TB
     Screen --> Brightness["软件亮度遮罩"]
 
     Left --> LayoutGrid["arex_layout_view<br/>2x7 / 5F 网格定位"]
-    LayoutGrid --> WidgetFactory["arex_widget_view<br/>组件创建"]
-    WidgetFactory --> WidgetStyle["arex_widget_style<br/>样式应用"]
+    LayoutGrid --> WidgetFactory["arex_comp_view<br/>组件创建"]
+    WidgetFactory --> WidgetStyle["arex_comp_style<br/>样式应用"]
 
     Right --> Registry["arex_card_registry<br/>卡片顺序与 tile_obj"]
     Registry --> Info["card_info"]
@@ -152,13 +152,13 @@ flowchart TD
 | `screen/arex_screen.c` | 根屏、safe zone、左右容器、tileview、wall、dots、亮度遮罩、公共刷新入口。 |
 | `screen/arex_layout_view.h` | 布局计算与网格渲染函数声明。 |
 | `screen/arex_layout_view.c` | safe zone 计算、左右布局计算、2x7 固定区、5F 自定义网格定位与渲染调度。 |
-| `widgets/arex_widget_view.h` | 组件工厂与组件运行态句柄声明。 |
-| `widgets/arex_widget_view.c` | `render_widget_by_id()`，创建 DEPTH、NDL、POD、SYS、GAS 等可复用 widget。 |
-| `widgets/arex_widget_update.h` | widget 数据刷新 API 声明。 |
-| `widgets/arex_widget_update.c` | 根据 widget id 同步 `g_sensor_data` 到屏幕组件，处理文本/数值更新。 |
-| `widgets/arex_widget_style_types.h` | widget 样式枚举、布局元数据、样式配置结构。 |
-| `widgets/arex_widget_style.h` | widget 样式应用 API 声明。 |
-| `widgets/arex_widget_style.c` | 应用边框、字体、颜色、背景等组件样式。 |
+| `comp/arex_comp_view.h` | 组件工厂与组件运行态句柄声明。 |
+| `comp/arex_comp_view.c` | `render_widget_by_id()`，创建 DEPTH、NDL、POD、SYS、GAS 等可复用 widget。 |
+| `comp/arex_comp_update.h` | widget 数据刷新 API 声明。 |
+| `comp/arex_comp_update.c` | 根据 widget id 同步 `g_sensor_data` 到屏幕组件，处理文本/数值更新。 |
+| `comp/arex_comp_style_types.h` | widget 样式枚举、布局元数据、样式配置结构。 |
+| `comp/arex_comp_style.h` | widget 样式应用 API 声明。 |
+| `comp/arex_comp_style.c` | 应用边框、字体、颜色、背景等组件样式。 |
 
 ### 子菜单与弹窗
 
@@ -218,7 +218,7 @@ flowchart LR
     B --> C["3. arex_ui_update_router.c<br/>看 dirty mask 怎么刷新"]
     C --> D["4. arex_screen.c<br/>看屏幕框架"]
     D --> E["5. arex_layout_view.c<br/>看布局计算"]
-    E --> F["6. arex_widget_view/update<br/>看组件创建与刷新"]
+    E --> F["6. arex_comp_view/update<br/>看组件创建与刷新"]
     D --> G["7. arex_submenu_view/model<br/>看菜单抽屉"]
     C --> H["8. arex_alarm.c/view<br/>看告警引擎与视觉"]
     D --> I["9. cards/card_*.c<br/>看右侧具体页面"]
@@ -230,8 +230,8 @@ flowchart LR
 |---|---|
 | 新增传感器字段或数据写入 | `core/arex_ui_engine.h`、`core/arex_data.c/h` |
 | 新增 dirty 刷新策略 | `core/arex_ui_update_router.c` |
-| 新增固定区或 5F 组件 | `widgets/arex_widget_view.c`、`widgets/arex_widget_update.c`、`screen/arex_layout_view.c` |
-| 调整组件外观 | `widgets/arex_widget_style.c`、`widgets/arex_widget_style_types.h` |
+| 新增固定区或 5F 组件 | `comp/arex_comp_view.c`、`comp/arex_comp_update.c`、`screen/arex_layout_view.c` |
+| 调整组件外观 | `comp/arex_comp_style.c`、`comp/arex_comp_style_types.h` |
 | 新增右侧页面 | `cards/card_*.c`、`screen/arex_card_registry.c/h` |
 | 修改子菜单文案或层级 | `views/arex_submenu_model.c` |
 | 修改子菜单动画或选中态 | `views/arex_submenu_view.c` |

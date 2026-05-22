@@ -1,7 +1,7 @@
 #ifndef AREX_DATA_H
 #define AREX_DATA_H
 
-#include "UI_Main.h"
+#include "ui_main.h"
 /* =========================================================
  * 平台兼容层 — 必须在所有 include 之前
  *

@@ -9,7 +9,7 @@ extern "C" {
 #define PC_SIMULATOR  //移植硬件后需要注释
 
 /**
- * @file UI_main.h
+ * @file ui_main.h
  * @brief AREX UI entry point & simulation HAL
  *
  * Hardware layer entry point. Called once from WinMain() after lv_init() + HAL init.

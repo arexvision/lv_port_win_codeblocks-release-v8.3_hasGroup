@@ -1786,10 +1786,10 @@
 		<Unit filename="my_.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/UI_main.c">
+		<Unit filename="src/ui_main.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/UI_main.h" />
+		<Unit filename="src/ui_main.h" />
 		<Unit filename="src/arex_hal_sim/arex_debug_link_pc.h" />
 		<Unit filename="src/arex_hal_sim/arex_input_pc.c">
 			<Option compilerVar="CC" />
@@ -1980,19 +1980,19 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/views/arex_submenu_view.h" />
-		<Unit filename="src/arex_ui/widgets/arex_widget_style.c">
+		<Unit filename="src/arex_ui/comp/arex_comp_style.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/widgets/arex_widget_style.h" />
-		<Unit filename="src/arex_ui/widgets/arex_widget_style_types.h" />
-		<Unit filename="src/arex_ui/widgets/arex_widget_update.c">
+		<Unit filename="src/arex_ui/comp/arex_comp_style.h" />
+		<Unit filename="src/arex_ui/comp/arex_comp_style_types.h" />
+		<Unit filename="src/arex_ui/comp/arex_comp_update.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/widgets/arex_widget_update.h" />
-		<Unit filename="src/arex_ui/widgets/arex_widget_view.c">
+		<Unit filename="src/arex_ui/comp/arex_comp_update.h" />
+		<Unit filename="src/arex_ui/comp/arex_comp_view.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/widgets/arex_widget_view.h" />
+		<Unit filename="src/arex_ui/comp/arex_comp_view.h" />
 		<Unit filename="src/header.py" />
 		<Unit filename="src/lv_100ask_teach_demos.h" />
 		<Extensions>

@@ -4,7 +4,7 @@
 #include "arex_hal_sim/arex_input_pc.h"
 #include "arex_hal_sim/arex_sim_data.h"
 #include "lvgl/lvgl.h"
-#include "UI_main.h"
+#include "ui_main.h"
 
 static lv_timer_t *s_update_task_timer;  /* 50ms UI 消费定时器 */
 

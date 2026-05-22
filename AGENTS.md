@@ -33,7 +33,7 @@ Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative,
 
 `WinMain()` in `main.c` →
 1. `lv_init()` + `lv_win32_init()` — LVGL + Windows GDI driver (640×480)
-2. `UI_main()` in `src/UI_main.c` — AREX UI entry point:
+2. `UI_main()` in `src/ui_main.c` — AREX UI entry point:
    - `arex_ui_init()` — loads default config, zeroes sensor data
    - `arex_screen_create()` — builds the full LVGL widget tree
    - `arex_input_init()` — registers keyboard/encoder callbacks
@@ -52,7 +52,7 @@ Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative,
 | `screen/arex_screen.h/c` | LVGL screen tree, public screen facade, scroll, walls, edit flows |
 | `screen/arex_layout_view.h/c` | Safe-zone, fixed-anchor, menu, and 5F grid layout rendering |
 | `screen/arex_card_registry.h/c` | Card lookup, registry, display/storage position mapping |
-| `widgets/arex_widget_*.h/c` | Reusable widget creation, update, and style application |
+| `comp/arex_comp_*.h/c` | Reusable widget creation, update, and style application |
 | `views/arex_modal_view.h/c`, `views/arex_submenu_*.h/c` | Overlay dialogs and submenu drawer/model |
 | `alarm/arex_alarm*.h/c` | Alarm event engine and alarm visual layer |
 | `cards/card_*.c` | 7 card implementations (compass, deco, gas, plan, info, setup, blank) |

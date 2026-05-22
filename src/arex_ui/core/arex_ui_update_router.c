@@ -7,8 +7,8 @@
 #include "../screen/arex_screen.h"
 #include "arex_ui_engine.h"
 #include "arex_ui_state.h"
-#include "../widgets/arex_widget_update.h"
-#include "../widgets/arex_widget_view.h"
+#include "../comp/arex_comp_update.h"
+#include "../comp/arex_comp_view.h"
 #include "../cards/card_compass.h"
 
 #include <math.h>

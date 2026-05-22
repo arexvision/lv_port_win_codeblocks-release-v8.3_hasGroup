@@ -1,7 +1,7 @@
 #include "../core/arex_ui_engine.h"
 #include "arex_layout_view.h"
-#include "../widgets/arex_widget_style.h"
-#include "../widgets/arex_widget_view.h"
+#include "../comp/arex_comp_style.h"
+#include "../comp/arex_comp_view.h"
 
 #include <stdio.h>
 

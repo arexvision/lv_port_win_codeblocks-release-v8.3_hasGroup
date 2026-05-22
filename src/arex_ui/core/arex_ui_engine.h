@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "../screen/arex_card_registry.h"
-#include "UI_main.h"
+#include "ui_main.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -504,7 +504,7 @@ extern arex_sensor_data_t g_sensor_data;
  * ========================================================= */
 
 /* =========================================================
- * 6b. 潜水轨迹与减压停留（供 card_plan.c 和 UI_main.c 共享）
+ * 6b. 潜水轨迹与减压停留（供 card_plan.c 和 ui_main.c 共享）
  * ========================================================= */
 typedef struct
 {
@@ -638,7 +638,7 @@ bool arex_alarm_mark_clear_requested(void);
 /* 内部：根据 widget_id 获取显示名称 */
 const char *comp_get_name(comp_id_t id);
 
-#include "../widgets/arex_widget_style_types.h"
+#include "../comp/arex_comp_style_types.h"
 
 /* 5F 网格组件配置已迁移到 g_sys_config.custom_cards[] */
 
