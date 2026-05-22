@@ -284,14 +284,59 @@ static void sim_tick_cb(lv_timer_t *t)
     if (!arex_debug_link_pc_manual_mode()) {
         return;
     }
-#else
+
+    {
+        uint16_t time_scale = arex_debug_link_pc_time_scale();
+        for (uint16_t tick = 0; tick < time_scale; tick++) {
+            if (s_sim.dive_time_s < g_sensor_data.dive_time_s) {
+                s_sim.dive_time_s = g_sensor_data.dive_time_s;
+            }
+            if (s_sim.surface_time_s < g_sensor_data.surface_time_s) {
+                s_sim.surface_time_s = g_sensor_data.surface_time_s;
+            }
+
+            s_sim.dive_time_s++;
+            arex_bus_set_dive_time(s_sim.dive_time_s);
+
+            s_sim.surface_time_s++;
+            arex_bus_set_surface_time(s_sim.surface_time_s);
+
+            current_depth_m = g_sensor_data.depth;
+            s_sim.depth_m = current_depth_m;
+            arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
+
+            if (s_sim.rate_sample_valid) {
+                arex_bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
+            } else {
+                arex_bus_set_ascent_rate(0.0f);
+                s_sim.rate_sample_valid = true;
+            }
+            s_sim.rate_sample_depth_m = current_depth_m;
+
+            s_sim.battery_pct += 1.2f;
+            arex_bus_set_battery(s_sim.battery_pct);
+
+            s_sim.temp_offset += 1.0f;
+            if (s_sim.temp_offset > 5.0f) {
+                s_sim.temp_offset = -5.0f;
+            }
+            s_sim.temperature_c = 25.0f + s_sim.temp_offset;
+            arex_bus_set_temperature(s_sim.temperature_c);
+            arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
+            arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+
+            buhlmann_debug_tick(current_depth_m, s_sim.temperature_c, 1U);
+        }
+    }
+    return;
+#endif
+
     s_sim.layout_tick++;
     // arex_test_set_ui_layout(s_sim.layout_phase);
     s_sim.layout_phase = (uint8_t)(1U - s_sim.layout_phase);
 
     s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
     arex_bus_set_heading(s_sim.heading_deg);
-#endif
 
     if (s_sim.dive_time_s < g_sensor_data.dive_time_s) {
         s_sim.dive_time_s = g_sensor_data.dive_time_s;
@@ -306,17 +351,11 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.surface_time_s++;
     arex_bus_set_surface_time(s_sim.surface_time_s);
 
-#if AREX_TCP_ALGO_DEBUG
-    current_depth_m = g_sensor_data.depth;
-    s_sim.depth_m = current_depth_m;
-    arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
-#else
     arex_sim_update_depth_script();
     arex_sim_update_deco_state();
     current_depth_m = s_sim.depth_m;
     arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
     arex_bus_set_depth(current_depth_m);
-#endif
 
     if (s_sim.rate_sample_valid) {
         arex_bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
@@ -338,9 +377,6 @@ static void sim_tick_cb(lv_timer_t *t)
     arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
     arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
 
-#if AREX_TCP_ALGO_DEBUG
-    buhlmann_debug_tick(current_depth_m, s_sim.temperature_c, 1U);
-#else
     if (current_depth_m > 12.0f) {
         arex_deco_stop_t sim_stops[] = {
             { .depth_m = 9.0f, .stay_min = 2.0f },
@@ -372,7 +408,6 @@ static void sim_tick_cb(lv_timer_t *t)
         };
         arex_bus_set_tissues(s_tissue);
     }
-#endif
 }
 
 static void sim_l1_alarm_timer_cb(lv_timer_t *t)

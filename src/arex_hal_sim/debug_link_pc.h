@@ -2,6 +2,7 @@
 #define AREX_DEBUG_LINK_PC_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -10,6 +11,7 @@ extern "C" {
 void arex_debug_link_pc_start(void);
 bool arex_debug_link_pc_manual_mode(void);
 bool arex_debug_link_pc_consume_connect_event(void);
+uint16_t arex_debug_link_pc_time_scale(void);
 
 #ifdef __cplusplus
 }
@@ -28,6 +30,7 @@ bool arex_debug_link_pc_consume_connect_event(void);
 #include "../arex_ui/alarm/alarm.h"
 #include "../arex_ui/core/data.h"
 #include "../arex_ui/core/ui_engine.h"
+#include "../arex_ui/core/ui_state.h"
 #include "lvgl/lvgl.h"
 
 #include <ctype.h>
@@ -65,6 +68,7 @@ typedef struct
     lv_timer_t *timer;
     char rx_buf[AREX_DEBUG_RX_BUF_SIZE];
     uint16_t rx_len;
+    uint16_t time_scale;
     uint32_t sample_time_s;
 
     arex_wsa_startup_fn WSAStartup_;
@@ -84,6 +88,7 @@ static arex_debug_link_pc_t s_debug_link =
 {
     .listener = INVALID_SOCKET,
     .client = INVALID_SOCKET,
+    .time_scale = 1,
 };
 
 static uint16_t arex_debug_swap16(uint16_t value)
@@ -421,7 +426,7 @@ static void arex_debug_send_help(void)
     arex_debug_send_raw(
         "AREX TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
-        "  help | state | manual on|off | auto on|off\r\n"
+        "  help | state | back | manual on|off | auto on|off | speed <1..120>\r\n"
         "  depth <m> | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
         "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
@@ -435,10 +440,11 @@ static void arex_debug_send_help(void)
 static void arex_debug_send_state(void)
 {
     arex_debug_sendf(
-        "STATE tcp=%u depth_manual=%u manual=%u depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u\r\n",
+        "STATE tcp=%u depth_manual=%u manual=%u speed=%u depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
+        (unsigned)arex_debug_link_pc_time_scale(),
         (double)g_sensor_data.depth,
         (double)g_sensor_data.ascent_rate,
         (unsigned long)g_sensor_data.dive_time_s,
@@ -491,6 +497,27 @@ static void arex_debug_exec_line(char *line)
     if (arex_debug_streq(cmd, "state"))
     {
         arex_debug_send_state();
+        return;
+    }
+
+    if (arex_debug_streq(cmd, "back") || arex_debug_streq(cmd, "esc"))
+    {
+        ui_handle_back();
+        arex_debug_send_raw("OK back\r\n");
+        return;
+    }
+
+    if (arex_debug_streq(cmd, "speed") || arex_debug_streq(cmd, "scale"))
+    {
+        int speed;
+        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &speed) ||
+                speed < 1 || speed > 120)
+        {
+            arex_debug_send_raw("ERR usage: speed <1..120>\r\n");
+            return;
+        }
+        s_debug_link.time_scale = (uint16_t)speed;
+        arex_debug_sendf("OK speed %u\r\n", (unsigned)s_debug_link.time_scale);
         return;
     }
 
@@ -988,6 +1015,7 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
             s_debug_link.client = client;
             s_debug_link.rx_len = 0;
             s_debug_link.connect_event = true;
+            s_debug_link.time_scale = 1;
             s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
             arex_bus_set_ascent_rate(0.0f);
             printf("[DBG] TCP debug client connected\r\n");
@@ -1104,6 +1132,11 @@ bool arex_debug_link_pc_consume_connect_event(void)
     return event;
 }
 
+uint16_t arex_debug_link_pc_time_scale(void)
+{
+    return s_debug_link.time_scale > 0U ? s_debug_link.time_scale : 1U;
+}
+
 #else
 
 void arex_debug_link_pc_start(void)
@@ -1118,6 +1151,11 @@ bool arex_debug_link_pc_manual_mode(void)
 bool arex_debug_link_pc_consume_connect_event(void)
 {
     return false;
+}
+
+uint16_t arex_debug_link_pc_time_scale(void)
+{
+    return 1U;
 }
 
 #endif /* PC_SIMULATOR && _WIN32 */
