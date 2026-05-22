@@ -231,7 +231,7 @@ void buhlmann_debug_init(void)
     s_buhlmann.setActiveGas(0);
     s_buhlmann.setOxygenRateInGas(0.21f);
     s_buhlmann.setNitrogenRateInGas(0.79f);
-    s_buhlmann.setFinalStopDepth(6.0f);
+    s_buhlmann.setFinalStopDepth(DECO_DEFAULT_FINAL_STOP_METERS);
 
     DiveResult *initial_result = s_buhlmann.initializeCompartments();
     s_buhlmann.startDive(initial_result, 0U);

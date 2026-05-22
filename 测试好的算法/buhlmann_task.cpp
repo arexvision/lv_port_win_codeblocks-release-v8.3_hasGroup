@@ -131,7 +131,7 @@ void buhlmann_task_init(void)
     buhlmann.setActiveGas(0);
     buhlmann.setOxygenRateInGas(0.21f);
     buhlmann.setNitrogenRateInGas(0.79f);
-    buhlmann.setFinalStopDepth(6.0f);
+    buhlmann.setFinalStopDepth(DECO_DEFAULT_FINAL_STOP_METERS);
 
     // 初始化共享数据
     memset(&sharedDiveInfo, 0, sizeof(DiveInfo));
