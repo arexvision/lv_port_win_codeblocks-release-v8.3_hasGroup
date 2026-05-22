@@ -349,6 +349,8 @@ static void arex_debug_format_gas_name(char *out, size_t out_size, int o2, int h
     }
 }
 
+static void arex_debug_exec_line(char *line);
+
 static void arex_debug_apply_depth_sample(float depth)
 {
     uint32_t next_time_s;
@@ -371,33 +373,50 @@ static void arex_debug_apply_depth_sample(float depth)
     arex_bus_set_depth(depth);
 }
 
-static bool arex_debug_try_direct_numeric_rx(const char *data, int len)
+static bool arex_debug_try_packet_line_rx(const char *data, int len)
 {
     char text[AREX_DEBUG_RX_BUF_SIZE];
     char *trimmed;
-    float depth;
+    uint16_t text_len = 0U;
 
-    if (!data || len <= 0 || s_debug_link.rx_len != 0 ||
-            len >= (int)sizeof(text))
+    if (!data || len <= 0)
     {
         return false;
     }
 
-    memcpy(text, data, (size_t)len);
-    text[len] = '\0';
+    for (int i = 0; i < len; i++)
+    {
+        if (data[i] == '\r' || data[i] == '\n')
+        {
+            return false;
+        }
+    }
+
+    if ((uint32_t)s_debug_link.rx_len + (uint32_t)len >= sizeof(text))
+    {
+        s_debug_link.rx_len = 0;
+        arex_debug_send_raw("ERR line too long\r\n");
+        return true;
+    }
+
+    if (s_debug_link.rx_len > 0U)
+    {
+        memcpy(text, s_debug_link.rx_buf, s_debug_link.rx_len);
+        text_len = s_debug_link.rx_len;
+        s_debug_link.rx_len = 0;
+    }
+
+    memcpy(&text[text_len], data, (size_t)len);
+    text_len = (uint16_t)(text_len + (uint16_t)len);
+    text[text_len] = '\0';
+
     trimmed = arex_debug_trim(text);
     if (!trimmed || trimmed[0] == '\0')
     {
-        return false;
+        return true;
     }
 
-    if (!arex_debug_parse_float(trimmed, &depth))
-    {
-        return false;
-    }
-
-    arex_debug_apply_depth_sample(depth);
-    arex_debug_sendf("OK depth %.1f\r\n", (double)g_sensor_data.depth);
+    arex_debug_exec_line(trimmed);
     return true;
 }
 
@@ -973,7 +992,7 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
         int n = s_debug_link.recv_(s_debug_link.client, buf, sizeof(buf), 0);
         if (n > 0)
         {
-            if (arex_debug_try_direct_numeric_rx(buf, n))
+            if (arex_debug_try_packet_line_rx(buf, n))
             {
                 continue;
             }
