@@ -167,11 +167,7 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
     }
     else if (g_sensor_data.stop_type == STOP_SAFETY)
     {
-        if (!g_sensor_data.in_stop_zone)
-        {
-            pct = (float)g_sensor_data.ndl / 99.0f;
-        }
-        else if (g_sensor_data.stop_time_total_s > 0)
+        if (g_sensor_data.stop_time_total_s > 0)
         {
             pct = (float)g_sensor_data.stop_time_left_s / g_sensor_data.stop_time_total_s;
         }

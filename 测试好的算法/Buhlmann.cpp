@@ -2360,6 +2360,7 @@ void Buhlmann::generateDecoSequence(float currentPressure, float currentDepth) {
 
         if (stopTimeSec > 0) {
             _decoSequence.stops[_decoSequence.stopCount].depth = currentStopDepth;
+            _decoSequence.stops[_decoSequence.stopCount].totalTime = stopTimeSec;
             _decoSequence.stops[_decoSequence.stopCount].remainingTime = stopTimeSec;
             _decoSequence.stops[_decoSequence.stopCount].isCompleted = false;
             _decoSequence.stops[_decoSequence.stopCount].targetGF = nextStopGF;

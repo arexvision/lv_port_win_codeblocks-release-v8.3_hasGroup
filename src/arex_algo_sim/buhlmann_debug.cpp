@@ -32,22 +32,10 @@ static int16_t clamp_ndl_for_display(int minutes_to_deco)
 
 static uint8_t ndl_bar_pct_for_display(const DiveInfo &dive_info)
 {
-    if (dive_info.minutesToDeco <= 0) {
-        return 0U;
-    }
-
-    float gf_high_pct = s_buhlmann.getGFHigh() * 100.0f;
-    if (gf_high_pct <= 0.0f) {
-        gf_high_pct = 100.0f;
-    }
-
-    float surf_gf = dive_info.surfGF;
-    if (surf_gf < 0.0f) surf_gf = 0.0f;
-
-    float remaining_pct = 100.0f - ((surf_gf * 100.0f) / gf_high_pct);
-    if (remaining_pct > 100.0f) remaining_pct = 100.0f;
-    if (remaining_pct < 0.0f) remaining_pct = 0.0f;
-    return (uint8_t)(remaining_pct + 0.5f);
+    int ndl = dive_info.minutesToDeco;
+    if (ndl < 0) ndl = 0;
+    if (ndl > 99) ndl = 99;
+    return (uint8_t)((ndl * 100) / 99);
 }
 
 static void format_gas_name(const Gas &gas, char *name_buf, size_t name_buf_size)
@@ -125,6 +113,10 @@ static void sync_core_data(const DiveInfo &dive_info, float depth_m)
 
 static void sync_stop_data(const DiveInfo &dive_info)
 {
+    static bool s_deco_bar_active = false;
+    static float s_deco_bar_depth_m = 0.0f;
+    static uint16_t s_deco_bar_total_s = 0U;
+
     arex_stop_type_t stop_type = STOP_NONE;
     if (dive_info.stopType == BUHLMANN_STOP_SAFETY) {
         stop_type = STOP_SAFETY;
@@ -133,12 +125,37 @@ static void sync_stop_data(const DiveInfo &dive_info)
     }
 
     int16_t ndl_display_min = (stop_type == STOP_DECO) ? 0 : clamp_ndl_for_display(dive_info.minutesToDeco);
+    uint16_t stop_total_s = clamp_u16_non_negative(dive_info.stopTimeTotalSeconds);
+    uint16_t stop_left_s = clamp_u16_non_negative(dive_info.stopTimeRemainingSeconds);
+
+    if (stop_type == STOP_DECO) {
+        if (!dive_info.inStopZone) {
+            s_deco_bar_active = false;
+            s_deco_bar_total_s = stop_left_s;
+            s_deco_bar_depth_m = dive_info.stopDepthMeters;
+            stop_total_s = stop_left_s;
+        } else if (!s_deco_bar_active || fabsf(s_deco_bar_depth_m - dive_info.stopDepthMeters) > 0.1f) {
+            s_deco_bar_active = true;
+            s_deco_bar_depth_m = dive_info.stopDepthMeters;
+            s_deco_bar_total_s = (stop_left_s > 0U) ? stop_left_s : 1U;
+            stop_total_s = s_deco_bar_total_s;
+        } else {
+            if (stop_left_s > s_deco_bar_total_s) {
+                s_deco_bar_total_s = stop_left_s;
+            }
+            stop_total_s = s_deco_bar_total_s;
+        }
+    } else {
+        s_deco_bar_active = false;
+        s_deco_bar_total_s = 0U;
+        s_deco_bar_depth_m = 0.0f;
+    }
 
     arex_bus_update_deco(ndl_display_min,
                          stop_type,
                          dive_info.stopDepthMeters,
-                         clamp_u16_non_negative(dive_info.stopTimeTotalSeconds),
-                         clamp_u16_non_negative(dive_info.stopTimeRemainingSeconds),
+                         stop_total_s,
+                         stop_left_s,
                          dive_info.inStopZone);
     if (stop_type == STOP_NONE) {
         arex_bus_set_ndl_bar_pct(ndl_bar_pct_for_display(dive_info));

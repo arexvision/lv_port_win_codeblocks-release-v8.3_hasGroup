@@ -520,6 +520,10 @@ static int16_t clamp_ndl_for_display(int minutes_to_deco)
 // 同步停留状态：Safety/Deco 都由 Buhlmann 算法层计算，任务层只做 UI 映射。
 static void sync_arex_stop_data(const DiveInfo &diveInfo)
 {
+    static bool deco_bar_active = false;
+    static float deco_bar_depth_m = 0.0f;
+    static uint16_t deco_bar_total_s = 0;
+
     int16_t ndl_val = clamp_ndl_for_display(diveInfo.minutesToDeco);
     arex_stop_type_t stop_type = AREX_STOP_NONE;
     if (diveInfo.stopType == BUHLMANN_STOP_SAFETY) {
@@ -531,6 +535,29 @@ static void sync_arex_stop_data(const DiveInfo &diveInfo)
     int16_t ndl_display_min = (stop_type == AREX_STOP_DECO) ? 0 : ndl_val;
     uint16_t stop_time_total_s = clamp_u16_non_negative(diveInfo.stopTimeTotalSeconds);
     uint16_t stop_time_left_s = clamp_u16_non_negative(diveInfo.stopTimeRemainingSeconds);
+
+    if (stop_type == AREX_STOP_DECO) {
+        if (!diveInfo.inStopZone) {
+            deco_bar_active = false;
+            deco_bar_total_s = stop_time_left_s;
+            deco_bar_depth_m = diveInfo.stopDepthMeters;
+            stop_time_total_s = stop_time_left_s;
+        } else if (!deco_bar_active || fabsf(deco_bar_depth_m - diveInfo.stopDepthMeters) > 0.1f) {
+            deco_bar_active = true;
+            deco_bar_depth_m = diveInfo.stopDepthMeters;
+            deco_bar_total_s = (stop_time_left_s > 0) ? stop_time_left_s : 1;
+            stop_time_total_s = deco_bar_total_s;
+        } else {
+            if (stop_time_left_s > deco_bar_total_s) {
+                deco_bar_total_s = stop_time_left_s;
+            }
+            stop_time_total_s = deco_bar_total_s;
+        }
+    } else {
+        deco_bar_active = false;
+        deco_bar_total_s = 0;
+        deco_bar_depth_m = 0.0f;
+    }
 
     arex_bus_update_deco(ndl_display_min,
                          stop_type,
