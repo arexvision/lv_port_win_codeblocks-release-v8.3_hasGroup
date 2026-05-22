@@ -1790,12 +1790,23 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/UI_main.h" />
+		<Unit filename="src/arex_hal_sim/arex_debug_link_pc.h" />
 		<Unit filename="src/arex_hal_sim/arex_input_pc.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/arex_hal_sim/arex_input_pc.h" />
 		<Unit filename="src/arex_hal_sim/arex_sim_data.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/arex_hal_sim/arex_sim_data.h" />
+		<Unit filename="src/arex_ui/arex_alarm.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_alarm.h" />
+		<Unit filename="src/arex_ui/arex_alarm_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_alarm_view.h" />
 		<Unit filename="src/arex_ui/arex_card_registry.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -1809,10 +1820,26 @@
 		</Unit>
 		<Unit filename="src/arex_ui/arex_data.h" />
 		<Unit filename="src/arex_ui/arex_input.h" />
+		<Unit filename="src/arex_ui/arex_layout_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_layout_view.h" />
+		<Unit filename="src/arex_ui/arex_modal_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_modal_view.h" />
 		<Unit filename="src/arex_ui/arex_screen.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/arex_screen.h" />
+		<Unit filename="src/arex_ui/arex_submenu_model.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_submenu_model.h" />
+		<Unit filename="src/arex_ui/arex_submenu_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_submenu_view.h" />
 		<Unit filename="src/arex_ui/arex_ui_engine.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -1821,12 +1848,30 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/arex_ui_state.h" />
+		<Unit filename="src/arex_ui/arex_ui_update_router.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_ui_update_router.h" />
+		<Unit filename="src/arex_ui/arex_widget_style.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_widget_style.h" />
+		<Unit filename="src/arex_ui/arex_widget_style_types.h" />
+		<Unit filename="src/arex_ui/arex_widget_update.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_widget_update.h" />
+		<Unit filename="src/arex_ui/arex_widget_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/arex_ui/arex_widget_view.h" />
 		<Unit filename="src/arex_ui/cards/card_blank.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/arex_ui/cards/card_compass.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/arex_ui/cards/card_compass.h" />
 		<Unit filename="src/arex_ui/cards/card_deco.c">
 			<Option compilerVar="CC" />
 		</Unit>
