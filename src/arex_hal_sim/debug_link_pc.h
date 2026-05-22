@@ -353,23 +353,17 @@ static void arex_debug_exec_line(char *line);
 
 static void arex_debug_apply_depth_sample(float depth)
 {
-    uint32_t next_time_s;
+    uint32_t sample_time_s;
 
     if (depth < 0.0f)
     {
         depth = 0.0f;
     }
 
-    if (s_debug_link.sample_time_s < g_sensor_data.dive_time_s)
-    {
-        s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
-    }
+    sample_time_s = g_sensor_data.dive_time_s;
+    s_debug_link.sample_time_s = sample_time_s;
 
-    next_time_s = s_debug_link.sample_time_s + 1U;
-    s_debug_link.sample_time_s = next_time_s;
-
-    arex_bus_set_dive_time(next_time_s);
-    arex_dive_log_append((float)next_time_s, depth);
+    arex_dive_log_append((float)sample_time_s, depth);
     arex_bus_set_depth(depth);
 }
 
@@ -433,13 +427,13 @@ static void arex_debug_send_help(void)
         "  cns <pct> | otu <value> | mod <m> | ceiling <m> | mix <o2> <he> | dens <g_l> | fio2 <pct>\r\n"
         "  gas_count <n> | gas <slot> [name] | gas_slot <slot> <o2> <he> <mod> [name]\r\n"
         "  alarm <info|warn|crit> <text>\r\n"
-        "Slots are 0-based. Connecting a TCP client pauses the 1Hz simulator until disconnect.\r\n");
+        "Slots are 0-based. TCP disables the auto depth script; the 1Hz clock keeps running.\r\n");
 }
 
 static void arex_debug_send_state(void)
 {
     arex_debug_sendf(
-        "STATE tcp=%u sim_pause=%u manual=%u depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u\r\n",
+        "STATE tcp=%u depth_manual=%u manual=%u depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
@@ -995,7 +989,7 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
             arex_bus_set_ascent_rate(0.0f);
             printf("[DBG] TCP debug client connected\r\n");
             arex_debug_send_raw("AREX debug TCP ready on 127.0.0.1:7623\r\n");
-            arex_debug_send_raw("TCP client pauses the 1Hz simulator. Send depth and rate separately.\r\n");
+            arex_debug_send_raw("TCP disables the auto depth script; time and rate sampling keep running.\r\n");
             arex_debug_send_raw("Type help for commands.\r\n");
         }
         else if (!arex_debug_is_would_block(arex_debug_last_error()))

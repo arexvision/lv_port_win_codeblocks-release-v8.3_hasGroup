@@ -9,6 +9,7 @@
 #include "debug_link_pc.h"
 #include "lvgl/lvgl.h"
 
+#include <stdbool.h>
 #include <string.h>
 
 static lv_timer_t *s_sim_timer;
@@ -30,6 +31,8 @@ typedef struct
     uint8_t layout_phase;
     uint16_t phase_tick;
     uint8_t depth_phase;
+    float rate_sample_depth_m;
+    bool rate_sample_valid;
 } arex_sim_state_t;
 
 static arex_sim_state_t s_sim = {
@@ -47,6 +50,8 @@ static arex_sim_state_t s_sim = {
     .layout_phase = 0,
     .phase_tick = 0,
     .depth_phase = 0,
+    .rate_sample_depth_m = 0.0f,
+    .rate_sample_valid = false,
 };
 
 static float arex_sim_calc_ppo2(uint8_t o2_pct, float depth_m)
@@ -199,20 +204,28 @@ static void arex_sim_update_deco_state(void)
 
 static void sim_tick_cb(lv_timer_t *t)
 {
-    float prev_depth_m;
+    bool debug_manual_depth;
+    float current_depth_m;
 
     (void)t;
 
-    if (arex_debug_link_pc_manual_mode()) {
-        return;
+    debug_manual_depth = arex_debug_link_pc_manual_mode();
+
+    if (!debug_manual_depth) {
+        s_sim.layout_tick++;
+        // arex_test_set_ui_layout(s_sim.layout_phase);
+        s_sim.layout_phase = (uint8_t)(1U - s_sim.layout_phase);
+
+        s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
+        arex_bus_set_heading(s_sim.heading_deg);
     }
 
-    s_sim.layout_tick++;
-    // arex_test_set_ui_layout(s_sim.layout_phase);
-    s_sim.layout_phase = (uint8_t)(1U - s_sim.layout_phase);
-
-    s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
-    arex_bus_set_heading(s_sim.heading_deg);
+    if (s_sim.dive_time_s < g_sensor_data.dive_time_s) {
+        s_sim.dive_time_s = g_sensor_data.dive_time_s;
+    }
+    if (s_sim.surface_time_s < g_sensor_data.surface_time_s) {
+        s_sim.surface_time_s = g_sensor_data.surface_time_s;
+    }
 
     s_sim.dive_time_s++;
     arex_bus_set_dive_time(s_sim.dive_time_s);
@@ -220,14 +233,31 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.surface_time_s++;
     arex_bus_set_surface_time(s_sim.surface_time_s);
 
-    prev_depth_m = s_sim.depth_m;
-    arex_sim_update_depth_script();
-    arex_sim_update_deco_state();
-    arex_dive_log_append((float)s_sim.dive_time_s, s_sim.depth_m);
-    arex_bus_set_depth(s_sim.depth_m);
-    arex_bus_set_ascent_rate((prev_depth_m - s_sim.depth_m) * 60.0f);
+    if (debug_manual_depth) {
+        current_depth_m = g_sensor_data.depth;
+        s_sim.depth_m = current_depth_m;
+        arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
+    } else {
+        arex_sim_update_depth_script();
+        arex_sim_update_deco_state();
+        current_depth_m = s_sim.depth_m;
+        arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
+        arex_bus_set_depth(current_depth_m);
+    }
 
-    if (s_sim.depth_m > 12.0f) {
+    if (s_sim.rate_sample_valid) {
+        arex_bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
+    } else {
+        arex_bus_set_ascent_rate(0.0f);
+        s_sim.rate_sample_valid = true;
+    }
+    s_sim.rate_sample_depth_m = current_depth_m;
+
+    if (debug_manual_depth) {
+        return;
+    }
+
+    if (current_depth_m > 12.0f) {
         arex_deco_stop_t sim_stops[] = {
             { .depth_m = 9.0f, .stay_min = 2.0f },
             { .depth_m = 6.0f, .stay_min = 3.0f },
@@ -248,7 +278,7 @@ static void sim_tick_cb(lv_timer_t *t)
     arex_bus_set_otu(s_sim.otu);
 
     for (uint8_t i = 0; i < GAS_COUNT; i++) {
-        arex_bus_set_ppo2(i, arex_sim_calc_ppo2(g_sensor_data.gas_slot_o2_pct[i], s_sim.depth_m));
+        arex_bus_set_ppo2(i, arex_sim_calc_ppo2(g_sensor_data.gas_slot_o2_pct[i], current_depth_m));
     }
 
     s_sim.battery_pct += 1.2f;
