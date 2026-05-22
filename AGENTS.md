@@ -37,18 +37,24 @@ Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative,
    - `arex_ui_init()` — loads default config, zeroes sensor data
    - `arex_screen_create()` — builds the full LVGL widget tree
    - `arex_input_init()` — registers keyboard/encoder callbacks
-   - `lv_timer_create(sim_tick_cb, 1000ms)` — 1 Hz simulation tick
+   - `lv_timer_create(arex_ui_update_task, 50ms)` — dirty-mask UI consumer task
+   - `arex_sim_data_start()` — PC-only simulation data source
 3. Main loop: `lv_task_handler()` every 10ms
 
 ### Module map (`src/arex_ui/`)
 
 | File | Role |
 |------|------|
-| `arex_ui_engine.h/c` | Global state: `g_sys_config`, `g_sensor_data`; `arex_bus_set_*()` write API |
-| `arex_ui_state.h/c` | 9-state machine (DASH, INFO, SETUP, …); input routing |
-| `arex_screen.h/c` | LVGL widget tree creation, left-panel refresh, scroll, modals |
-| `arex_data.h/c` | BLE sync frame struct; sensor write API |
-| `arex_card_registry.h/c` | Card lookup, registry, `update_cb()` dispatch |
+| `core/arex_ui_engine.h/c` | Global state: `g_sys_config`, `g_sensor_data`; UI init and update task |
+| `core/arex_data.h/c` | BLE sync frame struct; `arex_bus_set_*()` write API |
+| `core/arex_ui_state.h/c` | UI state machine (DASH, INFO, SETUP, …); input routing |
+| `core/arex_ui_update_router.h/c` | Periodic UI heartbeat and dirty-mask refresh routing |
+| `screen/arex_screen.h/c` | LVGL screen tree, public screen facade, scroll, walls, edit flows |
+| `screen/arex_layout_view.h/c` | Safe-zone, fixed-anchor, menu, and 5F grid layout rendering |
+| `screen/arex_card_registry.h/c` | Card lookup, registry, display/storage position mapping |
+| `widgets/arex_widget_*.h/c` | Reusable widget creation, update, and style application |
+| `views/arex_modal_view.h/c`, `views/arex_submenu_*.h/c` | Overlay dialogs and submenu drawer/model |
+| `alarm/arex_alarm*.h/c` | Alarm event engine and alarm visual layer |
 | `cards/card_*.c` | 7 card implementations (compass, deco, gas, plan, info, setup, blank) |
 | `arex_hal_sim/arex_input_pc.h` | Keyboard/encoder input simulation for PC |
 
@@ -57,9 +63,11 @@ Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative,
 ```
 Hardware/BLE → arex_bus_set_*() → g_sensor_data (dirty_mask)
                                          ↓
-                               arex_ui_refresh_all()
+                               arex_ui_update_task()
                                          ↓
-                             card_*_update() callbacks → LVGL widgets
+                         arex_ui_update_router_dispatch()
+                                         ↓
+                   widgets / cards / alarms / layout rebuild
 ```
 
 **Rule:** never write `g_sensor_data` or `g_sys_config` directly from outside `arex_ui_engine.c`. Always use `arex_bus_set_*()`.

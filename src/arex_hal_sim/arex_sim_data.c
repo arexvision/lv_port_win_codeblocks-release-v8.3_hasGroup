@@ -1,7 +1,7 @@
 #include "arex_sim_data.h"
 
-#include "../arex_ui/arex_alarm.h"
-#include "../arex_ui/arex_data.h"
+#include "../arex_ui/alarm/arex_alarm.h"
+#include "../arex_ui/core/arex_data.h"
 #ifndef PC_SIMULATOR
 #define PC_SIMULATOR
 #endif

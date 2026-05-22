@@ -18,7 +18,7 @@ extern "C" {
 #ifdef PC_SIMULATOR
 #define SYSTEM_VERSION  "20260101.01"
 #else
-#include "../config/app_version_auto.h"
+#include "../../config/app_version_auto.h"
 #define SYSTEM_VERSION  APP_VERSION_SEMVER
 #endif
 /* =========================================================

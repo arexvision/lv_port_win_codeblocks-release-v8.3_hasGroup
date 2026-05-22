@@ -1,7 +1,7 @@
-#include "../arex_screen.h"
-#include "../arex_data.h"
-#include "../arex_ui_engine.h"
-#include "../arex_layout_view.h"
+#include "../screen/arex_screen.h"
+#include "../core/arex_data.h"
+#include "../core/arex_ui_engine.h"
+#include "../screen/arex_layout_view.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/arex_fonts.h"
 #include <float.h>
