@@ -13,7 +13,9 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define AREX_USE_BUHLMANN_DEBUG_ALGO 1
+#ifndef AREX_TCP_ALGO_DEBUG
+#define AREX_TCP_ALGO_DEBUG 1
+#endif
 
 static lv_timer_t *s_sim_timer;
 static lv_timer_t *s_l1_alarm_timer;
@@ -66,7 +68,27 @@ static float arex_sim_calc_ppo2(uint8_t o2_pct, float depth_m)
     return ((float)o2_pct / 100.0f) * ambient_bar;
 }
 
-static void arex_sim_seed_debug_defaults(void)
+static void arex_sim_seed_original_defaults(void)
+{
+    arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
+    arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
+    arex_bus_set_gas_slot(2, "O2 100%", 100, 0, 6.0f);
+    arex_bus_set_gas_slot_count(3);
+    arex_bus_set_gas(0, "AIR");
+    arex_bus_set_pod(0, 200.0f);
+    arex_bus_set_pod(1, 185.0f);
+    arex_bus_set_gf_setting(30, 70);
+    arex_bus_set_surf_gf(85.0f);
+    arex_bus_set_gf99(42.0f);
+    arex_bus_set_mod(33.0f);
+    arex_bus_set_ceiling(0.0f);
+    arex_bus_set_gas_mix(21, 0);
+    arex_bus_set_gas_density(5.2f);
+    arex_bus_set_fio2(21.0f);
+}
+
+#if AREX_TCP_ALGO_DEBUG
+static void arex_sim_seed_tcp_algo_defaults(void)
 {
     arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
     arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
@@ -102,11 +124,12 @@ static void arex_sim_reset_for_tcp_debug(void)
     arex_bus_set_temperature(s_sim.temperature_c);
     arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
     arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
-    arex_sim_seed_debug_defaults();
+    arex_sim_seed_tcp_algo_defaults();
     buhlmann_debug_reset();
 
     arex_bus_requeue_dirty(0xFFFFFFFFU);
 }
+#endif
 
 static void arex_test_set_ui_layout(uint8_t phase)
 {
@@ -249,25 +272,26 @@ static void arex_sim_update_deco_state(void)
 
 static void sim_tick_cb(lv_timer_t *t)
 {
-    bool debug_manual_depth;
     float current_depth_m;
 
     (void)t;
 
+#if AREX_TCP_ALGO_DEBUG
     if (arex_debug_link_pc_consume_connect_event()) {
         arex_sim_reset_for_tcp_debug();
     }
 
-    debug_manual_depth = arex_debug_link_pc_manual_mode();
-
-    if (!debug_manual_depth) {
-        s_sim.layout_tick++;
-        // arex_test_set_ui_layout(s_sim.layout_phase);
-        s_sim.layout_phase = (uint8_t)(1U - s_sim.layout_phase);
-
-        s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
-        arex_bus_set_heading(s_sim.heading_deg);
+    if (!arex_debug_link_pc_manual_mode()) {
+        return;
     }
+#else
+    s_sim.layout_tick++;
+    // arex_test_set_ui_layout(s_sim.layout_phase);
+    s_sim.layout_phase = (uint8_t)(1U - s_sim.layout_phase);
+
+    s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
+    arex_bus_set_heading(s_sim.heading_deg);
+#endif
 
     if (s_sim.dive_time_s < g_sensor_data.dive_time_s) {
         s_sim.dive_time_s = g_sensor_data.dive_time_s;
@@ -282,19 +306,17 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.surface_time_s++;
     arex_bus_set_surface_time(s_sim.surface_time_s);
 
-    if (debug_manual_depth) {
-        current_depth_m = g_sensor_data.depth;
-        s_sim.depth_m = current_depth_m;
-        arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
-    } else {
-        arex_sim_update_depth_script();
-#if !AREX_USE_BUHLMANN_DEBUG_ALGO
-        arex_sim_update_deco_state();
+#if AREX_TCP_ALGO_DEBUG
+    current_depth_m = g_sensor_data.depth;
+    s_sim.depth_m = current_depth_m;
+    arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
+#else
+    arex_sim_update_depth_script();
+    arex_sim_update_deco_state();
+    current_depth_m = s_sim.depth_m;
+    arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
+    arex_bus_set_depth(current_depth_m);
 #endif
-        current_depth_m = s_sim.depth_m;
-        arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
-        arex_bus_set_depth(current_depth_m);
-    }
 
     if (s_sim.rate_sample_valid) {
         arex_bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
@@ -316,7 +338,7 @@ static void sim_tick_cb(lv_timer_t *t)
     arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
     arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
 
-#if AREX_USE_BUHLMANN_DEBUG_ALGO
+#if AREX_TCP_ALGO_DEBUG
     buhlmann_debug_tick(current_depth_m, s_sim.temperature_c, 1U);
 #else
     if (current_depth_m > 12.0f) {
@@ -351,10 +373,6 @@ static void sim_tick_cb(lv_timer_t *t)
         arex_bus_set_tissues(s_tissue);
     }
 #endif
-
-    if (debug_manual_depth) {
-        return;
-    }
 }
 
 static void sim_l1_alarm_timer_cb(lv_timer_t *t)
@@ -370,10 +388,11 @@ void arex_sim_data_start(void)
         return;
     }
 
-    arex_sim_seed_debug_defaults();
-
+#if AREX_TCP_ALGO_DEBUG
     arex_debug_link_pc_start();
-    buhlmann_debug_init();
+#else
+    arex_sim_seed_original_defaults();
+#endif
 
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
 
