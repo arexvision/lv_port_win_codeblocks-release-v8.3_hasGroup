@@ -63,6 +63,7 @@ typedef struct
     lv_timer_t *timer;
     char rx_buf[AREX_DEBUG_RX_BUF_SIZE];
     uint16_t rx_len;
+    uint32_t sample_time_s;
 
     arex_wsa_startup_fn WSAStartup_;
     arex_wsa_cleanup_fn WSACleanup_;
@@ -348,10 +349,63 @@ static void arex_debug_format_gas_name(char *out, size_t out_size, int o2, int h
     }
 }
 
+static void arex_debug_apply_depth_sample(float depth)
+{
+    uint32_t next_time_s;
+
+    if (depth < 0.0f)
+    {
+        depth = 0.0f;
+    }
+
+    if (s_debug_link.sample_time_s < g_sensor_data.dive_time_s)
+    {
+        s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
+    }
+
+    next_time_s = s_debug_link.sample_time_s + 1U;
+    s_debug_link.sample_time_s = next_time_s;
+
+    arex_bus_set_dive_time(next_time_s);
+    arex_dive_log_append((float)next_time_s, depth);
+    arex_bus_set_depth(depth);
+}
+
+static bool arex_debug_try_direct_numeric_rx(const char *data, int len)
+{
+    char text[AREX_DEBUG_RX_BUF_SIZE];
+    char *trimmed;
+    float depth;
+
+    if (!data || len <= 0 || s_debug_link.rx_len != 0 ||
+            len >= (int)sizeof(text))
+    {
+        return false;
+    }
+
+    memcpy(text, data, (size_t)len);
+    text[len] = '\0';
+    trimmed = arex_debug_trim(text);
+    if (!trimmed || trimmed[0] == '\0')
+    {
+        return false;
+    }
+
+    if (!arex_debug_parse_float(trimmed, &depth))
+    {
+        return false;
+    }
+
+    arex_debug_apply_depth_sample(depth);
+    arex_debug_sendf("OK depth %.1f\r\n", (double)g_sensor_data.depth);
+    return true;
+}
+
 static void arex_debug_send_help(void)
 {
     arex_debug_send_raw(
         "AREX TCP debug commands:\r\n"
+        "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | manual on|off | auto on|off\r\n"
         "  depth <m> | sample <time_s> <depth_m> | time <s> | surface <s>\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
@@ -360,13 +414,15 @@ static void arex_debug_send_help(void)
         "  cns <pct> | otu <value> | mod <m> | ceiling <m> | mix <o2> <he> | dens <g_l> | fio2 <pct>\r\n"
         "  gas_count <n> | gas <slot> [name] | gas_slot <slot> <o2> <he> <mod> [name]\r\n"
         "  alarm <info|warn|crit> <text>\r\n"
-        "Slots are 0-based. Send manual on first if you do not want the 1Hz script to overwrite values.\r\n");
+        "Slots are 0-based. Connecting a TCP client pauses the 1Hz simulator until disconnect.\r\n");
 }
 
 static void arex_debug_send_state(void)
 {
     arex_debug_sendf(
-        "STATE manual=%u depth=%.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u\r\n",
+        "STATE tcp=%u sim_pause=%u manual=%u depth=%.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u\r\n",
+        s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
+        (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
         (double)g_sensor_data.depth,
         (unsigned long)g_sensor_data.dive_time_s,
@@ -393,6 +449,17 @@ static void arex_debug_exec_line(char *line)
     }
 
     cursor = line;
+
+    {
+        float direct_depth;
+        if (arex_debug_parse_float(line, &direct_depth))
+        {
+            arex_debug_apply_depth_sample(direct_depth);
+            arex_debug_sendf("OK depth %.1f\r\n", (double)g_sensor_data.depth);
+            return;
+        }
+    }
+
     cmd = arex_debug_next_token(&cursor);
     if (!cmd)
     {
@@ -447,8 +514,8 @@ static void arex_debug_exec_line(char *line)
             arex_debug_send_raw("ERR usage: depth <m>\r\n");
             return;
         }
-        arex_bus_set_depth(depth);
-        arex_debug_sendf("OK depth %.1f\r\n", (double)depth);
+        arex_debug_apply_depth_sample(depth);
+        arex_debug_sendf("OK depth %.1f\r\n", (double)g_sensor_data.depth);
         return;
     }
 
@@ -466,6 +533,7 @@ static void arex_debug_exec_line(char *line)
         arex_bus_set_dive_time((uint32_t)time_s);
         arex_dive_log_append((float)time_s, depth);
         arex_bus_set_depth(depth);
+        s_debug_link.sample_time_s = (uint32_t)time_s;
         arex_debug_sendf("OK sample %d %.1f\r\n", time_s, (double)depth);
         return;
     }
@@ -479,6 +547,7 @@ static void arex_debug_exec_line(char *line)
             return;
         }
         arex_bus_set_dive_time((uint32_t)time_s);
+        s_debug_link.sample_time_s = (uint32_t)time_s;
         arex_debug_sendf("OK time %d\r\n", time_s);
         return;
     }
@@ -885,9 +954,11 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
             arex_debug_set_nonblocking(client);
             s_debug_link.client = client;
             s_debug_link.rx_len = 0;
+            s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
             printf("[DBG] TCP debug client connected\r\n");
             arex_debug_send_raw("AREX debug TCP ready on 127.0.0.1:7623\r\n");
-            arex_debug_send_raw("Type help for commands. Tip: send 'manual on' before one-shot values.\r\n");
+            arex_debug_send_raw("TCP client pauses the 1Hz simulator. Send a number like 12.3 to inject depth.\r\n");
+            arex_debug_send_raw("Type help for commands.\r\n");
         }
         else if (!arex_debug_is_would_block(arex_debug_last_error()))
         {
@@ -902,6 +973,10 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
         int n = s_debug_link.recv_(s_debug_link.client, buf, sizeof(buf), 0);
         if (n > 0)
         {
+            if (arex_debug_try_direct_numeric_rx(buf, n))
+            {
+                continue;
+            }
             arex_debug_process_rx_bytes(buf, n);
             continue;
         }
@@ -984,7 +1059,7 @@ void arex_debug_link_pc_start(void)
 
 bool arex_debug_link_pc_manual_mode(void)
 {
-    return s_debug_link.manual_mode;
+    return s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET;
 }
 
 #else
