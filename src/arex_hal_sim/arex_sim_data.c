@@ -2,6 +2,9 @@
 
 #include "../arex_ui/arex_alarm.h"
 #include "../arex_ui/arex_data.h"
+#ifndef PC_SIMULATOR
+#define PC_SIMULATOR
+#endif
 #define AREX_DEBUG_LINK_PC_IMPLEMENTATION
 #include "arex_debug_link_pc.h"
 #include "lvgl/lvgl.h"

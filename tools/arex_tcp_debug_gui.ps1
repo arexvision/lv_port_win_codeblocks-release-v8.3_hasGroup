@@ -66,7 +66,7 @@ function Connect-Tcp {
     } catch {
         Disconnect-Tcp
         Append-Log "[APP] Connect failed: $($_.Exception.Message)`r`n"
-        Append-Log "[APP] Please start the simulator first, then connect again.`r`n"
+        Append-Log "[APP] Please rebuild/start the simulator first, then connect again.`r`n"
     }
 }
 
