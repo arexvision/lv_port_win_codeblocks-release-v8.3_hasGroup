@@ -14,7 +14,7 @@
 #include <string.h>
 
 #ifndef AREX_TCP_ALGO_DEBUG
-#define AREX_TCP_ALGO_DEBUG 1
+#define AREX_TCP_ALGO_DEBUG 0
 #endif
 
 static lv_timer_t *s_sim_timer;
@@ -134,9 +134,20 @@ static void arex_sim_reset_for_tcp_debug(void)
 static void arex_test_set_ui_layout(uint8_t phase)
 {
     static arex_ble_ui_sync_payload_t s_payload;
+    static const uint8_t s_default_card_order[8] = {
+        CARD_ID_COMPASS,
+        CARD_ID_DECO,
+        CARD_ID_PLAN,
+        CARD_ID_GAS,
+        CARD_ID_CUSTOM_GRID,
+        CARD_ID_BLANK,
+        CARD_ID_UNUSED,
+        CARD_ID_UNUSED,
+    };
 
     memset(&s_payload, 0, sizeof(s_payload));
     s_payload.version = AREX_BLE_CFG_VERSION;
+    memcpy(s_payload.card_order, s_default_card_order, sizeof(s_default_card_order));
 
     if (phase == 0) {
         uint8_t left_def[][3] = {
@@ -331,10 +342,6 @@ static void sim_tick_cb(lv_timer_t *t)
     return;
 #endif
 
-    s_sim.layout_tick++;
-    // arex_test_set_ui_layout(s_sim.layout_phase);
-    s_sim.layout_phase = (uint8_t)(1U - s_sim.layout_phase);
-
     s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
     arex_bus_set_heading(s_sim.heading_deg);
 
@@ -427,6 +434,7 @@ void arex_sim_data_start(void)
     arex_debug_link_pc_start();
 #else
     arex_sim_seed_original_defaults();
+    arex_test_set_ui_layout(0);
 #endif
 
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
