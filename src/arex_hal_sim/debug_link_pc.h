@@ -31,6 +31,7 @@ uint16_t arex_debug_link_pc_time_scale(void);
 #include "../arex_ui/core/data.h"
 #include "../arex_ui/core/ui_engine.h"
 #include "../arex_ui/core/ui_state.h"
+#include "../arex_algo_sim/buhlmann_debug.h"
 #include "lvgl/lvgl.h"
 
 #include <ctype.h>
@@ -69,6 +70,7 @@ typedef struct
     char rx_buf[AREX_DEBUG_RX_BUF_SIZE];
     uint16_t rx_len;
     uint16_t time_scale;
+    uint8_t final_deco_stop_m;
     uint32_t sample_time_s;
 
     arex_wsa_startup_fn WSAStartup_;
@@ -89,6 +91,7 @@ static arex_debug_link_pc_t s_debug_link =
     .listener = INVALID_SOCKET,
     .client = INVALID_SOCKET,
     .time_scale = 1,
+    .final_deco_stop_m = 3,
 };
 
 static uint16_t arex_debug_swap16(uint16_t value)
@@ -431,6 +434,7 @@ static void arex_debug_send_help(void)
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
         "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
         "  heading <deg> | ppo2 <slot> <bar> | gf <low> <high> | gf99 <pct> | surf_gf <pct>\r\n"
+        "  last_deco <3|6> | final_stop <3|6>\r\n"
         "  cns <pct> | otu <value> | mod <m> | ceiling <m> | mix <o2> <he> | dens <g_l> | fio2 <pct>\r\n"
         "  gas_count <n> | gas <slot> [name] | gas_slot <slot> <o2> <he> <mod> [name]\r\n"
         "  alarm <info|warn|crit> <text>\r\n"
@@ -440,7 +444,7 @@ static void arex_debug_send_help(void)
 static void arex_debug_send_state(void)
 {
     arex_debug_sendf(
-        "STATE tcp=%u depth_manual=%u manual=%u speed=%u depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u\r\n",
+        "STATE tcp=%u depth_manual=%u manual=%u speed=%u depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
@@ -455,7 +459,8 @@ static void arex_debug_send_state(void)
         (double)g_sensor_data.pod1_bar,
         (double)g_sensor_data.pod2_bar,
         (unsigned)g_sensor_data.gf_low,
-        (unsigned)g_sensor_data.gf_high);
+        (unsigned)g_sensor_data.gf_high,
+        (unsigned)s_debug_link.final_deco_stop_m);
 }
 
 static void arex_debug_exec_line(char *line)
@@ -797,6 +802,23 @@ static void arex_debug_exec_line(char *line)
         }
         arex_bus_set_gf_setting((uint8_t)low, (uint8_t)high);
         arex_debug_sendf("OK gf %d/%d\r\n", low, high);
+        return;
+    }
+
+    if (arex_debug_streq(cmd, "last_deco") ||
+            arex_debug_streq(cmd, "last_stop") ||
+            arex_debug_streq(cmd, "final_stop"))
+    {
+        int depth_m;
+        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &depth_m) ||
+                (depth_m != 3 && depth_m != 6))
+        {
+            arex_debug_send_raw("ERR usage: last_deco <3|6>\r\n");
+            return;
+        }
+        s_debug_link.final_deco_stop_m = (uint8_t)depth_m;
+        buhlmann_debug_set_final_stop_depth((uint8_t)depth_m);
+        arex_debug_sendf("OK last_deco %dm\r\n", depth_m);
         return;
     }
 

@@ -253,7 +253,7 @@ void buhlmann_debug_init(void)
     s_initialized = true;
 }
 
-extern "C" void arex_ui_on_last_deco_stop_set(uint8_t depth_m)
+void buhlmann_debug_set_final_stop_depth(uint8_t depth_m)
 {
     s_final_deco_stop_depth_m = (depth_m == 6U) ? 6U : 3U;
     s_buhlmann.setFinalStopDepth((float)s_final_deco_stop_depth_m);
