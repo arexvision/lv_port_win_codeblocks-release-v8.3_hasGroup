@@ -16,6 +16,7 @@ extern "C" {
 static Buhlmann s_buhlmann(62.7f);
 static bool s_initialized = false;
 static bool s_diving = false;
+static uint8_t s_final_deco_stop_depth_m = (uint8_t)DECO_DEFAULT_FINAL_STOP_METERS;
 
 static uint16_t clamp_u16_non_negative(int value)
 {
@@ -238,7 +239,7 @@ void buhlmann_debug_init(void)
     s_buhlmann.setGas(3, 1.00f, 0.0f, true, 1.6f);
     s_buhlmann.setActiveGas(0);
     s_buhlmann.setOxygenRateInGas(0.21f);
-    s_buhlmann.setFinalStopDepth(DECO_DEFAULT_FINAL_STOP_METERS);
+    s_buhlmann.setFinalStopDepth((float)s_final_deco_stop_depth_m);
 
     DiveResult *initial_result = s_buhlmann.initializeCompartments();
     s_buhlmann.startDive(initial_result, 0U);
@@ -250,6 +251,13 @@ void buhlmann_debug_init(void)
                (int)(s_buhlmann.getGFHigh() * 100));
 
     s_initialized = true;
+}
+
+extern "C" void arex_ui_on_last_deco_stop_set(uint8_t depth_m)
+{
+    s_final_deco_stop_depth_m = (depth_m == 6U) ? 6U : 3U;
+    s_buhlmann.setFinalStopDepth((float)s_final_deco_stop_depth_m);
+    rt_kprintf("[DIVE_SETUP] Last deco stop: %um\n", (unsigned)s_final_deco_stop_depth_m);
 }
 
 void buhlmann_debug_reset(void)

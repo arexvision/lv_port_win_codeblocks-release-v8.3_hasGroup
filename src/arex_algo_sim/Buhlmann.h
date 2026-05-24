@@ -373,6 +373,7 @@ private:
   int calculateAscentRate(float timeSpentInLevelInSeconds, float previousDepthInMeter, float currentDepthInMeter);
   
   float calculateCurrentGF(float currentStopDepth, float firstStopDepth, float finalStopDepth);
+  float getNextDecoStopDepth(float currentStopDepth);
   
   // ========== 减压站序列生成与管理 ==========
   void generateDecoSequence(float currentPressure, float currentDepth);  

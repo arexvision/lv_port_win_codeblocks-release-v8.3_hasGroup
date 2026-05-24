@@ -756,16 +756,27 @@ float Buhlmann::getSeaLevelAtmosphericPressure() {
 }
 
 void Buhlmann::setFinalStopDepth(float depthMeters) {
-	if (fabs(depthMeters - 3.0f) < 0.01f ||
-	    fabs(depthMeters - 4.5f) < 0.01f ||
-	    fabs(depthMeters - 6.0f) < 0.01f ||
-	    fabs(depthMeters - 9.0f) < 0.01f) {
-		_finalStopDepthMeters = depthMeters;
+	if (fabs(depthMeters - 6.0f) < 0.1f) {
+		_finalStopDepthMeters = 6.0f;
+	} else if (fabs(depthMeters - 3.0f) < 0.1f) {
+		_finalStopDepthMeters = 3.0f;
 	}
 }
 
 float Buhlmann::getFinalStopDepth() {
 	return _finalStopDepthMeters;
+}
+
+float Buhlmann::getNextDecoStopDepth(float currentStopDepth) {
+	if (currentStopDepth <= _finalStopDepthMeters + 0.1f) {
+		return 0.0f;
+	}
+
+	float nextStopDepth = currentStopDepth - DECO_STEP_METERS;
+	if (nextStopDepth < _finalStopDepthMeters - 0.1f) {
+		return 0.0f;
+	}
+	return nextStopDepth;
 }
 
 /////////////////////////////////
@@ -1259,8 +1270,8 @@ int Buhlmann::calculateMinutesRequiredToReachCertainPressure(float targetPressur
 		// 文档明确：GF 仅用于减压停阶段，用于生成深停序列和控制梯度
 		float currentDepthForGF = calculateDepthFromPressure(targetPressure);
 		float firstDecoStop = _currentDepth * 0.8f;  // 首停=当前深度的80%
-		if (firstDecoStop < 3.0f) firstDecoStop = 3.0f;
-		float currentGF = calculateCurrentGF(currentDepthForGF, firstDecoStop, 3.0f);
+		if (firstDecoStop < _finalStopDepthMeters) firstDecoStop = _finalStopDepthMeters;
+		float currentGF = calculateCurrentGF(currentDepthForGF, firstDecoStop, _finalStopDepthMeters);
 
 		for (int i=0; i < COMPARTMENT_COUNT; i++) {
 			//Calculate and store the partial pressure for the current compartment
@@ -1680,7 +1691,7 @@ DiveInfo Buhlmann::progressDive(float currentPressure, unsigned int duration) {
                 // 动态重算当前站的 remainingTime（每次 progress 调用都会重新计算）
                 DecoStop& currentStop = _decoSequence.stops[_decoSequence.currentStopIdx];
                 float stopPressure = calculateHydrostaticPressureFromDepth(currentStop.depth);
-                float nextStopDepth = currentStop.depth - 3.0f;
+                float nextStopDepth = getNextDecoStopDepth(currentStop.depth);
                 float nextStopPressure = (nextStopDepth <= 0) ? _seaLevelAtmosphericPressure : calculateHydrostaticPressureFromDepth(nextStopDepth);
 
                 // 1. 获取当前真实的双轨载荷 (N2 和 He 独立)
@@ -2272,6 +2283,18 @@ void Buhlmann::generateDecoSequence(float currentPressure, float currentDepth) {
     _firstStopDepth = (float)decoStopDepths[firstStopIdx];
     _decoSequence.stopCount = 0;
     _decoSequence.currentStopIdx = 0;
+
+    int finalStopIdx = 1;
+    for (int i = 1; i < decoStopCount; i++) {
+        if (fabs((float)decoStopDepths[i] - _finalStopDepthMeters) < 0.1f) {
+            finalStopIdx = i;
+            break;
+        }
+    }
+    if (firstStopIdx < finalStopIdx) {
+        firstStopIdx = finalStopIdx;
+        _firstStopDepth = (float)decoStopDepths[firstStopIdx];
+    }
     
     // 2. [核心修复] 初始化 N2 和 He 的双轨独立临时数组
     float tempN2[COMPARTMENT_COUNT];
@@ -2284,7 +2307,7 @@ void Buhlmann::generateDecoSequence(float currentPressure, float currentDepth) {
     const float surfacePressure = _seaLevelAtmosphericPressure;
     
     // 3. 从深到浅推演每一个站
-    for (int stopIdx = firstStopIdx; stopIdx >= 1 && _decoSequence.stopCount < MAX_DECO_STOPS; stopIdx--) {
+    for (int stopIdx = firstStopIdx; stopIdx >= finalStopIdx && _decoSequence.stopCount < MAX_DECO_STOPS; stopIdx--) {
         float currentStopDepth = (float)decoStopDepths[stopIdx];
         float currentStopPressure = calculateHydrostaticPressureFromDepth(currentStopDepth);
         
@@ -2294,7 +2317,7 @@ void Buhlmann::generateDecoSequence(float currentPressure, float currentDepth) {
         Gas simGas = getGas(simGasIndex);
         
         // 下一站参数
-        float nextStopDepth = (float)decoStopDepths[stopIdx - 1];
+        float nextStopDepth = (stopIdx == finalStopIdx) ? 0.0f : (float)decoStopDepths[stopIdx - 1];
         float nextStopPressure = (nextStopDepth <= 0) ? surfacePressure : calculateHydrostaticPressureFromDepth(nextStopDepth);
         
         // 计算下一站 GF 渐变
@@ -2485,7 +2508,7 @@ void Buhlmann::recalculateCurrentDecoStopDuration() {
 
     DecoStop& currentStop = _decoSequence.stops[_decoSequence.currentStopIdx];
     float stopPressure = calculateHydrostaticPressureFromDepth(currentStop.depth);
-    float nextStopDepth = currentStop.depth - 3.0f;
+    float nextStopDepth = getNextDecoStopDepth(currentStop.depth);
     float nextStopPressure = (nextStopDepth <= 0) ? _seaLevelAtmosphericPressure : calculateHydrostaticPressureFromDepth(nextStopDepth);
 
     // 获取当前真实的双轨载荷
@@ -2530,16 +2553,16 @@ float Buhlmann::calculateFirstStopDepthWithGF(float currentDepth, float gfLow) {
     float ceilingDepthLow = calculateDepthFromPressure(maxAllowedP_low);
 
     // 2) 向上取整到 3m 阶梯
-    float firstStopDepth = 3.0f;  // 最小首停深度
-    if (ceilingDepthLow > 3.0f) {
+    float firstStopDepth = _finalStopDepthMeters;  // 最小首停深度
+    if (ceilingDepthLow > _finalStopDepthMeters) {
         // 向上取整到 3m 阶梯
-        firstStopDepth = ceil(ceilingDepthLow / 3.0f) * 3.0f;
+        firstStopDepth = ceil(ceilingDepthLow / DECO_STEP_METERS) * DECO_STEP_METERS;
     }
 
     // 3) 基本边界保护：不能超过当前深度 - 3m
-    float maxAllowedFirst = currentDepth - 3.0f;
+    float maxAllowedFirst = currentDepth - DECO_STEP_METERS;
     if (firstStopDepth > maxAllowedFirst) {
-        if (maxAllowedFirst < 3.0f) firstStopDepth = 3.0f;
+        if (maxAllowedFirst < _finalStopDepthMeters) firstStopDepth = _finalStopDepthMeters;
         else firstStopDepth = maxAllowedFirst;
     }
 
@@ -2566,14 +2589,14 @@ void Buhlmann::testGFCalculation() {
     rt_kprintf("===== GF 渐变计算测试 =====\n");
 
     float firstStop = 21.0f;
-    float finalStop = 3.0f;
+    float finalStop = _finalStopDepthMeters;
 
     rt_kprintf("GF Low: %.2f, GF High: %.2f\n", _gfLow, _gfHigh);
     rt_kprintf("首停: %.1fm, 最终停: %.1fm\n", firstStop, finalStop);
     rt_kprintf("深度(m)  计算GF   预期GF   状态\n");
     rt_kprintf("─────────────────────────────────\n");
 
-    for (float depth = firstStop; depth >= finalStop; depth -= 3.0f) {
+    for (float depth = firstStop; depth >= finalStop; depth -= DECO_STEP_METERS) {
         float calculatedGF = calculateCurrentGF(depth, firstStop, finalStop);
 
         // 计算预期值
