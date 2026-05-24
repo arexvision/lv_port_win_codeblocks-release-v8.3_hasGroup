@@ -8,7 +8,7 @@
 #define DEBUG_LEVEL 1          // 1=简单, 2=详细, 3=完整
 
 #define COMPARTMENT_COUNT 16
-#define MAX_GASES 4             // 最多支持4种气体（底部气、行程气、减压气/氧气）
+#define MAX_GASES 3             // 最多支持3种气体（底部气、行程气、减压气）
 
 // ========== 水体类型枚举 ==========
 enum WaterType {
@@ -40,7 +40,6 @@ struct Gas {
 
 // 减压阶梯与缓冲（单位：米）
 #define DECO_STEP_METERS 3.0f
-#define DECO_DEFAULT_FINAL_STOP_METERS 3.0f
 #define DECO_BUFFER_METERS 0.0f  // 默认 buffer 设为 0.0，可调整为 1.0 以增加缓冲
 
 enum ascendRates
@@ -52,13 +51,6 @@ enum ascendRates
   ASCEND_ATTENTION = 3,
   ASCEND_CRITICAL = 4,
   ASCEND_DANGER = 5,
-};
-
-enum BuhlmannStopType
-{
-  BUHLMANN_STOP_NONE = 0,   // 当前不需要停留
-  BUHLMANN_STOP_SAFETY = 1, // 建议安全停留
-  BUHLMANN_STOP_DECO = 2,   // 强制减压停留
 };
 
 struct DiveResult {
@@ -82,9 +74,9 @@ struct DecoStop {
 };
 
 // 减压站序列（最多16站，覆盖0-60米）
-#define BUHLMANN_MAX_DECO_STOPS 16
+#define MAX_DECO_STOPS 16
 struct DecoStopSequence {
-  DecoStop stops[BUHLMANN_MAX_DECO_STOPS];
+  DecoStop stops[MAX_DECO_STOPS];
   int stopCount;        // 实际站数量
   int currentStopIdx;   // 当前待完成的站索引（-1表示无减压义务）
 };
@@ -95,18 +87,12 @@ struct DiveInfo {
   int minutesToDeco;
   int decoStopInMeters;
   int decoStopDurationInMinutes;
-  int decoStopDurationInSeconds;   // 当前减压站剩余时间（秒，供 UI 实时倒计时）
   int ttsSeconds;                 // TTS (Time To Surface) 总上升时间（秒）
   // ========== 新增：完整减压站序列支持 ==========
   DecoStopSequence decoSequence;  // 完整减压站序列
   bool isMissedDecoStop;          // 是否跳过当前减压站（违规）
   float effectiveCeiling;         // 有效天花板深度（米，用于锁定）
   bool isAlgorithmLocked;         // 算法是否被锁定（3分钟未能完成减压）
-  BuhlmannStopType stopType;      // 通用停留类型：NONE/SAFETY/DECO
-  float stopDepthMeters;          // 当前停留目标深度（米）
-  int stopTimeTotalSeconds;       // 当前停留总时间（秒）
-  int stopTimeRemainingSeconds;   // 当前停留剩余时间（秒）
-  bool inStopZone;                // 是否位于目标停留区
   // ========== 显示相关数据（由buhlmann_task计算）==========
   float ppo2;                     // 氧分压
   float cns;                      // CNS百分比
@@ -144,12 +130,7 @@ public:
   int getActiveGas();                       // 获取当前使用的气体槽位
   
   int getBestGasForDepth(float depthMeters);
-
-  // 【修改】加入 isAscending 参数，默认 true 兼容旧代码
-  bool hasBetterGasAvailable(float depthMeters, bool isAscending = true);
-
-  // 【新增】等压反向扩散 (ICD) 风险检查
-  bool checkICDRisk(int targetGasIndex, float currentDepthMeters);
+  bool hasBetterGasAvailable(float depthMeters);
   
   // ========== PPO2 限制设置 ==========
   void setBottomPPO2(float ppo2);
@@ -172,13 +153,6 @@ public:
   float getGFLow();              // 获取当前 GF Low
   float getGFHigh();             // 获取当前 GF High
   float getSeaLevelAtmosphericPressure(); // 获取海平面大气压设置
-  void setFinalStopDepth(float depthMeters);
-  float getFinalStopDepth();
-
-  // 安全停留配置。durationSeconds=0 表示关闭安全停留。
-  void setSafetyStopConfig(float depthMeters, int durationSeconds);
-  float getSafetyStopDepth();
-  int getSafetyStopDurationSeconds();
 
   // 深度/压力换算
   float calculateDepthFromPressure(float pressure);        // 环境压力 → 深度
@@ -341,18 +315,6 @@ private:
   float _gfLow;   
   float _gfHigh;  
   float _gfLowDepthPressure;  
-  float _finalStopDepthMeters;
-
-  // 安全停留状态机由算法层维护，任务层只读取 DiveInfo.stop* 字段。
-  bool _safetyStopEnabled;
-  float _safetyStopDepthMeters;
-  int _safetyStopDurationSeconds;
-  float _safetyStopArmDepthMeters;
-  float _safetyStopZoneHalfWidthMeters;
-  float _safetyStopSurfaceResetDepthMeters;
-  bool _safetyStopArmed;
-  bool _safetyStopCompleted;
-  int _safetyStopElapsedSeconds;
   
   // ========== 减压站序列管理（Perdix 2 手册逻辑）==========
   DecoStopSequence _decoSequence;  
@@ -386,8 +348,6 @@ private:
   void updateCurrentDecoStop(float currentDepth, unsigned int timeSpentInLevel);  
   void updateCurrentDecoStopSwitchOnly(float currentDepth);  
   bool isDecoStopMissed(float currentDepth);  
-  void resetSafetyStopState(bool completed = false);
-  void updateSafetyStop(DiveInfo &diveInfo, unsigned int timeSpentInLevel, bool decoActive);
 
   // 🚨 注意这行！已更新为支持双轨气体衰减与切换气预测的签名
   int calculateDecoStopDuration(float stopPressure, float nextStopPressure, float nextStopGF, float tempN2[], float tempHe[], Gas simGas);  
