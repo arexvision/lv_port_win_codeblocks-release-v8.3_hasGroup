@@ -1,6 +1,7 @@
 #include "buhlmann_debug.h"
 
 #include "Buhlmann.h"
+#include "rtthread.h"
 
 extern "C" {
 #include "../arex_ui/core/data.h"
@@ -224,19 +225,29 @@ void buhlmann_debug_init(void)
         return;
     }
 
+    rt_kprintf("Initializing Buhlmann algorithm...\n");
+
+    s_buhlmann.setSeaLevelAtmosphericPressure(1000.0f);
+    s_buhlmann.setNitrogenRateInGas(0.79f);
+    s_buhlmann.setGFLow(0.40f);
+    s_buhlmann.setGFHigh(0.85f);
+
     s_buhlmann.setGas(0, 0.21f, 0.0f, true, 1.4f);
     s_buhlmann.setGas(1, 0.32f, 0.0f, true, 1.4f);
     s_buhlmann.setGas(2, 0.18f, 0.45f, false, 1.4f);
     s_buhlmann.setGas(3, 1.00f, 0.0f, true, 1.6f);
     s_buhlmann.setActiveGas(0);
     s_buhlmann.setOxygenRateInGas(0.21f);
-    s_buhlmann.setNitrogenRateInGas(0.79f);
     s_buhlmann.setFinalStopDepth(DECO_DEFAULT_FINAL_STOP_METERS);
 
     DiveResult *initial_result = s_buhlmann.initializeCompartments();
     s_buhlmann.startDive(initial_result, 0U);
     s_buhlmann.resetCNS();
     s_buhlmann.resetOTU();
+
+    rt_kprintf("Buhlmann algorithm initialized (GF: %d/%d)\n",
+               (int)(s_buhlmann.getGFLow() * 100),
+               (int)(s_buhlmann.getGFHigh() * 100));
 
     s_initialized = true;
 }
