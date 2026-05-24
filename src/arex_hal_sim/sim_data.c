@@ -342,6 +342,10 @@ static void sim_tick_cb(lv_timer_t *t)
     return;
 #endif
 
+    s_sim.layout_tick++;
+    arex_test_set_ui_layout(s_sim.layout_phase);
+    s_sim.layout_phase = (uint8_t)(1U - s_sim.layout_phase);
+
     s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
     arex_bus_set_heading(s_sim.heading_deg);
 
@@ -434,7 +438,6 @@ void arex_sim_data_start(void)
     arex_debug_link_pc_start();
 #else
     arex_sim_seed_original_defaults();
-    arex_test_set_ui_layout(0);
 #endif
 
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
