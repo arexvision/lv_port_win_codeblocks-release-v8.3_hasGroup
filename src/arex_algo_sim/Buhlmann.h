@@ -40,6 +40,7 @@ struct Gas {
 
 // 减压阶梯与缓冲（单位：米）
 #define DECO_STEP_METERS 3.0f
+#define DECO_DEFAULT_FINAL_STOP_METERS 3.0f
 #define DECO_BUFFER_METERS 0.0f  // 默认 buffer 设为 0.0，可调整为 1.0 以增加缓冲
 
 enum ascendRates
@@ -51,6 +52,13 @@ enum ascendRates
   ASCEND_ATTENTION = 3,
   ASCEND_CRITICAL = 4,
   ASCEND_DANGER = 5,
+};
+
+enum BuhlmannStopType
+{
+  BUHLMANN_STOP_NONE = 0,
+  BUHLMANN_STOP_SAFETY = 1,
+  BUHLMANN_STOP_DECO = 2,
 };
 
 struct DiveResult {
@@ -87,6 +95,12 @@ struct DiveInfo {
   int minutesToDeco;
   int decoStopInMeters;
   int decoStopDurationInMinutes;
+  int decoStopDurationInSeconds;
+  BuhlmannStopType stopType;
+  float stopDepthMeters;
+  int stopTimeTotalSeconds;
+  int stopTimeRemainingSeconds;
+  bool inStopZone;
   int ttsSeconds;                 // TTS (Time To Surface) 总上升时间（秒）
   // ========== 新增：完整减压站序列支持 ==========
   DecoStopSequence decoSequence;  // 完整减压站序列
@@ -131,6 +145,7 @@ public:
   
   int getBestGasForDepth(float depthMeters);
   bool hasBetterGasAvailable(float depthMeters);
+  bool checkICDRisk(int targetGasIndex, float currentDepthMeters);
   
   // ========== PPO2 限制设置 ==========
   void setBottomPPO2(float ppo2);
@@ -138,6 +153,9 @@ public:
   
   void setDecoPPO2(float ppo2);
   float getDecoPPO2();
+  void setSafetyStopConfig(float depthMeters, int durationSeconds);
+  float getSafetyStopDepth();
+  int getSafetyStopDurationSeconds();
 
   // ========== 原有气体接口（保持兼容）==========
   void setSeaLevelAtmosphericPressure(float seaLevelAtmosphericPressure); // 设置海平面大气压
@@ -153,6 +171,8 @@ public:
   float getGFLow();              // 获取当前 GF Low
   float getGFHigh();             // 获取当前 GF High
   float getSeaLevelAtmosphericPressure(); // 获取海平面大气压设置
+  void setFinalStopDepth(float depthMeters);
+  float getFinalStopDepth();
 
   // 深度/压力换算
   float calculateDepthFromPressure(float pressure);        // 环境压力 → 深度
@@ -310,11 +330,22 @@ private:
   int _lastDynamicRequiredSeconds;    
   float _lastDynamicStopDepthMeters;  
   unsigned long _lastDynamicCalcMillis; 
+
+  bool _safetyStopEnabled;
+  float _safetyStopDepthMeters;
+  int _safetyStopDurationSeconds;
+  float _safetyStopArmDepthMeters;
+  float _safetyStopZoneHalfWidthMeters;
+  float _safetyStopSurfaceResetDepthMeters;
+  bool _safetyStopArmed;
+  bool _safetyStopCompleted;
+  int _safetyStopElapsedSeconds;
   
   // ========== GF Low/GF High（梯度因子控制参数）==========
   float _gfLow;   
   float _gfHigh;  
   float _gfLowDepthPressure;  
+  float _finalStopDepthMeters;
   
   // ========== 减压站序列管理（Perdix 2 手册逻辑）==========
   DecoStopSequence _decoSequence;  
@@ -348,6 +379,8 @@ private:
   void updateCurrentDecoStop(float currentDepth, unsigned int timeSpentInLevel);  
   void updateCurrentDecoStopSwitchOnly(float currentDepth);  
   bool isDecoStopMissed(float currentDepth);  
+  void resetSafetyStopState(bool completed = false);
+  void updateSafetyStop(DiveInfo &diveInfo, unsigned int timeSpentInLevel, bool decoActive);
 
   // 🚨 注意这行！已更新为支持双轨气体衰减与切换气预测的签名
   int calculateDecoStopDuration(float stopPressure, float nextStopPressure, float nextStopGF, float tempN2[], float tempHe[], Gas simGas);  

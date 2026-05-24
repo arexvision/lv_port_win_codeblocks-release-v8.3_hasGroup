@@ -179,8 +179,19 @@ Buhlmann::Buhlmann(float waterVapourPressureCorrection) {
 	_gfLow = 0.40f;   // GF Low = 40%（生成深停，保守策略）
 	_gfHigh = 0.85f;  // GF High = 85%（出水时保留25%安全边际）
 	_gfLowDepthPressure = _seaLevelAtmosphericPressure;  // 与Java对齐：初始为首停=水面气压（0米），后续由getDeepestStop动态更新为最深ceiling
+	_finalStopDepthMeters = DECO_DEFAULT_FINAL_STOP_METERS;
 	
 	// GF99 颜色/阈值追踪（0=normal,1=yellow,2=red）
+	_safetyStopEnabled = true;
+	_safetyStopDepthMeters = 3.0f;
+	_safetyStopDurationSeconds = 180;
+	_safetyStopArmDepthMeters = 10.0f;
+	_safetyStopZoneHalfWidthMeters = 1.5f;
+	_safetyStopSurfaceResetDepthMeters = 0.8f;
+	_safetyStopArmed = false;
+	_safetyStopCompleted = false;
+	_safetyStopElapsedSeconds = 0;
+
 	_lastGF99WarningLevel = 0;
 	_lastAllowedHighPressureMbar = _seaLevelAtmosphericPressure;
 	_lastAllowedOrigPressureMbar = _seaLevelAtmosphericPressure;
@@ -617,6 +628,21 @@ bool Buhlmann::hasBetterGasAvailable(float depthMeters) {
 	        _gases[bestGas].oxygenFraction > _gases[_activeGasIndex].oxygenFraction);
 }
 
+bool Buhlmann::checkICDRisk(int targetGasIndex, float currentDepthMeters) {
+	if (targetGasIndex < 0 || targetGasIndex >= MAX_GASES) return false;
+	if (_activeGasIndex == targetGasIndex) return false;
+
+	Gas currentGas = _gases[_activeGasIndex];
+	Gas targetGas = _gases[targetGasIndex];
+	if (targetGas.heliumFraction >= currentGas.heliumFraction) {
+		return false;
+	}
+
+	float ambientPressureBar = calculateHydrostaticPressureFromDepth(currentDepthMeters) / 1000.0f;
+	float deltaN2 = (targetGas.nitrogenFraction - currentGas.nitrogenFraction) * ambientPressureBar;
+	return deltaN2 > 0.4f;
+}
+
 // ========== PPO2 限制设置实现 ==========
 
 void Buhlmann::setBottomPPO2(float ppo2) {
@@ -653,6 +679,33 @@ void Buhlmann::setDecoPPO2(float ppo2) {
 
 float Buhlmann::getDecoPPO2() {
 	return _decoPPO2;
+}
+
+void Buhlmann::setSafetyStopConfig(float depthMeters, int durationSeconds) {
+	if (depthMeters < 3.0f) {
+		depthMeters = 3.0f;
+	}
+	if (depthMeters > 6.0f) {
+		depthMeters = 6.0f;
+	}
+	if (durationSeconds < 0) {
+		durationSeconds = 0;
+	}
+	if (durationSeconds > 600) {
+		durationSeconds = 600;
+	}
+	_safetyStopDepthMeters = depthMeters;
+	_safetyStopDurationSeconds = durationSeconds;
+	_safetyStopEnabled = (durationSeconds > 0);
+	resetSafetyStopState(false);
+}
+
+float Buhlmann::getSafetyStopDepth() {
+	return _safetyStopDepthMeters;
+}
+
+int Buhlmann::getSafetyStopDurationSeconds() {
+	return _safetyStopDurationSeconds;
 }
 
 // ========== GF Low/GF High 设置/获取方法 ==========
@@ -700,6 +753,19 @@ float Buhlmann::getGFHigh() {
 // 获取海平面大气压力（mbar）
 float Buhlmann::getSeaLevelAtmosphericPressure() {
     return _seaLevelAtmosphericPressure;
+}
+
+void Buhlmann::setFinalStopDepth(float depthMeters) {
+	if (fabs(depthMeters - 3.0f) < 0.01f ||
+	    fabs(depthMeters - 4.5f) < 0.01f ||
+	    fabs(depthMeters - 6.0f) < 0.01f ||
+	    fabs(depthMeters - 9.0f) < 0.01f) {
+		_finalStopDepthMeters = depthMeters;
+	}
+}
+
+float Buhlmann::getFinalStopDepth() {
+	return _finalStopDepthMeters;
 }
 
 /////////////////////////////////
@@ -1268,6 +1334,8 @@ int Buhlmann::calculateAscentRate(float timeSpentInLevelInSeconds, float previou
 DiveResult* Buhlmann::surfaceInterval(long surfaceIntervalInMinutes, DiveResult* previousDiveResult) {
 
 	//Set the given compartment pressure data
+    resetSafetyStopState(false);
+
     for (byte j = 0; j < COMPARTMENT_COUNT; j++) {
     	_compartmentCurrentPartialPressures[j] = previousDiveResult->compartmentPartialPressures[j];
     }
@@ -1333,6 +1401,7 @@ DiveResult* Buhlmann::initializeCompartments() {
     _firstStopDepth = 0.0f;
     _effectiveCeiling = 0.0f;
     _isMissedDeco = false;
+    resetSafetyStopState(false);
     
     return diveResult;
 }
@@ -1364,6 +1433,7 @@ void Buhlmann::startDive(DiveResult* previousDiveResult, unsigned long diveStart
     
     // 重置首停深度压力（与Java对齐）
     _gfLowDepthPressure = _seaLevelAtmosphericPressure;
+    resetSafetyStopState(false);
 
     //Initialize the compartments based on the previous compartment partial pressure values
     for (byte j = 0; j < COMPARTMENT_COUNT; j++) {
@@ -1375,6 +1445,68 @@ void Buhlmann::startDive(DiveResult* previousDiveResult, unsigned long diveStart
 }
 
 // 推进潜水进度：更新组织分压、判断减压需求、计算 NDL 或减压停信息
+void Buhlmann::resetSafetyStopState(bool completed) {
+    _safetyStopArmed = false;
+    _safetyStopCompleted = completed;
+    _safetyStopElapsedSeconds = 0;
+}
+
+void Buhlmann::updateSafetyStop(DiveInfo &diveInfo, unsigned int timeSpentInLevel, bool decoActive) {
+    diveInfo.stopType = BUHLMANN_STOP_NONE;
+    diveInfo.stopDepthMeters = 0.0f;
+    diveInfo.stopTimeTotalSeconds = 0;
+    diveInfo.stopTimeRemainingSeconds = 0;
+    diveInfo.inStopZone = false;
+
+    if (_currentDepth <= _safetyStopSurfaceResetDepthMeters) {
+        resetSafetyStopState(false);
+        return;
+    }
+
+    if (decoActive) {
+        resetSafetyStopState(true);
+        return;
+    }
+
+    if (!_safetyStopEnabled || _safetyStopDurationSeconds <= 0 || _safetyStopCompleted) {
+        return;
+    }
+
+    if (_currentDepth > _safetyStopArmDepthMeters) {
+        if (!_safetyStopArmed) {
+            _safetyStopArmed = true;
+            _safetyStopElapsedSeconds = 0;
+        } else if (_safetyStopElapsedSeconds > 0) {
+            _safetyStopElapsedSeconds = 0;
+        }
+    }
+
+    if (!_safetyStopArmed) {
+        return;
+    }
+
+    bool inZone = fabsf(_currentDepth - _safetyStopDepthMeters) <= _safetyStopZoneHalfWidthMeters;
+    if (inZone) {
+        _safetyStopElapsedSeconds += (int)timeSpentInLevel;
+        if (_safetyStopElapsedSeconds >= _safetyStopDurationSeconds) {
+            resetSafetyStopState(true);
+            return;
+        }
+    }
+
+    int remainingSeconds = _safetyStopDurationSeconds - _safetyStopElapsedSeconds;
+    if (remainingSeconds < 0) {
+        remainingSeconds = 0;
+    }
+
+    diveInfo.stopType = BUHLMANN_STOP_SAFETY;
+    diveInfo.stopDepthMeters = _safetyStopDepthMeters;
+    diveInfo.stopTimeTotalSeconds = _safetyStopDurationSeconds;
+    diveInfo.stopTimeRemainingSeconds = remainingSeconds;
+    diveInfo.inStopZone = inZone;
+    diveInfo.ttsSeconds += remainingSeconds;
+}
+
 DiveInfo Buhlmann::progressDive(float currentPressure, unsigned int duration) {
 
 	DiveInfo diveInfo;
@@ -1384,6 +1516,12 @@ DiveInfo Buhlmann::progressDive(float currentPressure, unsigned int duration) {
 	diveInfo.minutesToDeco = 999;
 	diveInfo.decoStopInMeters = 0;
 	diveInfo.decoStopDurationInMinutes = 0;
+	diveInfo.decoStopDurationInSeconds = 0;
+	diveInfo.stopType = BUHLMANN_STOP_NONE;
+	diveInfo.stopDepthMeters = 0.0f;
+	diveInfo.stopTimeTotalSeconds = 0;
+	diveInfo.stopTimeRemainingSeconds = 0;
+	diveInfo.inStopZone = false;
 	diveInfo.ttsSeconds = 0;
 	// ========== 初始化新增字段 ==========
 	diveInfo.decoSequence.stopCount = 0;
@@ -1560,6 +1698,9 @@ DiveInfo Buhlmann::progressDive(float currentPressure, unsigned int duration) {
                 // ========== 修复：使用支持 Trimix 的全新 6 参数重算函数 ==========
                 int requiredSec = calculateDecoStopDuration(stopPressure, nextStopPressure, currentStop.targetGF, tempN2, tempHe, getGas(simGasIndex));
                 currentStop.remainingTime = requiredSec;  // 直接使用动态计算的值，不再减去 timeSpentInLevel
+                if (currentStop.totalTime < requiredSec) {
+                    currentStop.totalTime = requiredSec;
+                }
                 // 记录到成员，主循环统一按照打印间隔输出，避免频繁打印
                 _lastDynamicRequiredSeconds = requiredSec;
                 _lastDynamicStopDepthMeters = currentStop.depth;
@@ -1583,6 +1724,7 @@ DiveInfo Buhlmann::progressDive(float currentPressure, unsigned int duration) {
                 DecoStop& currentStop = _decoSequence.stops[_decoSequence.currentStopIdx];
                 diveInfo.decoStopInMeters = (int)currentStop.depth;
                 diveInfo.decoStopDurationInMinutes = (currentStop.remainingTime + 59) / 60;  // 向上取整到分钟
+                diveInfo.decoStopDurationInSeconds = currentStop.remainingTime;
                 
                 // 填充完整序列信息
                 diveInfo.decoSequence = _decoSequence;
@@ -1592,6 +1734,7 @@ DiveInfo Buhlmann::progressDive(float currentPressure, unsigned int duration) {
                 // 所有站已完成，但仍在减压状态（可能是刚完成最后一站）
                 diveInfo.decoStopInMeters = 0;
                 diveInfo.decoStopDurationInMinutes = 0;
+                diveInfo.decoStopDurationInSeconds = 0;
                 diveInfo.decoSequence = _decoSequence;
                 diveInfo.isMissedDecoStop = false;
                 diveInfo.effectiveCeiling = 0.0f;
@@ -1601,14 +1744,24 @@ DiveInfo Buhlmann::progressDive(float currentPressure, unsigned int duration) {
         // ========== 最终检查：优先显示减压序列信息 ==========
         // 无论当前decoNeeded状态，如果有有效的减压序列，就显示减压站信息
         hasValidDecoSequence = (_decoSequence.stopCount > 0 && _decoSequence.currentStopIdx >= 0);
+        updateSafetyStop(diveInfo, timeSpentInLevel, hasValidDecoSequence || decoNeeded);
         if (hasValidDecoSequence) {
             DecoStop& currentStop = _decoSequence.stops[_decoSequence.currentStopIdx];
             diveInfo.minutesToDeco = 0;  // 有减压序列时NDL为0
             diveInfo.decoStopInMeters = (int)currentStop.depth;
             diveInfo.decoStopDurationInMinutes = (currentStop.remainingTime + 59) / 60;
+            diveInfo.decoStopDurationInSeconds = currentStop.remainingTime;
             diveInfo.decoSequence = _decoSequence;
             diveInfo.isMissedDecoStop = _isMissedDeco;
             diveInfo.effectiveCeiling = _effectiveCeiling;
+            diveInfo.stopType = BUHLMANN_STOP_DECO;
+            diveInfo.stopDepthMeters = currentStop.depth;
+            diveInfo.stopTimeTotalSeconds = currentStop.totalTime;
+            if (diveInfo.stopTimeTotalSeconds < currentStop.remainingTime) {
+                diveInfo.stopTimeTotalSeconds = currentStop.remainingTime;
+            }
+            diveInfo.stopTimeRemainingSeconds = currentStop.remainingTime;
+            diveInfo.inStopZone = fabsf(_currentDepth - currentStop.depth) <= _safetyStopZoneHalfWidthMeters;
             
             // ========== 计算 TTS（包含上升时间，标准 10m/min）==========
             // TTS = 上升时间 + 所有站的停留时间
@@ -2156,6 +2309,7 @@ void Buhlmann::generateDecoSequence(float currentPressure, float currentDepth) {
 
         if (stopTimeSec > 0) {
             _decoSequence.stops[_decoSequence.stopCount].depth = currentStopDepth;
+            _decoSequence.stops[_decoSequence.stopCount].totalTime = stopTimeSec;
             _decoSequence.stops[_decoSequence.stopCount].remainingTime = stopTimeSec;
             _decoSequence.stops[_decoSequence.stopCount].isCompleted = false;
             _decoSequence.stops[_decoSequence.stopCount].targetGF = nextStopGF;
