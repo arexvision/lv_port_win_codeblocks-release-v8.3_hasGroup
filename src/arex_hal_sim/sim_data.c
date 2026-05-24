@@ -14,7 +14,7 @@
 #include <string.h>
 
 #ifndef AREX_TCP_ALGO_DEBUG
-#define AREX_TCP_ALGO_DEBUG 0
+#define AREX_TCP_ALGO_DEBUG 1
 #endif
 
 static lv_timer_t *s_sim_timer;
@@ -343,7 +343,7 @@ static void sim_tick_cb(lv_timer_t *t)
 #endif
 
     s_sim.layout_tick++;
-    arex_test_set_ui_layout(s_sim.layout_phase);
+    // arex_test_set_ui_layout(s_sim.layout_phase);
     s_sim.layout_phase = (uint8_t)(1U - s_sim.layout_phase);
 
     s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
