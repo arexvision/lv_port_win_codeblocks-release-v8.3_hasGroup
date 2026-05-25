@@ -38,6 +38,9 @@ typedef enum
     AREX_SUBMENU_SETTING_LOG_RATE,
     AREX_SUBMENU_SETTING_BLUETOOTH,
     AREX_SUBMENU_SETTING_RESET_DEFAULTS,
+    AREX_SUBMENU_SETTING_PLAN_DEPTH,
+    AREX_SUBMENU_SETTING_PLAN_TIME,
+    AREX_SUBMENU_SETTING_PLAN_RMV,
 } arex_submenu_setting_kind_t;
 
 typedef struct
@@ -92,6 +95,11 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
 void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, uint16_t value);
 void arex_submenu_apply_edit_value(arex_submenu_setting_kind_t kind, uint8_t arg, float value);
 uint8_t arex_submenu_safety_stop_depth_m(uint8_t value);
+bool arex_submenu_dive_plan_is_result_page(void);
+bool arex_submenu_dive_plan_handle_action(uint8_t item_index,
+                                          const char *item_text,
+                                          bool *out_close_submenu,
+                                          uint8_t *out_keep_index);
 
 #ifdef __cplusplus
 }

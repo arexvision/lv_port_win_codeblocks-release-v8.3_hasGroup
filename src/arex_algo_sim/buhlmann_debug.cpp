@@ -23,10 +23,6 @@ static bool s_diving = false;
 static uint8_t s_gf_low_pct = 40U;
 static uint8_t s_gf_high_pct = 85U;
 static uint8_t s_final_deco_stop_depth_m = (uint8_t)DECO_DEFAULT_FINAL_STOP_METERS;
-static bool s_deco_plan_dirty = true;
-static uint32_t s_deco_plan_elapsed_s = 0U;
-
-#define AREX_DECO_PLAN_REFRESH_S 5U
 
 static uint16_t clamp_u16_non_negative(int value)
 {
@@ -57,75 +53,84 @@ static uint16_t display_minutes_from_seconds(int seconds)
     return (uint16_t)((seconds + 59) / 60);
 }
 
-static void sync_deco_plan_data(float depth_m, uint32_t delta_time_s)
+static uint16_t round_u16_non_negative(float value)
 {
-    if (!s_deco_plan_dirty)
-    {
-        s_deco_plan_elapsed_s += delta_time_s;
-        if (s_deco_plan_elapsed_s < AREX_DECO_PLAN_REFRESH_S)
-        {
-            return;
-        }
-    }
+    if (value <= 0.0f) return 0U;
+    if (value >= 65535.0f) return 65535U;
+    return (uint16_t)(value + 0.5f);
+}
 
-    s_deco_plan_dirty = false;
-    s_deco_plan_elapsed_s = 0U;
+static void fill_plan_config_from_ui(float depth_m,
+                                     uint16_t bottom_time_min,
+                                     float rmv_lpm,
+                                     DecoPlanConfig &config)
+{
+    config = DecoPlanConfig();
 
-    float plan_depth_m = g_sensor_data.max_depth;
-    if (depth_m > plan_depth_m)
-    {
-        plan_depth_m = depth_m;
-    }
+    if (depth_m < 3.0f) depth_m = 3.0f;
+    if (depth_m > 120.0f) depth_m = 120.0f;
+    if (bottom_time_min < 1U) bottom_time_min = 1U;
+    if (bottom_time_min > 300U) bottom_time_min = 300U;
+    if (rmv_lpm < 5.0f) rmv_lpm = 5.0f;
+    if (rmv_lpm > 50.0f) rmv_lpm = 50.0f;
 
-    if (plan_depth_m < 3.0f || g_sensor_data.dive_time_s == 0U)
-    {
-        arex_bus_set_deco_plan(NULL, 0U);
-        return;
-    }
+    uint8_t gf_low = g_sensor_data.gf_low ? g_sensor_data.gf_low : s_gf_low_pct;
+    uint8_t gf_high = g_sensor_data.gf_high ? g_sensor_data.gf_high : s_gf_high_pct;
+    if (gf_low > 100U) gf_low = 100U;
+    if (gf_high > 100U) gf_high = 100U;
 
-    DecoPlanConfig config;
-    config.bottomDepthMeters = plan_depth_m;
-    config.bottomTimeSeconds = (int)g_sensor_data.dive_time_s;
-    if (config.bottomTimeSeconds < 60)
-    {
-        config.bottomTimeSeconds = 60;
-    }
+    config.bottomDepthMeters = depth_m;
+    config.bottomTimeSeconds = (int)bottom_time_min * 60;
     config.descentRateMpm = 18.0f;
     config.ascentRateMpm = 10.0f;
-    config.rmvLitersPerMinute = 14.0f;
-    config.gfLow = (float)s_gf_low_pct / 100.0f;
-    config.gfHigh = (float)s_gf_high_pct / 100.0f;
+    config.rmvLitersPerMinute = rmv_lpm;
+    config.gfLow = (float)gf_low / 100.0f;
+    config.gfHigh = (float)gf_high / 100.0f;
     config.finalStopDepthMeters = (float)s_final_deco_stop_depth_m;
     config.bottomPPO2 = 1.4f;
     config.decoPPO2 = 1.6f;
 
     for (int i = 0; i < MAX_GASES; i++)
     {
-        config.gases[i] = s_buhlmann.getGas(i);
+        config.gases[i] = Gas(0.21f, 0.0f);
+        config.gases[i].enabled = false;
     }
-    config.gases[0].enabled = true;
 
-    DecoPlanResult result;
-    arex_deco_stop_t plan_stops[MAX_DECO_STOPS];
-    uint8_t stop_count = 0U;
-
-    if (s_buhlmann.planDive(config, result))
+    uint8_t gas_count = g_sensor_data.gas_slot_count;
+    uint8_t valid_count = 0U;
+    if (gas_count > GAS_COUNT) gas_count = GAS_COUNT;
+    for (uint8_t i = 0; i < gas_count && valid_count < MAX_GASES; i++)
     {
-        for (int i = 0; i < result.entryCount && stop_count < MAX_DECO_STOPS; i++)
+        uint8_t o2 = g_sensor_data.gas_slot_o2_pct[i];
+        uint8_t he = g_sensor_data.gas_slot_he_pct[i];
+        if (o2 == 0U || o2 > 100U || he > 100U || (uint16_t)o2 + (uint16_t)he > 100U)
         {
-            const DecoPlanEntry &entry = result.entries[i];
-            if (entry.entryType != DECO_PLAN_ENTRY_DECO_STOP)
-            {
-                continue;
-            }
-
-            plan_stops[stop_count].depth_m = entry.depthMeters;
-            plan_stops[stop_count].stay_min = (float)display_minutes_from_seconds(entry.timeSeconds);
-            stop_count++;
+            continue;
         }
+        config.gases[valid_count] = Gas((float)o2 / 100.0f, (float)he / 100.0f);
+        config.gases[valid_count].enabled = true;
+        valid_count++;
     }
 
-    arex_bus_set_deco_plan(plan_stops, stop_count);
+    if (valid_count == 0U)
+    {
+        config.gases[0] = Gas(0.21f, 0.0f);
+        config.gases[0].enabled = true;
+    }
+}
+
+static buhlmann_debug_plan_row_type_t map_plan_row_type(DecoPlanEntryType type)
+{
+    switch (type)
+    {
+    case DECO_PLAN_ENTRY_ASCENT:
+        return BUHLMANN_DEBUG_PLAN_ROW_ASCENT;
+    case DECO_PLAN_ENTRY_DECO_STOP:
+        return BUHLMANN_DEBUG_PLAN_ROW_DECO_STOP;
+    case DECO_PLAN_ENTRY_BOTTOM:
+    default:
+        return BUHLMANN_DEBUG_PLAN_ROW_BOTTOM;
+    }
 }
 
 static void format_gas_name(const Gas &gas, char *name_buf, size_t name_buf_size)
@@ -334,7 +339,6 @@ void buhlmann_debug_set_final_stop_depth(uint8_t depth_m)
 {
     s_final_deco_stop_depth_m = (depth_m == 6U) ? 6U : 3U;
     s_buhlmann.setFinalStopDepth((float)s_final_deco_stop_depth_m);
-    s_deco_plan_dirty = true;
     rt_kprintf("[DIVE_SETUP] Last deco stop: %um\n", (unsigned)s_final_deco_stop_depth_m);
 }
 
@@ -353,8 +357,57 @@ void buhlmann_debug_set_gf(uint8_t gf_low_pct, uint8_t gf_high_pct)
     s_buhlmann.setGFLow((float)s_gf_low_pct / 100.0f);
     s_buhlmann.setGFHigh((float)s_gf_high_pct / 100.0f);
     arex_bus_set_gf_setting(s_gf_low_pct, s_gf_high_pct);
-    s_deco_plan_dirty = true;
     rt_kprintf("[DIVE_SETUP] GF: %u/%u\n", (unsigned)s_gf_low_pct, (unsigned)s_gf_high_pct);
+}
+
+bool buhlmann_debug_plan_calculate(float depth_m,
+                                   uint16_t bottom_time_min,
+                                   float rmv_lpm,
+                                   buhlmann_debug_plan_result_t *out_result)
+{
+    if (out_result == NULL)
+    {
+        return false;
+    }
+
+    memset(out_result, 0, sizeof(*out_result));
+
+    if (!s_initialized)
+    {
+        buhlmann_debug_init();
+    }
+
+    DecoPlanConfig config;
+    fill_plan_config_from_ui(depth_m, bottom_time_min, rmv_lpm, config);
+
+    DecoPlanResult result;
+    bool ok = s_buhlmann.planDive(config, result);
+    out_result->ok = ok && !result.truncated && result.entryCount > 0;
+    out_result->truncated = result.truncated ||
+                            result.entryCount > (int)BUHLMANN_DEBUG_PLAN_MAX_ENTRIES;
+    out_result->total_runtime_min = display_minutes_from_seconds(result.totalRuntimeSeconds);
+    out_result->total_deco_min = display_minutes_from_seconds(result.totalDecoSeconds);
+    out_result->total_gas_l = round_u16_non_negative(result.totalGasLiters);
+    out_result->cns_pct = round_u16_non_negative(result.cns);
+    out_result->otu = round_u16_non_negative(result.otu);
+
+    uint8_t entry_count = 0U;
+    for (int i = 0; i < result.entryCount && entry_count < BUHLMANN_DEBUG_PLAN_MAX_ENTRIES; i++)
+    {
+        const DecoPlanEntry &entry = result.entries[i];
+        buhlmann_debug_plan_row_t &row = out_result->entries[entry_count];
+        row.type = map_plan_row_type(entry.entryType);
+        row.depth_m = (int16_t)roundf(entry.depthMeters);
+        row.time_min = display_minutes_from_seconds(entry.timeSeconds);
+        row.run_min = display_minutes_from_seconds(entry.runtimeSeconds);
+        row.o2_pct = (uint8_t)roundf(entry.oxygenFraction * 100.0f);
+        row.he_pct = (uint8_t)roundf(entry.heliumFraction * 100.0f);
+        row.gas_l = round_u16_non_negative(entry.gasQtyLiters);
+        entry_count++;
+    }
+    out_result->entry_count = entry_count;
+
+    return out_result->ok;
 }
 
 void buhlmann_debug_reset(void)
@@ -362,8 +415,6 @@ void buhlmann_debug_reset(void)
     s_buhlmann = Buhlmann(62.7f);
     s_initialized = false;
     s_diving = false;
-    s_deco_plan_dirty = true;
-    s_deco_plan_elapsed_s = 0U;
     buhlmann_debug_init();
 }
 
@@ -406,6 +457,5 @@ void buhlmann_debug_tick(float depth_m, float temperature_c, uint32_t delta_time
     handle_pending_gas_switch(depth_m);
     sync_core_data(dive_info, depth_m);
     sync_stop_data(dive_info);
-    sync_deco_plan_data(depth_m, delta_time_s);
     sync_gas_data(current_pressure);
 }

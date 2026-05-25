@@ -16,6 +16,24 @@ static uint16_t s_submenu_width = 0;
 static uint16_t s_submenu_height = 0;
 static arex_submenu_setting_confirm_t s_pending_setting;
 
+static bool submenu_is_dive_plan_result_visible(void)
+{
+    if (!s_submenu_title || !arex_submenu_dive_plan_is_result_page())
+    {
+        return false;
+    }
+    const char *title = lv_label_get_text(s_submenu_title);
+    if (!title)
+    {
+        return false;
+    }
+    if (title[0] == '>' && title[1] == ' ')
+    {
+        title += 2;
+    }
+    return strcmp(title, "DIVE PLAN") == 0;
+}
+
 void arex_submenu_view_reset(void)
 {
     s_submenu_layer = NULL;
@@ -125,6 +143,13 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
     int item_w = (int)sub_w - 15;
     int gap_y  = (int)(g_sys_config.gap_menu * BASE_U);   /* 1U=10px */
     int current_y = 0;
+    bool compact_plan = (strcmp(title, "DIVE PLAN") == 0 &&
+                         arex_submenu_dive_plan_is_result_page());
+    if (compact_plan)
+    {
+        item_h = 24;
+        gap_y = 2;
+    }
 
     for (uint8_t i = 0; i < count; i++)
     {
@@ -169,7 +194,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         /* 普通菜单项 */
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, GREEN, 0);
-        lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
+        lv_obj_set_style_text_font(lbl, arex_get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
         lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
@@ -184,6 +209,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
 void arex_screen_set_submenu_selection(uint8_t idx)
 {
     if (!s_submenu_list) return;
+    bool compact_plan = submenu_is_dive_plan_result_visible();
     uint32_t cnt = lv_obj_get_child_cnt(s_submenu_list);
     for (uint32_t i = 0; i < cnt; i++)
     {
@@ -201,14 +227,14 @@ void arex_screen_set_submenu_selection(uint8_t idx)
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_font(lbl, arex_get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
             }
             /* LIGHT CONTROL second column uses the same selected emphasis. */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
                 lv_obj_set_style_text_color(lbl2, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl2, arex_get_font(FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_font(lbl2, arex_get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
             }
         }
         else
@@ -222,14 +248,14 @@ void arex_screen_set_submenu_selection(uint8_t idx)
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, GREEN, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_font(lbl, arex_get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
             }
             /* LIGHT CONTROL 特殊处理：第二列（ON/OFF）恢复状态色 */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
                 lv_obj_set_style_text_color(lbl2, g_light_power_state ? GREEN : LIGHT, 0);
-                lv_obj_set_style_text_font(lbl2, arex_get_font(FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_font(lbl2, arex_get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
             }
         }
     }
@@ -251,19 +277,9 @@ void arex_screen_open_info_submenu(uint8_t item_idx)
     submenu_slide_in();
 }
 
-void arex_screen_refresh_info_submenu_if_open(void)
+static void refresh_info_submenu_page(uint8_t keep_idx)
 {
-    if (!s_submenu_title || !s_submenu_list)
-    {
-        return;
-    }
-    if (g_ui.state != UI_SUB_MENU || g_ui.sub_parent != UI_INFO || g_ui.sub_history_depth != 0)
-    {
-        return;
-    }
-
     uint8_t count = 0;
-    uint8_t keep_idx = g_ui.sub_menu_idx;
     const char *title = arex_submenu_info_title(g_ui.menu_info_idx);
     const char **items = arex_submenu_build_info_items(g_ui.menu_info_idx, &count);
     if (!title || !items || count == 0)
@@ -279,6 +295,20 @@ void arex_screen_refresh_info_submenu_if_open(void)
     }
     g_ui.sub_menu_idx = keep_idx;
     arex_screen_set_submenu_selection(keep_idx);
+}
+
+void arex_screen_refresh_info_submenu_if_open(void)
+{
+    if (!s_submenu_title || !s_submenu_list)
+    {
+        return;
+    }
+    if (g_ui.state != UI_SUB_MENU || g_ui.sub_parent != UI_INFO || g_ui.sub_history_depth != 0)
+    {
+        return;
+    }
+
+    refresh_info_submenu_page(g_ui.sub_menu_idx);
 }
 
 static bool refresh_compass_cal_submenu(void)
@@ -485,6 +515,26 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
+    if (strcmp(cur_title, "DIVE PLAN") == 0)
+    {
+        bool close_submenu = false;
+        uint8_t keep_idx = item_idx;
+        if (arex_submenu_dive_plan_handle_action(item_idx, text, &close_submenu, &keep_idx))
+        {
+            if (close_submenu)
+            {
+                arex_screen_close_submenu();
+                return;
+            }
+            refresh_info_submenu_page(keep_idx);
+            return;
+        }
+        if (arex_submenu_dive_plan_is_result_page())
+        {
+            return;
+        }
+    }
+
     // HOTFIX: Block action for Info detail rows.
     if (arex_submenu_is_readonly_info_title(cur_title))
     {
@@ -498,6 +548,11 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
             arex_screen_begin_edit_value(item_idx, &edit_spec);
             return;
         }
+    }
+
+    if (strcmp(cur_title, "DIVE PLAN") == 0)
+    {
+        return;
     }
 
     {

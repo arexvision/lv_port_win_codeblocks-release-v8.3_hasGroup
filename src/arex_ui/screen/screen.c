@@ -1291,6 +1291,15 @@ static void format_edit_committed_text(char *buf,
 {
     switch (kind)
     {
+    case AREX_SUBMENU_SETTING_PLAN_DEPTH:
+        snprintf(buf, buf_size, "DEPTH: %.0fm", (double)value);
+        break;
+    case AREX_SUBMENU_SETTING_PLAN_TIME:
+        snprintf(buf, buf_size, "TIME: %.0fmin", (double)value);
+        break;
+    case AREX_SUBMENU_SETTING_PLAN_RMV:
+        snprintf(buf, buf_size, "RMV: %.0fL/min", (double)value);
+        break;
     case AREX_SUBMENU_SETTING_MOD_PPO2:
         snprintf(buf, buf_size, "MOD PO2: %.1f", (double)value);
         break;
