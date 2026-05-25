@@ -192,6 +192,10 @@ void ui_handle_rotate(int8_t dir)
     /* --- SUB_MENU --- */
     case UI_SUB_MENU:
     {
+        if (arex_screen_handle_dive_plan_rotate(dir))
+        {
+            break;
+        }
         int8_t next = (int8_t)g_ui.sub_menu_idx + dir;
         if (next < 0) next = 0;
         if (next >= (int8_t)g_ui.sub_item_count) next = g_ui.sub_item_count - 1;

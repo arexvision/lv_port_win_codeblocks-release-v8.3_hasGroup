@@ -120,14 +120,17 @@ static uint8_t s_datetime_minute = 0;
 
 typedef enum
 {
-    AREX_PLAN_PAGE_INPUT = 0,
+    AREX_PLAN_PAGE_DEPTH = 0,
+    AREX_PLAN_PAGE_TIME,
+    AREX_PLAN_PAGE_RMV,
+    AREX_PLAN_PAGE_READY,
     AREX_PLAN_PAGE_RESULT,
     AREX_PLAN_PAGE_ERROR,
 } arex_plan_page_t;
 
 #define AREX_PLAN_ROWS_PER_PAGE 8U
 
-static arex_plan_page_t s_plan_page = AREX_PLAN_PAGE_INPUT;
+static arex_plan_page_t s_plan_page = AREX_PLAN_PAGE_DEPTH;
 static bool s_plan_defaults_loaded = false;
 static float s_plan_depth_m = 30.0f;
 static uint16_t s_plan_time_min = 20U;
@@ -355,123 +358,46 @@ static const char *plan_row_time_text(uint8_t row_index, char *buf, size_t buf_s
 #endif
 }
 
-static void plan_build_input_items(uint8_t *out_count)
+static uint8_t plan_result_total_pages(void)
+{
+#ifdef PC_SIMULATOR
+    if (s_plan_result.entry_count == 0U)
+    {
+        return 1U;
+    }
+    return (uint8_t)((s_plan_result.entry_count + AREX_PLAN_ROWS_PER_PAGE - 1U) /
+                     AREX_PLAN_ROWS_PER_PAGE);
+#else
+    return 1U;
+#endif
+}
+
+static void plan_build_action_items(uint8_t *out_count)
 {
     uint8_t n = 0;
     plan_ensure_defaults();
 
-    lv_snprintf(s_plan_str[n], sizeof(s_plan_str[n]), "DEPTH: %.0fm", (double)s_plan_depth_m);
-    s_plan_dyn[n] = s_plan_str[n];
-    n++;
-    lv_snprintf(s_plan_str[n], sizeof(s_plan_str[n]), "TIME: %umin", (unsigned)s_plan_time_min);
-    s_plan_dyn[n] = s_plan_str[n];
-    n++;
-    lv_snprintf(s_plan_str[n], sizeof(s_plan_str[n]), "RMV: %.0fL/min", (double)s_plan_rmv_lpm);
-    s_plan_dyn[n] = s_plan_str[n];
-    n++;
-    lv_snprintf(s_plan_str[n],
-                sizeof(s_plan_str[n]),
-                "GF %u/%u  LAST %um",
-                (unsigned)plan_gf_low(),
-                (unsigned)plan_gf_high(),
-                (unsigned)plan_last_deco_depth());
-    s_plan_dyn[n] = s_plan_str[n];
-    n++;
-    plan_format_gas_summary(s_plan_str[n], sizeof(s_plan_str[n]));
-    s_plan_dyn[n] = s_plan_str[n];
-    n++;
-    s_plan_dyn[n++] = "CALCULATE";
-    s_plan_dyn[n++] = "EXIT";
-    *out_count = n;
-}
-
-static void plan_build_result_items(uint8_t *out_count)
-{
-    uint8_t n = 0;
-#ifdef PC_SIMULATOR
-    uint8_t total_pages = (s_plan_result.entry_count == 0U)
-                          ? 1U
-                          : (uint8_t)((s_plan_result.entry_count + AREX_PLAN_ROWS_PER_PAGE - 1U) /
-                                      AREX_PLAN_ROWS_PER_PAGE);
-    if (s_plan_result_page >= total_pages)
-    {
-        s_plan_result_page = (uint8_t)(total_pages - 1U);
-    }
-    uint8_t start = (uint8_t)(s_plan_result_page * AREX_PLAN_ROWS_PER_PAGE);
-    uint8_t end = (uint8_t)(start + AREX_PLAN_ROWS_PER_PAGE);
-    if (end > s_plan_result.entry_count)
-    {
-        end = s_plan_result.entry_count;
-    }
-
-    lv_snprintf(s_plan_str[n],
-                sizeof(s_plan_str[n]),
-                "OC  DEP %.0fm TIME %umin RMV %.0f",
-                (double)s_plan_depth_m,
-                (unsigned)s_plan_time_min,
-                (double)s_plan_rmv_lpm);
-    s_plan_dyn[n] = s_plan_str[n];
-    n++;
-    lv_snprintf(s_plan_str[n],
-                sizeof(s_plan_str[n]),
-                "GF %u/%u LAST %um",
-                (unsigned)plan_gf_low(),
-                (unsigned)plan_gf_high(),
-                (unsigned)plan_last_deco_depth());
-    s_plan_dyn[n] = s_plan_str[n];
-    n++;
-    s_plan_dyn[n++] = "Stp Tme Run Gas   Qty";
-
-    for (uint8_t i = start; i < end; i++)
-    {
-        char tme[8];
-        const buhlmann_debug_plan_row_t *row = &s_plan_result.entries[i];
-        const char *time_text = plan_row_time_text(i, tme, sizeof(tme));
-        lv_snprintf(s_plan_str[n],
-                    sizeof(s_plan_str[n]),
-                    "%3dm %3s %3u %02u/%02u %4uL",
-                    (int)row->depth_m,
-                    time_text,
-                    (unsigned)row->run_min,
-                    (unsigned)row->o2_pct,
-                    (unsigned)row->he_pct,
-                    (unsigned)row->gas_l);
-        s_plan_dyn[n] = s_plan_str[n];
-        n++;
-    }
-
-    lv_snprintf(s_plan_str[n],
-                sizeof(s_plan_str[n]),
-                "TOTAL %umin DECO %umin GAS %uL",
-                (unsigned)s_plan_result.total_runtime_min,
-                (unsigned)s_plan_result.total_deco_min,
-                (unsigned)s_plan_result.total_gas_l);
-    s_plan_dyn[n] = s_plan_str[n];
-    n++;
-    lv_snprintf(s_plan_str[n],
-                sizeof(s_plan_str[n]),
-                "CNS %u%% OTU %u  Page %u/%u",
-                (unsigned)s_plan_result.cns_pct,
-                (unsigned)s_plan_result.otu,
-                (unsigned)(s_plan_result_page + 1U),
-                (unsigned)total_pages);
-    s_plan_dyn[n] = s_plan_str[n];
-    n++;
-    s_plan_dyn[n++] = (s_plan_result_page + 1U < total_pages) ? "More >" : "Done";
     s_plan_dyn[n++] = "Exit";
-#else
-    s_plan_dyn[n++] = "PLAN UNAVAILABLE";
-    s_plan_dyn[n++] = "Exit";
-#endif
-    *out_count = n;
-}
-
-static void plan_build_error_items(uint8_t *out_count)
-{
-    uint8_t n = 0;
-    s_plan_dyn[n++] = "PLAN FAILED";
-    s_plan_dyn[n++] = "CHECK DEPTH/TIME/RMV";
-    s_plan_dyn[n++] = "Exit";
+    if (s_plan_page == AREX_PLAN_PAGE_READY)
+    {
+        s_plan_dyn[n++] = "Plan >";
+    }
+    else if (s_plan_page == AREX_PLAN_PAGE_RESULT)
+    {
+        uint8_t total_pages = plan_result_total_pages();
+        if (s_plan_result_page + 1U < total_pages)
+        {
+            s_plan_dyn[n++] = "More >";
+        }
+        else
+        {
+            s_plan_dyn[n++] = "Next >";
+        }
+    }
+    else
+    {
+        s_plan_dyn[n++] = "Next >";
+    }
     *out_count = n;
 }
 
@@ -861,18 +787,7 @@ const char **arex_submenu_build_info_items(uint8_t index, uint8_t *out_count)
         break;
     }
     case 1:
-        if (s_plan_page == AREX_PLAN_PAGE_RESULT)
-        {
-            plan_build_result_items(&n);
-        }
-        else if (s_plan_page == AREX_PLAN_PAGE_ERROR)
-        {
-            plan_build_error_items(&n);
-        }
-        else
-        {
-            plan_build_input_items(&n);
-        }
+        plan_build_action_items(&n);
         if (out_count)
         {
             *out_count = n;
@@ -1669,37 +1584,10 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
     }
     memset(out_spec, 0, sizeof(*out_spec));
 
-    if (strcmp(clean_title, "DIVE PLAN") == 0 && s_plan_page == AREX_PLAN_PAGE_INPUT)
+    if (strcmp(clean_title, "DIVE PLAN") == 0)
     {
-        plan_ensure_defaults();
-        out_spec->step = 1.0f;
-        out_spec->decimals = 0;
-        switch (item_index)
-        {
-        case 0:
-            out_spec->kind = AREX_SUBMENU_SETTING_PLAN_DEPTH;
-            out_spec->value = s_plan_depth_m;
-            out_spec->min = 3.0f;
-            out_spec->max = 120.0f;
-            lv_snprintf(out_spec->label, sizeof(out_spec->label), "DEPTH:");
-            return true;
-        case 1:
-            out_spec->kind = AREX_SUBMENU_SETTING_PLAN_TIME;
-            out_spec->value = (float)s_plan_time_min;
-            out_spec->min = 1.0f;
-            out_spec->max = 300.0f;
-            lv_snprintf(out_spec->label, sizeof(out_spec->label), "TIME:");
-            return true;
-        case 2:
-            out_spec->kind = AREX_SUBMENU_SETTING_PLAN_RMV;
-            out_spec->value = s_plan_rmv_lpm;
-            out_spec->min = 5.0f;
-            out_spec->max = 50.0f;
-            lv_snprintf(out_spec->label, sizeof(out_spec->label), "RMV:");
-            return true;
-        default:
-            break;
-        }
+        (void)item_index;
+        return false;
     }
 
     if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 1)
@@ -1936,19 +1824,19 @@ void arex_submenu_apply_edit_value(arex_submenu_setting_kind_t kind, uint8_t arg
         s_plan_depth_m = (float)plan_round_u16(value);
         if (s_plan_depth_m < 3.0f) s_plan_depth_m = 3.0f;
         if (s_plan_depth_m > 120.0f) s_plan_depth_m = 120.0f;
-        s_plan_page = AREX_PLAN_PAGE_INPUT;
+        s_plan_page = AREX_PLAN_PAGE_READY;
         break;
     case AREX_SUBMENU_SETTING_PLAN_TIME:
         s_plan_time_min = plan_round_u16(value);
         if (s_plan_time_min < 1U) s_plan_time_min = 1U;
         if (s_plan_time_min > 300U) s_plan_time_min = 300U;
-        s_plan_page = AREX_PLAN_PAGE_INPUT;
+        s_plan_page = AREX_PLAN_PAGE_READY;
         break;
     case AREX_SUBMENU_SETTING_PLAN_RMV:
         s_plan_rmv_lpm = (float)plan_round_u16(value);
         if (s_plan_rmv_lpm < 5.0f) s_plan_rmv_lpm = 5.0f;
         if (s_plan_rmv_lpm > 50.0f) s_plan_rmv_lpm = 50.0f;
-        s_plan_page = AREX_PLAN_PAGE_INPUT;
+        s_plan_page = AREX_PLAN_PAGE_READY;
         break;
     case AREX_SUBMENU_SETTING_MOD_PPO2:
         g_sys_config.mod_ppo2 = value;
@@ -2039,9 +1927,178 @@ void arex_submenu_apply_edit_value(arex_submenu_setting_kind_t kind, uint8_t arg
     }
 }
 
+arex_dive_plan_page_t arex_submenu_dive_plan_page(void)
+{
+    return (arex_dive_plan_page_t)s_plan_page;
+}
+
+void arex_submenu_dive_plan_get_inputs(float *out_depth_m,
+                                       uint16_t *out_time_min,
+                                       float *out_rmv_lpm)
+{
+    plan_ensure_defaults();
+    if (out_depth_m) *out_depth_m = s_plan_depth_m;
+    if (out_time_min) *out_time_min = s_plan_time_min;
+    if (out_rmv_lpm) *out_rmv_lpm = s_plan_rmv_lpm;
+}
+
+uint8_t arex_submenu_dive_plan_gf_low(void)
+{
+    return plan_gf_low();
+}
+
+uint8_t arex_submenu_dive_plan_gf_high(void)
+{
+    return plan_gf_high();
+}
+
+uint8_t arex_submenu_dive_plan_last_stop_m(void)
+{
+    return plan_last_deco_depth();
+}
+
+uint8_t arex_submenu_dive_plan_header_gas_o2(void)
+{
+    uint8_t gas_count = g_sensor_data.gas_slot_count;
+    if (gas_count > GAS_COUNT) gas_count = GAS_COUNT;
+    for (uint8_t i = 1U; i < gas_count; i++)
+    {
+        uint8_t o2 = g_sensor_data.gas_slot_o2_pct[i];
+        uint8_t he = g_sensor_data.gas_slot_he_pct[i];
+        if (o2 > 0U && o2 <= 100U && he <= 100U && (uint16_t)o2 + (uint16_t)he <= 100U)
+        {
+            return o2;
+        }
+    }
+    return 0U;
+}
+
+void arex_submenu_dive_plan_gas_summary(char *out, size_t out_size)
+{
+    plan_format_gas_summary(out, out_size);
+}
+
+bool arex_submenu_dive_plan_handle_rotate(int8_t dir)
+{
+    plan_ensure_defaults();
+    switch (s_plan_page)
+    {
+    case AREX_PLAN_PAGE_DEPTH:
+        s_plan_depth_m += (float)dir;
+        if (s_plan_depth_m < 3.0f) s_plan_depth_m = 3.0f;
+        if (s_plan_depth_m > 120.0f) s_plan_depth_m = 120.0f;
+        return true;
+    case AREX_PLAN_PAGE_TIME:
+    {
+        int next = (int)s_plan_time_min + (int)dir;
+        if (next < 1) next = 1;
+        if (next > 300) next = 300;
+        s_plan_time_min = (uint16_t)next;
+        return true;
+    }
+    case AREX_PLAN_PAGE_RMV:
+        s_plan_rmv_lpm += (float)dir;
+        if (s_plan_rmv_lpm < 5.0f) s_plan_rmv_lpm = 5.0f;
+        if (s_plan_rmv_lpm > 50.0f) s_plan_rmv_lpm = 50.0f;
+        return true;
+    default:
+        return false;
+    }
+}
+
 bool arex_submenu_dive_plan_is_result_page(void)
 {
     return s_plan_page == AREX_PLAN_PAGE_RESULT;
+}
+
+uint8_t arex_submenu_dive_plan_result_page_index(void)
+{
+    return s_plan_result_page;
+}
+
+uint8_t arex_submenu_dive_plan_result_total_pages(void)
+{
+    return plan_result_total_pages();
+}
+
+uint8_t arex_submenu_dive_plan_result_entry_count(void)
+{
+#ifdef PC_SIMULATOR
+    return s_plan_result.entry_count;
+#else
+    return 0U;
+#endif
+}
+
+bool arex_submenu_dive_plan_result_row(uint8_t row_index, arex_dive_plan_row_t *out_row)
+{
+    if (!out_row)
+    {
+        return false;
+    }
+#ifdef PC_SIMULATOR
+    if (row_index >= s_plan_result.entry_count)
+    {
+        return false;
+    }
+    const buhlmann_debug_plan_row_t *src = &s_plan_result.entries[row_index];
+    out_row->type = (arex_dive_plan_row_type_t)src->type;
+    out_row->depth_m = src->depth_m;
+    out_row->time_min = src->time_min;
+    out_row->run_min = src->run_min;
+    out_row->o2_pct = src->o2_pct;
+    out_row->he_pct = src->he_pct;
+    out_row->gas_l = src->gas_l;
+    return true;
+#else
+    memset(out_row, 0, sizeof(*out_row));
+    return false;
+#endif
+}
+
+uint16_t arex_submenu_dive_plan_total_runtime_min(void)
+{
+#ifdef PC_SIMULATOR
+    return s_plan_result.total_runtime_min;
+#else
+    return 0U;
+#endif
+}
+
+uint16_t arex_submenu_dive_plan_total_deco_min(void)
+{
+#ifdef PC_SIMULATOR
+    return s_plan_result.total_deco_min;
+#else
+    return 0U;
+#endif
+}
+
+uint16_t arex_submenu_dive_plan_total_gas_l(void)
+{
+#ifdef PC_SIMULATOR
+    return s_plan_result.total_gas_l;
+#else
+    return 0U;
+#endif
+}
+
+uint16_t arex_submenu_dive_plan_cns_pct(void)
+{
+#ifdef PC_SIMULATOR
+    return s_plan_result.cns_pct;
+#else
+    return 0U;
+#endif
+}
+
+uint16_t arex_submenu_dive_plan_otu(void)
+{
+#ifdef PC_SIMULATOR
+    return s_plan_result.otu;
+#else
+    return 0U;
+#endif
 }
 
 bool arex_submenu_dive_plan_handle_action(uint8_t item_index,
@@ -2063,52 +2120,51 @@ bool arex_submenu_dive_plan_handle_action(uint8_t item_index,
         return false;
     }
 
-    if (strcmp(item_text, "EXIT") == 0 || strcmp(item_text, "Exit") == 0)
+    if (strcmp(item_text, "Exit") == 0)
     {
-        if (s_plan_page == AREX_PLAN_PAGE_INPUT)
+        if (out_close_submenu)
         {
-            if (out_close_submenu)
-            {
-                *out_close_submenu = true;
-            }
-        }
-        else
-        {
-            s_plan_page = AREX_PLAN_PAGE_INPUT;
-            if (out_keep_index)
-            {
-                *out_keep_index = 5U;
-            }
+            *out_close_submenu = true;
         }
         return true;
     }
 
-    if (strcmp(item_text, "Done") == 0)
+    if (strcmp(item_text, "Next >") == 0)
     {
-        s_plan_page = AREX_PLAN_PAGE_INPUT;
-        if (out_keep_index)
+        switch (s_plan_page)
         {
-            *out_keep_index = 5U;
+        case AREX_PLAN_PAGE_DEPTH:
+            s_plan_page = AREX_PLAN_PAGE_TIME;
+            break;
+        case AREX_PLAN_PAGE_TIME:
+            s_plan_page = AREX_PLAN_PAGE_RMV;
+            break;
+        case AREX_PLAN_PAGE_RMV:
+            s_plan_page = AREX_PLAN_PAGE_READY;
+            break;
+        case AREX_PLAN_PAGE_RESULT:
+        case AREX_PLAN_PAGE_ERROR:
+            s_plan_page = AREX_PLAN_PAGE_READY;
+            break;
+        default:
+            break;
         }
+        if (out_keep_index) *out_keep_index = 1U;
         return true;
     }
 
     if (strcmp(item_text, "More >") == 0)
     {
-#ifdef PC_SIMULATOR
-        uint8_t total_pages = (s_plan_result.entry_count == 0U)
-                              ? 1U
-                              : (uint8_t)((s_plan_result.entry_count + AREX_PLAN_ROWS_PER_PAGE - 1U) /
-                                          AREX_PLAN_ROWS_PER_PAGE);
+        uint8_t total_pages = plan_result_total_pages();
         if (s_plan_result_page + 1U < total_pages)
         {
             s_plan_result_page++;
         }
-#endif
+        if (out_keep_index) *out_keep_index = 1U;
         return true;
     }
 
-    if (strcmp(item_text, "CALCULATE") == 0)
+    if (strcmp(item_text, "Plan >") == 0)
     {
         plan_ensure_defaults();
         s_plan_result_page = 0U;
@@ -2128,6 +2184,7 @@ bool arex_submenu_dive_plan_handle_action(uint8_t item_index,
 #else
         s_plan_page = AREX_PLAN_PAGE_ERROR;
 #endif
+        if (out_keep_index) *out_keep_index = 1U;
         return true;
     }
 
