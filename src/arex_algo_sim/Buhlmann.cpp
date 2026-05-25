@@ -2,6 +2,8 @@
 #include "rtdevice.h"
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 
 // Arduino 兼容宏
@@ -11,6 +13,175 @@
 #define byte uint8_t
 
 #include "Buhlmann.h"
+
+// 单条离线减压计划记录的默认值。
+DecoPlanEntry::DecoPlanEntry()
+	: depthMeters(0.0f),
+	  timeSeconds(0),
+	  runtimeSeconds(0),
+	  gasIndex(0),
+	  oxygenFraction(0.21f),
+	  heliumFraction(0.0f),
+	  gasQtyLiters(0.0f),
+	  entryType(DECO_PLAN_ENTRY_BOTTOM) {
+}
+
+// 离线减压计划结果的默认值，调用 planDive 前后都保持固定容量。
+DecoPlanResult::DecoPlanResult()
+	: entryCount(0),
+	  totalRuntimeSeconds(0),
+	  totalDecoSeconds(0),
+	  totalGasLiters(0.0f),
+	  cns(0.0f),
+	  otu(0.0f),
+	  truncated(false) {
+}
+
+// 离线规划默认配置：空气、30m/20min、18m/min 下潜、10m/min 上升。
+DecoPlanConfig::DecoPlanConfig()
+	: bottomDepthMeters(30.0f),
+	  bottomTimeSeconds(20 * 60),
+	  descentRateMpm(18.0f),
+	  ascentRateMpm(10.0f),
+	  rmvLitersPerMinute(14.0f),
+	  gfLow(0.30f),
+	  gfHigh(0.80f),
+	  finalStopDepthMeters(3.0f),
+	  bottomPPO2(1.4f),
+	  decoPPO2(1.6f) {
+	gases[0] = Gas(0.21f, 0.0f);
+	gases[0].enabled = true;
+	gases[1] = Gas(0.21f, 0.0f);
+	gases[1].enabled = false;
+	gases[2] = Gas(0.21f, 0.0f);
+	gases[2].enabled = false;
+}
+
+// 重置调用方传入的结果结构，避免残留上一次规划的数据。
+static void resetDecoPlanResult(DecoPlanResult& result) {
+	result.entryCount = 0;
+	result.totalRuntimeSeconds = 0;
+	result.totalDecoSeconds = 0;
+	result.totalGasLiters = 0.0f;
+	result.cns = 0.0f;
+	result.otu = 0.0f;
+	result.truncated = false;
+	for (int i = 0; i < MAX_DECO_PLAN_ENTRIES; i++) {
+		result.entries[i] = DecoPlanEntry();
+	}
+}
+
+// 显示用分钟数向上取整，和潜水电脑常见显示习惯一致。
+static int secondsToDisplayMinutes(int seconds) {
+	if (seconds <= 0) return 0;
+	return (seconds + 59) / 60;
+}
+
+// 追加计划条目；相邻同类型上升段或同一停留站会合并，减少输出碎片。
+static bool appendDecoPlanEntry(DecoPlanResult& result,
+								DecoPlanEntryType type,
+								float depthMeters,
+								int timeSeconds,
+								int runtimeSeconds,
+								int gasIndex,
+								Gas gas,
+								float gasQtyLiters) {
+	if (timeSeconds <= 0 && gasQtyLiters <= 0.0f) {
+		return true;
+	}
+
+	if (result.entryCount > 0) {
+		DecoPlanEntry& last = result.entries[result.entryCount - 1];
+		bool sameGas = last.gasIndex == gasIndex;
+		bool canMerge = false;
+		if (last.entryType == type && sameGas) {
+			if (type == DECO_PLAN_ENTRY_ASCENT) {
+				canMerge = true;
+			} else if (type == DECO_PLAN_ENTRY_DECO_STOP && fabsf(last.depthMeters - depthMeters) < 0.1f) {
+				canMerge = true;
+			}
+		}
+		if (canMerge) {
+			last.depthMeters = depthMeters;
+			last.timeSeconds += timeSeconds;
+			last.runtimeSeconds = runtimeSeconds;
+			last.gasQtyLiters += gasQtyLiters;
+			result.totalGasLiters += gasQtyLiters;
+			if (type == DECO_PLAN_ENTRY_DECO_STOP) {
+				result.totalDecoSeconds += timeSeconds;
+			}
+			return true;
+		}
+	}
+
+	if (result.entryCount >= MAX_DECO_PLAN_ENTRIES) {
+		result.truncated = true;
+		return false;
+	}
+
+	DecoPlanEntry& entry = result.entries[result.entryCount++];
+	entry.depthMeters = depthMeters;
+	entry.timeSeconds = timeSeconds;
+	entry.runtimeSeconds = runtimeSeconds;
+	entry.gasIndex = gasIndex;
+	entry.oxygenFraction = gas.oxygenFraction;
+	entry.heliumFraction = gas.heliumFraction;
+	entry.gasQtyLiters = gasQtyLiters;
+	entry.entryType = type;
+	result.totalGasLiters += gasQtyLiters;
+	if (type == DECO_PLAN_ENTRY_DECO_STOP) {
+		result.totalDecoSeconds += timeSeconds;
+	}
+	return true;
+}
+
+// 安全追加格式化文本；buffer 不够时保留结尾 '\0' 并由调用方返回截断状态。
+static int appendDecoPlanText(char* buffer, int bufferSize, int used, const char* fmt, ...) {
+	if (buffer == NULL || bufferSize <= 0) {
+		return used;
+	}
+
+	if (used >= bufferSize) {
+		buffer[bufferSize - 1] = '\0';
+		return used;
+	}
+
+	va_list args;
+	va_start(args, fmt);
+	int written = vsnprintf(buffer + used, bufferSize - used, fmt, args);
+	va_end(args);
+	if (written > 0) {
+		used += written;
+	}
+	return used;
+}
+
+// 表格中 Tme 列的阶段标识。
+static const char* decoPlanEntryTypeText(DecoPlanEntryType type) {
+	switch (type) {
+		case DECO_PLAN_ENTRY_BOTTOM: return "bot";
+		case DECO_PLAN_ENTRY_ASCENT: return "asc";
+		case DECO_PLAN_ENTRY_DECO_STOP: return "stp";
+		default: return "---";
+	}
+}
+
+// 按当前深度选择可用的最高氧气比例气体，并同步为规划器当前气体。
+static int choosePlanGas(Buhlmann& planner, float depthMeters) {
+	int gasIndex = planner.getBestGasForDepth(depthMeters);
+	if (gasIndex < 0) {
+		gasIndex = planner.getActiveGas();
+	}
+	planner.setActiveGas(gasIndex);
+	return gasIndex;
+}
+
+// 按 1 秒步长累加 CNS/OTU，使用规划阶段实际呼吸的气体。
+static void addOxygenExposureForSecond(Buhlmann& planner, Gas gas, float pressureMbar) {
+	float ppo2 = gas.oxygenFraction * (pressureMbar / 1000.0f);
+	planner.updateCNS(ppo2, 1.0f / 60.0f);
+	planner.updateOTU(ppo2, 1.0f / 60.0f);
+}
 
 // 构造函数：初始化 Buhlmann 算法参数（16个组织舱的半衰期、M值系数、GF默认值等）
 Buhlmann::Buhlmann(float waterVapourPressureCorrection) {
@@ -2580,9 +2751,226 @@ bool Buhlmann::consumeImmediatePrintRequest() {
 	return v;
 }
 
+// 离线规划器：使用临时 Buhlmann 实例模拟全新潜水，不修改当前实时潜水状态。
+bool Buhlmann::planDive(const DecoPlanConfig& config, DecoPlanResult& result) {
+	resetDecoPlanResult(result);
+
+	if (config.bottomDepthMeters <= 0.0f ||
+		config.bottomTimeSeconds <= 0 ||
+		config.descentRateMpm <= 0.0f ||
+		config.ascentRateMpm <= 0.0f ||
+		config.rmvLitersPerMinute < 0.0f ||
+		!config.gases[0].enabled) {
+		return false;
+	}
+
+	Buhlmann planner(_waterVapourPressureCorrection);
+	planner.setSeaLevelAtmosphericPressure(_seaLevelAtmosphericPressure);
+	planner.setWaterType(_waterType);
+	planner.setBottomPPO2(config.bottomPPO2);
+	planner.setDecoPPO2(config.decoPPO2);
+	planner.setGFLow(config.gfLow);
+	planner.setGFHigh(config.gfHigh);
+	planner.setFinalStopDepth(config.finalStopDepthMeters);
+
+	for (int i = 0; i < MAX_GASES; i++) {
+		float ppo2Limit = (i == 0) ? config.bottomPPO2 : config.decoPPO2;
+		planner.setGas(i,
+					   config.gases[i].oxygenFraction,
+					   config.gases[i].heliumFraction,
+					   config.gases[i].enabled,
+					   ppo2Limit);
+	}
+	planner.setActiveGas(0);
+	planner.resetCNS();
+	planner.resetOTU();
+
+	DiveResult* initialState = planner.initializeCompartments();
+	planner.startDive(initialState, 0);
+
+	int elapsedSeconds = 0;
+	float bottomGasQty = 0.0f;
+	bool ok = true;
+
+	int descentSeconds = (int)ceilf((config.bottomDepthMeters / config.descentRateMpm) * 60.0f);
+	if (descentSeconds < 1) descentSeconds = 1;
+
+	for (int t = 1; t <= descentSeconds; t++) {
+		float depth = config.bottomDepthMeters * ((float)t / (float)descentSeconds);
+		float pressure = planner.calculateHydrostaticPressureFromDepth(depth);
+		planner.setActiveGas(0);
+		Gas gas = planner.getGas(0);
+		planner.progressDive(pressure, 1);
+		addOxygenExposureForSecond(planner, gas, pressure);
+		bottomGasQty += config.rmvLitersPerMinute * (1.0f / 60.0f) * (pressure / 1000.0f);
+		elapsedSeconds++;
+	}
+
+	int bottomStaySeconds = config.bottomTimeSeconds - descentSeconds;
+	if (bottomStaySeconds < 0) bottomStaySeconds = 0;
+
+	float bottomPressure = planner.calculateHydrostaticPressureFromDepth(config.bottomDepthMeters);
+	for (int t = 0; t < bottomStaySeconds; t++) {
+		planner.setActiveGas(0);
+		Gas gas = planner.getGas(0);
+		planner.progressDive(bottomPressure, 1);
+		addOxygenExposureForSecond(planner, gas, bottomPressure);
+		bottomGasQty += config.rmvLitersPerMinute * (1.0f / 60.0f) * (bottomPressure / 1000.0f);
+		elapsedSeconds++;
+	}
+
+	ok = appendDecoPlanEntry(result,
+							 DECO_PLAN_ENTRY_BOTTOM,
+							 config.bottomDepthMeters,
+							 bottomStaySeconds,
+							 elapsedSeconds,
+							 0,
+							 planner.getGas(0),
+							 bottomGasQty) && ok;
+
+	float currentDepth = config.bottomDepthMeters;
+	float ascentMetersPerSecond = config.ascentRateMpm / 60.0f;
+	const int maxPlanSeconds = 24 * 60 * 60;
+	int guardSeconds = 0;
+
+	while (currentDepth > 0.01f && guardSeconds < maxPlanSeconds && ok) {
+		guardSeconds++;
+
+		int gasIndex = choosePlanGas(planner, currentDepth);
+		Gas gas = planner.getGas(gasIndex);
+		float pressure = planner.calculateHydrostaticPressureFromDepth(currentDepth);
+		DiveInfo info = planner.progressDive(pressure, 1);
+		addOxygenExposureForSecond(planner, gas, pressure);
+
+		float gasQty = config.rmvLitersPerMinute * (1.0f / 60.0f) * (pressure / 1000.0f);
+		elapsedSeconds++;
+
+		bool hasDecoStop = (info.stopType == BUHLMANN_STOP_DECO) ||
+						   (info.decoSequence.stopCount > 0 && info.decoSequence.currentStopIdx >= 0);
+		float stopDepth = info.stopDepthMeters;
+		if (stopDepth <= 0.1f && info.decoStopInMeters > 0) {
+			stopDepth = (float)info.decoStopInMeters;
+		}
+
+		if (hasDecoStop && stopDepth > 0.1f) {
+			if (currentDepth <= stopDepth + 0.05f) {
+				float plannedStopDepth = stopDepth;
+				if (plannedStopDepth < planner.getFinalStopDepth()) {
+					plannedStopDepth = planner.getFinalStopDepth();
+				}
+				gasIndex = choosePlanGas(planner, plannedStopDepth);
+				gas = planner.getGas(gasIndex);
+				ok = appendDecoPlanEntry(result,
+										 DECO_PLAN_ENTRY_DECO_STOP,
+										 plannedStopDepth,
+										 1,
+										 elapsedSeconds,
+										 gasIndex,
+										 gas,
+										 gasQty) && ok;
+				currentDepth = plannedStopDepth;
+			} else {
+				float nextDepth = currentDepth - ascentMetersPerSecond;
+				if (nextDepth < stopDepth) {
+					nextDepth = stopDepth;
+				}
+				ok = appendDecoPlanEntry(result,
+										 DECO_PLAN_ENTRY_ASCENT,
+										 nextDepth,
+										 1,
+										 elapsedSeconds,
+										 gasIndex,
+										 gas,
+										 gasQty) && ok;
+				currentDepth = nextDepth;
+			}
+		} else {
+			float nextDepth = currentDepth - ascentMetersPerSecond;
+			if (nextDepth < 0.0f) {
+				nextDepth = 0.0f;
+			}
+			ok = appendDecoPlanEntry(result,
+									 DECO_PLAN_ENTRY_ASCENT,
+									 nextDepth,
+									 1,
+									 elapsedSeconds,
+									 gasIndex,
+									 gas,
+									 gasQty) && ok;
+			currentDepth = nextDepth;
+		}
+	}
+
+	if (guardSeconds >= maxPlanSeconds) {
+		result.truncated = true;
+		ok = false;
+	}
+
+	result.totalRuntimeSeconds = elapsedSeconds;
+	result.cns = planner.getCumulativeCNS();
+	result.otu = planner.getCumulativeOTU();
+
+	delete initialState;
+	return ok && !result.truncated && result.entryCount > 0;
+}
+
+int Buhlmann::formatDecoPlan(const DecoPlanResult& result, char* buffer, int bufferSize) {
+	if (buffer != NULL && bufferSize > 0) {
+		buffer[0] = '\0';
+	}
+
+	int used = 0;
+	used = appendDecoPlanText(buffer, bufferSize, used, "Stp  Tme  Run  Gas    Qty\n");
+	used = appendDecoPlanText(buffer, bufferSize, used, "-------------------------\n");
+
+	for (int i = 0; i < result.entryCount; i++) {
+		const DecoPlanEntry& entry = result.entries[i];
+		int o2 = (int)roundf(entry.oxygenFraction * 100.0f);
+		int he = (int)roundf(entry.heliumFraction * 100.0f);
+		char timeText[8];
+		if (entry.entryType == DECO_PLAN_ENTRY_DECO_STOP) {
+			snprintf(timeText, sizeof(timeText), "%d", secondsToDisplayMinutes(entry.timeSeconds));
+		} else {
+			snprintf(timeText, sizeof(timeText), "%s", decoPlanEntryTypeText(entry.entryType));
+		}
+		used = appendDecoPlanText(buffer,
+								  bufferSize,
+								  used,
+								  "%3d  %3s  %3d  %02d/%02d  %3d\n",
+								  (int)roundf(entry.depthMeters),
+								  timeText,
+								  secondsToDisplayMinutes(entry.runtimeSeconds),
+								  o2,
+								  he,
+								  (int)roundf(entry.gasQtyLiters));
+	}
+
+	used = appendDecoPlanText(buffer, bufferSize, used, "-------------------------\n");
+	used = appendDecoPlanText(buffer,
+							  bufferSize,
+							  used,
+							  "Total: %d min, Deco: %d min, %d L\n",
+							  secondsToDisplayMinutes(result.totalRuntimeSeconds),
+							  secondsToDisplayMinutes(result.totalDecoSeconds),
+							  (int)roundf(result.totalGasLiters));
+	used = appendDecoPlanText(buffer,
+							  bufferSize,
+							  used,
+							  "CNS: %.0f%%, OTU: %.0f%s\n",
+							  result.cns,
+							  result.otu,
+							  result.truncated ? ", TRUNCATED" : "");
+
+	if (buffer != NULL && bufferSize > 0 && used >= bufferSize) {
+		buffer[bufferSize - 1] = '\0';
+		return -1;
+	}
+	return used;
+}
+
 /**
- * GF 渐变计算测试函数
- * 用于验证 calculateCurrentGF() 函数的正确性
+ * GF 渐变计算测试函数。
+ * 用于验证 calculateCurrentGF() 函数的正确性。
  */
 void Buhlmann::testGFCalculation() {
 #ifdef RT_USING_SERIAL

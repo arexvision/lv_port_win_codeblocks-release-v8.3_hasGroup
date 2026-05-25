@@ -1,4 +1,4 @@
-#ifndef Buhlmann_h
+﻿#ifndef Buhlmann_h
 #define Buhlmann_h
 
 
@@ -8,7 +8,7 @@
 #define DEBUG_LEVEL 1          // 1=简单, 2=详细, 3=完整
 
 #define COMPARTMENT_COUNT 16
-#define MAX_GASES 4             // 最多支持4种气体（底部气、行程气、减压气/氧气）
+#define MAX_GASES 3             // 最多支持3种气体（底部气、行程气、减压气）
 
 // ========== 水体类型枚举 ==========
 enum WaterType {
@@ -56,9 +56,9 @@ enum ascendRates
 
 enum BuhlmannStopType
 {
-  BUHLMANN_STOP_NONE = 0,   // 当前不需要停留
-  BUHLMANN_STOP_SAFETY = 1, // 建议安全停留
-  BUHLMANN_STOP_DECO = 2,   // 强制减压停留
+  BUHLMANN_STOP_NONE = 0,
+  BUHLMANN_STOP_SAFETY = 1,
+  BUHLMANN_STOP_DECO = 2,
 };
 
 struct DiveResult {
@@ -82,11 +82,66 @@ struct DecoStop {
 };
 
 // 减压站序列（最多16站，覆盖0-60米）
-#define BUHLMANN_MAX_DECO_STOPS 16
+#define MAX_DECO_STOPS 16
 struct DecoStopSequence {
-  DecoStop stops[BUHLMANN_MAX_DECO_STOPS];
+  DecoStop stops[MAX_DECO_STOPS];
   int stopCount;        // 实际站数量
   int currentStopIdx;   // 当前待完成的站索引（-1表示无减压义务）
+};
+
+#define MAX_DECO_PLAN_ENTRIES 32
+
+// 离线减压计划条目类型。
+enum DecoPlanEntryType
+{
+  DECO_PLAN_ENTRY_BOTTOM = 0,
+  DECO_PLAN_ENTRY_ASCENT = 1,
+  DECO_PLAN_ENTRY_DECO_STOP = 2,
+};
+
+// 离线减压计划中的一行记录，单位统一使用米、秒、升。
+struct DecoPlanEntry {
+  float depthMeters;           // 本行目标深度：底部深度、上升到达深度或停留站深度
+  int timeSeconds;             // 本行持续时间
+  int runtimeSeconds;          // 到本行结束时的累计运行时间
+  int gasIndex;                // 使用的气体槽位
+  float oxygenFraction;        // 氧气比例
+  float heliumFraction;        // 氦气比例
+  float gasQtyLiters;          // 本行估算耗气量
+  DecoPlanEntryType entryType; // 条目类型
+
+  DecoPlanEntry();
+};
+
+// 离线减压计划结果；使用固定容量，避免动态内存。
+struct DecoPlanResult {
+  DecoPlanEntry entries[MAX_DECO_PLAN_ENTRIES]; // 计划条目数组
+  int entryCount;                                // 实际条目数量
+  int totalRuntimeSeconds;                       // 总运行时间
+  int totalDecoSeconds;                          // 总减压停留时间
+  float totalGasLiters;                          // 总耗气量
+  float cns;                                     // 估算 CNS 百分比
+  float otu;                                     // 估算 OTU
+  bool truncated;                                // 条目超出固定容量时置位
+
+  DecoPlanResult();
+};
+
+// 离线规划输入参数；默认值等同于一次空气 30m/20min 参考潜水。
+struct DecoPlanConfig {
+  float bottomDepthMeters;      // 最大/底部深度
+  int bottomTimeSeconds;        // 总底部时间，包含下潜时间
+  float descentRateMpm;         // 下潜速度，米/分钟
+  float ascentRateMpm;          // 上升速度，米/分钟
+  float rmvLitersPerMinute;     // RMV，升/分钟
+  float gfLow;                  // GF Low
+  float gfHigh;                 // GF High
+  float finalStopDepthMeters;   // 最后一站深度，只支持 3m 或 6m
+  float bottomPPO2;             // 底部气 PPO2 上限
+  float decoPPO2;               // 减压气 PPO2 上限
+  Gas gases[MAX_GASES];         // 规划使用的气体配置
+
+  DecoPlanConfig();
 };
 
 struct DiveInfo {
@@ -95,18 +150,18 @@ struct DiveInfo {
   int minutesToDeco;
   int decoStopInMeters;
   int decoStopDurationInMinutes;
-  int decoStopDurationInSeconds;   // 当前减压站剩余时间（秒，供 UI 实时倒计时）
+  int decoStopDurationInSeconds;
+  BuhlmannStopType stopType;
+  float stopDepthMeters;
+  int stopTimeTotalSeconds;
+  int stopTimeRemainingSeconds;
+  bool inStopZone;
   int ttsSeconds;                 // TTS (Time To Surface) 总上升时间（秒）
   // ========== 新增：完整减压站序列支持 ==========
   DecoStopSequence decoSequence;  // 完整减压站序列
   bool isMissedDecoStop;          // 是否跳过当前减压站（违规）
   float effectiveCeiling;         // 有效天花板深度（米，用于锁定）
   bool isAlgorithmLocked;         // 算法是否被锁定（3分钟未能完成减压）
-  BuhlmannStopType stopType;      // 通用停留类型：NONE/SAFETY/DECO
-  float stopDepthMeters;          // 当前停留目标深度（米）
-  int stopTimeTotalSeconds;       // 当前停留总时间（秒）
-  int stopTimeRemainingSeconds;   // 当前停留剩余时间（秒）
-  bool inStopZone;                // 是否位于目标停留区
   // ========== 显示相关数据（由buhlmann_task计算）==========
   float ppo2;                     // 氧分压
   float cns;                      // CNS百分比
@@ -144,11 +199,7 @@ public:
   int getActiveGas();                       // 获取当前使用的气体槽位
   
   int getBestGasForDepth(float depthMeters);
-
-  // 【修改】加入 isAscending 参数，默认 true 兼容旧代码
-  bool hasBetterGasAvailable(float depthMeters, bool isAscending = true);
-
-  // 【新增】等压反向扩散 (ICD) 风险检查
+  bool hasBetterGasAvailable(float depthMeters);
   bool checkICDRisk(int targetGasIndex, float currentDepthMeters);
   
   // ========== PPO2 限制设置 ==========
@@ -157,6 +208,9 @@ public:
   
   void setDecoPPO2(float ppo2);
   float getDecoPPO2();
+  void setSafetyStopConfig(float depthMeters, int durationSeconds);
+  float getSafetyStopDepth();
+  int getSafetyStopDurationSeconds();
 
   // ========== 原有气体接口（保持兼容）==========
   void setSeaLevelAtmosphericPressure(float seaLevelAtmosphericPressure); // 设置海平面大气压
@@ -174,11 +228,6 @@ public:
   float getSeaLevelAtmosphericPressure(); // 获取海平面大气压设置
   void setFinalStopDepth(float depthMeters);
   float getFinalStopDepth();
-
-  // 安全停留配置。durationSeconds=0 表示关闭安全停留。
-  void setSafetyStopConfig(float depthMeters, int durationSeconds);
-  float getSafetyStopDepth();
-  int getSafetyStopDurationSeconds();
 
   // 深度/压力换算
   float calculateDepthFromPressure(float pressure);        // 环境压力 → 深度
@@ -230,6 +279,9 @@ public:
 
   void requestImmediatePrint();
   bool consumeImmediatePrintRequest();
+
+  bool planDive(const DecoPlanConfig& config, DecoPlanResult& result);
+  int formatDecoPlan(const DecoPlanResult& result, char* buffer, int bufferSize);
 
   // ========== 单位切换功能 ==========
   void setUnitMetric(bool isMetric);  
@@ -336,14 +388,7 @@ private:
   int _lastDynamicRequiredSeconds;    
   float _lastDynamicStopDepthMeters;  
   unsigned long _lastDynamicCalcMillis; 
-  
-  // ========== GF Low/GF High（梯度因子控制参数）==========
-  float _gfLow;   
-  float _gfHigh;  
-  float _gfLowDepthPressure;  
-  float _finalStopDepthMeters;
 
-  // 安全停留状态机由算法层维护，任务层只读取 DiveInfo.stop* 字段。
   bool _safetyStopEnabled;
   float _safetyStopDepthMeters;
   int _safetyStopDurationSeconds;
@@ -353,6 +398,12 @@ private:
   bool _safetyStopArmed;
   bool _safetyStopCompleted;
   int _safetyStopElapsedSeconds;
+  
+  // ========== GF Low/GF High（梯度因子控制参数）==========
+  float _gfLow;   
+  float _gfHigh;  
+  float _gfLowDepthPressure;  
+  float _finalStopDepthMeters;
   
   // ========== 减压站序列管理（Perdix 2 手册逻辑）==========
   DecoStopSequence _decoSequence;  
@@ -380,6 +431,7 @@ private:
   int calculateAscentRate(float timeSpentInLevelInSeconds, float previousDepthInMeter, float currentDepthInMeter);
   
   float calculateCurrentGF(float currentStopDepth, float firstStopDepth, float finalStopDepth);
+  float getNextDecoStopDepth(float currentStopDepth);
   
   // ========== 减压站序列生成与管理 ==========
   void generateDecoSequence(float currentPressure, float currentDepth);  

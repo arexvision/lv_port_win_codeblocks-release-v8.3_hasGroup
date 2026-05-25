@@ -1,4 +1,4 @@
-#ifndef Buhlmann_h
+﻿#ifndef Buhlmann_h
 #define Buhlmann_h
 
 
@@ -87,6 +87,61 @@ struct DecoStopSequence {
   DecoStop stops[MAX_DECO_STOPS];
   int stopCount;        // 实际站数量
   int currentStopIdx;   // 当前待完成的站索引（-1表示无减压义务）
+};
+
+#define MAX_DECO_PLAN_ENTRIES 32
+
+// 离线减压计划条目类型。
+enum DecoPlanEntryType
+{
+  DECO_PLAN_ENTRY_BOTTOM = 0,
+  DECO_PLAN_ENTRY_ASCENT = 1,
+  DECO_PLAN_ENTRY_DECO_STOP = 2,
+};
+
+// 离线减压计划中的一行记录，单位统一使用米、秒、升。
+struct DecoPlanEntry {
+  float depthMeters;           // 本行目标深度：底部深度、上升到达深度或停留站深度
+  int timeSeconds;             // 本行持续时间
+  int runtimeSeconds;          // 到本行结束时的累计运行时间
+  int gasIndex;                // 使用的气体槽位
+  float oxygenFraction;        // 氧气比例
+  float heliumFraction;        // 氦气比例
+  float gasQtyLiters;          // 本行估算耗气量
+  DecoPlanEntryType entryType; // 条目类型
+
+  DecoPlanEntry();
+};
+
+// 离线减压计划结果；使用固定容量，避免动态内存。
+struct DecoPlanResult {
+  DecoPlanEntry entries[MAX_DECO_PLAN_ENTRIES]; // 计划条目数组
+  int entryCount;                                // 实际条目数量
+  int totalRuntimeSeconds;                       // 总运行时间
+  int totalDecoSeconds;                          // 总减压停留时间
+  float totalGasLiters;                          // 总耗气量
+  float cns;                                     // 估算 CNS 百分比
+  float otu;                                     // 估算 OTU
+  bool truncated;                                // 条目超出固定容量时置位
+
+  DecoPlanResult();
+};
+
+// 离线规划输入参数；默认值等同于一次空气 30m/20min 参考潜水。
+struct DecoPlanConfig {
+  float bottomDepthMeters;      // 最大/底部深度
+  int bottomTimeSeconds;        // 总底部时间，包含下潜时间
+  float descentRateMpm;         // 下潜速度，米/分钟
+  float ascentRateMpm;          // 上升速度，米/分钟
+  float rmvLitersPerMinute;     // RMV，升/分钟
+  float gfLow;                  // GF Low
+  float gfHigh;                 // GF High
+  float finalStopDepthMeters;   // 最后一站深度，只支持 3m 或 6m
+  float bottomPPO2;             // 底部气 PPO2 上限
+  float decoPPO2;               // 减压气 PPO2 上限
+  Gas gases[MAX_GASES];         // 规划使用的气体配置
+
+  DecoPlanConfig();
 };
 
 struct DiveInfo {
@@ -224,6 +279,9 @@ public:
 
   void requestImmediatePrint();
   bool consumeImmediatePrintRequest();
+
+  bool planDive(const DecoPlanConfig& config, DecoPlanResult& result);
+  int formatDecoPlan(const DecoPlanResult& result, char* buffer, int bufferSize);
 
   // ========== 单位切换功能 ==========
   void setUnitMetric(bool isMetric);  
