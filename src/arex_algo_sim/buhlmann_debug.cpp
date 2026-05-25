@@ -426,8 +426,7 @@ bool buhlmann_debug_plan_calculate(float depth_m,
     DecoPlanResult result;
     bool ok = s_buhlmann.planDive(config, result);
     out_result->ok = ok && !result.truncated && result.entryCount > 0;
-    out_result->truncated = result.truncated ||
-                            result.entryCount > (int)BUHLMANN_DEBUG_PLAN_MAX_ENTRIES;
+    out_result->truncated = result.truncated;
     out_result->total_runtime_min = display_minutes_from_seconds(result.totalRuntimeSeconds);
     out_result->total_deco_min = display_minutes_from_seconds(result.totalDecoSeconds);
     out_result->total_gas_l = round_u16_non_negative(result.totalGasLiters);
@@ -435,9 +434,21 @@ bool buhlmann_debug_plan_calculate(float depth_m,
     out_result->otu = round_u16_non_negative(result.otu);
 
     uint8_t entry_count = 0U;
-    for (int i = 0; i < result.entryCount && entry_count < BUHLMANN_DEBUG_PLAN_MAX_ENTRIES; i++)
+    bool deco_started = false;
+    for (int i = 0; i < result.entryCount; i++)
     {
         const DecoPlanEntry &entry = result.entries[i];
+        if (entry.entryType == DECO_PLAN_ENTRY_ASCENT && deco_started)
+        {
+            continue;
+        }
+
+        if (entry_count >= BUHLMANN_DEBUG_PLAN_MAX_ENTRIES)
+        {
+            out_result->truncated = true;
+            break;
+        }
+
         buhlmann_debug_plan_row_t &row = out_result->entries[entry_count];
         row.type = map_plan_row_type(entry.entryType);
         row.depth_m = (int16_t)roundf(entry.depthMeters);
@@ -447,6 +458,11 @@ bool buhlmann_debug_plan_calculate(float depth_m,
         row.he_pct = (uint8_t)roundf(entry.heliumFraction * 100.0f);
         row.gas_l = round_u16_non_negative(entry.gasQtyLiters);
         entry_count++;
+
+        if (entry.entryType == DECO_PLAN_ENTRY_DECO_STOP)
+        {
+            deco_started = true;
+        }
     }
     out_result->entry_count = entry_count;
 
