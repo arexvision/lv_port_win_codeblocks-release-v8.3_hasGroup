@@ -204,7 +204,7 @@ static void plan_draw_header(lv_obj_t *parent, int w)
     plan_make_label(parent, "RMV", FONT_ID_SMALL, GREEN, 240, 12, 70, 18, LV_TEXT_ALIGN_CENTER);
 
     arex_dive_plan_page_t page = arex_submenu_dive_plan_page();
-    lv_snprintf(buf, sizeof(buf), "%.0f", (double)depth_m);
+    lv_snprintf(buf, sizeof(buf), "%u", (unsigned)(depth_m + 0.5f));
     plan_make_label(parent,
                     (page == AREX_DIVE_PLAN_PAGE_DEPTH) ? "---" : buf,
                     FONT_ID_SMALL,
@@ -224,7 +224,7 @@ static void plan_draw_header(lv_obj_t *parent, int w)
                     70,
                     18,
                     LV_TEXT_ALIGN_CENTER);
-    lv_snprintf(buf, sizeof(buf), "%.0f", (double)rmv_lpm);
+    lv_snprintf(buf, sizeof(buf), "%u", (unsigned)(rmv_lpm + 0.5f));
     plan_make_label(parent,
                     (page <= AREX_DIVE_PLAN_PAGE_RMV) ? "--" : buf,
                     FONT_ID_SMALL,
@@ -403,7 +403,7 @@ static void plan_draw_result(lv_obj_t *parent, int w)
     }
 
     lv_snprintf(buf, sizeof(buf), "Page %u/%u", (unsigned)(page + 1U), (unsigned)total_pages);
-    plan_make_label(parent, buf, FONT_ID_SMALL, GREEN, 0, 282, w, 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, buf, FONT_ID_SMALL, GREEN, 0, (int)s_submenu_height - 86, w, 18, LV_TEXT_ALIGN_CENTER);
 }
 
 static void plan_draw_error(lv_obj_t *parent, int w)
@@ -648,6 +648,10 @@ void arex_screen_open_info_submenu(uint8_t item_idx)
 {
     uint8_t count = 0;
     const char *title = arex_submenu_info_title(item_idx);
+    if (title && strcmp(title, "DIVE PLAN") == 0)
+    {
+        arex_submenu_dive_plan_reset();
+    }
     const char **items = arex_submenu_build_info_items(item_idx, &count);
     if (!title || !items || count == 0) return;
 

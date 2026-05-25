@@ -1978,6 +1978,16 @@ void arex_submenu_dive_plan_gas_summary(char *out, size_t out_size)
     plan_format_gas_summary(out, out_size);
 }
 
+void arex_submenu_dive_plan_reset(void)
+{
+    s_plan_page = AREX_PLAN_PAGE_DEPTH;
+    s_plan_defaults_loaded = false;
+    s_plan_result_page = 0U;
+#ifdef PC_SIMULATOR
+    memset(&s_plan_result, 0, sizeof(s_plan_result));
+#endif
+}
+
 bool arex_submenu_dive_plan_handle_rotate(int8_t dir)
 {
     plan_ensure_defaults();

@@ -133,6 +133,7 @@ uint8_t arex_submenu_dive_plan_gf_high(void);
 uint8_t arex_submenu_dive_plan_last_stop_m(void);
 uint8_t arex_submenu_dive_plan_header_gas_o2(void);
 void arex_submenu_dive_plan_gas_summary(char *out, size_t out_size);
+void arex_submenu_dive_plan_reset(void);
 bool arex_submenu_dive_plan_handle_rotate(int8_t dir);
 bool arex_submenu_dive_plan_is_result_page(void);
 uint8_t arex_submenu_dive_plan_result_page_index(void);
