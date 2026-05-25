@@ -743,16 +743,21 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
 
     if (payload->custom_5f_count > 0)
     {
-        g_sys_config.custom_card_count = 1;
+        uint8_t custom_idx = 0;
         /* 在 card_order 中查找 CUSTOM_GRID 卡片的位置，设置正确的 slot 映射 */
         for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; pos++)
         {
             if (g_sys_config.card_order[pos] == CARD_ID_CUSTOM_GRID)
             {
-                g_sys_config.custom_card_slot[pos] = 0;
-                break;
+                g_sys_config.custom_card_slot[pos] = custom_idx;
+                custom_idx++;
+                if (custom_idx >= MAX_CUSTOM_CARDS)
+                {
+                    break;
+                }
             }
         }
+        g_sys_config.custom_card_count = (custom_idx > 0U) ? custom_idx : 1U;
         g_sys_config.custom_cards[0].widget_count = (payload->custom_5f_count > MAX_5F_WIDGETS)
             ? MAX_5F_WIDGETS
             : payload->custom_5f_count;
@@ -765,6 +770,11 @@ void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload)
     }
 
     /* 4. 打上终极脏标记，通知 UI 推倒重建 */
+    for (uint8_t card_idx = 1U; card_idx < g_sys_config.custom_card_count; card_idx++)
+    {
+        g_sys_config.custom_cards[card_idx] = g_sys_config.custom_cards[0];
+    }
+
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
     printf("[BUS] DIRTY_UI_LAYOUT set, dirty_mask=0x%08X\r\n", g_sensor_data.dirty_mask);
 

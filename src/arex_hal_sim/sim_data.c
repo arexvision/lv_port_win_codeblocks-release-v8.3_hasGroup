@@ -14,11 +14,14 @@
 #include <string.h>
 
 #ifndef AREX_TCP_ALGO_DEBUG
-#define AREX_TCP_ALGO_DEBUG 1
+#define AREX_TCP_ALGO_DEBUG 0
 #endif
 
 static lv_timer_t *s_sim_timer;
 static lv_timer_t *s_l1_alarm_timer;
+
+#define AREX_SIM_LAYOUT_PHASE_COUNT 3U
+#define AREX_SIM_LAYOUT_SWITCH_TICKS 5U
 
 typedef struct
 {
@@ -144,12 +147,24 @@ static void arex_test_set_ui_layout(uint8_t phase)
         CARD_ID_UNUSED,
         CARD_ID_UNUSED,
     };
+    static const uint8_t s_multi_custom_card_order[8] = {
+        CARD_ID_COMPASS,
+        CARD_ID_CUSTOM_GRID,
+        CARD_ID_DECO,
+        CARD_ID_CUSTOM_GRID,
+        CARD_ID_PLAN,
+        CARD_ID_GAS,
+        CARD_ID_CUSTOM_GRID,
+        CARD_ID_BLANK,
+    };
 
     memset(&s_payload, 0, sizeof(s_payload));
     s_payload.version = AREX_BLE_CFG_VERSION;
-    memcpy(s_payload.card_order, s_default_card_order, sizeof(s_default_card_order));
+    memcpy(s_payload.card_order,
+           (phase == 2U) ? s_multi_custom_card_order : s_default_card_order,
+           sizeof(s_payload.card_order));
 
-    if (phase == 0) {
+    if (phase == 0U || phase == 2U) {
         uint8_t left_def[][3] = {
             { COMP_NDL_STOP_1606,  0, 0 },
             { COMP_DEPTH_1606,     0, 1 },
@@ -342,9 +357,11 @@ static void sim_tick_cb(lv_timer_t *t)
     return;
 #endif
 
-    s_sim.layout_tick++;
-    // arex_test_set_ui_layout(s_sim.layout_phase);
-    s_sim.layout_phase = (uint8_t)(1U - s_sim.layout_phase);
+    if (s_sim.layout_tick == 0U) {
+        arex_test_set_ui_layout(s_sim.layout_phase);
+        s_sim.layout_phase = (uint8_t)((s_sim.layout_phase + 1U) % AREX_SIM_LAYOUT_PHASE_COUNT);
+    }
+    s_sim.layout_tick = (uint16_t)((s_sim.layout_tick + 1U) % AREX_SIM_LAYOUT_SWITCH_TICKS);
 
     s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
     arex_bus_set_heading(s_sim.heading_deg);
