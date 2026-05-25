@@ -72,6 +72,9 @@ typedef struct
     uint16_t time_scale;
     uint8_t final_deco_stop_m;
     uint32_t sample_time_s;
+    bool depth_rate_valid;
+    float depth_rate_last_m;
+    uint32_t depth_rate_last_tick_ms;
 
     arex_wsa_startup_fn WSAStartup_;
     arex_wsa_cleanup_fn WSACleanup_;
@@ -364,6 +367,7 @@ static void arex_debug_exec_line(char *line);
 static void arex_debug_apply_depth_sample(float depth)
 {
     uint32_t sample_time_s;
+    uint32_t now_ms;
 
     if (depth < 0.0f)
     {
@@ -372,6 +376,24 @@ static void arex_debug_apply_depth_sample(float depth)
 
     sample_time_s = g_sensor_data.dive_time_s;
     s_debug_link.sample_time_s = sample_time_s;
+    now_ms = lv_tick_get();
+
+    if (s_debug_link.depth_rate_valid)
+    {
+        uint32_t delta_ms = now_ms - s_debug_link.depth_rate_last_tick_ms;
+        if (delta_ms > 0U)
+        {
+            float delta_min = (float)delta_ms / 60000.0f;
+            arex_bus_set_ascent_rate((s_debug_link.depth_rate_last_m - depth) / delta_min);
+        }
+    }
+    else
+    {
+        arex_bus_set_ascent_rate(0.0f);
+    }
+    s_debug_link.depth_rate_valid = true;
+    s_debug_link.depth_rate_last_m = depth;
+    s_debug_link.depth_rate_last_tick_ms = now_ms;
 
     arex_dive_log_append((float)sample_time_s, depth);
     arex_bus_set_depth(depth);
@@ -585,7 +607,19 @@ static void arex_debug_exec_line(char *line)
         arex_bus_set_dive_time((uint32_t)time_s);
         arex_dive_log_append((float)time_s, depth);
         arex_bus_set_depth(depth);
+        if (s_debug_link.depth_rate_valid && (uint32_t)time_s > s_debug_link.sample_time_s)
+        {
+            float delta_min = (float)((uint32_t)time_s - s_debug_link.sample_time_s) / 60.0f;
+            arex_bus_set_ascent_rate((s_debug_link.depth_rate_last_m - depth) / delta_min);
+        }
+        else
+        {
+            arex_bus_set_ascent_rate(0.0f);
+        }
         s_debug_link.sample_time_s = (uint32_t)time_s;
+        s_debug_link.depth_rate_valid = true;
+        s_debug_link.depth_rate_last_m = depth;
+        s_debug_link.depth_rate_last_tick_ms = lv_tick_get();
         arex_debug_sendf("OK sample %d %.1f\r\n", time_s, (double)depth);
         return;
     }
@@ -1039,6 +1073,9 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
             s_debug_link.connect_event = true;
             s_debug_link.time_scale = 1;
             s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
+            s_debug_link.depth_rate_valid = false;
+            s_debug_link.depth_rate_last_m = g_sensor_data.depth;
+            s_debug_link.depth_rate_last_tick_ms = lv_tick_get();
             arex_bus_set_ascent_rate(0.0f);
             printf("[DBG] TCP debug client connected\r\n");
             arex_debug_send_raw("AREX debug TCP ready on 127.0.0.1:7623\r\n");
