@@ -74,9 +74,9 @@ static float arex_sim_calc_ppo2(uint8_t o2_pct, float depth_m)
 static void arex_sim_seed_original_defaults(void)
 {
     arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
-    arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
-    arex_bus_set_gas_slot(2, "O2 100%", 100, 0, 6.0f);
-    arex_bus_set_gas_slot_count(3);
+    arex_bus_set_gas_slot(1, "", 0, 0, 0.0f);
+    arex_bus_set_gas_slot(2, "", 0, 0, 0.0f);
+    arex_bus_set_gas_slot_count(1);
     arex_bus_set_gas(0, "AIR");
     arex_bus_set_pod(0, 200.0f);
     arex_bus_set_pod(1, 185.0f);
@@ -94,9 +94,9 @@ static void arex_sim_seed_original_defaults(void)
 static void arex_sim_seed_tcp_algo_defaults(void)
 {
     arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
-    arex_bus_set_gas_slot(1, "NX 32", 32, 0, 33.0f);
-    arex_bus_set_gas_slot(2, "O2 100%", 100, 0, 6.0f);
-    arex_bus_set_gas_slot_count(3);
+    arex_bus_set_gas_slot(1, "", 0, 0, 0.0f);
+    arex_bus_set_gas_slot(2, "", 0, 0, 0.0f);
+    arex_bus_set_gas_slot_count(1);
     arex_bus_set_gas(0, "AIR");
     arex_bus_set_pod(0, 200.0f);
     arex_bus_set_pod(1, 185.0f);

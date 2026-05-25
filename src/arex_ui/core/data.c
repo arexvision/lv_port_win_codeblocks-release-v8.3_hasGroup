@@ -264,7 +264,7 @@ void arex_data_init(void)
 
     g_sensor_data.ndl_bar_pct = 255U;
     g_sensor_data.gas_active_idx = 0;
-    g_sensor_data.gas_slot_count = 3;
+    g_sensor_data.gas_slot_count = 1;
     strncpy(g_sensor_data.gas_name, "AIR", sizeof(g_sensor_data.gas_name) - 1);
 
     strncpy(g_sensor_data.gas_slot_name[0], "AIR", sizeof(g_sensor_data.gas_slot_name[0]) - 1);
@@ -272,15 +272,15 @@ void arex_data_init(void)
     g_sensor_data.gas_slot_he_pct[0] = 0;
     g_sensor_data.gas_slot_mod_m[0] = 56.0f;
 
-    strncpy(g_sensor_data.gas_slot_name[1], "NX 32", sizeof(g_sensor_data.gas_slot_name[1]) - 1);
-    g_sensor_data.gas_slot_o2_pct[1] = 32;
+    g_sensor_data.gas_slot_name[1][0] = '\0';
+    g_sensor_data.gas_slot_o2_pct[1] = 0;
     g_sensor_data.gas_slot_he_pct[1] = 0;
-    g_sensor_data.gas_slot_mod_m[1] = 34.0f;
+    g_sensor_data.gas_slot_mod_m[1] = 0.0f;
 
-    strncpy(g_sensor_data.gas_slot_name[2], "O2 100%", sizeof(g_sensor_data.gas_slot_name[2]) - 1);
-    g_sensor_data.gas_slot_o2_pct[2] = 100;
+    g_sensor_data.gas_slot_name[2][0] = '\0';
+    g_sensor_data.gas_slot_o2_pct[2] = 0;
     g_sensor_data.gas_slot_he_pct[2] = 0;
-    g_sensor_data.gas_slot_mod_m[2] = 6.0f;
+    g_sensor_data.gas_slot_mod_m[2] = 0.0f;
 
     g_sensor_data.gas_slot_name[3][0] = '\0';
     g_sensor_data.gas_slot_o2_pct[3] = 0;
