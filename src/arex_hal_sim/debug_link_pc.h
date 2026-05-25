@@ -834,7 +834,7 @@ static void arex_debug_exec_line(char *line)
             arex_debug_send_raw("ERR usage: gf <low> <high>\r\n");
             return;
         }
-        arex_bus_set_gf_setting((uint8_t)low, (uint8_t)high);
+        buhlmann_debug_set_gf((uint8_t)low, (uint8_t)high);
         arex_debug_sendf("OK gf %d/%d\r\n", low, high);
         return;
     }

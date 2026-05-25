@@ -16,6 +16,8 @@ extern "C" {
 static Buhlmann s_buhlmann(62.7f);
 static bool s_initialized = false;
 static bool s_diving = false;
+static uint8_t s_gf_low_pct = 40U;
+static uint8_t s_gf_high_pct = 85U;
 static uint8_t s_final_deco_stop_depth_m = (uint8_t)DECO_DEFAULT_FINAL_STOP_METERS;
 
 static uint16_t clamp_u16_non_negative(int value)
@@ -230,8 +232,8 @@ void buhlmann_debug_init(void)
 
     s_buhlmann.setSeaLevelAtmosphericPressure(1000.0f);
     s_buhlmann.setNitrogenRateInGas(0.79f);
-    s_buhlmann.setGFLow(0.40f);
-    s_buhlmann.setGFHigh(0.85f);
+    s_buhlmann.setGFLow((float)s_gf_low_pct / 100.0f);
+    s_buhlmann.setGFHigh((float)s_gf_high_pct / 100.0f);
 
     s_buhlmann.setGas(0, 0.21f, 0.0f, true, 1.4f);
     s_buhlmann.setGas(1, 0.32f, 0.0f, true, 1.4f);
@@ -258,6 +260,24 @@ void buhlmann_debug_set_final_stop_depth(uint8_t depth_m)
     s_final_deco_stop_depth_m = (depth_m == 6U) ? 6U : 3U;
     s_buhlmann.setFinalStopDepth((float)s_final_deco_stop_depth_m);
     rt_kprintf("[DIVE_SETUP] Last deco stop: %um\n", (unsigned)s_final_deco_stop_depth_m);
+}
+
+void buhlmann_debug_set_gf(uint8_t gf_low_pct, uint8_t gf_high_pct)
+{
+    if (gf_low_pct > 100U) gf_low_pct = 100U;
+    if (gf_high_pct > 100U) gf_high_pct = 100U;
+
+    s_gf_low_pct = gf_low_pct;
+    s_gf_high_pct = gf_high_pct;
+
+    if (!s_initialized) {
+        buhlmann_debug_init();
+    }
+
+    s_buhlmann.setGFLow((float)s_gf_low_pct / 100.0f);
+    s_buhlmann.setGFHigh((float)s_gf_high_pct / 100.0f);
+    arex_bus_set_gf_setting(s_gf_low_pct, s_gf_high_pct);
+    rt_kprintf("[DIVE_SETUP] GF: %u/%u\n", (unsigned)s_gf_low_pct, (unsigned)s_gf_high_pct);
 }
 
 void buhlmann_debug_reset(void)
