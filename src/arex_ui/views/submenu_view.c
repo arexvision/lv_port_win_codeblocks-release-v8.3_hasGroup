@@ -357,8 +357,9 @@ static const char *plan_time_text(const arex_dive_plan_row_t *row, char *buf, si
 
 static void plan_draw_result(lv_obj_t *parent, int w)
 {
-    char buf[56];
-    static const int col_x[] = { 42, 116, 190, 266, 340 };
+    char buf[16];
+    static const int col_x[] = { 20, 88, 166, 244, 334 };
+    static const int col_w[] = { 64, 72, 72, 82, 72 };
     uint8_t page = arex_submenu_dive_plan_result_page_index();
     uint8_t total_pages = arex_submenu_dive_plan_result_total_pages();
     uint8_t entry_count = arex_submenu_dive_plan_result_entry_count();
@@ -366,11 +367,11 @@ static void plan_draw_result(lv_obj_t *parent, int w)
     uint8_t end = (uint8_t)(start + 8U);
     if (end > entry_count) end = entry_count;
 
-    plan_make_label(parent, "Stp", FONT_ID_SMALL, GREEN, col_x[0] - 24, 68, 60, 18, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, "Tme", FONT_ID_SMALL, GREEN, col_x[1] - 24, 68, 60, 18, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, "Run", FONT_ID_SMALL, GREEN, col_x[2] - 24, 68, 60, 18, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, "Gas", FONT_ID_SMALL, GREEN, col_x[3] - 24, 68, 60, 18, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, "Qty", FONT_ID_SMALL, GREEN, col_x[4] - 24, 68, 60, 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Stp", FONT_ID_SMALL, GREEN, col_x[0], 68, col_w[0], 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Tme", FONT_ID_SMALL, GREEN, col_x[1], 68, col_w[1], 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Run", FONT_ID_SMALL, GREEN, col_x[2], 68, col_w[2], 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Gas", FONT_ID_SMALL, GREEN, col_x[3], 68, col_w[3], 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Qty", FONT_ID_SMALL, GREEN, col_x[4], 68, col_w[4], 18, LV_TEXT_ALIGN_CENTER);
 
     lv_obj_t *line = lv_obj_create(parent);
     lv_obj_remove_style_all(line);
@@ -389,16 +390,15 @@ static void plan_draw_result(lv_obj_t *parent, int w)
             continue;
         }
         const char *tme_text = plan_time_text(&row, tme, sizeof(tme));
-        lv_snprintf(buf,
-                    sizeof(buf),
-                    "%3dm      %3s      %3u      %02u/%02u      %4u",
-                    (int)row.depth_m,
-                    tme_text,
-                    (unsigned)row.run_min,
-                    (unsigned)row.o2_pct,
-                    (unsigned)row.he_pct,
-                    (unsigned)row.gas_l);
-        plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, 18, y, w - 36, 18, LV_TEXT_ALIGN_LEFT);
+        lv_snprintf(buf, sizeof(buf), "%dm", (int)row.depth_m);
+        plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, col_x[0], y, col_w[0], 18, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, tme_text, FONT_ID_SMALL, LIGHT, col_x[1], y, col_w[1], 18, LV_TEXT_ALIGN_CENTER);
+        lv_snprintf(buf, sizeof(buf), "%u", (unsigned)row.run_min);
+        plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, col_x[2], y, col_w[2], 18, LV_TEXT_ALIGN_CENTER);
+        lv_snprintf(buf, sizeof(buf), "%02u/%02u", (unsigned)row.o2_pct, (unsigned)row.he_pct);
+        plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, col_x[3], y, col_w[3], 18, LV_TEXT_ALIGN_CENTER);
+        lv_snprintf(buf, sizeof(buf), "%u", (unsigned)row.gas_l);
+        plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, col_x[4], y, col_w[4], 18, LV_TEXT_ALIGN_RIGHT);
         y += 26;
     }
 
