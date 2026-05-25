@@ -270,6 +270,11 @@ static uint8_t last_deco_mode_from_config(void)
     return (g_sys_config.last_deco_stop_m == 6U) ? 1U : 0U;
 }
 
+static uint8_t salinity_mode_from_config(void)
+{
+    return (g_sys_config.salinity_mode <= 2U) ? g_sys_config.salinity_mode : 0U;
+}
+
 static void plan_ensure_defaults(void)
 {
     if (s_plan_defaults_loaded)

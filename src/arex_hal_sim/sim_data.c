@@ -14,7 +14,7 @@
 #include <string.h>
 
 #ifndef AREX_TCP_ALGO_DEBUG
-#define AREX_TCP_ALGO_DEBUG 0
+#define AREX_TCP_ALGO_DEBUG 1
 #endif
 
 static lv_timer_t *s_sim_timer;

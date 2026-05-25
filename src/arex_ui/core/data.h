@@ -153,6 +153,7 @@ void arex_bus_set_ndl(int16_t ndl_min);
 
 /* --- 用户设置接口 --- */
 void arex_bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high);
+void arex_bus_set_salinity_mode(uint8_t mode);
 void arex_bus_set_last_deco_stop(uint8_t depth_m);
 
 /* --- 技术潜水参数接口 --- */

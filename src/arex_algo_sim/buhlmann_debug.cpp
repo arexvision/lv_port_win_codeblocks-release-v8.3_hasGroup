@@ -24,6 +24,13 @@ static uint8_t s_gf_low_pct = 40U;
 static uint8_t s_gf_high_pct = 85U;
 static uint8_t s_final_deco_stop_depth_m = (uint8_t)DECO_DEFAULT_FINAL_STOP_METERS;
 
+static WaterType water_type_from_salinity_mode(uint8_t mode)
+{
+    if (mode == 1U) return WATER_SALT;
+    if (mode == 2U) return WATER_EN13319;
+    return WATER_FRESH;
+}
+
 static uint16_t clamp_u16_non_negative(int value)
 {
     if (value <= 0) return 0;
@@ -304,6 +311,7 @@ void buhlmann_debug_init(void)
     rt_kprintf("Initializing Buhlmann algorithm...\n");
 
     s_buhlmann.setSeaLevelAtmosphericPressure(1000.0f);
+    s_buhlmann.setWaterType(water_type_from_salinity_mode(g_sys_config.salinity_mode));
     s_buhlmann.setNitrogenRateInGas(0.79f);
     s_buhlmann.setGFLow((float)s_gf_low_pct / 100.0f);
     s_buhlmann.setGFHigh((float)s_gf_high_pct / 100.0f);
@@ -350,6 +358,18 @@ void buhlmann_debug_set_gf(uint8_t gf_low_pct, uint8_t gf_high_pct)
     s_buhlmann.setGFLow((float)s_gf_low_pct / 100.0f);
     s_buhlmann.setGFHigh((float)s_gf_high_pct / 100.0f);
     rt_kprintf("[DIVE_SETUP] GF: %u/%u\n", (unsigned)s_gf_low_pct, (unsigned)s_gf_high_pct);
+}
+
+void buhlmann_debug_set_salinity_mode(uint8_t mode)
+{
+    if (mode > 2U) mode = 0U;
+
+    if (!s_initialized) {
+        buhlmann_debug_init();
+    }
+
+    s_buhlmann.setWaterType(water_type_from_salinity_mode(mode));
+    rt_kprintf("[DIVE_SETUP] Salinity mode: %u\n", (unsigned)mode);
 }
 
 void buhlmann_debug_apply_gases_from_ui(void)

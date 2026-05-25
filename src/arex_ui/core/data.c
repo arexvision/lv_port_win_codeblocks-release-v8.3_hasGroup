@@ -64,6 +64,15 @@ static void arex_bus_apply_algo_gf(uint8_t gf_low, uint8_t gf_high)
 #endif
 }
 
+static void arex_bus_apply_algo_salinity(uint8_t mode)
+{
+#ifdef PC_SIMULATOR
+    buhlmann_debug_set_salinity_mode(mode);
+#else
+    (void)mode;
+#endif
+}
+
 static void arex_bus_apply_algo_last_deco(uint8_t depth_m)
 {
 #ifdef PC_SIMULATOR
@@ -1015,6 +1024,17 @@ void arex_bus_set_last_deco_stop(uint8_t depth_m)
         g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
     }
     arex_bus_apply_algo_last_deco(depth_m);
+}
+
+void arex_bus_set_salinity_mode(uint8_t mode)
+{
+    if (mode > 2U) mode = 0U;
+    if (g_sys_config.salinity_mode != mode)
+    {
+        g_sys_config.salinity_mode = mode;
+        g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
+    }
+    arex_bus_apply_algo_salinity(mode);
 }
 
 /* MOD（最大操作深度）同步接口 */

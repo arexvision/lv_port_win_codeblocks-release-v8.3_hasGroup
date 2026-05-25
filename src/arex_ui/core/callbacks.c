@@ -49,7 +49,7 @@ void arex_ui_on_conservatism_set(uint8_t level)
 AREX_WEAK_CALLBACK
 void arex_ui_on_salinity_set(uint8_t mode)
 {
-    printf("[DIVE_SETUP] Salinity: %s\n", mode == 1 ? "SEA WATER" : "FRESH WATER");
+    arex_bus_set_salinity_mode(mode);
 }
 
 AREX_WEAK_CALLBACK

@@ -656,14 +656,15 @@ float Buhlmann::getAltitude() {
  */
 void Buhlmann::setWaterType(WaterType type) {
 	_waterType = type;
-	
+
 	if (type == WATER_FRESH) {
-		_depthPerBar = 10.30f;  // 淡水
+		_depthPerBar = 10.0f;
+	} else if (type == WATER_EN13319) {
+		_depthPerBar = 9.80f;
 	} else {
-		_depthPerBar = 10.0f;  // 海水（默认）
+		_depthPerBar = 9.75f;
 	}
-	
-	// 更新所有气体的 MOD（因为深度换算系数变了）
+
 	for (int i = 0; i < MAX_GASES; i++) {
 		if (_gases[i].enabled) {
 			float ppo2Limit = (i == 0) ? _bottomPPO2 : _decoPPO2;

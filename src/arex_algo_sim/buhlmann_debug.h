@@ -46,6 +46,7 @@ void buhlmann_debug_reset(void);
 void buhlmann_debug_tick(float depth_m, float temperature_c, uint32_t delta_time_s);
 void buhlmann_debug_set_gf(uint8_t gf_low_pct, uint8_t gf_high_pct);
 void buhlmann_debug_set_final_stop_depth(uint8_t depth_m);
+void buhlmann_debug_set_salinity_mode(uint8_t mode);
 void buhlmann_debug_apply_gases_from_ui(void);
 bool buhlmann_debug_plan_calculate(float depth_m,
                                    uint16_t bottom_time_min,

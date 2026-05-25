@@ -12,8 +12,9 @@
 
 // ========== 水体类型枚举 ==========
 enum WaterType {
-  WATER_SALT = 0,    // 海水（默认，10.06 m/bar）
-  WATER_FRESH = 1    // 淡水（10.30 m/bar）
+  WATER_SALT = 0,     // Salt water, 9.75 m/bar
+  WATER_FRESH = 1,    // Fresh water, 10.0 m/bar
+  WATER_EN13319 = 2   // EN13319 reference, 9.80 m/bar
 };
 
 // ========== 气体结构体（支持 Trimix 三混气）==========
