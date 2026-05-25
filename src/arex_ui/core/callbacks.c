@@ -1,8 +1,5 @@
 #include "callbacks.h"
 #include "data.h"
-#ifdef PC_SIMULATOR
-#include "../../arex_algo_sim/buhlmann_debug.h"
-#endif
 #include <stdio.h>
 
 #ifndef PC_SIMULATOR
@@ -77,11 +74,7 @@ void arex_ui_on_safety_stop_time_set(uint8_t minutes)
 AREX_WEAK_CALLBACK
 void arex_ui_on_last_deco_stop_set(uint8_t depth_m)
 {
-#ifdef PC_SIMULATOR
-    buhlmann_debug_set_final_stop_depth(depth_m);
-#else
-    printf("[DIVE_SETUP] Last deco stop: %um\n", depth_m);
-#endif
+    arex_bus_set_last_deco_stop(depth_m);
 }
 
 AREX_WEAK_CALLBACK

@@ -9,6 +9,7 @@ extern uint16_t         g_deco_stop_count;
 
 #ifdef PC_SIMULATOR
 #include "lvgl.h"
+#include "../../arex_algo_sim/buhlmann_debug.h"
 #endif
 
 /* =========================================================
@@ -45,6 +46,40 @@ extern uint16_t         g_deco_stop_count;
 #define AREX_ALARM_SAFETY_BROKEN_M         2.4f         /* WARN.SAFETY_BROKEN：安全停留时浅于 2.4m */
 #define AREX_ALARM_CNS_HIGH_PCT            80U          /* WARN.CNS_HIGH：CNS >= 80% */
 #define AREX_ALARM_OTU_HIGH                250U         /* WARN.OTU_HIGH：OTU >= 250 */
+
+static void arex_bus_apply_algo_gases(void)
+{
+#ifdef PC_SIMULATOR
+    buhlmann_debug_apply_gases_from_ui();
+#endif
+}
+
+static void arex_bus_apply_algo_gf(uint8_t gf_low, uint8_t gf_high)
+{
+#ifdef PC_SIMULATOR
+    buhlmann_debug_set_gf(gf_low, gf_high);
+#else
+    (void)gf_low;
+    (void)gf_high;
+#endif
+}
+
+static void arex_bus_apply_algo_last_deco(uint8_t depth_m)
+{
+#ifdef PC_SIMULATOR
+    buhlmann_debug_set_final_stop_depth(depth_m);
+#else
+    (void)depth_m;
+#endif
+}
+
+static uint8_t arex_conservatism_from_gf(uint8_t gf_low, uint8_t gf_high)
+{
+    if (gf_low == 40U && gf_high == 95U) return 0U;
+    if (gf_low == 40U && gf_high == 85U) return 1U;
+    if (gf_low == 30U && gf_high == 70U) return 2U;
+    return 3U;
+}
 
 #define AREX_ALARM_GAS_SWITCH_ASCENT_MPM   0.5f         /* INFO.GAS_SWITCH：只在上升趋势中提示更优气体 */
 
@@ -491,6 +526,7 @@ void arex_bus_set_gas_slot_count(uint8_t count)
         arex_alarm_eval_ppo2();
         arex_alarm_eval_gas_switch();
     }
+    arex_bus_apply_algo_gases();
 }
 
 void arex_bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
@@ -529,6 +565,10 @@ void arex_bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
     {
         g_sensor_data.dirty_mask |= DIRTY_GAS;
         arex_alarm_eval_gas_switch();
+    }
+    if (changed)
+    {
+        arex_bus_apply_algo_gases();
     }
 }
 
@@ -950,15 +990,31 @@ void arex_bus_set_ndl_bar_pct(uint8_t pct)
     }
 }
 
-/* GF Low/High 设定值同步接口（由 buhlmann_task 调用） */
+/* GF Low/High 设定值同步接口 */
 void arex_bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high)
 {
+    if (gf_low > 100U) gf_low = 100U;
+    if (gf_high > 100U) gf_high = 100U;
+
     if (g_sensor_data.gf_low != gf_low || g_sensor_data.gf_high != gf_high)
     {
         g_sensor_data.gf_low = gf_low;
         g_sensor_data.gf_high = gf_high;
         g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
     }
+    g_sys_config.conservatism = arex_conservatism_from_gf(gf_low, gf_high);
+    arex_bus_apply_algo_gf(gf_low, gf_high);
+}
+
+void arex_bus_set_last_deco_stop(uint8_t depth_m)
+{
+    depth_m = (depth_m == 6U) ? 6U : 3U;
+    if (g_sys_config.last_deco_stop_m != depth_m)
+    {
+        g_sys_config.last_deco_stop_m = depth_m;
+        g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
+    }
+    arex_bus_apply_algo_last_deco(depth_m);
 }
 
 /* MOD（最大操作深度）同步接口 */

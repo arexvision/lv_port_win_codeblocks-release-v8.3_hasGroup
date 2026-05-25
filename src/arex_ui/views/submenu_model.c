@@ -262,7 +262,12 @@ static uint8_t plan_gf_high(void)
 
 static uint8_t plan_last_deco_depth(void)
 {
-    return s_last_deco_values[(s_last_deco_mode > 1U) ? 0U : s_last_deco_mode];
+    return (g_sys_config.last_deco_stop_m == 6U) ? 6U : 3U;
+}
+
+static uint8_t last_deco_mode_from_config(void)
+{
+    return (g_sys_config.last_deco_stop_m == 6U) ? 1U : 0U;
 }
 
 static void plan_ensure_defaults(void)
@@ -1136,7 +1141,10 @@ static const char **build_nested_dive_setup(uint8_t *out_count)
     snprintf(s_modppo2_str, sizeof(s_modppo2_str), "MOD PO2: %.1f", (double)g_sys_config.mod_ppo2);
     snprintf(s_salinity_str, sizeof(s_salinity_str), "SALINITY: %s", salinity_label(s_salinity_mode));
     snprintf(s_safety_stop_str, sizeof(s_safety_stop_str), "SAFETY STOP: %s", safety_stop_label(s_safety_stop_mode));
-    snprintf(s_last_deco_str, sizeof(s_last_deco_str), "LAST DECO: %s", last_deco_label(s_last_deco_mode));
+    snprintf(s_last_deco_str,
+             sizeof(s_last_deco_str),
+             "LAST DECO: %s",
+             last_deco_label(last_deco_mode_from_config()));
     snprintf(s_altitude_str, sizeof(s_altitude_str), "ALTITUDE: %s", altitude_label(s_altitude_level));
     s_nested_dive_setup[0] = s_salinity_str;
     s_nested_dive_setup[1] = s_modppo2_str;
@@ -1493,7 +1501,7 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
 
     if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 3)
     {
-        uint8_t next = (uint8_t)((s_last_deco_mode + 1) %
+        uint8_t next = (uint8_t)((last_deco_mode_from_config() + 1U) %
                        (sizeof(s_last_deco_values) / sizeof(s_last_deco_values[0])));
         out_setting->kind = AREX_SUBMENU_SETTING_LAST_DECO;
         out_setting->value = next;

@@ -329,6 +329,7 @@ typedef struct
     /* --- 用户设置 (运行时可修改) --- */
     float   mod_ppo2;           /* 默认 1.4f */
     uint8_t conservatism;       /* 默认 1 (MED) */
+    uint8_t last_deco_stop_m;    /* 3m or 6m */
     uint8_t brightness;         /* 默认 1 (ECO) */
 
 } arex_sys_config_t;

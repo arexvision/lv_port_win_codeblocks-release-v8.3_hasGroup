@@ -176,8 +176,6 @@ static void sync_core_data(const DiveInfo &dive_info, float depth_m)
     arex_bus_set_otu((uint16_t)dive_info.otu);
     arex_bus_set_gf99(dive_info.gf99);
     arex_bus_set_surf_gf(dive_info.surfGF);
-    arex_bus_set_gf_setting((uint8_t)(s_buhlmann.getGFLow() * 100.0f),
-                            (uint8_t)(s_buhlmann.getGFHigh() * 100.0f));
 
     float mod_m = s_buhlmann.calculateMOD(g_sys_config.mod_ppo2);
     arex_bus_set_mod(mod_m);
@@ -294,13 +292,7 @@ static void sync_gas_data(float current_pressure)
             float ppo2 = gas.oxygenFraction * (current_pressure / 1013.25f);
             arex_bus_set_ppo2((uint8_t)i, ppo2);
         }
-
-        uint8_t o2_pct = (uint8_t)(gas.oxygenFraction * 100.0f + 0.5f);
-        uint8_t he_pct = (uint8_t)(gas.heliumFraction * 100.0f + 0.5f);
-        format_gas_name(gas, gas_name_buf, sizeof(gas_name_buf));
-        arex_bus_set_gas_slot((uint8_t)i, gas_name_buf, o2_pct, he_pct, gas.modDepth);
     }
-    arex_bus_set_gas_slot_count(MAX_GASES);
 }
 
 void buhlmann_debug_init(void)
@@ -333,6 +325,7 @@ void buhlmann_debug_init(void)
                (int)(s_buhlmann.getGFHigh() * 100));
 
     s_initialized = true;
+    buhlmann_debug_apply_gases_from_ui();
 }
 
 void buhlmann_debug_set_final_stop_depth(uint8_t depth_m)
@@ -356,8 +349,58 @@ void buhlmann_debug_set_gf(uint8_t gf_low_pct, uint8_t gf_high_pct)
 
     s_buhlmann.setGFLow((float)s_gf_low_pct / 100.0f);
     s_buhlmann.setGFHigh((float)s_gf_high_pct / 100.0f);
-    arex_bus_set_gf_setting(s_gf_low_pct, s_gf_high_pct);
     rt_kprintf("[DIVE_SETUP] GF: %u/%u\n", (unsigned)s_gf_low_pct, (unsigned)s_gf_high_pct);
+}
+
+void buhlmann_debug_apply_gases_from_ui(void)
+{
+    if (!s_initialized) {
+        buhlmann_debug_init();
+    }
+
+    uint8_t gas_count = g_sensor_data.gas_slot_count;
+    if (gas_count > MAX_GASES) gas_count = MAX_GASES;
+
+    bool any_enabled = false;
+    bool enabled_slots[MAX_GASES] = { false, false, false };
+    uint8_t first_enabled_idx = 0U;
+    for (uint8_t i = 0; i < MAX_GASES; i++) {
+        bool enabled = i < gas_count;
+        uint8_t o2 = enabled ? g_sensor_data.gas_slot_o2_pct[i] : 0U;
+        uint8_t he = enabled ? g_sensor_data.gas_slot_he_pct[i] : 0U;
+
+        if (o2 == 0U || o2 > 100U || he > 100U || (uint16_t)o2 + (uint16_t)he > 100U) {
+            enabled = false;
+            o2 = 21U;
+            he = 0U;
+        }
+
+        float ppo2 = (i == 0U) ? 1.4f : 1.6f;
+        s_buhlmann.setGas(i, (float)o2 / 100.0f, (float)he / 100.0f, enabled, ppo2);
+        if (enabled) {
+            if (!any_enabled) {
+                first_enabled_idx = i;
+            }
+            enabled_slots[i] = true;
+            any_enabled = true;
+        }
+    }
+
+    if (!any_enabled) {
+        s_buhlmann.setGas(0, 0.21f, 0.0f, true, 1.4f);
+        gas_count = 1U;
+        enabled_slots[0] = true;
+        first_enabled_idx = 0U;
+    }
+
+    uint8_t active_idx = g_sensor_data.gas_active_idx;
+    if (active_idx >= gas_count || active_idx >= MAX_GASES || !enabled_slots[active_idx]) {
+        active_idx = first_enabled_idx;
+    }
+    s_buhlmann.setActiveGas(active_idx);
+
+    Gas active_gas = s_buhlmann.getGas(s_buhlmann.getActiveGas());
+    s_buhlmann.setOxygenRateInGas(active_gas.oxygenFraction);
 }
 
 bool buhlmann_debug_plan_calculate(float depth_m,
