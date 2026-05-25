@@ -26,7 +26,7 @@ static void arex_ui_update_router_alarm_tick(void)
     ctx.layout_order = g_sys_config.layout_order;
     ctx.safe_zone_w = g_sys_config.safe_zone_w;
     ctx.left_anchor_w = LEFT_ANCHOR_W;
-    ctx.panel_gap_px = (uint16_t)(g_sys_config.gap_u * BASE_U);
+    ctx.panel_gap_px = (uint16_t)(g_sys_config.panel_gap_u * BASE_U);
     ctx.alarm_pending_click = &g_ui.alarm_pending_click;
     arex_alarm_view_tick(&ctx);
 }
