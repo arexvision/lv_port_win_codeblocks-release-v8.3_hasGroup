@@ -4,7 +4,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 ## Project Overview
 
-AREX Pro 潜水电脑 UI — a Windows PC simulator for an embedded dive computer display system built on LVGL v8.3. The simulator runs on Windows (640×480 via GDI) and is designed to port to RT-Thread RTOS on embedded hardware.
+潜水电脑 UI — a Windows PC simulator for an embedded dive computer display system built on LVGL v8.3. The simulator runs on Windows (640×480 via GDI) and is designed to port to RT-Thread RTOS on embedded hardware.
 
 ## Build
 
@@ -22,7 +22,7 @@ Do not modify `LittlevGL.cbp` during routine code changes. Only update the CodeB
 
 ## Coding Preferences
 
-Do not introduce project-name prefixes in code identifiers or directory names. New functions, types, globals, enums, macros, and source folders must not start with `arex_` or `AREX_`; use the module/domain name directly instead, for example `screen_create()`, `BUS_SET_*`, `src/ui`, `src/hal_sim`, or `src/algo_sim`.
+Do not introduce project-name prefixes in code identifiers or directory names. New functions, types, globals, enums, macros, and source folders must not use a project-name prefix; use the module/domain name directly instead, for example `screen_create()`, `BUS_SET_*`, `src/ui`, `src/hal_sim`, or `src/algo_sim`.
 
 不要为已经由菜单索引、枚举表、固定数组或状态机保证范围的设置值额外添加 `clamp`/兜底映射。此类防御会隐藏真实错误，并让简单配置修改变复杂。只有外部输入、协议数据、文件持久化数据或其他不可信边界进入系统时，才做范围校验。
 
@@ -35,13 +35,13 @@ Menu business logic must be driven by stable IDs (`menu_id_t`, `menu_item_id_t`)
 
 ## Architecture
 
-Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative, 207KB). Read it before making structural changes.
+Current module architecture documentation is in `UI_html_DOC/UI_MODULE_MAP.md`. Read it before making structural changes.
 
 ### Startup sequence
 
 `WinMain()` in `main.c` →
 1. `lv_init()` + `lv_win32_init()` — LVGL + Windows GDI driver (640×480)
-2. `UI_main()` in `src/ui_main.c` — AREX UI entry point:
+2. `UI_main()` in `src/ui_main.c` — UI entry point:
    - `ui_init()` — loads default config, zeroes sensor data
    - `screen_create()` — builds the full LVGL widget tree
    - `input_init()` — registers keyboard/encoder callbacks
@@ -61,7 +61,7 @@ Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative,
 | `screen/layout_view.h/c` | Safe-zone, fixed-anchor, menu, and 5F grid layout rendering |
 | `screen/card_registry.h/c` | Card lookup, registry, display/storage position mapping |
 | `comp/comp_*.h/c` | Reusable widget creation, update, and style application |
-| `views/modal_view.h/c`, `views/submenu_*.h/c` | Overlay dialogs and submenu drawer/model |
+| `views/menu_defs.*`, `views/menu_runtime.*`, `views/menu_actions.*`, `views/submenu_view.*`, `views/modal_view.*` | Menu definition/runtime/action layers, submenu drawer, and overlay dialogs |
 | `alarm/alarm*.h/c` | Alarm event engine and alarm visual layer |
 | `cards/card_*.c` | 7 card implementations (compass, deco, gas, plan, info, setup, blank) |
 | `hal_sim/input_pc.h` | Keyboard/encoder input simulation for PC |

@@ -1,6 +1,6 @@
-# AREX UI 模块地图
+# UI 模块地图
 
-本文档说明 `src/ui/` 当前拆分后的文件职责、调用边界和主要数据流。更完整的历史架构说明仍以 `UI_html_DOC/AREX_ARCH.md` 为准；本文偏向“现在看代码时应该先看哪里”。
+本文档说明 `src/ui/` 当前拆分后的文件职责、调用边界和主要数据流，偏向“现在看代码时应该先看哪里”。
 
 ## 目录分层
 
@@ -9,7 +9,7 @@ src/ui/
 ├─ core/      数据总线、全局状态、UI 状态机、刷新路由、业务回调
 ├─ screen/    屏幕门面、布局计算、卡片注册表
 ├─ comp/      可复用组件工厂、组件刷新、组件样式
-├─ views/     弹窗与子菜单抽屉/模型
+├─ views/     弹窗、子菜单抽屉、菜单定义/运行时/动作层
 ├─ alarm/     告警事件引擎与告警视图
 ├─ cards/     右侧业务卡片
 ├─ fonts/     字体资源
@@ -20,7 +20,7 @@ src/ui/
 
 ```mermaid
 flowchart TD
-    UI["ui_main.c<br/>AREX UI 入口"] --> Engine["ui_engine.c/h<br/>全局配置与主循环"]
+    UI["ui_main.c<br/>UI 入口"] --> Engine["ui_engine.c/h<br/>全局配置与主循环"]
     Engine --> Data["data.c/h<br/>数据总线写入 API"]
     Engine --> State["ui_state.c/h<br/>输入与 UI 状态机"]
     Engine --> UpdateRouter["update_router.c/h<br/>dirty mask 刷新分发"]
@@ -30,7 +30,11 @@ flowchart TD
     Screen --> WidgetView["comp_view.c/h<br/>组件工厂"]
     Screen --> Modal["modal_view.c/h<br/>弹窗视图"]
     Screen --> SubmenuView["submenu_view.c/h<br/>子菜单抽屉视图"]
-    SubmenuView --> SubmenuModel["submenu_model.c/h<br/>子菜单数据表"]
+    SubmenuView --> MenuRuntime["menu_runtime.c/h<br/>当前菜单与父级栈"]
+    MenuRuntime --> MenuDefs["menu_defs.c/h<br/>菜单 ID 与显示定义"]
+    SubmenuView --> MenuActions["menu_actions.c/h<br/>菜单动作分发"]
+    MenuRuntime --> SubmenuModel["submenu_model.c/h<br/>动态文案与旧兼容模型"]
+    MenuActions --> SubmenuModel
 
     UpdateRouter --> WidgetUpdate["comp_update.c/h<br/>组件数据刷新"]
     UpdateRouter --> AlarmView["alarm_view.c/h<br/>告警横幅与靶向闪烁"]
@@ -47,14 +51,14 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    Sim["模拟器 / BLE / 业务层"] --> Bus["arex_bus_set_*<br/>数据写入"]
+    Sim["模拟器 / BLE / 业务层"] --> Bus["bus_set_*<br/>数据写入"]
     Bus --> Sensor["g_sensor_data<br/>dirty_mask"]
     Sensor --> Tick["ui_update_task"]
     Tick --> Router["ui_update_router_dispatch(mask)"]
-    Router --> Widgets["arex_comp_update<br/>更新左侧与 5F 组件"]
+    Router --> Widgets["comp_update<br/>更新左侧与 5F 组件"]
     Router --> Cards["card_*_update<br/>更新右侧卡片"]
-    Router --> AlarmView["arex_alarm_view_tick<br/>告警横幅和靶向闪烁"]
-    Router --> ScreenRebuild["arex_screen_rebuild_*<br/>布局或卡片重建"]
+    Router --> AlarmView["alarm_view_tick<br/>告警横幅和靶向闪烁"]
+    Router --> ScreenRebuild["screen_rebuild_*<br/>布局或卡片重建"]
 ```
 
 ## 屏幕拆分
@@ -70,11 +74,11 @@ flowchart TB
     Screen --> Dots["滚动点指示器"]
     Screen --> Brightness["软件亮度遮罩"]
 
-    Left --> LayoutGrid["arex_layout_view<br/>2x7 / 5F 网格定位"]
-    LayoutGrid --> WidgetFactory["arex_comp_view<br/>组件创建"]
-    WidgetFactory --> WidgetStyle["arex_comp_style<br/>样式应用"]
+    Left --> LayoutGrid["layout_view<br/>2x7 / 5F 网格定位"]
+    LayoutGrid --> WidgetFactory["comp_view<br/>组件创建"]
+    WidgetFactory --> WidgetStyle["comp_style<br/>样式应用"]
 
-    Right --> Registry["arex_card_registry<br/>卡片顺序与 tile_obj"]
+    Right --> Registry["card_registry<br/>卡片顺序与 tile_obj"]
     Registry --> Info["card_info"]
     Registry --> Compass["card_compass"]
     Registry --> Deco["card_deco"]
@@ -83,43 +87,49 @@ flowchart TB
     Registry --> Setup["card_setup"]
     Registry --> Blank["card_blank"]
 
-    Right --> Modal["arex_modal_view<br/>确认弹窗"]
-    Right --> Submenu["arex_submenu_view<br/>子菜单抽屉"]
+    Right --> Modal["modal_view<br/>确认弹窗"]
+    Right --> Submenu["submenu_view<br/>子菜单抽屉"]
 ```
 
 ## 子菜单系统
 
-`submenu` 是右侧菜单的二级/三级抽屉。用户在 `INFO` 或 `SETUP` 页面确认一个条目后，子菜单从右侧滑入，显示更细的详情或设置项。
+`submenu` 是右侧菜单的二级/三级抽屉。现在它分为定义、运行时、动作和视图四层：显示文字只用于 LVGL label，业务选择必须通过 `menu_id_t` / `menu_item_id_t`。
 
 ```mermaid
 sequenceDiagram
     participant Input as 输入状态机<br/>ui_state
-    participant View as 子菜单视图<br/>arex_submenu_view
-    participant Model as 子菜单模型<br/>arex_submenu_model
-    participant Screen as 屏幕门面<br/>arex_screen
-    participant Callback as 业务回调<br/>arex_callbacks
+    participant View as 抽屉视图<br/>submenu_view
+    participant Runtime as 菜单运行时<br/>menu_runtime
+    participant Defs as 菜单定义<br/>menu_defs
+    participant Actions as 动作分发<br/>menu_actions
+    participant Model as 动态文案/兼容模型<br/>submenu_model
+    participant Screen as 屏幕门面<br/>screen
+    participant Callback as 业务回调<br/>callbacks
 
-    Input->>View: open_info_submenu(index)
-    View->>Model: build_info_items(index)
-    Model-->>View: title + items
-    View->>View: populate + slide_in
+    Input->>View: open_info/setup_submenu(index)
+    View->>Runtime: open_info/open_setup(index)
+    Runtime->>Defs: index -> menu_id / item_id
+    Runtime->>Model: build dynamic labels when needed
+    Runtime-->>View: title + menu_row_t[]
+    View->>View: render rows + slide_in
 
     Input->>View: handle_submenu_select(index)
-    View->>Model: nested_items_for(title)
-    Model-->>View: nested items
-    View->>View: open_nested_submenu
-
-    View->>Callback: 设置亮度/灯光/保守度
-    View->>Screen: 打开确认弹窗或刷新 Setup badge
+    View->>Runtime: row_at(index)
+    View->>Actions: handle_select(row.id)
+    Actions->>Runtime: open_child/back/refresh when needed
+    Actions->>Callback: apply setting / light / gas / compass
+    Actions->>Screen: show modal / refresh setup badge
 ```
+
+规则：`menu_runtime_current_title()` 和 `menu_runtime_current_rows()` 只服务渲染，不能再参与业务判断；禁止在选择路径里用 `strcmp(title/text)` 分发。
 
 ## 告警系统
 
 ```mermaid
 flowchart TD
     DataLayer["data.c<br/>数据变化与阈值判定"] --> AlarmEngine["alarm.c<br/>21 个事件注册与 active 表"]
-    Compat["arex_bus_raise_alarm<br/>兼容临时告警入口"] --> AlarmEngine
-    AlarmEngine --> Display["arex_alarm_display_t<br/>当前最高优先级横幅"]
+    Compat["bus_raise_alarm<br/>兼容临时告警入口"] --> AlarmEngine
+    AlarmEngine --> Display["alarm_display_t<br/>当前最高优先级横幅"]
     AlarmEngine --> Targets["active targets<br/>所有同级靶向组件"]
     UpdateRouter["ui_update_router_tick"] --> AlarmView["alarm_view.c<br/>渲染横幅和组件闪烁"]
     AlarmView --> Display
@@ -136,7 +146,7 @@ flowchart TD
 | `core/ui_engine.h` | 全局类型、配置结构、传感器结构、dirty mask、公开 UI 总线 API 声明。 |
 | `core/ui_engine.c` | UI 初始化、默认配置、主刷新任务入口、全局 `g_sys_config` / `g_sensor_data` 持有者。 |
 | `core/data.h` | 数据同步帧、数据写入 API、告警判定入口声明。 |
-| `core/data.c` | `arex_bus_set_*()` 数据写入实现，维护 dirty mask，并触发可判定告警条件。 |
+| `core/data.c` | `bus_set_*()` 数据写入实现，维护 dirty mask，并触发可判定告警条件。 |
 | `core/update_router.h` | UI 刷新路由模块公开入口。 |
 | `core/update_router.c` | 消费 dirty mask，分发到 widget、card、alarm、layout rebuild 等刷新路径。 |
 | `core/ui_state.h` | UI 状态机枚举、输入上下文、编辑上下文、子菜单历史结构。 |
@@ -165,9 +175,12 @@ flowchart TD
 | 文件 | 作用 |
 |---|---|
 | `views/submenu_view.h` | 子菜单抽屉创建、重置、列表句柄获取 API。 |
-| `views/submenu_view.c` | 子菜单滑入/滑出、列表渲染、选中态刷新、选择动作处理。 |
-| `views/submenu_model.h` | 子菜单数据模型 API，向 view 提供标题和条目。 |
-| `views/submenu_model.c` | INFO、SETUP、NESTED 菜单数据表和动态文案构建。 |
+| `views/submenu_view.c` | 子菜单抽屉 LVGL 对象、滑入/滑出、row 渲染、焦点样式和选择事件转交；不做业务字符串判断。 |
+| `views/menu_defs.h/c` | 菜单定义层：稳定 `menu_id_t` / `menu_item_id_t`、顶层 INFO/SETUP 定义表、标题和子菜单映射。 |
+| `views/menu_runtime.h/c` | 菜单运行时层：当前菜单、父级栈、当前 `menu_row_t[]`、默认选中项和刷新。 |
+| `views/menu_actions.h/c` | 菜单动作层：按 row ID 执行打开子菜单、设置项、确认弹窗、GAS/LIGHT/COMPASS/DIVE PLAN 入口。 |
+| `views/submenu_model.h` | 兼容模型 API，保留动态文案、内联编辑规格和部分旧设置后端。 |
+| `views/submenu_model.c` | INFO/SETUP 动态文案、复杂编辑流程与旧兼容后端；新菜单业务优先迁到 `menu_defs/runtime/actions`。 |
 | `views/modal_view.h` | 弹窗创建、显示、隐藏、pulse、上下文恢复 API。 |
 | `views/modal_view.c` | GAS / COMPASS / ACT 等确认弹窗的 LVGL 对象管理与动画。 |
 
@@ -218,8 +231,8 @@ flowchart LR
     B --> C["3. update_router.c<br/>看 dirty mask 怎么刷新"]
     C --> D["4. screen.c<br/>看屏幕框架"]
     D --> E["5. layout_view.c<br/>看布局计算"]
-    E --> F["6. arex_comp_view/update<br/>看组件创建与刷新"]
-    D --> G["7. arex_submenu_view/model<br/>看菜单抽屉"]
+    E --> F["6. comp_view/update<br/>看组件创建与刷新"]
+    D --> G["7. menu_defs/runtime/actions<br/>看菜单定义、运行时和动作"]
     C --> H["8. alarm.c/view<br/>看告警引擎与视觉"]
     D --> I["9. cards/card_*.c<br/>看右侧具体页面"]
 ```
@@ -233,8 +246,8 @@ flowchart LR
 | 新增固定区或 5F 组件 | `comp/comp_view.c`、`comp/comp_update.c`、`screen/layout_view.c` |
 | 调整组件外观 | `comp/comp_style.c`、`comp/comp_style_types.h` |
 | 新增右侧页面 | `cards/card_*.c`、`screen/card_registry.c/h` |
-| 修改子菜单文案或层级 | `views/submenu_model.c` |
-| 修改子菜单动画或选中态 | `views/submenu_view.c` |
+| 修改子菜单文案、顶层入口或简单设置项 | `views/menu_defs.c`、`views/menu_runtime.c`、`views/menu_actions.c` |
+| 修改子菜单动画、抽屉布局或选中态 | `views/submenu_view.c` |
 | 修改告警规则或事件 | `alarm/alarm.c/h`、`core/data.c` |
 | 修改告警视觉 | `alarm/alarm_view.c/h` |
 | 修改弹窗显示 | `views/modal_view.c/h` |
