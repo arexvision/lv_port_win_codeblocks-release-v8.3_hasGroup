@@ -1099,11 +1099,13 @@ void screen_set_info_selection(uint8_t idx)
         lv_obj_t *lbl  = lv_obj_get_child(item, 0);
         if (i == idx)
         {
-            lv_obj_set_style_bg_color(item, GREEN, 0);
+            lv_obj_set_style_bg_color(item, BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(item, GREEN, 0);
+            lv_obj_set_style_border_width(item, INNER_BORDER_W + 2, 0);
             if (lbl)
             {
-                lv_obj_set_style_text_color(lbl, BLACK, 0);
+                lv_obj_set_style_text_color(lbl, LIGHT, 0);
                 lv_obj_set_style_text_font(lbl, get_font(FONT_ID_MEDIUM), 0);
             }
         }
@@ -1111,6 +1113,8 @@ void screen_set_info_selection(uint8_t idx)
         {
             lv_obj_set_style_bg_color(item, BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(item, DARK, 0);
+            lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, GREEN, 0);
