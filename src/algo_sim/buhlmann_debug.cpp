@@ -263,6 +263,36 @@ static void sync_stop_data(const DiveInfo &dive_info)
 
 }
 
+static void sync_deco_plan_data(const DiveInfo &dive_info)
+{
+    const DecoStopSequence &seq = dive_info.decoSequence;
+    deco_stop_t stops[MAX_DECO_STOPS];
+    uint8_t count = 0U;
+
+    if (seq.currentStopIdx < 0 || seq.stopCount <= 0)
+    {
+        bus_set_deco_plan(NULL, 0U);
+        return;
+    }
+
+    for (int i = seq.currentStopIdx; i < seq.stopCount && count < MAX_DECO_STOPS; i++)
+    {
+        const DecoStop &stop = seq.stops[i];
+        int seconds = (stop.remainingTime > 0) ? stop.remainingTime : stop.totalTime;
+
+        if (stop.depth <= 0.0f || seconds <= 0)
+        {
+            continue;
+        }
+
+        stops[count].depth_m = stop.depth;
+        stops[count].stay_min = (float)seconds / 60.0f;
+        count++;
+    }
+
+    bus_set_deco_plan((count > 0U) ? stops : NULL, count);
+}
+
 static void handle_pending_gas_switch(float depth_m)
 {
     uint8_t target_gas_idx = 0;
@@ -536,5 +566,6 @@ void buhlmann_debug_tick(float depth_m, float temperature_c, uint32_t delta_time
     handle_pending_gas_switch(depth_m);
     sync_core_data(dive_info, depth_m);
     sync_stop_data(dive_info);
+    sync_deco_plan_data(dive_info);
     sync_gas_data(current_pressure);
 }

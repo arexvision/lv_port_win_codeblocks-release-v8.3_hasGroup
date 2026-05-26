@@ -145,22 +145,6 @@ void dive_log_reset(void)
 }
 
 /* ============================================================
- * 初始化模拟数据：清空历史轨迹，让它从零开始生长
- * ============================================================ */
-static void init_test_data(void)
-{
-    /* 清空历史轨迹，每次启动都是从零生长 */
-    dive_log_reset();
-
-    /* 算法预测的未来减压路线：默认最终减压站为 6m */
-    g_deco_stop_count = 1;
-    g_deco_stops[0] = (deco_stop_t)
-    {
-        .depth_m = 6.0f, .stay_min = 3.0f
-    };
-}
-
-/* ============================================================
  * 自定义斜虚线绘制（绕过 LVGL 软件渲染不支持斜虚线的限制）
  * 通过数学插值把一条长斜线切成无数段小实线
  * ============================================================ */
@@ -528,8 +512,6 @@ static lv_obj_t *s_chart_obj;
 void card_plan_create(lv_obj_t *parent)
 {
     render_card_title(parent, "DIVE PLAN TRACK");
-
-    init_test_data();
 
     /* 动态推算图表尺寸：以标题区下方为 Y=0 起点 */
     int right_w = (int)g_sys_config.safe_zone_w - (int)LEFT_ANCHOR_W
