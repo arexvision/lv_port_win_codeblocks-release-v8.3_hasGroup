@@ -91,7 +91,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->offset_y     = -10;          /* y=-10 向上偏移（上面留2U，下面留4U*/
 
     /* ========== [A] 鏋舵瀯 ========== */
-    cfg->layout_order  = ORDER_NORMAL;  /* 0=标准(左锚右卡)=翻转(右锚左卡) */
+    cfg->layout_order  = ORDER_REVERSE;  /* 0=标准(左锚右卡)=翻转(右锚左卡) */
     cfg->dots_position = DOTS_LEFT;    /* tileview 指示点位*/
     cfg->compass_style = COMPASS_CLASSIC;
     cfg->mask_enabled  = false;
@@ -258,7 +258,6 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->card_order[CARD_POS_3]      = CARD_ID_PLAN;
     cfg->card_order[CARD_POS_4]      = CARD_ID_GAS;
     cfg->card_order[CARD_POS_5]      = CARD_ID_CUSTOM_GRID;
-    cfg->card_order[CARD_POS_6]      = CARD_ID_BLANK;      /* 空白卡片 */
     /* CARD_POS_7 ~ CARD_POS_12 淇濇寔 CARD_ID_BLANK */
     cfg->card_order[CARD_POS_SETUP]  = CARD_ID_SETUP;//菜单，不算卡
 
