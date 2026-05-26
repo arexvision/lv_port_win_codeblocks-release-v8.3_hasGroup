@@ -1101,13 +1101,21 @@ void arex_screen_set_info_selection(uint8_t idx)
         {
             lv_obj_set_style_bg_color(item, GREEN, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            if (lbl) lv_obj_set_style_text_color(lbl, BLACK, 0);
+            if (lbl)
+            {
+                lv_obj_set_style_text_color(lbl, BLACK, 0);
+                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_MEDIUM), 0);
+            }
         }
         else
         {
             lv_obj_set_style_bg_color(item, BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            if (lbl) lv_obj_set_style_text_color(lbl, GREEN, 0);
+            if (lbl)
+            {
+                lv_obj_set_style_text_color(lbl, GREEN, 0);
+                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
+            }
         }
     }
 }
