@@ -1,6 +1,6 @@
 #include "menu_defs.h"
 
-const menu_item_cfg_t g_menu_info_card_items[SUBMENU_INFO_COUNT] =
+const menu_item_cfg_t g_menu_info_items[SUBMENU_INFO_COUNT] =
 {
     { "LAST DIVE",       NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "DIVE PLAN",       NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
@@ -9,7 +9,7 @@ const menu_item_cfg_t g_menu_info_card_items[SUBMENU_INFO_COUNT] =
     { "SENSOR & DEVICE", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 
-const menu_item_cfg_t g_menu_setup_card_items[SUBMENU_SETUP_COUNT] =
+const menu_item_cfg_t g_menu_setup_items[SUBMENU_SETUP_COUNT] =
 {
     { "GAS SWITCH",    NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "CONSERVATISM",  "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
@@ -19,22 +19,22 @@ const menu_item_cfg_t g_menu_setup_card_items[SUBMENU_SETUP_COUNT] =
     { "SYSTEM SETUP",  NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 
-const menu_item_cfg_t *menu_defs_info_card_items(uint8_t *out_count)
+const menu_item_cfg_t *menu_defs_info_items(uint8_t *out_count)
 {
     if (out_count)
     {
-        *out_count = (uint8_t)(sizeof(g_menu_info_card_items) / sizeof(g_menu_info_card_items[0]));
+        *out_count = (uint8_t)(sizeof(g_menu_info_items) / sizeof(g_menu_info_items[0]));
     }
-    return g_menu_info_card_items;
+    return g_menu_info_items;
 }
 
-const menu_item_cfg_t *menu_defs_setup_card_items(uint8_t *out_count)
+const menu_item_cfg_t *menu_defs_setup_items(uint8_t *out_count)
 {
     if (out_count)
     {
-        *out_count = (uint8_t)(sizeof(g_menu_setup_card_items) / sizeof(g_menu_setup_card_items[0]));
+        *out_count = (uint8_t)(sizeof(g_menu_setup_items) / sizeof(g_menu_setup_items[0]));
     }
-    return g_menu_setup_card_items;
+    return g_menu_setup_items;
 }
 
 menu_id_t menu_defs_info_menu_for_index(uint8_t index)

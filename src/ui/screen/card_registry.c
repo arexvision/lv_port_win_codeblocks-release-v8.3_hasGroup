@@ -13,8 +13,11 @@
 #include "../core/ui_engine.h"
 
 /* 前向声明：各卡片的具体创建/更新实现（由具体卡片模块提供） */
-void card_info_create(lv_obj_t *parent);
-void card_info_update(void);
+/* INFO/DIVE MENU 是顶层菜单页，源码在 menus/。
+ * 它们仍登记在这里，是因为右侧 tileview 由 card_registry 统一管理。
+ */
+void menu_info_create(lv_obj_t *parent);
+void menu_info_update(void);
 void card_compass_create(lv_obj_t *parent);
 void card_compass_update(void);
 void card_deco_create(lv_obj_t *parent);
@@ -25,12 +28,12 @@ void card_plan_create(lv_obj_t *parent);
 void card_plan_update(void);
 void card_blank_create(lv_obj_t *parent);
 void card_blank_update(void);
-void card_setup_create(lv_obj_t *parent);
-void card_setup_update(void);
+void menu_setup_create(lv_obj_t *parent);
+void menu_setup_update(void);
 
 /* 菜单配置（INFO/SETUP 两个菜单卡片使用） */
-extern const menu_list_cfg_t info_menu_cfg;
-extern const menu_list_cfg_t setup_menu_cfg;
+extern const menu_list_cfg_t menu_info_cfg;
+extern const menu_list_cfg_t menu_setup_cfg;
 
 /**
  * @brief 全局卡片注册表
@@ -47,10 +50,10 @@ static card_t g_cards[CARD_ID_COUNT] =
         .id          = CARD_ID_INFO,
         .title       = "INFO MENU",
         .engine_type = CARD_ENGINE_MENU,
-        .config_data = &info_menu_cfg,
+        .config_data = &menu_info_cfg,
         .tile_obj    = NULL,
-        .create_cb   = card_info_create,
-        .update_cb   = card_info_update,
+        .create_cb   = menu_info_create,
+        .update_cb   = menu_info_update,
         .on_enter_cb = NULL,
     },
     [CARD_ID_COMPASS] = {
@@ -117,10 +120,10 @@ static card_t g_cards[CARD_ID_COUNT] =
         .id          = CARD_ID_SETUP,
         .title       = "DIVE MENU",
         .engine_type = CARD_ENGINE_MENU,
-        .config_data = &setup_menu_cfg,
+        .config_data = &menu_setup_cfg,
         .tile_obj    = NULL,
-        .create_cb   = card_setup_create,
-        .update_cb   = card_setup_update,
+        .create_cb   = menu_setup_create,
+        .update_cb   = menu_setup_update,
         .on_enter_cb = NULL,
     },
 };

@@ -12,6 +12,7 @@ src/ui/
 ├─ views/     弹窗、子菜单抽屉、菜单定义/运行时/动作层
 ├─ alarm/     告警事件引擎与告警视图
 ├─ cards/     右侧业务卡片
+├─ menus/     右侧顶层菜单页
 ├─ fonts/     字体资源
 └─ picture/   图标资源
 ```
@@ -43,6 +44,7 @@ flowchart TD
 
     Screen --> Registry["card_registry.c/h<br/>卡片注册表"]
     Registry --> Cards["cards/card_*.c<br/>右侧业务卡片"]
+    Registry --> Menus["menus/menu_*.c<br/>右侧顶层菜单页"]
     WidgetView --> Style["comp_style.c/h<br/>组件样式应用"]
     Style --> StyleTypes["comp_style_types.h<br/>样式枚举与配置结构"]
 ```
@@ -79,12 +81,12 @@ flowchart TB
     WidgetFactory --> WidgetStyle["comp_style<br/>样式应用"]
 
     Right --> Registry["card_registry<br/>卡片顺序与 tile_obj"]
-    Registry --> Info["card_info"]
+    Registry --> Info["menu_info"]
     Registry --> Compass["card_compass"]
     Registry --> Deco["card_deco"]
     Registry --> Gas["card_gas"]
     Registry --> Plan["card_plan"]
-    Registry --> Setup["card_setup"]
+    Registry --> Setup["menu_setup"]
     Registry --> Blank["card_blank"]
 
     Right --> Modal["modal_view<br/>确认弹窗"]
@@ -199,8 +201,8 @@ flowchart TD
 |---|---|
 | `screen/card_registry.h` | 卡片 ID、卡片结构、注册表 API。 |
 | `screen/card_registry.c` | 卡片顺序、卡片查找、tile 对象绑定、动态卡片数量计算。 |
-| `cards/card_info.c` | INFO 页面主菜单。 |
-| `cards/card_setup.c` | SETUP 页面主菜单和 badge 刷新。 |
+| `menus/menu_info.c` | INFO 顶层菜单页。 |
+| `menus/menu_setup.c` | DIVE MENU 顶层菜单页和 badge 刷新。 |
 | `cards/card_compass.h` | 指南针卡片对外刷新接口。 |
 | `cards/card_compass.c` | 指南针页面、航向刷新、校准相关 UI 入口。 |
 | `cards/card_deco.c` | 减压/组织/毒性相关页面刷新。 |
@@ -234,7 +236,7 @@ flowchart LR
     E --> F["6. comp_view/update<br/>看组件创建与刷新"]
     D --> G["7. menu_defs/runtime/actions<br/>看菜单定义、运行时和动作"]
     C --> H["8. alarm.c/view<br/>看告警引擎与视觉"]
-    D --> I["9. cards/card_*.c<br/>看右侧具体页面"]
+    D --> I["9. cards/card_*.c / menus/menu_*.c<br/>看右侧具体页面"]
 ```
 
 ## 维护边界
@@ -245,7 +247,9 @@ flowchart LR
 | 新增 dirty 刷新策略 | `core/update_router.c` |
 | 新增固定区或 5F 组件 | `comp/comp_view.c`、`comp/comp_update.c`、`screen/layout_view.c` |
 | 调整组件外观 | `comp/comp_style.c`、`comp/comp_style_types.h` |
-| 新增右侧页面 | `cards/card_*.c`、`screen/card_registry.c/h` |
+| 新增右侧业务页面 | `cards/card_*.c`、`screen/card_registry.c/h` |
+| 新增右侧顶层菜单页 | `menus/menu_*.c`、`screen/card_registry.c/h` |
+| 修改 INFO/DIVE MENU 顶层菜单页 | `menus/menu_info.c`、`menus/menu_setup.c` |
 | 修改子菜单文案、顶层入口或简单设置项 | `views/menu_defs.c`、`views/menu_runtime.c`、`views/menu_actions.c` |
 | 修改子菜单动画、抽屉布局或选中态 | `views/submenu_view.c` |
 | 修改告警规则或事件 | `alarm/alarm.c/h`、`core/data.c` |

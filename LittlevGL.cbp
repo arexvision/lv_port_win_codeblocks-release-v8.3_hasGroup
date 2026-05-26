@@ -1832,13 +1832,7 @@
 		<Unit filename="src/ui/cards/card_gas.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/ui/cards/card_info.c">
-			<Option compilerVar="CC" />
-		</Unit>
 		<Unit filename="src/ui/cards/card_plan.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/ui/cards/card_setup.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/comp/README.md" />
@@ -1955,6 +1949,13 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/fonts/lv_font_ordinar_64.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/menus/README.md" />
+		<Unit filename="src/ui/menus/menu_info.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/menus/menu_setup.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/picture/README.md" />

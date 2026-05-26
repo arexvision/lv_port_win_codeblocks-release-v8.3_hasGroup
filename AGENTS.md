@@ -63,7 +63,8 @@ Current module architecture documentation is in `UI_html_DOC/UI_MODULE_MAP.md`. 
 | `comp/comp_*.h/c` | Reusable widget creation, update, and style application |
 | `views/menu_defs.*`, `views/menu_runtime.*`, `views/menu_actions.*`, `views/submenu_view.*`, `views/modal_view.*` | Menu definition/runtime/action layers, submenu drawer, and overlay dialogs |
 | `alarm/alarm*.h/c` | Alarm event engine and alarm visual layer |
-| `cards/card_*.c` | 7 card implementations (compass, deco, gas, plan, info, setup, blank) |
+| `cards/card_*.c` | Right-side business card implementations (compass, deco, gas, plan, blank, etc.); INFO/DIVE MENU do not live here |
+| `menus/menu_*.c` | Right-side top-level menu pages (INFO MENU and DIVE MENU) |
 | `hal_sim/input_pc.h` | Keyboard/encoder input simulation for PC |
 
 ### Data flow

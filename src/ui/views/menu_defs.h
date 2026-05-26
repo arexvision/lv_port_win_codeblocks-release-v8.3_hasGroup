@@ -15,8 +15,8 @@ extern "C" {
 /* 顶层 INFO / SETUP 卡片也从这里拿文案。
  * 这样主卡片入口和子菜单入口使用同一套定义，不再各自维护一份字符串数组。
  */
-extern const menu_item_cfg_t g_menu_info_card_items[SUBMENU_INFO_COUNT];
-extern const menu_item_cfg_t g_menu_setup_card_items[SUBMENU_SETUP_COUNT];
+extern const menu_item_cfg_t g_menu_info_items[SUBMENU_INFO_COUNT];
+extern const menu_item_cfg_t g_menu_setup_items[SUBMENU_SETUP_COUNT];
 
 /* 一个 menu_id_t 表示“当前打开的是哪一个菜单页面”。
  * 例如 MENU_SETUP_BRIGHTNESS 表示亮度列表页，
@@ -217,8 +217,8 @@ typedef struct
     const char *modal_text;
 } menu_action_t;
 
-const menu_item_cfg_t *menu_defs_info_card_items(uint8_t *out_count);
-const menu_item_cfg_t *menu_defs_setup_card_items(uint8_t *out_count);
+const menu_item_cfg_t *menu_defs_info_items(uint8_t *out_count);
+const menu_item_cfg_t *menu_defs_setup_items(uint8_t *out_count);
 menu_id_t menu_defs_info_menu_for_index(uint8_t index);
 menu_id_t menu_defs_setup_menu_for_index(uint8_t index);
 const char *menu_defs_title(menu_id_t id);

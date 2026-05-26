@@ -10,28 +10,31 @@
 #include <string.h>
 
 void screen_register_setup_list(lv_obj_t *list);
+void menu_setup_update(void);
 
-/* =========================================================
- * DIVE SETUP 配置数据 (APP 同步就绪)
- * ========================================================= */
+/* DIVE MENU 顶层菜单页。
+ * 它占用右侧 tileview 中的一个固定页面，但职责是设置入口和 badge 展示。
+ */
 #define SETUP_ITEM_COUNT SUBMENU_SETUP_COUNT
 
-const menu_list_cfg_t setup_menu_cfg =
+const menu_list_cfg_t menu_setup_cfg =
 {
-    .items = g_menu_setup_card_items,
+    .items = g_menu_setup_items,
     .count = SETUP_ITEM_COUNT,
 };
 
 static lv_obj_t *s_list;
 
-/* badge 句柄数组: 由工厂输出的 item handles 填充 */
+/* badge 句柄数组：由动态菜单工厂输出的 item handles 填充。
+ * child 0=title label，child 1=badge label。
+ */
 static lv_obj_t *s_setup_item_objs[SETUP_ITEM_COUNT];
 static lv_obj_t *s_setup_badge_lbls[SETUP_ITEM_COUNT];
 
-void card_setup_create(lv_obj_t *parent)
+void menu_setup_create(lv_obj_t *parent)
 {
     uint8_t setup_count = 0;
-    const menu_item_cfg_t *setup_items = menu_defs_setup_card_items(&setup_count);
+    const menu_item_cfg_t *setup_items = menu_defs_setup_items(&setup_count);
 
     render_card_title(parent, "DIVE MENU");
 
@@ -52,25 +55,24 @@ void card_setup_create(lv_obj_t *parent)
     lv_obj_set_style_pad_all(s_list, 0, 0);
     lv_obj_clear_flag(s_list, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* 通用动态菜单工厂统一渲染 */
+    /* 顶层菜单也走同一套菜单行渲染，减少重复维护。 */
     render_dynamic_menu(s_list, setup_items, setup_count, 0, s_setup_item_objs);
 
-    /* 填充 badge 句柄数组: child 0=title label, child 1=badge label */
     for (uint8_t i = 0; i < setup_count; i++)
     {
         s_setup_badge_lbls[i] = lv_obj_get_child(s_setup_item_objs[i], 1);
     }
 
-    /* 首次创建后立即按当前系统配置刷新 badge，避免默认文案与实际亮度档位短暂不一致。 */
-    card_setup_update();
+    /* 首次创建后，立刻按当前系统配置刷新 badge。 */
+    menu_setup_update();
     screen_register_setup_list(s_list);
 }
 
-void card_setup_update(void)
+void menu_setup_update(void)
 {
     if (!s_list) return;
 
-    static const char *cal_str[]   = { "AUTO", "LEARN", "OK" };
+    static const char *cal_str[] = { "AUTO", "LEARN", "OK" };
     static compass_cal_ui_state_t last_cal_state = COMPASS_CAL_IDLE;
 
     uint8_t cons = g_sys_config.conservatism;

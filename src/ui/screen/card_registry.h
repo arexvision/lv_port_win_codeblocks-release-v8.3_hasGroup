@@ -24,6 +24,10 @@ typedef enum
     CARD_ID_COUNT
 } card_id_t;
 
+/* INFO 和 SETUP 仍保留 CARD_ID_*，因为右侧 tileview 统一按页面 ID 排序。
+ * 它们的实现已经放到 menus/，不再属于 cards/ 业务卡片目录。
+ */
+
 
 /* 未使用的槽位标记（不等于任何有效卡片ID） */
 #define CARD_ID_UNUSED  0xFF
@@ -98,14 +102,14 @@ uint8_t      card_id_at(uint8_t display_pos);
 card_t *card_get(uint8_t order_pos);
 card_t *card_get_by_id(card_id_t id);
 
-/* Card update forward declarations (defined in respective card_*.c) */
-void card_info_update(void);
+/* Right-side page update declarations. Top-level menu pages live in menus/. */
+void menu_info_update(void);
 void card_compass_update(void);
 void card_deco_update(void);
 void card_gas_update(void);
 void card_plan_update(void);
 void card_blank_update(void);
-void card_setup_update(void);
+void menu_setup_update(void);
 
 #ifdef __cplusplus
 }
