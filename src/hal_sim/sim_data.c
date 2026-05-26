@@ -138,24 +138,24 @@ static void test_set_ui_layout(uint8_t phase)
 {
     static ble_ui_sync_payload_t s_payload;
     static const uint8_t s_default_card_order[8] = {
-        CARD_ID_COMPASS,
-        CARD_ID_DECO,
-        CARD_ID_PLAN,
-        CARD_ID_GAS,
-        CARD_ID_CUSTOM_GRID,
-        CARD_ID_BLANK,
-        CARD_ID_UNUSED,
-        CARD_ID_UNUSED,
+        PAGE_ID_COMPASS,
+        PAGE_ID_DECO,
+        PAGE_ID_PLAN,
+        PAGE_ID_GAS,
+        PAGE_ID_CUSTOM_GRID,
+        PAGE_ID_BLANK,
+        PAGE_ID_UNUSED,
+        PAGE_ID_UNUSED,
     };
     static const uint8_t s_multi_custom_card_order[8] = {
-        CARD_ID_COMPASS,
-        CARD_ID_CUSTOM_GRID,
-        CARD_ID_DECO,
-        CARD_ID_CUSTOM_GRID,
-        CARD_ID_PLAN,
-        CARD_ID_GAS,
-        CARD_ID_CUSTOM_GRID,
-        CARD_ID_BLANK,
+        PAGE_ID_COMPASS,
+        PAGE_ID_CUSTOM_GRID,
+        PAGE_ID_DECO,
+        PAGE_ID_CUSTOM_GRID,
+        PAGE_ID_PLAN,
+        PAGE_ID_GAS,
+        PAGE_ID_CUSTOM_GRID,
+        PAGE_ID_BLANK,
     };
 
     memset(&s_payload, 0, sizeof(s_payload));

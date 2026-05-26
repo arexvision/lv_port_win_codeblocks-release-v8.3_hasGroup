@@ -59,7 +59,7 @@ Current module architecture documentation is in `UI_html_DOC/UI_MODULE_MAP.md`. 
 | `core/update_router.h/c` | Periodic UI heartbeat and dirty-mask refresh routing |
 | `screen/screen.h/c` | LVGL screen tree, public screen facade, scroll, walls, edit flows |
 | `screen/layout_view.h/c` | Safe-zone, fixed-anchor, menu, and 5F grid layout rendering |
-| `screen/card_registry.h/c` | Card lookup, registry, display/storage position mapping |
+| `screen/page_registry.h/c` | Page lookup, registry, display/storage position mapping |
 | `comp/comp_*.h/c` | Reusable widget creation, update, and style application |
 | `views/menu_defs.*`, `views/menu_runtime.*`, `views/menu_actions.*`, `views/submenu_view.*`, `views/modal_view.*` | Menu definition/runtime/action layers, submenu drawer, and overlay dialogs |
 | `alarm/alarm*.h/c` | Alarm event engine and alarm visual layer |
@@ -84,13 +84,13 @@ Hardware/BLE → bus_set_*() → g_sensor_data (dirty_mask)
 ### Screen layout
 
 - **Left anchor:** 2-column × 7-row fixed grid (160px wide) — always-visible dive metrics
-- **Right cards:** LVGL tileview with dynamic card ordering via `card_order[]`
+- **Right pages:** LVGL tileview with dynamic page ordering via `card_order[]`
 - **Safe zone:** reserved area for alerts/overlays
 - **5F custom grid:** 5-column × 6-row widget grid for custom card type
 
 ### Card system
 
-Each card registers with `card_registry` providing `create_cb`, `update_cb`, and `on_enter_cb`. Cards are identified by enum ID (INFO, COMPASS, DECO, GAS, PLAN, CUSTOM_GRID, BLANK, SETUP). Dynamic ordering is controlled by `card_order[]` in `ui_engine`.
+Each right-side page registers with `page_registry` providing `create_cb`, `update_cb`, and `on_enter_cb`. Pages are identified by enum ID (INFO, COMPASS, DECO, GAS, PLAN, CUSTOM_GRID, BLANK, SETUP). Dynamic ordering is controlled by `card_order[]` in `ui_engine` for BLE compatibility.
 
 ### LVGL configuration
 

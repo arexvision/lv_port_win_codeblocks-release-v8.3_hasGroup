@@ -753,23 +753,23 @@ void bus_set_ui_layout(const ble_ui_sync_payload_t *payload)
     /* 1. 兼容旧协议：旧 payload 只有 8 个 card_order 槽位，不能按新运行时数组长度整块 memcpy */
     for (size_t i = 0; i < sizeof(g_sys_config.card_order); i++)
     {
-        g_sys_config.card_order[i] = CARD_ID_UNUSED;
+        g_sys_config.card_order[i] = PAGE_ID_UNUSED;
     }
-    g_sys_config.card_order[CARD_POS_INFO] = CARD_ID_INFO;
-    g_sys_config.card_order[CARD_POS_SETUP] = CARD_ID_SETUP;
+    g_sys_config.card_order[PAGE_POS_INFO] = PAGE_ID_INFO;
+    g_sys_config.card_order[PAGE_POS_SETUP] = PAGE_ID_SETUP;
     {
-        uint8_t dynamic_pos = CARD_POS_DYNAMIC_FIRST;
+        uint8_t dynamic_pos = PAGE_POS_DYNAMIC_FIRST;
 
-        for (int i = 0; i < 8 && dynamic_pos < CARD_POS_SETUP; i++)
+        for (int i = 0; i < 8 && dynamic_pos < PAGE_POS_SETUP; i++)
         {
-            uint8_t card_id = payload->card_order[i];
+            uint8_t page_id = payload->card_order[i];
 
-            if (card_id == CARD_ID_UNUSED)
+            if (page_id == PAGE_ID_UNUSED)
             {
                 continue;
             }
 
-            g_sys_config.card_order[dynamic_pos++] = card_id;
+            g_sys_config.card_order[dynamic_pos++] = page_id;
         }
     }
 
@@ -794,9 +794,9 @@ void bus_set_ui_layout(const ble_ui_sync_payload_t *payload)
     {
         uint8_t custom_idx = 0;
         /* 在 card_order 中查找 CUSTOM_GRID 卡片的位置，设置正确的 slot 映射 */
-        for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; pos++)
+        for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < PAGE_POS_SETUP; pos++)
         {
-            if (g_sys_config.card_order[pos] == CARD_ID_CUSTOM_GRID)
+            if (g_sys_config.card_order[pos] == PAGE_ID_CUSTOM_GRID)
             {
                 g_sys_config.custom_card_slot[pos] = custom_idx;
                 custom_idx++;
@@ -819,9 +819,9 @@ void bus_set_ui_layout(const ble_ui_sync_payload_t *payload)
     }
 
     /* 4. 打上终极脏标记，通知 UI 推倒重建 */
-    for (uint8_t card_idx = 1U; card_idx < g_sys_config.custom_card_count; card_idx++)
+    for (uint8_t page_idx = 1U; page_idx < g_sys_config.custom_card_count; page_idx++)
     {
-        g_sys_config.custom_cards[card_idx] = g_sys_config.custom_cards[0];
+        g_sys_config.custom_cards[page_idx] = g_sys_config.custom_cards[0];
     }
 
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;

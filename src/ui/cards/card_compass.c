@@ -275,8 +275,8 @@ void card_compass_refresh_heading(bool force_refresh)
                        g_sensor_data.heading,
                        s_heading_val_lbl ? 1 : 0,
                        s_compass_tape_obj ? 1 : 0,
-                       g_sys_config.card_order[g_ui.dash_card],
-                       g_ui.dash_card);
+                       g_sys_config.card_order[g_ui.dash_page],
+                       g_ui.dash_page);
 #endif
         }
     }

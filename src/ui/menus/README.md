@@ -15,4 +15,4 @@
 - 顶层菜单页放这里，不放 `cards/`。
 - 普通业务卡片继续放 `cards/`。
 - 具体子菜单定义、运行时和动作分发在 `../views/menu_defs.c`、`../views/menu_runtime.c`、`../views/menu_actions.c`。
-- `screen/card_registry.c` 仍统一登记右侧 tileview 页面；这里的 `CARD_ID_INFO` 和 `CARD_ID_SETUP` 只是页面位置 ID，不表示源码还属于 card 模块。
+- `screen/page_registry.c` 仍统一登记右侧 tileview 页面；这里的 `CARD_ID_INFO` 和 `CARD_ID_SETUP` 只是兼容别名，不表示源码还属于 card 模块。

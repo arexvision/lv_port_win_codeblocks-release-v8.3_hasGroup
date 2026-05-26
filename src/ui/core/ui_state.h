@@ -18,7 +18,7 @@ extern "C" {
    ========================================= */
 typedef enum
 {
-    UI_DASH         = 0,  /* scrolling dashboard cards */
+    UI_DASH         = 0,  /* scrolling dashboard pages */
     UI_INFO         = 1,  /* INFO menu list active */
     UI_SETUP        = 2,  /* SETUP menu list active */
     UI_EDIT_GAS     = 3,  /* gas cursor moving on 3F */
@@ -76,7 +76,7 @@ typedef struct
 {
     ui_state_t  state;
 
-    uint8_t  dash_card;         /* 当前 DASH 所在 tile 位置：1~(CARD_POS_SETUP-1) */
+    uint8_t  dash_page;         /* 当前 DASH 所在 tile 位置：1~(PAGE_POS_SETUP-1) */
 
     /* Menu cursors */
     uint8_t  menu_info_idx;
@@ -138,11 +138,11 @@ void ui_handle_back(void);
 /* =========================================
    Internal helpers (used by cards too)
    ========================================= */
-/* Notify all registered cards to refresh their widgets */
+/* Notify all registered right-side pages to refresh their widgets */
 void ui_refresh_all(void);
 
-/* Scroll the tileview to the given card index (0-based, follows card_order) */
-void ui_go_to_card(uint8_t idx);
+/* Scroll the tileview to the given page index (0-based, follows page registry order) */
+void ui_go_to_page(uint8_t idx);
 
 /* =========================================
    气体切换命令队列接口（UI 层调用）

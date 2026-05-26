@@ -5,7 +5,7 @@
 #include "../core/ui_engine.h"
 #include "../core/data.h"
 #include "../core/ui_state.h"
-#include "card_registry.h"
+#include "page_registry.h"
 #include "../core/callbacks.h"
 #include "../views/modal_view.h"
 #include "../views/submenu_model.h"
@@ -23,7 +23,7 @@ static lv_obj_t *s_safe_zone;        /* 安全区容器(绝对坐标原点) */
 static lv_obj_t *s_left_anchor;      /* 左侧锚点 (10U 沙盒) */
 static lv_obj_t *s_right_cont;       /* clip container */
 static lv_obj_t *s_tileview;
-static lv_obj_t *s_tile_objs[CARD_COUNT];
+static lv_obj_t *s_tile_objs[PAGE_COUNT];
 
 /* 灯光控制状态（LIGHT CONTROL 子菜单全局共享） */
 /* 问题4修复：灯光硬件默认开启，UI 初始值必须匹配硬件状态 */
@@ -37,7 +37,7 @@ static lv_obj_t *s_wall_text_bottom, *s_wall_blocks_bottom;
 
 /* Scroll dots */
 static lv_obj_t *s_dot_cont;  /* dots 容器（父对象 s_safe_zone，可定位到间隙中间） */
-static lv_obj_t *s_scroll_dots[DASH_CARD_COUNT];
+static lv_obj_t *s_scroll_dots[DASH_PAGE_COUNT];
 
 static lv_obj_t *s_brightness_overlay;
 static bool s_software_brightness_enabled = true;
@@ -326,10 +326,10 @@ static void safe_zone_reposition(void)
     if (s_dot_cont)
     {
         lv_coord_t dot_x, dot_y;
-        uint16_t dot_cont_h = visible_dash_count() * 14;
+        uint16_t dot_cont_h = page_visible_dash_count() * 14;
 
         printf("[SAFE_ZONE] reposition dots: position=%d, visible_dash=%u, dot_cont_h=%u, safe_zone=%ux%u\r\n",
-               g_sys_config.dots_position, visible_dash_count(), dot_cont_h,
+               g_sys_config.dots_position, page_visible_dash_count(), dot_cont_h,
                g_sys_config.safe_zone_w, g_sys_config.safe_zone_h);
 
         /* 更新容器大小以匹配实际显示数量 */
@@ -375,13 +375,13 @@ static void safe_zone_reposition(void)
         lv_obj_set_pos(s_dot_cont, dot_x, dot_y);
 
         /* 更新每个 dot 的绝对位置（使用绝对定位） */
-        for (uint8_t i = 0; i < DASH_CARD_COUNT; i++)
+        for (uint8_t i = 0; i < DASH_PAGE_COUNT; i++)
         {
             if (s_scroll_dots[i])
             {
                 lv_obj_set_pos(s_scroll_dots[i], 2, (lv_coord_t)(i * 14));
                 /* 超出 visible_dash 的 dot 隐藏 */
-                if (i >= visible_dash_count())
+                if (i >= page_visible_dash_count())
                 {
                     lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
                 }
@@ -395,12 +395,12 @@ static void safe_zone_reposition(void)
         /* 调用 screen_update_scroll_dots() 根据 UI 状态更新可见性 */
         /* 计算逻辑索引 */
         uint8_t active_idx = 0;
-        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < setup_display_pos())
+        if (g_ui.dash_page >= PAGE_POS_DYNAMIC_FIRST && g_ui.dash_page < page_setup_display_pos())
         {
-            for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++)
+            for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < g_ui.dash_page; pos++)
             {
-                uint8_t card_id = g_sys_card_order(pos);
-                if (card_id != CARD_ID_UNUSED && card_id != CARD_ID_BLANK)
+                uint8_t page_id = g_sys_page_order(pos);
+                if (page_id != PAGE_ID_UNUSED && page_id != PAGE_ID_BLANK)
                 {
                     active_idx++;
                 }
@@ -448,13 +448,13 @@ static void right_panel_create(void)
     lv_obj_set_scrollbar_mode(s_tileview, LV_SCROLLBAR_MODE_OFF);
     lv_obj_clear_flag(s_tileview, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* 创建 tiles */
+    /* 创建右侧页面 tiles */
     memset(s_tile_objs, 0, sizeof(s_tile_objs));
-    uint8_t count = card_count();
+    uint8_t count = page_count();
     for (uint8_t i = 0; i < count; i++)
     {
-        card_t *card = card_get(i);
-        if (!card) continue;
+        page_t *page = page_get(i);
+        if (!page) continue;
 
         lv_obj_t *tile = lv_tileview_add_tile(s_tileview, 0, i,
                                               LV_DIR_TOP | LV_DIR_BOTTOM);
@@ -464,27 +464,27 @@ static void right_panel_create(void)
         lv_obj_set_scrollbar_mode(tile, LV_SCROLLBAR_MODE_OFF);
         lv_obj_clear_flag(tile, LV_OBJ_FLAG_SCROLLABLE);
         s_tile_objs[i] = tile;
-        card->tile_obj = tile;
+        page->tile_obj = tile;
 
-        switch (card->engine_type)
+        switch (page->engine_type)
         {
-        case CARD_ENGINE_GRID:
+        case PAGE_ENGINE_GRID:
         {
             /* 获取当前 tile 对应的 custom_card_slot 索引 */
-            uint8_t storage_pos = card_storage_pos(i);
-            uint8_t custom_card_idx = (storage_pos < CARD_COUNT)
+            uint8_t storage_pos = page_storage_pos(i);
+            uint8_t custom_page_idx = (storage_pos < PAGE_COUNT)
                                       ? g_sys_config.custom_card_slot[storage_pos]
                                       : 0xFF;
-            if (custom_card_idx < MAX_CUSTOM_CARDS)
+            if (custom_page_idx < MAX_CUSTOM_CARDS)
             {
-                render_5f_custom_grid(tile, g_left_anchor_obj, custom_card_idx);
+                render_5f_custom_grid(tile, g_left_anchor_obj, custom_page_idx);
             }
             break;
         }
-        case CARD_ENGINE_MENU:
-        case CARD_ENGINE_CUSTOM:
+        case PAGE_ENGINE_MENU:
+        case PAGE_ENGINE_CUSTOM:
         default:
-            if (card->create_cb) card->create_cb(tile);
+            if (page->create_cb) page->create_cb(tile);
             break;
         }
     }
@@ -492,7 +492,7 @@ static void right_panel_create(void)
     /* Scroll dots - 父对象为 s_safe_zone，可定位到间隙中间 */
     s_dot_cont = lv_obj_create(s_safe_zone);
     /* 容器高度根据实际显示数量计算 */
-    uint16_t dot_cont_h = visible_dash_count() * 14;
+    uint16_t dot_cont_h = page_visible_dash_count() * 14;
     lv_obj_set_size(s_dot_cont, 10, dot_cont_h);
     lv_obj_set_style_bg_opa(s_dot_cont, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_dot_cont, 0, 0);
@@ -539,7 +539,7 @@ static void right_panel_create(void)
     /* DOTS_NONE 时不显示 dot_cont */
 
     /* 使用绝对定位创建 dots，避免隐藏时仍占用空间的问题 */
-    for (uint8_t i = 0; i < DASH_CARD_COUNT; i++)
+    for (uint8_t i = 0; i < DASH_PAGE_COUNT; i++)
     {
         s_scroll_dots[i] = lv_obj_create(s_dot_cont);
         lv_obj_set_size(s_scroll_dots[i], 6, 6);
@@ -554,7 +554,7 @@ static void right_panel_create(void)
         if (g_sys_config.dots_position == DOTS_NONE)
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
         /* 超出 visible_dash 的 dot 也隐藏 */
-        if (i >= visible_dash_count())
+        if (i >= page_visible_dash_count())
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
     }
 
@@ -570,7 +570,7 @@ static void right_panel_create(void)
 void screen_rebuild_layout(void)
 {
     printf("[REBUILD_LAYOUT] Enter: visible_dash=%u, dots_pos=%d, layout_order=%d\r\n",
-           visible_dash_count(), g_sys_config.dots_position, g_sys_config.layout_order);
+           page_visible_dash_count(), g_sys_config.dots_position, g_sys_config.layout_order);
 
     /* 【问题四修复】必须在清空对象前重新启用 invalidation
      * 因为 ui_timer_cb() 中禁用了 invalidation 以优化刷屏性能
@@ -622,10 +622,10 @@ void screen_rebuild_tileview(void)
     lv_disp_t *disp = lv_disp_get_default();
     if (disp) lv_disp_enable_invalidation(disp, true);
 
-    uint8_t count = card_count();
+    uint8_t count = page_count();
 
     /* 【问题二修复】保存当前焦点位置和状态机上下文 */
-    uint8_t saved_dash_card = g_ui.dash_card;
+    uint8_t saved_dash_page = g_ui.dash_page;
     ui_state_t saved_state = g_ui.state;
     uint8_t saved_menu_idx = (saved_state == UI_INFO) ? g_ui.menu_info_idx
                              : (saved_state == UI_SETUP) ? g_ui.menu_setup_idx
@@ -636,8 +636,8 @@ void screen_rebuild_tileview(void)
     g_card_custom_obj_count = 0;
     for (uint8_t i = 0; i < count; i++)
     {
-        card_t *card = card_get_by_id(i);
-        if (card) card->tile_obj = NULL;
+        page_t *page = page_get_by_id(i);
+        if (page) page->tile_obj = NULL;
     }
 
     if (s_right_cont)
@@ -653,7 +653,7 @@ void screen_rebuild_tileview(void)
     {
         lv_obj_del(s_dot_cont);
         s_dot_cont = NULL;
-        for (uint8_t i = 0; i < DASH_CARD_COUNT; i++)
+        for (uint8_t i = 0; i < DASH_PAGE_COUNT; i++)
             s_scroll_dots[i] = NULL;
     }
 
@@ -675,21 +675,21 @@ void screen_rebuild_tileview(void)
     restore_brightness_overlay_state();
 
     /* 【问题二修复】恢复 tile 焦点到保存的位置
-     * 注意：g_ui.dash_card 已经在外部保存了，这里使用 saved_dash_card */
-    if (s_tileview && saved_dash_card < CARD_COUNT && s_tile_objs[saved_dash_card])
+     * 注意：g_ui.dash_page 已经在外部保存了，这里使用 saved_dash_page */
+    if (s_tileview && saved_dash_page < PAGE_COUNT && s_tile_objs[saved_dash_page])
     {
-        lv_obj_set_tile(s_tileview, s_tile_objs[saved_dash_card], LV_ANIM_OFF);
+        lv_obj_set_tile(s_tileview, s_tile_objs[saved_dash_page], LV_ANIM_OFF);
     }
 
     /* 【问题X修复】恢复 UI 状态机
      * 布局重建后只恢复 tile 位置，但没有恢复状态机
      * 导致 g_ui.state 不同步，滑动行为异常，左侧指示器显示错误 */
-    if (ENABLE_INFO_MENU && saved_dash_card == CARD_POS_INFO)
+    if (ENABLE_INFO_MENU && saved_dash_page == PAGE_POS_INFO)
     {
         g_ui.state = UI_INFO;
         g_ui.menu_info_idx = saved_menu_idx;
     }
-    else if (saved_dash_card == setup_display_pos())
+    else if (saved_dash_page == page_setup_display_pos())
     {
         g_ui.state = UI_SETUP;
         g_ui.menu_setup_idx = saved_menu_idx;
@@ -697,12 +697,12 @@ void screen_rebuild_tileview(void)
     else
     {
         g_ui.state = UI_DASH;
-        if (saved_dash_card < CARD_POS_DYNAMIC_FIRST || saved_dash_card >= setup_display_pos())
+        if (saved_dash_page < PAGE_POS_DYNAMIC_FIRST || saved_dash_page >= page_setup_display_pos())
         {
-            g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
-            if (s_tileview && s_tile_objs[CARD_POS_DYNAMIC_FIRST])
+            g_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
+            if (s_tileview && s_tile_objs[PAGE_POS_DYNAMIC_FIRST])
             {
-                lv_obj_set_tile(s_tileview, s_tile_objs[CARD_POS_DYNAMIC_FIRST], LV_ANIM_OFF);
+                lv_obj_set_tile(s_tileview, s_tile_objs[PAGE_POS_DYNAMIC_FIRST], LV_ANIM_OFF);
             }
         }
     }
@@ -710,12 +710,12 @@ void screen_rebuild_tileview(void)
     {
         /* 计算逻辑索引：从 DYNAMIC_FIRST 到当前卡片之间有多少个有效卡*/
         uint8_t active_idx = 0;
-        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < setup_display_pos())
+        if (g_ui.dash_page >= PAGE_POS_DYNAMIC_FIRST && g_ui.dash_page < page_setup_display_pos())
         {
-            for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++)
+            for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < g_ui.dash_page; pos++)
             {
-                uint8_t card_id = g_sys_card_order(pos);
-                if (card_id != CARD_ID_UNUSED && card_id != CARD_ID_BLANK)
+                uint8_t page_id = g_sys_page_order(pos);
+                if (page_id != PAGE_ID_UNUSED && page_id != PAGE_ID_BLANK)
                 {
                     active_idx++;
                 }
@@ -836,12 +836,12 @@ void screen_create(void)
 /* =========================================================
  * Tileview 导航
  * ========================================================= */
-void screen_scroll_to_card(uint8_t tile_pos)
+void screen_scroll_to_page(uint8_t tile_pos)
 {
     /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
 
-    if (tile_pos >= card_count())
+    if (tile_pos >= page_count())
     {
         return;
     }
@@ -864,20 +864,20 @@ void screen_scroll_to_card(uint8_t tile_pos)
     lv_obj_update_layout(tile);
     lv_obj_invalidate(tile);
 
-    if (g_sys_card_order(tile_pos) == CARD_ID_COMPASS)
+    if (g_sys_page_order(tile_pos) == PAGE_ID_COMPASS)
     {
         card_compass_refresh_heading(true);
     }
 
-    /* SETUP（最后一页）不显示 dots，只有 DASH 动态卡片才更新 */
-    if (tile_pos >= CARD_POS_DYNAMIC_FIRST && tile_pos < setup_display_pos())
+    /* SETUP（最后一页）不显示 dots，只有 DASH 动态页面才更新 */
+    if (tile_pos >= PAGE_POS_DYNAMIC_FIRST && tile_pos < page_setup_display_pos())
     {
-        /* 计算逻辑索引：从 DYNAMIC_FIRST 到 tile_pos 之间有多少个有效卡片 */
+        /* 计算逻辑索引：从 DYNAMIC_FIRST 到 tile_pos 之间有多少个有效页面 */
         uint8_t active_idx = 0;
-        for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
+        for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
         {
-            uint8_t card_id = g_sys_card_order(pos);
-            if (card_id != CARD_ID_UNUSED && card_id != CARD_ID_BLANK)
+            uint8_t page_id = g_sys_page_order(pos);
+            if (page_id != PAGE_ID_UNUSED && page_id != PAGE_ID_BLANK)
             {
                 active_idx++;
             }
@@ -929,15 +929,15 @@ void screen_refresh_all_widgets(void)
     }
 
     /* 2. 同步右侧全部自定义卡片配置 */
-    for (uint8_t card_idx = 0;
-            card_idx < g_sys_config.custom_card_count && card_idx < MAX_CUSTOM_CARDS;
-            card_idx++)
+    for (uint8_t page_idx = 0;
+            page_idx < g_sys_config.custom_card_count && page_idx < MAX_CUSTOM_CARDS;
+            page_idx++)
     {
-        for (uint8_t i = 0; i < g_sys_config.custom_cards[card_idx].widget_count; i++)
+        for (uint8_t i = 0; i < g_sys_config.custom_cards[page_idx].widget_count; i++)
         {
-            if (g_sys_config.custom_cards[card_idx].widgets[i].widget_id != COMP_EMPTY)
+            if (g_sys_config.custom_cards[page_idx].widgets[i].widget_id != COMP_EMPTY)
             {
-                comp_sync_data(g_sys_config.custom_cards[card_idx].widgets[i].widget_id);
+                comp_sync_data(g_sys_config.custom_cards[page_idx].widgets[i].widget_id);
             }
         }
     }
@@ -1047,13 +1047,13 @@ void screen_update_scroll_dots(uint8_t active_idx, bool visible)
 {
     bool in_dash_or_edit = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
     bool dots_enabled = (g_sys_config.dots_position != DOTS_NONE);
-    uint8_t visible_dash = visible_dash_count();
+    uint8_t visible_dash = page_visible_dash_count();
 
     printf("[DOTS] update: active=%u, visible=%d, state=%d, dots_pos=%d, visible_dash=%u, dot_cont_children=%d\r\n",
            active_idx, visible, g_ui.state, g_sys_config.dots_position, visible_dash,
            s_dot_cont ? lv_obj_get_child_cnt(s_dot_cont) : -1);
 
-    for (uint8_t i = 0; i < DASH_CARD_COUNT; i++)
+    for (uint8_t i = 0; i < DASH_PAGE_COUNT; i++)
     {
         if (!s_scroll_dots[i])
         {
@@ -1209,19 +1209,19 @@ void screen_update_setup_badge(uint8_t item_idx, const char *value)
  * ========================================================= */
 void screen_refresh_compass_target(void)
 {
-    card_t *c = card_get_by_id(CARD_ID_COMPASS);
+    page_t *c = page_get_by_id(PAGE_ID_COMPASS);
     if (c && c->update_cb) c->update_cb();
 }
 
 void screen_refresh_gas_menu(void)
 {
-    card_t *c = card_get_by_id(CARD_ID_GAS);
+    page_t *c = page_get_by_id(PAGE_ID_GAS);
     if (c && c->update_cb) c->update_cb();
 }
 
 void screen_refresh_setup_menu(void)
 {
-    card_t *c = card_get_by_id(CARD_ID_SETUP);
+    page_t *c = page_get_by_id(PAGE_ID_SETUP);
     if (c && c->update_cb) c->update_cb();
 }
 
@@ -1585,7 +1585,7 @@ void screen_cancel_edit_value(void)
 /* =========================================================
  * Card title helper
  * ========================================================= */
-lv_obj_t *screen_make_card_title(lv_obj_t *parent, const char *text)
+lv_obj_t *screen_make_page_title(lv_obj_t *parent, const char *text)
 {
     uint16_t right_w_fallback = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
                                 - g_sys_config.panel_gap_u * BASE_U;

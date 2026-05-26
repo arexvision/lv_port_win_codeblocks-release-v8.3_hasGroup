@@ -53,7 +53,7 @@ void screen_create(void);
 /* =========================================
    Tileview / card navigation
    ========================================= */
-void screen_scroll_to_card(uint8_t idx);
+void screen_scroll_to_page(uint8_t idx);
 
 void screen_rebuild_tileview(void);
 

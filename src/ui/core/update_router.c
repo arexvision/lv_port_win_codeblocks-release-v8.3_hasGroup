@@ -1,7 +1,7 @@
 #include "update_router.h"
 
 #include "../alarm/alarm_view.h"
-#include "../screen/card_registry.h"
+#include "../screen/page_registry.h"
 #include "data.h"
 #include "../screen/layout_view.h"
 #include "../screen/screen.h"

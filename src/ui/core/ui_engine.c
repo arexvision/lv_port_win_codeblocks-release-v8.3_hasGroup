@@ -1,5 +1,5 @@
 #include "ui_engine.h"
-#include "../screen/card_registry.h"
+#include "../screen/page_registry.h"
 #include "../screen/screen.h"
 #include "ui_state.h"
 #include "../fonts/fonts.h"
@@ -246,20 +246,20 @@ void sys_config_defaults(sys_config_t *cfg)
     }
 
     /* ========== [A] 右侧卡片顺序 (tileview 滑动顺序) ==========
-     * card_order[pos] = card_id
+     * card_order[pos] = page_id
      * INFO(0) 固定，SETUP(13) 固定，中12 张可APP 重排
      * 必须初始化所14 个位置！
-     * CARD_ID_UNUSED(0xFF)=δռòλʾdot, CARD_ID_BLANK=հ׿ҲЧƬӦʾdot
+     * PAGE_ID_UNUSED(0xFF)=δռòλʾdot, PAGE_ID_BLANK=հ׿ҲЧƬӦʾdot
      */
-    memset(cfg->card_order, CARD_ID_UNUSED, sizeof(cfg->card_order));
-    cfg->card_order[CARD_POS_INFO]   = CARD_ID_INFO;//菜单，不算卡
-    cfg->card_order[CARD_POS_1]      = CARD_ID_COMPASS;
-    cfg->card_order[CARD_POS_2]      = CARD_ID_DECO;
-    cfg->card_order[CARD_POS_3]      = CARD_ID_PLAN;
-    cfg->card_order[CARD_POS_4]      = CARD_ID_GAS;
-    cfg->card_order[CARD_POS_5]      = CARD_ID_CUSTOM_GRID;
-    /* CARD_POS_7 ~ CARD_POS_12 淇濇寔 CARD_ID_BLANK */
-    cfg->card_order[CARD_POS_SETUP]  = CARD_ID_SETUP;//菜单，不算卡
+    memset(cfg->card_order, PAGE_ID_UNUSED, sizeof(cfg->card_order));
+    cfg->card_order[PAGE_POS_INFO]   = PAGE_ID_INFO;//菜单，不算卡
+    cfg->card_order[PAGE_POS_1]      = PAGE_ID_COMPASS;
+    cfg->card_order[PAGE_POS_2]      = PAGE_ID_DECO;
+    cfg->card_order[PAGE_POS_3]      = PAGE_ID_PLAN;
+    cfg->card_order[PAGE_POS_4]      = PAGE_ID_GAS;
+    cfg->card_order[PAGE_POS_5]      = PAGE_ID_CUSTOM_GRID;
+    /* PAGE_POS_7 ~ PAGE_POS_12 淇濇寔 PAGE_ID_BLANK */
+    cfg->card_order[PAGE_POS_SETUP]  = PAGE_ID_SETUP;//菜单，不算卡
 
     /* ========== [A] 卡片槽位映射 ==========
      * custom_card_slot[pos] = custom_card_index (0~11)
@@ -267,7 +267,7 @@ void sys_config_defaults(sys_config_t *cfg)
      * ĬϣһCUSTOM_GRID Ƭӳcustom_cards[0]
      */
     memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
-    cfg->custom_card_slot[CARD_POS_5] = 0;  /* CUSTOM_GRID 映射custom_cards[0] */
+    cfg->custom_card_slot[PAGE_POS_5] = 0;  /* CUSTOM_GRID 映射custom_cards[0] */
 
     /* ========== [A] 用户设置默认========== */
     cfg->mod_ppo2       = 1.4f;
@@ -395,11 +395,11 @@ void ui_apply_config(void)
 }
 
 /* =========================================================
- * 卡片顺序查询 (统一入口 替代旧的 card_order 全局访问)
+ * 右侧页面顺序查询 (统一入口，替代直接访问 card_order)
  * ========================================================= */
-uint8_t g_sys_card_order(uint8_t pos)
+uint8_t g_sys_page_order(uint8_t pos)
 {
-    if (pos >= CARD_COUNT) return 0;
+    if (pos >= PAGE_COUNT) return 0;
     return g_sys_config.card_order[pos];
 }
 

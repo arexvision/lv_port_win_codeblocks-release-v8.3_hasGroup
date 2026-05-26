@@ -31,7 +31,7 @@
 
 - 外部数据写入统一走 `core/data.c` 的 `bus_set_*()`，不要在其他模块直接写 `g_sensor_data` 或 `g_sys_config`。
 - 屏幕级容器和导航放在 `screen/`；具体小组件内容放在 `comp/`；右侧独立业务页面放在 `cards/`；右侧顶层菜单入口放在 `menus/`。
-- 右侧 tileview 页面创建和刷新仍由 `screen/card_registry.c` 统一登记。这里的 `CARD_ID_INFO` / `CARD_ID_SETUP` 是历史页面 ID，不代表 INFO/DIVE MENU 的源码还属于 `cards/`。
+- 右侧 tileview 页面创建和刷新仍由 `screen/page_registry.c` 统一登记。这里的 `CARD_ID_INFO` / `CARD_ID_SETUP` 只是兼容别名，源码上 INFO/DIVE MENU 已经不属于 `cards/`。
 - 字体和图片资源通常只提供 LVGL 资源定义，不放交互业务逻辑。
 - 菜单选择逻辑必须使用 `menu_id_t` / `menu_item_id_t`，显示字符串只用于 LVGL label。
 - 简单设置项优先在 `views/menu_defs.c`、`views/menu_runtime.c`、`views/menu_actions.c` 收敛，不要再把业务判断写回 `submenu_view.c`。

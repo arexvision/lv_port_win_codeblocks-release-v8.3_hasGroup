@@ -4,7 +4,7 @@
 #include "lvgl/lvgl.h"
 #include <stdint.h>
 #include <stdbool.h>
-#include "../screen/card_registry.h"
+#include "../screen/page_registry.h"
 #include "ui_main.h"
 
 #ifdef __cplusplus
@@ -90,12 +90,11 @@ extern "C" {
 extern const char  *GAS_NAMES[GAS_COUNT];
 extern const uint8_t GAS_MOD_M[GAS_COUNT];
 
-/* 卡片页数 / 卡片类型数常量：
- * - CARD_COUNT    : tile 页总数（INFO + 动态槽 + SETUP）
- * - CARD_ID_COUNT : 卡片类型种类数（INFO/COMPASS/.../SETUP） */
-#define CARD_COUNT     CARD_POS_COUNT
-/* 卡片顺序配置读取接口（供 card_registry.c / ui_state.c 使用） */
-extern uint8_t g_sys_card_order(uint8_t pos);
+/* 右侧页面顺序配置读取接口（供 page_registry.c / ui_state.c 使用）。
+ * BLE 旧协议字段仍叫 card_order；这里返回的是内部页面顺序。
+ */
+extern uint8_t g_sys_page_order(uint8_t pos);
+#define g_sys_card_order g_sys_page_order
 
 /* =========================================================
  * 2. 枚举字典 (配置项映射)
@@ -336,14 +335,14 @@ typedef struct
     /* --- 右侧多张自定义网格卡片配置 --- */
     uint8_t                custom_card_count;
     custom_card_cfg_t custom_cards[MAX_CUSTOM_CARDS];
-    uint8_t                custom_card_slot[CARD_COUNT];
+    uint8_t                custom_card_slot[PAGE_COUNT];
 
     /* --- 卡片顺序 (APP 同步就绪)
-     * card_order[pos] = card_id
+     * card_order[pos] = page_id
      * INFO 固定在 tile 0，SETUP 固定在最后一页。
-     * CARD_POS_1 ~ CARD_POS_N 的动态槽数量由 MAX_DYNAMIC_SLOTS 控制。
+     * PAGE_POS_1 ~ PAGE_POS_N 的动态槽数量由 MAX_DYNAMIC_SLOTS 控制。
      */
-    uint8_t card_order[CARD_COUNT];
+    uint8_t card_order[PAGE_COUNT];
 
     /* --- 用户设置 (运行时可修改) --- */
     float   mod_ppo2;           /* 默认 1.4f */
@@ -604,7 +603,7 @@ typedef struct
     uint8_t     height_u;        /* 该选项高度 (单位 U，默认 0=用 h_menu_item) */
 } menu_item_cfg_t;
 
-/* 菜单列表包装体 — 作为 card_t.config_data 传入注册表 */
+/* 菜单列表包装体 — 作为 page_t.config_data 传入注册表 */
 typedef struct
 {
     const menu_item_cfg_t *items;
@@ -620,7 +619,7 @@ typedef struct
 /* 5F 网格总线渲染器：遍历 g_sys_config.custom_cards[] 数组，
  * 用纯数学行×列→绝对坐标映射渲染所有组件。
  * left_anchor_obj 传入用于告警引擎跨区搜索烙印对象。
- * custom_card_idx 指定使用哪张卡片的配置。 */
+ * custom_page_idx 指定使用哪张卡片的配置。 */
 
 /* 按 widget_id 设置数值（由 update 循环调用，绝不触发重绘） */
 

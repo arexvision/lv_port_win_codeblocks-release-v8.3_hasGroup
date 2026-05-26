@@ -1,6 +1,6 @@
 #include "ui_state.h"
 #include "ui_engine.h"
-#include "../screen/card_registry.h"
+#include "../screen/page_registry.h"
 #include "../screen/screen.h"
 
 #include <string.h>
@@ -24,19 +24,19 @@ void ui_state_init(void)
 {
     memset(&g_ui, 0, sizeof(g_ui));
     g_ui.state         = UI_DASH;
-    g_ui.dash_card     = CARD_POS_DYNAMIC_FIRST;
+    g_ui.dash_page     = PAGE_POS_DYNAMIC_FIRST;
     g_ui.menu_info_idx = 0;
     g_ui.wall_charge   = 0;
 }
 
 /* =========================================
-   Internal: notify registered cards
+   Internal: notify registered pages
    ========================================= */
 void ui_refresh_all(void)
 {
-    for (uint8_t i = 0; i < card_count(); i++)
+    for (uint8_t i = 0; i < page_count(); i++)
     {
-        card_t *c = card_get(i);
+        page_t *c = page_get(i);
         if (c && c->update_cb) c->update_cb();
     }
 }
@@ -44,10 +44,10 @@ void ui_refresh_all(void)
 /* =========================================
    Internal: tileview navigation
    ========================================= */
-void ui_go_to_card(uint8_t tile_pos)
+void ui_go_to_page(uint8_t tile_pos)
 {
-    g_ui.dash_card = tile_pos;
-    screen_scroll_to_card(tile_pos);
+    g_ui.dash_page = tile_pos;
+    screen_scroll_to_page(tile_pos);
 }
 
 /* =========================================
@@ -58,14 +58,14 @@ void ui_handle_rotate(int8_t dir)
     switch (g_ui.state)
     {
 
-    /* --- DASH: scroll between cards with wall-charge at edges --- */
+    /* --- DASH: scroll between pages with wall-charge at edges --- */
     case UI_DASH:
     {
-        uint8_t dash_min = CARD_POS_DYNAMIC_FIRST;
-        uint8_t dash_max = setup_display_pos() - 1;
+        uint8_t dash_min = PAGE_POS_DYNAMIC_FIRST;
+        uint8_t dash_max = page_setup_display_pos() - 1;
 
 #if ENABLE_INFO_MENU
-        if (g_ui.dash_card == dash_min && dir == -1)
+        if (g_ui.dash_page == dash_min && dir == -1)
         {
             g_ui.wall_charge++;
             screen_show_wall(WALL_TOP, g_ui.wall_charge,
@@ -77,12 +77,12 @@ void ui_handle_rotate(int8_t dir)
                 g_ui.state = UI_INFO;
                 g_ui.menu_info_idx = 0;
                 screen_set_info_selection(0);
-                ui_go_to_card(0);
+                ui_go_to_page(0);
             }
         }
         else
 #endif
-            if (g_ui.dash_card == dash_max && dir == 1)
+            if (g_ui.dash_page == dash_max && dir == 1)
             {
                 g_ui.wall_charge++;
                 screen_show_wall(WALL_BOTTOM, g_ui.wall_charge,
@@ -94,17 +94,17 @@ void ui_handle_rotate(int8_t dir)
                     g_ui.state = UI_SETUP;
                     g_ui.menu_setup_idx = 0;
                     screen_set_setup_selection(0);
-                    ui_go_to_card(setup_display_pos());
+                    ui_go_to_page(page_setup_display_pos());
                 }
             }
             else
             {
                 g_ui.wall_charge = 0;
                 screen_hide_walls();
-                int8_t next = (int8_t)g_ui.dash_card + dir;
+                int8_t next = (int8_t)g_ui.dash_page + dir;
                 if (next < (int8_t)dash_min) next = (int8_t)dash_min;
                 if (next > (int8_t)dash_max) next = (int8_t)dash_max;
-                ui_go_to_card((uint8_t)next);
+                ui_go_to_page((uint8_t)next);
             }
         break;
     }
@@ -141,8 +141,8 @@ void ui_handle_rotate(int8_t dir)
                 g_ui.wall_charge = 0;
                 screen_hide_walls_snap();
                 g_ui.state = UI_DASH;
-                g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
-                ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
+                g_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
+                ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
             }
         }
         else
@@ -172,8 +172,8 @@ void ui_handle_rotate(int8_t dir)
                 g_ui.wall_charge = 0;
                 screen_hide_walls_snap();
                 g_ui.state = UI_DASH;
-                g_ui.dash_card = setup_display_pos() - 1;
-                ui_go_to_card(setup_display_pos() - 1);
+                g_ui.dash_page = page_setup_display_pos() - 1;
+                ui_go_to_page(page_setup_display_pos() - 1);
             }
         }
         else
@@ -240,10 +240,10 @@ void ui_handle_click(void)
 
     case UI_DASH:
     {
-        /* card_id 从 card_order[] 映射 */
-        uint8_t card_id = card_id_at(g_ui.dash_card);
+        /* page_id 从 card_order[] 映射 */
+        uint8_t page_id = page_id_at(g_ui.dash_page);
 
-        if (card_id == CARD_ID_COMPASS)
+        if (page_id == PAGE_ID_COMPASS)
         {
             if (!g_sensor_data.heading_locked)
             {
@@ -257,7 +257,7 @@ void ui_handle_click(void)
                 screen_show_modal_compass();
             }
         }
-        else if (card_id == CARD_ID_GAS)
+        else if (page_id == PAGE_ID_GAS)
         {
             g_ui.state = UI_EDIT_GAS;
             g_ui.gas_cursor = g_sensor_data.gas_active_idx;
@@ -340,8 +340,8 @@ void ui_handle_click(void)
         screen_open_info_submenu(g_ui.menu_info_idx);
 #else
         g_ui.state = UI_DASH;
-        g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
-        ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
+        g_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
+        ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
 #endif
         break;
 
@@ -415,19 +415,19 @@ void ui_handle_back(void)
     case UI_INFO:
 #if ENABLE_INFO_MENU
         g_ui.state = UI_DASH;
-        g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
-        ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
+        g_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
+        ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
 #else
         g_ui.state = UI_DASH;
-        g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
-        ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
+        g_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
+        ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
 #endif
         break;
 
     case UI_SETUP:
         g_ui.state = UI_DASH;
-        g_ui.dash_card = setup_display_pos() - 1;
-        ui_go_to_card(setup_display_pos() - 1);
+        g_ui.dash_page = page_setup_display_pos() - 1;
+        ui_go_to_page(page_setup_display_pos() - 1);
         break;
 
     default:

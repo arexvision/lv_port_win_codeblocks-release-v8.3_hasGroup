@@ -1987,10 +1987,10 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/screen/README.md" />
-		<Unit filename="src/ui/screen/card_registry.c">
+		<Unit filename="src/ui/screen/page_registry.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/ui/screen/card_registry.h" />
+		<Unit filename="src/ui/screen/page_registry.h" />
 		<Unit filename="src/ui/screen/layout_view.c">
 			<Option compilerVar="CC" />
 		</Unit>
