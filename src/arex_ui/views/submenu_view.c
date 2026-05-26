@@ -1079,29 +1079,25 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         if (strcmp(text, "< BACK") != 0)
         {
             /* 更新亮度配置并刷新 badge */
-            if (strcmp(text, "LOW") == 0)
+            if (strcmp(text, "ECO") == 0)
             {
                 g_sys_config.brightness = 0;
             }
-            else if (strcmp(text, "ECO") == 0)
+            else if (strcmp(text, "MED") == 0)
             {
                 g_sys_config.brightness = 1;
             }
-            else if (strcmp(text, "MED") == 0)
+            else if (strcmp(text, "HIGH") == 0)
             {
                 g_sys_config.brightness = 2;
             }
-            else if (strcmp(text, "HIGH") == 0)
+            else if (strcmp(text, "MAX") == 0)
             {
                 g_sys_config.brightness = 3;
             }
-            else if (strcmp(text, "MAX") == 0)
-            {
-                g_sys_config.brightness = 4;
-            }
             else if (strcmp(text, "SUN") == 0)
             {
-                g_sys_config.brightness = 5;
+                g_sys_config.brightness = 4;
             }
             /* 通过业务回调应用亮度 */
             arex_set_brightness(g_sys_config.brightness);

@@ -28,7 +28,7 @@ static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
 {
     { NULL },
     { "LOW (GF 40/95)", "MED (GF 40/85)", "HIGH (GF 30/70)", "CUSTOM (GF 50/70)", NULL },
-    { "LOW", "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
+    { "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
     { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
     { "VERSION: " SYSTEM_VERSION, "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY" },

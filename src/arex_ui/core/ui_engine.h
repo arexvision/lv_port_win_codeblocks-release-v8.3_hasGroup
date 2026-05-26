@@ -331,7 +331,7 @@ typedef struct
     uint8_t conservatism;       /* 默认 1 (MED) */
     uint8_t salinity_mode;       /* 0=FRESH, 1=SALT, 2=EN13319 */
     uint8_t last_deco_stop_m;    /* 3m or 6m */
-    uint8_t brightness;         /* 默认 1 (ECO) */
+    uint8_t brightness;         /* 默认 0 (ECO) */
 
 } arex_sys_config_t;
 #pragma pack(pop)
