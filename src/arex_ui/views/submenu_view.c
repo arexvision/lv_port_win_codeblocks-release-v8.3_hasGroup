@@ -1035,19 +1035,14 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     {
         if (strcmp(text, "< BACK") != 0)
         {
-            /* 解析 conservatism 等级：LOW/MED/HIGH/CUSTOM */
-            uint8_t level = 1;  /* 默认 MED */
-            static const char *badge_text[] = { "LOW", "MED", "HIGH", "CUSTOM" };
-            if (strncmp(text, "LOW", 3) == 0) level = 0;
-            else if (strncmp(text, "MED", 3) == 0) level = 1;
-            else if (strncmp(text, "HIGH", 4) == 0) level = 2;
-            else if (strncmp(text, "CUSTOM", 6) == 0) level = 3;
+            const arex_setting_option_t *option = arex_submenu_conservatism_option(item_idx);
+            uint8_t level = option->value;
 
             /* 通知业务层应用保守度设置 */
             arex_ui_on_conservatism_set(level);
 
             arex_screen_refresh_setup_menu();
-            arex_screen_update_setup_badge(1, badge_text[level]);
+            arex_screen_update_setup_badge(1, option->badge_label);
         }
         arex_screen_close_submenu();
         return;
@@ -1079,30 +1074,12 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         if (strcmp(text, "< BACK") != 0)
         {
             /* 更新亮度配置并刷新 badge */
-            if (strcmp(text, "ECO") == 0)
-            {
-                g_sys_config.brightness = 0;
-            }
-            else if (strcmp(text, "MED") == 0)
-            {
-                g_sys_config.brightness = 1;
-            }
-            else if (strcmp(text, "HIGH") == 0)
-            {
-                g_sys_config.brightness = 2;
-            }
-            else if (strcmp(text, "MAX") == 0)
-            {
-                g_sys_config.brightness = 3;
-            }
-            else if (strcmp(text, "SUN") == 0)
-            {
-                g_sys_config.brightness = 4;
-            }
+            const arex_brightness_option_t *option = arex_submenu_brightness_option(item_idx);
+            g_sys_config.brightness = option->value;
             /* 通过业务回调应用亮度 */
             arex_set_brightness(g_sys_config.brightness);
+            arex_screen_update_setup_badge(2, option->badge_label);
         }
-        arex_screen_update_setup_badge(2, text);
         arex_screen_close_submenu();
         return;
     }

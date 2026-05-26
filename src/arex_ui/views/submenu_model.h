@@ -46,6 +46,21 @@ typedef enum
 
 typedef struct
 {
+    uint8_t value;
+    const char *menu_label;
+    const char *badge_label;
+} arex_setting_option_t;
+
+typedef struct
+{
+    uint8_t value;
+    const char *menu_label;
+    const char *badge_label;
+    uint8_t visible_opa;
+} arex_brightness_option_t;
+
+typedef struct
+{
     arex_submenu_setting_kind_t kind;
     uint8_t arg;
     uint16_t value;
@@ -98,6 +113,11 @@ const char **arex_submenu_build_info_items(uint8_t index, uint8_t *out_count);
 const char *arex_submenu_setup_title(uint8_t index);
 int8_t arex_submenu_setup_index_for_title(const char *title);
 const char **arex_submenu_build_setup_items(uint8_t index, uint8_t *out_count);
+const arex_setting_option_t *arex_submenu_conservatism_option(uint8_t index);
+const char *arex_submenu_conservatism_badge(uint8_t level);
+const arex_brightness_option_t *arex_submenu_brightness_option(uint8_t index);
+const char *arex_submenu_brightness_badge(uint8_t level);
+uint8_t arex_submenu_brightness_visible_opa(uint8_t level);
 
 const char **arex_submenu_build_compass_cal_items(uint8_t *out_count);
 const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count);

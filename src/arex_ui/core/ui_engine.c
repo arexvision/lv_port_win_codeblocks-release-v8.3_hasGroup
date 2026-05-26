@@ -272,10 +272,10 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg)
 
     /* ========== [A] 用户设置默认========== */
     cfg->mod_ppo2       = 1.4f;
-    cfg->conservatism   = 1;    /* MED */
+    cfg->conservatism   = AREX_CONSERVATISM_MED;
     cfg->salinity_mode   = 0;    /* FRESH */
     cfg->last_deco_stop_m = 3;
-    cfg->brightness     = 1;    /* ECO */
+    cfg->brightness     = AREX_BRIGHTNESS_ECO;
 }
 
 /* =========================================================

@@ -8,6 +8,7 @@
 #include "card_registry.h"
 #include "../core/callbacks.h"
 #include "../views/modal_view.h"
+#include "../views/submenu_model.h"
 #include "../views/submenu_view.h"
 #include "../cards/card_compass.h"
 #include "../fonts/fonts.h"
@@ -1605,8 +1606,7 @@ void arex_apply_software_brightness(uint8_t level)
 {
     /* 当前正式策略：面板固定在安全硬件亮度，UI 侧只做温和遮罩。
      * 低档首先保证可读，避免再次出现 “LOW 基本看不见” 的问题。 */
-    static const lv_opa_t brightness_opa[5] = {150, 185, 215, 238, 255};
-    lv_opa_t opa = brightness_opa[(level < 5) ? level : 0];
+    lv_opa_t opa = (lv_opa_t)arex_submenu_brightness_visible_opa(level);
     lv_opa_t overlay_opa = (lv_opa_t)(255 - opa);
 
     if (s_scr == NULL)
@@ -1638,7 +1638,8 @@ void arex_apply_software_brightness(uint8_t level)
         lv_obj_move_foreground(s_brightness_overlay);
     }
 
-    printf("[BRIGHTNESS] Level: %d (OPA: %d overlay=%d)\n", level, opa, overlay_opa);
+    printf("[BRIGHTNESS] Level: %d (OPA: %d overlay=%d)\n",
+           level, opa, overlay_opa);
 }
 
 void arex_set_software_brightness_enabled(bool enabled)

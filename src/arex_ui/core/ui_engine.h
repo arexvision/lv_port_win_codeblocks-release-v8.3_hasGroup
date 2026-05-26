@@ -131,11 +131,30 @@ typedef enum
 
 typedef enum
 {
+    AREX_CONSERVATISM_LOW = 0,
+    AREX_CONSERVATISM_MED,
+    AREX_CONSERVATISM_HIGH,
+    AREX_CONSERVATISM_CUSTOM,
+    AREX_CONSERVATISM_COUNT
+} arex_conservatism_level_t;
+
+typedef enum
+{
     DOTS_RIGHT = 0,
     DOTS_LEFT,
     DOTS_BOTTOM,
     DOTS_NONE
 } arex_dots_pos_t;
+
+typedef enum
+{
+    AREX_BRIGHTNESS_ECO = 0,
+    AREX_BRIGHTNESS_MED,
+    AREX_BRIGHTNESS_HIGH,
+    AREX_BRIGHTNESS_MAX,
+    AREX_BRIGHTNESS_SUN,
+    AREX_BRIGHTNESS_COUNT
+} arex_brightness_level_t;
 
 typedef enum
 {

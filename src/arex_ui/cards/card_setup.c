@@ -2,6 +2,7 @@
 #include "../core/ui_engine.h"
 #include "../core/ui_state.h"
 #include "../screen/layout_view.h"
+#include "../views/submenu_model.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/fonts.h"
 #include <stdio.h>
@@ -16,8 +17,8 @@ static const arex_menu_item_cfg_t s_setup_items[] =
 {
     /*  title_text,          badge,       title_font,       val_font,       border, height_u */
     { "GAS SWITCH",    NULL,         FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "CONSERVATISM",  "MED",        FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "BRIGHTNESS",    "ECO",        FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "CONSERVATISM",  "",           FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "BRIGHTNESS",    "",           FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "COMPASS CAL",   "IDLE",       FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "LIGHT CONTROL", NULL,         FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "SYSTEM SETUP",  NULL,         FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
@@ -75,8 +76,6 @@ void card_setup_update(void)
 {
     if (!s_list) return;
 
-    static const char *cons_str[] = { "LOW", "MED", "HIGH", "CUSTOM" };
-    static const char *brt_str[]  = { "ECO", "MED", "HIGH", "MAX", "SUN" };
     static const char *cal_str[]   = { "AUTO", "LEARN", "OK" };
     static arex_compass_cal_ui_state_t last_cal_state = AREX_COMPASS_CAL_IDLE;
 
@@ -84,13 +83,13 @@ void card_setup_update(void)
     uint8_t brt  = g_sys_config.brightness;
     arex_compass_cal_ui_state_t cal_state = arex_get_compass_calibration_ui_state();
 
-    if (s_setup_badge_lbls[1] && cons < 4)
+    if (s_setup_badge_lbls[1])
     {
-        lv_label_set_text(s_setup_badge_lbls[1], cons_str[cons]);
+        lv_label_set_text(s_setup_badge_lbls[1], arex_submenu_conservatism_badge(cons));
     }
-    if (s_setup_badge_lbls[2] && brt < 5)
+    if (s_setup_badge_lbls[2])
     {
-        lv_label_set_text(s_setup_badge_lbls[2], brt_str[brt]);
+        lv_label_set_text(s_setup_badge_lbls[2], arex_submenu_brightness_badge(brt));
     }
     if (s_setup_badge_lbls[3])
     {

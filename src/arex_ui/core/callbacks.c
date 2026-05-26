@@ -37,11 +37,6 @@ void arex_ui_on_conservatism_set(uint8_t level)
         { 50, 70 },
     };
 
-    if (level >= (sizeof(gf_table) / sizeof(gf_table[0])))
-    {
-        level = 1;
-    }
-
     g_sys_config.conservatism = level;
     arex_bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
 }

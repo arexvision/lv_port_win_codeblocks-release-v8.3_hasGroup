@@ -23,12 +23,31 @@ static char s_plan_str[16][48];
 static const char *s_plan_dyn[16];
 static char s_gas_switch_str[GAS_COUNT][20];
 static const char *s_gas_switch_dyn[GAS_COUNT + 1];
+static const char *s_brightness_dyn[AREX_BRIGHTNESS_COUNT + 1];
+static const char *s_conservatism_dyn[AREX_CONSERVATISM_COUNT + 1];
+
+static const arex_setting_option_t s_conservatism_options[AREX_CONSERVATISM_COUNT] =
+{
+    { AREX_CONSERVATISM_LOW,    "LOW (GF 40/95)",    "LOW" },
+    { AREX_CONSERVATISM_MED,    "MED (GF 40/85)",    "MED" },
+    { AREX_CONSERVATISM_HIGH,   "HIGH (GF 30/70)",   "HIGH" },
+    { AREX_CONSERVATISM_CUSTOM, "CUSTOM (GF 50/70)", "CUSTOM" },
+};
+
+static const arex_brightness_option_t s_brightness_options[AREX_BRIGHTNESS_COUNT] =
+{
+    { AREX_BRIGHTNESS_ECO,  "ECO",  "ECO",  150 },
+    { AREX_BRIGHTNESS_MED,  "MED",  "MED",  185 },
+    { AREX_BRIGHTNESS_HIGH, "HIGH", "HIGH", 215 },
+    { AREX_BRIGHTNESS_MAX,  "MAX",  "MAX",  238 },
+    { AREX_BRIGHTNESS_SUN,  "SUN",  "SUN",  255 },
+};
 
 static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
 {
     { NULL },
-    { "LOW (GF 40/95)", "MED (GF 40/85)", "HIGH (GF 30/70)", "CUSTOM (GF 50/70)", NULL },
-    { "ECO", "MED", "HIGH", "MAX", "SUN", NULL },
+    { NULL },
+    { NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
     { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
     { "VERSION: " SYSTEM_VERSION, "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
@@ -931,6 +950,31 @@ const char *arex_submenu_setup_title(uint8_t index)
     return s_setup_titles[index];
 }
 
+const arex_setting_option_t *arex_submenu_conservatism_option(uint8_t index)
+{
+    return &s_conservatism_options[index];
+}
+
+const char *arex_submenu_conservatism_badge(uint8_t level)
+{
+    return s_conservatism_options[level].badge_label;
+}
+
+const arex_brightness_option_t *arex_submenu_brightness_option(uint8_t index)
+{
+    return &s_brightness_options[index];
+}
+
+const char *arex_submenu_brightness_badge(uint8_t level)
+{
+    return s_brightness_options[level].badge_label;
+}
+
+uint8_t arex_submenu_brightness_visible_opa(uint8_t level)
+{
+    return s_brightness_options[level].visible_opa;
+}
+
 int8_t arex_submenu_setup_index_for_title(const char *title)
 {
     const char *clean_title = strip_title_prefix(title);
@@ -1124,9 +1168,35 @@ const char **arex_submenu_build_setup_items(uint8_t index, uint8_t *out_count)
     {
         return build_gas_switch_items(out_count);
     }
+    if (strcmp(s_setup_titles[index], "CONSERVATISM") == 0)
+    {
+        for (uint8_t i = 0; i < AREX_CONSERVATISM_COUNT; i++)
+        {
+            s_conservatism_dyn[i] = s_conservatism_options[i].menu_label;
+        }
+        s_conservatism_dyn[AREX_CONSERVATISM_COUNT] = NULL;
+        if (out_count)
+        {
+            *out_count = AREX_CONSERVATISM_COUNT;
+        }
+        return s_conservatism_dyn;
+    }
     if (strcmp(s_setup_titles[index], "COMPASS CAL") == 0)
     {
         return arex_submenu_build_compass_cal_items(out_count);
+    }
+    if (strcmp(s_setup_titles[index], "BRIGHTNESS") == 0)
+    {
+        for (uint8_t i = 0; i < AREX_BRIGHTNESS_COUNT; i++)
+        {
+            s_brightness_dyn[i] = s_brightness_options[i].menu_label;
+        }
+        s_brightness_dyn[AREX_BRIGHTNESS_COUNT] = NULL;
+        if (out_count)
+        {
+            *out_count = AREX_BRIGHTNESS_COUNT;
+        }
+        return s_brightness_dyn;
     }
     if (strcmp(s_setup_titles[index], "SYSTEMS SETUP") == 0)
     {

@@ -20,6 +20,10 @@ There is no command-line build script. There are no automated tests integrated i
 
 Do not modify `LittlevGL.cbp` during routine code changes. Only update the CodeBlocks project file when the user explicitly asks for it.
 
+## Coding Preferences
+
+不要为已经由菜单索引、枚举表、固定数组或状态机保证范围的设置值额外添加 `clamp`/兜底映射。此类防御会隐藏真实错误，并让简单配置修改变复杂。只有外部输入、协议数据、文件持久化数据或其他不可信边界进入系统时，才做范围校验。
+
 ## Git / Commit
 
 本仓库的 commit message 默认使用中文；只有用户明确要求时，才使用其他语言。
