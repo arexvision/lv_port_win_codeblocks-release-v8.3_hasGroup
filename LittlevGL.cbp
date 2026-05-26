@@ -34,12 +34,19 @@
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
+					<Add option="-mwindows -mconsole" />
+					<Add library="mingw32" />
 				</Linker>
 			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
 			<Add directory="." />
+			<Add directory="src" />
+			<Add directory="src/ui" />
+			<Add directory="src/hal_sim" />
+			<Add directory="src/algo_sim" />
+			<Add directory="lvgl" />
 		</Compiler>
 		<Unit filename="lv_100ask_demo_course_3_1_1.c">
 			<Option compilerVar="CC" />
