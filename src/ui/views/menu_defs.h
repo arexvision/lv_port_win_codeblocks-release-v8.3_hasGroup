@@ -12,9 +12,16 @@ extern "C" {
 
 #define MENU_MAX_ROWS 16U
 
+/* 顶层 INFO / SETUP 卡片也从这里拿文案。
+ * 这样主卡片入口和子菜单入口使用同一套定义，不再各自维护一份字符串数组。
+ */
 extern const menu_item_cfg_t g_menu_info_card_items[SUBMENU_INFO_COUNT];
 extern const menu_item_cfg_t g_menu_setup_card_items[SUBMENU_SETUP_COUNT];
 
+/* 一个 menu_id_t 表示“当前打开的是哪一个菜单页面”。
+ * 例如 MENU_SETUP_BRIGHTNESS 表示亮度列表页，
+ * MENU_LIGHT_RED 表示 LIGHT CONTROL 下面的 RED 强度选择页。
+ */
 typedef enum
 {
     MENU_NONE = 0,
@@ -45,6 +52,9 @@ typedef enum
     MENU_LIGHT_WHITE,
 } menu_id_t;
 
+/* row type 只描述这一行在视图上有没有特殊渲染/行为。
+ * 真正的业务含义仍然看 menu_item_id_t。
+ */
 typedef enum
 {
     MENU_ROW_NORMAL = 0,
@@ -53,6 +63,10 @@ typedef enum
     MENU_ROW_READONLY,
 } menu_row_type_t;
 
+/* 一个 menu_item_id_t 表示“当前这一行是什么稳定业务项”。
+ * 这是新菜单架构的关键：用户点第几行以后，业务层看这个 ID，
+ * 而不是看 LVGL label 上显示了什么文字。
+ */
 typedef enum
 {
     MENU_ITEM_NONE = 0,
@@ -161,6 +175,10 @@ typedef enum
     MENU_ITEM_DIVE_PLAN_PRIMARY,
 } menu_item_id_t;
 
+/* menu_actions_handle_select() 不直接操作 view，
+ * 而是返回一个动作给 submenu_view.c 执行。
+ * 例如 OPEN_CHILD 让 view 打开下一层，SHOW_CONFIRM 让 view 弹确认框。
+ */
 typedef enum
 {
     MENU_ACTION_NONE = 0,
@@ -176,6 +194,9 @@ typedef enum
     MENU_ACTION_SHOW_TEXT_MODAL,
 } menu_action_type_t;
 
+/* 运行时交给 view 渲染的一行。
+ * label/badge 只负责显示；id/type 才负责业务判断。
+ */
 typedef struct
 {
     menu_item_id_t id;
@@ -184,6 +205,9 @@ typedef struct
     const char *badge;
 } menu_row_t;
 
+/* action 是“业务动作”和“LVGL 视图操作”之间的桥。
+ * menu_actions.c 决定要做什么，submenu_view.c 根据 type 做动画/弹窗/刷新。
+ */
 typedef struct
 {
     menu_action_type_t type;

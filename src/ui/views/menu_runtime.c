@@ -13,6 +13,10 @@ typedef struct
     uint8_t selected_idx;
 } menu_stack_entry_t;
 
+/* 当前菜单运行时状态。
+ * s_rows 是 view 当前要画的行；每一行都有稳定 id，label 只是显示文字。
+ * s_stack 用来返回父菜单，并恢复进入子菜单前的选中行。
+ */
 static menu_id_t s_current_menu = MENU_NONE;
 static menu_row_t s_rows[MENU_MAX_ROWS];
 static uint8_t s_row_count = 0;
@@ -39,6 +43,9 @@ static void row_add(menu_item_id_t id, menu_row_type_t type, const char *label)
     s_row_count++;
 }
 
+/* 过渡期很多 label 仍由 submenu_model 动态生成。
+ * 这里把旧 label 数组包一层稳定 id/type，后续 view/action 就不再关心文字。
+ */
 static void rows_from_labels(const char **labels,
                              uint8_t count,
                              const menu_item_id_t *ids,
@@ -66,6 +73,7 @@ static void build_info_rows(uint8_t index)
     {
         menu_item_id_t id = MENU_ITEM_READONLY;
         menu_row_type_t type = MENU_ROW_READONLY;
+        /* INFO 普通详情页只读；DIVE PLAN 例外，它有 EXIT/NEXT 等可操作行。 */
         if (s_current_menu == MENU_INFO_DIVE_PLAN)
         {
             id = (i == 0U) ? MENU_ITEM_DIVE_PLAN_EXIT : MENU_ITEM_DIVE_PLAN_PRIMARY;
@@ -203,6 +211,9 @@ static void build_light_color(void)
 
 static void build_rows(void)
 {
+    /* 根据当前 menu_id_t 生成当前 rows。
+     * 这一层是“菜单页面 -> 行 ID 列表”的映射，不做点击后的业务动作。
+     */
     switch (s_current_menu)
     {
     case MENU_INFO_LAST_DIVE:
@@ -416,6 +427,9 @@ bool menu_runtime_open_child(menu_id_t child_id, menu_item_id_t source_item)
     }
     if (child_id == MENU_OC_TECH_EDIT)
     {
+        /* OC Tech 每个气体槽共用同一个编辑菜单，但标题和 draft slot 不同。
+         * 这里仍复用旧 submenu_model 初始化 draft 数据。
+         */
         uint8_t slot = 0U;
         if (source_item >= MENU_ITEM_OC_TECH_SLOT_0 && source_item <= MENU_ITEM_OC_TECH_SLOT_4)
         {

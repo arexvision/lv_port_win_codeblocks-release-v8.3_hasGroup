@@ -10,6 +10,7 @@
 
 static submenu_setting_confirm_t s_pending_setting;
 
+/* 清空 action 输出，避免 view 误执行上一次残留动作。 */
 static void action_clear(menu_action_t *action)
 {
     if (action)
@@ -21,6 +22,9 @@ static void action_clear(menu_action_t *action)
 
 static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
 {
+    /* submenu_model 仍保存一部分旧设置状态。
+     * apply_setting 更新模型内部值；这里负责通知真正业务回调。
+     */
     if (!setting)
     {
         return;
@@ -104,6 +108,9 @@ static bool direct_setting_for_row(uint8_t row_index,
                                    const menu_row_t *row,
                                    submenu_setting_confirm_t *out_setting)
 {
+    /* 兼容旧后端：还没迁完的设置项临时走 submenu_model。
+     * 新增简单设置时优先写独立 handle_xxx()，不要继续扩大这里的字符串逻辑。
+     */
     return submenu_direct_setting_from_selection(menu_runtime_current_title(),
                                                  row_index,
                                                  row ? row->label : NULL,
@@ -223,6 +230,9 @@ static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t
 
 static bool handle_dive_plan(uint8_t row_index, const menu_row_t *row, menu_action_t *action)
 {
+    /* DIVE PLAN 内部仍有自己的页状态和 NEXT/RESULT 逻辑，
+     * 所以这里只把稳定 row index/label 转交给旧 plan 状态机。
+     */
     bool close_submenu = false;
     uint8_t keep_idx = row_index;
 
@@ -275,6 +285,9 @@ bool menu_actions_handle_select(uint8_t row_index,
     child = menu_defs_child_menu_for_item(row->id);
     if (child != MENU_NONE)
     {
+        /* 行 ID 能映射到子菜单，就返回 OPEN_CHILD。
+         * 真正创建/动画仍由 submenu_view.c 完成。
+         */
         out_action->type = MENU_ACTION_OPEN_CHILD;
         out_action->child_menu = child;
         return true;
@@ -286,6 +299,9 @@ bool menu_actions_handle_select(uint8_t row_index,
         handle_compass(row->id, out_action) ||
         handle_light(row->id, row, out_action))
     {
+        /* 已经被新 ID 分发处理的设置项，到这里就结束。
+         * 这也是后续迁移更多设置项的推荐模式。
+         */
         return true;
     }
 
