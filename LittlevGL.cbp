@@ -2003,6 +2003,18 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/views/modal_view.h" />
+		<Unit filename="src/ui/views/menu_actions.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/views/menu_actions.h" />
+		<Unit filename="src/ui/views/menu_defs.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/views/menu_defs.h" />
+		<Unit filename="src/ui/views/menu_runtime.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/views/menu_runtime.h" />
 		<Unit filename="src/ui/views/submenu_model.c">
 			<Option compilerVar="CC" />
 		</Unit>

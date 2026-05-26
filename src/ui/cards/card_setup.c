@@ -2,6 +2,7 @@
 #include "../core/ui_engine.h"
 #include "../core/ui_state.h"
 #include "../screen/layout_view.h"
+#include "../views/menu_defs.h"
 #include "../views/submenu_model.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/fonts.h"
@@ -13,21 +14,11 @@ void screen_register_setup_list(lv_obj_t *list);
 /* =========================================================
  * DIVE SETUP 配置数据 (APP 同步就绪)
  * ========================================================= */
-static const menu_item_cfg_t s_setup_items[] =
-{
-    /*  title_text,          badge,       title_font,       val_font,       border, height_u */
-    { "GAS SWITCH",    NULL,         FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "CONSERVATISM",  "",           FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "BRIGHTNESS",    "",           FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "COMPASS CAL",   "IDLE",       FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "LIGHT CONTROL", NULL,         FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "SYSTEM SETUP",  NULL,         FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-};
-#define SETUP_ITEM_COUNT (sizeof(s_setup_items) / sizeof(s_setup_items[0]))
+#define SETUP_ITEM_COUNT SUBMENU_SETUP_COUNT
 
 const menu_list_cfg_t setup_menu_cfg =
 {
-    .items = s_setup_items,
+    .items = g_menu_setup_card_items,
     .count = SETUP_ITEM_COUNT,
 };
 
@@ -39,6 +30,9 @@ static lv_obj_t *s_setup_badge_lbls[SETUP_ITEM_COUNT];
 
 void card_setup_create(lv_obj_t *parent)
 {
+    uint8_t setup_count = 0;
+    const menu_item_cfg_t *setup_items = menu_defs_setup_card_items(&setup_count);
+
     render_card_title(parent, "DIVE MENU");
 
     int right_canvas_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
@@ -46,8 +40,8 @@ void card_setup_create(lv_obj_t *parent)
 
     uint16_t item_h_px = (uint16_t)g_sys_config.h_menu_item * BASE_U;
     uint16_t gap_y_px  = (uint16_t)g_sys_config.gap_menu * BASE_U;
-    uint16_t list_h = SETUP_ITEM_COUNT * item_h_px
-                      + (SETUP_ITEM_COUNT - 1) * gap_y_px;
+    uint16_t list_h = setup_count * item_h_px
+                      + (setup_count - 1) * gap_y_px;
 
     s_list = lv_obj_create(parent);
     lv_obj_remove_style_all(s_list);
@@ -59,10 +53,10 @@ void card_setup_create(lv_obj_t *parent)
     lv_obj_clear_flag(s_list, LV_OBJ_FLAG_SCROLLABLE);
 
     /* 通用动态菜单工厂统一渲染 */
-    render_dynamic_menu(s_list, s_setup_items, SETUP_ITEM_COUNT, 0, s_setup_item_objs);
+    render_dynamic_menu(s_list, setup_items, setup_count, 0, s_setup_item_objs);
 
     /* 填充 badge 句柄数组: child 0=title label, child 1=badge label */
-    for (uint8_t i = 0; i < SETUP_ITEM_COUNT; i++)
+    for (uint8_t i = 0; i < setup_count; i++)
     {
         s_setup_badge_lbls[i] = lv_obj_get_child(s_setup_item_objs[i], 1);
     }

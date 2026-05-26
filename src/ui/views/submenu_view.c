@@ -2,11 +2,11 @@
 
 #include "../core/callbacks.h"
 #include "../screen/screen.h"
+#include "menu_actions.h"
+#include "menu_runtime.h"
 #include "submenu_model.h"
 #include "../core/ui_state.h"
 #include "../fonts/fonts.h"
-
-#include <string.h>
 
 static lv_obj_t *s_submenu_layer = NULL;
 static lv_obj_t *s_submenu_title = NULL;
@@ -15,29 +15,10 @@ static lv_obj_t *s_submenu_list = NULL;
 static lv_obj_t *s_light_status_lbl = NULL;
 static uint16_t s_submenu_width = 0;
 static uint16_t s_submenu_height = 0;
-static submenu_setting_confirm_t s_pending_setting;
 
 static bool submenu_is_dive_plan_visible(void)
 {
-    if (!s_submenu_title)
-    {
-        return false;
-    }
-    const char *title = lv_label_get_text(s_submenu_title);
-    if (!title)
-    {
-        return false;
-    }
-    if (title[0] == '>' && title[1] == ' ')
-    {
-        title += 2;
-    }
-    return strcmp(title, "DIVE PLAN") == 0;
-}
-
-static bool submenu_is_dive_plan_result_visible(void)
-{
-    return submenu_is_dive_plan_visible() && submenu_dive_plan_is_result_page();
+    return menu_runtime_is_dive_plan();
 }
 
 void submenu_view_reset(void)
@@ -49,7 +30,8 @@ void submenu_view_reset(void)
     s_light_status_lbl = NULL;
     s_submenu_width = 0;
     s_submenu_height = 0;
-    memset(&s_pending_setting, 0, sizeof(s_pending_setting));
+    menu_runtime_reset();
+    menu_actions_clear_pending();
 }
 
 lv_obj_t *submenu_view_get_list(void)
@@ -413,7 +395,7 @@ static void plan_draw_error(lv_obj_t *parent, int w)
                     FONT_ID_SMALL, LIGHT, 0, 176, w, 24, LV_TEXT_ALIGN_CENTER);
 }
 
-static void submenu_populate_dive_plan(const char **items, uint8_t count)
+static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
 {
     if (!s_submenu_list) return;
 
@@ -426,11 +408,11 @@ static void submenu_populate_dive_plan(const char **items, uint8_t count)
 
     if (count > 0U)
     {
-        (void)plan_make_button(s_submenu_list, items[0], 12, (int)s_submenu_height - 34);
+        (void)plan_make_button(s_submenu_list, rows[0].label, 12, (int)s_submenu_height - 34);
     }
     if (count > 1U)
     {
-        (void)plan_make_button(s_submenu_list, items[1], w - 92, (int)s_submenu_height - 34);
+        (void)plan_make_button(s_submenu_list, rows[1].label, w - 92, (int)s_submenu_height - 34);
     }
 
     plan_draw_header(s_submenu_list, w);
@@ -456,11 +438,11 @@ static void submenu_populate_dive_plan(const char **items, uint8_t count)
     screen_set_submenu_selection((count > 1U) ? 1U : 0U);
 }
 
-static void submenu_populate(const char *title, const char **items, uint8_t count)
+static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t count)
 {
     if (!s_submenu_title || !s_submenu_list) return;
 
-    bool is_dive_plan = (strcmp(title, "DIVE PLAN") == 0);
+    bool is_dive_plan = menu_runtime_is_dive_plan();
     if (is_dive_plan)
     {
         lv_label_set_text(s_submenu_title, "DIVE PLAN");
@@ -471,7 +453,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         }
         lv_obj_set_pos(s_submenu_list, 0, 0);
         lv_obj_set_size(s_submenu_list, s_submenu_width, s_submenu_height);
-        submenu_populate_dive_plan(items, count);
+        submenu_populate_dive_plan(rows, count);
         return;
     }
 
@@ -483,7 +465,16 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
     lv_obj_set_size(s_submenu_list, s_submenu_width - 15, s_submenu_height - CARD_TITLE_H - 10);
     lv_obj_set_pos(s_submenu_list, 0, CARD_TITLE_H);
 
-    lv_label_set_text(s_submenu_title, title);
+    if (menu_runtime_is_nested())
+    {
+        char nested_title[48];
+        lv_snprintf(nested_title, sizeof(nested_title), "> %s", title ? title : "");
+        lv_label_set_text(s_submenu_title, nested_title);
+    }
+    else
+    {
+        lv_label_set_text(s_submenu_title, title);
+    }
     lv_obj_clean(s_submenu_list);
     s_light_status_lbl = NULL;  /* 重置 LIGHT 状态标签 */
 
@@ -496,8 +487,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
     int item_w = (int)sub_w - 15;
     int gap_y  = (int)(g_sys_config.gap_menu * BASE_U);   /* 1U=10px */
     int current_y = 0;
-    bool compact_plan = (strcmp(title, "DIVE PLAN") == 0 &&
-                         submenu_dive_plan_is_result_page());
+    bool compact_plan = menu_runtime_is_dive_plan_result();
     if (compact_plan)
     {
         item_h = 24;
@@ -518,7 +508,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
 
         /* LIGHT CONTROL 特殊布局: LIGHT 左侧，ON/OFF 右侧 */
-        if (strcmp(title, "LIGHT CONTROL") == 0 && i == 0)
+        if (rows[i].type == MENU_ROW_LIGHT_POWER)
         {
             /* "LIGHT" 标签在左侧 */
             lv_obj_t *lbl_light = lv_label_create(item);
@@ -552,11 +542,19 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
-        lv_label_set_text(lbl, items[i]);
+        lv_label_set_text(lbl, rows[i].label ? rows[i].label : "");
 
         current_y += item_h + gap_y;
     }
     screen_set_submenu_selection(0);
+}
+
+static void submenu_populate_current(void)
+{
+    uint8_t count = 0;
+    const menu_row_t *rows = menu_runtime_current_rows(&count);
+    submenu_populate(menu_runtime_current_title(), rows, count);
+    g_ui.sub_item_count = count;
 }
 
 void screen_set_submenu_selection(uint8_t idx)
@@ -591,7 +589,7 @@ void screen_set_submenu_selection(uint8_t idx)
         return;
     }
 
-    bool compact_plan = submenu_is_dive_plan_result_visible();
+    bool compact_plan = menu_runtime_is_dive_plan_result();
     uint32_t cnt = lv_obj_get_child_cnt(s_submenu_list);
     for (uint32_t i = 0; i < cnt; i++)
     {
@@ -647,19 +645,23 @@ void screen_set_submenu_selection(uint8_t idx)
 void screen_open_info_submenu(uint8_t item_idx)
 {
     uint8_t count = 0;
-    const char *title = submenu_info_title(item_idx);
-    if (title && strcmp(title, "DIVE PLAN") == 0)
+    if (!menu_runtime_open_info(item_idx))
+    {
+        return;
+    }
+    if (menu_runtime_is_dive_plan())
     {
         submenu_dive_plan_reset();
+        menu_runtime_refresh();
     }
-    const char **items = submenu_build_info_items(item_idx, &count);
-    if (!title || !items || count == 0) return;
 
-    submenu_populate(title, items, count);
+    submenu_populate_current();
+    (void)menu_runtime_current_rows(&count);
     g_ui.sub_item_count = count;
-    g_ui.sub_menu_idx   = (strcmp(title, "DIVE PLAN") == 0 && count > 1U) ? 1U : 0U;
+    g_ui.sub_menu_idx   = menu_runtime_default_selection();
     g_ui.sub_parent     = UI_INFO;
     g_ui.state          = UI_SUB_MENU;
+    g_ui.sub_history_depth = 0;
     screen_set_submenu_selection(g_ui.sub_menu_idx);
     submenu_slide_in();
 }
@@ -667,14 +669,14 @@ void screen_open_info_submenu(uint8_t item_idx)
 static void refresh_info_submenu_page(uint8_t keep_idx)
 {
     uint8_t count = 0;
-    const char *title = submenu_info_title(g_ui.menu_info_idx);
-    const char **items = submenu_build_info_items(g_ui.menu_info_idx, &count);
-    if (!title || !items || count == 0)
+    menu_runtime_refresh();
+    (void)menu_runtime_current_rows(&count);
+    if (count == 0)
     {
         return;
     }
 
-    submenu_populate(title, items, count);
+    submenu_populate_current();
     g_ui.sub_item_count = count;
     if (keep_idx >= count)
     {
@@ -714,29 +716,24 @@ bool screen_handle_dive_plan_rotate(int8_t dir)
 
 static bool refresh_compass_cal_submenu(void)
 {
+    uint8_t count = 0;
     if (!s_submenu_list || !s_submenu_title)
     {
         return false;
     }
 
-    const char *raw_title = lv_label_get_text(s_submenu_title);
-    const char *title = raw_title;
-    if (title && title[0] == '>' && title[1] == ' ')
-    {
-        title += 2;
-    }
-    if (!title || strcmp(title, "COMPASS CAL") != 0)
+    if (menu_runtime_current_id() != MENU_SETUP_COMPASS_CAL)
     {
         return false;
     }
 
-    uint8_t count = 0;
-    const char **items = submenu_build_compass_cal_items(&count);
-    if (!items || count == 0)
+    menu_runtime_refresh();
+    (void)menu_runtime_current_rows(&count);
+    if (count == 0)
     {
         return false;
     }
-    submenu_populate("COMPASS CAL", items, count);
+    submenu_populate_current();
     g_ui.sub_item_count = count;
     if (g_ui.sub_menu_idx >= count)
     {
@@ -749,15 +746,18 @@ static bool refresh_compass_cal_submenu(void)
 void screen_open_setup_submenu(uint8_t item_idx)
 {
     uint8_t count = 0;
-    const char *title = submenu_setup_title(item_idx);
-    const char **items = submenu_build_setup_items(item_idx, &count);
-    if (!title || !items || count == 0) return;
+    if (!menu_runtime_open_setup(item_idx))
+    {
+        return;
+    }
 
-    submenu_populate(title, items, count);
+    submenu_populate_current();
+    (void)menu_runtime_current_rows(&count);
     g_ui.sub_item_count = count;
     g_ui.sub_menu_idx   = 0;
     g_ui.sub_parent     = UI_SETUP;
     g_ui.state          = UI_SUB_MENU;
+    g_ui.sub_history_depth = 0;
     submenu_slide_in();
 }
 
@@ -766,122 +766,29 @@ void screen_refresh_compass_cal_submenu_if_open(void)
     (void)refresh_compass_cal_submenu();
 }
 
-static void submenu_history_push(void)
-{
-    if (!s_submenu_title) return;
-    if (g_ui.sub_history_depth >= SUB_HISTORY_MAX) return;
-    sub_history_t *h = &g_ui.sub_history[g_ui.sub_history_depth];
-    const char *cur_title = lv_label_get_text(s_submenu_title);
-    lv_snprintf(h->title, sizeof(h->title), "%s", cur_title ? cur_title : "");
-    h->idx = g_ui.sub_menu_idx;
-    g_ui.sub_history_depth++;
-}
-
 void screen_open_nested_submenu(const char *title, const char **items, uint8_t count)
 {
-    if (!title || !items) return;
-    submenu_history_push();
-    char full_title[40];
-    lv_snprintf(full_title, sizeof(full_title), "> %s", title);
-    submenu_populate(full_title, items, count);
+    (void)title;
+    (void)items;
+    (void)count;
+    submenu_populate_current();
+    (void)menu_runtime_current_rows(&count);
     g_ui.sub_item_count = count;
     g_ui.sub_menu_idx   = 0;
     g_ui.state = UI_SUB_MENU;
 }
 
-static void dispatch_submenu_setting_callback(const submenu_setting_confirm_t *setting)
-{
-    if (!setting)
-    {
-        return;
-    }
-
-    switch (setting->kind)
-    {
-    case SUBMENU_SETTING_DIVE_MODE:
-        ui_on_dive_mode_set((uint8_t)setting->value);
-        screen_refresh_gas_menu();
-        screen_refresh_left_panel();
-        break;
-    case SUBMENU_SETTING_SALINITY:
-        ui_on_salinity_set((uint8_t)setting->value);
-        break;
-    case SUBMENU_SETTING_SAFETY_STOP:
-        if (setting->value < 4)
-        {
-            static const uint8_t minutes[] = { 0, 3, 4, 5 };
-            ui_on_safety_stop_time_set(minutes[setting->value]);
-        }
-        break;
-    case SUBMENU_SETTING_LAST_DECO:
-        ui_on_last_deco_stop_set(setting->value == 1 ? 6 : 3);
-        break;
-    case SUBMENU_SETTING_ALTITUDE:
-        ui_on_altitude_range_set((uint8_t)setting->value);
-        break;
-    case SUBMENU_SETTING_AI_PAIR:
-        ui_on_ai_pair((uint8_t)setting->value);
-        break;
-    case SUBMENU_SETTING_AI_TANK_STATE:
-        ui_on_ai_tank_state_set(setting->arg, (uint8_t)setting->value);
-        break;
-    case SUBMENU_SETTING_GTR_MODE:
-        ui_on_gtr_mode_set(setting->value != 0);
-        break;
-    case SUBMENU_SETTING_DEPTH_ALARM:
-        ui_on_depth_alarm_set(setting->value);
-        break;
-    case SUBMENU_SETTING_TIME_ALARM:
-        ui_on_time_alarm_set(setting->value);
-        break;
-    case SUBMENU_SETTING_NDL_ALARM:
-        ui_on_ndl_alarm_set(setting->value);
-        break;
-    case SUBMENU_SETTING_VIBRATION_TEST:
-        ui_on_vibration_test();
-        break;
-    case SUBMENU_SETTING_UNITS:
-        ui_on_units_set((uint8_t)setting->value);
-        break;
-    case SUBMENU_SETTING_DATETIME_FIELD:
-    {
-        uint16_t field_value = setting->value;
-        if (setting->arg == 0)
-        {
-            field_value = (uint16_t)(2024 + setting->value);
-        }
-        ui_on_datetime_field_set(setting->arg, field_value);
-        break;
-    }
-    case SUBMENU_SETTING_DATETIME_ACTION:
-        ui_on_datetime_action((uint8_t)setting->value);
-        break;
-    case SUBMENU_SETTING_LOG_RATE:
-        ui_on_log_rate_set((uint8_t)setting->value);
-        break;
-    case SUBMENU_SETTING_BLUETOOTH:
-        ui_on_bluetooth_set(setting->value != 0);
-        break;
-    case SUBMENU_SETTING_RESET_DEFAULTS:
-        ui_on_reset_defaults();
-        break;
-    default:
-        break;
-    }
-}
-
-static void refresh_current_submenu_page(const char *cur_title, uint8_t keep_idx)
+static void refresh_current_submenu_page(uint8_t keep_idx)
 {
     uint8_t count = 0;
-    const char **items = submenu_nested_items_for(cur_title, &count);
-    if (!items || count == 0)
+    menu_runtime_refresh();
+    (void)menu_runtime_current_rows(&count);
+    if (count == 0)
     {
         return;
     }
 
-    char full_title[40];
-    lv_snprintf(full_title, sizeof(full_title), "> %s", cur_title);
-    submenu_populate(full_title, items, count);
+    submenu_populate_current();
     g_ui.sub_item_count = count;
     if (keep_idx >= count)
     {
@@ -893,225 +800,50 @@ static void refresh_current_submenu_page(const char *cur_title, uint8_t keep_idx
 
 void screen_handle_submenu_select(uint8_t item_idx)
 {
+    menu_action_t action;
+    const menu_row_t *row;
     if (!s_submenu_list || !s_submenu_title) return;
     if (item_idx >= g_ui.sub_item_count) return;
-    lv_obj_t *item = lv_obj_get_child(s_submenu_list, item_idx);
-    lv_obj_t *lbl  = item ? lv_obj_get_child(item, 0) : NULL;
-    if (!lbl) return;
-    const char *text = lv_label_get_text(lbl);
-    if (!text) return;
-
-    const char *raw_title = lv_label_get_text(s_submenu_title);
-    char cur_title[40] = {0};
-    if (raw_title)
+    row = menu_runtime_row_at(item_idx);
+    if (!menu_actions_handle_select(item_idx, row, &action))
     {
-        const char *p = raw_title;
-        if (p[0] == '>' && p[1] == ' ') p += 2;
-        lv_snprintf(cur_title, sizeof(cur_title), "%s", p);
+        return;
     }
 
-    if (strcmp(text, "< BACK") == 0)
+    switch (action.type)
     {
+    case MENU_ACTION_BACK:
+    case MENU_ACTION_CLOSE:
         screen_close_submenu();
-        return;
-    }
-
-    if (strcmp(cur_title, "DIVE PLAN") == 0)
-    {
-        bool close_submenu = false;
-        uint8_t keep_idx = item_idx;
-        if (submenu_dive_plan_handle_action(item_idx, text, &close_submenu, &keep_idx))
+        break;
+    case MENU_ACTION_OPEN_CHILD:
+        if (menu_runtime_open_child(action.child_menu, row->id))
         {
-            if (close_submenu)
-            {
-                screen_close_submenu();
-                return;
-            }
-            refresh_info_submenu_page(keep_idx);
-            return;
+            submenu_populate_current();
+            g_ui.sub_menu_idx = 0;
+            screen_set_submenu_selection(g_ui.sub_menu_idx);
         }
-        if (submenu_dive_plan_is_result_page())
-        {
-            return;
-        }
-    }
-
-    // HOTFIX: Block action for Info detail rows.
-    if (submenu_is_readonly_info_title(cur_title))
-    {
-        return;
-    }
-
-    {
-        submenu_edit_spec_t edit_spec;
-        if (submenu_edit_spec_from_selection(cur_title, item_idx, text, &edit_spec))
-        {
-            screen_begin_edit_value(item_idx, &edit_spec);
-            return;
-        }
-    }
-
-    if (strcmp(cur_title, "DIVE PLAN") == 0)
-    {
-        return;
-    }
-
-    {
-        submenu_setting_confirm_t direct_setting;
-        if (submenu_direct_setting_from_selection(cur_title, item_idx, text, &direct_setting))
-        {
-            submenu_apply_setting(direct_setting.kind,
-                                       direct_setting.arg,
-                                       direct_setting.value);
-            dispatch_submenu_setting_callback(&direct_setting);
-            if (direct_setting.kind == SUBMENU_SETTING_OC_TECH_SAVE)
-            {
-                screen_close_submenu();
-                return;
-            }
-            refresh_current_submenu_page(cur_title, item_idx);
-            return;
-        }
-    }
-
-    if (submenu_setting_from_selection(cur_title, item_idx, text, &s_pending_setting))
-    {
-        screen_show_modal_setup_confirm(s_pending_setting.body);
+        break;
+    case MENU_ACTION_REFRESH:
+        refresh_current_submenu_page(action.keep_index);
+        break;
+    case MENU_ACTION_SHOW_CONFIRM:
+        screen_show_modal_setup_confirm(action.modal_text);
         g_ui.state = UI_MODAL_SETUP_CONFIRM;
-        return;
+        break;
+    case MENU_ACTION_BEGIN_EDIT:
+        screen_begin_edit_value(item_idx, &action.edit_spec);
+        break;
+    case MENU_ACTION_SHOW_GAS_MODAL:
+        screen_show_modal_gas();
+        g_ui.state = UI_MODAL_GAS;
+        break;
+    case MENU_ACTION_SHOW_TEXT_MODAL:
+        screen_show_modal_act(action.modal_text);
+        break;
+    default:
+        break;
     }
-
-    if (strcmp(cur_title, "LIGHT CONTROL") == 0 && item_idx == 0)
-    {
-        g_light_power_state = !g_light_power_state;
-        bus_set_light_power(g_light_power_state);
-
-        /* 同步当前子菜单显示 */
-        if (s_light_status_lbl)
-        {
-            lv_label_set_text(s_light_status_lbl, g_light_power_state ? "ON" : "OFF");
-        }
-        /* 保持选中项停留在 ON/OFF 行 */
-        screen_set_submenu_selection(g_ui.sub_menu_idx);
-        return;
-    }
-
-    {
-        char child_title[40] = {0};
-        uint8_t ncnt = 0;
-        const char **nitems = submenu_child_items_for(cur_title,
-                                                           item_idx,
-                                                           text,
-                                                           child_title,
-                                                           sizeof(child_title),
-                                                           &ncnt);
-        if (nitems && ncnt > 0)
-        {
-            screen_open_nested_submenu(child_title, nitems, ncnt);
-            return;
-        }
-    }
-
-    if (strcmp(cur_title, "GAS SWITCH") == 0)
-    {
-        uint8_t gas_count = g_sensor_data.gas_slot_count;
-        if (gas_count > GAS_COUNT)
-        {
-            gas_count = GAS_COUNT;
-        }
-        if (item_idx < gas_count)
-        {
-            // HOTFIX: Route gas switch to safety modal.
-            g_ui.gas_cursor = item_idx;
-            g_ui.gas_modal_from_submenu = true;  // HOTFIX: Route GAS modal exit based on context.
-            screen_show_modal_gas();
-            g_ui.state = UI_MODAL_GAS;
-            return;
-        }
-        return;
-    }
-
-    if (strcmp(cur_title, "CONSERVATISM") == 0)
-    {
-        if (strcmp(text, "< BACK") != 0)
-        {
-            const setting_option_t *option = submenu_conservatism_option(item_idx);
-            uint8_t level = option->value;
-
-            /* 通知业务层应用保守度设置 */
-            ui_on_conservatism_set(level);
-
-            screen_refresh_setup_menu();
-            screen_update_setup_badge(1, option->badge_label);
-        }
-        screen_close_submenu();
-        return;
-    }
-
-    if (strcmp(cur_title, "COMPASS CAL") == 0)
-    {
-        if (strncmp(text, "AUTO CAL:", 9) == 0)
-        {
-            request_compass_calibration_start();
-            set_compass_calibration_ui_state(COMPASS_CAL_RUNNING);
-            screen_refresh_setup_menu();
-            refresh_compass_cal_submenu();
-            return;
-        }
-        if (strcmp(text, "RESET AUTO CAL") == 0)
-        {
-            request_compass_calibration_reset();
-            set_compass_calibration_ui_state(COMPASS_CAL_IDLE);
-            screen_refresh_setup_menu();
-            refresh_compass_cal_submenu();
-            return;
-        }
-        return;
-    }
-
-    if (strcmp(cur_title, "BRIGHTNESS") == 0)
-    {
-        if (strcmp(text, "< BACK") != 0)
-        {
-            /* 更新亮度配置并刷新 badge */
-            const brightness_option_t *option = submenu_brightness_option(item_idx);
-            g_sys_config.brightness = option->value;
-            /* 通过业务回调应用亮度 */
-            set_brightness(g_sys_config.brightness);
-            screen_update_setup_badge(2, option->badge_label);
-        }
-        screen_close_submenu();
-        return;
-    }
-
-    /* 颜色子菜单：RED/GREEN/BLUE/WHITE */
-    if (strcmp(cur_title, "RED") == 0 || strcmp(cur_title, "GREEN") == 0 ||
-            strcmp(cur_title, "BLUE") == 0 || strcmp(cur_title, "WHITE") == 0)
-    {
-        /* 非返回项表示选择了亮度档位 */
-        if (strcmp(text, "< BACK") != 0)
-        {
-            /* 通知业务层处理灯光颜色亮度 */
-            ui_on_light_color_set(cur_title, text);
-
-        }
-        /* 完成后关闭颜色子菜单 */
-        screen_close_submenu();
-        return;
-    }
-
-    if (strcmp(cur_title, "DIVE MENU") == 0 || strcmp(cur_title, "DIVE SETUP") == 0)
-    {
-        screen_show_modal_act(text);
-        return;
-    }
-
-    if (strcmp(cur_title, "ALERTS SETUP") == 0 && item_idx == 2)
-    {
-        return;
-    }
-
-    screen_show_modal_act(text);
 }
 
 void screen_close_submenu(void)
@@ -1127,52 +859,29 @@ void screen_close_submenu(void)
         return;
     }
 
-    if (g_ui.sub_history_depth > 0)
+    if (menu_runtime_back())
     {
-        g_ui.sub_history_depth--;
-        sub_history_t *h = &g_ui.sub_history[g_ui.sub_history_depth];
-        const char *prev_title = h->title;
-        if (prev_title[0] == '>' && prev_title[1] == ' ') prev_title += 2;
-
-        bool found = false;
-        int8_t setup_idx = submenu_setup_index_for_title(prev_title);
-        if (setup_idx >= 0)
+        uint8_t count = 0;
+        (void)menu_runtime_current_rows(&count);
+        if (count > 0)
         {
-            uint8_t cnt = 0;
-            const char **items = submenu_build_setup_items((uint8_t)setup_idx, &cnt);
-            const char *title = submenu_setup_title((uint8_t)setup_idx);
-            if (items && title && cnt > 0)
+            submenu_populate_current();
+            g_ui.sub_item_count = count;
+            if (g_ui.sub_menu_idx >= count)
             {
-                submenu_populate(title, items, cnt);
-                g_ui.sub_item_count = cnt;
-                g_ui.sub_menu_idx   = h->idx;
-                if (g_ui.sub_menu_idx >= cnt)
-                {
-                    g_ui.sub_menu_idx = cnt - 1;
-                }
-                screen_set_submenu_selection(g_ui.sub_menu_idx);
-                found = true;
+                g_ui.sub_menu_idx = count - 1;
             }
-        }
-        if (!found)
-        {
-            uint8_t ncnt = 0;
-            const char **nitems = submenu_nested_items_for(prev_title, &ncnt);
-            if (nitems && ncnt > 0)
-            {
-                char full_title[40];
-                lv_snprintf(full_title, sizeof(full_title), "> %s", prev_title);
-                submenu_populate(full_title, nitems, ncnt);
-                g_ui.sub_item_count = ncnt;
-                g_ui.sub_menu_idx   = h->idx;
-                screen_set_submenu_selection(h->idx);
-                found = true;
-            }
+            screen_set_submenu_selection(g_ui.sub_menu_idx);
         }
         g_ui.state = UI_SUB_MENU;
         return;
     }
     submenu_slide_out();
+    menu_runtime_reset();
+    menu_actions_clear_pending();
+    g_ui.sub_history_depth = 0;
+    g_ui.sub_item_count = 0;
+    g_ui.sub_menu_idx = 0;
     g_ui.state = g_ui.sub_parent;
 }
 
@@ -1180,29 +889,19 @@ void screen_confirm_submenu_setting(void)
 {
     bool close_extra_mode_layer = false;
     bool return_dash_after_apply = false;
-    if (s_pending_setting.kind == SUBMENU_SETTING_NONE)
+    if (!menu_actions_confirm_pending(&close_extra_mode_layer, &return_dash_after_apply))
     {
         screen_hide_modal();
         g_ui.state = UI_SUB_MENU;
         return;
     }
-
-    close_extra_mode_layer =
-        (s_pending_setting.kind == SUBMENU_SETTING_DIVE_MODE &&
-         s_pending_setting.value != 0);
-    return_dash_after_apply =
-        (s_pending_setting.kind == SUBMENU_SETTING_DIVE_MODE &&
-         s_pending_setting.value == 3);
-
-    submenu_apply_setting(s_pending_setting.kind, s_pending_setting.arg, s_pending_setting.value);
-    dispatch_submenu_setting_callback(&s_pending_setting);
-
-    memset(&s_pending_setting, 0, sizeof(s_pending_setting));
     screen_hide_modal();
     if (return_dash_after_apply)
     {
         g_ui.sub_history_depth = 0;
         g_ui.edit_ctx.active = false;
+        menu_runtime_reset();
+        menu_actions_clear_pending();
         submenu_slide_out();
         g_ui.state = UI_DASH;
         return;
@@ -1216,7 +915,7 @@ void screen_confirm_submenu_setting(void)
 
 void screen_cancel_submenu_setting(void)
 {
-    memset(&s_pending_setting, 0, sizeof(s_pending_setting));
+    menu_actions_clear_pending();
     screen_hide_modal();
     g_ui.state = UI_SUB_MENU;
 }
