@@ -312,9 +312,6 @@ void comp_sync_data(comp_id_t w_id)
         comp_set_value(w_id, g_sensor_data.avg_temp);
         break;
 
-    /* =========================================================
-     * 8. ղλδ֪ ID
-     * ========================================================= */
     case COMP_EMPTY:
     default:
         break;

@@ -20,7 +20,7 @@ typedef int rt_base_t;
 #endif
 
 /* =========================================================
- * AREX Data Bus — 硬件写入接口层
+ * Data Bus — 硬件写入接口层
  *
  * 铁律：硬件工程师 / 模拟层 / BLE 任务 只能调用以下 bus_set_* 函数。
  * 禁止直接写入 g_sensor_data / g_sys_config，禁止包含任何 LVGL 代码！
@@ -111,16 +111,13 @@ void bus_set_surf_gf(float surf_gf);
 void bus_set_temperature(float temp_c);
 void bus_set_bat_temperature(float temp_c);
 void bus_set_prj_temperature(float temp_c);
-/* --- System Data 接口[状态参数] --- */
-// void bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
-
 /* --- 临界区保护的数组写入接口 --- */
 /* 16 组织舱饱和度数组（>32bit，必须包临界区防止数据撕裂） */
 void bus_set_tissues(const uint8_t tissue_pct[16]);
 /* 完整减压站序列（>32bit，必须包临界区） */
 void bus_set_deco_plan(const deco_stop_t *stops, uint8_t count);
 
-/* --- 布局参数切换测试接口[扩展功能]展会不用--- */
+/* --- 模拟器布局切换接口 --- */
 void bus_toggle_layout_order(void);
 void bus_toggle_theme(void);
 void bus_toggle_dots_position(void);

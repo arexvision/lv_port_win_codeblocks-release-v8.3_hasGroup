@@ -242,9 +242,6 @@ void render_compass_custom(lv_obj_t *parent_card)
     lv_obj_add_event_cb(s_compass_tape_obj, compass_tape_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
 }
 
-/* ============================================================
- * 卡片创建/更新回调 (保留旧接口兼容)
- * ============================================================ */
 void card_compass_create(lv_obj_t *parent)
 {
     render_compass_custom(parent);

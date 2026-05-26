@@ -6,11 +6,11 @@ extern "C" {
 #endif
 
 #include "hal_sim/input_pc.h"
-#define PC_SIMULATOR  //移植硬件后需要注释
+#define PC_SIMULATOR  /* 移植到硬件时关闭 */
 
 /**
  * @file ui_main.h
- * @brief AREX UI entry point & simulation HAL
+ * @brief UI entry point and simulation HAL
  *
  * Hardware layer entry point. Called once from WinMain() after lv_init() + HAL init.
  * Manages:

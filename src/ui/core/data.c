@@ -1108,7 +1108,7 @@ bool config_load(sys_config_t *cfg)
      *
      * 伪代码结构：
      *
-     * #define CFG_MAGIC   0xAREX5F5A
+     * #define CFG_MAGIC   0xA5EC5F5A
      * #define CFG_ADDR    (Flash分区起始地址 + 偏移量)
      *
      * config_block_t blk;

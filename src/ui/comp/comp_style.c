@@ -488,7 +488,7 @@ const char *comp_get_name(comp_id_t id)
     const comp_style_t *style = comp_get_style(id);
     if (!style)
     {
-        return "???";
+        return "";
     }
     return style->title ? style->title : "";
 }

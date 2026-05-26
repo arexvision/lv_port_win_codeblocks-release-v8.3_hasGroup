@@ -446,7 +446,7 @@ static bool debug_try_packet_line_rx(const char *data, int len)
 static void debug_send_help(void)
 {
     debug_send_raw(
-        "AREX TCP debug commands:\r\n"
+        "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back | manual on|off | auto on|off | speed <1..120>\r\n"
         "  depth <m> | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
@@ -1074,7 +1074,7 @@ static void debug_poll_cb(lv_timer_t *timer)
             s_debug_link.depth_rate_last_tick_ms = lv_tick_get();
             bus_set_ascent_rate(0.0f);
             printf("[DBG] TCP debug client connected\r\n");
-            debug_send_raw("AREX debug TCP ready on 127.0.0.1:7623\r\n");
+            debug_send_raw("Debug TCP ready on 127.0.0.1:7623\r\n");
             debug_send_raw("TCP connected: debug data will reset, auto depth is disabled, Buhlmann debug algorithm is active.\r\n");
             debug_send_raw("Type help for commands.\r\n");
         }
