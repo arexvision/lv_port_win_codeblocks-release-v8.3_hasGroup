@@ -1144,7 +1144,10 @@ const char **arex_submenu_build_setup_items(uint8_t index, uint8_t *out_count)
 static const char **build_nested_dive_setup(uint8_t *out_count)
 {
     snprintf(s_modppo2_str, sizeof(s_modppo2_str), "MOD PO2: %.1f", (double)g_sys_config.mod_ppo2);
-    snprintf(s_salinity_str, sizeof(s_salinity_str), "SALINITY: %s", salinity_label(s_salinity_mode));
+    snprintf(s_salinity_str,
+             sizeof(s_salinity_str),
+             "SALINITY: %s",
+             salinity_label(salinity_mode_from_config()));
     snprintf(s_safety_stop_str, sizeof(s_safety_stop_str), "SAFETY STOP: %s", safety_stop_label(s_safety_stop_mode));
     snprintf(s_last_deco_str,
              sizeof(s_last_deco_str),
@@ -1489,7 +1492,7 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
 
     if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 0)
     {
-        uint8_t next = (uint8_t)((s_salinity_mode + 1) % 3);
+        uint8_t next = (uint8_t)((salinity_mode_from_config() + 1U) % 3U);
         out_setting->kind = AREX_SUBMENU_SETTING_SALINITY;
         out_setting->value = next;
         return true;
