@@ -1,7 +1,7 @@
 /*******************************************************************************
  * Size: 20 px
  * Bpp: 4
- * Opts: --font D:/Work_PRO/A_GYK/font/Linotype Ordinar W01 Regular.ttf -r 0x20-0x7E -r 0x00B0 --font C:/Windows/Fonts/seguisym.ttf -r 0x25B2 -r 0x25BC --size 20 --bpp 4 --format lvgl --no-compress --lv-font-name lv_font_ordinar_20 -o src/arex_ui/fonts/lv_font_ordinar_20.c
+ * Opts: --font D:/Work_PRO/A_GYK/font/Linotype Ordinar W01 Regular.ttf -r 0x20-0x7E -r 0x00B0 --font C:/Windows/Fonts/seguisym.ttf -r 0x25B2 -r 0x25BC --size 20 --bpp 4 --format lvgl --no-compress --lv-font-name lv_font_ordinar_20 -o src/ui/fonts/lv_font_ordinar_20.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE

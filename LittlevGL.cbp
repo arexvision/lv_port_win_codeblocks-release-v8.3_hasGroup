@@ -1786,224 +1786,224 @@
 		<Unit filename="my_.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_algo_sim/Buhlmann.cpp" />
-		<Unit filename="src/arex_algo_sim/Buhlmann.h" />
-		<Unit filename="src/arex_algo_sim/README.md" />
-		<Unit filename="src/arex_algo_sim/buhlmann_debug.cpp" />
-		<Unit filename="src/arex_algo_sim/buhlmann_debug.h" />
-		<Unit filename="src/arex_algo_sim/rtdevice.h" />
-		<Unit filename="src/arex_algo_sim/rtthread.h" />
-		<Unit filename="src/arex_hal_sim/debug_link_pc.h" />
-		<Unit filename="src/arex_hal_sim/input_pc.c">
+		<Unit filename="src/algo_sim/Buhlmann.cpp" />
+		<Unit filename="src/algo_sim/Buhlmann.h" />
+		<Unit filename="src/algo_sim/README.md" />
+		<Unit filename="src/algo_sim/buhlmann_debug.cpp" />
+		<Unit filename="src/algo_sim/buhlmann_debug.h" />
+		<Unit filename="src/algo_sim/rtdevice.h" />
+		<Unit filename="src/algo_sim/rtthread.h" />
+		<Unit filename="src/hal_sim/debug_link_pc.h" />
+		<Unit filename="src/hal_sim/input_pc.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_hal_sim/input_pc.h" />
-		<Unit filename="src/arex_hal_sim/sim_data.c">
+		<Unit filename="src/hal_sim/input_pc.h" />
+		<Unit filename="src/hal_sim/sim_data.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_hal_sim/sim_data.h" />
-		<Unit filename="src/arex_ui/alarm/README.md" />
-		<Unit filename="src/arex_ui/alarm/alarm.c">
+		<Unit filename="src/hal_sim/sim_data.h" />
+		<Unit filename="src/ui/alarm/README.md" />
+		<Unit filename="src/ui/alarm/alarm.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/alarm/alarm.h" />
-		<Unit filename="src/arex_ui/alarm/alarm_view.c">
+		<Unit filename="src/ui/alarm/alarm.h" />
+		<Unit filename="src/ui/alarm/alarm_view.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/alarm/alarm_view.h" />
-		<Unit filename="src/arex_ui/cards/README.md" />
-		<Unit filename="src/arex_ui/cards/card_blank.c">
+		<Unit filename="src/ui/alarm/alarm_view.h" />
+		<Unit filename="src/ui/cards/README.md" />
+		<Unit filename="src/ui/cards/card_blank.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/cards/card_compass.c">
+		<Unit filename="src/ui/cards/card_compass.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/cards/card_compass.h" />
-		<Unit filename="src/arex_ui/cards/card_deco.c">
+		<Unit filename="src/ui/cards/card_compass.h" />
+		<Unit filename="src/ui/cards/card_deco.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/cards/card_gas.c">
+		<Unit filename="src/ui/cards/card_gas.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/cards/card_info.c">
+		<Unit filename="src/ui/cards/card_info.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/cards/card_plan.c">
+		<Unit filename="src/ui/cards/card_plan.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/cards/card_setup.c">
+		<Unit filename="src/ui/cards/card_setup.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/comp/README.md" />
-		<Unit filename="src/arex_ui/comp/comp_style.c">
+		<Unit filename="src/ui/comp/README.md" />
+		<Unit filename="src/ui/comp/comp_style.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/comp/comp_style.h" />
-		<Unit filename="src/arex_ui/comp/comp_style_types.h" />
-		<Unit filename="src/arex_ui/comp/comp_update.c">
+		<Unit filename="src/ui/comp/comp_style.h" />
+		<Unit filename="src/ui/comp/comp_style_types.h" />
+		<Unit filename="src/ui/comp/comp_update.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/comp/comp_update.h" />
-		<Unit filename="src/arex_ui/comp/comp_view.c">
+		<Unit filename="src/ui/comp/comp_update.h" />
+		<Unit filename="src/ui/comp/comp_view.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/comp/comp_view.h" />
-		<Unit filename="src/arex_ui/core/README.md" />
-		<Unit filename="src/arex_ui/core/callbacks.c">
+		<Unit filename="src/ui/comp/comp_view.h" />
+		<Unit filename="src/ui/core/README.md" />
+		<Unit filename="src/ui/core/callbacks.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/core/callbacks.h" />
-		<Unit filename="src/arex_ui/core/data.c">
+		<Unit filename="src/ui/core/callbacks.h" />
+		<Unit filename="src/ui/core/data.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/core/data.h" />
-		<Unit filename="src/arex_ui/core/ui_engine.c">
+		<Unit filename="src/ui/core/data.h" />
+		<Unit filename="src/ui/core/ui_engine.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/core/ui_engine.h" />
-		<Unit filename="src/arex_ui/core/ui_state.c">
+		<Unit filename="src/ui/core/ui_engine.h" />
+		<Unit filename="src/ui/core/ui_state.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/core/ui_state.h" />
-		<Unit filename="src/arex_ui/core/update_router.c">
+		<Unit filename="src/ui/core/ui_state.h" />
+		<Unit filename="src/ui/core/update_router.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/core/update_router.h" />
-		<Unit filename="src/arex_ui/fonts/FONT_GUIDE.md" />
-		<Unit filename="src/arex_ui/fonts/README.md" />
-		<Unit filename="src/arex_ui/fonts/fonts.h" />
-		<Unit filename="src/arex_ui/fonts/lv_font_consola_14.c">
+		<Unit filename="src/ui/core/update_router.h" />
+		<Unit filename="src/ui/fonts/FONT_GUIDE.md" />
+		<Unit filename="src/ui/fonts/README.md" />
+		<Unit filename="src/ui/fonts/fonts.h" />
+		<Unit filename="src/ui/fonts/lv_font_consola_14.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_consola_20.c">
+		<Unit filename="src/ui/fonts/lv_font_consola_20.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_consola_24.c">
+		<Unit filename="src/ui/fonts/lv_font_consola_24.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_consola_28.c">
+		<Unit filename="src/ui/fonts/lv_font_consola_28.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_consola_32.c">
+		<Unit filename="src/ui/fonts/lv_font_consola_32.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_consola_48.c">
+		<Unit filename="src/ui/fonts/lv_font_consola_48.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_consola_56.c">
+		<Unit filename="src/ui/fonts/lv_font_consola_56.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_consola_58.c">
+		<Unit filename="src/ui/fonts/lv_font_consola_58.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_consola_64.c">
+		<Unit filename="src/ui/fonts/lv_font_consola_64.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_14.c">
+		<Unit filename="src/ui/fonts/lv_font_courier_14.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_20.c">
+		<Unit filename="src/ui/fonts/lv_font_courier_20.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_28.c">
+		<Unit filename="src/ui/fonts/lv_font_courier_28.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_32.c">
+		<Unit filename="src/ui/fonts/lv_font_courier_32.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_48.c">
+		<Unit filename="src/ui/fonts/lv_font_courier_48.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_56.c">
+		<Unit filename="src/ui/fonts/lv_font_courier_56.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_58.c">
+		<Unit filename="src/ui/fonts/lv_font_courier_58.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_courier_64.c">
+		<Unit filename="src/ui/fonts/lv_font_courier_64.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_14.c">
+		<Unit filename="src/ui/fonts/lv_font_ordinar_14.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_20.c">
+		<Unit filename="src/ui/fonts/lv_font_ordinar_20.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_24.c">
+		<Unit filename="src/ui/fonts/lv_font_ordinar_24.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_28.c">
+		<Unit filename="src/ui/fonts/lv_font_ordinar_28.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_32.c">
+		<Unit filename="src/ui/fonts/lv_font_ordinar_32.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_48.c">
+		<Unit filename="src/ui/fonts/lv_font_ordinar_48.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_56.c">
+		<Unit filename="src/ui/fonts/lv_font_ordinar_56.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_58.c">
+		<Unit filename="src/ui/fonts/lv_font_ordinar_58.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/fonts/lv_font_ordinar_64.c">
+		<Unit filename="src/ui/fonts/lv_font_ordinar_64.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/picture/README.md" />
-		<Unit filename="src/arex_ui/picture/Shoudiantong.c">
+		<Unit filename="src/ui/picture/README.md" />
+		<Unit filename="src/ui/picture/Shoudiantong.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/picture/liuzhuandeng.c">
+		<Unit filename="src/ui/picture/liuzhuandeng.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/picture/qiping.c">
+		<Unit filename="src/ui/picture/qiping.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/picture/sudo_down_level0.c">
+		<Unit filename="src/ui/picture/sudo_down_level0.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/picture/sudo_down_level1.c">
+		<Unit filename="src/ui/picture/sudo_down_level1.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/picture/sudo_down_level2.c">
+		<Unit filename="src/ui/picture/sudo_down_level2.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/picture/sudo_up_level0.c">
+		<Unit filename="src/ui/picture/sudo_up_level0.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/picture/sudo_up_level1.c">
+		<Unit filename="src/ui/picture/sudo_up_level1.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/picture/sudo_up_level2.c">
+		<Unit filename="src/ui/picture/sudo_up_level2.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/screen/README.md" />
-		<Unit filename="src/arex_ui/screen/card_registry.c">
+		<Unit filename="src/ui/screen/README.md" />
+		<Unit filename="src/ui/screen/card_registry.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/screen/card_registry.h" />
-		<Unit filename="src/arex_ui/screen/layout_view.c">
+		<Unit filename="src/ui/screen/card_registry.h" />
+		<Unit filename="src/ui/screen/layout_view.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/screen/layout_view.h" />
-		<Unit filename="src/arex_ui/screen/screen.c">
+		<Unit filename="src/ui/screen/layout_view.h" />
+		<Unit filename="src/ui/screen/screen.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/screen/screen.h" />
-		<Unit filename="src/arex_ui/views/README.md" />
-		<Unit filename="src/arex_ui/views/modal_view.c">
+		<Unit filename="src/ui/screen/screen.h" />
+		<Unit filename="src/ui/views/README.md" />
+		<Unit filename="src/ui/views/modal_view.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/views/modal_view.h" />
-		<Unit filename="src/arex_ui/views/submenu_model.c">
+		<Unit filename="src/ui/views/modal_view.h" />
+		<Unit filename="src/ui/views/submenu_model.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/views/submenu_model.h" />
-		<Unit filename="src/arex_ui/views/submenu_view.c">
+		<Unit filename="src/ui/views/submenu_model.h" />
+		<Unit filename="src/ui/views/submenu_view.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/arex_ui/views/submenu_view.h" />
+		<Unit filename="src/ui/views/submenu_view.h" />
 		<Unit filename="src/header.py" />
 		<Unit filename="src/lv_100ask_teach_demos.h" />
 		<Unit filename="src/ui_main.c">

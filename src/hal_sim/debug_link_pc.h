@@ -27,10 +27,10 @@ uint16_t debug_link_pc_time_scale(void);
 #include <winsock2.h>
 #include <windows.h>
 
-#include "../arex_ui/alarm/alarm.h"
-#include "../arex_ui/core/data.h"
-#include "../arex_ui/core/ui_engine.h"
-#include "../arex_ui/core/ui_state.h"
+#include "../ui/alarm/alarm.h"
+#include "../ui/core/data.h"
+#include "../ui/core/ui_engine.h"
+#include "../ui/core/ui_state.h"
 #include "lvgl/lvgl.h"
 
 #include <ctype.h>

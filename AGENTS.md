@@ -22,7 +22,7 @@ Do not modify `LittlevGL.cbp` during routine code changes. Only update the CodeB
 
 ## Coding Preferences
 
-Do not introduce project-name prefixes in code identifiers. New functions, types, globals, enums, and macros must not start with `arex_` or `AREX_`; use the module/domain name directly instead, for example `screen_create()` or `BUS_SET_*`. Existing directory names such as `src/arex_ui` remain unchanged unless the user explicitly asks for a file/path migration.
+Do not introduce project-name prefixes in code identifiers or directory names. New functions, types, globals, enums, macros, and source folders must not start with `arex_` or `AREX_`; use the module/domain name directly instead, for example `screen_create()`, `BUS_SET_*`, `src/ui`, `src/hal_sim`, or `src/algo_sim`.
 
 不要为已经由菜单索引、枚举表、固定数组或状态机保证范围的设置值额外添加 `clamp`/兜底映射。此类防御会隐藏真实错误，并让简单配置修改变复杂。只有外部输入、协议数据、文件持久化数据或其他不可信边界进入系统时，才做范围校验。
 
@@ -47,7 +47,7 @@ Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative,
    - `sim_data_start()` — PC-only simulation data source
 3. Main loop: `lv_task_handler()` every 10ms
 
-### Module map (`src/arex_ui/`)
+### Module map (`src/ui/`)
 
 | File | Role |
 |------|------|
@@ -62,7 +62,7 @@ Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative,
 | `views/modal_view.h/c`, `views/submenu_*.h/c` | Overlay dialogs and submenu drawer/model |
 | `alarm/alarm*.h/c` | Alarm event engine and alarm visual layer |
 | `cards/card_*.c` | 7 card implementations (compass, deco, gas, plan, info, setup, blank) |
-| `arex_hal_sim/input_pc.h` | Keyboard/encoder input simulation for PC |
+| `hal_sim/input_pc.h` | Keyboard/encoder input simulation for PC |
 
 ### Data flow
 

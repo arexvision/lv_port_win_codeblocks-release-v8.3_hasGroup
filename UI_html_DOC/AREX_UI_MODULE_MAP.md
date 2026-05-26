@@ -1,11 +1,11 @@
 # AREX UI 模块地图
 
-本文档说明 `src/arex_ui/` 当前拆分后的文件职责、调用边界和主要数据流。更完整的历史架构说明仍以 `UI_html_DOC/AREX_ARCH.md` 为准；本文偏向“现在看代码时应该先看哪里”。
+本文档说明 `src/ui/` 当前拆分后的文件职责、调用边界和主要数据流。更完整的历史架构说明仍以 `UI_html_DOC/AREX_ARCH.md` 为准；本文偏向“现在看代码时应该先看哪里”。
 
 ## 目录分层
 
 ```text
-src/arex_ui/
+src/ui/
 ├─ core/      数据总线、全局状态、UI 状态机、刷新路由、业务回调
 ├─ screen/    屏幕门面、布局计算、卡片注册表
 ├─ comp/      可复用组件工厂、组件刷新、组件样式
@@ -49,8 +49,8 @@ flowchart TD
 flowchart LR
     Sim["模拟器 / BLE / 业务层"] --> Bus["arex_bus_set_*<br/>数据写入"]
     Bus --> Sensor["g_sensor_data<br/>dirty_mask"]
-    Sensor --> Tick["arex_ui_update_task"]
-    Tick --> Router["arex_ui_update_router_dispatch(mask)"]
+    Sensor --> Tick["ui_update_task"]
+    Tick --> Router["ui_update_router_dispatch(mask)"]
     Router --> Widgets["arex_comp_update<br/>更新左侧与 5F 组件"]
     Router --> Cards["card_*_update<br/>更新右侧卡片"]
     Router --> AlarmView["arex_alarm_view_tick<br/>告警横幅和靶向闪烁"]
@@ -93,7 +93,7 @@ flowchart TB
 
 ```mermaid
 sequenceDiagram
-    participant Input as 输入状态机<br/>arex_ui_state
+    participant Input as 输入状态机<br/>ui_state
     participant View as 子菜单视图<br/>arex_submenu_view
     participant Model as 子菜单模型<br/>arex_submenu_model
     participant Screen as 屏幕门面<br/>arex_screen
@@ -121,7 +121,7 @@ flowchart TD
     Compat["arex_bus_raise_alarm<br/>兼容临时告警入口"] --> AlarmEngine
     AlarmEngine --> Display["arex_alarm_display_t<br/>当前最高优先级横幅"]
     AlarmEngine --> Targets["active targets<br/>所有同级靶向组件"]
-    UpdateRouter["arex_ui_update_router_tick"] --> AlarmView["alarm_view.c<br/>渲染横幅和组件闪烁"]
+    UpdateRouter["ui_update_router_tick"] --> AlarmView["alarm_view.c<br/>渲染横幅和组件闪烁"]
     AlarmView --> Display
     AlarmView --> Targets
     AlarmView --> ScreenObjects["safe_zone / left_anchor / custom_cards"]

@@ -9,7 +9,7 @@ extern uint16_t         g_deco_stop_count;
 
 #ifdef PC_SIMULATOR
 #include "lvgl.h"
-#include "../../arex_algo_sim/buhlmann_debug.h"
+#include "../../algo_sim/buhlmann_debug.h"
 #endif
 
 /* =========================================================

@@ -1,8 +1,8 @@
 #include "sim_data.h"
 
-#include "../arex_ui/alarm/alarm.h"
-#include "../arex_ui/core/data.h"
-#include "../arex_algo_sim/buhlmann_debug.h"
+#include "../ui/alarm/alarm.h"
+#include "../ui/core/data.h"
+#include "../algo_sim/buhlmann_debug.h"
 #ifndef PC_SIMULATOR
 #define PC_SIMULATOR
 #endif

@@ -4,7 +4,7 @@
 #include "../core/ui_engine.h"
 #include "../core/ui_state.h"
 #ifdef PC_SIMULATOR
-#include "../../arex_algo_sim/buhlmann_debug.h"
+#include "../../algo_sim/buhlmann_debug.h"
 #endif
 
 #include "lvgl/lvgl.h"

@@ -40,7 +40,7 @@ lv_font_conv --font "字体路径.ttf" --size 字号 --bpp 4 --format lvgl -r 0x
 
 字体文件放在：
 ```
-src/arex_ui/fonts/
+src/ui/fonts/
 ```
 
 ## 4. 字体命名规范
@@ -57,7 +57,7 @@ src/arex_ui/fonts/
 ### 5.1 生成字体文件
 
 ```bash
-cd src/arex_ui/fonts
+cd src/ui/fonts
 lv_font_conv --font "E:/字体/xxx.ttf" --size 24 --bpp 4 --format lvgl -r 0x20-0x7E -r 0x00B0 --no-compress -o lv_font_xxx_24.c
 ```
 
@@ -68,7 +68,7 @@ lv_font_conv --font "E:/字体/xxx.ttf" --size 24 --bpp 4 --format lvgl -r 0x20-
 在 `LittlevGL.cbp` 的 `<Units>` 中添加：
 
 ```xml
-<Unit filename="src/arex_ui/fonts/lv_font_xxx_24.c">
+<Unit filename="src/ui/fonts/lv_font_xxx_24.c">
     <Option compilerVar="CC" />
 </Unit>
 ```
@@ -77,7 +77,7 @@ lv_font_conv --font "E:/字体/xxx.ttf" --size 24 --bpp 4 --format lvgl -r 0x20-
 
 ### 5.3 声明和宏定义
 
-在 `src/arex_ui/fonts/fonts.h` 中：
+在 `src/ui/fonts/fonts.h` 中：
 
 ```c
 // 1. 添加 extern 声明（放在对应字体族下）

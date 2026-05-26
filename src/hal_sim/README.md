@@ -1,6 +1,6 @@
-# arex_hal_sim
+# hal_sim
 
-`arex_hal_sim` 是 Windows PC 模拟器专用适配层。它让 AREX UI 在没有真实传感器和按键硬件时也能运行。
+`hal_sim` 是 Windows PC 模拟器专用适配层。它让 AREX UI 在没有真实传感器和按键硬件时也能运行。
 
 ## 文件职责
 

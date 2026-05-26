@@ -36,15 +36,15 @@
 
 # AREX Pro Dive Computer UI — 架构解读文档
 
-> 基于 `UI_html/arex_ui_test_0.10.html` 原型，移植到 LVGL v8.3 (Windows/CodeBlocks)  
-> 入口：`UI_main()` in `src/arex_ui/UI_main.c`
+> 基于 `UI_html/ui_test_0.10.html` 原型，移植到 LVGL v8.3 (Windows/CodeBlocks)
+> 入口：`UI_main()` in `src/ui/UI_main.c`
 
 ---
 
 ## 1. 整体目录结构
 
 ```
-src/arex_ui/
+src/ui/
 ├── UI_main.c                # 入口，初始化序列 + 仿真 tick 定时器
 ├── ui_engine.h/c       # 全局状态数据模型（g_sys_config + g_sensor_data）
 ├── ui_state.h/c        # 状态机核心（g_ui），三个输入处理函数
@@ -68,7 +68,7 @@ src/arex_ui/
 ```
 UI_main()
   │
-  ├─ arex_ui_init()             → 加载默认配置到 g_sys_config + 初始化 g_sensor_data 演示数据
+  ├─ ui_init()             → 加载默认配置到 g_sys_config + 初始化 g_sensor_data 演示数据
   ├─ arex_screen_create()        → 创建整个 LVGL 控件树（左面板 + tileview + 弹窗 + 子菜单层）
   │    ├── left_panel_create()
   │    ├── right_panel_create()  → 创建 tileview，按 card_order 调用 card_*_create()
@@ -79,14 +79,14 @@ UI_main()
   ├─ arex_screen_refresh_left_panel()   → 左侧面板初始值填充
   ├─ arex_screen_scroll_to_card(0)      → 跳到 tile 0（INFO 卡）
   ├─ arex_screen_set_info_selection(0)  → 高亮第一条 LAST DIVE
-  ├─ arex_ui_state_init()       → 将 g_ui 清零，state=UI_INFO，dash_card=1
+  ├─ ui_state_init()       → 将 g_ui 清零，state=UI_INFO，dash_card=1
   └─ lv_timer_create(sim_tick_cb, 1000ms)  → 每秒仿真 tick
 ```
 
 **仿真 tick (`sim_tick_cb`) 每秒做：**
 1. `g_sensor_data.heading += 1° % 360`（航向缓慢漂移）+ `g_sensor_data.dive_time_s++`
 2. `arex_screen_refresh_left_panel()` → 刷新左面板数值
-3. `arex_ui_refresh_all()` → 遍历注册表，调用每个卡片的 `update_cb()`
+3. `ui_refresh_all()` → 遍历注册表，调用每个卡片的 `update_cb()`
 
 ---
 
@@ -136,11 +136,11 @@ UI_MODAL_ACT     (7)  — 通用动作弹窗（1秒自动关闭）
 UI_EDIT_VALUE    (8)  — 数值内联编辑（例如 MOD PO2）
 ```
 
-### 全局 UI 上下文：`arex_ui_ctx_t g_ui`
+### 全局 UI 上下文：`ui_ctx_t g_ui`
 
 ```c
 typedef struct {
-    arex_ui_state_t  state;           // 当前状态（初始 UI_INFO）
+    ui_state_t  state;           // 当前状态（初始 UI_INFO）
     uint8_t  dash_card;               // 当前卡片索引（初始 1，COMPASS）
     uint8_t  menu_info_idx;           // INFO 菜单光标
     uint8_t  menu_setup_idx;          // SETUP 菜单光标
@@ -154,11 +154,11 @@ typedef struct {
     const char *sub_title;
     const char *sub_items[8];
     uint8_t      sub_item_count;
-    arex_ui_state_t sub_parent;       // 进入子菜单时的父状态
-} arex_ui_ctx_t;
+    ui_state_t sub_parent;       // 进入子菜单时的父状态
+} ui_ctx_t;
 ```
 
-> **启动行为：** `arex_ui_state_init()` 将 `state=UI_INFO`，`dash_card=1`，`menu_info_idx=0`，`wall_charge=0`。启动后直接显示 INFO 菜单（tile 0），等待用户操作。
+> **启动行为：** `ui_state_init()` 将 `state=UI_INFO`，`dash_card=1`，`menu_info_idx=0`，`wall_charge=0`。启动后直接显示 INFO 菜单（tile 0），等待用户操作。
 
 ### 三个公开输入处理函数
 
@@ -212,8 +212,8 @@ UI_SETUP 退出（wall-charge 或 ESC）→ 返回 DASH，dash_card=AREX_CARD_CO
 
 ### 5.2 气体切换流程（3F 卡片）
 
-> **【重点 · CONFIG GAS 退出规则】** > **气体在当前深度不可用**（`dive.depth >` 该气体的 **MOD**，不适用深度）时，**不能**用确认键完成切换：弹窗内 **Enter/点击** 仅触发 `arex_screen_pulse_modal()` 震动，**不会**改 `active_idx`、**不会**回到仪表盘。  
-> 此时**必须**通过 **返回键（Back / ESC）** 退出 CONFIG GAS：`UI_MODAL_GAS` 先回到 `UI_EDIT_GAS`，再按一次返回才回到 `UI_DASH`。  
+> **【重点 · CONFIG GAS 退出规则】** > **气体在当前深度不可用**（`dive.depth >` 该气体的 **MOD**，不适用深度）时，**不能**用确认键完成切换：弹窗内 **Enter/点击** 仅触发 `arex_screen_pulse_modal()` 震动，**不会**改 `active_idx`、**不会**回到仪表盘。
+> 此时**必须**通过 **返回键（Back / ESC）** 退出 CONFIG GAS：`UI_MODAL_GAS` 先回到 `UI_EDIT_GAS`，再按一次返回才回到 `UI_DASH`。
 > **不可用气体时，不得以「确认切换」的方式离开气体配置流程。**
 
 ```
@@ -229,7 +229,7 @@ UI_DASH（当前卡片为 GAS，card_order index=3）
   │
   ├─ 深度 ≤ MOD → CLICK 确认：active_idx = gas_cursor，返回 UI_DASH
   └─ 深度 > MOD（气体不可用）→ CLICK 无效：modal 震动；仅能通过 BACK 退出（见上文重点）
-  
+
   BACK / ESC:
     UI_MODAL_GAS → UI_EDIT_GAS（关弹窗，留在气体编辑）
     UI_EDIT_GAS  → UI_DASH（退出 CONFIG GAS）
@@ -443,7 +443,7 @@ key_event_cb():
 
 ### 9.2 card_deco.c（2F）
 
-- 布局：与 `arex_ui_test_0.10.html` 一致 — `.card` 为列 flex，`.tissue-section-title` 使用 `margin-top:auto`，隔室图在卡片**最下方**；LVGL 用 `BARS_Y` 从 `TILE_H` 向上反算；规范 Section Title Y≈250，`BOTTOM_PAD=36`。
+- 布局：与 `ui_test_0.10.html` 一致 — `.card` 为列 flex，`.tissue-section-title` 使用 `margin-top:auto`，隔室图在卡片**最下方**；LVGL 用 `BARS_Y` 从 `TILE_H` 向上反算；规范 Section Title Y≈250，`BOTTOM_PAD=36`。
 - 顶部三行 `.deco-grid`（y=60/107/154）：文案 `SurfGF`、`GF LOW / HIGH` 等与 HTML 一致。
 - **SurfGF**：`surf_gf > 100` 时为 `.highlight-invert`（`AREX_GREEN` 底 + `AREX_BLACK` 字 + 水平 padding 4），无红字闪烁。
 - 16 个 `lv_bar`（规范：间距 4px，槽 `AREX_DARK`+`LV_OPA_50`，填充≤70%绿/>70%浅绿/≥90%危险闪烁）：
@@ -552,7 +552,7 @@ main.c (WinMain)
             │
             ├─ 更新 g_sensor_data（heading++, dive_time_s++, depth浮动）
             ├─ arex_screen_refresh_left_panel()   [读 g_sensor_data → 写 s_lbl_*]
-            └─ arex_ui_refresh_all()
+            └─ ui_refresh_all()
                  for i in 0..arex_card_count()-1:
                    card = arex_card_get(i)        // 通过 g_sys_card_order(i) 查 ID
                    if (card->update_cb) card->update_cb()
@@ -594,7 +594,7 @@ main.c (WinMain)
 | 当前子菜单标题 | 选中项规则 | 执行动作 |
 |---|---|---|
 | `GAS SWITCH` | `SELECT XXX` | 更新 `g_sensor_data.gas_active_idx`，刷新 gas 卡和左面板，关闭子菜单 |
-| `CONSERVATISM` | `LOW/MED/HIGH` 开头 | 调用 `arex_ui_on_conservatism_set()` 外部业务层回调，更新 SETUP 菜单 badge，关闭子菜单 |
+| `CONSERVATISM` | `LOW/MED/HIGH` 开头 | 调用 `ui_on_conservatism_set()` 外部业务层回调，更新 SETUP 菜单 badge，关闭子菜单 |
 | `BRIGHTNESS` | 精确匹配 `LOW/MED/HIGH/MAX` | 更新 `g_sys_config.brightness`，更新 SETUP 菜单 badge，关闭子菜单 |
 | `DIVE MENU`（嵌套） | `MOD PO2:` 开头 | 调用 `arex_screen_begin_edit_value()` → `UI_EDIT_VALUE` |
 | `DIVE MENU`（嵌套） | 其他项 | `arex_screen_show_modal_act(text)` 通用动作弹窗 |
@@ -625,7 +625,7 @@ SETUP → SYSTEM SETUP（二级）
 - child 0：标题文字（`> GAS SWITCH` 等）
 - child 1：右侧 badge（`MED` / `HIGH` / 空）
 
-`arex_screen_update_setup_badge(item_idx, value)` 通过 `s_setup_list` 直接写 child 1。  
+`arex_screen_update_setup_badge(item_idx, value)` 通过 `s_setup_list` 直接写 child 1。
 `card_setup_update()` 每 tick 从 `g_sys_config` 同步 CONSERVATISM / BRIGHTNESS 的 badge 文字。
 
 ### 14.4 INFO 子菜单动态数据
@@ -728,8 +728,8 @@ lv_obj_set_pos(row, 0, row_y);   // 与 INFO MENU 对齐
 | 2026-04-23 | `card_registry.c` | 重写：指定初始化器、`tile_obj=NULL` 初始化、`g_sys_card_order()` 间接查询、`arex_card_count()` API |
 | 2026-04-23 | `card_registry.h` | 新增 `AREX_CARD_COUNT`、`AREX_DASH_CARD_COUNT`；`arex_card_reg_t` 新增 `on_enter_cb` |
 | 2026-04-23 | `ui_engine.c` | 新增 `g_sys_card_order(pos)` 函数封装；`arex_sys_config_defaults()` 填充默认 `card_order[]` |
-| 2026-04-23 | `ui_engine.h` | 新增 `g_sys_card_order()` 声明；新增 `arex_ui_update_data()` 空钩子 |
-| 2026-04-23 | `ui_state.c` | `arex_ui_refresh_all()` 改为 `arex_card_count()` 循环；`AREX_CARD_COUNT - 2` 替换为 `AREX_DASH_CARD_COUNT` |
+| 2026-04-23 | `ui_engine.h` | 新增 `g_sys_card_order()` 声明；新增 `ui_update_data()` 空钩子 |
+| 2026-04-23 | `ui_state.c` | `ui_refresh_all()` 改为 `arex_card_count()` 循环；`AREX_CARD_COUNT - 2` 替换为 `AREX_DASH_CARD_COUNT` |
 | 2026-04-23 | `data.h/c` | 新建数据总线头文件存根（`#include "ui_engine.h"`），所有定义保留在 engine |
 | 2026-04-23 | `card_info.c` | 改为 `arex_get_font()` + `data.h`；空 update 回调 |
 | 2026-04-23 | `card_setup.c` | 改为 `arex_get_font()` + dirty check badge 更新；badge 子 label 索引修正 |
@@ -849,7 +849,7 @@ arex_left_row_cfg_t left_layout[AREX_MAX_LEFT_ROWS];
   ]
 }
 ```
-单片机收到后调用 `arex_ui_apply_config()`，整个左侧面板自动重排，无需改任何 C 代码。
+单片机收到后调用 `ui_apply_config()`，整个左侧面板自动重排，无需改任何 C 代码。
 
 ### 16.5 布局引擎函数一览
 
@@ -890,7 +890,7 @@ uint16_t right_w_fallback = g_sys_config.safe_zone_w
 
 1. **APP 下发** JSON 配置（仅包含 `g_sys_config` 字段子集）
 2. **单片机解析** → 覆盖 `g_sys_config` 对应字段
-3. **调用** `arex_ui_apply_config()` → `left_anchor_rebuild()` + `arex_screen_rebuild_tileview()`
+3. **调用** `ui_apply_config()` → `left_anchor_rebuild()` + `arex_screen_rebuild_tileview()`
 4. **结果**：整个 UI 按新配置重排，无需重启，无需改 C 代码
 
 ### 16.9 渲染流程（自由双拼版）
@@ -1051,8 +1051,8 @@ LV_FONT_DECLARE(lv_font_courier_48)
 | `card_registry.c` | 重写 | 卡片注册表重构：新增 `arex_card_count()`、`g_sys_card_order()` 间接查询、`tile_obj` 初始化流程 |
 | `card_registry.h` | 重写 | 新增 `arex_card_pos_t` 位置枚举（INFO/SETUP 固定，中间 4 个可重排）；`arex_card_reg_t` 新增 `on_enter_cb`；`tile_obj` 初始为 NULL |
 | `ui_engine.c` | 重写 | `arex_sys_config_defaults()` 用 `CARD_POS_*` / `CARD_ID_*` 枚举显式赋值 `card_order[]`，替代旧的 `for` 循环赋值 |
-| `ui_engine.h` | 新增 | 新增 `g_sys_card_order()` 声明；新增 `arex_ui_update_data()` 空钩子 |
-| `ui_state.c` | 重写 | `arex_ui_refresh_all()` 改为 `arex_card_count()` 循环；`ui_handle_rotate()` 中 `AREX_CARD_COUNT - 2` 改为 `AREX_DASH_CARD_COUNT` |
+| `ui_engine.h` | 新增 | 新增 `g_sys_card_order()` 声明；新增 `ui_update_data()` 空钩子 |
+| `ui_state.c` | 重写 | `ui_refresh_all()` 改为 `arex_card_count()` 循环；`ui_handle_rotate()` 中 `AREX_CARD_COUNT - 2` 改为 `AREX_DASH_CARD_COUNT` |
 | `data.h/c` | 新建 | 数据总线头文件存根，所有定义保留在 `ui_engine.h` |
 | `card_info.c` | 重写 | 改为 `arex_get_font()` + `data.h`；引入 `arex_render_dynamic_menu()` 动态菜单工厂 |
 | `card_setup.c` | 重写 | badge 刷新逻辑保留，句柄数组改为工厂输出 |
@@ -1093,10 +1093,10 @@ arex_card_t *arex_card_get(uint8_t order_pos)
 }
 ```
 
-#### `arex_ui_refresh_all()` 用 `arex_card_count()` 替代硬编码
+#### `ui_refresh_all()` 用 `arex_card_count()` 替代硬编码
 
 ```c
-void arex_ui_refresh_all(void)
+void ui_refresh_all(void)
 {
     for (uint8_t i = 0; i < arex_card_count(); i++) {
         arex_card_t *c = arex_card_get(i);
@@ -1108,7 +1108,7 @@ void arex_ui_refresh_all(void)
 ### 18.3 启动流程
 
 ```
-arex_ui_state_init() -> state=UI_INFO, dash_card=1, menu_info_idx=0
+ui_state_init() -> state=UI_INFO, dash_card=1, menu_info_idx=0
 UI_main() -> arex_screen_scroll_to_card(0), arex_screen_set_info_selection(0)
 ```
 启动直接进入 INFO 菜单（tile 0），等待用户操作。模拟定时器在 `UI_main()` 中创建。
@@ -1142,9 +1142,9 @@ update 阶段:
 | `arex_card_get(pos)` | card_registry.c | 按位置取卡片（走 card_order[] 间接层） |
 | `arex_card_get_by_id(id)` | card_registry.c | 按 ID 取卡片（不走间接层） |
 | `g_sys_card_order(pos)` | ui_engine.c | 通过 card_order[] 查询卡片 ID |
-| `arex_ui_refresh_all()` | ui_state.c | 遍历所有卡片执行 update 回调 |
-| `arex_ui_update_data()` | ui_engine.c | 空钩子，供未来扩展数据更新逻辑 |
-| `arex_ui_state_init()` | ui_state.c | 初始化 UI 上下文，启动 state=UI_INFO |
+| `ui_refresh_all()` | ui_state.c | 遍历所有卡片执行 update 回调 |
+| `ui_update_data()` | ui_engine.c | 空钩子，供未来扩展数据更新逻辑 |
+| `ui_state_init()` | ui_state.c | 初始化 UI 上下文，启动 state=UI_INFO |
 | `arex_screen_register_info_list()` | screen.c | INFO 列表注册（由 card_info.c 调用） |
 | `arex_screen_register_setup_list()` | screen.c | SETUP 列表注册（由 card_setup.c 调用） |
 
@@ -1561,7 +1561,7 @@ arex_render_5f_custom_grid(tile, ...);            // 后画网格（row=0 的组
 - 虽然 `arex_screen_refresh_left_panel()` 有正确的刷新逻辑，但初始值应为数据总线的当前值
 
 **问题 3：POD1/POD2 初始值显示为 `210` / `195` 而非 `"--"`**
-- `ui_engine.c` 中 `arex_ui_init()` 中 `pod1_bar=210.0f`，`pod2_bar=195.0f` 为模拟值
+- `ui_engine.c` 中 `ui_init()` 中 `pod1_bar=210.0f`，`pod2_bar=195.0f` 为模拟值
 - 下水后 POD 未连接时应显示 `"--"`
 - 渲染层直接 `snprintf("%.0f")` 输出数字，无 0 值判断
 
@@ -1696,9 +1696,9 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
 | 2026-04-24 | `ui_engine.h` | `arex_sensor_data_t` 增加 `dirty_mask` 字段；新增 `arex_dirty_bit_t` 脏标记枚举；声明 Data Bus Setter + UI Consumer |
 | 2026-04-24 | `data.h` | 彻底重构为 Data Bus 硬件写入接口层；`arex_bus_set_*()` 系列声明 |
 | 2026-04-24 | `data.c` | 新建文件；实现全部 `arex_bus_set_*()` Setter，含防抖阈值 |
-| 2026-04-24 | `ui_engine.c` | 实现 `arex_ui_update_task()` 集中消费任务；`screen.h` include |
-| 2026-04-24 | `UI_main.c` | `sim_tick_cb` 全部改用 `arex_bus_set_*()`；撤销直接 `g_sensor_data` 写入；撤销 `arex_ui_refresh_all()` |
-| 2026-04-24 | `UI_main.c` | `arex_ui_update_task(50ms)` 驱动 UI 渲染；`sim_tick_cb(1Hz)` 驱动数据写入 |
+| 2026-04-24 | `ui_engine.c` | 实现 `ui_update_task()` 集中消费任务；`screen.h` include |
+| 2026-04-24 | `UI_main.c` | `sim_tick_cb` 全部改用 `arex_bus_set_*()`；撤销直接 `g_sensor_data` 写入；撤销 `ui_refresh_all()` |
+| 2026-04-24 | `UI_main.c` | `ui_update_task(50ms)` 驱动 UI 渲染；`sim_tick_cb(1Hz)` 驱动数据写入 |
 | 2026-04-24 | `card_registry.h` | 新增所有卡片 update forward 声明 |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 26 |
 
@@ -1711,13 +1711,13 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
 ```
 硬件工程  ──arex_bus_set_*()──→  g_sensor_data (dirty_mask)
                                           │
-                              arex_ui_update_task() (50ms lv_timer)
+                              ui_update_task() (50ms lv_timer)
                                           │
                                 按脏标记按需刷新 UI
 ```
 
 - **硬件工程层**：只能调用 `arex_bus_set_*()` 系列函数。禁止直接写 `g_sensor_data`，禁止包含任何 LVGL 代码头
-- **UI 工程层**：只能修改 `arex_ui_update_task()` 消费者函数。禁止绕过消费任务直接操作 LVGL
+- **UI 工程层**：只能修改 `ui_update_task()` 消费者函数。禁止绕过消费任务直接操作 LVGL
 - **两者通过 `g_sensor_data.dirty_mask` 完全解耦**。
 
 ### 26.2 脏标记位枚举
@@ -1771,7 +1771,7 @@ void arex_bus_clear_all_dirty(void);
 
 ```c
 // 由 lv_timer 驱动，50ms 周期，~20 FPS
-void arex_ui_update_task(lv_timer_t *timer)
+void ui_update_task(lv_timer_t *timer)
 {
     uint32_t mask = g_sensor_data.dirty_mask;
     if (mask == DIRTY_NONE) return;
@@ -1801,7 +1801,7 @@ void arex_ui_update_task(lv_timer_t *timer)
 | 定时器 | 周期 | 职责 |
 |-------|------|------|
 | `sim_tick_cb` | 1Hz | 硬件数据写入，通过 `arex_bus_set_*()` 打脏标记 |
-| `arex_ui_update_task` | 50ms | UI 消费任务，按脏标记按需刷新 LVGL |
+| `ui_update_task` | 50ms | UI 消费任务，按脏标记按需刷新 LVGL |
 
 ### 26.6 Placeholder 占位符机制
 
@@ -1847,7 +1847,7 @@ if (fabsf(g_sensor_data.xxx - val) > threshold
 | 2026-04-24 | `ui_engine.h` | `arex_sensor_data_t` 增加 `dirty_mask`；新增 `arex_dirty_bit_t` 枚举；声明 Setter + Consumer |
 | 2026-04-24 | `data.h` | 彻底重构为 Data Bus 接口层头文件 |
 | 2026-04-24 | `data.c` | 新建；全部 Setter 实现，含防抖逻辑 |
-| 2026-04-24 | `ui_engine.c` | 实现 `arex_ui_update_task()` 集中消费任务 |
+| 2026-04-24 | `ui_engine.c` | 实现 `ui_update_task()` 集中消费任务 |
 | 2026-04-24 | `UI_main.c` | `sim_tick_cb` 全部改用 Setter；撤销直接写入；分离两定时器 |
 | 2026-04-24 | `card_registry.h` | 卡片 update forward 声明 |
 | 2026-04-24 | `AREX_ARCH.md` | 新增 Section 26 |
@@ -2460,7 +2460,7 @@ for (c = 0; c < 2; c++) {
 | 复杂 | `WIDGET_COMPASS_1612` | (状态机专属刷新) | - |
 | 复杂 | `WIDGET_TISSUE_GF/RAW_4012` | (状态机专属刷新) | - |
 
-> **架构铁律**：复杂状态机组件（NDL_STOP/SYS/COMPASS/TISSUE）在 `arex_ui_update_task` 中有专属刷新逻辑，Data Router 仅做兜底处理。
+> **架构铁律**：复杂状态机组件（NDL_STOP/SYS/COMPASS/TISSUE）在 `ui_update_task` 中有专属刷新逻辑，Data Router 仅做兜底处理。
 
 **`arex_screen_refresh_all_widgets()` 全屏刷新接口**：
 
@@ -2580,7 +2580,7 @@ void arex_screen_refresh_all_widgets(void)
 ```
 硬件传感器/潜水算法 ──arex_bus_set_*()──▶ g_sensor_data (dirty_mask)
                                               │
-                              arex_ui_update_task() (50ms lv_timer)
+                              ui_update_task() (50ms lv_timer)
                                               │
                                     按脏标记按需刷新 LVGL UI
 ```
@@ -2620,7 +2620,7 @@ void arex_bus_set_tissues(const uint8_t tissue_pct[16])
                                                            │ dirty_mask
                                                            ▼
                                                   ┌─────────────────┐
-                                                  │ arex_ui_update_  │
+                                                  │ ui_update_  │
                                                   │ task() lv_timer  │
                                                   │ 50ms            │
                                                   └────────┬────────┘
@@ -2655,7 +2655,7 @@ void arex_bus_set_tissues(const uint8_t tissue_pct[16])
 - [ ] 定时器回调中调用 `arex_bus_set_dive_time()`、`arex_bus_set_depth()` 等
 
 **Step 5：确认 UI 消费任务正常运行**
-- [ ] `lv_timer_create(arex_ui_update_task, 50, NULL)` 在 `UI_main()` 中已启动（已实现）
+- [ ] `lv_timer_create(ui_update_task, 50, NULL)` 在 `UI_main()` 中已启动（已实现）
 - [ ] `AREX_SHOW_PLACEHOLDER_ON_INIT` 行为符合预期（上电显示 "--" 等传感器数据）
 
 **Step 6：验证临界区**
@@ -2750,7 +2750,7 @@ for (int i = start_deg; i <= end_deg; i++) {
 
 ### 31.6 UI 消费任务对接
 
-在 `ui_engine.c` 的 `arex_ui_update_task()` 中：
+在 `ui_engine.c` 的 `ui_update_task()` 中：
 
 ```c
 /* 罗盘航向 — 零内存数学引擎，触发 invalidate + 更新标签 */
@@ -2798,7 +2798,7 @@ extern lv_obj_t *s_heading_hint_lbl;
 | 2026-04-30 | `card_compass.c` | 完全重写：删除 lv_canvas + buffer，改为 `compass_tape_draw_cb()` 数学绘制引擎 |
 | 2026-04-30 | `card_compass.c` | 新增 `render_compass_custom()` 工厂函数 |
 | 2026-04-30 | `ui_engine.c` | 添加罗盘句柄外部声明 |
-| 2026-04-30 | `ui_engine.c` | `arex_ui_update_task()` 中 DIRTY_HEADING 处理改为 invalidate + 标签更新 |
+| 2026-04-30 | `ui_engine.c` | `ui_update_task()` 中 DIRTY_HEADING 处理改为 invalidate + 标签更新 |
 | 2026-04-30 | `AREX_ARCH.md` | 新增 Section 31 — 1F 罗盘零内存重构 |
 
 ---
@@ -2919,7 +2919,7 @@ void arex_bus_set_light_power(bool on) {
 
 **函数原型**：
 ```c
-void arex_ui_on_light_color_set(const char *color, const char *level);
+void ui_on_light_color_set(const char *color, const char *level);
 ```
 
 **参数**：
@@ -2930,7 +2930,7 @@ void arex_ui_on_light_color_set(const char *color, const char *level);
 
 **业务层对接示例**：
 ```c
-void arex_ui_on_light_color_set(const char *color, const char *level) {
+void ui_on_light_color_set(const char *color, const char *level) {
     uint8_t duty = 0;
     /* 解析亮度百分比 */
     if (strncmp(level, "10", 2) == 0) duty = 25;   // 10%
@@ -2961,7 +2961,7 @@ void arex_ui_on_light_color_set(const char *color, const char *level) {
 | 2026-04-30 | `screen.c` | `s_setup_titles[]` 新增 `"> LIGHT CONTROL"` |
 | 2026-04-30 | `screen.c` | `arex_screen_handle_submenu_select()` 新增 LIGHT 处理分支 |
 | 2026-04-30 | `screen.c` | 新增 `arex_bus_set_light_power()` 回调（TODO 实现） |
-| 2026-04-30 | `screen.c` | 新增 `arex_ui_on_light_color_set()` 回调（TODO 实现） |
+| 2026-04-30 | `screen.c` | 新增 `ui_on_light_color_set()` 回调（TODO 实现） |
 | 2026-04-30 | `screen.h` | 新增回调函数声明 |
 | 2026-04-30 | `screen.c` | `g_light_power_state` 全局变量管理灯光状态 |
 | 2026-04-30 | `screen.c` | 颜色子菜单通过 `nested_items_for()` 路由实现 |
@@ -3058,7 +3058,7 @@ void arex_bus_set_depth(float depth_m)
 
 ### 34.4 500ms 心跳闪烁引擎（ui_engine.c）
 
-在 `arex_ui_update_task()` 中注入闪烁逻辑，核心状态机：
+在 `ui_update_task()` 中注入闪烁逻辑，核心状态机：
 
 ```c
 {
@@ -3127,7 +3127,7 @@ void arex_bus_set_depth(float depth_m)
 | 2026-05-01 | `ui_engine.c` | 单例 `s_img_ascent_rate` 升级为 `s_img_ascent_rate[MAX_ASCENT_ICONS]` 指针数组 |
 | 2026-05-01 | `ui_engine.c` | `render_widget_by_id()` DEPTH 分支收集图标指针到数组 |
 | 2026-05-01 | `ui_engine.c` | `arex_render_5f_custom_grid()` 和 `arex_render_left_anchor_grid()` 清空数组计数器 |
-| 2026-05-01 | `ui_engine.c` | `arex_ui_update_task()` 注入 500ms 心跳闪烁引擎 |
+| 2026-05-01 | `ui_engine.c` | `ui_update_task()` 注入 500ms 心跳闪烁引擎 |
 | 2026-05-01 | `data.c` | `arex_bus_set_depth()` 速率计算前置；停留时主动清零 `ascent_rate` |
 | 2026-05-01 | `ui_engine.c` | 静止/方向切换时 level0 方向由 `s_last_direction` 决定（非 rate>=0） |
 | 2026-05-01 | `AREX_ARCH.md` | Section 34 新增 34.3 速率计算与防抖；34.4~34.6 更新 |
@@ -3263,9 +3263,9 @@ s_ndl_sub_bot    = NULL;
 }
 ```
 
-### 35.5 状态机切换逻辑（arex_ui_update_task）
+### 35.5 状态机切换逻辑（ui_update_task）
 
-在 `arex_ui_update_task()` 中注入状态机，响应 `DIRTY_NDL_STOP` / `DIRTY_DEPTH` / `DIRTY_NDL`：
+在 `ui_update_task()` 中注入状态机，响应 `DIRTY_NDL_STOP` / `DIRTY_DEPTH` / `DIRTY_NDL`：
 
 ```c
 if (s_ndl_comp != NULL && (mask & (DIRTY_NDL_STOP | DIRTY_DEPTH | DIRTY_NDL))) {
@@ -3389,7 +3389,7 @@ if (s_ndl_comp != NULL && (mask & (DIRTY_NDL_STOP | DIRTY_DEPTH | DIRTY_NDL))) {
 | 2026-05-01 | `ui_engine.h` | 新增 `arex_stop_type_t` 枚举；`arex_sensor_data_t` 新增 5 个停留状态字段 |
 | 2026-05-01 | `ui_engine.c` | 新增 `s_ndl_*` 静态句柄；`render_widget_by_id()` 拦截 WIDGET_NDL_STOP_1606 创建多形态组件 |
 | 2026-05-01 | `ui_engine.c` | `arex_render_5f_custom_grid()` / `arex_render_left_anchor_grid()` 清空 NDL 句柄 |
-| 2026-05-01 | `ui_engine.c` | `arex_ui_update_task()` 注入 NDL_STOP 状态机切换逻辑 |
+| 2026-05-01 | `ui_engine.c` | `ui_update_task()` 注入 NDL_STOP 状态机切换逻辑 |
 | 2026-05-01 | `UI_main.c` | 仿真定时器新增停留状态机测试逻辑 |
 | 2026-05-01 | `AREX_ARCH.md` | 新增 Section 35 - NDL_STOP 多形态组件与动态减压状态机 |
 | 2026-05-02 | `UI_main.c` | 重构 NDL_STOP 模拟器为"剧本"式单向状态机（阶段 A-E） |
@@ -3400,7 +3400,7 @@ if (s_ndl_comp != NULL && (mask & (DIRTY_NDL_STOP | DIRTY_DEPTH | DIRTY_NDL))) {
 
 ### 40.1 问题描述
 
-**现象**：`arex_ui_update_task` 中的 NDL 组件出现图一 → 图二 → 图三 → 图二的反复横跳乱象。
+**现象**：`ui_update_task` 中的 NDL 组件出现图一 → 图二 → 图三 → 图二的反复横跳乱象。
 
 **根因**：底层模拟数据的状态机逻辑不合理，频繁根据深度上下浮动切换 `stop_type` 枚举，导致 UI 跟着抽风。
 
@@ -3491,7 +3491,7 @@ if (s_ndl_comp != NULL && (mask & (DIRTY_NDL_STOP | DIRTY_DEPTH | DIRTY_NDL))) {
 
 ### 40.4 UI 层验证检查
 
-`ui_engine.c` 中 `arex_ui_update_task()` 的 NDL 状态机渲染逻辑：
+`ui_engine.c` 中 `ui_update_task()` 的 NDL 状态机渲染逻辑：
 
 ```c
 /* 标题文本分配与显隐控制 */
@@ -4386,7 +4386,7 @@ if (child_tag == (uintptr_t)WIDGET_POD_0806) {
 | 职责 | 谁来做 | 在哪做 |
 |------|--------|--------|
 | **追加轨迹点** | 模拟器/hardware tick | `sim_tick_cb` 或硬件中断回调 |
-| **刷新图表** | UI 引擎 (`arex_ui_update_task`) | 集中消费 `DIRTY_TRAJECTORY` |
+| **刷新图表** | UI 引擎 (`ui_update_task`) | 集中消费 `DIRTY_TRAJECTORY` |
 
 ### 42.2 正确调用方式
 
@@ -4420,7 +4420,7 @@ static void sim_tick_cb(lv_timer_t *t)
 引擎中的 `DIRTY_TRAJECTORY` 处理受 `AREX_DECO_REFRESH_MS`（`ui_engine.h`）节流保护：
 
 ```c
-// ui_engine.c  arex_ui_update_task()
+// ui_engine.c  ui_update_task()
 if (mask & DIRTY_TRAJECTORY) {
     uint32_t now = lv_tick_get();
 #if AREX_DECO_REFRESH_MS > 0

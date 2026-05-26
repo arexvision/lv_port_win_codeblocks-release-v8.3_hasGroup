@@ -8,9 +8,9 @@
 #endif
 
 extern "C" {
-#include "../arex_ui/core/data.h"
-#include "../arex_ui/core/ui_engine.h"
-#include "../arex_ui/core/ui_state.h"
+#include "../ui/core/data.h"
+#include "../ui/core/ui_engine.h"
+#include "../ui/core/ui_state.h"
 }
 
 #include <math.h>

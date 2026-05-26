@@ -1,6 +1,6 @@
-# arex_algo_sim
+# algo_sim
 
-`arex_algo_sim` 是 PC 调试用算法接入层。
+`algo_sim` 是 PC 调试用算法接入层。
 
 ## 文件职责
 
