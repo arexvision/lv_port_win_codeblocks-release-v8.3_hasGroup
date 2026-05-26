@@ -13,5 +13,5 @@
 ## 边界
 
 - 这里不直接操作 LVGL 对象。
-- 对 UI 的输出统一走 `arex_bus_set_*()` / `arex_bus_update_deco()`。
+- 对 UI 的输出统一走 `bus_set_*()` / `bus_update_deco()`。
 - 真机移植时，应由真实算法任务替换 `buhlmann_debug_tick()` 的 PC tick 驱动。

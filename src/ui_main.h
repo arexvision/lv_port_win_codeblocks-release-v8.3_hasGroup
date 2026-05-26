@@ -1,5 +1,5 @@
-#ifndef AREX_UI_MAIN_H
-#define AREX_UI_MAIN_H
+#ifndef UI_MAIN_H
+#define UI_MAIN_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,4 +28,4 @@ void UI_main(void);
 }
 #endif
 
-#endif /* AREX_UI_MAIN_H */
+#endif /* UI_MAIN_H */

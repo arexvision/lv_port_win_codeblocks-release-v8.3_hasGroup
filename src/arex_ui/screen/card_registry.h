@@ -1,5 +1,5 @@
-#ifndef AREX_CARD_REGISTRY_H
-#define AREX_CARD_REGISTRY_H
+#ifndef CARD_REGISTRY_H
+#define CARD_REGISTRY_H
 
 #include "lvgl/lvgl.h"
 #include <stdint.h>
@@ -22,7 +22,7 @@ typedef enum
     CARD_ID_BLANK        = 6,   /* 空白卡片 */
     CARD_ID_SETUP        = 7,
     CARD_ID_COUNT
-} arex_card_id_t;
+} card_id_t;
 
 
 /* 未使用的槽位标记（不等于任何有效卡片ID） */
@@ -42,7 +42,7 @@ typedef enum
     CARD_POS_DYNAMIC_FIRST = 1,
     CARD_POS_SETUP         = CARD_POS_DYNAMIC_FIRST + MAX_DYNAMIC_SLOTS,
     CARD_POS_COUNT
-} arex_card_pos_t;
+} card_pos_t;
 
 #define CARD_POS_1   (CARD_POS_DYNAMIC_FIRST + 0)
 #define CARD_POS_2   (CARD_POS_DYNAMIC_FIRST + 1)
@@ -64,11 +64,11 @@ typedef enum
    ========================================= */
 typedef enum
 {
-    CARD_ENGINE_MENU   = 0,   /* arex_render_dynamic_menu()   */
-    CARD_ENGINE_GRID   = 1,   /* arex_render_5f_custom_grid() */
+    CARD_ENGINE_MENU   = 0,   /* render_dynamic_menu()   */
+    CARD_ENGINE_GRID   = 1,   /* render_5f_custom_grid() */
     CARD_ENGINE_CHART  = 2,   /* reserved */
     CARD_ENGINE_CUSTOM = 3,   /* create_cb() full control     */
-} arex_card_engine_t;
+} card_engine_t;
 
 /* =========================================
    Unified card descriptor — one entry per card.
@@ -77,26 +77,26 @@ typedef enum
    ========================================= */
 typedef struct
 {
-    arex_card_id_t      id;
+    card_id_t      id;
     const char         *title;
-    arex_card_engine_t  engine_type;
-    const void         *config_data;         /* arex_menu_list_cfg_t* for MENU engine */
+    card_engine_t  engine_type;
+    const void         *config_data;         /* menu_list_cfg_t* for MENU engine */
     lv_obj_t           *tile_obj;            /* filled at runtime */
     void (*create_cb)(lv_obj_t *parent);
     void (*update_cb)(void);
     void (*on_enter_cb)(void);
-} arex_card_t;
+} card_t;
 
 /* =========================================
    Registry API
    ========================================= */
-uint8_t      arex_card_count(void);
-uint8_t      arex_visible_dash_count(void);
-uint8_t      arex_setup_display_pos(void);
-uint8_t      arex_card_storage_pos(uint8_t display_pos);
-uint8_t      arex_card_id_at(uint8_t display_pos);
-arex_card_t *arex_card_get(uint8_t order_pos);
-arex_card_t *arex_card_get_by_id(arex_card_id_t id);
+uint8_t      card_count(void);
+uint8_t      visible_dash_count(void);
+uint8_t      setup_display_pos(void);
+uint8_t      card_storage_pos(uint8_t display_pos);
+uint8_t      card_id_at(uint8_t display_pos);
+card_t *card_get(uint8_t order_pos);
+card_t *card_get_by_id(card_id_t id);
 
 /* Card update forward declarations (defined in respective card_*.c) */
 void card_info_update(void);
@@ -112,4 +112,4 @@ void card_setup_update(void);
 #endif
 
 
-#endif /* AREX_CARD_REGISTRY_H */
+#endif /* CARD_REGISTRY_H */

@@ -17,17 +17,17 @@
 #define CHART_PAD   10
 
 /* ============================================================
- * 潜水轨迹与减压停留（定义，共享给 arex_dive_log_append 追加点）
+ * 潜水轨迹与减压停留（定义，共享给 dive_log_append 追加点）
  * ============================================================ */
-arex_dive_pt_t   g_dive_log[MAX_DIVE_LOG];
+dive_pt_t   g_dive_log[MAX_DIVE_LOG];
 uint16_t         g_dive_log_count;
-arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
+deco_stop_t g_deco_stops[MAX_DECO_STOPS];
 uint16_t         g_deco_stop_count;
 
 /* 满 200 点后压掉最接近直线的内部点，保留明显转折，避免轨迹失真。 */
-static float dive_log_triangle_area(const arex_dive_pt_t *a,
-                                    const arex_dive_pt_t *b,
-                                    const arex_dive_pt_t *c)
+static float dive_log_triangle_area(const dive_pt_t *a,
+                                    const dive_pt_t *b,
+                                    const dive_pt_t *c)
 {
     float ab_t = b->time_s - a->time_s;
     float ab_d = b->depth_m - a->depth_m;
@@ -78,7 +78,7 @@ static bool dive_log_make_room_for(float current_time_s, float current_depth_m)
         }
     }
 
-    arex_dive_pt_t next =
+    dive_pt_t next =
     {
         .time_s = current_time_s,
         .depth_m = current_depth_m
@@ -99,7 +99,7 @@ static bool dive_log_make_room_for(float current_time_s, float current_depth_m)
 /* ============================================================
  * 历史轨迹推流接口（供 data.h 导出，外部 1Hz 定时器调用）
  * ============================================================ */
-void arex_dive_log_append(float current_time_s, float current_depth_m)
+void dive_log_append(float current_time_s, float current_depth_m)
 {
     if (current_time_s < 0.0f)
     {
@@ -108,7 +108,7 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
 
     if (g_dive_log_count > 0)
     {
-        arex_dive_pt_t *last = &g_dive_log[g_dive_log_count - 1];
+        dive_pt_t *last = &g_dive_log[g_dive_log_count - 1];
 
         /* 丢弃回退时间点，避免旧缓存/跨线程时序异常污染轨迹 */
         if (current_time_s < last->time_s)
@@ -138,7 +138,7 @@ void arex_dive_log_append(float current_time_s, float current_depth_m)
     }
 }
 
-void arex_dive_log_reset(void)
+void dive_log_reset(void)
 {
     g_dive_log_count = 0;
     g_deco_stop_count = 0;
@@ -150,11 +150,11 @@ void arex_dive_log_reset(void)
 static void init_test_data(void)
 {
     /* 清空历史轨迹，每次启动都是从零生长 */
-    arex_dive_log_reset();
+    dive_log_reset();
 
     /* 算法预测的未来减压路线：默认最终减压站为 6m */
     g_deco_stop_count = 1;
-    g_deco_stops[0] = (arex_deco_stop_t)
+    g_deco_stops[0] = (deco_stop_t)
     {
         .depth_m = 6.0f, .stay_min = 3.0f
     };
@@ -296,7 +296,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
     lv_draw_line_dsc_init(&line_dsc);
     lv_draw_label_dsc_t txt_dsc;
     lv_draw_label_dsc_init(&txt_dsc);
-    txt_dsc.font = arex_get_font(FONT_ID_SMALL);
+    txt_dsc.font = get_font(FONT_ID_SMALL);
     txt_dsc.color = GREEN;
 
     /* ==========================================
@@ -374,7 +374,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
      * ========================================== */
     lv_draw_label_dsc_t unit_dsc;
     lv_draw_label_dsc_init(&unit_dsc);
-    unit_dsc.font = arex_get_font(FONT_ID_SMALL);
+    unit_dsc.font = get_font(FONT_ID_SMALL);
     unit_dsc.color = LIGHT;
     unit_dsc.opa = 191;
 
@@ -527,7 +527,7 @@ static lv_obj_t *s_chart_obj;
 
 void card_plan_create(lv_obj_t *parent)
 {
-    arex_render_card_title(parent, "DIVE PLAN TRACK");
+    render_card_title(parent, "DIVE PLAN TRACK");
 
     init_test_data();
 

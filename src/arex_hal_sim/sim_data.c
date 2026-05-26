@@ -6,22 +6,22 @@
 #ifndef PC_SIMULATOR
 #define PC_SIMULATOR
 #endif
-#define AREX_DEBUG_LINK_PC_IMPLEMENTATION
+#define DEBUG_LINK_PC_IMPLEMENTATION
 #include "debug_link_pc.h"
 #include "lvgl/lvgl.h"
 
 #include <stdbool.h>
 #include <string.h>
 
-#ifndef AREX_TCP_ALGO_DEBUG
-#define AREX_TCP_ALGO_DEBUG 1
+#ifndef TCP_ALGO_DEBUG
+#define TCP_ALGO_DEBUG 1
 #endif
 
 static lv_timer_t *s_sim_timer;
 static lv_timer_t *s_l1_alarm_timer;
 
-#define AREX_SIM_LAYOUT_PHASE_COUNT 3U
-#define AREX_SIM_LAYOUT_SWITCH_TICKS 5U
+#define SIM_LAYOUT_PHASE_COUNT 3U
+#define SIM_LAYOUT_SWITCH_TICKS 5U
 
 typedef struct
 {
@@ -41,9 +41,9 @@ typedef struct
     uint8_t depth_phase;
     float rate_sample_depth_m;
     bool rate_sample_valid;
-} arex_sim_state_t;
+} sim_state_t;
 
-static arex_sim_state_t s_sim = {
+static sim_state_t s_sim = {
     .heading_deg = 0,
     .dive_time_s = 0,
     .surface_time_s = 0,
@@ -62,7 +62,7 @@ static arex_sim_state_t s_sim = {
     .rate_sample_valid = false,
 };
 
-static float arex_sim_calc_ppo2(uint8_t o2_pct, float depth_m)
+static float sim_calc_ppo2(uint8_t o2_pct, float depth_m)
 {
     float ambient_bar = 1.0f + (depth_m / 10.0f);
     if (ambient_bar < 1.0f) {
@@ -71,72 +71,72 @@ static float arex_sim_calc_ppo2(uint8_t o2_pct, float depth_m)
     return ((float)o2_pct / 100.0f) * ambient_bar;
 }
 
-static void arex_sim_seed_original_defaults(void)
+static void sim_seed_original_defaults(void)
 {
-    arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
-    arex_bus_set_gas_slot(1, "", 0, 0, 0.0f);
-    arex_bus_set_gas_slot(2, "", 0, 0, 0.0f);
-    arex_bus_set_gas_slot_count(1);
-    arex_bus_set_gas(0, "AIR");
-    arex_bus_set_pod(0, 200.0f);
-    arex_bus_set_pod(1, 185.0f);
-    arex_bus_set_gf_setting(30, 70);
-    arex_bus_set_surf_gf(85.0f);
-    arex_bus_set_gf99(42.0f);
-    arex_bus_set_mod(33.0f);
-    arex_bus_set_ceiling(0.0f);
-    arex_bus_set_gas_mix(21, 0);
-    arex_bus_set_gas_density(5.2f);
-    arex_bus_set_fio2(21.0f);
+    bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
+    bus_set_gas_slot(1, "", 0, 0, 0.0f);
+    bus_set_gas_slot(2, "", 0, 0, 0.0f);
+    bus_set_gas_slot_count(1);
+    bus_set_gas(0, "AIR");
+    bus_set_pod(0, 200.0f);
+    bus_set_pod(1, 185.0f);
+    bus_set_gf_setting(30, 70);
+    bus_set_surf_gf(85.0f);
+    bus_set_gf99(42.0f);
+    bus_set_mod(33.0f);
+    bus_set_ceiling(0.0f);
+    bus_set_gas_mix(21, 0);
+    bus_set_gas_density(5.2f);
+    bus_set_fio2(21.0f);
 }
 
-#if AREX_TCP_ALGO_DEBUG
-static void arex_sim_seed_tcp_algo_defaults(void)
+#if TCP_ALGO_DEBUG
+static void sim_seed_tcp_algo_defaults(void)
 {
-    arex_bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
-    arex_bus_set_gas_slot(1, "", 0, 0, 0.0f);
-    arex_bus_set_gas_slot(2, "", 0, 0, 0.0f);
-    arex_bus_set_gas_slot_count(1);
-    arex_bus_set_gas(0, "AIR");
-    arex_bus_set_pod(0, 200.0f);
-    arex_bus_set_pod(1, 185.0f);
-    arex_bus_set_gf_setting(30, 70);
-    arex_bus_set_surf_gf(0.0f);
-    arex_bus_set_gf99(0.0f);
-    arex_bus_set_mod(56.0f);
-    arex_bus_set_ceiling(0.0f);
-    arex_bus_set_gas_mix(21, 0);
-    arex_bus_set_gas_density(1.2f);
-    arex_bus_set_fio2(21.0f);
-    arex_bus_update_deco(99, STOP_NONE, 0.0f, 0U, 0U, false);
+    bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
+    bus_set_gas_slot(1, "", 0, 0, 0.0f);
+    bus_set_gas_slot(2, "", 0, 0, 0.0f);
+    bus_set_gas_slot_count(1);
+    bus_set_gas(0, "AIR");
+    bus_set_pod(0, 200.0f);
+    bus_set_pod(1, 185.0f);
+    bus_set_gf_setting(30, 70);
+    bus_set_surf_gf(0.0f);
+    bus_set_gf99(0.0f);
+    bus_set_mod(56.0f);
+    bus_set_ceiling(0.0f);
+    bus_set_gas_mix(21, 0);
+    bus_set_gas_density(1.2f);
+    bus_set_fio2(21.0f);
+    bus_update_deco(99, STOP_NONE, 0.0f, 0U, 0U, false);
 }
 
-static void arex_sim_reset_for_tcp_debug(void)
+static void sim_reset_for_tcp_debug(void)
 {
     memset(&s_sim, 0, sizeof(s_sim));
     s_sim.battery_pct = 86.0f;
     s_sim.temperature_c = 25.0f;
 
-    arex_data_init();
-    arex_dive_log_reset();
-    arex_bus_set_depth(0.0f);
-    arex_bus_set_ascent_rate(0.0f);
-    arex_bus_set_dive_time(0U);
-    arex_bus_set_surface_time(0U);
-    arex_bus_set_battery(s_sim.battery_pct);
-    arex_bus_set_temperature(s_sim.temperature_c);
-    arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
-    arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
-    arex_sim_seed_tcp_algo_defaults();
+    data_init();
+    dive_log_reset();
+    bus_set_depth(0.0f);
+    bus_set_ascent_rate(0.0f);
+    bus_set_dive_time(0U);
+    bus_set_surface_time(0U);
+    bus_set_battery(s_sim.battery_pct);
+    bus_set_temperature(s_sim.temperature_c);
+    bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
+    bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+    sim_seed_tcp_algo_defaults();
     buhlmann_debug_reset();
 
-    arex_bus_requeue_dirty(0xFFFFFFFFU);
+    bus_requeue_dirty(0xFFFFFFFFU);
 }
 #endif
 
-static void arex_test_set_ui_layout(uint8_t phase)
+static void test_set_ui_layout(uint8_t phase)
 {
-    static arex_ble_ui_sync_payload_t s_payload;
+    static ble_ui_sync_payload_t s_payload;
     static const uint8_t s_default_card_order[8] = {
         CARD_ID_COMPASS,
         CARD_ID_DECO,
@@ -159,7 +159,7 @@ static void arex_test_set_ui_layout(uint8_t phase)
     };
 
     memset(&s_payload, 0, sizeof(s_payload));
-    s_payload.version = AREX_BLE_CFG_VERSION;
+    s_payload.version = BLE_CFG_VERSION;
     memcpy(s_payload.card_order,
            (phase == 2U) ? s_multi_custom_card_order : s_default_card_order,
            sizeof(s_payload.card_order));
@@ -236,10 +236,10 @@ static void arex_test_set_ui_layout(uint8_t phase)
         }
     }
 
-    arex_bus_set_ui_layout(&s_payload);
+    bus_set_ui_layout(&s_payload);
 }
 
-static void arex_sim_update_depth_script(void)
+static void sim_update_depth_script(void)
 {
     switch (s_sim.depth_phase) {
         case 0:
@@ -275,25 +275,25 @@ static void arex_sim_update_depth_script(void)
     }
 }
 
-static void arex_sim_update_deco_state(void)
+static void sim_update_deco_state(void)
 {
     if (s_sim.depth_m < 10.0f) {
-        arex_bus_update_deco(45, STOP_NONE, 0.0f, 0, 0, false);
+        bus_update_deco(45, STOP_NONE, 0.0f, 0, 0, false);
         return;
     }
 
     if (s_sim.depth_phase == 1U) {
-        arex_bus_update_deco(12, STOP_SAFETY, 5.0f, 180, 180, false);
+        bus_update_deco(12, STOP_SAFETY, 5.0f, 180, 180, false);
         return;
     }
 
     if (s_sim.depth_phase == 2U && s_sim.depth_m <= 6.5f) {
         uint16_t left_s = (s_sim.phase_tick < 5U) ? (uint16_t)(180U - (s_sim.phase_tick * 30U)) : 0U;
-        arex_bus_update_deco(12, STOP_SAFETY, 5.0f, 180, left_s, true);
+        bus_update_deco(12, STOP_SAFETY, 5.0f, 180, left_s, true);
         return;
     }
 
-    arex_bus_update_deco(0, STOP_DECO, 6.0f, 300, 120, false);
+    bus_update_deco(0, STOP_DECO, 6.0f, 300, 120, false);
 }
 
 static void sim_tick_cb(lv_timer_t *t)
@@ -302,17 +302,17 @@ static void sim_tick_cb(lv_timer_t *t)
 
     (void)t;
 
-#if AREX_TCP_ALGO_DEBUG
-    if (arex_debug_link_pc_consume_connect_event()) {
-        arex_sim_reset_for_tcp_debug();
+#if TCP_ALGO_DEBUG
+    if (debug_link_pc_consume_connect_event()) {
+        sim_reset_for_tcp_debug();
     }
 
-    if (!arex_debug_link_pc_manual_mode()) {
+    if (!debug_link_pc_manual_mode()) {
         return;
     }
 
     {
-        uint16_t time_scale = arex_debug_link_pc_time_scale();
+        uint16_t time_scale = debug_link_pc_time_scale();
         for (uint16_t tick = 0; tick < time_scale; tick++) {
             if (s_sim.dive_time_s < g_sensor_data.dive_time_s) {
                 s_sim.dive_time_s = g_sensor_data.dive_time_s;
@@ -322,34 +322,34 @@ static void sim_tick_cb(lv_timer_t *t)
             }
 
             s_sim.dive_time_s++;
-            arex_bus_set_dive_time(s_sim.dive_time_s);
+            bus_set_dive_time(s_sim.dive_time_s);
 
             s_sim.surface_time_s++;
-            arex_bus_set_surface_time(s_sim.surface_time_s);
+            bus_set_surface_time(s_sim.surface_time_s);
 
             current_depth_m = g_sensor_data.depth;
             s_sim.depth_m = current_depth_m;
-            arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
+            dive_log_append((float)s_sim.dive_time_s, current_depth_m);
 
             if (s_sim.rate_sample_valid) {
-                arex_bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
+                bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
             } else {
-                arex_bus_set_ascent_rate(0.0f);
+                bus_set_ascent_rate(0.0f);
                 s_sim.rate_sample_valid = true;
             }
             s_sim.rate_sample_depth_m = current_depth_m;
 
             s_sim.battery_pct += 1.2f;
-            arex_bus_set_battery(s_sim.battery_pct);
+            bus_set_battery(s_sim.battery_pct);
 
             s_sim.temp_offset += 1.0f;
             if (s_sim.temp_offset > 5.0f) {
                 s_sim.temp_offset = -5.0f;
             }
             s_sim.temperature_c = 25.0f + s_sim.temp_offset;
-            arex_bus_set_temperature(s_sim.temperature_c);
-            arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
-            arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+            bus_set_temperature(s_sim.temperature_c);
+            bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
+            bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
 
             buhlmann_debug_tick(current_depth_m, s_sim.temperature_c, 1U);
         }
@@ -358,13 +358,13 @@ static void sim_tick_cb(lv_timer_t *t)
 #endif
 
     if (s_sim.layout_tick == 0U) {
-        arex_test_set_ui_layout(s_sim.layout_phase);
-        s_sim.layout_phase = (uint8_t)((s_sim.layout_phase + 1U) % AREX_SIM_LAYOUT_PHASE_COUNT);
+        test_set_ui_layout(s_sim.layout_phase);
+        s_sim.layout_phase = (uint8_t)((s_sim.layout_phase + 1U) % SIM_LAYOUT_PHASE_COUNT);
     }
-    s_sim.layout_tick = (uint16_t)((s_sim.layout_tick + 1U) % AREX_SIM_LAYOUT_SWITCH_TICKS);
+    s_sim.layout_tick = (uint16_t)((s_sim.layout_tick + 1U) % SIM_LAYOUT_SWITCH_TICKS);
 
     s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
-    arex_bus_set_heading(s_sim.heading_deg);
+    bus_set_heading(s_sim.heading_deg);
 
     if (s_sim.dive_time_s < g_sensor_data.dive_time_s) {
         s_sim.dive_time_s = g_sensor_data.dive_time_s;
@@ -374,59 +374,59 @@ static void sim_tick_cb(lv_timer_t *t)
     }
 
     s_sim.dive_time_s++;
-    arex_bus_set_dive_time(s_sim.dive_time_s);
+    bus_set_dive_time(s_sim.dive_time_s);
 
     s_sim.surface_time_s++;
-    arex_bus_set_surface_time(s_sim.surface_time_s);
+    bus_set_surface_time(s_sim.surface_time_s);
 
-    arex_sim_update_depth_script();
-    arex_sim_update_deco_state();
+    sim_update_depth_script();
+    sim_update_deco_state();
     current_depth_m = s_sim.depth_m;
-    arex_dive_log_append((float)s_sim.dive_time_s, current_depth_m);
-    arex_bus_set_depth(current_depth_m);
+    dive_log_append((float)s_sim.dive_time_s, current_depth_m);
+    bus_set_depth(current_depth_m);
 
     if (s_sim.rate_sample_valid) {
-        arex_bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
+        bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
     } else {
-        arex_bus_set_ascent_rate(0.0f);
+        bus_set_ascent_rate(0.0f);
         s_sim.rate_sample_valid = true;
     }
     s_sim.rate_sample_depth_m = current_depth_m;
 
     s_sim.battery_pct += 1.2f;
-    arex_bus_set_battery(s_sim.battery_pct);
+    bus_set_battery(s_sim.battery_pct);
 
     s_sim.temp_offset += 1.0f;
     if (s_sim.temp_offset > 5.0f) {
         s_sim.temp_offset = -5.0f;
     }
     s_sim.temperature_c = 25.0f + s_sim.temp_offset;
-    arex_bus_set_temperature(s_sim.temperature_c);
-    arex_bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
-    arex_bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+    bus_set_temperature(s_sim.temperature_c);
+    bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
+    bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
 
     if (current_depth_m > 12.0f) {
-        arex_deco_stop_t sim_stops[] = {
+        deco_stop_t sim_stops[] = {
             { .depth_m = 9.0f, .stay_min = 2.0f },
             { .depth_m = 6.0f, .stay_min = 3.0f },
             { .depth_m = 3.0f, .stay_min = 1.0f },
         };
-        arex_bus_set_deco_plan(sim_stops, 3);
+        bus_set_deco_plan(sim_stops, 3);
     }
 
     s_sim.tts_min++;
-    arex_bus_set_tts(s_sim.tts_min);
+    bus_set_tts(s_sim.tts_min);
 
     if (s_sim.cns_pct < 100U) {
         s_sim.cns_pct++;
-        arex_bus_set_cns(s_sim.cns_pct);
+        bus_set_cns(s_sim.cns_pct);
     }
 
     s_sim.otu++;
-    arex_bus_set_otu(s_sim.otu);
+    bus_set_otu(s_sim.otu);
 
     for (uint8_t i = 0; i < GAS_COUNT; i++) {
-        arex_bus_set_ppo2(i, arex_sim_calc_ppo2(g_sensor_data.gas_slot_o2_pct[i], current_depth_m));
+        bus_set_ppo2(i, sim_calc_ppo2(g_sensor_data.gas_slot_o2_pct[i], current_depth_m));
     }
 
     {
@@ -434,27 +434,27 @@ static void sim_tick_cb(lv_timer_t *t)
             20, 30, 40, 50, 60, 65, 70, 72,
             74, 76, 78, 80, 82, 85, 88, 90
         };
-        arex_bus_set_tissues(s_tissue);
+        bus_set_tissues(s_tissue);
     }
 }
 
 static void sim_l1_alarm_timer_cb(lv_timer_t *t)
 {
-    arex_alarm_set_active(AREX_ALARM_ID_INFO_SAFETY_STOP, true);
+    alarm_set_active(ALARM_ID_INFO_SAFETY_STOP, true);
     s_l1_alarm_timer = NULL;
     lv_timer_del(t);
 }
 
-void arex_sim_data_start(void)
+void sim_data_start(void)
 {
     if (s_sim_timer != NULL) {
         return;
     }
 
-#if AREX_TCP_ALGO_DEBUG
-    arex_debug_link_pc_start();
+#if TCP_ALGO_DEBUG
+    debug_link_pc_start();
 #else
-    arex_sim_seed_original_defaults();
+    sim_seed_original_defaults();
 #endif
 
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);

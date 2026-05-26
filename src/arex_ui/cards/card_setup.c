@@ -8,12 +8,12 @@
 #include <stdio.h>
 #include <string.h>
 
-void arex_screen_register_setup_list(lv_obj_t *list);
+void screen_register_setup_list(lv_obj_t *list);
 
 /* =========================================================
  * DIVE SETUP 配置数据 (APP 同步就绪)
  * ========================================================= */
-static const arex_menu_item_cfg_t s_setup_items[] =
+static const menu_item_cfg_t s_setup_items[] =
 {
     /*  title_text,          badge,       title_font,       val_font,       border, height_u */
     { "GAS SWITCH",    NULL,         FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
@@ -25,7 +25,7 @@ static const arex_menu_item_cfg_t s_setup_items[] =
 };
 #define SETUP_ITEM_COUNT (sizeof(s_setup_items) / sizeof(s_setup_items[0]))
 
-const arex_menu_list_cfg_t setup_menu_cfg =
+const menu_list_cfg_t setup_menu_cfg =
 {
     .items = s_setup_items,
     .count = SETUP_ITEM_COUNT,
@@ -39,7 +39,7 @@ static lv_obj_t *s_setup_badge_lbls[SETUP_ITEM_COUNT];
 
 void card_setup_create(lv_obj_t *parent)
 {
-    arex_render_card_title(parent, "DIVE MENU");
+    render_card_title(parent, "DIVE MENU");
 
     int right_canvas_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
                          - ((int)g_sys_config.gap_u * BASE_U);
@@ -59,7 +59,7 @@ void card_setup_create(lv_obj_t *parent)
     lv_obj_clear_flag(s_list, LV_OBJ_FLAG_SCROLLABLE);
 
     /* 通用动态菜单工厂统一渲染 */
-    arex_render_dynamic_menu(s_list, s_setup_items, SETUP_ITEM_COUNT, 0, s_setup_item_objs);
+    render_dynamic_menu(s_list, s_setup_items, SETUP_ITEM_COUNT, 0, s_setup_item_objs);
 
     /* 填充 badge 句柄数组: child 0=title label, child 1=badge label */
     for (uint8_t i = 0; i < SETUP_ITEM_COUNT; i++)
@@ -69,7 +69,7 @@ void card_setup_create(lv_obj_t *parent)
 
     /* 首次创建后立即按当前系统配置刷新 badge，避免默认文案与实际亮度档位短暂不一致。 */
     card_setup_update();
-    arex_screen_register_setup_list(s_list);
+    screen_register_setup_list(s_list);
 }
 
 void card_setup_update(void)
@@ -77,30 +77,30 @@ void card_setup_update(void)
     if (!s_list) return;
 
     static const char *cal_str[]   = { "AUTO", "LEARN", "OK" };
-    static arex_compass_cal_ui_state_t last_cal_state = AREX_COMPASS_CAL_IDLE;
+    static compass_cal_ui_state_t last_cal_state = COMPASS_CAL_IDLE;
 
     uint8_t cons = g_sys_config.conservatism;
     uint8_t brt  = g_sys_config.brightness;
-    arex_compass_cal_ui_state_t cal_state = arex_get_compass_calibration_ui_state();
+    compass_cal_ui_state_t cal_state = get_compass_calibration_ui_state();
 
     if (s_setup_badge_lbls[1])
     {
-        lv_label_set_text(s_setup_badge_lbls[1], arex_submenu_conservatism_badge(cons));
+        lv_label_set_text(s_setup_badge_lbls[1], submenu_conservatism_badge(cons));
     }
     if (s_setup_badge_lbls[2])
     {
-        lv_label_set_text(s_setup_badge_lbls[2], arex_submenu_brightness_badge(brt));
+        lv_label_set_text(s_setup_badge_lbls[2], submenu_brightness_badge(brt));
     }
     if (s_setup_badge_lbls[3])
     {
         uint8_t idx = 0;
-        if (cal_state == AREX_COMPASS_CAL_RUNNING) idx = 1;
-        else if (cal_state == AREX_COMPASS_CAL_READY) idx = 2;
+        if (cal_state == COMPASS_CAL_RUNNING) idx = 1;
+        else if (cal_state == COMPASS_CAL_READY) idx = 2;
         lv_label_set_text(s_setup_badge_lbls[3], cal_str[idx]);
     }
     if (cal_state != last_cal_state)
     {
         last_cal_state = cal_state;
-        arex_screen_refresh_compass_cal_submenu_if_open();
+        screen_refresh_compass_cal_submenu_if_open();
     }
 }

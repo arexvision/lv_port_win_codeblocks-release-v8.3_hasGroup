@@ -29,8 +29,8 @@ void card_setup_create(lv_obj_t *parent);
 void card_setup_update(void);
 
 /* 菜单配置（INFO/SETUP 两个菜单卡片使用） */
-extern const arex_menu_list_cfg_t info_menu_cfg;
-extern const arex_menu_list_cfg_t setup_menu_cfg;
+extern const menu_list_cfg_t info_menu_cfg;
+extern const menu_list_cfg_t setup_menu_cfg;
 
 /**
  * @brief 全局卡片注册表
@@ -41,7 +41,7 @@ extern const arex_menu_list_cfg_t setup_menu_cfg;
  * @note CARD_ID_CUSTOM_GRID 的 create_cb/update_cb 为 NULL，
  *       因为 GRID 引擎由 screen.c 的 switch 分支直接调度，不走回调。
  */
-static arex_card_t g_cards[CARD_ID_COUNT] =
+static card_t g_cards[CARD_ID_COUNT] =
 {
     [CARD_ID_INFO] = {
         .id          = CARD_ID_INFO,
@@ -125,7 +125,7 @@ static arex_card_t g_cards[CARD_ID_COUNT] =
     },
 };
 
-static uint8_t arex_dynamic_card_count_all(void)
+static uint8_t dynamic_card_count_all(void)
 {
     uint8_t count = 0;
     for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; ++pos)
@@ -147,7 +147,7 @@ static uint8_t arex_dynamic_card_count_all(void)
  *
  * @return 有效动态卡片数量（1~MAX_DYNAMIC_SLOTS）
  */
-uint8_t arex_visible_dash_count(void)
+uint8_t visible_dash_count(void)
 {
     uint8_t count = 0;
     for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < CARD_POS_SETUP; ++pos)
@@ -169,9 +169,9 @@ uint8_t arex_visible_dash_count(void)
  *
  * @return SETUP 在 display_pos 序列中的索引
  */
-uint8_t arex_setup_display_pos(void)
+uint8_t setup_display_pos(void)
 {
-    return (uint8_t)(CARD_POS_DYNAMIC_FIRST + arex_dynamic_card_count_all());
+    return (uint8_t)(CARD_POS_DYNAMIC_FIRST + dynamic_card_count_all());
 }
 
 /**
@@ -181,9 +181,9 @@ uint8_t arex_setup_display_pos(void)
  *
  * @return 总卡片数量
  */
-uint8_t arex_card_count(void)
+uint8_t card_count(void)
 {
-    return (uint8_t)(arex_setup_display_pos() + 1);
+    return (uint8_t)(setup_display_pos() + 1);
 }
 
 /**
@@ -197,9 +197,9 @@ uint8_t arex_card_count(void)
  * @param display_pos 用户看到的卡片索引
  * @return storage_pos card_order[] 数组索引，0xFF 表示无效位置
  */
-uint8_t arex_card_storage_pos(uint8_t display_pos)
+uint8_t card_storage_pos(uint8_t display_pos)
 {
-    uint8_t setup_pos = arex_setup_display_pos();
+    uint8_t setup_pos = setup_display_pos();
 
     if (display_pos == CARD_POS_INFO)
     {
@@ -223,9 +223,9 @@ uint8_t arex_card_storage_pos(uint8_t display_pos)
  * @param display_pos 用户看到的卡片索引
  * @return 卡片 ID (CARD_ID_*)，CARD_ID_UNUSED 表示无效
  */
-uint8_t arex_card_id_at(uint8_t display_pos)
+uint8_t card_id_at(uint8_t display_pos)
 {
-    uint8_t storage_pos = arex_card_storage_pos(display_pos);
+    uint8_t storage_pos = card_storage_pos(display_pos);
     if (storage_pos == 0xFF)
     {
         return CARD_ID_UNUSED;
@@ -237,18 +237,18 @@ uint8_t arex_card_id_at(uint8_t display_pos)
  * @brief 按显示顺序获取卡片对象（主要入口）
  *
  * 供 screen.c 遍历 tileview 时调用：
- *   for (int i = 0; i < arex_card_count(); i++) {
- *       arex_card_t *card = arex_card_get(i);
+ *   for (int i = 0; i < card_count(); i++) {
+ *       card_t *card = card_get(i);
  *       lv_tileview_add_tile(..., card->tile_obj);
  *   }
  *
  * @param order_pos 显示顺序索引（0=INFO）
  * @return 卡片对象指针，NULL 表示越界或无效
  */
-arex_card_t *arex_card_get(uint8_t order_pos)
+card_t *card_get(uint8_t order_pos)
 {
-    if (order_pos >= arex_card_count()) return NULL;
-    uint8_t id = arex_card_id_at(order_pos);
+    if (order_pos >= card_count()) return NULL;
+    uint8_t id = card_id_at(order_pos);
     if (id >= CARD_ID_COUNT) return NULL;
     return &g_cards[id];
 }
@@ -261,7 +261,7 @@ arex_card_t *arex_card_get(uint8_t order_pos)
  * @param id 卡片 ID (CARD_ID_*)
  * @return 卡片对象指针，NULL 表示无效 ID
  */
-arex_card_t *arex_card_get_by_id(arex_card_id_t id)
+card_t *card_get_by_id(card_id_t id)
 {
     if (id >= CARD_ID_COUNT) return NULL;
     return &g_cards[id];

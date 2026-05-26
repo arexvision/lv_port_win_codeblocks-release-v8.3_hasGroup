@@ -24,4 +24,4 @@ core/data.c 判定数据条件
 
 - 新增告警事件、改阈值后要暴露的事件状态：先看 `alarm.h/c` 与 `core/data.c`。
 - 改横幅位置、颜色、闪烁节拍、目标恢复样式：看 `alarm_view.c`。
-- 临时模拟告警可走 `arex_bus_raise_alarm()`，正式告警应尽量有明确告警 ID。
+- 临时模拟告警可走 `bus_raise_alarm()`，正式告警应尽量有明确告警 ID。

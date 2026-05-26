@@ -9,13 +9,13 @@
 static lv_obj_t *s_modal = NULL;
 static lv_obj_t *s_modal_box = NULL;
 
-void arex_modal_view_reset(void)
+void modal_view_reset(void)
 {
     s_modal = NULL;
     s_modal_box = NULL;
 }
 
-void arex_modal_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
+void modal_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 {
     s_modal = lv_obj_create(parent);
     lv_obj_set_size(s_modal, width, height);
@@ -39,7 +39,7 @@ void arex_modal_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 static void modal_act_timer_cb(lv_timer_t *t)
 {
     (void)t;
-    arex_screen_hide_modal();
+    screen_hide_modal();
     if (g_ui.state == UI_MODAL_ACT)
     {
         g_ui.state = (g_ui.sub_item_count > 0) ? UI_SUB_MENU : UI_DASH;
@@ -58,24 +58,24 @@ static void modal_set_content(const char *title, const char *body, const char *h
 
     lv_obj_t *t = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(t, GREEN, 0);
-    lv_obj_set_style_text_font(t, arex_get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_font(t, get_font(FONT_ID_TITLE), 0);
     lv_label_set_text(t, title);
     lv_obj_set_pos(t, 0, 0);
 
     lv_obj_t *b = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(b, GREEN, 0);
-    lv_obj_set_style_text_font(b, arex_get_font(FONT_ID_MEDIUM), 0);
+    lv_obj_set_style_text_font(b, get_font(FONT_ID_MEDIUM), 0);
     lv_label_set_text(b, body);
     lv_obj_set_pos(b, 0, 40);
 
     lv_obj_t *h = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(h, LIGHT, 0);
-    lv_obj_set_style_text_font(h, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_font(h, get_font(FONT_ID_SMALL), 0);
     lv_label_set_text(h, hint);
     lv_obj_set_pos(h, 0, 100);
 }
 
-void arex_screen_show_modal_act(const char *action_text)
+void screen_show_modal_act(const char *action_text)
 {
     if (!s_modal)
     {
@@ -87,7 +87,7 @@ void arex_screen_show_modal_act(const char *action_text)
     lv_timer_create(modal_act_timer_cb, 1000, NULL);
 }
 
-void arex_screen_show_modal_setup_confirm(const char *body)
+void screen_show_modal_setup_confirm(const char *body)
 {
     if (!s_modal)
     {
@@ -98,7 +98,7 @@ void arex_screen_show_modal_setup_confirm(const char *body)
     lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
 }
 
-void arex_screen_show_modal_gas(void)
+void screen_show_modal_gas(void)
 {
     if (!s_modal)
     {
@@ -134,7 +134,7 @@ void arex_screen_show_modal_gas(void)
     lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
 }
 
-void arex_screen_show_modal_compass(void)
+void screen_show_modal_compass(void)
 {
     if (!s_modal)
     {
@@ -145,7 +145,7 @@ void arex_screen_show_modal_compass(void)
     lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
 }
 
-void arex_screen_pulse_modal(void)
+void screen_pulse_modal(void)
 {
     if (!s_modal_box)
     {
@@ -163,7 +163,7 @@ void arex_screen_pulse_modal(void)
     lv_anim_start(&a);
 }
 
-void arex_screen_hide_modal(void)
+void screen_hide_modal(void)
 {
     if (!s_modal)
     {

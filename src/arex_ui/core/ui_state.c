@@ -8,19 +8,19 @@
 /* =========================================
    Global UI context
    ========================================= */
-arex_ui_ctx_t g_ui;
+ui_ctx_t g_ui;
 
 /* =========================================
    气体切换命令队列（单向数据流：UI → Algorithm）
    ========================================= */
 static gas_switch_cmd_t g_gas_switch_cmd = {false, 0};
 static compass_cal_cmd_t g_compass_cal_cmd = {false, COMPASS_CAL_CMD_NONE};
-static arex_compass_cal_ui_state_t g_compass_cal_ui_state = AREX_COMPASS_CAL_IDLE;
+static compass_cal_ui_state_t g_compass_cal_ui_state = COMPASS_CAL_IDLE;
 
 /* =========================================
    Init
    ========================================= */
-void arex_ui_state_init(void)
+void ui_state_init(void)
 {
     memset(&g_ui, 0, sizeof(g_ui));
     g_ui.state         = UI_DASH;
@@ -32,11 +32,11 @@ void arex_ui_state_init(void)
 /* =========================================
    Internal: notify registered cards
    ========================================= */
-void arex_ui_refresh_all(void)
+void ui_refresh_all(void)
 {
-    for (uint8_t i = 0; i < arex_card_count(); i++)
+    for (uint8_t i = 0; i < card_count(); i++)
     {
-        arex_card_t *c = arex_card_get(i);
+        card_t *c = card_get(i);
         if (c && c->update_cb) c->update_cb();
     }
 }
@@ -44,10 +44,10 @@ void arex_ui_refresh_all(void)
 /* =========================================
    Internal: tileview navigation
    ========================================= */
-void arex_ui_go_to_card(uint8_t tile_pos)
+void ui_go_to_card(uint8_t tile_pos)
 {
     g_ui.dash_card = tile_pos;
-    arex_screen_scroll_to_card(tile_pos);
+    screen_scroll_to_card(tile_pos);
 }
 
 /* =========================================
@@ -62,22 +62,22 @@ void ui_handle_rotate(int8_t dir)
     case UI_DASH:
     {
         uint8_t dash_min = CARD_POS_DYNAMIC_FIRST;
-        uint8_t dash_max = arex_setup_display_pos() - 1;
+        uint8_t dash_max = setup_display_pos() - 1;
 
-#if AREX_ENABLE_INFO_MENU
+#if ENABLE_INFO_MENU
         if (g_ui.dash_card == dash_min && dir == -1)
         {
             g_ui.wall_charge++;
-            arex_screen_show_wall(WALL_TOP, g_ui.wall_charge,
+            screen_show_wall(WALL_TOP, g_ui.wall_charge,
                                   ">>> ENTER INFO MENU >>>");
             if (g_ui.wall_charge >= 3)
             {
                 g_ui.wall_charge = 0;
-                arex_screen_hide_walls_snap();
+                screen_hide_walls_snap();
                 g_ui.state = UI_INFO;
                 g_ui.menu_info_idx = 0;
-                arex_screen_set_info_selection(0);
-                arex_ui_go_to_card(0);
+                screen_set_info_selection(0);
+                ui_go_to_card(0);
             }
         }
         else
@@ -85,26 +85,26 @@ void ui_handle_rotate(int8_t dir)
             if (g_ui.dash_card == dash_max && dir == 1)
             {
                 g_ui.wall_charge++;
-                arex_screen_show_wall(WALL_BOTTOM, g_ui.wall_charge,
+                screen_show_wall(WALL_BOTTOM, g_ui.wall_charge,
                                       "<<< ENTER DIVE MENU <<<");
                 if (g_ui.wall_charge >= 3)
                 {
                     g_ui.wall_charge = 0;
-                    arex_screen_hide_walls_snap();
+                    screen_hide_walls_snap();
                     g_ui.state = UI_SETUP;
                     g_ui.menu_setup_idx = 0;
-                    arex_screen_set_setup_selection(0);
-                    arex_ui_go_to_card(arex_setup_display_pos());
+                    screen_set_setup_selection(0);
+                    ui_go_to_card(setup_display_pos());
                 }
             }
             else
             {
                 g_ui.wall_charge = 0;
-                arex_screen_hide_walls();
+                screen_hide_walls();
                 int8_t next = (int8_t)g_ui.dash_card + dir;
                 if (next < (int8_t)dash_min) next = (int8_t)dash_min;
                 if (next > (int8_t)dash_max) next = (int8_t)dash_max;
-                arex_ui_go_to_card((uint8_t)next);
+                ui_go_to_card((uint8_t)next);
             }
         break;
     }
@@ -123,37 +123,37 @@ void ui_handle_rotate(int8_t dir)
         }
         int8_t next = ((int8_t)g_ui.gas_cursor + dir + gas_count) % gas_count;
         g_ui.gas_cursor = (uint8_t)next;
-        arex_screen_refresh_gas_menu();
+        screen_refresh_gas_menu();
         break;
     }
 
     /* --- INFO menu --- */
     case UI_INFO:
     {
-        uint8_t len = arex_screen_info_item_count();
+        uint8_t len = screen_info_item_count();
         if (dir == 1 && g_ui.menu_info_idx == len - 1)
         {
             g_ui.wall_charge++;
-            arex_screen_show_wall(WALL_BOTTOM, g_ui.wall_charge,
+            screen_show_wall(WALL_BOTTOM, g_ui.wall_charge,
                                   "<<< RETURN TO DASH <<<");
             if (g_ui.wall_charge >= 3)
             {
                 g_ui.wall_charge = 0;
-                arex_screen_hide_walls_snap();
+                screen_hide_walls_snap();
                 g_ui.state = UI_DASH;
                 g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
-                arex_ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
+                ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
             }
         }
         else
         {
             g_ui.wall_charge = 0;
-            arex_screen_hide_walls();
+            screen_hide_walls();
             int8_t next = (int8_t)g_ui.menu_info_idx + dir;
             if (next < 0) next = 0;
             if (next >= (int8_t)len) next = len - 1;
             g_ui.menu_info_idx = (uint8_t)next;
-            arex_screen_set_info_selection(g_ui.menu_info_idx);
+            screen_set_info_selection(g_ui.menu_info_idx);
         }
         break;
     }
@@ -161,30 +161,30 @@ void ui_handle_rotate(int8_t dir)
     /* --- SETUP menu --- */
     case UI_SETUP:
     {
-        uint8_t len = arex_screen_setup_item_count();
+        uint8_t len = screen_setup_item_count();
         if (dir == -1 && g_ui.menu_setup_idx == 0)
         {
             g_ui.wall_charge++;
-            arex_screen_show_wall(WALL_TOP, g_ui.wall_charge,
+            screen_show_wall(WALL_TOP, g_ui.wall_charge,
                                   ">>> RETURN TO DASH >>>");
             if (g_ui.wall_charge >= 3)
             {
                 g_ui.wall_charge = 0;
-                arex_screen_hide_walls_snap();
+                screen_hide_walls_snap();
                 g_ui.state = UI_DASH;
-                g_ui.dash_card = arex_setup_display_pos() - 1;
-                arex_ui_go_to_card(arex_setup_display_pos() - 1);
+                g_ui.dash_card = setup_display_pos() - 1;
+                ui_go_to_card(setup_display_pos() - 1);
             }
         }
         else
         {
             g_ui.wall_charge = 0;
-            arex_screen_hide_walls();
+            screen_hide_walls();
             int8_t next = (int8_t)g_ui.menu_setup_idx + dir;
             if (next < 0) next = 0;
             if (next >= (int8_t)len) next = len - 1;
             g_ui.menu_setup_idx = (uint8_t)next;
-            arex_screen_set_setup_selection(g_ui.menu_setup_idx);
+            screen_set_setup_selection(g_ui.menu_setup_idx);
         }
         break;
     }
@@ -192,7 +192,7 @@ void ui_handle_rotate(int8_t dir)
     /* --- SUB_MENU --- */
     case UI_SUB_MENU:
     {
-        if (arex_screen_handle_dive_plan_rotate(dir))
+        if (screen_handle_dive_plan_rotate(dir))
         {
             break;
         }
@@ -200,7 +200,7 @@ void ui_handle_rotate(int8_t dir)
         if (next < 0) next = 0;
         if (next >= (int8_t)g_ui.sub_item_count) next = g_ui.sub_item_count - 1;
         g_ui.sub_menu_idx = (uint8_t)next;
-        arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
+        screen_set_submenu_selection(g_ui.sub_menu_idx);
         break;
     }
 
@@ -213,7 +213,7 @@ void ui_handle_rotate(int8_t dir)
         if (next > g_ui.edit_ctx.max) next = g_ui.edit_ctx.max;
         int steps = (int)((next - g_ui.edit_ctx.min) / g_ui.edit_ctx.step + 0.5f);
         g_ui.edit_ctx.value = g_ui.edit_ctx.min + steps * g_ui.edit_ctx.step;
-        arex_screen_refresh_edit_value();
+        screen_refresh_edit_value();
         break;
     }
 
@@ -230,9 +230,9 @@ void ui_handle_click(void)
     /* 告警锁：触发后必须先 click/rotate 一次才可清除 */
     if (g_ui.alarm_pending_click)
     {
-        extern bool arex_alarm_mark_clear_requested(void);
+        extern bool alarm_mark_clear_requested(void);
         g_ui.alarm_pending_click = false;
-        arex_alarm_mark_clear_requested();
+        alarm_mark_clear_requested();
     }
 
     switch (g_ui.state)
@@ -241,7 +241,7 @@ void ui_handle_click(void)
     case UI_DASH:
     {
         /* card_id 从 card_order[] 映射 */
-        uint8_t card_id = arex_card_id_at(g_ui.dash_card);
+        uint8_t card_id = card_id_at(g_ui.dash_card);
 
         if (card_id == CARD_ID_COMPASS)
         {
@@ -249,19 +249,19 @@ void ui_handle_click(void)
             {
                 g_sensor_data.heading_locked = true;
                 g_sensor_data.heading_target = g_sensor_data.heading;
-                arex_screen_refresh_compass_target();
+                screen_refresh_compass_target();
             }
             else
             {
                 g_ui.state = UI_MODAL_COMPASS;
-                arex_screen_show_modal_compass();
+                screen_show_modal_compass();
             }
         }
         else if (card_id == CARD_ID_GAS)
         {
             g_ui.state = UI_EDIT_GAS;
             g_ui.gas_cursor = g_sensor_data.gas_active_idx;
-            arex_screen_refresh_gas_menu();
+            screen_refresh_gas_menu();
         }
         break;
     }
@@ -269,7 +269,7 @@ void ui_handle_click(void)
     case UI_EDIT_GAS:
         g_ui.state = UI_MODAL_GAS;
         g_ui.gas_modal_from_submenu = false;  // HOTFIX: Route GAS modal exit based on context.
-        arex_screen_show_modal_gas();
+        screen_show_modal_gas();
         break;
 
     case UI_MODAL_GAS:
@@ -282,7 +282,7 @@ void ui_handle_click(void)
         }
         if (gas_count == 0U)
         {
-            arex_screen_pulse_modal();
+            screen_pulse_modal();
             break;
         }
         if (ci >= gas_count)
@@ -295,16 +295,16 @@ void ui_handle_click(void)
         if (g_sensor_data.depth <= mod_m)
         {
             /* 修复：不直接修改数据源，发送命令到队列 */
-            arex_request_gas_switch(ci);
-            arex_screen_hide_modal();
+            request_gas_switch(ci);
+            screen_hide_modal();
             /* 注意：gas_name 和 gas_active_idx 由 buhlmann_task 更新 */
-            arex_screen_refresh_gas_menu();
-            arex_screen_refresh_left_panel();
+            screen_refresh_gas_menu();
+            screen_refresh_left_panel();
             // HOTFIX: Route GAS modal exit based on context.
             if (g_ui.gas_modal_from_submenu)
             {
                 g_ui.gas_modal_from_submenu = false;
-                arex_screen_close_submenu();
+                screen_close_submenu();
             }
             else
             {
@@ -313,44 +313,44 @@ void ui_handle_click(void)
         }
         else
         {
-            arex_screen_pulse_modal();
+            screen_pulse_modal();
         }
         break;
     }
 
     case UI_MODAL_COMPASS:
         g_sensor_data.heading_locked = false;
-        arex_screen_refresh_compass_target();
-        arex_screen_hide_modal();
+        screen_refresh_compass_target();
+        screen_hide_modal();
         g_ui.state = UI_DASH;
         break;
 
     case UI_MODAL_SETUP_CONFIRM:
-        arex_screen_confirm_submenu_setting();
+        screen_confirm_submenu_setting();
         break;
 
     case UI_EDIT_VALUE:
         g_ui.edit_ctx.active = false;
         g_ui.state = UI_SUB_MENU;
-        arex_screen_commit_edit_value();
+        screen_commit_edit_value();
         break;
 
     case UI_INFO:
-#if AREX_ENABLE_INFO_MENU
-        arex_screen_open_info_submenu(g_ui.menu_info_idx);
+#if ENABLE_INFO_MENU
+        screen_open_info_submenu(g_ui.menu_info_idx);
 #else
         g_ui.state = UI_DASH;
         g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
-        arex_ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
+        ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
 #endif
         break;
 
     case UI_SETUP:
-        arex_screen_open_setup_submenu(g_ui.menu_setup_idx);
+        screen_open_setup_submenu(g_ui.menu_setup_idx);
         break;
 
     case UI_SUB_MENU:
-        arex_screen_handle_submenu_select(g_ui.sub_menu_idx);
+        screen_handle_submenu_select(g_ui.sub_menu_idx);
         break;
 
     default:
@@ -367,16 +367,16 @@ void ui_handle_back(void)
     {
     case UI_EDIT_GAS:
         g_ui.state = UI_DASH;
-        arex_screen_refresh_gas_menu();
+        screen_refresh_gas_menu();
         break;
 
     case UI_MODAL_GAS:
-        arex_screen_hide_modal();
+        screen_hide_modal();
         // HOTFIX: Route GAS modal exit based on context.
         if (g_ui.gas_modal_from_submenu)
         {
             g_ui.gas_modal_from_submenu = false;
-            arex_screen_close_submenu();
+            screen_close_submenu();
         }
         else
         {
@@ -386,7 +386,7 @@ void ui_handle_back(void)
 
     case UI_MODAL_COMPASS:
     case UI_MODAL_ACT:
-        arex_screen_hide_modal();
+        screen_hide_modal();
         if (g_ui.sub_item_count > 0)
         {
             g_ui.state = UI_SUB_MENU;
@@ -398,36 +398,36 @@ void ui_handle_back(void)
         break;
 
     case UI_MODAL_SETUP_CONFIRM:
-        arex_screen_cancel_submenu_setting();
+        screen_cancel_submenu_setting();
         break;
 
     case UI_EDIT_VALUE:
         g_ui.edit_ctx.value = g_ui.edit_ctx.original;
         g_ui.edit_ctx.active = false;
         g_ui.state = UI_SUB_MENU;
-        arex_screen_cancel_edit_value();
+        screen_cancel_edit_value();
         break;
 
     case UI_SUB_MENU:
-        arex_screen_close_submenu();
+        screen_close_submenu();
         break;
 
     case UI_INFO:
-#if AREX_ENABLE_INFO_MENU
+#if ENABLE_INFO_MENU
         g_ui.state = UI_DASH;
         g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
-        arex_ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
+        ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
 #else
         g_ui.state = UI_DASH;
         g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
-        arex_ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
+        ui_go_to_card(CARD_POS_DYNAMIC_FIRST);
 #endif
         break;
 
     case UI_SETUP:
         g_ui.state = UI_DASH;
-        g_ui.dash_card = arex_setup_display_pos() - 1;
-        arex_ui_go_to_card(arex_setup_display_pos() - 1);
+        g_ui.dash_card = setup_display_pos() - 1;
+        ui_go_to_card(setup_display_pos() - 1);
         break;
 
     default:
@@ -438,13 +438,13 @@ void ui_handle_back(void)
 /* =========================================
    气体切换命令队列接口实现
    ========================================= */
-void arex_request_gas_switch(uint8_t gas_idx)
+void request_gas_switch(uint8_t gas_idx)
 {
     g_gas_switch_cmd.pending = true;
     g_gas_switch_cmd.gas_idx = gas_idx;
 }
 
-bool arex_has_pending_gas_switch(uint8_t *out_gas_idx)
+bool has_pending_gas_switch(uint8_t *out_gas_idx)
 {
     if (g_gas_switch_cmd.pending && out_gas_idx != NULL)
     {
@@ -454,24 +454,24 @@ bool arex_has_pending_gas_switch(uint8_t *out_gas_idx)
     return false;
 }
 
-void arex_clear_gas_switch_cmd(void)
+void clear_gas_switch_cmd(void)
 {
     g_gas_switch_cmd.pending = false;
 }
 
-void arex_request_compass_calibration_start(void)
+void request_compass_calibration_start(void)
 {
     g_compass_cal_cmd.pending = true;
     g_compass_cal_cmd.action = COMPASS_CAL_CMD_START;
 }
 
-void arex_request_compass_calibration_reset(void)
+void request_compass_calibration_reset(void)
 {
     g_compass_cal_cmd.pending = true;
     g_compass_cal_cmd.action = COMPASS_CAL_CMD_RESET;
 }
 
-bool arex_has_pending_compass_calibration(compass_cal_cmd_action_t *out_action)
+bool has_pending_compass_calibration(compass_cal_cmd_action_t *out_action)
 {
     if (g_compass_cal_cmd.pending && out_action != NULL)
     {
@@ -481,18 +481,18 @@ bool arex_has_pending_compass_calibration(compass_cal_cmd_action_t *out_action)
     return false;
 }
 
-void arex_clear_compass_calibration_cmd(void)
+void clear_compass_calibration_cmd(void)
 {
     g_compass_cal_cmd.pending = false;
     g_compass_cal_cmd.action = COMPASS_CAL_CMD_NONE;
 }
 
-void arex_set_compass_calibration_ui_state(arex_compass_cal_ui_state_t state)
+void set_compass_calibration_ui_state(compass_cal_ui_state_t state)
 {
     g_compass_cal_ui_state = state;
 }
 
-arex_compass_cal_ui_state_t arex_get_compass_calibration_ui_state(void)
+compass_cal_ui_state_t get_compass_calibration_ui_state(void)
 {
     return g_compass_cal_ui_state;
 }

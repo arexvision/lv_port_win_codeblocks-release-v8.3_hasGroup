@@ -3,31 +3,31 @@
 #include <stdio.h>
 
 #ifndef PC_SIMULATOR
-#define AREX_WEAK_CALLBACK __attribute__((weak))
+#define WEAK_CALLBACK __attribute__((weak))
 #else
-#define AREX_WEAK_CALLBACK
+#define WEAK_CALLBACK
 #endif
 
-AREX_WEAK_CALLBACK
-void arex_bus_set_light_power(bool on)
+WEAK_CALLBACK
+void bus_set_light_power(bool on)
 {
     printf("[LIGHT] Power: %s\n", on ? "ON" : "OFF");
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_light_color_set(const char *color, const char *level)
+WEAK_CALLBACK
+void ui_on_light_color_set(const char *color, const char *level)
 {
     printf("[LIGHT] Color: %s, Level: %s\n", color, level);
 }
 
-AREX_WEAK_CALLBACK
-void arex_set_brightness(uint8_t level)
+WEAK_CALLBACK
+void set_brightness(uint8_t level)
 {
-    arex_apply_software_brightness(level);
+    apply_software_brightness(level);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_conservatism_set(uint8_t level)
+WEAK_CALLBACK
+void ui_on_conservatism_set(uint8_t level)
 {
     static const uint8_t gf_table[][2] =
     {
@@ -38,23 +38,23 @@ void arex_ui_on_conservatism_set(uint8_t level)
     };
 
     g_sys_config.conservatism = level;
-    arex_bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
+    bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_salinity_set(uint8_t mode)
+WEAK_CALLBACK
+void ui_on_salinity_set(uint8_t mode)
 {
-    arex_bus_set_salinity_mode(mode);
+    bus_set_salinity_mode(mode);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_safety_stop_depth_set(uint8_t depth_m)
+WEAK_CALLBACK
+void ui_on_safety_stop_depth_set(uint8_t depth_m)
 {
     printf("[DIVE_SETUP] Safety stop depth: %um\n", depth_m);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_safety_stop_time_set(uint8_t minutes)
+WEAK_CALLBACK
+void ui_on_safety_stop_time_set(uint8_t minutes)
 {
     if (minutes == 0)
     {
@@ -66,14 +66,14 @@ void arex_ui_on_safety_stop_time_set(uint8_t minutes)
     }
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_last_deco_stop_set(uint8_t depth_m)
+WEAK_CALLBACK
+void ui_on_last_deco_stop_set(uint8_t depth_m)
 {
-    arex_bus_set_last_deco_stop(depth_m);
+    bus_set_last_deco_stop(depth_m);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_altitude_range_set(uint8_t level)
+WEAK_CALLBACK
+void ui_on_altitude_range_set(uint8_t level)
 {
     static const char *labels[] =
     {
@@ -90,8 +90,8 @@ void arex_ui_on_altitude_range_set(uint8_t level)
     printf("[DIVE_SETUP] Altitude: %s\n", labels[level]);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_dive_mode_set(uint8_t mode)
+WEAK_CALLBACK
+void ui_on_dive_mode_set(uint8_t mode)
 {
     static const char *labels[] = { "AIR", "NITROX", "3 GAS", "OC Tech" };
     if (mode >= (sizeof(labels) / sizeof(labels[0])))
@@ -101,14 +101,14 @@ void arex_ui_on_dive_mode_set(uint8_t mode)
     printf("[SYSTEM_SETUP] Dive mode: %s\n", labels[mode]);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_ai_pair(uint8_t tank_index)
+WEAK_CALLBACK
+void ui_on_ai_pair(uint8_t tank_index)
 {
     printf("[SYSTEM_SETUP] Pair AI tank: T%u\n", (unsigned)(tank_index + 1));
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_ai_tank_state_set(uint8_t tank_index, uint8_t state)
+WEAK_CALLBACK
+void ui_on_ai_tank_state_set(uint8_t tank_index, uint8_t state)
 {
     static const char *labels[] = { "UNPAIRED", "PAIRING", "PAIRED" };
     if (state >= (sizeof(labels) / sizeof(labels[0])))
@@ -118,51 +118,51 @@ void arex_ui_on_ai_tank_state_set(uint8_t tank_index, uint8_t state)
     printf("[SYSTEM_SETUP] AI T%u: %s\n", (unsigned)(tank_index + 1), labels[state]);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_gtr_mode_set(bool enabled)
+WEAK_CALLBACK
+void ui_on_gtr_mode_set(bool enabled)
 {
     printf("[SYSTEM_SETUP] GTR mode: %s\n", enabled ? "ON" : "OFF");
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_mod_ppo2_set(float ppo2)
+WEAK_CALLBACK
+void ui_on_mod_ppo2_set(float ppo2)
 {
     g_sys_config.mod_ppo2 = ppo2;
     printf("[DIVE_SETUP] MOD PPO2: %.1f\n", (double)ppo2);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_depth_alarm_set(uint16_t depth_m)
+WEAK_CALLBACK
+void ui_on_depth_alarm_set(uint16_t depth_m)
 {
     printf("[ALERT_SETUP] Depth alarm: %um\n", depth_m);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_time_alarm_set(uint16_t minutes)
+WEAK_CALLBACK
+void ui_on_time_alarm_set(uint16_t minutes)
 {
     printf("[ALERT_SETUP] Time alarm: %umin\n", minutes);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_ndl_alarm_set(uint16_t minutes)
+WEAK_CALLBACK
+void ui_on_ndl_alarm_set(uint16_t minutes)
 {
     printf("[ALERT_SETUP] NDL alarm: %umin\n", minutes);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_vibration_test(void)
+WEAK_CALLBACK
+void ui_on_vibration_test(void)
 {
     printf("[ALERT_SETUP] Test vibration\n");
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_units_set(uint8_t units)
+WEAK_CALLBACK
+void ui_on_units_set(uint8_t units)
 {
     printf("[DISPLAY_SETUP] Units: %s\n", units == 1 ? "IMPERIAL" : "METRIC");
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_datetime_field_set(uint8_t field, uint16_t value)
+WEAK_CALLBACK
+void ui_on_datetime_field_set(uint8_t field, uint16_t value)
 {
     static const char *labels[] = { "YEAR", "MONTH", "DAY", "HOUR", "MINUTE" };
     if (field >= (sizeof(labels) / sizeof(labels[0])))
@@ -172,8 +172,8 @@ void arex_ui_on_datetime_field_set(uint8_t field, uint16_t value)
     printf("[DISPLAY_SETUP] Date/time %s: %u\n", labels[field], value);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_datetime_action(uint8_t action)
+WEAK_CALLBACK
+void ui_on_datetime_action(uint8_t action)
 {
     static const char *labels[] = { "SYNC CURRENT TIME" };
     if (action >= (sizeof(labels) / sizeof(labels[0])))
@@ -183,20 +183,20 @@ void arex_ui_on_datetime_action(uint8_t action)
     printf("[DISPLAY_SETUP] Date/time action: %s\n", labels[action]);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_log_rate_set(uint8_t seconds)
+WEAK_CALLBACK
+void ui_on_log_rate_set(uint8_t seconds)
 {
     printf("[DISPLAY_SETUP] Log rate: %us\n", seconds);
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_bluetooth_set(bool enabled)
+WEAK_CALLBACK
+void ui_on_bluetooth_set(bool enabled)
 {
     printf("[DISPLAY_SETUP] Bluetooth: %s\n", enabled ? "ON" : "OFF");
 }
 
-AREX_WEAK_CALLBACK
-void arex_ui_on_reset_defaults(void)
+WEAK_CALLBACK
+void ui_on_reset_defaults(void)
 {
     printf("[DISPLAY_SETUP] Reset defaults\n");
 }

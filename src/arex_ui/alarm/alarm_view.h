@@ -1,5 +1,5 @@
-#ifndef AREX_ALARM_VIEW_H
-#define AREX_ALARM_VIEW_H
+#ifndef ALARM_VIEW_H
+#define ALARM_VIEW_H
 
 #include "../core/ui_engine.h"
 #include <stdbool.h>
@@ -21,12 +21,12 @@ typedef struct
     uint16_t left_anchor_w;
     uint16_t panel_gap_px;
     bool *alarm_pending_click;
-} arex_alarm_view_context_t;
+} alarm_view_context_t;
 
-void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx);
+void alarm_view_tick(const alarm_view_context_t *ctx);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* AREX_ALARM_VIEW_H */
+#endif /* ALARM_VIEW_H */

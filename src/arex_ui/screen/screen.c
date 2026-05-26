@@ -85,8 +85,8 @@ static void reset_transient_ui_refs(void)
     s_wall_blocks_top = NULL;
     s_wall_text_bottom = NULL;
     s_wall_blocks_bottom = NULL;
-    arex_modal_view_reset();
-    arex_submenu_view_reset();
+    modal_view_reset();
+    submenu_view_reset();
     s_info_list = NULL;
     s_setup_list = NULL;
     s_edit_flash_badge = NULL;
@@ -110,7 +110,7 @@ static void restore_brightness_overlay_state(void)
     /* 亮度遮罩挂在根屏 s_scr 上，布局翻转/重建右侧容器时不会被删除。
      * 这里必须保留对象引用并在重建后立即按当前档位重放一次，
      * 否则 APP 下发布局后会出现旧遮罩残留或前后亮度现象不一致。 */
-    arex_apply_software_brightness(g_sys_config.brightness);
+    apply_software_brightness(g_sys_config.brightness);
 }
 
 static void styles_init(void)
@@ -140,19 +140,19 @@ static void styles_init(void)
 
     lv_style_init(&s_style_label_huge);
     lv_style_set_text_color(&s_style_label_huge, GREEN);
-    lv_style_set_text_font(&s_style_label_huge, arex_get_font(FONT_ID_HUGE));
+    lv_style_set_text_font(&s_style_label_huge, get_font(FONT_ID_HUGE));
 
     lv_style_init(&s_style_label_med);
     lv_style_set_text_color(&s_style_label_med, GREEN);
-    lv_style_set_text_font(&s_style_label_med, arex_get_font(FONT_ID_MEDIUM));
+    lv_style_set_text_font(&s_style_label_med, get_font(FONT_ID_MEDIUM));
 
     lv_style_init(&s_style_label_small);
     lv_style_set_text_color(&s_style_label_small, LIGHT);
-    lv_style_set_text_font(&s_style_label_small, arex_get_font(FONT_ID_SMALL));
+    lv_style_set_text_font(&s_style_label_small, get_font(FONT_ID_SMALL));
 
     lv_style_init(&s_style_title_zone);
     lv_style_set_text_color(&s_style_title_zone, LIGHT);
-    lv_style_set_text_font(&s_style_title_zone, arex_get_font(FONT_ID_SMALL));
+    lv_style_set_text_font(&s_style_title_zone, get_font(FONT_ID_SMALL));
     lv_style_set_bg_opa(&s_style_title_zone, LV_OPA_TRANSP);
 
     lv_style_init(&s_style_val_zone);
@@ -184,16 +184,16 @@ static void styles_init(void)
  * ========================================================= */
 
 /* 清空 ascent/NDL widget 句柄数组（在任何网格渲染之前调用）
- * arex_screen_rebuild_layout() 和 left_anchor_create() 入口各调用一次，
+ * screen_rebuild_layout() 和 left_anchor_create() 入口各调用一次，
  * 确保数组从干净状态开始，两侧网格渲染函数均以追加模式运行。 */
 /* =========================================================
  * 统一重置 UI 渲染状态（防止悬空指针访问）
- * 调用链：arex_screen_rebuild_layout -> clear_widget_arrays
+ * 调用链：screen_rebuild_layout -> clear_widget_arrays
  * ========================================================= */
 static void clear_widget_arrays(void)
 {
     /* 重置渲染计数器和 SystemData 静态句柄 */
-    arex_reset_widget_render_state();
+    reset_widget_render_state();
 }
 
 /* =========================================================
@@ -230,7 +230,7 @@ static void left_anchor_rebuild(uint8_t comp_count)
     lv_obj_clean(s_left_anchor);
 
     /* 重新调用 2x7 绝对网格渲染引擎 */
-    arex_render_left_anchor_grid(s_left_anchor);
+    render_left_anchor_grid(s_left_anchor);
 }
 
 /* =========================================================
@@ -240,7 +240,7 @@ static void left_anchor_rebuild(uint8_t comp_count)
  * 左侧锚点创建 (2x7 绝对网格版本)
  *
  * 废弃 current_y 累加排版，改为 2 列(80px) x 7 行(60px) 绝对网格矩阵。
- * 所有组件通过 arex_render_left_anchor_grid() 使用 render_widget_by_id 工厂渲染
+ * 所有组件通过 render_left_anchor_grid() 使用 render_widget_by_id 工厂渲染
  * 并注入 comp_id_t 烙印，供 comp_set_value() 定位更新。
  * SystemData 已作为 g_sys_config.left_widgets[6] 参与网格排版，不再独立渲染。
  * ========================================================= */
@@ -270,7 +270,7 @@ static void left_anchor_create(void)
     clear_widget_arrays();
 
     /* 2. 调用 2x7 绝对网格渲染引擎（带 sudu 速率图标） */
-    arex_render_left_anchor_grid(s_left_anchor);
+    render_left_anchor_grid(s_left_anchor);
 }
 
 /* =========================================================
@@ -326,10 +326,10 @@ static void safe_zone_reposition(void)
     if (s_dot_cont)
     {
         lv_coord_t dot_x, dot_y;
-        uint16_t dot_cont_h = arex_visible_dash_count() * 14;
+        uint16_t dot_cont_h = visible_dash_count() * 14;
 
         printf("[SAFE_ZONE] reposition dots: position=%d, visible_dash=%u, dot_cont_h=%u, safe_zone=%ux%u\r\n",
-               g_sys_config.dots_position, arex_visible_dash_count(), dot_cont_h,
+               g_sys_config.dots_position, visible_dash_count(), dot_cont_h,
                g_sys_config.safe_zone_w, g_sys_config.safe_zone_h);
 
         /* 更新容器大小以匹配实际显示数量 */
@@ -381,7 +381,7 @@ static void safe_zone_reposition(void)
             {
                 lv_obj_set_pos(s_scroll_dots[i], 2, (lv_coord_t)(i * 14));
                 /* 超出 visible_dash 的 dot 隐藏 */
-                if (i >= arex_visible_dash_count())
+                if (i >= visible_dash_count())
                 {
                     lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
                 }
@@ -392,10 +392,10 @@ static void safe_zone_reposition(void)
             }
         }
 
-        /* 调用 arex_screen_update_scroll_dots() 根据 UI 状态更新可见性 */
+        /* 调用 screen_update_scroll_dots() 根据 UI 状态更新可见性 */
         /* 计算逻辑索引 */
         uint8_t active_idx = 0;
-        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos())
+        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < setup_display_pos())
         {
             for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++)
             {
@@ -407,7 +407,7 @@ static void safe_zone_reposition(void)
             }
         }
         bool show_dots = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
-        arex_screen_update_scroll_dots(active_idx, show_dots);
+        screen_update_scroll_dots(active_idx, show_dots);
     }
 }
 
@@ -450,10 +450,10 @@ static void right_panel_create(void)
 
     /* 创建 tiles */
     memset(s_tile_objs, 0, sizeof(s_tile_objs));
-    uint8_t count = arex_card_count();
+    uint8_t count = card_count();
     for (uint8_t i = 0; i < count; i++)
     {
-        arex_card_t *card = arex_card_get(i);
+        card_t *card = card_get(i);
         if (!card) continue;
 
         lv_obj_t *tile = lv_tileview_add_tile(s_tileview, 0, i,
@@ -471,13 +471,13 @@ static void right_panel_create(void)
         case CARD_ENGINE_GRID:
         {
             /* 获取当前 tile 对应的 custom_card_slot 索引 */
-            uint8_t storage_pos = arex_card_storage_pos(i);
+            uint8_t storage_pos = card_storage_pos(i);
             uint8_t custom_card_idx = (storage_pos < CARD_COUNT)
                                       ? g_sys_config.custom_card_slot[storage_pos]
                                       : 0xFF;
             if (custom_card_idx < MAX_CUSTOM_CARDS)
             {
-                arex_render_5f_custom_grid(tile, g_left_anchor_obj, custom_card_idx);
+                render_5f_custom_grid(tile, g_left_anchor_obj, custom_card_idx);
             }
             break;
         }
@@ -492,7 +492,7 @@ static void right_panel_create(void)
     /* Scroll dots - 父对象为 s_safe_zone，可定位到间隙中间 */
     s_dot_cont = lv_obj_create(s_safe_zone);
     /* 容器高度根据实际显示数量计算 */
-    uint16_t dot_cont_h = arex_visible_dash_count() * 14;
+    uint16_t dot_cont_h = visible_dash_count() * 14;
     lv_obj_set_size(s_dot_cont, 10, dot_cont_h);
     lv_obj_set_style_bg_opa(s_dot_cont, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_dot_cont, 0, 0);
@@ -554,26 +554,26 @@ static void right_panel_create(void)
         if (g_sys_config.dots_position == DOTS_NONE)
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
         /* 超出 visible_dash 的 dot 也隐藏 */
-        if (i >= arex_visible_dash_count())
+        if (i >= visible_dash_count())
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
     }
 
     /* 只在 DASH/EDIT 状态才显示 dots，INFO/SETUP 菜单不显示 */
     bool show_dots = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
-    arex_screen_update_scroll_dots(0, show_dots);
+    screen_update_scroll_dots(0, show_dots);
 }
 
 /* =========================================================
  * Safe Zone 容器重建 (配置变更后调用)
  * 不重建 cards，只重建布局框架
  * ========================================================= */
-void arex_screen_rebuild_layout(void)
+void screen_rebuild_layout(void)
 {
     printf("[REBUILD_LAYOUT] Enter: visible_dash=%u, dots_pos=%d, layout_order=%d\r\n",
-           arex_visible_dash_count(), g_sys_config.dots_position, g_sys_config.layout_order);
+           visible_dash_count(), g_sys_config.dots_position, g_sys_config.layout_order);
 
     /* 【问题四修复】必须在清空对象前重新启用 invalidation
-     * 因为 arex_ui_timer_cb() 中禁用了 invalidation 以优化刷屏性能
+     * 因为 ui_timer_cb() 中禁用了 invalidation 以优化刷屏性能
      * 任何涉及删除 LVGL 对象的代码都应该假设 invalidation 可能被禁用。 */
     lv_disp_t *disp = lv_disp_get_default();
     if (disp) lv_disp_enable_invalidation(disp, true);
@@ -594,13 +594,13 @@ void arex_screen_rebuild_layout(void)
     }
 
     /* 4. 重建所有自定义网格卡片 */
-    arex_5f_grid_rebuild_all();
+    grid_5f_rebuild_all();
 
     /* 5. 重建 Safe Zone 内部定位（包括 dots 位置和可见性） */
     safe_zone_reposition();
 
     /* 5.1 重建后立即把当前数据灌入全部 widget 实例，避免多实例场景下部分组件长时间停留在 "--" */
-    arex_screen_refresh_all_widgets();
+    screen_refresh_all_widgets();
 
     /* 5.2 APP 下发布局/翻转后，亮度现象必须与默认布局保持一致。 */
     restore_brightness_overlay_state();
@@ -614,19 +614,19 @@ void arex_screen_rebuild_layout(void)
 /* =========================================================
  * Tileview 重建 (卡片顺序变更时调用)
  * ========================================================= */
-void arex_screen_rebuild_tileview(void)
+void screen_rebuild_tileview(void)
 {
     /* 【问题四修复】必须在删除对象前重新启用 invalidation
-     * 因为 arex_ui_timer_cb() 中禁用了 invalidation 以优化刷屏性能
+     * 因为 ui_timer_cb() 中禁用了 invalidation 以优化刷屏性能
      * 任何涉及删除 LVGL 对象的代码都应该假设 invalidation 可能被禁用。 */
     lv_disp_t *disp = lv_disp_get_default();
     if (disp) lv_disp_enable_invalidation(disp, true);
 
-    uint8_t count = arex_card_count();
+    uint8_t count = card_count();
 
     /* 【问题二修复】保存当前焦点位置和状态机上下文 */
     uint8_t saved_dash_card = g_ui.dash_card;
-    arex_ui_state_t saved_state = g_ui.state;
+    ui_state_t saved_state = g_ui.state;
     uint8_t saved_menu_idx = (saved_state == UI_INFO) ? g_ui.menu_info_idx
                              : (saved_state == UI_SETUP) ? g_ui.menu_setup_idx
                              : 0;
@@ -636,7 +636,7 @@ void arex_screen_rebuild_tileview(void)
     g_card_custom_obj_count = 0;
     for (uint8_t i = 0; i < count; i++)
     {
-        arex_card_t *card = arex_card_get_by_id(i);
+        card_t *card = card_get_by_id(i);
         if (card) card->tile_obj = NULL;
     }
 
@@ -662,12 +662,12 @@ void arex_screen_rebuild_tileview(void)
      * tileview 删除后，挂在 s_right_cont 上的 wall / submenu / modal 句柄也已失效
      * 必须同步重建，否则后续状态机路径会把 NULL 传进 lv_obj_add_flag/clear_flag。 */
     wall_create();
-    arex_submenu_view_create(s_right_cont,
+    submenu_view_create(s_right_cont,
                              s_cached_right_w > 0 ? s_cached_right_w :
                              (uint16_t)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W -
                                         g_sys_config.panel_gap_u * BASE_U),
                              g_sys_config.safe_zone_h);
-    arex_modal_view_create(s_right_cont,
+    modal_view_create(s_right_cont,
                            s_cached_right_w > 0 ? s_cached_right_w :
                            (uint16_t)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W -
                                       g_sys_config.panel_gap_u * BASE_U),
@@ -684,12 +684,12 @@ void arex_screen_rebuild_tileview(void)
     /* 【问题X修复】恢复 UI 状态机
      * 布局重建后只恢复 tile 位置，但没有恢复状态机
      * 导致 g_ui.state 不同步，滑动行为异常，左侧指示器显示错误 */
-    if (AREX_ENABLE_INFO_MENU && saved_dash_card == CARD_POS_INFO)
+    if (ENABLE_INFO_MENU && saved_dash_card == CARD_POS_INFO)
     {
         g_ui.state = UI_INFO;
         g_ui.menu_info_idx = saved_menu_idx;
     }
-    else if (saved_dash_card == arex_setup_display_pos())
+    else if (saved_dash_card == setup_display_pos())
     {
         g_ui.state = UI_SETUP;
         g_ui.menu_setup_idx = saved_menu_idx;
@@ -697,7 +697,7 @@ void arex_screen_rebuild_tileview(void)
     else
     {
         g_ui.state = UI_DASH;
-        if (saved_dash_card < CARD_POS_DYNAMIC_FIRST || saved_dash_card >= arex_setup_display_pos())
+        if (saved_dash_card < CARD_POS_DYNAMIC_FIRST || saved_dash_card >= setup_display_pos())
         {
             g_ui.dash_card = CARD_POS_DYNAMIC_FIRST;
             if (s_tileview && s_tile_objs[CARD_POS_DYNAMIC_FIRST])
@@ -710,7 +710,7 @@ void arex_screen_rebuild_tileview(void)
     {
         /* 计算逻辑索引：从 DYNAMIC_FIRST 到当前卡片之间有多少个有效卡*/
         uint8_t active_idx = 0;
-        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < arex_setup_display_pos())
+        if (g_ui.dash_card >= CARD_POS_DYNAMIC_FIRST && g_ui.dash_card < setup_display_pos())
         {
             for (uint8_t pos = CARD_POS_DYNAMIC_FIRST; pos < g_ui.dash_card; pos++)
             {
@@ -723,18 +723,18 @@ void arex_screen_rebuild_tileview(void)
         }
         /* INFO/SETUP 菜单不显示 dots，只更新活跃索引 */
         bool show_dots = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
-        arex_screen_update_scroll_dots(active_idx, show_dots);
+        screen_update_scroll_dots(active_idx, show_dots);
     }
 }
 
-void arex_screen_rebuild_full(void)
+void screen_rebuild_full(void)
 {
     /* 完整重建入口
      * 1. card_order/custom_card_slot/custom_cards 变化时必须重建 tileview
      * 2. tileview 重建后，safe zone / left anchor / dots 会随之按当前 g_sys_config 重建
      * 这样可以保证恢复默认布局后，Dive Menu 对应页面结构和运行时配置完全一致。 */
-    arex_screen_rebuild_tileview();
-    arex_screen_rebuild_layout();
+    screen_rebuild_tileview();
+    screen_rebuild_layout();
 }
 
 /* =========================================================
@@ -759,7 +759,7 @@ static lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 
     lv_obj_t *txt = lv_label_create(w);
     lv_obj_set_style_text_color(txt, GREEN, 0);
-    lv_obj_set_style_text_font(txt, arex_get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_font(txt, get_font(FONT_ID_TITLE), 0);
     lv_obj_set_width(txt, wall_w);
     lv_obj_set_style_text_align(txt, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(txt, 0, 12);
@@ -793,9 +793,9 @@ static void wall_create(void)
 }
 
 /* =========================================================
- * arex_screen_create - 公开入口
+ * screen_create - 公开入口
  * ========================================================= */
-void arex_screen_create(void)
+void screen_create(void)
 {
     styles_init();
 
@@ -818,12 +818,12 @@ void arex_screen_create(void)
     left_anchor_create();
     right_panel_create();
     wall_create();
-    arex_submenu_view_create(s_right_cont,
+    submenu_view_create(s_right_cont,
                              s_cached_right_w > 0 ? s_cached_right_w :
                              (uint16_t)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W -
                                         g_sys_config.panel_gap_u * BASE_U),
                              g_sys_config.safe_zone_h);
-    arex_modal_view_create(s_right_cont,
+    modal_view_create(s_right_cont,
                            s_cached_right_w > 0 ? s_cached_right_w :
                            (uint16_t)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W -
                                       g_sys_config.panel_gap_u * BASE_U),
@@ -836,12 +836,12 @@ void arex_screen_create(void)
 /* =========================================================
  * Tileview 导航
  * ========================================================= */
-void arex_screen_scroll_to_card(uint8_t tile_pos)
+void screen_scroll_to_card(uint8_t tile_pos)
 {
     /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
 
-    if (tile_pos >= arex_card_count())
+    if (tile_pos >= card_count())
     {
         return;
     }
@@ -857,7 +857,7 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
         lv_obj_set_y(s_tileview, 0);
     }
 
-    lv_obj_set_tile(s_tileview, tile, AREX_TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
+    lv_obj_set_tile(s_tileview, tile, TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
 
     /* 首屏/重建后首次进卡时，当前 tile 可能没有后续脏数据驱动刷新
      * 这里主动补一次当前可见页的布局和重绘，避免必须等用户旋钮交互后才完整显示。 */
@@ -870,7 +870,7 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
     }
 
     /* SETUP（最后一页）不显示 dots，只有 DASH 动态卡片才更新 */
-    if (tile_pos >= CARD_POS_DYNAMIC_FIRST && tile_pos < arex_setup_display_pos())
+    if (tile_pos >= CARD_POS_DYNAMIC_FIRST && tile_pos < setup_display_pos())
     {
         /* 计算逻辑索引：从 DYNAMIC_FIRST 到 tile_pos 之间有多少个有效卡片 */
         uint8_t active_idx = 0;
@@ -882,11 +882,11 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
                 active_idx++;
             }
         }
-        arex_screen_update_scroll_dots(active_idx, true);
+        screen_update_scroll_dots(active_idx, true);
     }
     else
     {
-        arex_screen_update_scroll_dots(0, false);
+        screen_update_scroll_dots(0, false);
     }
 }
 
@@ -917,7 +917,7 @@ void arex_screen_scroll_to_card(uint8_t tile_pos)
  * 同时刷新左侧锚点和右侧 5F 自定义网格的所有组件
  * 内部调用 comp_sync_data() 路由分发器，实现全量数据自动对齐
  * ========================================================= */
-void arex_screen_refresh_all_widgets(void)
+void screen_refresh_all_widgets(void)
 {
     /* 1. 同步左侧固定区配置 */
     for (uint8_t i = 0; i < g_sys_config.left_widget_count; i++)
@@ -947,7 +947,7 @@ void arex_screen_refresh_all_widgets(void)
  * 兼容旧接口：仅刷新左侧面板
  * 内部委托 comp_sync_data()，消除冗余 switch-case
  * ========================================================= */
-void arex_screen_refresh_left_panel(void)
+void screen_refresh_left_panel(void)
 {
     for (uint8_t i = 0; i < g_sys_config.left_widget_count; i++)
     {
@@ -987,7 +987,7 @@ static void wall_nudge_tileview(lv_coord_t offset_y)
     lv_anim_start(&a);
 }
 
-void arex_screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
+void screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
 {
     /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
@@ -1007,7 +1007,7 @@ void arex_screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
     wall_nudge_tileview(side == WALL_TOP ? nudge : -nudge);
 }
 
-void arex_screen_hide_walls(void)
+void screen_hide_walls(void)
 {
     /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
@@ -1028,7 +1028,7 @@ void arex_screen_hide_walls(void)
     lv_anim_start(&a);
 }
 
-void arex_screen_hide_walls_snap(void)
+void screen_hide_walls_snap(void)
 {
     /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
@@ -1043,11 +1043,11 @@ void arex_screen_hide_walls_snap(void)
 /* =========================================================
  * Scroll dots
  * ========================================================= */
-void arex_screen_update_scroll_dots(uint8_t active_idx, bool visible)
+void screen_update_scroll_dots(uint8_t active_idx, bool visible)
 {
     bool in_dash_or_edit = (g_ui.state == UI_DASH || g_ui.state == UI_EDIT_GAS);
     bool dots_enabled = (g_sys_config.dots_position != DOTS_NONE);
-    uint8_t visible_dash = arex_visible_dash_count();
+    uint8_t visible_dash = visible_dash_count();
 
     printf("[DOTS] update: active=%u, visible=%d, state=%d, dots_pos=%d, visible_dash=%u, dot_cont_children=%d\r\n",
            active_idx, visible, g_ui.state, g_sys_config.dots_position, visible_dash,
@@ -1089,7 +1089,7 @@ void arex_screen_update_scroll_dots(uint8_t active_idx, bool visible)
 /* =========================================================
  * Info / Setup list
  * ========================================================= */
-void arex_screen_set_info_selection(uint8_t idx)
+void screen_set_info_selection(uint8_t idx)
 {
     if (!s_info_list) return;
     uint32_t cnt = lv_obj_get_child_cnt(s_info_list);
@@ -1104,7 +1104,7 @@ void arex_screen_set_info_selection(uint8_t idx)
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, BLACK, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_font(lbl, get_font(FONT_ID_MEDIUM), 0);
             }
         }
         else
@@ -1114,19 +1114,19 @@ void arex_screen_set_info_selection(uint8_t idx)
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, GREEN, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_font(lbl, get_font(FONT_ID_TITLE), 0);
             }
         }
     }
 }
 
-uint8_t arex_screen_info_item_count(void)
+uint8_t screen_info_item_count(void)
 {
     if (!s_info_list) return 0;
     return (uint8_t)lv_obj_get_child_cnt(s_info_list);
 }
 
-void arex_screen_set_setup_selection(uint8_t idx)
+void screen_set_setup_selection(uint8_t idx)
 {
     if (!s_setup_list) return;
     uint32_t cnt = lv_obj_get_child_cnt(s_setup_list);
@@ -1144,12 +1144,12 @@ void arex_screen_set_setup_selection(uint8_t idx)
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_font(lbl, get_font(FONT_ID_MEDIUM), 0);
             }
             if (badge)
             {
                 lv_obj_set_style_text_color(badge, LIGHT, 0);
-                lv_obj_set_style_text_font(badge, arex_get_font(FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_font(badge, get_font(FONT_ID_TITLE), 0);
             }
         }
         else
@@ -1161,28 +1161,28 @@ void arex_screen_set_setup_selection(uint8_t idx)
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, GREEN, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_font(lbl, get_font(FONT_ID_TITLE), 0);
             }
             if (badge)
             {
                 lv_obj_set_style_text_color(badge, LIGHT, 0);
-                lv_obj_set_style_text_font(badge, arex_get_font(FONT_ID_SMALL), 0);
+                lv_obj_set_style_text_font(badge, get_font(FONT_ID_SMALL), 0);
             }
         }
     }
 }
 
-uint8_t arex_screen_setup_item_count(void)
+uint8_t screen_setup_item_count(void)
 {
     if (!s_setup_list) return 0;
     return (uint8_t)lv_obj_get_child_cnt(s_setup_list);
 }
 
-void arex_screen_register_info_list(lv_obj_t *list)
+void screen_register_info_list(lv_obj_t *list)
 {
     s_info_list  = list;
 }
-void arex_screen_register_setup_list(lv_obj_t *list)
+void screen_register_setup_list(lv_obj_t *list)
 {
     s_setup_list = list;
 }
@@ -1190,7 +1190,7 @@ void arex_screen_register_setup_list(lv_obj_t *list)
 /* =========================================================
  * Setup badge update
  * ========================================================= */
-void arex_screen_update_setup_badge(uint8_t item_idx, const char *value)
+void screen_update_setup_badge(uint8_t item_idx, const char *value)
 {
     if (!s_setup_list) return;
     lv_obj_t *item = lv_obj_get_child(s_setup_list, item_idx);
@@ -1203,21 +1203,21 @@ void arex_screen_update_setup_badge(uint8_t item_idx, const char *value)
 /* =========================================================
  * Compass / Gas / Edit callbacks
  * ========================================================= */
-void arex_screen_refresh_compass_target(void)
+void screen_refresh_compass_target(void)
 {
-    arex_card_t *c = arex_card_get_by_id(CARD_ID_COMPASS);
+    card_t *c = card_get_by_id(CARD_ID_COMPASS);
     if (c && c->update_cb) c->update_cb();
 }
 
-void arex_screen_refresh_gas_menu(void)
+void screen_refresh_gas_menu(void)
 {
-    arex_card_t *c = arex_card_get_by_id(CARD_ID_GAS);
+    card_t *c = card_get_by_id(CARD_ID_GAS);
     if (c && c->update_cb) c->update_cb();
 }
 
-void arex_screen_refresh_setup_menu(void)
+void screen_refresh_setup_menu(void)
 {
-    arex_card_t *c = arex_card_get_by_id(CARD_ID_SETUP);
+    card_t *c = card_get_by_id(CARD_ID_SETUP);
     if (c && c->update_cb) c->update_cb();
 }
 
@@ -1265,12 +1265,12 @@ static void edit_value_cleanup(lv_obj_t *item);
 
 static void format_edit_value_text(char *buf,
                                    size_t buf_size,
-                                   arex_submenu_setting_kind_t kind,
+                                   submenu_setting_kind_t kind,
                                    uint8_t arg,
                                    float value,
                                    uint8_t decimals)
 {
-    if (kind == AREX_SUBMENU_SETTING_DATETIME_FIELD)
+    if (kind == SUBMENU_SETTING_DATETIME_FIELD)
     {
         unsigned int v = (unsigned int)(value + 0.5f);
         if (arg == 0)
@@ -1294,44 +1294,44 @@ static void format_edit_value_text(char *buf,
 
 static void format_edit_committed_text(char *buf,
                                        size_t buf_size,
-                                       arex_submenu_setting_kind_t kind,
+                                       submenu_setting_kind_t kind,
                                        uint8_t arg,
                                        float value)
 {
     switch (kind)
     {
-    case AREX_SUBMENU_SETTING_PLAN_DEPTH:
+    case SUBMENU_SETTING_PLAN_DEPTH:
         snprintf(buf, buf_size, "DEPTH: %.0fm", (double)value);
         break;
-    case AREX_SUBMENU_SETTING_PLAN_TIME:
+    case SUBMENU_SETTING_PLAN_TIME:
         snprintf(buf, buf_size, "TIME: %.0fmin", (double)value);
         break;
-    case AREX_SUBMENU_SETTING_PLAN_RMV:
+    case SUBMENU_SETTING_PLAN_RMV:
         snprintf(buf, buf_size, "RMV: %.0fL/min", (double)value);
         break;
-    case AREX_SUBMENU_SETTING_MOD_PPO2:
+    case SUBMENU_SETTING_MOD_PPO2:
         snprintf(buf, buf_size, "MOD PO2: %.1f", (double)value);
         break;
-    case AREX_SUBMENU_SETTING_NITROX_O2:
+    case SUBMENU_SETTING_NITROX_O2:
         snprintf(buf, buf_size, "O2: %.0f%%", (double)value);
         break;
-    case AREX_SUBMENU_SETTING_3GAS_O2:
+    case SUBMENU_SETTING_3GAS_O2:
         snprintf(buf, buf_size, "GAS %u: %.0f%%", (unsigned)(arg + 1U), (double)value);
         break;
-    case AREX_SUBMENU_SETTING_OC_TECH_GAS:
+    case SUBMENU_SETTING_OC_TECH_GAS:
         snprintf(buf,
                  buf_size,
                  "%s PERCENT: %.0f%%",
                  (arg % 2U) ? "HE" : "O2",
                  (double)value);
         break;
-    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
+    case SUBMENU_SETTING_DEPTH_ALARM:
         snprintf(buf, buf_size, "DEPTH ALARM: %.0fm", (double)value);
         break;
-    case AREX_SUBMENU_SETTING_TIME_ALARM:
+    case SUBMENU_SETTING_TIME_ALARM:
         snprintf(buf, buf_size, "TIME ALARM: %.0fmin", (double)value);
         break;
-    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
+    case SUBMENU_SETTING_DATETIME_FIELD:
         switch (arg)
         {
         case 0:
@@ -1360,30 +1360,30 @@ static void format_edit_committed_text(char *buf,
     }
 }
 
-static void dispatch_edit_setting_callback(arex_submenu_setting_kind_t kind, uint8_t arg, float value)
+static void dispatch_edit_setting_callback(submenu_setting_kind_t kind, uint8_t arg, float value)
 {
     switch (kind)
     {
-    case AREX_SUBMENU_SETTING_MOD_PPO2:
-        arex_ui_on_mod_ppo2_set(value);
+    case SUBMENU_SETTING_MOD_PPO2:
+        ui_on_mod_ppo2_set(value);
         break;
-    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
-        arex_ui_on_depth_alarm_set((uint16_t)(value + 0.5f));
+    case SUBMENU_SETTING_DEPTH_ALARM:
+        ui_on_depth_alarm_set((uint16_t)(value + 0.5f));
         break;
-    case AREX_SUBMENU_SETTING_TIME_ALARM:
-        arex_ui_on_time_alarm_set((uint16_t)(value + 0.5f));
+    case SUBMENU_SETTING_TIME_ALARM:
+        ui_on_time_alarm_set((uint16_t)(value + 0.5f));
         break;
-    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
-        arex_ui_on_datetime_field_set(arg, (uint16_t)(value + 0.5f));
+    case SUBMENU_SETTING_DATETIME_FIELD:
+        ui_on_datetime_field_set(arg, (uint16_t)(value + 0.5f));
         break;
     default:
         break;
     }
 }
 
-void arex_screen_refresh_edit_value(void)
+void screen_refresh_edit_value(void)
 {
-    if (!g_ui.edit_ctx.active || !s_edit_flash_val_lbl || !arex_submenu_view_get_list()) return;
+    if (!g_ui.edit_ctx.active || !s_edit_flash_val_lbl || !submenu_view_get_list()) return;
     static float last_drawn = -9999.f;
     float cur = g_ui.edit_ctx.value;
     if (cur == last_drawn) return;   /* dirty check：值未变则跳过，不触发重绘 */
@@ -1398,9 +1398,9 @@ void arex_screen_refresh_edit_value(void)
     lv_label_set_text(s_edit_flash_val_lbl, buf);
 }
 
-void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec_t *spec)
+void screen_begin_edit_value(uint8_t item_idx, const submenu_edit_spec_t *spec)
 {
-    lv_obj_t *submenu_list = arex_submenu_view_get_list();
+    lv_obj_t *submenu_list = submenu_view_get_list();
     if (!submenu_list || !spec) return;
 
     g_ui.edit_ctx.value      = spec->value;
@@ -1456,7 +1456,7 @@ void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec
     /* 创建右侧数值 + 箭头 label，透明背景，靠右居中 */
     lv_obj_t *val_lbl = lv_label_create(item);
     lv_obj_set_style_text_color(val_lbl, BLACK, 0);
-    lv_obj_set_style_text_font(val_lbl, arex_get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_font(val_lbl, get_font(FONT_ID_TITLE), 0);
     lv_obj_set_style_bg_color(val_lbl, GREEN, 0);
     lv_obj_set_style_bg_opa(val_lbl, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_left(val_lbl, 8, 0);
@@ -1477,7 +1477,7 @@ void arex_screen_begin_edit_value(uint8_t item_idx, const arex_submenu_edit_spec
     s_edit_flash_badge    = val_lbl;   /* 复用指针用于闪烁 */
     lv_obj_t *arrow_lbl = lv_label_create(item);
     lv_obj_set_style_text_color(arrow_lbl, GREEN, 0);
-    lv_obj_set_style_text_font(arrow_lbl, arex_get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_font(arrow_lbl, get_font(FONT_ID_TITLE), 0);
     lv_obj_set_style_bg_opa(arrow_lbl, LV_OPA_TRANSP, 0);
     lv_label_set_text(arrow_lbl, "▲▼");
 
@@ -1509,9 +1509,9 @@ static void edit_value_cleanup(lv_obj_t *item)
     lv_obj_update_layout(item);
 }
 
-void arex_screen_commit_edit_value(void)
+void screen_commit_edit_value(void)
 {
-    lv_obj_t *submenu_list = arex_submenu_view_get_list();
+    lv_obj_t *submenu_list = submenu_view_get_list();
     if (!submenu_list)
     {
         edit_flash_stop();
@@ -1538,19 +1538,19 @@ void arex_screen_commit_edit_value(void)
         lv_label_set_text(lbl, buf);
         lv_obj_set_style_text_color(lbl, GREEN, 0);
     }
-    arex_submenu_apply_edit_value(g_ui.edit_ctx.setting_kind,
+    submenu_apply_edit_value(g_ui.edit_ctx.setting_kind,
                                   g_ui.edit_ctx.setting_arg,
                                   g_ui.edit_ctx.value);
     dispatch_edit_setting_callback(g_ui.edit_ctx.setting_kind,
                                    g_ui.edit_ctx.setting_arg,
                                    g_ui.edit_ctx.value);
     g_ui.edit_ctx.active = false;
-    arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
+    screen_set_submenu_selection(g_ui.sub_menu_idx);
 }
 
-void arex_screen_cancel_edit_value(void)
+void screen_cancel_edit_value(void)
 {
-    lv_obj_t *submenu_list = arex_submenu_view_get_list();
+    lv_obj_t *submenu_list = submenu_view_get_list();
     if (!submenu_list)
     {
         edit_flash_stop();
@@ -1575,13 +1575,13 @@ void arex_screen_cancel_edit_value(void)
         lv_label_set_text(lbl, buf);
         lv_obj_set_style_text_color(lbl, GREEN, 0);
     }
-    arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
+    screen_set_submenu_selection(g_ui.sub_menu_idx);
 }
 
 /* =========================================================
  * Card title helper
  * ========================================================= */
-lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
+lv_obj_t *screen_make_card_title(lv_obj_t *parent, const char *text)
 {
     uint16_t right_w_fallback = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
                                 - g_sys_config.panel_gap_u * BASE_U;
@@ -1589,7 +1589,7 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
 
     lv_obj_t *lbl = lv_label_create(parent);
     lv_obj_set_style_text_color(lbl, LIGHT, 0);
-    lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_font(lbl, get_font(FONT_ID_TITLE), 0);
     lv_obj_set_pos(lbl, 16, 8);
     lv_obj_set_size(lbl, right_w - 32, 40);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
@@ -1610,11 +1610,11 @@ lv_obj_t *arex_screen_make_card_title(lv_obj_t *parent, const char *text)
 /* =========================================================
  * Software brightness overlay
  * ========================================================= */
-void arex_apply_software_brightness(uint8_t level)
+void apply_software_brightness(uint8_t level)
 {
     /* 当前正式策略：面板固定在安全硬件亮度，UI 侧只做温和遮罩。
      * 低档首先保证可读，避免再次出现 “LOW 基本看不见” 的问题。 */
-    lv_opa_t opa = (lv_opa_t)arex_submenu_brightness_visible_opa(level);
+    lv_opa_t opa = (lv_opa_t)submenu_brightness_visible_opa(level);
     lv_opa_t overlay_opa = (lv_opa_t)(255 - opa);
 
     if (s_scr == NULL)
@@ -1650,7 +1650,7 @@ void arex_apply_software_brightness(uint8_t level)
            level, opa, overlay_opa);
 }
 
-void arex_set_software_brightness_enabled(bool enabled)
+void set_software_brightness_enabled(bool enabled)
 {
     s_software_brightness_enabled = enabled;
 
@@ -1669,7 +1669,7 @@ void arex_set_software_brightness_enabled(bool enabled)
     }
 }
 
-lv_obj_t *arex_get_safe_zone(void)
+lv_obj_t *get_safe_zone(void)
 {
     return s_safe_zone;
 }

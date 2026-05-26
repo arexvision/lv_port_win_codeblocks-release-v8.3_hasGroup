@@ -1,5 +1,5 @@
-#ifndef AREX_DATA_H
-#define AREX_DATA_H
+#ifndef DATA_H
+#define DATA_H
 
 #include "ui_main.h"
 /* =========================================================
@@ -22,12 +22,12 @@ typedef int rt_base_t;
 /* =========================================================
  * AREX Data Bus — 硬件写入接口层
  *
- * 铁律：硬件工程师 / 模拟层 / BLE 任务 只能调用以下 arex_bus_set_* 函数。
+ * 铁律：硬件工程师 / 模拟层 / BLE 任务 只能调用以下 bus_set_* 函数。
  * 禁止直接写入 g_sensor_data / g_sys_config，禁止包含任何 LVGL 代码！
  *
  * 数据流：
- *   硬件传感器 ──arex_bus_set_*()──▶ g_sensor_data (dirty_mask)
- *   BLE 任务   ──arex_bus_set_ui_layout()──▶ g_sys_config + DIRTY_UI_LAYOUT
+ *   硬件传感器 ──bus_set_*()──▶ g_sensor_data (dirty_mask)
+ *   BLE 任务   ──bus_set_ui_layout()──▶ g_sys_config + DIRTY_UI_LAYOUT
  * ========================================================= */
 #include "ui_engine.h"
 
@@ -40,7 +40,7 @@ extern "C" {
  * BLE 通讯帧结构体（无业务逻辑，纯数据载体）
  *
  * 协议版本 0x01，总大小 184 字节，可单帧传输。
- * 由 BLE 任务负责接收并校验 CRC，校验通过后调用 arex_bus_set_ui_layout()。
+ * 由 BLE 任务负责接收并校验 CRC，校验通过后调用 bus_set_ui_layout()。
  *
  * BLE 帧字节数计算：
  *   version(1) + card_order[8](8) + left_count(1)
@@ -76,60 +76,60 @@ typedef struct
     uint8_t  custom_5f_count;             /* 5F 网格组件数量 */
     ble_sync_5f_widget_t custom_5f_widgets[30];    /* 5F 组件 */
     uint16_t crc16;                       /* CRC-16/XMODEM 校验和 */
-} arex_ble_ui_sync_payload_t;
+} ble_ui_sync_payload_t;
 #pragma pack(pop)
 
-#define AREX_BLE_CFG_VERSION  0x01
-#define AREX_BLE_FRAME_SIZE    sizeof(arex_ble_ui_sync_payload_t)
+#define BLE_CFG_VERSION  0x01
+#define BLE_FRAME_SIZE    sizeof(ble_ui_sync_payload_t)
 
 
 /* =========================================================
  * Data Bus Setter 接口
  * ========================================================= */
 
-void arex_data_init(void);
+void data_init(void);
 
 /* --- 传感器数据写入接口 --- */
-void arex_bus_set_depth(float depth_m);               /* 防抖阈值 0.05m */
-void arex_bus_set_ascent_rate(float rate_mpm);        /* 正=上升，负=下潜，0=停止 */
-void arex_bus_set_tts(uint16_t tts_min);
-void arex_bus_set_pod(uint8_t pod_idx, float bar);   /* pod_idx: 0=pod1, 1=pod2 */
-void arex_bus_set_battery(float pct);
-void arex_bus_set_heading(uint16_t heading_deg);
-void arex_bus_set_dive_time(uint32_t dive_s);
-void arex_bus_set_surface_time(uint32_t surface_s);
-void arex_bus_set_ppo2(uint8_t sensor_idx, float ppo2_val); /* sensor_idx: 0~4 */
-void arex_bus_set_gas(uint8_t gas_idx, const char *gas_name);
-void arex_bus_set_gas_slot_count(uint8_t count);
-void arex_bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
+void bus_set_depth(float depth_m);               /* 防抖阈值 0.05m */
+void bus_set_ascent_rate(float rate_mpm);        /* 正=上升，负=下潜，0=停止 */
+void bus_set_tts(uint16_t tts_min);
+void bus_set_pod(uint8_t pod_idx, float bar);   /* pod_idx: 0=pod1, 1=pod2 */
+void bus_set_battery(float pct);
+void bus_set_heading(uint16_t heading_deg);
+void bus_set_dive_time(uint32_t dive_s);
+void bus_set_surface_time(uint32_t surface_s);
+void bus_set_ppo2(uint8_t sensor_idx, float ppo2_val); /* sensor_idx: 0~4 */
+void bus_set_gas(uint8_t gas_idx, const char *gas_name);
+void bus_set_gas_slot_count(uint8_t count);
+void bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
                            uint8_t o2_pct, uint8_t he_pct, float mod_m);
-void arex_bus_set_deco(int16_t stop_m, uint8_t stop_min);
-void arex_bus_set_cns(uint8_t cns_pct);
-void arex_bus_set_otu(uint16_t otu_val);
-void arex_bus_set_gf99(float gf99);
-void arex_bus_set_surf_gf(float surf_gf);
-void arex_bus_set_temperature(float temp_c);
-void arex_bus_set_bat_temperature(float temp_c);
-void arex_bus_set_prj_temperature(float temp_c);
+void bus_set_deco(int16_t stop_m, uint8_t stop_min);
+void bus_set_cns(uint8_t cns_pct);
+void bus_set_otu(uint16_t otu_val);
+void bus_set_gf99(float gf99);
+void bus_set_surf_gf(float surf_gf);
+void bus_set_temperature(float temp_c);
+void bus_set_bat_temperature(float temp_c);
+void bus_set_prj_temperature(float temp_c);
 /* --- System Data 接口[状态参数] --- */
-// void arex_bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
+// void bus_set_device_status(bool strobe_on, bool flashlight_on, uint8_t cylinder_count);
 
 /* --- 临界区保护的数组写入接口 --- */
 /* 16 组织舱饱和度数组（>32bit，必须包临界区防止数据撕裂） */
-void arex_bus_set_tissues(const uint8_t tissue_pct[16]);
+void bus_set_tissues(const uint8_t tissue_pct[16]);
 /* 完整减压站序列（>32bit，必须包临界区） */
-void arex_bus_set_deco_plan(const arex_deco_stop_t *stops, uint8_t count);
+void bus_set_deco_plan(const deco_stop_t *stops, uint8_t count);
 
 /* --- 布局参数切换测试接口[扩展功能]展会不用--- */
-void arex_bus_toggle_layout_order(void);
-void arex_bus_toggle_theme(void);
-void arex_bus_toggle_dots_position(void);
-void arex_bus_toggle_compass_style(void);
-void arex_bus_toggle_sep_style(void);
-void arex_bus_toggle_flash_speed(void);
-void arex_bus_toggle_mask(void);
-void arex_bus_toggle_split_outward(void);
-void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y);
+void bus_toggle_layout_order(void);
+void bus_toggle_theme(void);
+void bus_toggle_dots_position(void);
+void bus_toggle_compass_style(void);
+void bus_toggle_sep_style(void);
+void bus_toggle_flash_speed(void);
+void bus_toggle_mask(void);
+void bus_toggle_split_outward(void);
+void bus_set_ui_offset(int16_t offset_x, int16_t offset_y);
 
 /* =========================================================
  * 减压状态综合更新接口（原子操作）
@@ -142,55 +142,55 @@ void arex_bus_set_ui_offset(int16_t offset_x, int16_t offset_y);
  * @param depth_m        停留深度（米，0=不在停留）
  * @param time_s         停留剩余时间（秒），UI 直接显示倒计时
  * ========================================================= */
-void arex_bus_update_deco(int16_t ndl_min, arex_stop_type_t stop_type,
+void bus_update_deco(int16_t ndl_min, stop_type_t stop_type,
                           float depth_m, uint16_t total_time_s,
                           uint16_t time_s, bool in_stop_zone);
-void arex_bus_set_ndl_bar_pct(uint8_t pct);
+void bus_set_ndl_bar_pct(uint8_t pct);
 
 /* --- NDL 独立接口（快速轮询，仅更新 NDL 数值） --- */
-/* 注意：优先使用 arex_bus_update_deco() 一次性更新所有减压数据 */
-void arex_bus_set_ndl(int16_t ndl_min);
+/* 注意：优先使用 bus_update_deco() 一次性更新所有减压数据 */
+void bus_set_ndl(int16_t ndl_min);
 
 /* --- 用户设置接口 --- */
-void arex_bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high);
-void arex_bus_set_salinity_mode(uint8_t mode);
-void arex_bus_set_last_deco_stop(uint8_t depth_m);
+void bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high);
+void bus_set_salinity_mode(uint8_t mode);
+void bus_set_last_deco_stop(uint8_t depth_m);
 
 /* --- 技术潜水参数接口 --- */
-void arex_bus_set_mod(float mod_m);
-void arex_bus_set_ceiling(float ceiling_m);
-void arex_bus_set_gas_mix(uint8_t o2_pct, uint8_t he_pct);
-void arex_bus_set_gas_density(float density);
-void arex_bus_set_fio2(float fio2_pct);
+void bus_set_mod(float mod_m);
+void bus_set_ceiling(float ceiling_m);
+void bus_set_gas_mix(uint8_t o2_pct, uint8_t he_pct);
+void bus_set_gas_density(float density);
+void bus_set_fio2(float fio2_pct);
 
 /* --- 历史轨迹推流（已在 card_plan.c 中实现，此处声明导出） --- */
-void arex_dive_log_append(float current_time_s, float current_depth_m);
-void arex_dive_log_reset(void);
+void dive_log_append(float current_time_s, float current_depth_m);
+void dive_log_reset(void);
 
 /* --- BLE 布局同步接口（由 BLE 任务调用） --- */
-void arex_bus_set_ui_layout(const arex_ble_ui_sync_payload_t *payload);
+void bus_set_ui_layout(const ble_ui_sync_payload_t *payload);
 
 /* 原子取走当前脏标记：UI 消费本帧 mask，新写入的 dirty 留给下一帧 */
-uint32_t arex_bus_take_dirty(void);
-void arex_bus_requeue_dirty(uint32_t mask);
+uint32_t bus_take_dirty(void);
+void bus_requeue_dirty(uint32_t mask);
 
 /* 清除所有脏标记 */
-void arex_bus_clear_all_dirty(void);
+void bus_clear_all_dirty(void);
 
 // /* 重置潜水统计值（开始新潜水时调用） */
-// void arex_bus_reset_stats(void);
+// void bus_reset_stats(void);
 
-void arex_bus_raise_alarm(arex_alarm_level_t level,
+void bus_raise_alarm(alarm_level_t level,
                           const char *text,
                           comp_id_t target);
 
 /* --- 配置持久化（weak 实现由具体平台覆盖） --- */
-bool arex_config_load(arex_sys_config_t *cfg);
-bool arex_config_save(const arex_sys_config_t *cfg);
+bool config_load(sys_config_t *cfg);
+bool config_save(const sys_config_t *cfg);
 
 #ifdef __cplusplus
 }
 #endif
 
 
-#endif /* AREX_DATA_H */
+#endif /* DATA_H */

@@ -7,7 +7,7 @@
 /*
  * Widget layout/style type definitions.
  * This header is included from ui_engine.h after the core AREX enums
- * such as comp_id_t and arex_font_id_t are declared.
+ * such as comp_id_t and font_id_t are declared.
  */
 
 /* =========================================================
@@ -16,25 +16,25 @@
  * 架构铁律：APP 只下发 [widget_id, x, y] 三字段（3字节）。
  * MCU 根据 widget_id 从样式表自动查表获取 span_w/span_h。
  * ========================================================= */
-#define AREX_LEFT_COLS   2
-#define AREX_LEFT_ROWS   7
-#define AREX_LEFT_CELL_W 80
-#define AREX_LEFT_CELL_H 60
-#define AREX_LEFT_GRID_W (AREX_LEFT_COLS * AREX_LEFT_CELL_W)  /* 160px */
-#define AREX_LEFT_GRID_H (AREX_LEFT_ROWS * AREX_LEFT_CELL_H)  /* 420px */
+#define LEFT_COLS   2
+#define LEFT_ROWS   7
+#define LEFT_CELL_W 80
+#define LEFT_CELL_H 60
+#define LEFT_GRID_W (LEFT_COLS * LEFT_CELL_W)  /* 160px */
+#define LEFT_GRID_H (LEFT_ROWS * LEFT_CELL_H)  /* 420px */
 
-/* APP 下发数据结构（只含位置，无样式）已迁移到 arex_grid_widget_t */
+/* APP 下发数据结构（只含位置，无样式）已迁移到 grid_widget_t */
 
 /* 组件布局类型 */
 typedef enum
 {
-    AREX_LAYOUT_CENTER      = 0,  /* 通用居中：标题上 + 数值中 + 单位下 */
-    AREX_LAYOUT_DIAGONAL   = 1,  /* 对角线：标题左上 + 数值右下 */
-    AREX_LAYOUT_TOP_BOTTOM = 2,  /* 上下：标题顶部 + 数值底部 */
-    AREX_LAYOUT_LEFT_RIGHT = 3,  /* 左右：数值左侧 + 单位/标题右侧 */
-    AREX_LAYOUT_NDL_BAR    = 4,  /* NDL专属：进度条 + 数值 + 标题 */
-    AREX_LAYOUT_DEPTH_SPLIT = 5, /* DEPTH专属：整数 + 小数 + 单位 + 箭头 */
-} arex_layout_type_t;
+    LAYOUT_CENTER      = 0,  /* 通用居中：标题上 + 数值中 + 单位下 */
+    LAYOUT_DIAGONAL   = 1,  /* 对角线：标题左上 + 数值右下 */
+    LAYOUT_TOP_BOTTOM = 2,  /* 上下：标题顶部 + 数值底部 */
+    LAYOUT_LEFT_RIGHT = 3,  /* 左右：数值左侧 + 单位/标题右侧 */
+    LAYOUT_NDL_BAR    = 4,  /* NDL专属：进度条 + 数值 + 标题 */
+    LAYOUT_DEPTH_SPLIT = 5, /* DEPTH专属：整数 + 小数 + 单位 + 箭头 */
+} layout_type_t;
 
 /* =========================================================
  * 第二步：极简 BLE 通信布局结构体 (APP → MCU)
@@ -74,7 +74,7 @@ typedef struct
     int8_t  icon_offset_x;  /* 箭头图标 X 偏移 */
     int8_t  icon_offset_y;  /* 箭头图标 Y 偏移 */
     uint8_t icon_align;      /* 箭头图标对齐方式 */
-} arex_style_depth_t;
+} style_depth_t;
 
 /* NDL 专属样式参数
  * 用于 NDL_STOP_1606 等停留组件，实现进度条+数值分离排版 */
@@ -86,7 +86,7 @@ typedef struct
     int8_t  bar_w;          /* 进度条宽度 */
     int8_t  bar_h;          /* 进度条高度 */
     uint8_t bar_fill_dir;   /* 填充方向：0=从下往上, 1=从上往下 */
-} arex_style_ndl_t;
+} style_ndl_t;
 
 /* NDL_STOP 多形态专属样式参数
  * 用于 NDL_STOP_1606，支持三种状态：NDL常态/Safety停留/Deco停留 */
@@ -126,7 +126,7 @@ typedef struct
     int8_t  deco_sub_x;
     int8_t deco_sub_y;
     uint8_t deco_sub_align;   /* Safety 悬浮的 NDL 文本 */
-} arex_style_ndl_stop_t;
+} style_ndl_stop_t;
 
 /* TISSUE 组织图专属样式参数
  * 用于 TISSUE_GF_4012/TISSUE_RAW_4012，实现16柱组织图排版 */
@@ -137,7 +137,7 @@ typedef struct
     uint8_t chart_align;     /* 柱状图对齐方式 */
     int8_t  bar_count;      /* 柱状图数量（固定16） */
     int8_t  bar_spacing;    /* 柱子间距 */
-} arex_style_tissue_t;
+} style_tissue_t;
 
 /* COMPASS 罗盘专属样式参数
  * 用于 COMPASS_1612，实现卷尺+数值分离排版 */
@@ -149,7 +149,7 @@ typedef struct
     int8_t  val_offset_x;   /* 航向数值 X 偏移 */
     int8_t  val_offset_y;   /* 航向数值 Y 偏移 */
     uint8_t val_align;      /* 航向数值对齐方式 */
-} arex_style_compass_t;
+} style_compass_t;
 
 /* 通用基础样式（无特殊参数的组件使用）
  * 用于 TEMP/TIME/TTS/BATT/POD 等1x1或2x1通用组件 */
@@ -158,7 +158,7 @@ typedef struct
     int8_t  value_offset_x; /* 数值 X 偏移 */
     int8_t  value_offset_y; /* 数值 Y 偏移 */
     uint8_t value_align;     /* 数值对齐方式 */
-} arex_style_basic_t;
+} style_basic_t;
 
 /* =========================================================
  * 第三步：8-bit UI 元素开关掩码 (Element Bitmask)
@@ -181,7 +181,7 @@ typedef struct
 #define ELEM_SYS_BAR (1 << 5)
 
 /* MCU 本地样式字典（Union 共享内存，大小永远等于最大成员） */
-#define AREX_MAX_STYLE_SPEC_SIZE 32
+#define MAX_STYLE_SPEC_SIZE 32
 typedef struct
 {
     comp_id_t widget_id;   /* 绑定的组件 ID */
@@ -191,8 +191,8 @@ typedef struct
     /* 元素开关掩码，决定流水线要装配哪些零件 */
     uint8_t elements;            /* ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_BAR | ELEM_EXTRA */
 
-    arex_font_id_t font_id;      /* 主数值字号 */
-    arex_font_id_t title_font_id; /* 标题字号 */
+    font_id_t font_id;      /* 主数值字号 */
+    font_id_t title_font_id; /* 标题字号 */
     const char *unit;            /* 单位字符串（如 "m"、"min"、NULL） */
     int8_t  title_offset_x;
     int8_t  title_offset_y;
@@ -201,13 +201,13 @@ typedef struct
     /* 专属样式 Union（强制共享内存，防止膨胀） */
     union
     {
-        arex_style_depth_t        depth;                            /* DEPTH专属排版参数 */
-        arex_style_ndl_t          ndl;                              /* NDL 专属参数（进度条/停留态） */
-        arex_style_ndl_stop_t     ndl_stop;                         /* NDL_STOP专属排版参数 */
-        arex_style_tissue_t       tissue;                           /* TISSUE专属排版参数 */
-        arex_style_compass_t      compass;                          /* COMPASS专属排版参数 */
-        arex_style_basic_t        basic;                            /* 通用组件排版参数 */
-        uint8_t                   dummy[AREX_MAX_STYLE_SPEC_SIZE];  /* 强制对齐 */
+        style_depth_t        depth;                            /* DEPTH专属排版参数 */
+        style_ndl_t          ndl;                              /* NDL 专属参数（进度条/停留态） */
+        style_ndl_stop_t     ndl_stop;                         /* NDL_STOP专属排版参数 */
+        style_tissue_t       tissue;                           /* TISSUE专属排版参数 */
+        style_compass_t      compass;                          /* COMPASS专属排版参数 */
+        style_basic_t        basic;                            /* 通用组件排版参数 */
+        uint8_t                   dummy[MAX_STYLE_SPEC_SIZE];  /* 强制对齐 */
     } spec;
 
     /* 组件显示名称 */
@@ -220,7 +220,7 @@ typedef struct
  * POD 渲染状态机（POD1/POD2 共用同一枚举值，靠计数器区分）
  *
  * 策略：静态渲染计数器，同一渲染批次内按顺序分配 POD1→POD2。
- * 每次网格重建/重绘前必须调用 arex_reset_widget_render_state() 归零。
+ * 每次网格重建/重绘前必须调用 reset_widget_render_state() 归零。
  * ========================================================= */
 #define ALIGN_TL LV_ALIGN_TOP_LEFT
 #define ALIGN_TM LV_ALIGN_TOP_MID

@@ -182,26 +182,26 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 {
     lv_obj_t *lc = lv_label_create(parent);
     lv_obj_set_style_text_color(lc, LIGHT, 0);
-    lv_obj_set_style_text_font(lc, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_font(lc, get_font(FONT_ID_SMALL), 0);
     lv_label_set_text(lc, left_cap);
     lv_obj_set_pos(lc, GRID_X, y);
 
     lv_obj_t *lv_ = lv_label_create(parent);
     lv_obj_set_style_text_color(lv_, GREEN, 0);
-    lv_obj_set_style_text_font(lv_, arex_get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_font(lv_, get_font(FONT_ID_TITLE), 0);
     lv_label_set_text(lv_, left_val);
     lv_obj_set_pos(lv_, GRID_X, y + 16);
     if (left_ref) *left_ref = lv_;
 
     lv_obj_t *rc = lv_label_create(parent);
     lv_obj_set_style_text_color(rc, LIGHT, 0);
-    lv_obj_set_style_text_font(rc, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_font(rc, get_font(FONT_ID_SMALL), 0);
     lv_label_set_text(rc, right_cap);
     lv_obj_set_pos(rc, GRID_X + tissue_area_w / 2 + 4, y);
 
     lv_obj_t *rv = lv_label_create(parent);
     lv_obj_set_style_text_color(rv, GREEN, 0);
-    lv_obj_set_style_text_font(rv, arex_get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_font(rv, get_font(FONT_ID_TITLE), 0);
     lv_label_set_text(rv, right_val);
     lv_obj_set_pos(rv, GRID_X + tissue_area_w / 2 + 4, y + 16);
     if (right_ref) *right_ref = rv;
@@ -219,7 +219,7 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 
 void card_deco_create(lv_obj_t *parent)
 {
-    arex_render_card_title(parent, "TISSUES & DECO");
+    render_card_title(parent, "TISSUES & DECO");
 
     int right_canvas_w = (int)g_sys_config.safe_zone_w - 160 - (int)(g_sys_config.gap_u * 10);
 
@@ -248,7 +248,7 @@ void card_deco_create(lv_obj_t *parent)
 
     /* 🚨 核心修复 1: 缩短标题，防止和右侧的 M-VALUE 撞车！ */
     lv_obj_t *sec_lbl = lv_label_create(parent);
-    lv_obj_set_style_text_font(sec_lbl, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_font(sec_lbl, get_font(FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(sec_lbl, LIGHT, 0);
     lv_label_set_text(sec_lbl, "TISSUE SATURATION"); // 删掉了冗长的 (16 COMPARTMENTS)
     lv_obj_align_to(sec_lbl, chart_container, LV_ALIGN_OUT_TOP_LEFT, 0, -10);
@@ -279,7 +279,7 @@ void card_deco_create(lv_obj_t *parent)
 
         lv_obj_t *num_lbl = lv_label_create(chart_container);
         lv_label_set_text_fmt(num_lbl, "%d", i + 1);
-        lv_obj_set_style_text_font(num_lbl, arex_get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_font(num_lbl, get_font(FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(num_lbl, LIGHT, 0);
         lv_obj_set_size(num_lbl, exact_col_w, text_h);
         lv_obj_set_pos(num_lbl, exact_x, bar_max_h);
@@ -296,7 +296,7 @@ void card_deco_create(lv_obj_t *parent)
     lv_obj_set_style_bg_opa(s_mvalue_line, LV_OPA_COVER, 0);
 
     s_mvalue_label = lv_label_create(chart_container);
-    lv_obj_set_style_text_font(s_mvalue_label, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_font(s_mvalue_label, get_font(FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(s_mvalue_label, GREEN, 0);
     lv_obj_set_style_bg_opa(s_mvalue_label, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(s_mvalue_label, BLACK, 0);

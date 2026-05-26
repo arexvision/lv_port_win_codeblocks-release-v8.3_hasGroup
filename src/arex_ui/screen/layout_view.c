@@ -10,7 +10,7 @@
 static lv_obj_t *s_left_bat_lbl = NULL;
 static lv_obj_t *s_left_prj_lbl = NULL;
 
-bool arex_safe_zone_in_danger(void)
+bool safe_zone_in_danger(void)
 {
     int16_t max_offset_x = (int16_t)((PHYSICAL_W - g_sys_config.safe_zone_w) / 2);
     int16_t max_offset_y = (int16_t)((PHYSICAL_H - g_sys_config.safe_zone_h) / 2);
@@ -36,7 +36,7 @@ bool arex_safe_zone_in_danger(void)
     return false;
 }
 
-void arex_calc_layout_rect(int16_t *out_x, int16_t *out_y,
+void calc_layout_rect(int16_t *out_x, int16_t *out_y,
                            uint16_t *out_w, uint16_t *out_h,
                            int16_t anchor_offset_x, int16_t anchor_offset_y)
 {
@@ -49,7 +49,7 @@ void arex_calc_layout_rect(int16_t *out_x, int16_t *out_y,
     *out_h = g_sys_config.safe_zone_h;
 }
 
-void arex_calc_tech_layout(int16_t *out_lx, int16_t *out_ly,
+void calc_tech_layout(int16_t *out_lx, int16_t *out_ly,
                            uint16_t *out_lw, uint16_t *out_lh,
                            int16_t *out_rx, int16_t *out_ry,
                            uint16_t *out_rw, uint16_t *out_rh)
@@ -75,7 +75,7 @@ void arex_calc_tech_layout(int16_t *out_lx, int16_t *out_ly,
     *out_rh = g_sys_config.safe_zone_h;
 }
 
-void arex_calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
+void calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
                               uint16_t *out_top_w, uint16_t *out_top_h,
                               int16_t *out_bot_x, int16_t *out_bot_y,
                               uint16_t *out_bot_w, uint16_t *out_bot_h)
@@ -120,7 +120,7 @@ void arex_calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
     *out_bot_h = bottom_h;
 }
 
-void arex_calc_widget_cell(uint16_t parent_w, uint16_t parent_h,
+void calc_widget_cell(uint16_t parent_w, uint16_t parent_h,
                            uint8_t row, uint8_t col,
                            uint8_t w_span, uint8_t h_span,
                            int16_t *out_x, int16_t *out_y,
@@ -144,7 +144,7 @@ void arex_calc_widget_cell(uint16_t parent_w, uint16_t parent_h,
     }
 }
 
-void arex_calc_tissue_bars(uint16_t total_w, uint16_t bar_max_h,
+void calc_tissue_bars(uint16_t total_w, uint16_t bar_max_h,
                            int16_t out_x[16], uint16_t out_w[16])
 {
     uint16_t col_w = total_w / 16;
@@ -156,8 +156,8 @@ void arex_calc_tissue_bars(uint16_t total_w, uint16_t bar_max_h,
     (void)bar_max_h;
 }
 
-void arex_render_dynamic_menu(lv_obj_t *parent_card,
-                              const arex_menu_item_cfg_t *items,
+void render_dynamic_menu(lv_obj_t *parent_card,
+                              const menu_item_cfg_t *items,
                               uint8_t item_count,
                               int start_y,
                               lv_obj_t **out_item_handles)
@@ -171,7 +171,7 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
     int current_y = start_y;
     for (uint8_t i = 0; i < item_count; i++)
     {
-        const arex_menu_item_cfg_t *item_cfg = &items[i];
+        const menu_item_cfg_t *item_cfg = &items[i];
         int item_h = (int)(item_cfg->height_u > 0 ? item_cfg->height_u : g_sys_config.h_menu_item)
                      * BASE_U;
         int gap_y = (int)g_sys_config.gap_menu * BASE_U;
@@ -192,7 +192,7 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
         {
             lv_obj_t *title_lbl = lv_label_create(item);
             lv_label_set_text(title_lbl, item_cfg->title_text);
-            lv_obj_set_style_text_font(title_lbl, arex_get_font(item_cfg->title_font_id), 0);
+            lv_obj_set_style_text_font(title_lbl, get_font(item_cfg->title_font_id), 0);
             lv_obj_set_style_text_color(title_lbl, GREEN, 0);
             lv_obj_set_size(title_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(title_lbl, LV_ALIGN_LEFT_MID, 12, 0);
@@ -203,7 +203,7 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
         {
             lv_obj_t *badge_lbl = lv_label_create(item);
             lv_label_set_text(badge_lbl, item_cfg->value_badge);
-            lv_obj_set_style_text_font(badge_lbl, arex_get_font(item_cfg->value_font_id), 0);
+            lv_obj_set_style_text_font(badge_lbl, get_font(item_cfg->value_font_id), 0);
             lv_obj_set_style_text_color(badge_lbl, LIGHT, 0);
             lv_obj_set_size(badge_lbl, 80, 28);
             lv_obj_align(badge_lbl, LV_ALIGN_RIGHT_MID, -12, 0);
@@ -220,7 +220,7 @@ void arex_render_dynamic_menu(lv_obj_t *parent_card,
     }
 }
 
-void arex_render_card_title(lv_obj_t *parent_card, const char *title_text)
+void render_card_title(lv_obj_t *parent_card, const char *title_text)
 {
     uint16_t right_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
                        - ((int)g_sys_config.gap_u * BASE_U);
@@ -231,7 +231,7 @@ void arex_render_card_title(lv_obj_t *parent_card, const char *title_text)
     lv_obj_set_size(lbl, right_w - 32, 40);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
     lv_label_set_text(lbl, title_text);
-    lv_obj_set_style_text_font(lbl, arex_get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_font(lbl, get_font(FONT_ID_TITLE), 0);
     lv_obj_set_style_text_color(lbl, LIGHT, 0);
 
     lv_obj_t *line = lv_obj_create(parent_card);
@@ -242,7 +242,7 @@ void arex_render_card_title(lv_obj_t *parent_card, const char *title_text)
     lv_obj_set_style_bg_color(line, DARK, 0);
 }
 
-void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
+void calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
                            uint8_t row, uint8_t col,
                            uint8_t span_w, uint8_t span_h,
                            int16_t *out_x, int16_t *out_y,
@@ -268,7 +268,7 @@ void arex_calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
     }
 }
 
-static void arex_add_left_anchor_sep_line(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t w)
+static void add_left_anchor_sep_line(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t w)
 {
     lv_obj_t *line;
 
@@ -283,7 +283,7 @@ static void arex_add_left_anchor_sep_line(lv_obj_t *parent, lv_coord_t x, lv_coo
     lv_obj_clear_flag(line, LV_OBJ_FLAG_SCROLLABLE);
 }
 
-static void arex_format_left_temp_text(char *buf, size_t len, float temp_c, bool valid)
+static void format_left_temp_text(char *buf, size_t len, float temp_c, bool valid)
 {
     if (!valid)
     {
@@ -294,13 +294,13 @@ static void arex_format_left_temp_text(char *buf, size_t len, float temp_c, bool
     snprintf(buf, len, "%.1fC", (double)temp_c);
 }
 
-void arex_refresh_left_aux_slots(void)
+void refresh_left_aux_slots(void)
 {
     char buf[16];
 
     if (s_left_bat_lbl)
     {
-        arex_format_left_temp_text(buf, sizeof(buf),
+        format_left_temp_text(buf, sizeof(buf),
                                    g_sensor_data.bat_temperature_c,
                                    g_sensor_data.bat_temperature_valid);
         lv_label_set_text(s_left_bat_lbl, buf);
@@ -308,14 +308,14 @@ void arex_refresh_left_aux_slots(void)
 
     if (s_left_prj_lbl)
     {
-        arex_format_left_temp_text(buf, sizeof(buf),
+        format_left_temp_text(buf, sizeof(buf),
                                    g_sensor_data.prj_temperature_c,
                                    g_sensor_data.prj_temperature_valid);
         lv_label_set_text(s_left_prj_lbl, buf);
     }
 }
 
-static lv_obj_t *arex_create_left_aux_slot(lv_obj_t *parent,
+static lv_obj_t *create_left_aux_slot(lv_obj_t *parent,
                                            int16_t abs_x,
                                            int16_t abs_y,
                                            const char *title,
@@ -325,7 +325,7 @@ static lv_obj_t *arex_create_left_aux_slot(lv_obj_t *parent,
     if (!obj) return NULL;
 
     lv_obj_set_pos(obj, abs_x, abs_y);
-    lv_obj_set_size(obj, AREX_LEFT_CELL_W, AREX_LEFT_CELL_H);
+    lv_obj_set_size(obj, LEFT_CELL_W, LEFT_CELL_H);
     lv_obj_set_style_bg_color(obj, BLACK, 0);
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(obj, DARK, 0);
@@ -337,12 +337,12 @@ static lv_obj_t *arex_create_left_aux_slot(lv_obj_t *parent,
 
     lv_obj_t *title_lbl = lv_label_create(obj);
     lv_label_set_text(title_lbl, title);
-    lv_obj_set_style_text_font(title_lbl, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_font(title_lbl, get_font(FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(title_lbl, LIGHT, 0);
     lv_obj_align(title_lbl, LV_ALIGN_TOP_LEFT, 4, 4);
 
     lv_obj_t *val_lbl = lv_label_create(obj);
-    lv_obj_set_style_text_font(val_lbl, arex_get_font(FONT_ID_MEDIUM), 0);
+    lv_obj_set_style_text_font(val_lbl, get_font(FONT_ID_MEDIUM), 0);
     lv_obj_set_style_text_color(val_lbl, GREEN, 0);
     lv_obj_align(val_lbl, LV_ALIGN_BOTTOM_RIGHT, -2, -4);
 
@@ -355,15 +355,15 @@ static lv_obj_t *arex_create_left_aux_slot(lv_obj_t *parent,
         s_left_prj_lbl = val_lbl;
     }
 
-    arex_refresh_left_aux_slots();
+    refresh_left_aux_slots();
     return obj;
 }
 
-static arex_grid_widget_t *arex_left_find_widget_at_cell(uint8_t col, uint8_t row)
+static grid_widget_t *left_find_widget_at_cell(uint8_t col, uint8_t row)
 {
     for (uint8_t i = 0; i < g_sys_config.left_widget_count && i < LEFT_MAX_WIDGETS; i++)
     {
-        arex_grid_widget_t *cfg = &g_sys_config.left_widgets[i];
+        grid_widget_t *cfg = &g_sys_config.left_widgets[i];
         if (cfg->widget_id == COMP_EMPTY)
         {
             continue;
@@ -382,7 +382,7 @@ static arex_grid_widget_t *arex_left_find_widget_at_cell(uint8_t col, uint8_t ro
     return NULL;
 }
 
-void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
+void render_left_anchor_grid(lv_obj_t *left_anchor)
 {
     if (!left_anchor) return;
 
@@ -390,12 +390,12 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
     s_left_bat_lbl = NULL;
     s_left_prj_lbl = NULL;
 
-    const uint16_t cell_w = AREX_LEFT_CELL_W;
-    const uint16_t cell_h = AREX_LEFT_CELL_H;
+    const uint16_t cell_w = LEFT_CELL_W;
+    const uint16_t cell_h = LEFT_CELL_H;
 
     for (uint8_t i = 0; i < g_sys_config.left_widget_count && i < LEFT_MAX_WIDGETS; i++)
     {
-        arex_grid_widget_t *cfg = &g_sys_config.left_widgets[i];
+        grid_widget_t *cfg = &g_sys_config.left_widgets[i];
         if (cfg->widget_id == COMP_EMPTY) continue;
 
         const comp_style_t *style = comp_get_style(cfg->widget_id);
@@ -409,26 +409,26 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
 
         render_widget_by_id(left_anchor, cfg->widget_id,
                             abs_x, abs_y, abs_w, abs_h,
-                            span_w, span_h, (arex_font_id_t)255);
+                            span_w, span_h, (font_id_t)255);
     }
 
-    if (arex_left_find_widget_at_cell(0, 5) == NULL)
+    if (left_find_widget_at_cell(0, 5) == NULL)
     {
-        (void)arex_create_left_aux_slot(left_anchor, 0, (int16_t)(5 * cell_h), "BAT", true);
+        (void)create_left_aux_slot(left_anchor, 0, (int16_t)(5 * cell_h), "BAT", true);
     }
-    if (arex_left_find_widget_at_cell(1, 5) == NULL)
+    if (left_find_widget_at_cell(1, 5) == NULL)
     {
-        (void)arex_create_left_aux_slot(left_anchor, (int16_t)cell_w, (int16_t)(5 * cell_h), "PRJ", false);
+        (void)create_left_aux_slot(left_anchor, (int16_t)cell_w, (int16_t)(5 * cell_h), "PRJ", false);
     }
 
-    for (uint8_t row = 1; row < AREX_LEFT_ROWS; row++)
+    for (uint8_t row = 1; row < LEFT_ROWS; row++)
     {
         uint8_t seg_start = 0xFF;
 
-        for (uint8_t col = 0; col < AREX_LEFT_COLS; col++)
+        for (uint8_t col = 0; col < LEFT_COLS; col++)
         {
-            arex_grid_widget_t *top_cfg = arex_left_find_widget_at_cell(col, (uint8_t)(row - 1));
-            arex_grid_widget_t *bottom_cfg = arex_left_find_widget_at_cell(col, row);
+            grid_widget_t *top_cfg = left_find_widget_at_cell(col, (uint8_t)(row - 1));
+            grid_widget_t *bottom_cfg = left_find_widget_at_cell(col, row);
             bool draw_seg = (top_cfg != NULL && bottom_cfg != NULL && top_cfg != bottom_cfg);
 
             if (draw_seg)
@@ -440,7 +440,7 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
             }
             else if (seg_start != 0xFF)
             {
-                arex_add_left_anchor_sep_line(left_anchor,
+                add_left_anchor_sep_line(left_anchor,
                                               (lv_coord_t)(seg_start * cell_w),
                                               (lv_coord_t)(row * cell_h),
                                               (lv_coord_t)((col - seg_start) * cell_w));
@@ -450,10 +450,10 @@ void arex_render_left_anchor_grid(lv_obj_t *left_anchor)
 
         if (seg_start != 0xFF)
         {
-            arex_add_left_anchor_sep_line(left_anchor,
+            add_left_anchor_sep_line(left_anchor,
                                           (lv_coord_t)(seg_start * cell_w),
                                           (lv_coord_t)(row * cell_h),
-                                          (lv_coord_t)((AREX_LEFT_COLS - seg_start) * cell_w));
+                                          (lv_coord_t)((LEFT_COLS - seg_start) * cell_w));
         }
     }
 }
@@ -487,11 +487,11 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
     }
 
     lv_obj_clean(card_custom);
-    arex_render_card_title(card_custom, "CUSTOM WIDGETS");
+    render_card_title(card_custom, "CUSTOM WIDGETS");
 
     for (uint8_t i = 0; i < count; i++)
     {
-        arex_grid_widget_t *widget = &g_sys_config.custom_cards[custom_card_idx].widgets[i];
+        grid_widget_t *widget = &g_sys_config.custom_cards[custom_card_idx].widgets[i];
         comp_id_t w_id = widget->widget_id;
         uint8_t c = widget->x;
         uint8_t r = widget->y;
@@ -505,16 +505,16 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
 
         int16_t abs_x, abs_y;
         uint16_t abs_w, abs_h;
-        arex_calc_widget_grid(parent_w, parent_h,
+        calc_widget_grid(parent_w, parent_h,
                               r, c, span_w, span_h,
                               &abs_x, &abs_y, &abs_w, &abs_h);
 
         render_widget_by_id(card_custom, w_id, abs_x, abs_y, abs_w, abs_h,
-                            span_w, span_h, (arex_font_id_t)255);
+                            span_w, span_h, (font_id_t)255);
     }
 }
 
-void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor, uint8_t custom_card_idx)
+void render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor, uint8_t custom_card_idx)
 {
     g_left_anchor_obj = left_anchor;
     if (custom_card_idx < MAX_CUSTOM_CARDS)
@@ -529,7 +529,7 @@ void arex_render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor, ui
     render_custom_card_widgets(card_custom, custom_card_idx);
 }
 
-void arex_5f_grid_rebuild_all(void)
+void grid_5f_rebuild_all(void)
 {
     for (uint8_t i = 0; i < g_card_custom_obj_count && i < MAX_CUSTOM_CARDS; i++)
     {
@@ -540,7 +540,7 @@ void arex_5f_grid_rebuild_all(void)
     }
 }
 
-lv_obj_t* arex_render_widget(lv_obj_t *parent,
+lv_obj_t* render_widget(lv_obj_t *parent,
                              const comp_pos_t *pos,
                              uint16_t cell_w, uint16_t cell_h,
                              uint16_t title_h)
@@ -568,5 +568,5 @@ lv_obj_t* arex_render_widget(lv_obj_t *parent,
     return render_widget_by_id(parent, pos->widget_id,
                                abs_x, abs_y, abs_w, abs_h,
                                style->span_w, style->span_h,
-                               (arex_font_id_t)255);
+                               (font_id_t)255);
 }

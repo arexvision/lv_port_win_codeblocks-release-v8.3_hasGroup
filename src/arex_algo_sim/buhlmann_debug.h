@@ -1,5 +1,5 @@
-#ifndef AREX_ALGO_SIM_BUHLMANN_DEBUG_H
-#define AREX_ALGO_SIM_BUHLMANN_DEBUG_H
+#ifndef ALGO_SIM_BUHLMANN_DEBUG_H
+#define ALGO_SIM_BUHLMANN_DEBUG_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -57,4 +57,4 @@ bool buhlmann_debug_plan_calculate(float depth_m,
 }
 #endif
 
-#endif /* AREX_ALGO_SIM_BUHLMANN_DEBUG_H */
+#endif /* ALGO_SIM_BUHLMANN_DEBUG_H */

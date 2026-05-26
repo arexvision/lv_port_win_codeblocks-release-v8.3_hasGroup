@@ -6,9 +6,9 @@
 
 ```text
 硬件 / BLE / PC 仿真数据
-  -> core/data.c: arex_bus_set_*()
+  -> core/data.c: bus_set_*()
   -> g_sensor_data / g_sys_config + dirty_mask
-  -> core/ui_engine.c: arex_ui_update_task()
+  -> core/ui_engine.c: ui_update_task()
   -> core/update_router.c
   -> screen / comp / cards / alarm / views
 ```
@@ -28,7 +28,7 @@
 
 ## 边界约束
 
-- 外部数据写入统一走 `core/data.c` 的 `arex_bus_set_*()`，不要在其他模块直接写 `g_sensor_data` 或 `g_sys_config`。
+- 外部数据写入统一走 `core/data.c` 的 `bus_set_*()`，不要在其他模块直接写 `g_sensor_data` 或 `g_sys_config`。
 - 屏幕级容器和导航放在 `screen/`，具体小组件内容放在 `comp/`，右侧整页内容放在 `cards/`。
 - 卡片创建和刷新由 `screen/card_registry.c` 统一登记；新增卡片时不要只新增 `card_*.c`。
 - 字体和图片资源通常只提供 LVGL 资源定义，不放交互业务逻辑。

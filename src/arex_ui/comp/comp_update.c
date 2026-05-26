@@ -160,7 +160,7 @@ void comp_sync_data(comp_id_t w_id)
     case COMP_COMPASS_1612:
     case COMP_TISSUE_GF_4012:
     case COMP_TISSUE_RAW_4012:
-        /* 这些是包含动多元素的复杂状态机，已arex_ui_update_task 有专属刷新逻辑 */
+        /* 这些是包含动多元素的复杂状态机，已ui_update_task 有专属刷新逻辑 */
         break;
 
     case COMP_SYS_1606:

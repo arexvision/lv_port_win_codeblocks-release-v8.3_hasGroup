@@ -45,7 +45,7 @@ static uint8_t  s_ascent_icon_count = 0;
 static ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
 static uint8_t      s_ndl_handle_count = 0;
 
-static uint8_t arex_ui_clamp_battery_pct(float pct)
+static uint8_t ui_clamp_battery_pct(float pct)
 {
     if (pct <= 0.0f)
     {
@@ -95,7 +95,7 @@ static lv_obj_t *s_sys_cyl_lbl = NULL;      /* 气瓶数量文本 "x0" */
  * 注意：s_pod_render_count 已在 render_widget_by_id 中先递增
  * 所count=1 时为个POD，count=2 时为个POD
  * ========================================================= */
-static uintptr_t arex_get_pod_tag(void)
+static uintptr_t get_pod_tag(void)
 {
     /* 次调count=1，奇 POD1_TAG
      * 次调count=2，偶 POD2_TAG */
@@ -105,7 +105,7 @@ static uintptr_t arex_get_pod_tag(void)
 /* =========================================================
  * 获取 POD 编号（返1 2
  * ========================================================= */
-static uint8_t arex_get_pod_index(void)
+static uint8_t get_pod_index(void)
 {
     /* 次调count=1，奇 POD1
      * 次调count=2，偶 POD2 */
@@ -114,9 +114,9 @@ static uint8_t arex_get_pod_index(void)
 
 /* =========================================================
  * 渲染计数器归零（每次网格重建/重绘前必须调用）
- * arex_screen_rebuild_layout() left_anchor_create() 调用
+ * screen_rebuild_layout() left_anchor_create() 调用
  * ========================================================= */
-void arex_reset_widget_render_state(void)
+void reset_widget_render_state(void)
 {
     memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
     s_ascent_icon_count = 0;
@@ -252,8 +252,8 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
  *
  * POD 单模具轮转分配：
  *   - 函数入口检w_id == COMP_POD_0806
- *   - 调用 arex_get_pod_tag() 获得高位掩码标签 (1033/2033)
- *   - 调用 arex_get_pod_index() 获得 POD 编号 (1/2)
+ *   - 调用 get_pod_tag() 获得高位掩码标签 (1033/2033)
+ *   - 调用 get_pod_index() 获得 POD 编号 (1/2)
  *   - 将标签烙印到容器 user_data
  * ========================================================= */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,
@@ -261,7 +261,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                               int16_t abs_x, int16_t abs_y,
                               uint16_t abs_w, uint16_t abs_h,
                               uint8_t span_w, uint8_t span_h,
-                              arex_font_id_t cfg_font_id)
+                              font_id_t cfg_font_id)
 {
     /* ===== POD 单模具拦截：提前消耗计数器 ===== */
     bool is_pod_mold = (w_id == COMP_POD_0806);
@@ -270,8 +270,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     if (is_pod_mold)
     {
         s_pod_render_count++;     /* Increment first, then get current value */
-        pod_index = arex_get_pod_index();
-        pod_tag = arex_get_pod_tag();
+        pod_index = get_pod_index();
+        pod_tag = get_pod_tag();
     }
 
     const comp_style_t *style = comp_get_style(w_id);
@@ -281,8 +281,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
      *   cfg_font_id != 255 强制覆盖（运行时指定
      *   DEPTH 系列 自动适配尺寸（HUGE/MEDIUM/SMALL
      *   其他组件 直接使用字典 font_id */
-    arex_font_id_t val_font_id;
-    if (cfg_font_id != (arex_font_id_t)255)
+    font_id_t val_font_id;
+    if (cfg_font_id != (font_id_t)255)
     {
         val_font_id = cfg_font_id;  /* 强制覆盖（运行时指定*/
     }
@@ -340,7 +340,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     if (w_id == COMP_DEPTH_1612 && is_2x2)
     {
         /* 样式参数来自 comp_style_t */
-        const arex_style_depth_t *s = &style->spec.depth;
+        const style_depth_t *s = &style->spec.depth;
 
         /* ==========================================
          * 1. 超大号整-> 宽度必须紧密包裹
@@ -349,7 +349,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         if (SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(int_lbl, "--");
         else lv_label_set_text_fmt(int_lbl, "%d", (int)g_sensor_data.depth);
         // 字体从字典读取（font_id = HUGE 58px
-        lv_obj_set_style_text_font(int_lbl, arex_get_font(style->font_id), 0);
+        lv_obj_set_style_text_font(int_lbl, get_font(style->font_id), 0);
         lv_obj_set_style_text_color(int_lbl, GREEN, 0);
 
         // 绝杀技：必须设CONTENT！这样无论变"6" 还是 "45"
@@ -373,7 +373,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_label_set_text_fmt(dec_lbl, ".%d", dd);
         }
         // 字体从字典读取（title_font_id = MEDIUM 28px，小数比整数小）
-        lv_obj_set_style_text_font(dec_lbl, arex_get_font(style->title_font_id), 0);
+        lv_obj_set_style_text_font(dec_lbl, get_font(style->title_font_id), 0);
         lv_obj_set_style_text_color(dec_lbl, GREEN, 0);
         lv_obj_set_size(dec_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
@@ -388,7 +388,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_obj_t *unit_lbl = lv_label_create(obj);
             lv_label_set_text(unit_lbl, style->unit ? style->unit : "");
             // 单位固定用小号字
-            lv_obj_set_style_text_font(unit_lbl, arex_get_font(FONT_ID_SMALL), 0);
+            lv_obj_set_style_text_font(unit_lbl, get_font(FONT_ID_SMALL), 0);
             lv_obj_set_style_text_color(unit_lbl, LIGHT, 0);
             lv_obj_set_size(unit_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, s->unit_offset_x, s->unit_offset_y);
@@ -413,7 +413,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         ndl_handle_t *h = &s_ndl_handles[s_ndl_handle_count++];
         h->comp = obj;
 
-        const arex_style_ndl_stop_t *s = &style->spec.ndl_stop;
+        const style_ndl_stop_t *s = &style->spec.ndl_stop;
 
         /* 创建 10 宫格的底层透明画板 */
         h->horiz_bg = lv_obj_create(obj);
@@ -427,7 +427,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
         /* 顶部标题（默认隐藏，停留态时显示*/
         h->title_top = lv_label_create(obj);
-        lv_obj_set_style_text_font(h->title_top, arex_get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_font(h->title_top, get_font(FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(h->title_top, GREEN, 0);
         lv_label_set_text(h->title_top, "");
         lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
@@ -435,7 +435,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         /* 主数(22, 3:00) - 使用48px字体 */
         h->main_val = lv_label_create(obj);
         lv_obj_set_style_text_color(h->main_val, GREEN, 0);
-        lv_obj_set_style_text_font(h->main_val, arex_get_font(FONT_ID_NDL), 0);
+        lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
         if (SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(h->main_val, "--");
         else
@@ -443,7 +443,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
         /* 底部标题 (NDL 45) */
         h->sub_bot = lv_label_create(obj);
-        lv_obj_set_style_text_font(h->sub_bot, arex_get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_font(h->sub_bot, get_font(FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(h->sub_bot, GREEN, 0);
         lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
         return obj;
@@ -454,17 +454,17 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
         /* 左侧：电Label */
         s_sys_batt_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(s_sys_batt_lbl, arex_get_font(FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_font(s_sys_batt_lbl, get_font(FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(s_sys_batt_lbl, GREEN, 0);
         lv_obj_align(s_sys_batt_lbl, LV_ALIGN_LEFT_MID, 4, 0);
         if (SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(s_sys_batt_lbl, "--%");
         else
-            lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", arex_ui_clamp_battery_pct(g_sensor_data.battery_pct));
+            lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", ui_clamp_battery_pct(g_sensor_data.battery_pct));
 
         /* 右侧：温Label */
         s_sys_temp_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(s_sys_temp_lbl, arex_get_font(FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_font(s_sys_temp_lbl, get_font(FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(s_sys_temp_lbl, GREEN, 0);
         lv_obj_align(s_sys_temp_lbl, LV_ALIGN_RIGHT_MID, -4, 0);
         if (SHOW_PLACEHOLDER_ON_INIT)
@@ -499,7 +499,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         {
             lv_label_set_text(title_lbl, style->title);
         }
-        lv_obj_set_style_text_font(title_lbl, arex_get_font(style->title_font_id), 0);
+        lv_obj_set_style_text_font(title_lbl, get_font(style->title_font_id), 0);
         lv_obj_set_style_text_color(title_lbl, LIGHT, 0);
         lv_obj_set_size(title_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(title_lbl, (lv_align_t)style->title_align,
@@ -512,7 +512,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     if (style->elements & ELEM_VALUE)
     {
         val_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(val_lbl, arex_get_font(val_font_id), 0);
+        lv_obj_set_style_text_font(val_lbl, get_font(val_font_id), 0);
         lv_obj_set_style_text_color(val_lbl, GREEN, 0);
 
         if (SHOW_PLACEHOLDER_ON_INIT)
@@ -558,7 +558,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                 snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading);
                 break;
             case COMP_BATTERY_0806:
-                snprintf(buf, sizeof(buf), "%u", arex_ui_clamp_battery_pct(g_sensor_data.battery_pct));
+                snprintf(buf, sizeof(buf), "%u", ui_clamp_battery_pct(g_sensor_data.battery_pct));
                 break;
             case COMP_STOP_DEPTH_0806:
                 snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.stop_depth_m);
@@ -661,7 +661,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     {
         lv_obj_t *unit_lbl = lv_label_create(obj);
         lv_label_set_text(unit_lbl, style->unit);
-        lv_obj_set_style_text_font(unit_lbl, arex_get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_font(unit_lbl, get_font(FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(unit_lbl, LIGHT, 0);
         /* 单位位于数值右侧（对于 2x1 等窄组件*/
         if ((style->elements & ELEM_VALUE) && (val_lbl != NULL))
@@ -681,7 +681,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     {
         if (w_id == COMP_DEPTH_1612)
         {
-            const arex_style_depth_t *s = &style->spec.depth;
+            const style_depth_t *s = &style->spec.depth;
             lv_obj_t *sudu_img = lv_img_create(obj);
             lv_img_set_src(sudu_img, &sudo_up_level0);
             lv_obj_align(sudu_img, (lv_align_t)s->icon_align, s->icon_offset_x, s->icon_offset_y);
@@ -716,7 +716,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_obj_set_style_border_color(bat_bg, GREEN, 0);
             lv_obj_set_style_radius(bat_bg, 2, 0);
 
-            uint8_t pct = arex_ui_clamp_battery_pct(g_sensor_data.battery_pct);
+            uint8_t pct = ui_clamp_battery_pct(g_sensor_data.battery_pct);
             lv_obj_t *bat_fill = lv_obj_create(bat_bg);
             lv_obj_remove_style_all(bat_fill);
             lv_obj_set_size(bat_fill, LV_PCT(pct > 20 ? 100 : pct), LV_PCT(100));
@@ -764,7 +764,7 @@ void comp_refresh_ndl_stop(uint32_t dirty_mask)
             lv_label_set_text(h->sub_bot, "NDL");
             lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
 
-            lv_obj_set_style_text_font(h->main_val, arex_get_font(FONT_ID_NDL), 0);
+            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
             lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
             lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
         }
@@ -788,7 +788,7 @@ void comp_refresh_ndl_stop(uint32_t dirty_mask)
 
             int m = g_sensor_data.stop_time_left_s / 60;
             int s = g_sensor_data.stop_time_left_s % 60;
-            lv_obj_set_style_text_font(h->main_val, arex_get_font(FONT_ID_MEDIUM), 0);
+            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
             lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
             lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
         }
@@ -802,7 +802,7 @@ void comp_refresh_ndl_stop(uint32_t dirty_mask)
 
             int m = g_sensor_data.stop_time_left_s / 60;
             int s = g_sensor_data.stop_time_left_s % 60;
-            lv_obj_set_style_text_font(h->main_val, arex_get_font(FONT_ID_MEDIUM), 0);
+            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
             lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
             lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
         }
@@ -813,7 +813,7 @@ void comp_refresh_sys(uint32_t dirty_mask)
 {
     if ((dirty_mask & DIRTY_BATT) && s_sys_batt_lbl)
     {
-        lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", arex_ui_clamp_battery_pct(g_sensor_data.battery_pct));
+        lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", ui_clamp_battery_pct(g_sensor_data.battery_pct));
     }
     if ((dirty_mask & DIRTY_TEMP) && s_sys_temp_lbl)
     {

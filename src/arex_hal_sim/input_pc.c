@@ -25,7 +25,7 @@ static void enc_click_cb(lv_event_t *e)
     if (code == LV_EVENT_CLICKED) ui_handle_click();
 }
 
-void arex_input_init(lv_obj_t *scr)
+void input_init(lv_obj_t *scr)
 {
     /* 透明 btn 接收所有输入事件 */
     lv_obj_t *catcher = lv_btn_create(scr);

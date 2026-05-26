@@ -1,5 +1,5 @@
-#ifndef AREX_MODAL_VIEW_H
-#define AREX_MODAL_VIEW_H
+#ifndef MODAL_VIEW_H
+#define MODAL_VIEW_H
 
 #include "lvgl/lvgl.h"
 #include <stdint.h>
@@ -8,18 +8,18 @@
 extern "C" {
 #endif
 
-void arex_modal_view_reset(void);
-void arex_modal_view_create(lv_obj_t *parent, uint16_t width, uint16_t height);
+void modal_view_reset(void);
+void modal_view_create(lv_obj_t *parent, uint16_t width, uint16_t height);
 
-void arex_screen_show_modal_act(const char *action_text);
-void arex_screen_show_modal_setup_confirm(const char *body);
-void arex_screen_show_modal_gas(void);
-void arex_screen_show_modal_compass(void);
-void arex_screen_pulse_modal(void);
-void arex_screen_hide_modal(void);
+void screen_show_modal_act(const char *action_text);
+void screen_show_modal_setup_confirm(const char *body);
+void screen_show_modal_gas(void);
+void screen_show_modal_compass(void);
+void screen_pulse_modal(void);
+void screen_hide_modal(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* AREX_MODAL_VIEW_H */
+#endif /* MODAL_VIEW_H */

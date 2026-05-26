@@ -104,7 +104,7 @@ extern uint8_t g_sys_card_order(uint8_t pos);
 /* ---- 字体 ID 枚举 (APP 同步核心) ----
  *
  * 全系统唯一字体 ID 字典。APP 通过下发数字 ID 来切换字体，
- * 渲染引擎通过 arex_get_font(id) 映射为真实 lvgl 字体指针。
+ * 渲染引擎通过 get_font(id) 映射为真实 lvgl 字体指针。
  * 禁止在配置结构体中保存 lv_font_t*，只允许保存此枚举值！
  */
 typedef enum
@@ -115,28 +115,28 @@ typedef enum
     FONT_ID_LARGE,       /* 64px  深度大数字 */
     FONT_ID_HUGE,        /* 64px  大字体 */
     FONT_ID_NDL,         /* 48px  NDL减压时间 */
-} arex_font_id_t;
+} font_id_t;
 
 typedef enum
 {
     THEME_TECH = 0,   /* Left Grid + Right Cards（当前使用） */
     THEME_CLASSIC      /* 上下流式布局（预留，渲染代码未实现） */
-} arex_theme_t;
+} theme_t;
 
 typedef enum
 {
     ORDER_NORMAL = 0,  /* 标准 (左/又) */
     ORDER_REVERSE      /* 翻转 (上/下) */
-} arex_order_t;
+} order_t;
 
 typedef enum
 {
-    AREX_CONSERVATISM_LOW = 0,
-    AREX_CONSERVATISM_MED,
-    AREX_CONSERVATISM_HIGH,
-    AREX_CONSERVATISM_CUSTOM,
-    AREX_CONSERVATISM_COUNT
-} arex_conservatism_level_t;
+    CONSERVATISM_LOW = 0,
+    CONSERVATISM_MED,
+    CONSERVATISM_HIGH,
+    CONSERVATISM_CUSTOM,
+    CONSERVATISM_COUNT
+} conservatism_level_t;
 
 typedef enum
 {
@@ -144,31 +144,31 @@ typedef enum
     DOTS_LEFT,
     DOTS_BOTTOM,
     DOTS_NONE
-} arex_dots_pos_t;
+} dots_pos_t;
 
 typedef enum
 {
-    AREX_BRIGHTNESS_ECO = 0,
-    AREX_BRIGHTNESS_MED,
-    AREX_BRIGHTNESS_HIGH,
-    AREX_BRIGHTNESS_MAX,
-    AREX_BRIGHTNESS_SUN,
-    AREX_BRIGHTNESS_COUNT
-} arex_brightness_level_t;
+    BRIGHTNESS_ECO = 0,
+    BRIGHTNESS_MED,
+    BRIGHTNESS_HIGH,
+    BRIGHTNESS_MAX,
+    BRIGHTNESS_SUN,
+    BRIGHTNESS_COUNT
+} brightness_level_t;
 
 typedef enum
 {
     COMPASS_CLASSIC = 0, /* 战术横带 (Tape) */
     COMPASS_AERO,        /* 战斗机平显 (HUD) */
     COMPASS_SUB          /* 潜艇声呐 (Sonar) */
-} arex_compass_style_t;
+} compass_style_t;
 
 typedef enum
 {
     ALIGN_LEFT   = 0,
     ALIGN_CENTER,
     ALIGN_RIGHT
-} arex_align_t;
+} align_t;
 
 typedef enum
 {
@@ -176,7 +176,7 @@ typedef enum
     SEP_SOLID,
     SEP_DASHED,
     SEP_DOTTED
-} arex_sep_style_t;
+} sep_style_t;
 
 /* =========================================================
  * AREX 全量组件 ID 字典 (扁平分组枚举，APP/MCU 严格对齐)
@@ -248,9 +248,9 @@ typedef enum
  * 2d. 告警系统 (Alarm System)
  *
  * 架构设计：
- *   - arex_trigger_alarm()   : 触发告警，设置状态 + 弹出横幅 + 锁定靶心
- *   - arex_clear_all_alarm_styles() : 清除告警，隐藏横幅 + 重置状态
- *   - arex_ui_update_task() : 50ms 定时器执行闪烁逻辑（由心跳引擎驱动）
+ *   - trigger_alarm()   : 触发告警，设置状态 + 弹出横幅 + 锁定靶心
+ *   - clear_all_alarm_styles() : 清除告警，隐藏横幅 + 重置状态
+ *   - ui_update_task() : 50ms 定时器执行闪烁逻辑（由心跳引擎驱动）
  *
  * 告警级别：
  *   - ALARM_INFO  (1Hz) : 低优先级提醒，绿底黑字，慢闪
@@ -263,7 +263,7 @@ typedef enum
     ALARM_INFO  = 1,   /* INFO: 低优先级提醒（1Hz 闪烁）*/
     ALARM_WARN  = 2,   /* WARN: 中优先级警告（2Hz 闪烁）*/
     ALARM_CRIT  = 3,   /* CRITICAL: 高优先级危险（4Hz 闪烁）*/
-} arex_alarm_level_t;
+} alarm_level_t;
 
 /* 告警横幅配置 */
 #define ALARM_SHOW_PREFIX  0   /* 1=显示 "CRITICAL:" 前缀，0=只显示告警文字 */
@@ -282,13 +282,13 @@ typedef struct
     comp_id_t widget_id;
     uint8_t x;   /* 列索引 */
     uint8_t y;   /* 行索引 */
-} arex_grid_widget_t;
+} grid_widget_t;
 
 typedef struct
 {
     uint8_t            widget_count;
-    arex_grid_widget_t widgets[MAX_5F_WIDGETS];
-} arex_custom_card_cfg_t;
+    grid_widget_t widgets[MAX_5F_WIDGETS];
+} custom_card_cfg_t;
 
 #pragma pack(push, 1)
 typedef struct
@@ -300,10 +300,10 @@ typedef struct
     int16_t  offset_y;      /* 浮力盲区校准 */
 
     /* --- 全局架构与行为 --- */
-    uint8_t  theme_mode;    /* arex_theme_t */
-    uint8_t  layout_order;   /* arex_order_t */
-    uint8_t  dots_position;   /* arex_dots_pos_t */
-    uint8_t  compass_style;  /* arex_compass_style_t */
+    uint8_t  theme_mode;    /* theme_t */
+    uint8_t  layout_order;   /* order_t */
+    uint8_t  dots_position;   /* dots_pos_t */
+    uint8_t  compass_style;  /* compass_style_t */
     uint8_t  flash_speed;    /* 动画闪烁速度 (0=慢, 1=中, 2=快) */
     bool     mask_enabled;   /* 面镜盲区掩膜开关 */
 
@@ -311,7 +311,7 @@ typedef struct
     bool     split_outward;  /* 双拼模块向外展开 */
 
     /* --- 分割线系统 --- */
-    uint8_t  sep_style;       /* arex_sep_style_t */
+    uint8_t  sep_style;       /* sep_style_t */
     uint8_t  sep_thick;       /* 线条粗细 px */
     uint8_t  sep_alpha;       /* 透明度 0~255 */
 
@@ -331,11 +331,11 @@ typedef struct
 
     /* --- 左侧 2x7 锚点配置 --- */
     uint8_t            left_widget_count;
-    arex_grid_widget_t left_widgets[LEFT_MAX_WIDGETS];
+    grid_widget_t left_widgets[LEFT_MAX_WIDGETS];
 
     /* --- 右侧多张自定义网格卡片配置 --- */
     uint8_t                custom_card_count;
-    arex_custom_card_cfg_t custom_cards[MAX_CUSTOM_CARDS];
+    custom_card_cfg_t custom_cards[MAX_CUSTOM_CARDS];
     uint8_t                custom_card_slot[CARD_COUNT];
 
     /* --- 卡片顺序 (APP 同步就绪)
@@ -352,7 +352,7 @@ typedef struct
     uint8_t last_deco_stop_m;    /* 3m or 6m */
     uint8_t brightness;         /* 默认 0 (ECO) */
 
-} arex_sys_config_t;
+} sys_config_t;
 #pragma pack(pop)
 
 /* =========================================================
@@ -365,7 +365,7 @@ typedef enum
     STOP_NONE = 0,    /* 0: 常态，无停留 */
     STOP_SAFETY,      /* 1: 安全停留 */
     STOP_DECO         /* 2: 强制减压停留 */
-} arex_stop_type_t;
+} stop_type_t;
 
 typedef struct
 {
@@ -378,7 +378,7 @@ typedef struct
     uint8_t ndl_bar_pct;       /* NDL 横向条覆盖值，0-100；255=按 ndl 推导 */
 
     /* --- 动态停留状态机 --- */
-    arex_stop_type_t stop_type;        /* 当前所处的停留模式 */
+    stop_type_t stop_type;        /* 当前所处的停留模式 */
     float            stop_depth_m;     /* 目标停留深度 (如 3.0m 或 6.0m) */
     uint16_t         stop_time_total_s;/* 该减压站的总时间 (用于计算横向进度条) */
     uint16_t         stop_time_left_s; /* 剩余倒计时 (秒) */
@@ -459,7 +459,7 @@ typedef struct
      * ========================================================= */
     uint32_t dirty_mask;
 
-} arex_sensor_data_t;
+} sensor_data_t;
 
 /* =========================================================
  * Data Bus 脏标记位掩码枚举
@@ -511,13 +511,13 @@ typedef enum
     DIRTY_ALARM      = (1U << 30),  /* 告警状态 */
     DIRTY_UI_LAYOUT  = (1U << 31),  /* BLE布局同步 + 外设状态变化触发布局重建 */
 
-} arex_dirty_bit_t;
+} dirty_bit_t;
 
 /* =========================================================
  * 5. 全局单例
  * ========================================================= */
-extern arex_sys_config_t  g_sys_config;
-extern arex_sensor_data_t g_sensor_data;
+extern sys_config_t  g_sys_config;
+extern sensor_data_t g_sensor_data;
 
 /* =========================================================
  * NDL_STOP 多形态组件句柄（160x60 极限空间内的"变形金刚"）
@@ -532,12 +532,12 @@ typedef struct
 {
     float time_s;
     float depth_m;
-} arex_dive_pt_t;
+} dive_pt_t;
 typedef struct
 {
     float depth_m;
     float stay_min;
-}  arex_deco_stop_t;
+}  deco_stop_t;
 
 /* 潜水轨迹缓冲区：200 点固定大小，满后按形状保真压缩 */
 #define MAX_DIVE_LOG   200
@@ -545,20 +545,20 @@ typedef struct
 #define MAX_DECO_STOPS 10
 #endif
 
-extern arex_dive_pt_t   g_dive_log[MAX_DIVE_LOG];
+extern dive_pt_t   g_dive_log[MAX_DIVE_LOG];
 extern uint16_t         g_dive_log_count;
-extern arex_deco_stop_t g_deco_stops[MAX_DECO_STOPS];
+extern deco_stop_t g_deco_stops[MAX_DECO_STOPS];
 extern uint16_t         g_deco_stop_count;
 
 /* =========================================================
  * 7. API 接口
  * ========================================================= */
-void arex_ui_init(void);
-void arex_ui_apply_config(void);
-void arex_ui_update_data(void);
+void ui_init(void);
+void ui_apply_config(void);
+void ui_update_data(void);
 
 /* 配置默认值加载 */
-void arex_sys_config_defaults(arex_sys_config_t *cfg);
+void sys_config_defaults(sys_config_t *cfg);
 
 /* 安全区边界检测 */
 
@@ -575,14 +575,14 @@ void arex_sys_config_defaults(arex_sys_config_t *cfg);
 /* 16 柱组织图 X 坐标推算 */
 
 /* LVGL 辅助 */
-lv_text_align_t arex_align_to_lv(uint8_t align);
-lv_align_t arex_align_to_lv_align(uint8_t align);
+lv_text_align_t align_to_lv(uint8_t align);
+lv_align_t align_to_lv_align(uint8_t align);
 
 /* 通用卡片标题渲染器：标题区固定 CARD_TITLE_H(40px)，
  * 文字 Y=5，分割线 Y=CARD_TITLE_H-2。下方内容区以 CARD_TITLE_H 为 Y=0 起点。 */
 
 /* 字体映射器：唯一允许将字体 ID 转换为真实 lvgl 字体指针的地方 */
-const lv_font_t *arex_get_font(uint8_t font_id);
+const lv_font_t *get_font(uint8_t font_id);
 
 /* =========================================================
  * 9. 布局矩形计算 (供 rebuild 调用)
@@ -592,24 +592,24 @@ const lv_font_t *arex_get_font(uint8_t font_id);
  * 9b. 右侧卡片动态菜单配置 (APP 同步核心)
  *
  * 每个菜单选项的描述结构体。APP 下发 JSON 即可改变菜单外观，
- * 渲染引擎通过 arex_render_dynamic_menu() 统一遍历，不做硬编码判断。
+ * 渲染引擎通过 render_dynamic_menu() 统一遍历，不做硬编码判断。
  * ========================================================= */
 typedef struct
 {
     const char *title_text;      /* 左侧主文本 (可为空) */
     const char *value_badge;     /* 右侧数值/状态徽章 (可为空) */
-    uint8_t     title_font_id;   /* 标题字体 ID: arex_font_id_t */
-    uint8_t     value_font_id;   /* 徽章字体 ID: arex_font_id_t */
+    uint8_t     title_font_id;   /* 标题字体 ID: font_id_t */
+    uint8_t     value_font_id;   /* 徽章字体 ID: font_id_t */
     uint8_t     border_width;    /* 边框粗细 px，0=无边框 */
     uint8_t     height_u;        /* 该选项高度 (单位 U，默认 0=用 h_menu_item) */
-} arex_menu_item_cfg_t;
+} menu_item_cfg_t;
 
-/* 菜单列表包装体 — 作为 arex_card_t.config_data 传入注册表 */
+/* 菜单列表包装体 — 作为 card_t.config_data 传入注册表 */
 typedef struct
 {
-    const arex_menu_item_cfg_t *items;
+    const menu_item_cfg_t *items;
     uint8_t                     count;
-} arex_menu_list_cfg_t;
+} menu_list_cfg_t;
 
 /* 通用动态菜单工厂声明 */
 
@@ -624,7 +624,7 @@ typedef struct
 
 /* 按 widget_id 设置数值（由 update 循环调用，绝不触发重绘） */
 
-/* 5F 自定义网格重建（由 arex_screen_rebuild_layout 调用） */
+/* 5F 自定义网格重建（由 screen_rebuild_layout 调用） */
 
 /* 按 widget_id 设置字符串（用于 GAS 等非数值组件） */
 
@@ -637,9 +637,9 @@ typedef struct
  * 2d. 告警系统 API (Alarm System)
  *
  * 使用流程：
- *   1. arex_trigger_alarm() - 触发告警（显示横幅 + 锁定靶心 + 启动心跳引擎）
- *   2. arex_ui_update_task() - 50ms 定时器自动执行闪烁（无需手动调用）
- *   3. arex_clear_all_alarm_styles() - 清除告警（隐藏横幅 + 重置状态）
+ *   1. trigger_alarm() - 触发告警（显示横幅 + 锁定靶心 + 启动心跳引擎）
+ *   2. ui_update_task() - 50ms 定时器自动执行闪烁（无需手动调用）
+ *   3. clear_all_alarm_styles() - 清除告警（隐藏横幅 + 重置状态）
  *
  * @param level      告警级别（ARE X_ALARM_INFO/WARN/CRIT）
  * @param eng_text   横幅显示的英文提示文字
@@ -647,15 +647,15 @@ typedef struct
  * ========================================================= */
 
 /* 触发告警：显示横幅 + 锁定靶心组件，由 50ms 定时器执行闪烁 */
-void arex_trigger_alarm(arex_alarm_level_t level,
+void trigger_alarm(alarm_level_t level,
                         const char *eng_text,
                         comp_id_t target_id);
 
 /* 清除告警：隐藏横幅 + 重置靶心状态，停止闪烁 */
-void arex_clear_all_alarm_styles(void);
+void clear_all_alarm_styles(void);
 
 /* 标记用户确认当前最高优先级告警；是否隐藏由 alarm.c 的清除策略决定。 */
-bool arex_alarm_mark_clear_requested(void);
+bool alarm_mark_clear_requested(void);
 
 /* 内部：根据 widget_id 获取显示名称 */
 const char *comp_get_name(comp_id_t id);
@@ -705,7 +705,7 @@ extern uint8_t   g_card_custom_obj_count;
  * ========================================================= */
 
 /* UI 消费任务 — 全系统唯一允许执行 lv_label_set_text 的地方（50ms 定时器驱动） */
-void arex_ui_update_task(lv_timer_t *timer);
+void ui_update_task(lv_timer_t *timer);
 
 #ifdef __cplusplus
 }

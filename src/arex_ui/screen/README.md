@@ -14,10 +14,10 @@
 ## 布局边界
 
 ```text
-arex_screen_create()
+screen_create()
   -> 创建屏幕容器和 tileview
-  -> arex_card_registry 查卡片定义
-  -> arex_layout_view 放置网格和卡片内容入口
+  -> card_registry 查卡片定义
+  -> layout_view 放置网格和卡片内容入口
 ```
 
 ## 修改入口

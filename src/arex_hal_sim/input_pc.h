@@ -1,9 +1,9 @@
-#ifndef AREX_INPUT_PC_H
-#define AREX_INPUT_PC_H
+#ifndef INPUT_PC_H
+#define INPUT_PC_H
 
 #include "lvgl/lvgl.h"
 
 /* Initialize PC input (keyboard + encoder) on the given screen object */
-void arex_input_init(lv_obj_t *scr);
+void input_init(lv_obj_t *scr);
 
-#endif /* AREX_INPUT_PC_H */
+#endif /* INPUT_PC_H */

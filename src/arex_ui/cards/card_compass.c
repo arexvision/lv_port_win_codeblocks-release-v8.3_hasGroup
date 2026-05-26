@@ -64,7 +64,7 @@ static void compass_tape_draw_cb(lv_event_t *e)
     lv_draw_label_dsc_t lbl_dsc;
     lv_draw_label_dsc_init(&lbl_dsc);
     lbl_dsc.color = GREEN;
-    lbl_dsc.font = arex_get_font(FONT_ID_SMALL);  /* 14px 小字 */
+    lbl_dsc.font = get_font(FONT_ID_SMALL);  /* 14px 小字 */
     lbl_dsc.align = LV_TEXT_ALIGN_CENTER;
 
     /* ---- 2. 绘制上下轨道线 (极淡的透明度) ---- */
@@ -184,7 +184,7 @@ static lv_obj_t *s_heading_hint_lbl = NULL;   /* 顶部操作提示 */
 void render_compass_custom(lv_obj_t *parent_card)
 {
     /* 1. 统一标题 */
-    arex_render_card_title(parent_card, "NAV COMPASS");
+    render_card_title(parent_card, "NAV COMPASS");
 
     /* 计算右侧区域宽度 */
     int right_canvas_w = (int)g_sys_config.safe_zone_w - (int)LEFT_ANCHOR_W
@@ -195,7 +195,7 @@ void render_compass_custom(lv_obj_t *parent_card)
      * 挂载在大标题下方
      * ======================================================== */
     s_heading_hint_lbl = lv_label_create(parent_card);
-    lv_obj_set_style_text_font(s_heading_hint_lbl, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_font(s_heading_hint_lbl, get_font(FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(s_heading_hint_lbl, LIGHT, 0);
     lv_obj_align(s_heading_hint_lbl, LV_ALIGN_TOP_MID, 0, CARD_TITLE_H + 20);
 
@@ -212,7 +212,7 @@ void render_compass_custom(lv_obj_t *parent_card)
      * 2. 居中巨型当前航向文本 (绝对视觉中心)
      * ======================================================== */
     s_heading_val_lbl = lv_label_create(parent_card);
-    lv_obj_set_style_text_font(s_heading_val_lbl, arex_get_font(FONT_ID_HUGE), 0);  /* 48px */
+    lv_obj_set_style_text_font(s_heading_val_lbl, get_font(FONT_ID_HUGE), 0);  /* 48px */
     lv_obj_set_style_text_color(s_heading_val_lbl, GREEN, 0);
     /* 核心修复：绝对居中，并稍微往上抬一点点 */
     lv_obj_align(s_heading_val_lbl, LV_ALIGN_CENTER, 0, -10);

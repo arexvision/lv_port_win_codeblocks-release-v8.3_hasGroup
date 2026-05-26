@@ -3,13 +3,13 @@
 
 #include <stdio.h>
 
-#define AREX_ALARM_L1_ANIM_MS    220U
-#define AREX_ALARM_L1_SLIDE_PX   16
+#define ALARM_L1_ANIM_MS    220U
+#define ALARM_L1_SLIDE_PX   16
 
 static lv_obj_t *s_alarm_banner;
 static lv_obj_t *s_alarm_banner_lbl;
 
-static lv_color_t alarm_view_level_color(arex_alarm_level_t level)
+static lv_color_t alarm_view_level_color(alarm_level_t level)
 {
     (void)level;
     return GREEN;
@@ -84,15 +84,15 @@ static void alarm_view_banner_animate_in(void)
     alarm_view_banner_cancel_anim();
 
     lv_coord_t end_y = lv_obj_get_y(s_alarm_banner);
-    lv_obj_set_y(s_alarm_banner, end_y - AREX_ALARM_L1_SLIDE_PX);
+    lv_obj_set_y(s_alarm_banner, end_y - ALARM_L1_SLIDE_PX);
     lv_obj_set_style_opa(s_alarm_banner, LV_OPA_TRANSP, 0);
 
-    alarm_view_banner_anim_y(end_y - AREX_ALARM_L1_SLIDE_PX,
+    alarm_view_banner_anim_y(end_y - ALARM_L1_SLIDE_PX,
                              end_y,
-                             AREX_ALARM_L1_ANIM_MS);
+                             ALARM_L1_ANIM_MS);
     alarm_view_banner_anim_opa(LV_OPA_TRANSP,
                                LV_OPA_COVER,
-                               AREX_ALARM_L1_ANIM_MS,
+                               ALARM_L1_ANIM_MS,
                                NULL);
 }
 
@@ -107,11 +107,11 @@ static void alarm_view_banner_animate_out(void)
 
     lv_coord_t start_y = lv_obj_get_y(s_alarm_banner);
     alarm_view_banner_anim_y(start_y,
-                             start_y - AREX_ALARM_L1_SLIDE_PX,
-                             AREX_ALARM_L1_ANIM_MS);
+                             start_y - ALARM_L1_SLIDE_PX,
+                             ALARM_L1_ANIM_MS);
     alarm_view_banner_anim_opa(LV_OPA_COVER,
                                LV_OPA_TRANSP,
-                               AREX_ALARM_L1_ANIM_MS,
+                               ALARM_L1_ANIM_MS,
                                alarm_view_banner_hide_ready);
 }
 
@@ -129,8 +129,8 @@ static void alarm_view_reset_banner_if_invalid(lv_obj_t *safe_zone)
     }
 }
 
-static void alarm_view_show_banner(const arex_alarm_view_context_t *ctx,
-                                   arex_alarm_level_t level,
+static void alarm_view_show_banner(const alarm_view_context_t *ctx,
+                                   alarm_level_t level,
                                    const char *text)
 {
     if (!ctx || !ctx->safe_zone)
@@ -153,7 +153,7 @@ static void alarm_view_show_banner(const arex_alarm_view_context_t *ctx,
         lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
 
         s_alarm_banner_lbl = lv_label_create(s_alarm_banner);
-        lv_obj_set_style_text_font(s_alarm_banner_lbl, arex_get_font(FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_font(s_alarm_banner_lbl, get_font(FONT_ID_MEDIUM), 0);
         lv_obj_align(s_alarm_banner_lbl, LV_ALIGN_LEFT_MID, 20, 0);
     }
 
@@ -210,7 +210,7 @@ static void alarm_view_set_text_color_recursive(lv_obj_t *obj, lv_color_t color)
 static void alarm_view_restore_widget_style(lv_obj_t *obj);
 
 static void alarm_view_apply_widget_style(lv_obj_t *obj,
-                                          arex_alarm_level_t level,
+                                          alarm_level_t level,
                                           bool phase_on)
 {
     lv_color_t alarm_color = alarm_view_level_color(level);
@@ -257,10 +257,10 @@ static void alarm_view_restore_widget_style(lv_obj_t *obj)
     alarm_view_set_text_color_recursive(obj, GREEN);
 }
 
-static void alarm_view_visit_targets(const arex_alarm_view_context_t *ctx,
+static void alarm_view_visit_targets(const alarm_view_context_t *ctx,
                                      const comp_id_t *targets,
                                      uint8_t target_count,
-                                     arex_alarm_level_t level,
+                                     alarm_level_t level,
                                      bool phase_on,
                                      bool restore)
 {
@@ -313,14 +313,14 @@ static void alarm_view_visit_targets(const arex_alarm_view_context_t *ctx,
     }
 }
 
-static void alarm_view_restore_targets(const arex_alarm_view_context_t *ctx,
+static void alarm_view_restore_targets(const alarm_view_context_t *ctx,
                                        const comp_id_t *targets,
                                        uint8_t count)
 {
     alarm_view_visit_targets(ctx, targets, count, ALARM_NONE, false, true);
 }
 
-static void alarm_view_format_banner(const arex_alarm_display_t *display,
+static void alarm_view_format_banner(const alarm_display_t *display,
                                      char *buf,
                                      size_t buf_size)
 {
@@ -340,19 +340,19 @@ static void alarm_view_format_banner(const arex_alarm_display_t *display,
     }
 }
 
-void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx)
+void alarm_view_tick(const alarm_view_context_t *ctx)
 {
-    static comp_id_t s_prev_targets[AREX_ALARM_TARGET_MAX];
+    static comp_id_t s_prev_targets[ALARM_TARGET_MAX];
     static uint8_t s_prev_target_count;
     static uint32_t s_last_revision = 0xFFFFFFFFU;
-    static arex_alarm_level_t s_last_level = ALARM_NONE;
+    static alarm_level_t s_last_level = ALARM_NONE;
     static bool s_last_phase;
     static bool s_last_visible;
 
     uint32_t now = lv_tick_get();
-    arex_alarm_tick(now);
+    alarm_tick(now);
 
-    const arex_alarm_display_t *display = arex_alarm_get_display();
+    const alarm_display_t *display = alarm_get_display();
     bool phase_on = true;
 
     if (display->level >= ALARM_CRIT)
@@ -412,7 +412,7 @@ void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx)
 
     char banner_text[128];
     bool was_visible = s_last_visible;
-    arex_alarm_level_t prev_level = s_last_level;
+    alarm_level_t prev_level = s_last_level;
     uint32_t prev_revision = s_last_revision;
 
     alarm_view_format_banner(display, banner_text, sizeof(banner_text));
@@ -459,9 +459,9 @@ void arex_alarm_view_tick(const arex_alarm_view_context_t *ctx)
         }
     }
 
-    s_prev_target_count = arex_alarm_get_active_targets(display->level,
+    s_prev_target_count = alarm_get_active_targets(display->level,
                                                         s_prev_targets,
-                                                        AREX_ALARM_TARGET_MAX);
+                                                        ALARM_TARGET_MAX);
     if (s_prev_target_count > 0U)
     {
         alarm_view_visit_targets(ctx, s_prev_targets, s_prev_target_count,

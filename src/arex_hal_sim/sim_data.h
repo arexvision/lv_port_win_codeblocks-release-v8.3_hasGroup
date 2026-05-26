@@ -1,14 +1,14 @@
-#ifndef AREX_SIM_DATA_H
-#define AREX_SIM_DATA_H
+#ifndef SIM_DATA_H
+#define SIM_DATA_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void arex_sim_data_start(void);
+void sim_data_start(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* AREX_SIM_DATA_H */
+#endif /* SIM_DATA_H */

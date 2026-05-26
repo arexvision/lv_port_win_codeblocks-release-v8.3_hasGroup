@@ -7,9 +7,9 @@
 | 文件 | 作用 |
 |---|---|
 | `ui_engine.h` | 全局类型和字典，包括配置结构、传感器结构、`comp_id_t`、dirty mask、尺寸宏和颜色宏。 |
-| `ui_engine.c` | 持有 `g_sys_config` 与 `g_sensor_data`，加载默认配置，初始化告警和数据总线，提供 `arex_ui_update_task()`。 |
+| `ui_engine.c` | 持有 `g_sys_config` 与 `g_sensor_data`，加载默认配置，初始化告警和数据总线，提供 `ui_update_task()`。 |
 | `data.h` | 数据总线公开接口、BLE 布局同步帧、配置持久化 weak 接口声明。 |
-| `data.c` | `arex_bus_set_*()` 实现，写入实时数据、更新统计值、设置 dirty mask，并触发部分告警判断。 |
+| `data.c` | `bus_set_*()` 实现，写入实时数据、更新统计值、设置 dirty mask，并触发部分告警判断。 |
 | `ui_state.h` | UI 状态枚举、输入上下文、子菜单历史、气体切换与罗盘校准命令结构。 |
 | `ui_state.c` | `ui_handle_rotate/click/back()` 的状态机分发，控制 DASH、INFO、SETUP、SUB_MENU、MODAL、EDIT 等流转。 |
 | `update_router.h/c` | 50ms UI 心跳与 dirty mask 路由，决定刷新组件、卡片、告警还是重建布局。 |
@@ -18,15 +18,15 @@
 ## 典型调用
 
 ```text
-arex_bus_set_depth()
+bus_set_depth()
   -> g_sensor_data.depth + DIRTY_DEPTH
-  -> arex_ui_update_task()
-  -> arex_ui_update_router_dispatch(DIRTY_DEPTH)
+  -> ui_update_task()
+  -> ui_update_router_dispatch(DIRTY_DEPTH)
 
-arex_bus_set_ascent_rate()
+bus_set_ascent_rate()
   -> g_sensor_data.ascent_rate + DIRTY_ASCENT
-  -> arex_ui_update_task()
-  -> arex_ui_update_router_dispatch(DIRTY_ASCENT)
+  -> ui_update_task()
+  -> ui_update_router_dispatch(DIRTY_ASCENT)
 ```
 
 ## 修改入口

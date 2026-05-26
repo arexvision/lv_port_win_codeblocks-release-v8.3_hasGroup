@@ -20,7 +20,7 @@ void card_gas_update(void); /* forward declaration */
 
 void card_gas_create(lv_obj_t *parent)
 {
-    arex_render_card_title(parent, "GAS SWITCH");
+    render_card_title(parent, "GAS SWITCH");
 
     int right_canvas_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
                          - ((int)g_sys_config.gap_u * BASE_U);
@@ -48,7 +48,7 @@ void card_gas_create(lv_obj_t *parent)
         /* Gas name — 左侧 12px 呼吸，垂直居中 */
         s_lbl_name[i] = lv_label_create(row);
         lv_obj_set_style_text_color(s_lbl_name[i], GREEN, 0);
-        lv_obj_set_style_text_font(s_lbl_name[i], arex_get_font(FONT_ID_TITLE), 0);
+        lv_obj_set_style_text_font(s_lbl_name[i], get_font(FONT_ID_TITLE), 0);
         lv_label_set_text(s_lbl_name[i], GAS_NAMES[i]);
         lv_obj_set_size(s_lbl_name[i], LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(s_lbl_name[i], LV_ALIGN_LEFT_MID, 12, 0);
@@ -56,7 +56,7 @@ void card_gas_create(lv_obj_t *parent)
         /* MOD — 右侧，垂直偏上 */
         s_lbl_mod[i] = lv_label_create(row);
         lv_obj_set_style_text_color(s_lbl_mod[i], LIGHT, 0);
-        lv_obj_set_style_text_font(s_lbl_mod[i], arex_get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_font(s_lbl_mod[i], get_font(FONT_ID_SMALL), 0);
         char buf[20];
         snprintf(buf, sizeof(buf), "MOD %dm", GAS_MOD_M[i]);
         lv_label_set_text(s_lbl_mod[i], buf);
@@ -67,7 +67,7 @@ void card_gas_create(lv_obj_t *parent)
         /* PPO2 — 右侧，垂直偏下 */
         s_lbl_ppo2[i] = lv_label_create(row);
         lv_obj_set_style_text_color(s_lbl_ppo2[i], LIGHT, 0);
-        lv_obj_set_style_text_font(s_lbl_ppo2[i], arex_get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_font(s_lbl_ppo2[i], get_font(FONT_ID_SMALL), 0);
         lv_label_set_text(s_lbl_ppo2[i], "PO2 -.-");
         lv_obj_set_size(s_lbl_ppo2[i], LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_set_style_text_align(s_lbl_ppo2[i], LV_TEXT_ALIGN_RIGHT, 0);
@@ -77,7 +77,7 @@ void card_gas_create(lv_obj_t *parent)
     /* Hint text at bottom */
     s_hint = lv_label_create(parent);
     lv_obj_set_style_text_color(s_hint, LIGHT, 0);
-    lv_obj_set_style_text_font(s_hint, arex_get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_font(s_hint, get_font(FONT_ID_SMALL), 0);
     lv_label_set_text(s_hint, "[ PRESS TO SWITCH GAS ]");
     lv_obj_align(s_hint, LV_ALIGN_BOTTOM_MID, 0, -20);
 
@@ -148,7 +148,7 @@ void card_gas_update(void)
         {
             lv_obj_set_style_text_color(s_lbl_name[i], highlight ? LIGHT : fg, 0);
             lv_obj_set_style_text_font(s_lbl_name[i],
-                                       arex_get_font(highlight ? FONT_ID_MEDIUM : FONT_ID_TITLE),
+                                       get_font(highlight ? FONT_ID_MEDIUM : FONT_ID_TITLE),
                                        0);
         }
         if (s_lbl_mod[i])

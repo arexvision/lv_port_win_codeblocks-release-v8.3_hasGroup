@@ -1,5 +1,5 @@
-#ifndef AREX_CARD_COMPASS_H
-#define AREX_CARD_COMPASS_H
+#ifndef CARD_COMPASS_H
+#define CARD_COMPASS_H
 
 #include <stdbool.h>
 
@@ -17,4 +17,4 @@ void card_compass_refresh_heading(bool force_refresh);
 }
 #endif
 
-#endif /* AREX_CARD_COMPASS_H */
+#endif /* CARD_COMPASS_H */

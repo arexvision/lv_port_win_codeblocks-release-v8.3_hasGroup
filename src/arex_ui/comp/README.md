@@ -25,5 +25,5 @@ screen/layout_view.c
 
 - 改组件内部 label、单位、bar、icon 结构：看 `comp_view.c`。
 - 改组件显示的数据格式或取值路由：看 `comp_update.c`。
-- 改组件尺寸元数据、字体、边框、颜色：看 `arex_comp_style*`。
+- 改组件尺寸元数据、字体、边框、颜色：看 `comp_style*`。
 - 新增 `comp_id_t` 后，通常需要同时检查 `core/ui_engine.h` 和这里的创建/刷新逻辑。

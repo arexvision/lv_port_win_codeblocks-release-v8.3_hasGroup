@@ -178,22 +178,22 @@ static void sync_core_data(const DiveInfo &dive_info, float depth_m)
         tissue_load[i] = (uint8_t)(load_percent + 0.5f);
     }
 
-    arex_bus_set_tissues(tissue_load);
-    arex_bus_set_cns((uint8_t)dive_info.cns);
-    arex_bus_set_otu((uint16_t)dive_info.otu);
-    arex_bus_set_gf99(dive_info.gf99);
-    arex_bus_set_surf_gf(dive_info.surfGF);
+    bus_set_tissues(tissue_load);
+    bus_set_cns((uint8_t)dive_info.cns);
+    bus_set_otu((uint16_t)dive_info.otu);
+    bus_set_gf99(dive_info.gf99);
+    bus_set_surf_gf(dive_info.surfGF);
 
     float mod_m = s_buhlmann.calculateMOD(g_sys_config.mod_ppo2);
-    arex_bus_set_mod(mod_m);
+    bus_set_mod(mod_m);
 
     float ceiling_m = s_buhlmann.calculateDepthFromPressure(s_buhlmann.getLastCeilingPressure());
-    arex_bus_set_ceiling(ceiling_m);
+    bus_set_ceiling(ceiling_m);
 
     Gas active_gas = s_buhlmann.getGas(s_buhlmann.getActiveGas());
     uint8_t o2_pct = (uint8_t)(active_gas.oxygenFraction * 100.0f + 0.5f);
     uint8_t he_pct = (uint8_t)(active_gas.heliumFraction * 100.0f + 0.5f);
-    arex_bus_set_gas_mix(o2_pct, he_pct);
+    bus_set_gas_mix(o2_pct, he_pct);
 
     float surface_pressure = s_buhlmann.getSurfacePressure();
     float n2_fraction = 1.0f - active_gas.oxygenFraction - active_gas.heliumFraction;
@@ -201,14 +201,14 @@ static void sync_core_data(const DiveInfo &dive_info, float depth_m)
                          n2_fraction * 1.251f +
                          active_gas.heliumFraction * 0.179f) *
                         (current_pressure / surface_pressure);
-    arex_bus_set_gas_density(gas_density);
+    bus_set_gas_density(gas_density);
 
     float fio2_pct = (active_gas.oxygenFraction * current_pressure / surface_pressure) * 100.0f;
-    arex_bus_set_fio2(fio2_pct);
+    bus_set_fio2(fio2_pct);
 
     uint16_t tts_val = (uint16_t)(dive_info.ttsSeconds / 60);
     if (tts_val > 9999U) tts_val = 9999U;
-    arex_bus_set_tts(tts_val);
+    bus_set_tts(tts_val);
 }
 
 static void sync_stop_data(const DiveInfo &dive_info)
@@ -217,7 +217,7 @@ static void sync_stop_data(const DiveInfo &dive_info)
     static float s_deco_bar_depth_m = 0.0f;
     static uint16_t s_deco_bar_total_s = 0U;
 
-    arex_stop_type_t stop_type = STOP_NONE;
+    stop_type_t stop_type = STOP_NONE;
     if (dive_info.stopType == BUHLMANN_STOP_SAFETY) {
         stop_type = STOP_SAFETY;
     } else if (dive_info.stopType == BUHLMANN_STOP_DECO) {
@@ -251,14 +251,14 @@ static void sync_stop_data(const DiveInfo &dive_info)
         s_deco_bar_depth_m = 0.0f;
     }
 
-    arex_bus_update_deco(ndl_display_min,
+    bus_update_deco(ndl_display_min,
                          stop_type,
                          dive_info.stopDepthMeters,
                          stop_total_s,
                          stop_left_s,
                          dive_info.inStopZone);
     if (stop_type == STOP_NONE) {
-        arex_bus_set_ndl_bar_pct(ndl_bar_pct_for_display(dive_info));
+        bus_set_ndl_bar_pct(ndl_bar_pct_for_display(dive_info));
     }
 
 }
@@ -266,7 +266,7 @@ static void sync_stop_data(const DiveInfo &dive_info)
 static void handle_pending_gas_switch(float depth_m)
 {
     uint8_t target_gas_idx = 0;
-    if (!arex_has_pending_gas_switch(&target_gas_idx)) {
+    if (!has_pending_gas_switch(&target_gas_idx)) {
         return;
     }
 
@@ -279,7 +279,7 @@ static void handle_pending_gas_switch(float depth_m)
         }
     }
 
-    arex_clear_gas_switch_cmd();
+    clear_gas_switch_cmd();
 }
 
 static void sync_gas_data(float current_pressure)
@@ -290,14 +290,14 @@ static void sync_gas_data(float current_pressure)
 
     if (active_gas.enabled) {
         format_gas_name(active_gas, gas_name_buf, sizeof(gas_name_buf));
-        arex_bus_set_gas((uint8_t)active_gas_idx, gas_name_buf);
+        bus_set_gas((uint8_t)active_gas_idx, gas_name_buf);
     }
 
     for (int i = 0; i < MAX_GASES; i++) {
         Gas gas = s_buhlmann.getGas(i);
         if (gas.enabled) {
             float ppo2 = gas.oxygenFraction * (current_pressure / 1013.25f);
-            arex_bus_set_ppo2((uint8_t)i, ppo2);
+            bus_set_ppo2((uint8_t)i, ppo2);
         }
     }
 }

@@ -22,6 +22,8 @@ Do not modify `LittlevGL.cbp` during routine code changes. Only update the CodeB
 
 ## Coding Preferences
 
+Do not introduce project-name prefixes in code identifiers. New functions, types, globals, enums, and macros must not start with `arex_` or `AREX_`; use the module/domain name directly instead, for example `screen_create()` or `BUS_SET_*`. Existing directory names such as `src/arex_ui` remain unchanged unless the user explicitly asks for a file/path migration.
+
 不要为已经由菜单索引、枚举表、固定数组或状态机保证范围的设置值额外添加 `clamp`/兜底映射。此类防御会隐藏真实错误，并让简单配置修改变复杂。只有外部输入、协议数据、文件持久化数据或其他不可信边界进入系统时，才做范围校验。
 
 ## Git / Commit
@@ -38,11 +40,11 @@ Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative,
 `WinMain()` in `main.c` →
 1. `lv_init()` + `lv_win32_init()` — LVGL + Windows GDI driver (640×480)
 2. `UI_main()` in `src/ui_main.c` — AREX UI entry point:
-   - `arex_ui_init()` — loads default config, zeroes sensor data
-   - `arex_screen_create()` — builds the full LVGL widget tree
-   - `arex_input_init()` — registers keyboard/encoder callbacks
-   - `lv_timer_create(arex_ui_update_task, 50ms)` — dirty-mask UI consumer task
-   - `arex_sim_data_start()` — PC-only simulation data source
+   - `ui_init()` — loads default config, zeroes sensor data
+   - `screen_create()` — builds the full LVGL widget tree
+   - `input_init()` — registers keyboard/encoder callbacks
+   - `lv_timer_create(ui_update_task, 50ms)` — dirty-mask UI consumer task
+   - `sim_data_start()` — PC-only simulation data source
 3. Main loop: `lv_task_handler()` every 10ms
 
 ### Module map (`src/arex_ui/`)
@@ -50,31 +52,31 @@ Full architecture documentation is in `UI_html_DOC/AREX_ARCH.md` (authoritative,
 | File | Role |
 |------|------|
 | `core/ui_engine.h/c` | Global state: `g_sys_config`, `g_sensor_data`; UI init and update task |
-| `core/data.h/c` | BLE sync frame struct; `arex_bus_set_*()` write API |
+| `core/data.h/c` | BLE sync frame struct; `bus_set_*()` write API |
 | `core/ui_state.h/c` | UI state machine (DASH, INFO, SETUP, …); input routing |
 | `core/update_router.h/c` | Periodic UI heartbeat and dirty-mask refresh routing |
 | `screen/screen.h/c` | LVGL screen tree, public screen facade, scroll, walls, edit flows |
 | `screen/layout_view.h/c` | Safe-zone, fixed-anchor, menu, and 5F grid layout rendering |
 | `screen/card_registry.h/c` | Card lookup, registry, display/storage position mapping |
-| `comp/arex_comp_*.h/c` | Reusable widget creation, update, and style application |
-| `views/modal_view.h/c`, `views/arex_submenu_*.h/c` | Overlay dialogs and submenu drawer/model |
-| `alarm/arex_alarm*.h/c` | Alarm event engine and alarm visual layer |
+| `comp/comp_*.h/c` | Reusable widget creation, update, and style application |
+| `views/modal_view.h/c`, `views/submenu_*.h/c` | Overlay dialogs and submenu drawer/model |
+| `alarm/alarm*.h/c` | Alarm event engine and alarm visual layer |
 | `cards/card_*.c` | 7 card implementations (compass, deco, gas, plan, info, setup, blank) |
 | `arex_hal_sim/input_pc.h` | Keyboard/encoder input simulation for PC |
 
 ### Data flow
 
 ```
-Hardware/BLE → arex_bus_set_*() → g_sensor_data (dirty_mask)
+Hardware/BLE → bus_set_*() → g_sensor_data (dirty_mask)
                                          ↓
-                               arex_ui_update_task()
+                               ui_update_task()
                                          ↓
-                         arex_ui_update_router_dispatch()
+                         ui_update_router_dispatch()
                                          ↓
                    widgets / cards / alarms / layout rebuild
 ```
 
-**Rule:** never write `g_sensor_data` or `g_sys_config` directly from outside `ui_engine.c`. Always use `arex_bus_set_*()`.
+**Rule:** never write `g_sensor_data` or `g_sys_config` directly from outside `ui_engine.c`. Always use `bus_set_*()`.
 
 ### Screen layout
 
@@ -85,7 +87,7 @@ Hardware/BLE → arex_bus_set_*() → g_sensor_data (dirty_mask)
 
 ### Card system
 
-Each card registers with `arex_card_registry` providing `create_cb`, `update_cb`, and `on_enter_cb`. Cards are identified by enum ID (INFO, COMPASS, DECO, GAS, PLAN, CUSTOM_GRID, BLANK, SETUP). Dynamic ordering is controlled by `card_order[]` in `arex_ui_engine`.
+Each card registers with `card_registry` providing `create_cb`, `update_cb`, and `on_enter_cb`. Cards are identified by enum ID (INFO, COMPASS, DECO, GAS, PLAN, CUSTOM_GRID, BLANK, SETUP). Dynamic ordering is controlled by `card_order[]` in `ui_engine`.
 
 ### LVGL configuration
 

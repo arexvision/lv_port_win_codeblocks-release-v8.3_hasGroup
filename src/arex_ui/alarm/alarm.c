@@ -4,24 +4,24 @@
 #include <string.h>
 
 #define ALARM_INFO_DISPLAY_MS  3000U
-#define AREX_ALARM_BANNER_ROTATE_MS 3000U
+#define ALARM_BANNER_ROTATE_MS 3000U
 
 typedef enum
 {
-    AREX_ALARM_CLEAR_CONDITION_ONLY = 0, /* 条件解除前强制驻留，ACK 不隐藏 */
-    AREX_ALARM_CLEAR_ACK_HIDE,           /* ACK 后隐藏，直到条件先解除再重新触发 */
-    AREX_ALARM_CLEAR_AUTO_TIMEOUT        /* 通知类：自动超时隐藏 */
-} arex_alarm_clear_policy_t;
+    ALARM_CLEAR_CONDITION_ONLY = 0, /* 条件解除前强制驻留，ACK 不隐藏 */
+    ALARM_CLEAR_ACK_HIDE,           /* ACK 后隐藏，直到条件先解除再重新触发 */
+    ALARM_CLEAR_AUTO_TIMEOUT        /* 通知类：自动超时隐藏 */
+} alarm_clear_policy_t;
 
 typedef struct
 {
-    arex_alarm_id_t id;
-    arex_alarm_level_t level;
+    alarm_id_t id;
+    alarm_level_t level;
     const char *text;
     comp_id_t target;
     bool connected;
-    arex_alarm_clear_policy_t clear_policy;
-} arex_alarm_def_t;
+    alarm_clear_policy_t clear_policy;
+} alarm_def_t;
 
 typedef struct
 {
@@ -30,51 +30,51 @@ typedef struct
     uint32_t first_tick;
     uint32_t last_tick;
     uint32_t seq;
-} arex_alarm_state_t;
+} alarm_state_t;
 
 typedef struct
 {
     bool active;
-    arex_alarm_level_t level;
+    alarm_level_t level;
     const char *text;
     comp_id_t target;
     uint32_t first_tick;
     uint32_t seq;
     bool acked;
-    arex_alarm_clear_policy_t clear_policy;
-} arex_alarm_custom_t;
+    alarm_clear_policy_t clear_policy;
+} alarm_custom_t;
 
-static const arex_alarm_def_t s_alarm_defs[AREX_ALARM_ID_COUNT] =
+static const alarm_def_t s_alarm_defs[ALARM_ID_COUNT] =
 {
-    { AREX_ALARM_ID_CRIT_ASCENT_RATE,    ALARM_CRIT, "ASCENT TOO FAST",       COMP_DEPTH_1606,    true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
-    { AREX_ALARM_ID_CRIT_PO2_MAX,        ALARM_CRIT, "PO2 CRITICAL",          COMP_PPO2_0806,     true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
-    { AREX_ALARM_ID_CRIT_CEIL_BROKEN,    ALARM_CRIT, "CEILING BROKEN",        COMP_NDL_STOP_1606, true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
-    { AREX_ALARM_ID_CRIT_ALGO_LOCK,      ALARM_CRIT, "ALGORITHM LOCKED",      COMP_EMPTY,         false, AREX_ALARM_CLEAR_CONDITION_ONLY },
-    { AREX_ALARM_ID_CRIT_TANK_EMPTY,     ALARM_CRIT, "TANK EMPTY",            COMP_POD_0806,      true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
-    { AREX_ALARM_ID_CRIT_BATTERY_DEAD,   ALARM_CRIT, "BATTERY DEAD",          COMP_BATTERY_0806,  true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_CRIT_ASCENT_RATE,    ALARM_CRIT, "ASCENT TOO FAST",       COMP_DEPTH_1606,    true,  ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_CRIT_PO2_MAX,        ALARM_CRIT, "PO2 CRITICAL",          COMP_PPO2_0806,     true,  ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_CRIT_CEIL_BROKEN,    ALARM_CRIT, "CEILING BROKEN",        COMP_NDL_STOP_1606, true,  ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_CRIT_ALGO_LOCK,      ALARM_CRIT, "ALGORITHM LOCKED",      COMP_EMPTY,         false, ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_CRIT_TANK_EMPTY,     ALARM_CRIT, "TANK EMPTY",            COMP_POD_0806,      true,  ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_CRIT_BATTERY_DEAD,   ALARM_CRIT, "BATTERY DEAD",          COMP_BATTERY_0806,  true,  ALARM_CLEAR_CONDITION_ONLY },
 
-    { AREX_ALARM_ID_WARN_PO2_ELEVATED,   ALARM_WARN, "HIGH PO2",              COMP_PPO2_0806,     true,  AREX_ALARM_CLEAR_ACK_HIDE },
-    { AREX_ALARM_ID_WARN_NDL_LOW,        ALARM_WARN, "NDL LOW",               COMP_NDL_STOP_1606, true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
-    { AREX_ALARM_ID_WARN_CNS_HIGH,       ALARM_WARN, "HIGH CNS",              COMP_CNS_0806,      true,  AREX_ALARM_CLEAR_ACK_HIDE },
-    { AREX_ALARM_ID_WARN_OTU_HIGH,       ALARM_WARN, "HIGH OTU",              COMP_OTU_0806,      true,  AREX_ALARM_CLEAR_ACK_HIDE },
-    { AREX_ALARM_ID_WARN_SAFETY_BROKEN,  ALARM_WARN, "SAFETY BROKEN",         COMP_NDL_STOP_1606, true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
-    { AREX_ALARM_ID_WARN_TANK_TURN,      ALARM_WARN, "TURN PRESSURE",         COMP_POD_0806,      true,  AREX_ALARM_CLEAR_ACK_HIDE },
-    { AREX_ALARM_ID_WARN_SIDEMOUNT_DIFF, ALARM_WARN, "TANK PRESSURE DIFF",    COMP_POD_0806,      true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
-    { AREX_ALARM_ID_WARN_DEPTH_LIMIT,    ALARM_WARN, "DEPTH LIMIT",           COMP_DEPTH_1606,    true,  AREX_ALARM_CLEAR_ACK_HIDE },
-    { AREX_ALARM_ID_WARN_TIME_LIMIT,     ALARM_WARN, "TIME LIMIT",            COMP_DIVE_TIME_1606,true,  AREX_ALARM_CLEAR_ACK_HIDE },
-    { AREX_ALARM_ID_WARN_BATTERY_LOW,    ALARM_WARN, "BATTERY LOW",           COMP_BATTERY_0806,  true,  AREX_ALARM_CLEAR_ACK_HIDE },
-    { AREX_ALARM_ID_WARN_POD_LOST,       ALARM_WARN, "POD LOST",              COMP_POD_0806,      false, AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_WARN_PO2_ELEVATED,   ALARM_WARN, "HIGH PO2",              COMP_PPO2_0806,     true,  ALARM_CLEAR_ACK_HIDE },
+    { ALARM_ID_WARN_NDL_LOW,        ALARM_WARN, "NDL LOW",               COMP_NDL_STOP_1606, true,  ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_WARN_CNS_HIGH,       ALARM_WARN, "HIGH CNS",              COMP_CNS_0806,      true,  ALARM_CLEAR_ACK_HIDE },
+    { ALARM_ID_WARN_OTU_HIGH,       ALARM_WARN, "HIGH OTU",              COMP_OTU_0806,      true,  ALARM_CLEAR_ACK_HIDE },
+    { ALARM_ID_WARN_SAFETY_BROKEN,  ALARM_WARN, "SAFETY BROKEN",         COMP_NDL_STOP_1606, true,  ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_WARN_TANK_TURN,      ALARM_WARN, "TURN PRESSURE",         COMP_POD_0806,      true,  ALARM_CLEAR_ACK_HIDE },
+    { ALARM_ID_WARN_SIDEMOUNT_DIFF, ALARM_WARN, "TANK PRESSURE DIFF",    COMP_POD_0806,      true,  ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_WARN_DEPTH_LIMIT,    ALARM_WARN, "DEPTH LIMIT",           COMP_DEPTH_1606,    true,  ALARM_CLEAR_ACK_HIDE },
+    { ALARM_ID_WARN_TIME_LIMIT,     ALARM_WARN, "TIME LIMIT",            COMP_DIVE_TIME_1606,true,  ALARM_CLEAR_ACK_HIDE },
+    { ALARM_ID_WARN_BATTERY_LOW,    ALARM_WARN, "BATTERY LOW",           COMP_BATTERY_0806,  true,  ALARM_CLEAR_ACK_HIDE },
+    { ALARM_ID_WARN_POD_LOST,       ALARM_WARN, "POD LOST",              COMP_POD_0806,      false, ALARM_CLEAR_CONDITION_ONLY },
 
     /* L1 lifetime is per event: state prompts persist until the owner clears them. */
-    { AREX_ALARM_ID_INFO_SAFETY_STOP,    ALARM_INFO, "SAFETY STOP ACTIVE",    COMP_NDL_STOP_1606, true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
-    { AREX_ALARM_ID_INFO_GAS_SWITCH,     ALARM_INFO, "BETTER GAS AVAILABLE",  COMP_GAS_1606,      true,  AREX_ALARM_CLEAR_CONDITION_ONLY },
-    { AREX_ALARM_ID_INFO_STOP_DONE,      ALARM_INFO, "STOP CLEARED",          COMP_NDL_STOP_1606, true,  AREX_ALARM_CLEAR_AUTO_TIMEOUT },
-    { AREX_ALARM_ID_INFO_COMPASS_CALI,   ALARM_INFO, "CALIBRATE COMPASS",     COMP_HEADING_0806,  false, AREX_ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_INFO_SAFETY_STOP,    ALARM_INFO, "SAFETY STOP ACTIVE",    COMP_NDL_STOP_1606, true,  ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_INFO_GAS_SWITCH,     ALARM_INFO, "BETTER GAS AVAILABLE",  COMP_GAS_1606,      true,  ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_INFO_STOP_DONE,      ALARM_INFO, "STOP CLEARED",          COMP_NDL_STOP_1606, true,  ALARM_CLEAR_AUTO_TIMEOUT },
+    { ALARM_ID_INFO_COMPASS_CALI,   ALARM_INFO, "CALIBRATE COMPASS",     COMP_HEADING_0806,  false, ALARM_CLEAR_CONDITION_ONLY },
 };
 
-static arex_alarm_state_t s_alarm_states[AREX_ALARM_ID_COUNT];
-static arex_alarm_custom_t s_custom_alarm;
-static arex_alarm_display_t s_display;
+static alarm_state_t s_alarm_states[ALARM_ID_COUNT];
+static alarm_custom_t s_custom_alarm;
+static alarm_display_t s_display;
 static uint32_t s_seq;
 static int16_t s_display_key = -2;
 
@@ -92,7 +92,7 @@ static uint32_t alarm_now(void)
 static bool alarm_is_ack_hidden(uint8_t id)
 {
     return s_alarm_states[id].acked &&
-           s_alarm_defs[id].clear_policy == AREX_ALARM_CLEAR_ACK_HIDE;
+           s_alarm_defs[id].clear_policy == ALARM_CLEAR_ACK_HIDE;
 }
 
 static bool alarm_is_displayable(uint8_t id)
@@ -104,7 +104,7 @@ static bool alarm_custom_is_displayable(void)
 {
     return s_custom_alarm.active &&
            !(s_custom_alarm.acked &&
-             s_custom_alarm.clear_policy == AREX_ALARM_CLEAR_ACK_HIDE);
+             s_custom_alarm.clear_policy == ALARM_CLEAR_ACK_HIDE);
 }
 
 static bool alarm_target_add(comp_id_t *targets, uint8_t *count,
@@ -133,11 +133,11 @@ static bool alarm_target_add(comp_id_t *targets, uint8_t *count,
     return true;
 }
 
-static arex_alarm_level_t alarm_highest_level(void)
+static alarm_level_t alarm_highest_level(void)
 {
-    arex_alarm_level_t level = ALARM_NONE;
+    alarm_level_t level = ALARM_NONE;
 
-    for (uint8_t i = 0; i < AREX_ALARM_ID_COUNT; i++)
+    for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
     {
         if (!alarm_is_displayable(i))
         {
@@ -157,11 +157,11 @@ static arex_alarm_level_t alarm_highest_level(void)
     return level;
 }
 
-static uint8_t alarm_collect_level(arex_alarm_level_t level, int16_t *items, uint8_t max_items)
+static uint8_t alarm_collect_level(alarm_level_t level, int16_t *items, uint8_t max_items)
 {
     uint8_t count = 0;
 
-    for (uint8_t i = 0; i < AREX_ALARM_ID_COUNT && count < max_items; i++)
+    for (uint8_t i = 0; i < ALARM_ID_COUNT && count < max_items; i++)
     {
         if (alarm_is_displayable(i) &&
                 s_alarm_defs[i].level == level)
@@ -193,11 +193,11 @@ static uint8_t alarm_collect_level(arex_alarm_level_t level, int16_t *items, uin
     return count;
 }
 
-static uint32_t alarm_level_first_tick(arex_alarm_level_t level)
+static uint32_t alarm_level_first_tick(alarm_level_t level)
 {
     uint32_t first = 0xFFFFFFFFU;
 
-    for (uint8_t i = 0; i < AREX_ALARM_ID_COUNT; i++)
+    for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
     {
         if (alarm_is_displayable(i) &&
                 s_alarm_defs[i].level == level &&
@@ -219,7 +219,7 @@ static uint32_t alarm_level_first_tick(arex_alarm_level_t level)
 
 static void alarm_update_display(uint32_t now_ms)
 {
-    arex_alarm_level_t level = alarm_highest_level();
+    alarm_level_t level = alarm_highest_level();
     int16_t old_key = s_display_key;
 
     if (level == ALARM_NONE)
@@ -232,13 +232,13 @@ static void alarm_update_display(uint32_t now_ms)
     }
     else
     {
-        int16_t items[AREX_ALARM_ID_COUNT + 1];
-        uint8_t count = alarm_collect_level(level, items, (uint8_t)(AREX_ALARM_ID_COUNT + 1));
+        int16_t items[ALARM_ID_COUNT + 1];
+        uint8_t count = alarm_collect_level(level, items, (uint8_t)(ALARM_ID_COUNT + 1));
         uint8_t pick = 0;
         if (count > 1U)
         {
             uint32_t first = alarm_level_first_tick(level);
-            pick = (uint8_t)(((now_ms - first) / AREX_ALARM_BANNER_ROTATE_MS) % count);
+            pick = (uint8_t)(((now_ms - first) / ALARM_BANNER_ROTATE_MS) % count);
         }
 
         int16_t key = (count > 0U) ? items[pick] : -2;
@@ -264,7 +264,7 @@ static void alarm_update_display(uint32_t now_ms)
     }
 }
 
-void arex_alarm_init(void)
+void alarm_init(void)
 {
     memset(s_alarm_states, 0, sizeof(s_alarm_states));
     memset(&s_custom_alarm, 0, sizeof(s_custom_alarm));
@@ -275,14 +275,14 @@ void arex_alarm_init(void)
     s_display_key = -2;
 }
 
-bool arex_alarm_set_active(arex_alarm_id_t id, bool active)
+bool alarm_set_active(alarm_id_t id, bool active)
 {
-    if (id >= AREX_ALARM_ID_COUNT)
+    if (id >= ALARM_ID_COUNT)
     {
         return false;
     }
 
-    arex_alarm_state_t *state = &s_alarm_states[id];
+    alarm_state_t *state = &s_alarm_states[id];
     uint32_t now = alarm_now();
 
     if (state->active == active)
@@ -313,7 +313,7 @@ bool arex_alarm_set_active(arex_alarm_id_t id, bool active)
     return true;
 }
 
-bool arex_alarm_raise_custom(arex_alarm_level_t level,
+bool alarm_raise_custom(alarm_level_t level,
                              const char *text,
                              comp_id_t target)
 {
@@ -330,24 +330,24 @@ bool arex_alarm_raise_custom(arex_alarm_level_t level,
     s_custom_alarm.seq = ++s_seq;
     s_custom_alarm.acked = false;
     s_custom_alarm.clear_policy = (level == ALARM_INFO) ?
-                                  AREX_ALARM_CLEAR_AUTO_TIMEOUT :
-                                  AREX_ALARM_CLEAR_ACK_HIDE;
+                                  ALARM_CLEAR_AUTO_TIMEOUT :
+                                  ALARM_CLEAR_ACK_HIDE;
     alarm_mark_dirty();
     return true;
 }
 
-void arex_alarm_clear_all(void)
+void alarm_clear_all(void)
 {
     memset(s_alarm_states, 0, sizeof(s_alarm_states));
     memset(&s_custom_alarm, 0, sizeof(s_custom_alarm));
     alarm_mark_dirty();
 }
 
-bool arex_alarm_ack_current(void)
+bool alarm_ack_current(void)
 {
     if (s_display_key >= 0)
     {
-        if (s_alarm_defs[s_display_key].clear_policy != AREX_ALARM_CLEAR_ACK_HIDE)
+        if (s_alarm_defs[s_display_key].clear_policy != ALARM_CLEAR_ACK_HIDE)
         {
             return false;
         }
@@ -358,7 +358,7 @@ bool arex_alarm_ack_current(void)
 
     if (s_display_key == -1)
     {
-        if (s_custom_alarm.clear_policy != AREX_ALARM_CLEAR_ACK_HIDE)
+        if (s_custom_alarm.clear_policy != ALARM_CLEAR_ACK_HIDE)
         {
             return false;
         }
@@ -370,14 +370,14 @@ bool arex_alarm_ack_current(void)
     return false;
 }
 
-void arex_alarm_tick(uint32_t now_ms)
+void alarm_tick(uint32_t now_ms)
 {
     bool changed = false;
 
-    for (uint8_t i = 0; i < AREX_ALARM_ID_COUNT; i++)
+    for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
     {
         if (s_alarm_states[i].active &&
-                s_alarm_defs[i].clear_policy == AREX_ALARM_CLEAR_AUTO_TIMEOUT &&
+                s_alarm_defs[i].clear_policy == ALARM_CLEAR_AUTO_TIMEOUT &&
                 now_ms - s_alarm_states[i].first_tick >= ALARM_INFO_DISPLAY_MS)
         {
             s_alarm_states[i].active = false;
@@ -386,7 +386,7 @@ void arex_alarm_tick(uint32_t now_ms)
     }
 
     if (s_custom_alarm.active &&
-            s_custom_alarm.clear_policy == AREX_ALARM_CLEAR_AUTO_TIMEOUT &&
+            s_custom_alarm.clear_policy == ALARM_CLEAR_AUTO_TIMEOUT &&
             now_ms - s_custom_alarm.first_tick >= ALARM_INFO_DISPLAY_MS)
     {
         s_custom_alarm.active = false;
@@ -401,12 +401,12 @@ void arex_alarm_tick(uint32_t now_ms)
     }
 }
 
-const arex_alarm_display_t *arex_alarm_get_display(void)
+const alarm_display_t *alarm_get_display(void)
 {
     return &s_display;
 }
 
-uint8_t arex_alarm_get_active_targets(arex_alarm_level_t level,
+uint8_t alarm_get_active_targets(alarm_level_t level,
                                       comp_id_t *targets,
                                       uint8_t max_targets)
 {
@@ -417,7 +417,7 @@ uint8_t arex_alarm_get_active_targets(arex_alarm_level_t level,
         return 0;
     }
 
-    for (uint8_t i = 0; i < AREX_ALARM_ID_COUNT; i++)
+    for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
     {
         if (alarm_is_displayable(i) &&
                 s_alarm_defs[i].level == level)

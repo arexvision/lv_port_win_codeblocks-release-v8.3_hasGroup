@@ -1,5 +1,5 @@
-#ifndef AREX_UI_STATE_H
-#define AREX_UI_STATE_H
+#ifndef UI_STATE_H
+#define UI_STATE_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -9,8 +9,8 @@
 extern "C" {
 #endif
 
-#ifndef AREX_ENABLE_INFO_MENU
-#define AREX_ENABLE_INFO_MENU 1
+#ifndef ENABLE_INFO_MENU
+#define ENABLE_INFO_MENU 1
 #endif
 
 /* =========================================
@@ -28,16 +28,16 @@ typedef enum
     UI_MODAL_ACT    = 7,  /* generic action modal */
     UI_EDIT_VALUE   = 8,  /* inline value editor (e.g. MOD PO2) */
     UI_MODAL_SETUP_CONFIRM = 9,  /* confirm setup item from sub-menu */
-} arex_ui_state_t;
+} ui_state_t;
 
 /* Sub-menu history entry */
 typedef struct
 {
     char    title[32];
     uint8_t idx;
-} arex_sub_history_t;
+} sub_history_t;
 
-#define AREX_SUB_HISTORY_MAX 4
+#define SUB_HISTORY_MAX 4
 
 /* =========================================
    气体切换命令队列（单向数据流：UI → Algorithm）
@@ -63,10 +63,10 @@ typedef struct
 
 typedef enum
 {
-    AREX_COMPASS_CAL_IDLE = 0,
-    AREX_COMPASS_CAL_RUNNING,
-    AREX_COMPASS_CAL_READY,
-} arex_compass_cal_ui_state_t;
+    COMPASS_CAL_IDLE = 0,
+    COMPASS_CAL_RUNNING,
+    COMPASS_CAL_READY,
+} compass_cal_ui_state_t;
 
 /* =========================================
    UI Context — everything the state machine
@@ -74,7 +74,7 @@ typedef enum
    ========================================= */
 typedef struct
 {
-    arex_ui_state_t  state;
+    ui_state_t  state;
 
     uint8_t  dash_card;         /* 当前 DASH 所在 tile 位置：1~(CARD_POS_SETUP-1) */
 
@@ -90,7 +90,7 @@ typedef struct
     int8_t   wall_dir;          /* +1 bottom  -1 top */
 
     /* Sub-menu stack */
-    arex_sub_history_t sub_history[AREX_SUB_HISTORY_MAX];
+    sub_history_t sub_history[SUB_HISTORY_MAX];
     uint8_t            sub_history_depth;
 
     /* Inline value edit context */
@@ -101,7 +101,7 @@ typedef struct
         float   max;
         float   step;
         float   original;
-        arex_submenu_setting_kind_t setting_kind;
+        submenu_setting_kind_t setting_kind;
         uint8_t setting_arg;
         uint8_t decimals;
         uint8_t item_index;     /* which sub-menu item is being edited */
@@ -115,19 +115,19 @@ typedef struct
     uint8_t     sub_item_count;
 
     /* Parent state when sub-menu was opened */
-    arex_ui_state_t sub_parent;
+    ui_state_t sub_parent;
 
     /* 告警清除标志：触发后必须先 click/rotate 一次才可清除 */
     bool alarm_pending_click;
 
-} arex_ui_ctx_t;
+} ui_ctx_t;
 
-extern arex_ui_ctx_t g_ui;
+extern ui_ctx_t g_ui;
 
 /* =========================================
-   Public API — called from arex_input.c
+   Public API — called from input.c
    ========================================= */
-void arex_ui_state_init(void);
+void ui_state_init(void);
 
 /* dir: +1 = scroll down/right,  -1 = scroll up/left */
 void ui_handle_rotate(int8_t dir);
@@ -139,33 +139,33 @@ void ui_handle_back(void);
    Internal helpers (used by cards too)
    ========================================= */
 /* Notify all registered cards to refresh their widgets */
-void arex_ui_refresh_all(void);
+void ui_refresh_all(void);
 
 /* Scroll the tileview to the given card index (0-based, follows card_order) */
-void arex_ui_go_to_card(uint8_t idx);
+void ui_go_to_card(uint8_t idx);
 
 /* =========================================
    气体切换命令队列接口（UI 层调用）
    ========================================= */
 /* 请求气体切换（不直接修改数据源，发送命令到队列） */
-void arex_request_gas_switch(uint8_t gas_idx);
+void request_gas_switch(uint8_t gas_idx);
 
 /* 检查是否有待处理的气体切换命令（buhlmann_task 调用） */
-bool arex_has_pending_gas_switch(uint8_t *out_gas_idx);
+bool has_pending_gas_switch(uint8_t *out_gas_idx);
 
 /* 清除气体切换命令（buhlmann_task 处理后调用） */
-void arex_clear_gas_switch_cmd(void);
+void clear_gas_switch_cmd(void);
 
 /* 罗盘校准命令（UI -> 传感器任务） */
-void arex_request_compass_calibration_start(void);
-void arex_request_compass_calibration_reset(void);
-bool arex_has_pending_compass_calibration(compass_cal_cmd_action_t *out_action);
-void arex_clear_compass_calibration_cmd(void);
-void arex_set_compass_calibration_ui_state(arex_compass_cal_ui_state_t state);
-arex_compass_cal_ui_state_t arex_get_compass_calibration_ui_state(void);
+void request_compass_calibration_start(void);
+void request_compass_calibration_reset(void);
+bool has_pending_compass_calibration(compass_cal_cmd_action_t *out_action);
+void clear_compass_calibration_cmd(void);
+void set_compass_calibration_ui_state(compass_cal_ui_state_t state);
+compass_cal_ui_state_t get_compass_calibration_ui_state(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* AREX_UI_STATE_H */
+#endif /* UI_STATE_H */

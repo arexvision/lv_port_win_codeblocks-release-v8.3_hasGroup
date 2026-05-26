@@ -1,5 +1,5 @@
-#ifndef AREX_UI_UPDATE_ROUTER_H
-#define AREX_UI_UPDATE_ROUTER_H
+#ifndef UI_UPDATE_ROUTER_H
+#define UI_UPDATE_ROUTER_H
 
 #include <stdint.h>
 
@@ -7,11 +7,11 @@
 extern "C" {
 #endif
 
-void arex_ui_update_router_tick(void);
-void arex_ui_update_router_dispatch(uint32_t dirty_mask);
+void ui_update_router_tick(void);
+void ui_update_router_dispatch(uint32_t dirty_mask);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* AREX_UI_UPDATE_ROUTER_H */
+#endif /* UI_UPDATE_ROUTER_H */

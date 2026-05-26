@@ -1,5 +1,5 @@
-#ifndef AREX_ALGO_SIM_RTTHREAD_H
-#define AREX_ALGO_SIM_RTTHREAD_H
+#ifndef ALGO_SIM_RTTHREAD_H
+#define ALGO_SIM_RTTHREAD_H
 
 #include "lvgl/lvgl.h"
 
@@ -44,4 +44,4 @@ static inline void rt_thread_mdelay(rt_int32_t ms)
 
 #define rt_kprintf printf
 
-#endif /* AREX_ALGO_SIM_RTTHREAD_H */
+#endif /* ALGO_SIM_RTTHREAD_H */

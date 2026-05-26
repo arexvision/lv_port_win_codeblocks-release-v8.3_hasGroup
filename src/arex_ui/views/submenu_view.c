@@ -15,7 +15,7 @@ static lv_obj_t *s_submenu_list = NULL;
 static lv_obj_t *s_light_status_lbl = NULL;
 static uint16_t s_submenu_width = 0;
 static uint16_t s_submenu_height = 0;
-static arex_submenu_setting_confirm_t s_pending_setting;
+static submenu_setting_confirm_t s_pending_setting;
 
 static bool submenu_is_dive_plan_visible(void)
 {
@@ -37,10 +37,10 @@ static bool submenu_is_dive_plan_visible(void)
 
 static bool submenu_is_dive_plan_result_visible(void)
 {
-    return submenu_is_dive_plan_visible() && arex_submenu_dive_plan_is_result_page();
+    return submenu_is_dive_plan_visible() && submenu_dive_plan_is_result_page();
 }
 
-void arex_submenu_view_reset(void)
+void submenu_view_reset(void)
 {
     s_submenu_layer = NULL;
     s_submenu_title = NULL;
@@ -52,12 +52,12 @@ void arex_submenu_view_reset(void)
     memset(&s_pending_setting, 0, sizeof(s_pending_setting));
 }
 
-lv_obj_t *arex_submenu_view_get_list(void)
+lv_obj_t *submenu_view_get_list(void)
 {
     return s_submenu_list;
 }
 
-void arex_submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
+void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 {
     s_submenu_width = width;
     s_submenu_height = height;
@@ -78,7 +78,7 @@ void arex_submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
     lv_label_set_long_mode(s_submenu_title, LV_LABEL_LONG_DOT);
     lv_label_set_text(s_submenu_title, "> SUB MENU");
     lv_obj_set_style_text_color(s_submenu_title, LIGHT, 0);
-    lv_obj_set_style_text_font(s_submenu_title, arex_get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_font(s_submenu_title, get_font(FONT_ID_TITLE), 0);
 
     s_submenu_title_line = lv_obj_create(s_submenu_layer);
     lv_obj_remove_style_all(s_submenu_title_line);
@@ -148,7 +148,7 @@ static lv_obj_t *plan_make_label(lv_obj_t *parent,
     lv_obj_set_pos(lbl, x, y);
     lv_obj_set_size(lbl, w, h);
     lv_obj_set_style_text_color(lbl, color, 0);
-    lv_obj_set_style_text_font(lbl, arex_get_font(font_id), 0);
+    lv_obj_set_style_text_font(lbl, get_font(font_id), 0);
     lv_obj_set_style_text_align(lbl, align, 0);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
     lv_label_set_text(lbl, text ? text : "");
@@ -187,7 +187,7 @@ static void plan_draw_header(lv_obj_t *parent, int w)
     float rmv_lpm = 0.0f;
     uint16_t time_min = 0U;
     char buf[24];
-    arex_submenu_dive_plan_get_inputs(&depth_m, &time_min, &rmv_lpm);
+    submenu_dive_plan_get_inputs(&depth_m, &time_min, &rmv_lpm);
 
     lv_obj_t *oc = lv_obj_create(parent);
     lv_obj_remove_style_all(oc);
@@ -203,10 +203,10 @@ static void plan_draw_header(lv_obj_t *parent, int w)
     plan_make_label(parent, "TIME", FONT_ID_SMALL, GREEN, 155, 12, 70, 18, LV_TEXT_ALIGN_CENTER);
     plan_make_label(parent, "RMV", FONT_ID_SMALL, GREEN, 240, 12, 70, 18, LV_TEXT_ALIGN_CENTER);
 
-    arex_dive_plan_page_t page = arex_submenu_dive_plan_page();
+    dive_plan_page_t page = submenu_dive_plan_page();
     lv_snprintf(buf, sizeof(buf), "%u", (unsigned)(depth_m + 0.5f));
     plan_make_label(parent,
-                    (page == AREX_DIVE_PLAN_PAGE_DEPTH) ? "---" : buf,
+                    (page == DIVE_PLAN_PAGE_DEPTH) ? "---" : buf,
                     FONT_ID_SMALL,
                     LIGHT,
                     70,
@@ -216,7 +216,7 @@ static void plan_draw_header(lv_obj_t *parent, int w)
                     LV_TEXT_ALIGN_CENTER);
     lv_snprintf(buf, sizeof(buf), "%u", (unsigned)time_min);
     plan_make_label(parent,
-                    (page <= AREX_DIVE_PLAN_PAGE_TIME) ? "--" : buf,
+                    (page <= DIVE_PLAN_PAGE_TIME) ? "--" : buf,
                     FONT_ID_SMALL,
                     LIGHT,
                     155,
@@ -226,7 +226,7 @@ static void plan_draw_header(lv_obj_t *parent, int w)
                     LV_TEXT_ALIGN_CENTER);
     lv_snprintf(buf, sizeof(buf), "%u", (unsigned)(rmv_lpm + 0.5f));
     plan_make_label(parent,
-                    (page <= AREX_DIVE_PLAN_PAGE_RMV) ? "--" : buf,
+                    (page <= DIVE_PLAN_PAGE_RMV) ? "--" : buf,
                     FONT_ID_SMALL,
                     LIGHT,
                     240,
@@ -235,7 +235,7 @@ static void plan_draw_header(lv_obj_t *parent, int w)
                     18,
                     LV_TEXT_ALIGN_CENTER);
 
-    uint8_t header_o2 = arex_submenu_dive_plan_header_gas_o2();
+    uint8_t header_o2 = submenu_dive_plan_header_gas_o2();
     if (header_o2)
     {
         lv_snprintf(buf, sizeof(buf), "%u", (unsigned)header_o2);
@@ -268,10 +268,10 @@ static void plan_draw_input(lv_obj_t *parent, int w)
     uint16_t min_v = 3U;
     uint16_t max_v = 120U;
     uint16_t value = 30U;
-    arex_dive_plan_page_t page = arex_submenu_dive_plan_page();
+    dive_plan_page_t page = submenu_dive_plan_page();
 
-    arex_submenu_dive_plan_get_inputs(&depth_m, &time_min, &rmv_lpm);
-    if (page == AREX_DIVE_PLAN_PAGE_TIME)
+    submenu_dive_plan_get_inputs(&depth_m, &time_min, &rmv_lpm);
+    if (page == DIVE_PLAN_PAGE_TIME)
     {
         prompt = "Enter Bottom Time";
         unit = "in minutes";
@@ -279,7 +279,7 @@ static void plan_draw_input(lv_obj_t *parent, int w)
         max_v = 300U;
         value = time_min;
     }
-    else if (page == AREX_DIVE_PLAN_PAGE_RMV)
+    else if (page == DIVE_PLAN_PAGE_RMV)
     {
         prompt = "Enter RMV";
         unit = "in Liters/min";
@@ -330,24 +330,24 @@ static void plan_draw_ready(lv_obj_t *parent, int w)
     lv_snprintf(buf,
                 sizeof(buf),
                 "GF:              %u/%u",
-                (unsigned)arex_submenu_dive_plan_gf_low(),
-                (unsigned)arex_submenu_dive_plan_gf_high());
+                (unsigned)submenu_dive_plan_gf_low(),
+                (unsigned)submenu_dive_plan_gf_high());
     plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, 96, 168, w - 192, 22, LV_TEXT_ALIGN_LEFT);
     lv_snprintf(buf,
                 sizeof(buf),
                 "Last Stop:       %um",
-                (unsigned)arex_submenu_dive_plan_last_stop_m());
+                (unsigned)submenu_dive_plan_last_stop_m());
     plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, 96, 200, w - 192, 22, LV_TEXT_ALIGN_LEFT);
     plan_make_label(parent, "Start CNS:       0%", FONT_ID_SMALL, LIGHT, 96, 232, w - 192, 22, LV_TEXT_ALIGN_LEFT);
 }
 
-static const char *plan_time_text(const arex_dive_plan_row_t *row, char *buf, size_t buf_size)
+static const char *plan_time_text(const dive_plan_row_t *row, char *buf, size_t buf_size)
 {
-    if (row->type == AREX_DIVE_PLAN_ROW_BOTTOM)
+    if (row->type == DIVE_PLAN_ROW_BOTTOM)
     {
         return "bot";
     }
-    if (row->type == AREX_DIVE_PLAN_ROW_ASCENT)
+    if (row->type == DIVE_PLAN_ROW_ASCENT)
     {
         return "asc";
     }
@@ -360,9 +360,9 @@ static void plan_draw_result(lv_obj_t *parent, int w)
     char buf[16];
     static const int col_x[] = { 20, 88, 166, 244, 334 };
     static const int col_w[] = { 64, 72, 72, 82, 72 };
-    uint8_t page = arex_submenu_dive_plan_result_page_index();
-    uint8_t total_pages = arex_submenu_dive_plan_result_total_pages();
-    uint8_t entry_count = arex_submenu_dive_plan_result_entry_count();
+    uint8_t page = submenu_dive_plan_result_page_index();
+    uint8_t total_pages = submenu_dive_plan_result_total_pages();
+    uint8_t entry_count = submenu_dive_plan_result_entry_count();
     uint8_t start = (uint8_t)(page * 8U);
     uint8_t end = (uint8_t)(start + 8U);
     if (end > entry_count) end = entry_count;
@@ -383,9 +383,9 @@ static void plan_draw_result(lv_obj_t *parent, int w)
     int y = 100;
     for (uint8_t i = start; i < end; i++)
     {
-        arex_dive_plan_row_t row;
+        dive_plan_row_t row;
         char tme[8];
-        if (!arex_submenu_dive_plan_result_row(i, &row))
+        if (!submenu_dive_plan_result_row(i, &row))
         {
             continue;
         }
@@ -434,26 +434,26 @@ static void submenu_populate_dive_plan(const char **items, uint8_t count)
     }
 
     plan_draw_header(s_submenu_list, w);
-    switch (arex_submenu_dive_plan_page())
+    switch (submenu_dive_plan_page())
     {
-    case AREX_DIVE_PLAN_PAGE_READY:
+    case DIVE_PLAN_PAGE_READY:
         plan_draw_ready(s_submenu_list, w);
         break;
-    case AREX_DIVE_PLAN_PAGE_RESULT:
+    case DIVE_PLAN_PAGE_RESULT:
         plan_draw_result(s_submenu_list, w);
         break;
-    case AREX_DIVE_PLAN_PAGE_ERROR:
+    case DIVE_PLAN_PAGE_ERROR:
         plan_draw_error(s_submenu_list, w);
         break;
-    case AREX_DIVE_PLAN_PAGE_DEPTH:
-    case AREX_DIVE_PLAN_PAGE_TIME:
-    case AREX_DIVE_PLAN_PAGE_RMV:
+    case DIVE_PLAN_PAGE_DEPTH:
+    case DIVE_PLAN_PAGE_TIME:
+    case DIVE_PLAN_PAGE_RMV:
     default:
         plan_draw_input(s_submenu_list, w);
         break;
     }
     plan_draw_bottom_line(s_submenu_list, w);
-    arex_screen_set_submenu_selection((count > 1U) ? 1U : 0U);
+    screen_set_submenu_selection((count > 1U) ? 1U : 0U);
 }
 
 static void submenu_populate(const char *title, const char **items, uint8_t count)
@@ -497,7 +497,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
     int gap_y  = (int)(g_sys_config.gap_menu * BASE_U);   /* 1U=10px */
     int current_y = 0;
     bool compact_plan = (strcmp(title, "DIVE PLAN") == 0 &&
-                         arex_submenu_dive_plan_is_result_page());
+                         submenu_dive_plan_is_result_page());
     if (compact_plan)
     {
         item_h = 24;
@@ -523,7 +523,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
             /* "LIGHT" 标签在左侧 */
             lv_obj_t *lbl_light = lv_label_create(item);
             lv_obj_set_style_text_color(lbl_light, GREEN, 0);
-            lv_obj_set_style_text_font(lbl_light, arex_get_font(FONT_ID_TITLE), 0);
+            lv_obj_set_style_text_font(lbl_light, get_font(FONT_ID_TITLE), 0);
             lv_obj_set_size(lbl_light, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(lbl_light, LV_ALIGN_LEFT_MID, 12, 0);
             lv_obj_set_style_text_align(lbl_light, LV_TEXT_ALIGN_LEFT, 0);
@@ -532,7 +532,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
             /* "ON"/"OFF" 标签在右侧 */
             lv_obj_t *lbl_status = lv_label_create(item);
             lv_obj_set_style_text_color(lbl_status, g_light_power_state ? GREEN : LIGHT, 0);
-            lv_obj_set_style_text_font(lbl_status, arex_get_font(FONT_ID_TITLE), 0);
+            lv_obj_set_style_text_font(lbl_status, get_font(FONT_ID_TITLE), 0);
             lv_obj_set_size(lbl_status, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(lbl_status, LV_ALIGN_RIGHT_MID, -12, 0);
             lv_obj_set_style_text_align(lbl_status, LV_TEXT_ALIGN_RIGHT, 0);
@@ -547,7 +547,7 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
         /* 普通菜单项 */
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, GREEN, 0);
-        lv_obj_set_style_text_font(lbl, arex_get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+        lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
         lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(lbl, LV_ALIGN_LEFT_MID, 12, 0);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_LEFT, 0);
@@ -556,10 +556,10 @@ static void submenu_populate(const char *title, const char **items, uint8_t coun
 
         current_y += item_h + gap_y;
     }
-    arex_screen_set_submenu_selection(0);
+    screen_set_submenu_selection(0);
 }
 
-void arex_screen_set_submenu_selection(uint8_t idx)
+void screen_set_submenu_selection(uint8_t idx)
 {
     if (!s_submenu_list) return;
     if (submenu_is_dive_plan_visible())
@@ -609,14 +609,14 @@ void arex_screen_set_submenu_selection(uint8_t idx)
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
             }
             /* LIGHT CONTROL second column uses the same selected emphasis. */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
                 lv_obj_set_style_text_color(lbl2, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl2, arex_get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
             }
         }
         else
@@ -630,29 +630,29 @@ void arex_screen_set_submenu_selection(uint8_t idx)
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, GREEN, 0);
-                lv_obj_set_style_text_font(lbl, arex_get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
             }
             /* LIGHT CONTROL 特殊处理：第二列（ON/OFF）恢复状态色 */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
                 lv_obj_set_style_text_color(lbl2, g_light_power_state ? GREEN : LIGHT, 0);
-                lv_obj_set_style_text_font(lbl2, arex_get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+                lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
             }
         }
     }
 }
 
 /* INFO sub-menu */
-void arex_screen_open_info_submenu(uint8_t item_idx)
+void screen_open_info_submenu(uint8_t item_idx)
 {
     uint8_t count = 0;
-    const char *title = arex_submenu_info_title(item_idx);
+    const char *title = submenu_info_title(item_idx);
     if (title && strcmp(title, "DIVE PLAN") == 0)
     {
-        arex_submenu_dive_plan_reset();
+        submenu_dive_plan_reset();
     }
-    const char **items = arex_submenu_build_info_items(item_idx, &count);
+    const char **items = submenu_build_info_items(item_idx, &count);
     if (!title || !items || count == 0) return;
 
     submenu_populate(title, items, count);
@@ -660,15 +660,15 @@ void arex_screen_open_info_submenu(uint8_t item_idx)
     g_ui.sub_menu_idx   = (strcmp(title, "DIVE PLAN") == 0 && count > 1U) ? 1U : 0U;
     g_ui.sub_parent     = UI_INFO;
     g_ui.state          = UI_SUB_MENU;
-    arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
+    screen_set_submenu_selection(g_ui.sub_menu_idx);
     submenu_slide_in();
 }
 
 static void refresh_info_submenu_page(uint8_t keep_idx)
 {
     uint8_t count = 0;
-    const char *title = arex_submenu_info_title(g_ui.menu_info_idx);
-    const char **items = arex_submenu_build_info_items(g_ui.menu_info_idx, &count);
+    const char *title = submenu_info_title(g_ui.menu_info_idx);
+    const char **items = submenu_build_info_items(g_ui.menu_info_idx, &count);
     if (!title || !items || count == 0)
     {
         return;
@@ -681,10 +681,10 @@ static void refresh_info_submenu_page(uint8_t keep_idx)
         keep_idx = (uint8_t)(count - 1U);
     }
     g_ui.sub_menu_idx = keep_idx;
-    arex_screen_set_submenu_selection(keep_idx);
+    screen_set_submenu_selection(keep_idx);
 }
 
-void arex_screen_refresh_info_submenu_if_open(void)
+void screen_refresh_info_submenu_if_open(void)
 {
     if (!s_submenu_title || !s_submenu_list)
     {
@@ -698,13 +698,13 @@ void arex_screen_refresh_info_submenu_if_open(void)
     refresh_info_submenu_page(g_ui.sub_menu_idx);
 }
 
-bool arex_screen_handle_dive_plan_rotate(int8_t dir)
+bool screen_handle_dive_plan_rotate(int8_t dir)
 {
     if (g_ui.state != UI_SUB_MENU || g_ui.sub_parent != UI_INFO || !submenu_is_dive_plan_visible())
     {
         return false;
     }
-    if (!arex_submenu_dive_plan_handle_rotate(dir))
+    if (!submenu_dive_plan_handle_rotate(dir))
     {
         return false;
     }
@@ -731,7 +731,7 @@ static bool refresh_compass_cal_submenu(void)
     }
 
     uint8_t count = 0;
-    const char **items = arex_submenu_build_compass_cal_items(&count);
+    const char **items = submenu_build_compass_cal_items(&count);
     if (!items || count == 0)
     {
         return false;
@@ -742,15 +742,15 @@ static bool refresh_compass_cal_submenu(void)
     {
         g_ui.sub_menu_idx = count - 1;
     }
-    arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
+    screen_set_submenu_selection(g_ui.sub_menu_idx);
     return true;
 }
 
-void arex_screen_open_setup_submenu(uint8_t item_idx)
+void screen_open_setup_submenu(uint8_t item_idx)
 {
     uint8_t count = 0;
-    const char *title = arex_submenu_setup_title(item_idx);
-    const char **items = arex_submenu_build_setup_items(item_idx, &count);
+    const char *title = submenu_setup_title(item_idx);
+    const char **items = submenu_build_setup_items(item_idx, &count);
     if (!title || !items || count == 0) return;
 
     submenu_populate(title, items, count);
@@ -761,7 +761,7 @@ void arex_screen_open_setup_submenu(uint8_t item_idx)
     submenu_slide_in();
 }
 
-void arex_screen_refresh_compass_cal_submenu_if_open(void)
+void screen_refresh_compass_cal_submenu_if_open(void)
 {
     (void)refresh_compass_cal_submenu();
 }
@@ -769,15 +769,15 @@ void arex_screen_refresh_compass_cal_submenu_if_open(void)
 static void submenu_history_push(void)
 {
     if (!s_submenu_title) return;
-    if (g_ui.sub_history_depth >= AREX_SUB_HISTORY_MAX) return;
-    arex_sub_history_t *h = &g_ui.sub_history[g_ui.sub_history_depth];
+    if (g_ui.sub_history_depth >= SUB_HISTORY_MAX) return;
+    sub_history_t *h = &g_ui.sub_history[g_ui.sub_history_depth];
     const char *cur_title = lv_label_get_text(s_submenu_title);
     lv_snprintf(h->title, sizeof(h->title), "%s", cur_title ? cur_title : "");
     h->idx = g_ui.sub_menu_idx;
     g_ui.sub_history_depth++;
 }
 
-void arex_screen_open_nested_submenu(const char *title, const char **items, uint8_t count)
+void screen_open_nested_submenu(const char *title, const char **items, uint8_t count)
 {
     if (!title || !items) return;
     submenu_history_push();
@@ -789,7 +789,7 @@ void arex_screen_open_nested_submenu(const char *title, const char **items, uint
     g_ui.state = UI_SUB_MENU;
 }
 
-static void dispatch_submenu_setting_callback(const arex_submenu_setting_confirm_t *setting)
+static void dispatch_submenu_setting_callback(const submenu_setting_confirm_t *setting)
 {
     if (!setting)
     {
@@ -798,72 +798,72 @@ static void dispatch_submenu_setting_callback(const arex_submenu_setting_confirm
 
     switch (setting->kind)
     {
-    case AREX_SUBMENU_SETTING_DIVE_MODE:
-        arex_ui_on_dive_mode_set((uint8_t)setting->value);
-        arex_screen_refresh_gas_menu();
-        arex_screen_refresh_left_panel();
+    case SUBMENU_SETTING_DIVE_MODE:
+        ui_on_dive_mode_set((uint8_t)setting->value);
+        screen_refresh_gas_menu();
+        screen_refresh_left_panel();
         break;
-    case AREX_SUBMENU_SETTING_SALINITY:
-        arex_ui_on_salinity_set((uint8_t)setting->value);
+    case SUBMENU_SETTING_SALINITY:
+        ui_on_salinity_set((uint8_t)setting->value);
         break;
-    case AREX_SUBMENU_SETTING_SAFETY_STOP:
+    case SUBMENU_SETTING_SAFETY_STOP:
         if (setting->value < 4)
         {
             static const uint8_t minutes[] = { 0, 3, 4, 5 };
-            arex_ui_on_safety_stop_time_set(minutes[setting->value]);
+            ui_on_safety_stop_time_set(minutes[setting->value]);
         }
         break;
-    case AREX_SUBMENU_SETTING_LAST_DECO:
-        arex_ui_on_last_deco_stop_set(setting->value == 1 ? 6 : 3);
+    case SUBMENU_SETTING_LAST_DECO:
+        ui_on_last_deco_stop_set(setting->value == 1 ? 6 : 3);
         break;
-    case AREX_SUBMENU_SETTING_ALTITUDE:
-        arex_ui_on_altitude_range_set((uint8_t)setting->value);
+    case SUBMENU_SETTING_ALTITUDE:
+        ui_on_altitude_range_set((uint8_t)setting->value);
         break;
-    case AREX_SUBMENU_SETTING_AI_PAIR:
-        arex_ui_on_ai_pair((uint8_t)setting->value);
+    case SUBMENU_SETTING_AI_PAIR:
+        ui_on_ai_pair((uint8_t)setting->value);
         break;
-    case AREX_SUBMENU_SETTING_AI_TANK_STATE:
-        arex_ui_on_ai_tank_state_set(setting->arg, (uint8_t)setting->value);
+    case SUBMENU_SETTING_AI_TANK_STATE:
+        ui_on_ai_tank_state_set(setting->arg, (uint8_t)setting->value);
         break;
-    case AREX_SUBMENU_SETTING_GTR_MODE:
-        arex_ui_on_gtr_mode_set(setting->value != 0);
+    case SUBMENU_SETTING_GTR_MODE:
+        ui_on_gtr_mode_set(setting->value != 0);
         break;
-    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
-        arex_ui_on_depth_alarm_set(setting->value);
+    case SUBMENU_SETTING_DEPTH_ALARM:
+        ui_on_depth_alarm_set(setting->value);
         break;
-    case AREX_SUBMENU_SETTING_TIME_ALARM:
-        arex_ui_on_time_alarm_set(setting->value);
+    case SUBMENU_SETTING_TIME_ALARM:
+        ui_on_time_alarm_set(setting->value);
         break;
-    case AREX_SUBMENU_SETTING_NDL_ALARM:
-        arex_ui_on_ndl_alarm_set(setting->value);
+    case SUBMENU_SETTING_NDL_ALARM:
+        ui_on_ndl_alarm_set(setting->value);
         break;
-    case AREX_SUBMENU_SETTING_VIBRATION_TEST:
-        arex_ui_on_vibration_test();
+    case SUBMENU_SETTING_VIBRATION_TEST:
+        ui_on_vibration_test();
         break;
-    case AREX_SUBMENU_SETTING_UNITS:
-        arex_ui_on_units_set((uint8_t)setting->value);
+    case SUBMENU_SETTING_UNITS:
+        ui_on_units_set((uint8_t)setting->value);
         break;
-    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
+    case SUBMENU_SETTING_DATETIME_FIELD:
     {
         uint16_t field_value = setting->value;
         if (setting->arg == 0)
         {
             field_value = (uint16_t)(2024 + setting->value);
         }
-        arex_ui_on_datetime_field_set(setting->arg, field_value);
+        ui_on_datetime_field_set(setting->arg, field_value);
         break;
     }
-    case AREX_SUBMENU_SETTING_DATETIME_ACTION:
-        arex_ui_on_datetime_action((uint8_t)setting->value);
+    case SUBMENU_SETTING_DATETIME_ACTION:
+        ui_on_datetime_action((uint8_t)setting->value);
         break;
-    case AREX_SUBMENU_SETTING_LOG_RATE:
-        arex_ui_on_log_rate_set((uint8_t)setting->value);
+    case SUBMENU_SETTING_LOG_RATE:
+        ui_on_log_rate_set((uint8_t)setting->value);
         break;
-    case AREX_SUBMENU_SETTING_BLUETOOTH:
-        arex_ui_on_bluetooth_set(setting->value != 0);
+    case SUBMENU_SETTING_BLUETOOTH:
+        ui_on_bluetooth_set(setting->value != 0);
         break;
-    case AREX_SUBMENU_SETTING_RESET_DEFAULTS:
-        arex_ui_on_reset_defaults();
+    case SUBMENU_SETTING_RESET_DEFAULTS:
+        ui_on_reset_defaults();
         break;
     default:
         break;
@@ -873,7 +873,7 @@ static void dispatch_submenu_setting_callback(const arex_submenu_setting_confirm
 static void refresh_current_submenu_page(const char *cur_title, uint8_t keep_idx)
 {
     uint8_t count = 0;
-    const char **items = arex_submenu_nested_items_for(cur_title, &count);
+    const char **items = submenu_nested_items_for(cur_title, &count);
     if (!items || count == 0)
     {
         return;
@@ -888,10 +888,10 @@ static void refresh_current_submenu_page(const char *cur_title, uint8_t keep_idx
         keep_idx = (uint8_t)(count - 1);
     }
     g_ui.sub_menu_idx = keep_idx;
-    arex_screen_set_submenu_selection(keep_idx);
+    screen_set_submenu_selection(keep_idx);
 }
 
-void arex_screen_handle_submenu_select(uint8_t item_idx)
+void screen_handle_submenu_select(uint8_t item_idx)
 {
     if (!s_submenu_list || !s_submenu_title) return;
     if (item_idx >= g_ui.sub_item_count) return;
@@ -912,7 +912,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
 
     if (strcmp(text, "< BACK") == 0)
     {
-        arex_screen_close_submenu();
+        screen_close_submenu();
         return;
     }
 
@@ -920,33 +920,33 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     {
         bool close_submenu = false;
         uint8_t keep_idx = item_idx;
-        if (arex_submenu_dive_plan_handle_action(item_idx, text, &close_submenu, &keep_idx))
+        if (submenu_dive_plan_handle_action(item_idx, text, &close_submenu, &keep_idx))
         {
             if (close_submenu)
             {
-                arex_screen_close_submenu();
+                screen_close_submenu();
                 return;
             }
             refresh_info_submenu_page(keep_idx);
             return;
         }
-        if (arex_submenu_dive_plan_is_result_page())
+        if (submenu_dive_plan_is_result_page())
         {
             return;
         }
     }
 
     // HOTFIX: Block action for Info detail rows.
-    if (arex_submenu_is_readonly_info_title(cur_title))
+    if (submenu_is_readonly_info_title(cur_title))
     {
         return;
     }
 
     {
-        arex_submenu_edit_spec_t edit_spec;
-        if (arex_submenu_edit_spec_from_selection(cur_title, item_idx, text, &edit_spec))
+        submenu_edit_spec_t edit_spec;
+        if (submenu_edit_spec_from_selection(cur_title, item_idx, text, &edit_spec))
         {
-            arex_screen_begin_edit_value(item_idx, &edit_spec);
+            screen_begin_edit_value(item_idx, &edit_spec);
             return;
         }
     }
@@ -957,16 +957,16 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     }
 
     {
-        arex_submenu_setting_confirm_t direct_setting;
-        if (arex_submenu_direct_setting_from_selection(cur_title, item_idx, text, &direct_setting))
+        submenu_setting_confirm_t direct_setting;
+        if (submenu_direct_setting_from_selection(cur_title, item_idx, text, &direct_setting))
         {
-            arex_submenu_apply_setting(direct_setting.kind,
+            submenu_apply_setting(direct_setting.kind,
                                        direct_setting.arg,
                                        direct_setting.value);
             dispatch_submenu_setting_callback(&direct_setting);
-            if (direct_setting.kind == AREX_SUBMENU_SETTING_OC_TECH_SAVE)
+            if (direct_setting.kind == SUBMENU_SETTING_OC_TECH_SAVE)
             {
-                arex_screen_close_submenu();
+                screen_close_submenu();
                 return;
             }
             refresh_current_submenu_page(cur_title, item_idx);
@@ -974,9 +974,9 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         }
     }
 
-    if (arex_submenu_setting_from_selection(cur_title, item_idx, text, &s_pending_setting))
+    if (submenu_setting_from_selection(cur_title, item_idx, text, &s_pending_setting))
     {
-        arex_screen_show_modal_setup_confirm(s_pending_setting.body);
+        screen_show_modal_setup_confirm(s_pending_setting.body);
         g_ui.state = UI_MODAL_SETUP_CONFIRM;
         return;
     }
@@ -984,7 +984,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     if (strcmp(cur_title, "LIGHT CONTROL") == 0 && item_idx == 0)
     {
         g_light_power_state = !g_light_power_state;
-        arex_bus_set_light_power(g_light_power_state);
+        bus_set_light_power(g_light_power_state);
 
         /* 同步当前子菜单显示 */
         if (s_light_status_lbl)
@@ -992,14 +992,14 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
             lv_label_set_text(s_light_status_lbl, g_light_power_state ? "ON" : "OFF");
         }
         /* 保持选中项停留在 ON/OFF 行 */
-        arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
+        screen_set_submenu_selection(g_ui.sub_menu_idx);
         return;
     }
 
     {
         char child_title[40] = {0};
         uint8_t ncnt = 0;
-        const char **nitems = arex_submenu_child_items_for(cur_title,
+        const char **nitems = submenu_child_items_for(cur_title,
                                                            item_idx,
                                                            text,
                                                            child_title,
@@ -1007,7 +1007,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
                                                            &ncnt);
         if (nitems && ncnt > 0)
         {
-            arex_screen_open_nested_submenu(child_title, nitems, ncnt);
+            screen_open_nested_submenu(child_title, nitems, ncnt);
             return;
         }
     }
@@ -1024,7 +1024,7 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
             // HOTFIX: Route gas switch to safety modal.
             g_ui.gas_cursor = item_idx;
             g_ui.gas_modal_from_submenu = true;  // HOTFIX: Route GAS modal exit based on context.
-            arex_screen_show_modal_gas();
+            screen_show_modal_gas();
             g_ui.state = UI_MODAL_GAS;
             return;
         }
@@ -1035,16 +1035,16 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     {
         if (strcmp(text, "< BACK") != 0)
         {
-            const arex_setting_option_t *option = arex_submenu_conservatism_option(item_idx);
+            const setting_option_t *option = submenu_conservatism_option(item_idx);
             uint8_t level = option->value;
 
             /* 通知业务层应用保守度设置 */
-            arex_ui_on_conservatism_set(level);
+            ui_on_conservatism_set(level);
 
-            arex_screen_refresh_setup_menu();
-            arex_screen_update_setup_badge(1, option->badge_label);
+            screen_refresh_setup_menu();
+            screen_update_setup_badge(1, option->badge_label);
         }
-        arex_screen_close_submenu();
+        screen_close_submenu();
         return;
     }
 
@@ -1052,17 +1052,17 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
     {
         if (strncmp(text, "AUTO CAL:", 9) == 0)
         {
-            arex_request_compass_calibration_start();
-            arex_set_compass_calibration_ui_state(AREX_COMPASS_CAL_RUNNING);
-            arex_screen_refresh_setup_menu();
+            request_compass_calibration_start();
+            set_compass_calibration_ui_state(COMPASS_CAL_RUNNING);
+            screen_refresh_setup_menu();
             refresh_compass_cal_submenu();
             return;
         }
         if (strcmp(text, "RESET AUTO CAL") == 0)
         {
-            arex_request_compass_calibration_reset();
-            arex_set_compass_calibration_ui_state(AREX_COMPASS_CAL_IDLE);
-            arex_screen_refresh_setup_menu();
+            request_compass_calibration_reset();
+            set_compass_calibration_ui_state(COMPASS_CAL_IDLE);
+            screen_refresh_setup_menu();
             refresh_compass_cal_submenu();
             return;
         }
@@ -1074,13 +1074,13 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         if (strcmp(text, "< BACK") != 0)
         {
             /* 更新亮度配置并刷新 badge */
-            const arex_brightness_option_t *option = arex_submenu_brightness_option(item_idx);
+            const brightness_option_t *option = submenu_brightness_option(item_idx);
             g_sys_config.brightness = option->value;
             /* 通过业务回调应用亮度 */
-            arex_set_brightness(g_sys_config.brightness);
-            arex_screen_update_setup_badge(2, option->badge_label);
+            set_brightness(g_sys_config.brightness);
+            screen_update_setup_badge(2, option->badge_label);
         }
-        arex_screen_close_submenu();
+        screen_close_submenu();
         return;
     }
 
@@ -1092,17 +1092,17 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         if (strcmp(text, "< BACK") != 0)
         {
             /* 通知业务层处理灯光颜色亮度 */
-            arex_ui_on_light_color_set(cur_title, text);
+            ui_on_light_color_set(cur_title, text);
 
         }
         /* 完成后关闭颜色子菜单 */
-        arex_screen_close_submenu();
+        screen_close_submenu();
         return;
     }
 
     if (strcmp(cur_title, "DIVE MENU") == 0 || strcmp(cur_title, "DIVE SETUP") == 0)
     {
-        arex_screen_show_modal_act(text);
+        screen_show_modal_act(text);
         return;
     }
 
@@ -1111,10 +1111,10 @@ void arex_screen_handle_submenu_select(uint8_t item_idx)
         return;
     }
 
-    arex_screen_show_modal_act(text);
+    screen_show_modal_act(text);
 }
 
-void arex_screen_close_submenu(void)
+void screen_close_submenu(void)
 {
     if (!s_submenu_layer || !s_submenu_title || !s_submenu_list)
     {
@@ -1130,17 +1130,17 @@ void arex_screen_close_submenu(void)
     if (g_ui.sub_history_depth > 0)
     {
         g_ui.sub_history_depth--;
-        arex_sub_history_t *h = &g_ui.sub_history[g_ui.sub_history_depth];
+        sub_history_t *h = &g_ui.sub_history[g_ui.sub_history_depth];
         const char *prev_title = h->title;
         if (prev_title[0] == '>' && prev_title[1] == ' ') prev_title += 2;
 
         bool found = false;
-        int8_t setup_idx = arex_submenu_setup_index_for_title(prev_title);
+        int8_t setup_idx = submenu_setup_index_for_title(prev_title);
         if (setup_idx >= 0)
         {
             uint8_t cnt = 0;
-            const char **items = arex_submenu_build_setup_items((uint8_t)setup_idx, &cnt);
-            const char *title = arex_submenu_setup_title((uint8_t)setup_idx);
+            const char **items = submenu_build_setup_items((uint8_t)setup_idx, &cnt);
+            const char *title = submenu_setup_title((uint8_t)setup_idx);
             if (items && title && cnt > 0)
             {
                 submenu_populate(title, items, cnt);
@@ -1150,14 +1150,14 @@ void arex_screen_close_submenu(void)
                 {
                     g_ui.sub_menu_idx = cnt - 1;
                 }
-                arex_screen_set_submenu_selection(g_ui.sub_menu_idx);
+                screen_set_submenu_selection(g_ui.sub_menu_idx);
                 found = true;
             }
         }
         if (!found)
         {
             uint8_t ncnt = 0;
-            const char **nitems = arex_submenu_nested_items_for(prev_title, &ncnt);
+            const char **nitems = submenu_nested_items_for(prev_title, &ncnt);
             if (nitems && ncnt > 0)
             {
                 char full_title[40];
@@ -1165,7 +1165,7 @@ void arex_screen_close_submenu(void)
                 submenu_populate(full_title, nitems, ncnt);
                 g_ui.sub_item_count = ncnt;
                 g_ui.sub_menu_idx   = h->idx;
-                arex_screen_set_submenu_selection(h->idx);
+                screen_set_submenu_selection(h->idx);
                 found = true;
             }
         }
@@ -1176,29 +1176,29 @@ void arex_screen_close_submenu(void)
     g_ui.state = g_ui.sub_parent;
 }
 
-void arex_screen_confirm_submenu_setting(void)
+void screen_confirm_submenu_setting(void)
 {
     bool close_extra_mode_layer = false;
     bool return_dash_after_apply = false;
-    if (s_pending_setting.kind == AREX_SUBMENU_SETTING_NONE)
+    if (s_pending_setting.kind == SUBMENU_SETTING_NONE)
     {
-        arex_screen_hide_modal();
+        screen_hide_modal();
         g_ui.state = UI_SUB_MENU;
         return;
     }
 
     close_extra_mode_layer =
-        (s_pending_setting.kind == AREX_SUBMENU_SETTING_DIVE_MODE &&
+        (s_pending_setting.kind == SUBMENU_SETTING_DIVE_MODE &&
          s_pending_setting.value != 0);
     return_dash_after_apply =
-        (s_pending_setting.kind == AREX_SUBMENU_SETTING_DIVE_MODE &&
+        (s_pending_setting.kind == SUBMENU_SETTING_DIVE_MODE &&
          s_pending_setting.value == 3);
 
-    arex_submenu_apply_setting(s_pending_setting.kind, s_pending_setting.arg, s_pending_setting.value);
+    submenu_apply_setting(s_pending_setting.kind, s_pending_setting.arg, s_pending_setting.value);
     dispatch_submenu_setting_callback(&s_pending_setting);
 
     memset(&s_pending_setting, 0, sizeof(s_pending_setting));
-    arex_screen_hide_modal();
+    screen_hide_modal();
     if (return_dash_after_apply)
     {
         g_ui.sub_history_depth = 0;
@@ -1207,16 +1207,16 @@ void arex_screen_confirm_submenu_setting(void)
         g_ui.state = UI_DASH;
         return;
     }
-    arex_screen_close_submenu();
+    screen_close_submenu();
     if (close_extra_mode_layer)
     {
-        arex_screen_close_submenu();
+        screen_close_submenu();
     }
 }
 
-void arex_screen_cancel_submenu_setting(void)
+void screen_cancel_submenu_setting(void)
 {
     memset(&s_pending_setting, 0, sizeof(s_pending_setting));
-    arex_screen_hide_modal();
+    screen_hide_modal();
     g_ui.state = UI_SUB_MENU;
 }

@@ -84,7 +84,7 @@ lv_font_conv --font "E:/字体/xxx.ttf" --size 24 --bpp 4 --format lvgl -r 0x20-
 extern const lv_font_t lv_font_xxx_24;
 
 // 2. 添加宏定义
-#define AREX_FONT_24 (&lv_font_xxx_24)
+#define FONT_24 (&lv_font_xxx_24)
 ```
 
 ## 6. 字体族切换
@@ -92,8 +92,8 @@ extern const lv_font_t lv_font_xxx_24;
 编辑 `fonts.h` 顶部的宏：
 
 ```c
-#define AREX_USE_FONT_CONSOLA   // 当前：Consolas
-// #define AREX_USE_FONT_COURIER    // 可选：Courier New Bold
+#define USE_FONT_CONSOLA   // 当前：Consolas
+// #define USE_FONT_COURIER    // 可选：Courier New Bold
 ```
 
 ## 7. 常见问题
@@ -113,7 +113,7 @@ extern const lv_font_t lv_font_xxx_24;
 <Add directory="src" />
 ```
 
-### 警告：'AREX_FONT_XXX' redefined
+### 警告：'FONT_XXX' redefined
 
 **原因**：`screen.h` 和 `fonts.h` 都定义了相同的宏。
 
@@ -134,9 +134,9 @@ extern const lv_font_t lv_font_xxx_24;
 | Linotype Ordinar | 14/20/24/28/32/48/56/58/64px | lv_font_ordinar_*.c | 可用 |
 
 字体映射关系（小/中/大 + NDL专用）：
-- AREX_FONT_SMALL/AREX_FONT_TITLE → 20px
-- AREX_FONT_MEDIUM → 32px
-- AREX_FONT_LARGE/AREX_FONT_HUGE → 64px
-- AREX_FONT_NDL → 56px
+- FONT_SMALL/FONT_TITLE → 20px
+- FONT_MEDIUM → 32px
+- FONT_LARGE/FONT_HUGE → 64px
+- FONT_NDL → 56px
 
-切换字体族：修改 `fonts.h` 的 `#define AREX_USE_FONT_*` 宏。
+切换字体族：修改 `fonts.h` 的 `#define USE_FONT_*` 宏。

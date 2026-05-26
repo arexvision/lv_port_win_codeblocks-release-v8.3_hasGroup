@@ -7,14 +7,14 @@
 extern "C" {
 #endif
 
-void arex_reset_widget_render_state(void);
+void reset_widget_render_state(void);
 
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                               comp_id_t w_id,
                               int16_t abs_x, int16_t abs_y,
                               uint16_t abs_w, uint16_t abs_h,
                               uint8_t span_w, uint8_t span_h,
-                              arex_font_id_t cfg_font_id);
+                              font_id_t cfg_font_id);
 
 void comp_refresh_sys(uint32_t dirty_mask);
 void comp_refresh_ndl_stop(uint32_t dirty_mask);

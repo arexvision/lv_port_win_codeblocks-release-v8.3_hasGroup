@@ -12,38 +12,38 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char *s_info_titles[AREX_SUBMENU_INFO_COUNT] =
+static const char *s_info_titles[SUBMENU_INFO_COUNT] =
 {
     "LAST DIVE", "DIVE PLAN", "TISSUE & TOX", "GAS & CALC", "SENSOR & DEVICE"
 };
 
-static char s_info_str[AREX_SUBMENU_INFO_COUNT][6][32];
-static const char *s_info_dyn[AREX_SUBMENU_INFO_COUNT][7];
+static char s_info_str[SUBMENU_INFO_COUNT][6][32];
+static const char *s_info_dyn[SUBMENU_INFO_COUNT][7];
 static char s_plan_str[16][48];
 static const char *s_plan_dyn[16];
 static char s_gas_switch_str[GAS_COUNT][20];
 static const char *s_gas_switch_dyn[GAS_COUNT + 1];
-static const char *s_brightness_dyn[AREX_BRIGHTNESS_COUNT + 1];
-static const char *s_conservatism_dyn[AREX_CONSERVATISM_COUNT + 1];
+static const char *s_brightness_dyn[BRIGHTNESS_COUNT + 1];
+static const char *s_conservatism_dyn[CONSERVATISM_COUNT + 1];
 
-static const arex_setting_option_t s_conservatism_options[AREX_CONSERVATISM_COUNT] =
+static const setting_option_t s_conservatism_options[CONSERVATISM_COUNT] =
 {
-    { AREX_CONSERVATISM_LOW,    "LOW (GF 40/95)",    "LOW" },
-    { AREX_CONSERVATISM_MED,    "MED (GF 40/85)",    "MED" },
-    { AREX_CONSERVATISM_HIGH,   "HIGH (GF 30/70)",   "HIGH" },
-    { AREX_CONSERVATISM_CUSTOM, "CUSTOM (GF 50/70)", "CUSTOM" },
+    { CONSERVATISM_LOW,    "LOW (GF 40/95)",    "LOW" },
+    { CONSERVATISM_MED,    "MED (GF 40/85)",    "MED" },
+    { CONSERVATISM_HIGH,   "HIGH (GF 30/70)",   "HIGH" },
+    { CONSERVATISM_CUSTOM, "CUSTOM (GF 50/70)", "CUSTOM" },
 };
 
-static const arex_brightness_option_t s_brightness_options[AREX_BRIGHTNESS_COUNT] =
+static const brightness_option_t s_brightness_options[BRIGHTNESS_COUNT] =
 {
-    { AREX_BRIGHTNESS_ECO,  "ECO",  "ECO",  150 },
-    { AREX_BRIGHTNESS_MED,  "MED",  "MED",  185 },
-    { AREX_BRIGHTNESS_HIGH, "HIGH", "HIGH", 215 },
-    { AREX_BRIGHTNESS_MAX,  "MAX",  "MAX",  238 },
-    { AREX_BRIGHTNESS_SUN,  "SUN",  "SUN",  255 },
+    { BRIGHTNESS_ECO,  "ECO",  "ECO",  150 },
+    { BRIGHTNESS_MED,  "MED",  "MED",  185 },
+    { BRIGHTNESS_HIGH, "HIGH", "HIGH", 215 },
+    { BRIGHTNESS_MAX,  "MAX",  "MAX",  238 },
+    { BRIGHTNESS_SUN,  "SUN",  "SUN",  255 },
 };
 
-static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
+static const char *s_setup_sub[SUBMENU_SETUP_COUNT][7] =
 {
     { NULL },
     { NULL },
@@ -53,7 +53,7 @@ static const char *s_setup_sub[AREX_SUBMENU_SETUP_COUNT][7] =
     { "VERSION: " SYSTEM_VERSION, "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
 };
 
-static const char *s_setup_titles[AREX_SUBMENU_SETUP_COUNT] =
+static const char *s_setup_titles[SUBMENU_SETUP_COUNT] =
 {
     "GAS SWITCH", "CONSERVATISM", "BRIGHTNESS", "COMPASS CAL", "LIGHT CONTROL", "SYSTEMS SETUP"
 };
@@ -139,17 +139,17 @@ static uint8_t s_datetime_minute = 0;
 
 typedef enum
 {
-    AREX_PLAN_PAGE_DEPTH = 0,
-    AREX_PLAN_PAGE_TIME,
-    AREX_PLAN_PAGE_RMV,
-    AREX_PLAN_PAGE_READY,
-    AREX_PLAN_PAGE_RESULT,
-    AREX_PLAN_PAGE_ERROR,
-} arex_plan_page_t;
+    PLAN_PAGE_DEPTH = 0,
+    PLAN_PAGE_TIME,
+    PLAN_PAGE_RMV,
+    PLAN_PAGE_READY,
+    PLAN_PAGE_RESULT,
+    PLAN_PAGE_ERROR,
+} plan_page_t;
 
-#define AREX_PLAN_ROWS_PER_PAGE 8U
+#define PLAN_ROWS_PER_PAGE 8U
 
-static arex_plan_page_t s_plan_page = AREX_PLAN_PAGE_DEPTH;
+static plan_page_t s_plan_page = PLAN_PAGE_DEPTH;
 static bool s_plan_defaults_loaded = false;
 static float s_plan_depth_m = 30.0f;
 static uint16_t s_plan_time_min = 20U;
@@ -161,11 +161,11 @@ static buhlmann_debug_plan_result_t s_plan_result;
 
 enum
 {
-    AREX_DATETIME_FIELD_YEAR = 0,
-    AREX_DATETIME_FIELD_MONTH,
-    AREX_DATETIME_FIELD_DAY,
-    AREX_DATETIME_FIELD_HOUR,
-    AREX_DATETIME_FIELD_MINUTE,
+    DATETIME_FIELD_YEAR = 0,
+    DATETIME_FIELD_MONTH,
+    DATETIME_FIELD_DAY,
+    DATETIME_FIELD_HOUR,
+    DATETIME_FIELD_MINUTE,
 };
 
 static uint8_t count_items(const char **items, uint8_t max_count)
@@ -394,8 +394,8 @@ static uint8_t plan_result_total_pages(void)
     {
         return 1U;
     }
-    return (uint8_t)((s_plan_result.entry_count + AREX_PLAN_ROWS_PER_PAGE - 1U) /
-                     AREX_PLAN_ROWS_PER_PAGE);
+    return (uint8_t)((s_plan_result.entry_count + PLAN_ROWS_PER_PAGE - 1U) /
+                     PLAN_ROWS_PER_PAGE);
 #else
     return 1U;
 #endif
@@ -407,11 +407,11 @@ static void plan_build_action_items(uint8_t *out_count)
     plan_ensure_defaults();
 
     s_plan_dyn[n++] = "Exit";
-    if (s_plan_page == AREX_PLAN_PAGE_READY)
+    if (s_plan_page == PLAN_PAGE_READY)
     {
         s_plan_dyn[n++] = "Plan >";
     }
-    else if (s_plan_page == AREX_PLAN_PAGE_RESULT)
+    else if (s_plan_page == PLAN_PAGE_RESULT)
     {
         uint8_t total_pages = plan_result_total_pages();
         if (s_plan_result_page + 1U < total_pages)
@@ -529,22 +529,22 @@ static void save_oc_tech_slot(uint8_t slot)
 
 static void apply_air_mode_gases(void)
 {
-    arex_bus_set_gas_slot_count(1);
-    arex_bus_set_gas_slot(0, "AIR", 21, 0, gas_mod_for_o2(21));
-    arex_bus_set_gas(0, "AIR");
-    arex_bus_set_gas_mix(21, 0);
-    arex_bus_set_fio2(21.0f);
+    bus_set_gas_slot_count(1);
+    bus_set_gas_slot(0, "AIR", 21, 0, gas_mod_for_o2(21));
+    bus_set_gas(0, "AIR");
+    bus_set_gas_mix(21, 0);
+    bus_set_fio2(21.0f);
 }
 
 static void apply_nitrox_mode_gases(void)
 {
     char name[16];
     format_gas_name(name, sizeof(name), s_nitrox_o2_pct, 0);
-    arex_bus_set_gas_slot_count(1);
-    arex_bus_set_gas_slot(0, name, s_nitrox_o2_pct, 0, gas_mod_for_o2(s_nitrox_o2_pct));
-    arex_bus_set_gas(0, name);
-    arex_bus_set_gas_mix(s_nitrox_o2_pct, 0);
-    arex_bus_set_fio2((float)s_nitrox_o2_pct);
+    bus_set_gas_slot_count(1);
+    bus_set_gas_slot(0, name, s_nitrox_o2_pct, 0, gas_mod_for_o2(s_nitrox_o2_pct));
+    bus_set_gas(0, name);
+    bus_set_gas_mix(s_nitrox_o2_pct, 0);
+    bus_set_fio2((float)s_nitrox_o2_pct);
 }
 
 static void apply_three_gas_mode_gases(void)
@@ -559,16 +559,16 @@ static void apply_three_gas_mode_gases(void)
     for (uint8_t i = 0; i < 3U; i++)
     {
         format_gas_name(name[i], sizeof(name[i]), s_three_gas_o2_pct[i], 0);
-        arex_bus_set_gas_slot(i,
+        bus_set_gas_slot(i,
                               name[i],
                               s_three_gas_o2_pct[i],
                               0,
                               gas_mod_for_o2(s_three_gas_o2_pct[i]));
     }
-    arex_bus_set_gas_slot_count(gas_count);
-    arex_bus_set_gas(0, name[0]);
-    arex_bus_set_gas_mix(s_three_gas_o2_pct[0], 0);
-    arex_bus_set_fio2((float)s_three_gas_o2_pct[0]);
+    bus_set_gas_slot_count(gas_count);
+    bus_set_gas(0, name[0]);
+    bus_set_gas_mix(s_three_gas_o2_pct[0], 0);
+    bus_set_fio2((float)s_three_gas_o2_pct[0]);
 }
 
 static void apply_oc_tech_mode_gases(void)
@@ -590,28 +590,28 @@ static void apply_oc_tech_mode_gases(void)
         }
 
         format_gas_name(name, sizeof(name), o2, he);
-        arex_bus_set_gas_slot(active_count, name, o2, he, gas_mod_for_o2(o2));
+        bus_set_gas_slot(active_count, name, o2, he, gas_mod_for_o2(o2));
         active_count++;
     }
 
     for (uint8_t i = active_count; i < GAS_COUNT; i++)
     {
-        arex_bus_set_gas_slot(i, "", 0, 0, 0.0f);
+        bus_set_gas_slot(i, "", 0, 0, 0.0f);
     }
 
-    arex_bus_set_gas_slot_count(active_count);
+    bus_set_gas_slot_count(active_count);
     if (active_count > 0U)
     {
         const char *first_name = g_sensor_data.gas_slot_name[0][0] ? g_sensor_data.gas_slot_name[0] : "GAS 1";
-        arex_bus_set_gas(0, first_name);
-        arex_bus_set_gas_mix(g_sensor_data.gas_slot_o2_pct[0], g_sensor_data.gas_slot_he_pct[0]);
-        arex_bus_set_fio2((float)g_sensor_data.gas_slot_o2_pct[0]);
+        bus_set_gas(0, first_name);
+        bus_set_gas_mix(g_sensor_data.gas_slot_o2_pct[0], g_sensor_data.gas_slot_he_pct[0]);
+        bus_set_fio2((float)g_sensor_data.gas_slot_o2_pct[0]);
     }
     else
     {
-        arex_bus_set_gas(0, "--");
-        arex_bus_set_gas_mix(0, 0);
-        arex_bus_set_fio2(0.0f);
+        bus_set_gas(0, "--");
+        bus_set_gas_mix(0, 0);
+        bus_set_fio2(0.0f);
     }
 }
 
@@ -636,13 +636,13 @@ static void apply_dive_mode_gases(uint8_t mode)
 
 static const char *compass_cal_status_text(void)
 {
-    arex_compass_cal_ui_state_t st = arex_get_compass_calibration_ui_state();
-    if (st == AREX_COMPASS_CAL_RUNNING) return "LEARN";
-    if (st == AREX_COMPASS_CAL_READY) return "OK";
+    compass_cal_ui_state_t st = get_compass_calibration_ui_state();
+    if (st == COMPASS_CAL_RUNNING) return "LEARN";
+    if (st == COMPASS_CAL_READY) return "OK";
     return "AUTO";
 }
 
-uint8_t arex_submenu_safety_stop_depth_m(uint8_t value)
+uint8_t submenu_safety_stop_depth_m(uint8_t value)
 {
     return value == 1 ? 6 : 3;
 }
@@ -776,22 +776,22 @@ static void format_pressure(char *out, size_t out_size, const char *label, float
     }
 }
 
-const char *arex_submenu_info_title(uint8_t index)
+const char *submenu_info_title(uint8_t index)
 {
-    if (index >= AREX_SUBMENU_INFO_COUNT)
+    if (index >= SUBMENU_INFO_COUNT)
     {
         return NULL;
     }
     return s_info_titles[index];
 }
 
-const char **arex_submenu_build_info_items(uint8_t index, uint8_t *out_count)
+const char **submenu_build_info_items(uint8_t index, uint8_t *out_count)
 {
     if (out_count)
     {
         *out_count = 0;
     }
-    if (index >= AREX_SUBMENU_INFO_COUNT)
+    if (index >= SUBMENU_INFO_COUNT)
     {
         return NULL;
     }
@@ -941,41 +941,41 @@ const char **arex_submenu_build_info_items(uint8_t index, uint8_t *out_count)
     return s_info_dyn[index];
 }
 
-const char *arex_submenu_setup_title(uint8_t index)
+const char *submenu_setup_title(uint8_t index)
 {
-    if (index >= AREX_SUBMENU_SETUP_COUNT)
+    if (index >= SUBMENU_SETUP_COUNT)
     {
         return NULL;
     }
     return s_setup_titles[index];
 }
 
-const arex_setting_option_t *arex_submenu_conservatism_option(uint8_t index)
+const setting_option_t *submenu_conservatism_option(uint8_t index)
 {
     return &s_conservatism_options[index];
 }
 
-const char *arex_submenu_conservatism_badge(uint8_t level)
+const char *submenu_conservatism_badge(uint8_t level)
 {
     return s_conservatism_options[level].badge_label;
 }
 
-const arex_brightness_option_t *arex_submenu_brightness_option(uint8_t index)
+const brightness_option_t *submenu_brightness_option(uint8_t index)
 {
     return &s_brightness_options[index];
 }
 
-const char *arex_submenu_brightness_badge(uint8_t level)
+const char *submenu_brightness_badge(uint8_t level)
 {
     return s_brightness_options[level].badge_label;
 }
 
-uint8_t arex_submenu_brightness_visible_opa(uint8_t level)
+uint8_t submenu_brightness_visible_opa(uint8_t level)
 {
     return s_brightness_options[level].visible_opa;
 }
 
-int8_t arex_submenu_setup_index_for_title(const char *title)
+int8_t submenu_setup_index_for_title(const char *title)
 {
     const char *clean_title = strip_title_prefix(title);
     if (!clean_title)
@@ -983,7 +983,7 @@ int8_t arex_submenu_setup_index_for_title(const char *title)
         return -1;
     }
 
-    for (uint8_t i = 0; i < AREX_SUBMENU_SETUP_COUNT; i++)
+    for (uint8_t i = 0; i < SUBMENU_SETUP_COUNT; i++)
     {
         if (strcmp(clean_title, s_setup_titles[i]) == 0)
         {
@@ -993,7 +993,7 @@ int8_t arex_submenu_setup_index_for_title(const char *title)
     return -1;
 }
 
-const char **arex_submenu_build_compass_cal_items(uint8_t *out_count)
+const char **submenu_build_compass_cal_items(uint8_t *out_count)
 {
     lv_snprintf(s_compass_cal_status_str,
                 sizeof(s_compass_cal_status_str),
@@ -1154,13 +1154,13 @@ static const char **build_nested_oc_tech_edit(uint8_t slot, uint8_t *out_count)
     return s_nested_oc_tech_edit;
 }
 
-const char **arex_submenu_build_setup_items(uint8_t index, uint8_t *out_count)
+const char **submenu_build_setup_items(uint8_t index, uint8_t *out_count)
 {
     if (out_count)
     {
         *out_count = 0;
     }
-    if (index >= AREX_SUBMENU_SETUP_COUNT)
+    if (index >= SUBMENU_SETUP_COUNT)
     {
         return NULL;
     }
@@ -1170,31 +1170,31 @@ const char **arex_submenu_build_setup_items(uint8_t index, uint8_t *out_count)
     }
     if (strcmp(s_setup_titles[index], "CONSERVATISM") == 0)
     {
-        for (uint8_t i = 0; i < AREX_CONSERVATISM_COUNT; i++)
+        for (uint8_t i = 0; i < CONSERVATISM_COUNT; i++)
         {
             s_conservatism_dyn[i] = s_conservatism_options[i].menu_label;
         }
-        s_conservatism_dyn[AREX_CONSERVATISM_COUNT] = NULL;
+        s_conservatism_dyn[CONSERVATISM_COUNT] = NULL;
         if (out_count)
         {
-            *out_count = AREX_CONSERVATISM_COUNT;
+            *out_count = CONSERVATISM_COUNT;
         }
         return s_conservatism_dyn;
     }
     if (strcmp(s_setup_titles[index], "COMPASS CAL") == 0)
     {
-        return arex_submenu_build_compass_cal_items(out_count);
+        return submenu_build_compass_cal_items(out_count);
     }
     if (strcmp(s_setup_titles[index], "BRIGHTNESS") == 0)
     {
-        for (uint8_t i = 0; i < AREX_BRIGHTNESS_COUNT; i++)
+        for (uint8_t i = 0; i < BRIGHTNESS_COUNT; i++)
         {
             s_brightness_dyn[i] = s_brightness_options[i].menu_label;
         }
-        s_brightness_dyn[AREX_BRIGHTNESS_COUNT] = NULL;
+        s_brightness_dyn[BRIGHTNESS_COUNT] = NULL;
         if (out_count)
         {
-            *out_count = AREX_BRIGHTNESS_COUNT;
+            *out_count = BRIGHTNESS_COUNT;
         }
         return s_brightness_dyn;
     }
@@ -1309,7 +1309,7 @@ static const char **build_nested_datetime(uint8_t *out_count)
     return s_nested_datetime;
 }
 
-const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count)
+const char **submenu_nested_items_for(const char *title, uint8_t *out_count)
 {
     char clean_title_buf[40];
     normalize_menu_key(title, clean_title_buf, sizeof(clean_title_buf));
@@ -1348,7 +1348,7 @@ const char **arex_submenu_nested_items_for(const char *title, uint8_t *out_count
     return items;
 }
 
-const char **arex_submenu_child_items_for(const char *current_title,
+const char **submenu_child_items_for(const char *current_title,
                                           uint8_t item_index,
                                           const char *item_text,
                                           char *out_title,
@@ -1468,7 +1468,7 @@ const char **arex_submenu_child_items_for(const char *current_title,
         }
     }
 
-    items = arex_submenu_nested_items_for(key, &count);
+    items = submenu_nested_items_for(key, &count);
     if (!items || count == 0)
     {
         return NULL;
@@ -1485,10 +1485,10 @@ const char **arex_submenu_child_items_for(const char *current_title,
     return items;
 }
 
-bool arex_submenu_setting_from_selection(const char *current_title,
+bool submenu_setting_from_selection(const char *current_title,
                                          uint8_t item_index,
                                          const char *item_text,
-                                         arex_submenu_setting_confirm_t *out_setting)
+                                         submenu_setting_confirm_t *out_setting)
 {
     const char *clean_title = strip_title_prefix(current_title);
     if (!clean_title || !item_text || !out_setting)
@@ -1500,7 +1500,7 @@ bool arex_submenu_setting_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "MODE SETUP") == 0 && item_index == 0)
     {
-        out_setting->kind = AREX_SUBMENU_SETTING_DIVE_MODE;
+        out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
         out_setting->value = 0;
         lv_snprintf(out_setting->body, sizeof(out_setting->body),
                     "DIVE MODE\nAIR");
@@ -1509,7 +1509,7 @@ bool arex_submenu_setting_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "NITROX") == 0 && item_index == 1)
     {
-        out_setting->kind = AREX_SUBMENU_SETTING_DIVE_MODE;
+        out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
         out_setting->value = 1;
         lv_snprintf(out_setting->body, sizeof(out_setting->body),
                     "DIVE MODE\nNITROX %u%%", (unsigned)s_nitrox_o2_pct);
@@ -1518,7 +1518,7 @@ bool arex_submenu_setting_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "3 GAS") == 0 && item_index == 4)
     {
-        out_setting->kind = AREX_SUBMENU_SETTING_DIVE_MODE;
+        out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
         out_setting->value = 2;
         lv_snprintf(out_setting->body, sizeof(out_setting->body),
                     "DIVE MODE\n3 GAS / %u ACTIVE", (unsigned)s_three_gas_count);
@@ -1527,7 +1527,7 @@ bool arex_submenu_setting_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "OC Tech") == 0 && item_index == 5)
     {
-        out_setting->kind = AREX_SUBMENU_SETTING_DIVE_MODE;
+        out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
         out_setting->value = 3;
         lv_snprintf(out_setting->body, sizeof(out_setting->body),
                     "DIVE MODE\nOC Tech ACTIVE");
@@ -1536,7 +1536,7 @@ bool arex_submenu_setting_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 4)
     {
-        out_setting->kind = AREX_SUBMENU_SETTING_RESET_DEFAULTS;
+        out_setting->kind = SUBMENU_SETTING_RESET_DEFAULTS;
         out_setting->value = 0;
         lv_snprintf(out_setting->body, sizeof(out_setting->body),
                     "RESET DEFAULTS\nDISPLAY SETUP");
@@ -1546,10 +1546,10 @@ bool arex_submenu_setting_from_selection(const char *current_title,
     return false;
 }
 
-bool arex_submenu_direct_setting_from_selection(const char *current_title,
+bool submenu_direct_setting_from_selection(const char *current_title,
                                                 uint8_t item_index,
                                                 const char *item_text,
-                                                arex_submenu_setting_confirm_t *out_setting)
+                                                submenu_setting_confirm_t *out_setting)
 {
     const char *clean_title = strip_title_prefix(current_title);
     (void)item_text;
@@ -1563,7 +1563,7 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
     if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 0)
     {
         uint8_t next = (uint8_t)((salinity_mode_from_config() + 1U) % 3U);
-        out_setting->kind = AREX_SUBMENU_SETTING_SALINITY;
+        out_setting->kind = SUBMENU_SETTING_SALINITY;
         out_setting->value = next;
         return true;
     }
@@ -1572,7 +1572,7 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
     {
         uint8_t next = (uint8_t)((s_safety_stop_mode + 1) %
                        (sizeof(s_safety_stop_values) / sizeof(s_safety_stop_values[0])));
-        out_setting->kind = AREX_SUBMENU_SETTING_SAFETY_STOP;
+        out_setting->kind = SUBMENU_SETTING_SAFETY_STOP;
         out_setting->value = next;
         return true;
     }
@@ -1581,7 +1581,7 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
     {
         uint8_t next = (uint8_t)((last_deco_mode_from_config() + 1U) %
                        (sizeof(s_last_deco_values) / sizeof(s_last_deco_values[0])));
-        out_setting->kind = AREX_SUBMENU_SETTING_LAST_DECO;
+        out_setting->kind = SUBMENU_SETTING_LAST_DECO;
         out_setting->value = next;
         return true;
     }
@@ -1589,7 +1589,7 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
     if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 4)
     {
         uint8_t next = (uint8_t)((s_altitude_level + 1) % 4);
-        out_setting->kind = AREX_SUBMENU_SETTING_ALTITUDE;
+        out_setting->kind = SUBMENU_SETTING_ALTITUDE;
         out_setting->value = next;
         return true;
     }
@@ -1597,7 +1597,7 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
     if (strcmp(clean_title, "AI SETUP") == 0 && item_index < 2)
     {
         uint8_t next = (uint8_t)((s_ai_tank_state[item_index] + 1) % 3);
-        out_setting->kind = AREX_SUBMENU_SETTING_AI_TANK_STATE;
+        out_setting->kind = SUBMENU_SETTING_AI_TANK_STATE;
         out_setting->arg = item_index;
         out_setting->value = next;
         return true;
@@ -1605,14 +1605,14 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "AI SETUP") == 0 && item_index == 2)
     {
-        out_setting->kind = AREX_SUBMENU_SETTING_GTR_MODE;
+        out_setting->kind = SUBMENU_SETTING_GTR_MODE;
         out_setting->value = s_gtr_enabled ? 0 : 1;
         return true;
     }
 
     if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 0)
     {
-        out_setting->kind = AREX_SUBMENU_SETTING_UNITS;
+        out_setting->kind = SUBMENU_SETTING_UNITS;
         out_setting->value = (s_units_mode == 0) ? 1 : 0;
         return true;
     }
@@ -1628,28 +1628,28 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
                 break;
             }
         }
-        out_setting->kind = AREX_SUBMENU_SETTING_LOG_RATE;
+        out_setting->kind = SUBMENU_SETTING_LOG_RATE;
         out_setting->value = s_log_rate_values[next_index];
         return true;
     }
 
     if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 3)
     {
-        out_setting->kind = AREX_SUBMENU_SETTING_BLUETOOTH;
+        out_setting->kind = SUBMENU_SETTING_BLUETOOTH;
         out_setting->value = s_bluetooth_enabled ? 0 : 1;
         return true;
     }
 
     if (strcmp(clean_title, "3 GAS") == 0 && item_index == 3)
     {
-        out_setting->kind = AREX_SUBMENU_SETTING_3GAS_COUNT;
+        out_setting->kind = SUBMENU_SETTING_3GAS_COUNT;
         out_setting->value = (s_three_gas_count >= 3U) ? 1U : (uint16_t)(s_three_gas_count + 1U);
         return true;
     }
 
     if (oc_tech_slot_from_title(clean_title, &s_oc_tech_edit_slot) && item_index == 2)
     {
-        out_setting->kind = AREX_SUBMENU_SETTING_OC_TECH_SAVE;
+        out_setting->kind = SUBMENU_SETTING_OC_TECH_SAVE;
         out_setting->arg = s_oc_tech_edit_slot;
         return true;
     }
@@ -1657,10 +1657,10 @@ bool arex_submenu_direct_setting_from_selection(const char *current_title,
     return false;
 }
 
-bool arex_submenu_edit_spec_from_selection(const char *current_title,
+bool submenu_edit_spec_from_selection(const char *current_title,
                                            uint8_t item_index,
                                            const char *item_text,
-                                           arex_submenu_edit_spec_t *out_spec)
+                                           submenu_edit_spec_t *out_spec)
 {
     const char *clean_title = strip_title_prefix(current_title);
     (void)item_text;
@@ -1678,7 +1678,7 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
 
     if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 1)
     {
-        out_spec->kind = AREX_SUBMENU_SETTING_MOD_PPO2;
+        out_spec->kind = SUBMENU_SETTING_MOD_PPO2;
         out_spec->value = g_sys_config.mod_ppo2;
         out_spec->min = 1.0f;
         out_spec->max = 1.6f;
@@ -1690,7 +1690,7 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "NITROX") == 0 && item_index == 0)
     {
-        out_spec->kind = AREX_SUBMENU_SETTING_NITROX_O2;
+        out_spec->kind = SUBMENU_SETTING_NITROX_O2;
         out_spec->value = (float)s_nitrox_o2_pct;
         out_spec->min = 21.0f;
         out_spec->max = 40.0f;
@@ -1702,7 +1702,7 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "3 GAS") == 0 && item_index < 3)
     {
-        out_spec->kind = AREX_SUBMENU_SETTING_3GAS_O2;
+        out_spec->kind = SUBMENU_SETTING_3GAS_O2;
         out_spec->arg = item_index;
         out_spec->value = (float)s_three_gas_o2_pct[item_index];
         out_spec->min = 21.0f;
@@ -1720,7 +1720,7 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
         uint8_t o2 = s_oc_tech_draft_o2_pct[slot];
         uint8_t he = s_oc_tech_draft_he_pct[slot];
 
-        out_spec->kind = AREX_SUBMENU_SETTING_OC_TECH_GAS;
+        out_spec->kind = SUBMENU_SETTING_OC_TECH_GAS;
         out_spec->arg = (uint8_t)(slot * 2U + item_index);
         out_spec->step = 1.0f;
         out_spec->decimals = 0;
@@ -1747,7 +1747,7 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "ALERTS SETUP") == 0 && item_index == 0)
     {
-        out_spec->kind = AREX_SUBMENU_SETTING_DEPTH_ALARM;
+        out_spec->kind = SUBMENU_SETTING_DEPTH_ALARM;
         out_spec->value = (float)s_depth_alarm_m;
         out_spec->min = 10.0f;
         out_spec->max = 150.0f;
@@ -1759,7 +1759,7 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "ALERTS SETUP") == 0 && item_index == 1)
     {
-        out_spec->kind = AREX_SUBMENU_SETTING_TIME_ALARM;
+        out_spec->kind = SUBMENU_SETTING_TIME_ALARM;
         out_spec->value = (float)s_time_alarm_min;
         out_spec->min = 10.0f;
         out_spec->max = 300.0f;
@@ -1771,42 +1771,42 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "DATE & CLOCK") == 0)
     {
-        out_spec->kind = AREX_SUBMENU_SETTING_DATETIME_FIELD;
+        out_spec->kind = SUBMENU_SETTING_DATETIME_FIELD;
         out_spec->decimals = 0;
         out_spec->step = 1.0f;
 
         switch (item_index)
         {
         case 0:
-            out_spec->arg = AREX_DATETIME_FIELD_YEAR;
+            out_spec->arg = DATETIME_FIELD_YEAR;
             out_spec->value = (float)s_datetime_year;
             out_spec->min = 2000.0f;
             out_spec->max = 2099.0f;
             lv_snprintf(out_spec->label, sizeof(out_spec->label), "YEAR:");
             return true;
         case 1:
-            out_spec->arg = AREX_DATETIME_FIELD_MONTH;
+            out_spec->arg = DATETIME_FIELD_MONTH;
             out_spec->value = (float)s_datetime_month;
             out_spec->min = 1.0f;
             out_spec->max = 12.0f;
             lv_snprintf(out_spec->label, sizeof(out_spec->label), "MONTH:");
             return true;
         case 2:
-            out_spec->arg = AREX_DATETIME_FIELD_DAY;
+            out_spec->arg = DATETIME_FIELD_DAY;
             out_spec->value = (float)s_datetime_day;
             out_spec->min = 1.0f;
             out_spec->max = 31.0f;
             lv_snprintf(out_spec->label, sizeof(out_spec->label), "DAY:");
             return true;
         case 3:
-            out_spec->arg = AREX_DATETIME_FIELD_HOUR;
+            out_spec->arg = DATETIME_FIELD_HOUR;
             out_spec->value = (float)s_datetime_hour;
             out_spec->min = 0.0f;
             out_spec->max = 23.0f;
             lv_snprintf(out_spec->label, sizeof(out_spec->label), "HOUR:");
             return true;
         case 4:
-            out_spec->arg = AREX_DATETIME_FIELD_MINUTE;
+            out_spec->arg = DATETIME_FIELD_MINUTE;
             out_spec->value = (float)s_datetime_minute;
             out_spec->min = 0.0f;
             out_spec->max = 59.0f;
@@ -1820,79 +1820,79 @@ bool arex_submenu_edit_spec_from_selection(const char *current_title,
     return false;
 }
 
-void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, uint16_t value)
+void submenu_apply_setting(submenu_setting_kind_t kind, uint8_t arg, uint16_t value)
 {
     switch (kind)
     {
-    case AREX_SUBMENU_SETTING_DIVE_MODE:
+    case SUBMENU_SETTING_DIVE_MODE:
         s_dive_mode = (value > 3) ? 0 : (uint8_t)value;
         apply_dive_mode_gases(s_dive_mode);
         break;
-    case AREX_SUBMENU_SETTING_3GAS_COUNT:
+    case SUBMENU_SETTING_3GAS_COUNT:
         s_three_gas_count = (value < 1 || value > 3) ? 3 : (uint8_t)value;
         break;
-    case AREX_SUBMENU_SETTING_OC_TECH_SAVE:
+    case SUBMENU_SETTING_OC_TECH_SAVE:
         save_oc_tech_slot(arg);
         break;
-    case AREX_SUBMENU_SETTING_SALINITY:
+    case SUBMENU_SETTING_SALINITY:
         s_salinity_mode = (value > 2) ? 0 : (uint8_t)value;
         break;
-    case AREX_SUBMENU_SETTING_SAFETY_STOP:
+    case SUBMENU_SETTING_SAFETY_STOP:
         s_safety_stop_mode = (value > 3) ? 1 : (uint8_t)value;
         break;
-    case AREX_SUBMENU_SETTING_LAST_DECO:
+    case SUBMENU_SETTING_LAST_DECO:
         s_last_deco_mode = (value > 1) ? 0 : (uint8_t)value;
         break;
-    case AREX_SUBMENU_SETTING_ALTITUDE:
+    case SUBMENU_SETTING_ALTITUDE:
         s_altitude_level = (value > 3) ? 0 : (uint8_t)value;
         break;
-    case AREX_SUBMENU_SETTING_AI_TANK_STATE:
+    case SUBMENU_SETTING_AI_TANK_STATE:
         if (arg < 2)
         {
             s_ai_tank_state[arg] = (value > 2) ? 0 : (uint8_t)value;
         }
         break;
-    case AREX_SUBMENU_SETTING_GTR_MODE:
+    case SUBMENU_SETTING_GTR_MODE:
         s_gtr_enabled = value ? 1 : 0;
         break;
-    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
+    case SUBMENU_SETTING_DEPTH_ALARM:
         s_depth_alarm_m = value;
         break;
-    case AREX_SUBMENU_SETTING_TIME_ALARM:
+    case SUBMENU_SETTING_TIME_ALARM:
         s_time_alarm_min = value;
         break;
-    case AREX_SUBMENU_SETTING_UNITS:
+    case SUBMENU_SETTING_UNITS:
         s_units_mode = (value > 1) ? 0 : (uint8_t)value;
         break;
-    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
+    case SUBMENU_SETTING_DATETIME_FIELD:
         switch (arg)
         {
-        case AREX_DATETIME_FIELD_YEAR:
+        case DATETIME_FIELD_YEAR:
             s_datetime_year = (value < 2000 || value > 2099) ? 2026 : value;
             break;
-        case AREX_DATETIME_FIELD_MONTH:
+        case DATETIME_FIELD_MONTH:
             s_datetime_month = (value < 1 || value > 12) ? 1 : value;
             break;
-        case AREX_DATETIME_FIELD_DAY:
+        case DATETIME_FIELD_DAY:
             s_datetime_day = (value < 1 || value > 31) ? 1 : value;
             break;
-        case AREX_DATETIME_FIELD_HOUR:
+        case DATETIME_FIELD_HOUR:
             s_datetime_hour = (value > 23) ? 0 : value;
             break;
-        case AREX_DATETIME_FIELD_MINUTE:
+        case DATETIME_FIELD_MINUTE:
             s_datetime_minute = (value > 59) ? 0 : value;
             break;
         default:
             break;
         }
         break;
-    case AREX_SUBMENU_SETTING_LOG_RATE:
+    case SUBMENU_SETTING_LOG_RATE:
         s_log_rate_s = (uint8_t)value;
         break;
-    case AREX_SUBMENU_SETTING_BLUETOOTH:
+    case SUBMENU_SETTING_BLUETOOTH:
         s_bluetooth_enabled = value ? 1 : 0;
         break;
-    case AREX_SUBMENU_SETTING_RESET_DEFAULTS:
+    case SUBMENU_SETTING_RESET_DEFAULTS:
         s_units_mode = 0;
         s_log_rate_s = 10;
         s_bluetooth_enabled = 0;
@@ -1902,41 +1902,41 @@ void arex_submenu_apply_setting(arex_submenu_setting_kind_t kind, uint8_t arg, u
     }
 }
 
-void arex_submenu_apply_edit_value(arex_submenu_setting_kind_t kind, uint8_t arg, float value)
+void submenu_apply_edit_value(submenu_setting_kind_t kind, uint8_t arg, float value)
 {
     switch (kind)
     {
-    case AREX_SUBMENU_SETTING_PLAN_DEPTH:
+    case SUBMENU_SETTING_PLAN_DEPTH:
         s_plan_depth_m = (float)plan_round_u16(value);
         if (s_plan_depth_m < 3.0f) s_plan_depth_m = 3.0f;
         if (s_plan_depth_m > 120.0f) s_plan_depth_m = 120.0f;
-        s_plan_page = AREX_PLAN_PAGE_READY;
+        s_plan_page = PLAN_PAGE_READY;
         break;
-    case AREX_SUBMENU_SETTING_PLAN_TIME:
+    case SUBMENU_SETTING_PLAN_TIME:
         s_plan_time_min = plan_round_u16(value);
         if (s_plan_time_min < 1U) s_plan_time_min = 1U;
         if (s_plan_time_min > 300U) s_plan_time_min = 300U;
-        s_plan_page = AREX_PLAN_PAGE_READY;
+        s_plan_page = PLAN_PAGE_READY;
         break;
-    case AREX_SUBMENU_SETTING_PLAN_RMV:
+    case SUBMENU_SETTING_PLAN_RMV:
         s_plan_rmv_lpm = (float)plan_round_u16(value);
         if (s_plan_rmv_lpm < 5.0f) s_plan_rmv_lpm = 5.0f;
         if (s_plan_rmv_lpm > 50.0f) s_plan_rmv_lpm = 50.0f;
-        s_plan_page = AREX_PLAN_PAGE_READY;
+        s_plan_page = PLAN_PAGE_READY;
         break;
-    case AREX_SUBMENU_SETTING_MOD_PPO2:
+    case SUBMENU_SETTING_MOD_PPO2:
         g_sys_config.mod_ppo2 = value;
         break;
-    case AREX_SUBMENU_SETTING_NITROX_O2:
+    case SUBMENU_SETTING_NITROX_O2:
         s_nitrox_o2_pct = (uint8_t)(value + 0.5f);
         break;
-    case AREX_SUBMENU_SETTING_3GAS_O2:
+    case SUBMENU_SETTING_3GAS_O2:
         if (arg < 3U)
         {
             s_three_gas_o2_pct[arg] = (uint8_t)(value + 0.5f);
         }
         break;
-    case AREX_SUBMENU_SETTING_OC_TECH_GAS:
+    case SUBMENU_SETTING_OC_TECH_GAS:
         if (arg < 10U)
         {
             uint8_t slot = (uint8_t)(arg / 2U);
@@ -1977,30 +1977,30 @@ void arex_submenu_apply_edit_value(arex_submenu_setting_kind_t kind, uint8_t arg
             }
         }
         break;
-    case AREX_SUBMENU_SETTING_DEPTH_ALARM:
+    case SUBMENU_SETTING_DEPTH_ALARM:
         s_depth_alarm_m = (uint16_t)(value + 0.5f);
         break;
-    case AREX_SUBMENU_SETTING_TIME_ALARM:
+    case SUBMENU_SETTING_TIME_ALARM:
         s_time_alarm_min = (uint16_t)(value + 0.5f);
         break;
-    case AREX_SUBMENU_SETTING_DATETIME_FIELD:
+    case SUBMENU_SETTING_DATETIME_FIELD:
     {
         uint16_t int_value = (uint16_t)(value + 0.5f);
         switch (arg)
         {
-        case AREX_DATETIME_FIELD_YEAR:
+        case DATETIME_FIELD_YEAR:
             s_datetime_year = (int_value < 2000 || int_value > 2099) ? 2026 : int_value;
             break;
-        case AREX_DATETIME_FIELD_MONTH:
+        case DATETIME_FIELD_MONTH:
             s_datetime_month = (int_value < 1 || int_value > 12) ? 1 : (uint8_t)int_value;
             break;
-        case AREX_DATETIME_FIELD_DAY:
+        case DATETIME_FIELD_DAY:
             s_datetime_day = (int_value < 1 || int_value > 31) ? 1 : (uint8_t)int_value;
             break;
-        case AREX_DATETIME_FIELD_HOUR:
+        case DATETIME_FIELD_HOUR:
             s_datetime_hour = (int_value > 23) ? 0 : (uint8_t)int_value;
             break;
-        case AREX_DATETIME_FIELD_MINUTE:
+        case DATETIME_FIELD_MINUTE:
             s_datetime_minute = (int_value > 59) ? 0 : (uint8_t)int_value;
             break;
         default:
@@ -2013,12 +2013,12 @@ void arex_submenu_apply_edit_value(arex_submenu_setting_kind_t kind, uint8_t arg
     }
 }
 
-arex_dive_plan_page_t arex_submenu_dive_plan_page(void)
+dive_plan_page_t submenu_dive_plan_page(void)
 {
-    return (arex_dive_plan_page_t)s_plan_page;
+    return (dive_plan_page_t)s_plan_page;
 }
 
-void arex_submenu_dive_plan_get_inputs(float *out_depth_m,
+void submenu_dive_plan_get_inputs(float *out_depth_m,
                                        uint16_t *out_time_min,
                                        float *out_rmv_lpm)
 {
@@ -2028,22 +2028,22 @@ void arex_submenu_dive_plan_get_inputs(float *out_depth_m,
     if (out_rmv_lpm) *out_rmv_lpm = s_plan_rmv_lpm;
 }
 
-uint8_t arex_submenu_dive_plan_gf_low(void)
+uint8_t submenu_dive_plan_gf_low(void)
 {
     return plan_gf_low();
 }
 
-uint8_t arex_submenu_dive_plan_gf_high(void)
+uint8_t submenu_dive_plan_gf_high(void)
 {
     return plan_gf_high();
 }
 
-uint8_t arex_submenu_dive_plan_last_stop_m(void)
+uint8_t submenu_dive_plan_last_stop_m(void)
 {
     return plan_last_deco_depth();
 }
 
-uint8_t arex_submenu_dive_plan_header_gas_o2(void)
+uint8_t submenu_dive_plan_header_gas_o2(void)
 {
     uint8_t gas_count = g_sensor_data.gas_slot_count;
     if (gas_count > GAS_COUNT) gas_count = GAS_COUNT;
@@ -2059,14 +2059,14 @@ uint8_t arex_submenu_dive_plan_header_gas_o2(void)
     return 0U;
 }
 
-void arex_submenu_dive_plan_gas_summary(char *out, size_t out_size)
+void submenu_dive_plan_gas_summary(char *out, size_t out_size)
 {
     plan_format_gas_summary(out, out_size);
 }
 
-void arex_submenu_dive_plan_reset(void)
+void submenu_dive_plan_reset(void)
 {
-    s_plan_page = AREX_PLAN_PAGE_DEPTH;
+    s_plan_page = PLAN_PAGE_DEPTH;
     s_plan_defaults_loaded = false;
     s_plan_result_page = 0U;
 #ifdef PC_SIMULATOR
@@ -2074,17 +2074,17 @@ void arex_submenu_dive_plan_reset(void)
 #endif
 }
 
-bool arex_submenu_dive_plan_handle_rotate(int8_t dir)
+bool submenu_dive_plan_handle_rotate(int8_t dir)
 {
     plan_ensure_defaults();
     switch (s_plan_page)
     {
-    case AREX_PLAN_PAGE_DEPTH:
+    case PLAN_PAGE_DEPTH:
         s_plan_depth_m += (float)dir;
         if (s_plan_depth_m < 3.0f) s_plan_depth_m = 3.0f;
         if (s_plan_depth_m > 120.0f) s_plan_depth_m = 120.0f;
         return true;
-    case AREX_PLAN_PAGE_TIME:
+    case PLAN_PAGE_TIME:
     {
         int next = (int)s_plan_time_min + (int)dir;
         if (next < 1) next = 1;
@@ -2092,7 +2092,7 @@ bool arex_submenu_dive_plan_handle_rotate(int8_t dir)
         s_plan_time_min = (uint16_t)next;
         return true;
     }
-    case AREX_PLAN_PAGE_RMV:
+    case PLAN_PAGE_RMV:
         s_plan_rmv_lpm += (float)dir;
         if (s_plan_rmv_lpm < 5.0f) s_plan_rmv_lpm = 5.0f;
         if (s_plan_rmv_lpm > 50.0f) s_plan_rmv_lpm = 50.0f;
@@ -2102,22 +2102,22 @@ bool arex_submenu_dive_plan_handle_rotate(int8_t dir)
     }
 }
 
-bool arex_submenu_dive_plan_is_result_page(void)
+bool submenu_dive_plan_is_result_page(void)
 {
-    return s_plan_page == AREX_PLAN_PAGE_RESULT;
+    return s_plan_page == PLAN_PAGE_RESULT;
 }
 
-uint8_t arex_submenu_dive_plan_result_page_index(void)
+uint8_t submenu_dive_plan_result_page_index(void)
 {
     return s_plan_result_page;
 }
 
-uint8_t arex_submenu_dive_plan_result_total_pages(void)
+uint8_t submenu_dive_plan_result_total_pages(void)
 {
     return plan_result_total_pages();
 }
 
-uint8_t arex_submenu_dive_plan_result_entry_count(void)
+uint8_t submenu_dive_plan_result_entry_count(void)
 {
 #ifdef PC_SIMULATOR
     return s_plan_result.entry_count;
@@ -2126,7 +2126,7 @@ uint8_t arex_submenu_dive_plan_result_entry_count(void)
 #endif
 }
 
-bool arex_submenu_dive_plan_result_row(uint8_t row_index, arex_dive_plan_row_t *out_row)
+bool submenu_dive_plan_result_row(uint8_t row_index, dive_plan_row_t *out_row)
 {
     if (!out_row)
     {
@@ -2138,7 +2138,7 @@ bool arex_submenu_dive_plan_result_row(uint8_t row_index, arex_dive_plan_row_t *
         return false;
     }
     const buhlmann_debug_plan_row_t *src = &s_plan_result.entries[row_index];
-    out_row->type = (arex_dive_plan_row_type_t)src->type;
+    out_row->type = (dive_plan_row_type_t)src->type;
     out_row->depth_m = src->depth_m;
     out_row->time_min = src->time_min;
     out_row->run_min = src->run_min;
@@ -2152,7 +2152,7 @@ bool arex_submenu_dive_plan_result_row(uint8_t row_index, arex_dive_plan_row_t *
 #endif
 }
 
-uint16_t arex_submenu_dive_plan_total_runtime_min(void)
+uint16_t submenu_dive_plan_total_runtime_min(void)
 {
 #ifdef PC_SIMULATOR
     return s_plan_result.total_runtime_min;
@@ -2161,7 +2161,7 @@ uint16_t arex_submenu_dive_plan_total_runtime_min(void)
 #endif
 }
 
-uint16_t arex_submenu_dive_plan_total_deco_min(void)
+uint16_t submenu_dive_plan_total_deco_min(void)
 {
 #ifdef PC_SIMULATOR
     return s_plan_result.total_deco_min;
@@ -2170,7 +2170,7 @@ uint16_t arex_submenu_dive_plan_total_deco_min(void)
 #endif
 }
 
-uint16_t arex_submenu_dive_plan_total_gas_l(void)
+uint16_t submenu_dive_plan_total_gas_l(void)
 {
 #ifdef PC_SIMULATOR
     return s_plan_result.total_gas_l;
@@ -2179,7 +2179,7 @@ uint16_t arex_submenu_dive_plan_total_gas_l(void)
 #endif
 }
 
-uint16_t arex_submenu_dive_plan_cns_pct(void)
+uint16_t submenu_dive_plan_cns_pct(void)
 {
 #ifdef PC_SIMULATOR
     return s_plan_result.cns_pct;
@@ -2188,7 +2188,7 @@ uint16_t arex_submenu_dive_plan_cns_pct(void)
 #endif
 }
 
-uint16_t arex_submenu_dive_plan_otu(void)
+uint16_t submenu_dive_plan_otu(void)
 {
 #ifdef PC_SIMULATOR
     return s_plan_result.otu;
@@ -2197,7 +2197,7 @@ uint16_t arex_submenu_dive_plan_otu(void)
 #endif
 }
 
-bool arex_submenu_dive_plan_handle_action(uint8_t item_index,
+bool submenu_dive_plan_handle_action(uint8_t item_index,
                                           const char *item_text,
                                           bool *out_close_submenu,
                                           uint8_t *out_keep_index)
@@ -2229,18 +2229,18 @@ bool arex_submenu_dive_plan_handle_action(uint8_t item_index,
     {
         switch (s_plan_page)
         {
-        case AREX_PLAN_PAGE_DEPTH:
-            s_plan_page = AREX_PLAN_PAGE_TIME;
+        case PLAN_PAGE_DEPTH:
+            s_plan_page = PLAN_PAGE_TIME;
             break;
-        case AREX_PLAN_PAGE_TIME:
-            s_plan_page = AREX_PLAN_PAGE_RMV;
+        case PLAN_PAGE_TIME:
+            s_plan_page = PLAN_PAGE_RMV;
             break;
-        case AREX_PLAN_PAGE_RMV:
-            s_plan_page = AREX_PLAN_PAGE_READY;
+        case PLAN_PAGE_RMV:
+            s_plan_page = PLAN_PAGE_READY;
             break;
-        case AREX_PLAN_PAGE_RESULT:
-        case AREX_PLAN_PAGE_ERROR:
-            s_plan_page = AREX_PLAN_PAGE_READY;
+        case PLAN_PAGE_RESULT:
+        case PLAN_PAGE_ERROR:
+            s_plan_page = PLAN_PAGE_READY;
             break;
         default:
             break;
@@ -2271,14 +2271,14 @@ bool arex_submenu_dive_plan_handle_action(uint8_t item_index,
                                           s_plan_rmv_lpm,
                                           &s_plan_result))
         {
-            s_plan_page = AREX_PLAN_PAGE_RESULT;
+            s_plan_page = PLAN_PAGE_RESULT;
         }
         else
         {
-            s_plan_page = AREX_PLAN_PAGE_ERROR;
+            s_plan_page = PLAN_PAGE_ERROR;
         }
 #else
-        s_plan_page = AREX_PLAN_PAGE_ERROR;
+        s_plan_page = PLAN_PAGE_ERROR;
 #endif
         if (out_keep_index) *out_keep_index = 1U;
         return true;
@@ -2287,7 +2287,7 @@ bool arex_submenu_dive_plan_handle_action(uint8_t item_index,
     return false;
 }
 
-bool arex_submenu_is_readonly_info_title(const char *title)
+bool submenu_is_readonly_info_title(const char *title)
 {
     const char *clean_title = strip_title_prefix(title);
     if (!clean_title)

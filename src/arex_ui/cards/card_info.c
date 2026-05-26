@@ -8,13 +8,13 @@
 #include <stdio.h>
 #include <string.h>
 
-void arex_screen_register_info_list(lv_obj_t *list);
+void screen_register_info_list(lv_obj_t *list);
 
 /* =========================================================
  * INFO MENU 配置数据 (APP 同步就绪)
  * height_u=0 表示使用 g_sys_config.h_menu_item 默认值
  * ========================================================= */
-static const arex_menu_item_cfg_t s_info_items[] =
+static const menu_item_cfg_t s_info_items[] =
 {
     /*  title_text,         badge,  title_font,       val_font,       border, height_u */
     { "LAST DIVE",      NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
@@ -25,7 +25,7 @@ static const arex_menu_item_cfg_t s_info_items[] =
 };
 #define INFO_ITEM_COUNT (sizeof(s_info_items) / sizeof(s_info_items[0]))
 
-const arex_menu_list_cfg_t info_menu_cfg =
+const menu_list_cfg_t info_menu_cfg =
 {
     .items = s_info_items,
     .count = INFO_ITEM_COUNT,
@@ -35,7 +35,7 @@ static lv_obj_t *s_list;
 
 void card_info_create(lv_obj_t *parent)
 {
-    arex_render_card_title(parent, "INFO MENU");
+    render_card_title(parent, "INFO MENU");
 
     int right_canvas_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
                          - ((int)g_sys_config.gap_u * BASE_U);
@@ -56,9 +56,9 @@ void card_info_create(lv_obj_t *parent)
     lv_obj_clear_flag(s_list, LV_OBJ_FLAG_SCROLLABLE);
 
     /* 通用动态菜单工厂统一渲染 */
-    arex_render_dynamic_menu(s_list, s_info_items, INFO_ITEM_COUNT, 0, NULL);
+    render_dynamic_menu(s_list, s_info_items, INFO_ITEM_COUNT, 0, NULL);
 
-    arex_screen_register_info_list(s_list);
+    screen_register_info_list(s_list);
 }
 
 void card_info_update(void)

@@ -1,5 +1,5 @@
-#ifndef AREX_DEBUG_LINK_PC_H
-#define AREX_DEBUG_LINK_PC_H
+#ifndef DEBUG_LINK_PC_H
+#define DEBUG_LINK_PC_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -8,16 +8,16 @@
 extern "C" {
 #endif
 
-void arex_debug_link_pc_start(void);
-bool arex_debug_link_pc_manual_mode(void);
-bool arex_debug_link_pc_consume_connect_event(void);
-uint16_t arex_debug_link_pc_time_scale(void);
+void debug_link_pc_start(void);
+bool debug_link_pc_manual_mode(void);
+bool debug_link_pc_consume_connect_event(void);
+uint16_t debug_link_pc_time_scale(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#ifdef AREX_DEBUG_LINK_PC_IMPLEMENTATION
+#ifdef DEBUG_LINK_PC_IMPLEMENTATION
 
 #if defined(PC_SIMULATOR) && defined(_WIN32)
 
@@ -40,21 +40,21 @@ uint16_t arex_debug_link_pc_time_scale(void);
 #include <stdlib.h>
 #include <string.h>
 
-#define AREX_DEBUG_TCP_PORT 7623U
-#define AREX_DEBUG_RX_BUF_SIZE 512U
-#define AREX_DEBUG_TX_BUF_SIZE 768U
+#define DEBUG_TCP_PORT 7623U
+#define DEBUG_RX_BUF_SIZE 512U
+#define DEBUG_TX_BUF_SIZE 768U
 
-typedef int (WSAAPI *arex_wsa_startup_fn)(WORD, LPWSADATA);
-typedef int (WSAAPI *arex_wsa_cleanup_fn)(void);
-typedef int (WSAAPI *arex_wsa_get_last_error_fn)(void);
-typedef SOCKET (WSAAPI *arex_socket_fn)(int, int, int);
-typedef int (WSAAPI *arex_bind_fn)(SOCKET, const struct sockaddr *, int);
-typedef int (WSAAPI *arex_listen_fn)(SOCKET, int);
-typedef SOCKET (WSAAPI *arex_accept_fn)(SOCKET, struct sockaddr *, int *);
-typedef int (WSAAPI *arex_recv_fn)(SOCKET, char *, int, int);
-typedef int (WSAAPI *arex_send_fn)(SOCKET, const char *, int, int);
-typedef int (WSAAPI *arex_closesocket_fn)(SOCKET);
-typedef int (WSAAPI *arex_ioctlsocket_fn)(SOCKET, long, u_long *);
+typedef int (WSAAPI *wsa_startup_fn)(WORD, LPWSADATA);
+typedef int (WSAAPI *wsa_cleanup_fn)(void);
+typedef int (WSAAPI *wsa_get_last_error_fn)(void);
+typedef SOCKET (WSAAPI *socket_fn)(int, int, int);
+typedef int (WSAAPI *bind_fn)(SOCKET, const struct sockaddr *, int);
+typedef int (WSAAPI *listen_fn)(SOCKET, int);
+typedef SOCKET (WSAAPI *accept_fn)(SOCKET, struct sockaddr *, int *);
+typedef int (WSAAPI *recv_fn)(SOCKET, char *, int, int);
+typedef int (WSAAPI *send_fn)(SOCKET, const char *, int, int);
+typedef int (WSAAPI *closesocket_fn)(SOCKET);
+typedef int (WSAAPI *ioctlsocket_fn)(SOCKET, long, u_long *);
 
 typedef struct
 {
@@ -66,7 +66,7 @@ typedef struct
     SOCKET listener;
     SOCKET client;
     lv_timer_t *timer;
-    char rx_buf[AREX_DEBUG_RX_BUF_SIZE];
+    char rx_buf[DEBUG_RX_BUF_SIZE];
     uint16_t rx_len;
     uint16_t time_scale;
     uint32_t sample_time_s;
@@ -74,32 +74,32 @@ typedef struct
     float depth_rate_last_m;
     uint32_t depth_rate_last_tick_ms;
 
-    arex_wsa_startup_fn WSAStartup_;
-    arex_wsa_cleanup_fn WSACleanup_;
-    arex_wsa_get_last_error_fn WSAGetLastError_;
-    arex_socket_fn socket_;
-    arex_bind_fn bind_;
-    arex_listen_fn listen_;
-    arex_accept_fn accept_;
-    arex_recv_fn recv_;
-    arex_send_fn send_;
-    arex_closesocket_fn closesocket_;
-    arex_ioctlsocket_fn ioctlsocket_;
-} arex_debug_link_pc_t;
+    wsa_startup_fn WSAStartup_;
+    wsa_cleanup_fn WSACleanup_;
+    wsa_get_last_error_fn WSAGetLastError_;
+    socket_fn socket_;
+    bind_fn bind_;
+    listen_fn listen_;
+    accept_fn accept_;
+    recv_fn recv_;
+    send_fn send_;
+    closesocket_fn closesocket_;
+    ioctlsocket_fn ioctlsocket_;
+} debug_link_pc_t;
 
-static arex_debug_link_pc_t s_debug_link =
+static debug_link_pc_t s_debug_link =
 {
     .listener = INVALID_SOCKET,
     .client = INVALID_SOCKET,
     .time_scale = 1,
 };
 
-static uint16_t arex_debug_swap16(uint16_t value)
+static uint16_t debug_swap16(uint16_t value)
 {
     return (uint16_t)(((value & 0x00FFU) << 8) | ((value & 0xFF00U) >> 8));
 }
 
-static bool arex_debug_load_winsock(void)
+static bool debug_load_winsock(void)
 {
     if (s_debug_link.loaded)
     {
@@ -113,7 +113,7 @@ static bool arex_debug_load_winsock(void)
         return false;
     }
 
-#define AREX_DBG_LOAD_PROC(field, name, type)                                      \
+#define DBG_LOAD_PROC(field, name, type)                                      \
     do                                                                            \
     {                                                                             \
         s_debug_link.field = (type)GetProcAddress(s_debug_link.dll, name);         \
@@ -126,35 +126,35 @@ static bool arex_debug_load_winsock(void)
         }                                                                         \
     } while (0)
 
-    AREX_DBG_LOAD_PROC(WSAStartup_, "WSAStartup", arex_wsa_startup_fn);
-    AREX_DBG_LOAD_PROC(WSACleanup_, "WSACleanup", arex_wsa_cleanup_fn);
-    AREX_DBG_LOAD_PROC(WSAGetLastError_, "WSAGetLastError", arex_wsa_get_last_error_fn);
-    AREX_DBG_LOAD_PROC(socket_, "socket", arex_socket_fn);
-    AREX_DBG_LOAD_PROC(bind_, "bind", arex_bind_fn);
-    AREX_DBG_LOAD_PROC(listen_, "listen", arex_listen_fn);
-    AREX_DBG_LOAD_PROC(accept_, "accept", arex_accept_fn);
-    AREX_DBG_LOAD_PROC(recv_, "recv", arex_recv_fn);
-    AREX_DBG_LOAD_PROC(send_, "send", arex_send_fn);
-    AREX_DBG_LOAD_PROC(closesocket_, "closesocket", arex_closesocket_fn);
-    AREX_DBG_LOAD_PROC(ioctlsocket_, "ioctlsocket", arex_ioctlsocket_fn);
+    DBG_LOAD_PROC(WSAStartup_, "WSAStartup", wsa_startup_fn);
+    DBG_LOAD_PROC(WSACleanup_, "WSACleanup", wsa_cleanup_fn);
+    DBG_LOAD_PROC(WSAGetLastError_, "WSAGetLastError", wsa_get_last_error_fn);
+    DBG_LOAD_PROC(socket_, "socket", socket_fn);
+    DBG_LOAD_PROC(bind_, "bind", bind_fn);
+    DBG_LOAD_PROC(listen_, "listen", listen_fn);
+    DBG_LOAD_PROC(accept_, "accept", accept_fn);
+    DBG_LOAD_PROC(recv_, "recv", recv_fn);
+    DBG_LOAD_PROC(send_, "send", send_fn);
+    DBG_LOAD_PROC(closesocket_, "closesocket", closesocket_fn);
+    DBG_LOAD_PROC(ioctlsocket_, "ioctlsocket", ioctlsocket_fn);
 
-#undef AREX_DBG_LOAD_PROC
+#undef DBG_LOAD_PROC
 
     s_debug_link.loaded = true;
     return true;
 }
 
-static int arex_debug_last_error(void)
+static int debug_last_error(void)
 {
     return s_debug_link.WSAGetLastError_ ? s_debug_link.WSAGetLastError_() : 0;
 }
 
-static bool arex_debug_is_would_block(int err)
+static bool debug_is_would_block(int err)
 {
     return err == WSAEWOULDBLOCK || err == WSAEINPROGRESS || err == WSAEALREADY;
 }
 
-static void arex_debug_close_socket(SOCKET *sock)
+static void debug_close_socket(SOCKET *sock)
 {
     if (sock && *sock != INVALID_SOCKET && s_debug_link.closesocket_)
     {
@@ -163,13 +163,13 @@ static void arex_debug_close_socket(SOCKET *sock)
     }
 }
 
-static bool arex_debug_set_nonblocking(SOCKET sock)
+static bool debug_set_nonblocking(SOCKET sock)
 {
     u_long mode = 1;
     return s_debug_link.ioctlsocket_(sock, FIONBIO, &mode) == 0;
 }
 
-static void arex_debug_send_raw(const char *text)
+static void debug_send_raw(const char *text)
 {
     size_t len;
 
@@ -185,9 +185,9 @@ static void arex_debug_send_raw(const char *text)
     }
 }
 
-static void arex_debug_sendf(const char *fmt, ...)
+static void debug_sendf(const char *fmt, ...)
 {
-    char out[AREX_DEBUG_TX_BUF_SIZE];
+    char out[DEBUG_TX_BUF_SIZE];
     va_list ap;
 
     if (s_debug_link.client == INVALID_SOCKET)
@@ -198,10 +198,10 @@ static void arex_debug_sendf(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(out, sizeof(out), fmt, ap);
     va_end(ap);
-    arex_debug_send_raw(out);
+    debug_send_raw(out);
 }
 
-static char *arex_debug_trim(char *text)
+static char *debug_trim(char *text)
 {
     char *end;
 
@@ -221,7 +221,7 @@ static char *arex_debug_trim(char *text)
     return text;
 }
 
-static char *arex_debug_next_token(char **cursor)
+static char *debug_next_token(char **cursor)
 {
     char *start;
 
@@ -250,7 +250,7 @@ static char *arex_debug_next_token(char **cursor)
     return start;
 }
 
-static bool arex_debug_streq(const char *a, const char *b)
+static bool debug_streq(const char *a, const char *b)
 {
     if (!a || !b)
     {
@@ -268,7 +268,7 @@ static bool arex_debug_streq(const char *a, const char *b)
     return *a == '\0' && *b == '\0';
 }
 
-static bool arex_debug_parse_float(const char *text, float *out)
+static bool debug_parse_float(const char *text, float *out)
 {
     char *end = NULL;
     float value;
@@ -286,7 +286,7 @@ static bool arex_debug_parse_float(const char *text, float *out)
     return true;
 }
 
-static bool arex_debug_parse_int(const char *text, int *out)
+static bool debug_parse_int(const char *text, int *out)
 {
     char *end = NULL;
     long value;
@@ -304,26 +304,26 @@ static bool arex_debug_parse_int(const char *text, int *out)
     return true;
 }
 
-static bool arex_debug_parse_bool(const char *text, bool *out)
+static bool debug_parse_bool(const char *text, bool *out)
 {
     if (!text || !out)
     {
         return false;
     }
-    if (arex_debug_streq(text, "1") ||
-            arex_debug_streq(text, "on") ||
-            arex_debug_streq(text, "true") ||
-            arex_debug_streq(text, "yes") ||
-            arex_debug_streq(text, "manual"))
+    if (debug_streq(text, "1") ||
+            debug_streq(text, "on") ||
+            debug_streq(text, "true") ||
+            debug_streq(text, "yes") ||
+            debug_streq(text, "manual"))
     {
         *out = true;
         return true;
     }
-    if (arex_debug_streq(text, "0") ||
-            arex_debug_streq(text, "off") ||
-            arex_debug_streq(text, "false") ||
-            arex_debug_streq(text, "no") ||
-            arex_debug_streq(text, "auto"))
+    if (debug_streq(text, "0") ||
+            debug_streq(text, "off") ||
+            debug_streq(text, "false") ||
+            debug_streq(text, "no") ||
+            debug_streq(text, "auto"))
     {
         *out = false;
         return true;
@@ -331,7 +331,7 @@ static bool arex_debug_parse_bool(const char *text, bool *out)
     return false;
 }
 
-static void arex_debug_format_gas_name(char *out, size_t out_size, int o2, int he)
+static void debug_format_gas_name(char *out, size_t out_size, int o2, int he)
 {
     if (!out || out_size == 0U)
     {
@@ -359,9 +359,9 @@ static void arex_debug_format_gas_name(char *out, size_t out_size, int o2, int h
     }
 }
 
-static void arex_debug_exec_line(char *line);
+static void debug_exec_line(char *line);
 
-static void arex_debug_apply_depth_sample(float depth)
+static void debug_apply_depth_sample(float depth)
 {
     uint32_t sample_time_s;
     uint32_t now_ms;
@@ -381,24 +381,24 @@ static void arex_debug_apply_depth_sample(float depth)
         if (delta_ms > 0U)
         {
             float delta_min = (float)delta_ms / 60000.0f;
-            arex_bus_set_ascent_rate((s_debug_link.depth_rate_last_m - depth) / delta_min);
+            bus_set_ascent_rate((s_debug_link.depth_rate_last_m - depth) / delta_min);
         }
     }
     else
     {
-        arex_bus_set_ascent_rate(0.0f);
+        bus_set_ascent_rate(0.0f);
     }
     s_debug_link.depth_rate_valid = true;
     s_debug_link.depth_rate_last_m = depth;
     s_debug_link.depth_rate_last_tick_ms = now_ms;
 
-    arex_dive_log_append((float)sample_time_s, depth);
-    arex_bus_set_depth(depth);
+    dive_log_append((float)sample_time_s, depth);
+    bus_set_depth(depth);
 }
 
-static bool arex_debug_try_packet_line_rx(const char *data, int len)
+static bool debug_try_packet_line_rx(const char *data, int len)
 {
-    char text[AREX_DEBUG_RX_BUF_SIZE];
+    char text[DEBUG_RX_BUF_SIZE];
     char *trimmed;
     uint16_t text_len = 0U;
 
@@ -418,7 +418,7 @@ static bool arex_debug_try_packet_line_rx(const char *data, int len)
     if ((uint32_t)s_debug_link.rx_len + (uint32_t)len >= sizeof(text))
     {
         s_debug_link.rx_len = 0;
-        arex_debug_send_raw("ERR line too long\r\n");
+        debug_send_raw("ERR line too long\r\n");
         return true;
     }
 
@@ -433,19 +433,19 @@ static bool arex_debug_try_packet_line_rx(const char *data, int len)
     text_len = (uint16_t)(text_len + (uint16_t)len);
     text[text_len] = '\0';
 
-    trimmed = arex_debug_trim(text);
+    trimmed = debug_trim(text);
     if (!trimmed || trimmed[0] == '\0')
     {
         return true;
     }
 
-    arex_debug_exec_line(trimmed);
+    debug_exec_line(trimmed);
     return true;
 }
 
-static void arex_debug_send_help(void)
+static void debug_send_help(void)
 {
-    arex_debug_send_raw(
+    debug_send_raw(
         "AREX TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back | manual on|off | auto on|off | speed <1..120>\r\n"
@@ -460,14 +460,14 @@ static void arex_debug_send_help(void)
         "Slots are 0-based. TCP disables the auto depth script; the 1Hz clock keeps running.\r\n");
 }
 
-static void arex_debug_send_state(void)
+static void debug_send_state(void)
 {
-    arex_debug_sendf(
+    debug_sendf(
         "STATE tcp=%u depth_manual=%u manual=%u speed=%u depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
-        (unsigned)arex_debug_link_pc_time_scale(),
+        (unsigned)debug_link_pc_time_scale(),
         (double)g_sensor_data.depth,
         (double)g_sensor_data.ascent_rate,
         (unsigned long)g_sensor_data.dive_time_s,
@@ -482,13 +482,13 @@ static void arex_debug_send_state(void)
         (unsigned)((g_sys_config.last_deco_stop_m == 6U) ? 6U : 3U));
 }
 
-static void arex_debug_exec_line(char *line)
+static void debug_exec_line(char *line)
 {
     char *cursor;
     char *cmd;
     char *arg;
 
-    line = arex_debug_trim(line);
+    line = debug_trim(line);
     if (!line || line[0] == '\0')
     {
         return;
@@ -498,459 +498,459 @@ static void arex_debug_exec_line(char *line)
 
     {
         float direct_depth;
-        if (arex_debug_parse_float(line, &direct_depth))
+        if (debug_parse_float(line, &direct_depth))
         {
-            arex_debug_apply_depth_sample(direct_depth);
-            arex_debug_sendf("OK depth %.1f\r\n", (double)g_sensor_data.depth);
+            debug_apply_depth_sample(direct_depth);
+            debug_sendf("OK depth %.1f\r\n", (double)g_sensor_data.depth);
             return;
         }
     }
 
-    cmd = arex_debug_next_token(&cursor);
+    cmd = debug_next_token(&cursor);
     if (!cmd)
     {
         return;
     }
 
-    if (arex_debug_streq(cmd, "help") || arex_debug_streq(cmd, "?"))
+    if (debug_streq(cmd, "help") || debug_streq(cmd, "?"))
     {
-        arex_debug_send_help();
+        debug_send_help();
         return;
     }
 
-    if (arex_debug_streq(cmd, "state"))
+    if (debug_streq(cmd, "state"))
     {
-        arex_debug_send_state();
+        debug_send_state();
         return;
     }
 
-    if (arex_debug_streq(cmd, "back") || arex_debug_streq(cmd, "esc"))
+    if (debug_streq(cmd, "back") || debug_streq(cmd, "esc"))
     {
         ui_handle_back();
-        arex_debug_send_raw("OK back\r\n");
+        debug_send_raw("OK back\r\n");
         return;
     }
 
-    if (arex_debug_streq(cmd, "speed") || arex_debug_streq(cmd, "scale"))
+    if (debug_streq(cmd, "speed") || debug_streq(cmd, "scale"))
     {
         int speed;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &speed) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &speed) ||
                 speed < 1 || speed > 120)
         {
-            arex_debug_send_raw("ERR usage: speed <1..120>\r\n");
+            debug_send_raw("ERR usage: speed <1..120>\r\n");
             return;
         }
         s_debug_link.time_scale = (uint16_t)speed;
-        arex_debug_sendf("OK speed %u\r\n", (unsigned)s_debug_link.time_scale);
+        debug_sendf("OK speed %u\r\n", (unsigned)s_debug_link.time_scale);
         return;
     }
 
-    if (arex_debug_streq(cmd, "manual") || arex_debug_streq(cmd, "mode"))
+    if (debug_streq(cmd, "manual") || debug_streq(cmd, "mode"))
     {
         bool enabled;
-        arg = arex_debug_next_token(&cursor);
-        if (!arex_debug_parse_bool(arg, &enabled))
+        arg = debug_next_token(&cursor);
+        if (!debug_parse_bool(arg, &enabled))
         {
-            arex_debug_send_raw("ERR usage: manual on|off\r\n");
+            debug_send_raw("ERR usage: manual on|off\r\n");
             return;
         }
         s_debug_link.manual_mode = enabled;
         if (enabled)
         {
-            arex_bus_set_ascent_rate(0.0f);
+            bus_set_ascent_rate(0.0f);
         }
-        arex_debug_sendf("OK manual %s\r\n", enabled ? "on" : "off");
+        debug_sendf("OK manual %s\r\n", enabled ? "on" : "off");
         return;
     }
 
-    if (arex_debug_streq(cmd, "auto"))
+    if (debug_streq(cmd, "auto"))
     {
         bool enabled;
-        arg = arex_debug_next_token(&cursor);
-        if (!arex_debug_parse_bool(arg, &enabled))
+        arg = debug_next_token(&cursor);
+        if (!debug_parse_bool(arg, &enabled))
         {
-            arex_debug_send_raw("ERR usage: auto on|off\r\n");
+            debug_send_raw("ERR usage: auto on|off\r\n");
             return;
         }
         s_debug_link.manual_mode = !enabled;
-        arex_debug_sendf("OK auto %s\r\n", enabled ? "on" : "off");
+        debug_sendf("OK auto %s\r\n", enabled ? "on" : "off");
         return;
     }
 
-    if (arex_debug_streq(cmd, "depth"))
+    if (debug_streq(cmd, "depth"))
     {
         float depth;
-        if (!arex_debug_parse_float(arex_debug_next_token(&cursor), &depth))
+        if (!debug_parse_float(debug_next_token(&cursor), &depth))
         {
-            arex_debug_send_raw("ERR usage: depth <m>\r\n");
+            debug_send_raw("ERR usage: depth <m>\r\n");
             return;
         }
-        arex_debug_apply_depth_sample(depth);
-        arex_debug_sendf("OK depth %.1f\r\n", (double)g_sensor_data.depth);
+        debug_apply_depth_sample(depth);
+        debug_sendf("OK depth %.1f\r\n", (double)g_sensor_data.depth);
         return;
     }
 
-    if (arex_debug_streq(cmd, "sample"))
+    if (debug_streq(cmd, "sample"))
     {
         int time_s;
         float depth;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &time_s) ||
-                !arex_debug_parse_float(arex_debug_next_token(&cursor), &depth) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &time_s) ||
+                !debug_parse_float(debug_next_token(&cursor), &depth) ||
                 time_s < 0)
         {
-            arex_debug_send_raw("ERR usage: sample <time_s> <depth_m>\r\n");
+            debug_send_raw("ERR usage: sample <time_s> <depth_m>\r\n");
             return;
         }
-        arex_bus_set_dive_time((uint32_t)time_s);
-        arex_dive_log_append((float)time_s, depth);
-        arex_bus_set_depth(depth);
+        bus_set_dive_time((uint32_t)time_s);
+        dive_log_append((float)time_s, depth);
+        bus_set_depth(depth);
         if (s_debug_link.depth_rate_valid && (uint32_t)time_s > s_debug_link.sample_time_s)
         {
             float delta_min = (float)((uint32_t)time_s - s_debug_link.sample_time_s) / 60.0f;
-            arex_bus_set_ascent_rate((s_debug_link.depth_rate_last_m - depth) / delta_min);
+            bus_set_ascent_rate((s_debug_link.depth_rate_last_m - depth) / delta_min);
         }
         else
         {
-            arex_bus_set_ascent_rate(0.0f);
+            bus_set_ascent_rate(0.0f);
         }
         s_debug_link.sample_time_s = (uint32_t)time_s;
         s_debug_link.depth_rate_valid = true;
         s_debug_link.depth_rate_last_m = depth;
         s_debug_link.depth_rate_last_tick_ms = lv_tick_get();
-        arex_debug_sendf("OK sample %d %.1f\r\n", time_s, (double)depth);
+        debug_sendf("OK sample %d %.1f\r\n", time_s, (double)depth);
         return;
     }
 
-    if (arex_debug_streq(cmd, "rate") || arex_debug_streq(cmd, "ascent"))
+    if (debug_streq(cmd, "rate") || debug_streq(cmd, "ascent"))
     {
         float rate_mpm;
-        if (!arex_debug_parse_float(arex_debug_next_token(&cursor), &rate_mpm))
+        if (!debug_parse_float(debug_next_token(&cursor), &rate_mpm))
         {
-            arex_debug_send_raw("ERR usage: rate <m_min>\r\n");
+            debug_send_raw("ERR usage: rate <m_min>\r\n");
             return;
         }
-        arex_bus_set_ascent_rate(rate_mpm);
-        arex_debug_sendf("OK rate %+.1f\r\n", (double)g_sensor_data.ascent_rate);
+        bus_set_ascent_rate(rate_mpm);
+        debug_sendf("OK rate %+.1f\r\n", (double)g_sensor_data.ascent_rate);
         return;
     }
 
-    if (arex_debug_streq(cmd, "time"))
+    if (debug_streq(cmd, "time"))
     {
         int time_s;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &time_s) || time_s < 0)
+        if (!debug_parse_int(debug_next_token(&cursor), &time_s) || time_s < 0)
         {
-            arex_debug_send_raw("ERR usage: time <seconds>\r\n");
+            debug_send_raw("ERR usage: time <seconds>\r\n");
             return;
         }
-        arex_bus_set_dive_time((uint32_t)time_s);
+        bus_set_dive_time((uint32_t)time_s);
         s_debug_link.sample_time_s = (uint32_t)time_s;
-        arex_debug_sendf("OK time %d\r\n", time_s);
+        debug_sendf("OK time %d\r\n", time_s);
         return;
     }
 
-    if (arex_debug_streq(cmd, "surface"))
+    if (debug_streq(cmd, "surface"))
     {
         int time_s;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &time_s) || time_s < 0)
+        if (!debug_parse_int(debug_next_token(&cursor), &time_s) || time_s < 0)
         {
-            arex_debug_send_raw("ERR usage: surface <seconds>\r\n");
+            debug_send_raw("ERR usage: surface <seconds>\r\n");
             return;
         }
-        arex_bus_set_surface_time((uint32_t)time_s);
-        arex_debug_sendf("OK surface %d\r\n", time_s);
+        bus_set_surface_time((uint32_t)time_s);
+        debug_sendf("OK surface %d\r\n", time_s);
         return;
     }
 
-    if (arex_debug_streq(cmd, "ndl"))
+    if (debug_streq(cmd, "ndl"))
     {
         int ndl;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &ndl))
+        if (!debug_parse_int(debug_next_token(&cursor), &ndl))
         {
-            arex_debug_send_raw("ERR usage: ndl <minutes>\r\n");
+            debug_send_raw("ERR usage: ndl <minutes>\r\n");
             return;
         }
-        arex_bus_set_ndl((int16_t)ndl);
-        arex_debug_sendf("OK ndl %d\r\n", ndl);
+        bus_set_ndl((int16_t)ndl);
+        debug_sendf("OK ndl %d\r\n", ndl);
         return;
     }
 
-    if (arex_debug_streq(cmd, "tts"))
+    if (debug_streq(cmd, "tts"))
     {
         int tts;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &tts) || tts < 0)
+        if (!debug_parse_int(debug_next_token(&cursor), &tts) || tts < 0)
         {
-            arex_debug_send_raw("ERR usage: tts <minutes>\r\n");
+            debug_send_raw("ERR usage: tts <minutes>\r\n");
             return;
         }
-        arex_bus_set_tts((uint16_t)tts);
-        arex_debug_sendf("OK tts %d\r\n", tts);
+        bus_set_tts((uint16_t)tts);
+        debug_sendf("OK tts %d\r\n", tts);
         return;
     }
 
-    if (arex_debug_streq(cmd, "stop"))
+    if (debug_streq(cmd, "stop"))
     {
-        char *type_text = arex_debug_next_token(&cursor);
+        char *type_text = debug_next_token(&cursor);
         int ndl;
         float depth;
         int total_s;
         int left_s;
         int zone;
-        arex_stop_type_t type = STOP_NONE;
+        stop_type_t type = STOP_NONE;
 
-        if (arex_debug_streq(type_text, "safety"))
+        if (debug_streq(type_text, "safety"))
         {
             type = STOP_SAFETY;
         }
-        else if (arex_debug_streq(type_text, "deco"))
+        else if (debug_streq(type_text, "deco"))
         {
             type = STOP_DECO;
         }
-        else if (!arex_debug_streq(type_text, "none"))
+        else if (!debug_streq(type_text, "none"))
         {
-            arex_debug_send_raw("ERR usage: stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n");
+            debug_send_raw("ERR usage: stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n");
             return;
         }
 
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &ndl) ||
-                !arex_debug_parse_float(arex_debug_next_token(&cursor), &depth) ||
-                !arex_debug_parse_int(arex_debug_next_token(&cursor), &total_s) ||
-                !arex_debug_parse_int(arex_debug_next_token(&cursor), &left_s) ||
-                !arex_debug_parse_int(arex_debug_next_token(&cursor), &zone) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &ndl) ||
+                !debug_parse_float(debug_next_token(&cursor), &depth) ||
+                !debug_parse_int(debug_next_token(&cursor), &total_s) ||
+                !debug_parse_int(debug_next_token(&cursor), &left_s) ||
+                !debug_parse_int(debug_next_token(&cursor), &zone) ||
                 total_s < 0 || left_s < 0)
         {
-            arex_debug_send_raw("ERR usage: stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n");
+            debug_send_raw("ERR usage: stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n");
             return;
         }
 
-        arex_bus_update_deco((int16_t)ndl,
+        bus_update_deco((int16_t)ndl,
                              type,
                              depth,
                              (uint16_t)total_s,
                              (uint16_t)left_s,
                              zone != 0);
-        arex_debug_send_raw("OK stop\r\n");
+        debug_send_raw("OK stop\r\n");
         return;
     }
 
-    if (arex_debug_streq(cmd, "pod"))
+    if (debug_streq(cmd, "pod"))
     {
         int idx;
         float bar;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &idx) ||
-                !arex_debug_parse_float(arex_debug_next_token(&cursor), &bar) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &idx) ||
+                !debug_parse_float(debug_next_token(&cursor), &bar) ||
                 idx < 0 || idx > 1)
         {
-            arex_debug_send_raw("ERR usage: pod <0|1> <bar>\r\n");
+            debug_send_raw("ERR usage: pod <0|1> <bar>\r\n");
             return;
         }
-        arex_bus_set_pod((uint8_t)idx, bar);
-        arex_debug_sendf("OK pod %d %.0f\r\n", idx, (double)bar);
+        bus_set_pod((uint8_t)idx, bar);
+        debug_sendf("OK pod %d %.0f\r\n", idx, (double)bar);
         return;
     }
 
-    if (arex_debug_streq(cmd, "batt") || arex_debug_streq(cmd, "battery"))
+    if (debug_streq(cmd, "batt") || debug_streq(cmd, "battery"))
     {
         float pct;
-        if (!arex_debug_parse_float(arex_debug_next_token(&cursor), &pct))
+        if (!debug_parse_float(debug_next_token(&cursor), &pct))
         {
-            arex_debug_send_raw("ERR usage: batt <pct>\r\n");
+            debug_send_raw("ERR usage: batt <pct>\r\n");
             return;
         }
-        arex_bus_set_battery(pct);
-        arex_debug_sendf("OK batt %.0f\r\n", (double)pct);
+        bus_set_battery(pct);
+        debug_sendf("OK batt %.0f\r\n", (double)pct);
         return;
     }
 
-    if (arex_debug_streq(cmd, "temp") ||
-            arex_debug_streq(cmd, "bat_temp") ||
-            arex_debug_streq(cmd, "prj_temp"))
+    if (debug_streq(cmd, "temp") ||
+            debug_streq(cmd, "bat_temp") ||
+            debug_streq(cmd, "prj_temp"))
     {
         float temp;
-        if (!arex_debug_parse_float(arex_debug_next_token(&cursor), &temp))
+        if (!debug_parse_float(debug_next_token(&cursor), &temp))
         {
-            arex_debug_send_raw("ERR usage: temp <c> | bat_temp <c> | prj_temp <c>\r\n");
+            debug_send_raw("ERR usage: temp <c> | bat_temp <c> | prj_temp <c>\r\n");
             return;
         }
-        if (arex_debug_streq(cmd, "bat_temp"))
+        if (debug_streq(cmd, "bat_temp"))
         {
-            arex_bus_set_bat_temperature(temp);
+            bus_set_bat_temperature(temp);
         }
-        else if (arex_debug_streq(cmd, "prj_temp"))
+        else if (debug_streq(cmd, "prj_temp"))
         {
-            arex_bus_set_prj_temperature(temp);
+            bus_set_prj_temperature(temp);
         }
         else
         {
-            arex_bus_set_temperature(temp);
+            bus_set_temperature(temp);
         }
-        arex_debug_sendf("OK %s %.1f\r\n", cmd, (double)temp);
+        debug_sendf("OK %s %.1f\r\n", cmd, (double)temp);
         return;
     }
 
-    if (arex_debug_streq(cmd, "heading"))
+    if (debug_streq(cmd, "heading"))
     {
         int heading;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &heading))
+        if (!debug_parse_int(debug_next_token(&cursor), &heading))
         {
-            arex_debug_send_raw("ERR usage: heading <deg>\r\n");
+            debug_send_raw("ERR usage: heading <deg>\r\n");
             return;
         }
         if (heading < 0)
         {
             heading = 0;
         }
-        arex_bus_set_heading((uint16_t)(heading % 360));
-        arex_debug_sendf("OK heading %d\r\n", heading % 360);
+        bus_set_heading((uint16_t)(heading % 360));
+        debug_sendf("OK heading %d\r\n", heading % 360);
         return;
     }
 
-    if (arex_debug_streq(cmd, "ppo2"))
+    if (debug_streq(cmd, "ppo2"))
     {
         int idx;
         float value;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &idx) ||
-                !arex_debug_parse_float(arex_debug_next_token(&cursor), &value) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &idx) ||
+                !debug_parse_float(debug_next_token(&cursor), &value) ||
                 idx < 0 || idx >= GAS_COUNT)
         {
-            arex_debug_send_raw("ERR usage: ppo2 <slot> <bar>\r\n");
+            debug_send_raw("ERR usage: ppo2 <slot> <bar>\r\n");
             return;
         }
-        arex_bus_set_ppo2((uint8_t)idx, value);
-        arex_debug_sendf("OK ppo2 %d %.2f\r\n", idx, (double)value);
+        bus_set_ppo2((uint8_t)idx, value);
+        debug_sendf("OK ppo2 %d %.2f\r\n", idx, (double)value);
         return;
     }
 
-    if (arex_debug_streq(cmd, "gf"))
+    if (debug_streq(cmd, "gf"))
     {
         int low;
         int high;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &low) ||
-                !arex_debug_parse_int(arex_debug_next_token(&cursor), &high) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &low) ||
+                !debug_parse_int(debug_next_token(&cursor), &high) ||
                 low < 0 || low > 100 || high < 0 || high > 100)
         {
-            arex_debug_send_raw("ERR usage: gf <low> <high>\r\n");
+            debug_send_raw("ERR usage: gf <low> <high>\r\n");
             return;
         }
-        arex_bus_set_gf_setting((uint8_t)low, (uint8_t)high);
-        arex_debug_sendf("OK gf %d/%d\r\n", low, high);
+        bus_set_gf_setting((uint8_t)low, (uint8_t)high);
+        debug_sendf("OK gf %d/%d\r\n", low, high);
         return;
     }
 
-    if (arex_debug_streq(cmd, "last_deco") ||
-            arex_debug_streq(cmd, "last_stop") ||
-            arex_debug_streq(cmd, "final_stop"))
+    if (debug_streq(cmd, "last_deco") ||
+            debug_streq(cmd, "last_stop") ||
+            debug_streq(cmd, "final_stop"))
     {
         int depth_m;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &depth_m) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &depth_m) ||
                 (depth_m != 3 && depth_m != 6))
         {
-            arex_debug_send_raw("ERR usage: last_deco <3|6>\r\n");
+            debug_send_raw("ERR usage: last_deco <3|6>\r\n");
             return;
         }
-        arex_bus_set_last_deco_stop((uint8_t)depth_m);
-        arex_debug_sendf("OK last_deco %dm\r\n", depth_m);
+        bus_set_last_deco_stop((uint8_t)depth_m);
+        debug_sendf("OK last_deco %dm\r\n", depth_m);
         return;
     }
 
-    if (arex_debug_streq(cmd, "gf99") || arex_debug_streq(cmd, "surf_gf") ||
-            arex_debug_streq(cmd, "cns") || arex_debug_streq(cmd, "otu") ||
-            arex_debug_streq(cmd, "mod") || arex_debug_streq(cmd, "ceiling") ||
-            arex_debug_streq(cmd, "dens") || arex_debug_streq(cmd, "fio2"))
+    if (debug_streq(cmd, "gf99") || debug_streq(cmd, "surf_gf") ||
+            debug_streq(cmd, "cns") || debug_streq(cmd, "otu") ||
+            debug_streq(cmd, "mod") || debug_streq(cmd, "ceiling") ||
+            debug_streq(cmd, "dens") || debug_streq(cmd, "fio2"))
     {
         float value;
-        if (!arex_debug_parse_float(arex_debug_next_token(&cursor), &value))
+        if (!debug_parse_float(debug_next_token(&cursor), &value))
         {
-            arex_debug_send_raw("ERR numeric value required\r\n");
+            debug_send_raw("ERR numeric value required\r\n");
             return;
         }
-        if (arex_debug_streq(cmd, "gf99"))
+        if (debug_streq(cmd, "gf99"))
         {
-            arex_bus_set_gf99(value);
+            bus_set_gf99(value);
         }
-        else if (arex_debug_streq(cmd, "surf_gf"))
+        else if (debug_streq(cmd, "surf_gf"))
         {
-            arex_bus_set_surf_gf(value);
+            bus_set_surf_gf(value);
         }
-        else if (arex_debug_streq(cmd, "cns"))
+        else if (debug_streq(cmd, "cns"))
         {
-            arex_bus_set_cns((uint8_t)value);
+            bus_set_cns((uint8_t)value);
         }
-        else if (arex_debug_streq(cmd, "otu"))
+        else if (debug_streq(cmd, "otu"))
         {
-            arex_bus_set_otu((uint16_t)value);
+            bus_set_otu((uint16_t)value);
         }
-        else if (arex_debug_streq(cmd, "mod"))
+        else if (debug_streq(cmd, "mod"))
         {
-            arex_bus_set_mod(value);
+            bus_set_mod(value);
         }
-        else if (arex_debug_streq(cmd, "ceiling"))
+        else if (debug_streq(cmd, "ceiling"))
         {
-            arex_bus_set_ceiling(value);
+            bus_set_ceiling(value);
         }
-        else if (arex_debug_streq(cmd, "dens"))
+        else if (debug_streq(cmd, "dens"))
         {
-            arex_bus_set_gas_density(value);
+            bus_set_gas_density(value);
         }
         else
         {
-            arex_bus_set_fio2(value);
+            bus_set_fio2(value);
         }
-        arex_debug_sendf("OK %s %.1f\r\n", cmd, (double)value);
+        debug_sendf("OK %s %.1f\r\n", cmd, (double)value);
         return;
     }
 
-    if (arex_debug_streq(cmd, "mix"))
+    if (debug_streq(cmd, "mix"))
     {
         int o2;
         int he;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &o2) ||
-                !arex_debug_parse_int(arex_debug_next_token(&cursor), &he) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &o2) ||
+                !debug_parse_int(debug_next_token(&cursor), &he) ||
                 o2 < 0 || o2 > 100 || he < 0 || he > 100 || o2 + he > 100)
         {
-            arex_debug_send_raw("ERR usage: mix <o2_pct> <he_pct>\r\n");
+            debug_send_raw("ERR usage: mix <o2_pct> <he_pct>\r\n");
             return;
         }
-        arex_bus_set_gas_mix((uint8_t)o2, (uint8_t)he);
-        arex_bus_set_fio2((float)o2);
-        arex_debug_sendf("OK mix %d/%d\r\n", o2, he);
+        bus_set_gas_mix((uint8_t)o2, (uint8_t)he);
+        bus_set_fio2((float)o2);
+        debug_sendf("OK mix %d/%d\r\n", o2, he);
         return;
     }
 
-    if (arex_debug_streq(cmd, "gas_count"))
+    if (debug_streq(cmd, "gas_count"))
     {
         int count;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &count) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &count) ||
                 count < 0 || count > GAS_COUNT)
         {
-            arex_debug_send_raw("ERR usage: gas_count <0..5>\r\n");
+            debug_send_raw("ERR usage: gas_count <0..5>\r\n");
             return;
         }
-        arex_bus_set_gas_slot_count((uint8_t)count);
-        arex_debug_sendf("OK gas_count %d\r\n", count);
+        bus_set_gas_slot_count((uint8_t)count);
+        debug_sendf("OK gas_count %d\r\n", count);
         return;
     }
 
-    if (arex_debug_streq(cmd, "gas"))
+    if (debug_streq(cmd, "gas"))
     {
         int idx;
         char *name;
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &idx) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &idx) ||
                 idx < 0 || idx >= GAS_COUNT)
         {
-            arex_debug_send_raw("ERR usage: gas <slot> [name]\r\n");
+            debug_send_raw("ERR usage: gas <slot> [name]\r\n");
             return;
         }
-        name = arex_debug_trim(cursor);
+        name = debug_trim(cursor);
         if (!name || name[0] == '\0')
         {
             name = g_sensor_data.gas_slot_name[idx][0] ? g_sensor_data.gas_slot_name[idx] : g_sensor_data.gas_name;
         }
-        arex_bus_set_gas((uint8_t)idx, name);
-        arex_debug_sendf("OK gas %d %s\r\n", idx, name);
+        bus_set_gas((uint8_t)idx, name);
+        debug_sendf("OK gas %d %s\r\n", idx, name);
         return;
     }
 
-    if (arex_debug_streq(cmd, "gas_slot"))
+    if (debug_streq(cmd, "gas_slot"))
     {
         int idx;
         int o2;
@@ -959,48 +959,48 @@ static void arex_debug_exec_line(char *line)
         char name[16];
         char *name_arg;
 
-        if (!arex_debug_parse_int(arex_debug_next_token(&cursor), &idx) ||
-                !arex_debug_parse_int(arex_debug_next_token(&cursor), &o2) ||
-                !arex_debug_parse_int(arex_debug_next_token(&cursor), &he) ||
-                !arex_debug_parse_float(arex_debug_next_token(&cursor), &mod) ||
+        if (!debug_parse_int(debug_next_token(&cursor), &idx) ||
+                !debug_parse_int(debug_next_token(&cursor), &o2) ||
+                !debug_parse_int(debug_next_token(&cursor), &he) ||
+                !debug_parse_float(debug_next_token(&cursor), &mod) ||
                 idx < 0 || idx >= GAS_COUNT ||
                 o2 < 0 || o2 > 100 || he < 0 || he > 100 || o2 + he > 100)
         {
-            arex_debug_send_raw("ERR usage: gas_slot <slot> <o2> <he> <mod> [name]\r\n");
+            debug_send_raw("ERR usage: gas_slot <slot> <o2> <he> <mod> [name]\r\n");
             return;
         }
 
-        name_arg = arex_debug_trim(cursor);
+        name_arg = debug_trim(cursor);
         if (name_arg && name_arg[0])
         {
             snprintf(name, sizeof(name), "%s", name_arg);
         }
         else
         {
-            arex_debug_format_gas_name(name, sizeof(name), o2, he);
+            debug_format_gas_name(name, sizeof(name), o2, he);
         }
-        arex_bus_set_gas_slot((uint8_t)idx, name, (uint8_t)o2, (uint8_t)he, mod);
-        arex_debug_sendf("OK gas_slot %d %s %d/%d %.0f\r\n", idx, name, o2, he, (double)mod);
+        bus_set_gas_slot((uint8_t)idx, name, (uint8_t)o2, (uint8_t)he, mod);
+        debug_sendf("OK gas_slot %d %s %d/%d %.0f\r\n", idx, name, o2, he, (double)mod);
         return;
     }
 
-    if (arex_debug_streq(cmd, "alarm"))
+    if (debug_streq(cmd, "alarm"))
     {
-        char *level_text = arex_debug_next_token(&cursor);
-        char *text = arex_debug_trim(cursor);
-        arex_alarm_level_t level = ALARM_INFO;
+        char *level_text = debug_next_token(&cursor);
+        char *text = debug_trim(cursor);
+        alarm_level_t level = ALARM_INFO;
 
-        if (arex_debug_streq(level_text, "warn"))
+        if (debug_streq(level_text, "warn"))
         {
             level = ALARM_WARN;
         }
-        else if (arex_debug_streq(level_text, "crit") || arex_debug_streq(level_text, "critical"))
+        else if (debug_streq(level_text, "crit") || debug_streq(level_text, "critical"))
         {
             level = ALARM_CRIT;
         }
-        else if (!arex_debug_streq(level_text, "info"))
+        else if (!debug_streq(level_text, "info"))
         {
-            arex_debug_send_raw("ERR usage: alarm <info|warn|crit> <text>\r\n");
+            debug_send_raw("ERR usage: alarm <info|warn|crit> <text>\r\n");
             return;
         }
 
@@ -1008,15 +1008,15 @@ static void arex_debug_exec_line(char *line)
         {
             text = "DEBUG ALARM";
         }
-        arex_bus_raise_alarm(level, text, COMP_EMPTY);
-        arex_debug_sendf("OK alarm %s %s\r\n", level_text, text);
+        bus_raise_alarm(level, text, COMP_EMPTY);
+        debug_sendf("OK alarm %s %s\r\n", level_text, text);
         return;
     }
 
-    arex_debug_sendf("ERR unknown command: %s\r\n", cmd);
+    debug_sendf("ERR unknown command: %s\r\n", cmd);
 }
 
-static void arex_debug_process_rx_bytes(const char *data, int len)
+static void debug_process_rx_bytes(const char *data, int len)
 {
     for (int i = 0; i < len; i++)
     {
@@ -1028,28 +1028,28 @@ static void arex_debug_process_rx_bytes(const char *data, int len)
         if (ch == '\n')
         {
             s_debug_link.rx_buf[s_debug_link.rx_len] = '\0';
-            arex_debug_exec_line(s_debug_link.rx_buf);
+            debug_exec_line(s_debug_link.rx_buf);
             s_debug_link.rx_len = 0;
             continue;
         }
-        if (s_debug_link.rx_len + 1U >= AREX_DEBUG_RX_BUF_SIZE)
+        if (s_debug_link.rx_len + 1U >= DEBUG_RX_BUF_SIZE)
         {
             s_debug_link.rx_len = 0;
-            arex_debug_send_raw("ERR line too long\r\n");
+            debug_send_raw("ERR line too long\r\n");
             continue;
         }
         s_debug_link.rx_buf[s_debug_link.rx_len++] = ch;
     }
 }
 
-static void arex_debug_disconnect_client(void)
+static void debug_disconnect_client(void)
 {
-    arex_debug_close_socket(&s_debug_link.client);
+    debug_close_socket(&s_debug_link.client);
     s_debug_link.rx_len = 0;
     printf("[DBG] TCP debug client disconnected\r\n");
 }
 
-static void arex_debug_poll_cb(lv_timer_t *timer)
+static void debug_poll_cb(lv_timer_t *timer)
 {
     (void)timer;
 
@@ -1063,7 +1063,7 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
         SOCKET client = s_debug_link.accept_(s_debug_link.listener, NULL, NULL);
         if (client != INVALID_SOCKET)
         {
-            arex_debug_set_nonblocking(client);
+            debug_set_nonblocking(client);
             s_debug_link.client = client;
             s_debug_link.rx_len = 0;
             s_debug_link.connect_event = true;
@@ -1072,15 +1072,15 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
             s_debug_link.depth_rate_valid = false;
             s_debug_link.depth_rate_last_m = g_sensor_data.depth;
             s_debug_link.depth_rate_last_tick_ms = lv_tick_get();
-            arex_bus_set_ascent_rate(0.0f);
+            bus_set_ascent_rate(0.0f);
             printf("[DBG] TCP debug client connected\r\n");
-            arex_debug_send_raw("AREX debug TCP ready on 127.0.0.1:7623\r\n");
-            arex_debug_send_raw("TCP connected: debug data will reset, auto depth is disabled, Buhlmann debug algorithm is active.\r\n");
-            arex_debug_send_raw("Type help for commands.\r\n");
+            debug_send_raw("AREX debug TCP ready on 127.0.0.1:7623\r\n");
+            debug_send_raw("TCP connected: debug data will reset, auto depth is disabled, Buhlmann debug algorithm is active.\r\n");
+            debug_send_raw("Type help for commands.\r\n");
         }
-        else if (!arex_debug_is_would_block(arex_debug_last_error()))
+        else if (!debug_is_would_block(debug_last_error()))
         {
-            printf("[DBG] accept failed: %d\r\n", arex_debug_last_error());
+            printf("[DBG] accept failed: %d\r\n", debug_last_error());
         }
         return;
     }
@@ -1091,29 +1091,29 @@ static void arex_debug_poll_cb(lv_timer_t *timer)
         int n = s_debug_link.recv_(s_debug_link.client, buf, sizeof(buf), 0);
         if (n > 0)
         {
-            if (arex_debug_try_packet_line_rx(buf, n))
+            if (debug_try_packet_line_rx(buf, n))
             {
                 continue;
             }
-            arex_debug_process_rx_bytes(buf, n);
+            debug_process_rx_bytes(buf, n);
             continue;
         }
         if (n == 0)
         {
-            arex_debug_disconnect_client();
+            debug_disconnect_client();
             return;
         }
 
-        if (!arex_debug_is_would_block(arex_debug_last_error()))
+        if (!debug_is_would_block(debug_last_error()))
         {
-            printf("[DBG] recv failed: %d\r\n", arex_debug_last_error());
-            arex_debug_disconnect_client();
+            printf("[DBG] recv failed: %d\r\n", debug_last_error());
+            debug_disconnect_client();
         }
         return;
     }
 }
 
-void arex_debug_link_pc_start(void)
+void debug_link_pc_start(void)
 {
     WSADATA wsa;
     struct sockaddr_in addr;
@@ -1122,7 +1122,7 @@ void arex_debug_link_pc_start(void)
     {
         return;
     }
-    if (!arex_debug_load_winsock())
+    if (!debug_load_winsock())
     {
         return;
     }
@@ -1135,86 +1135,86 @@ void arex_debug_link_pc_start(void)
     s_debug_link.listener = s_debug_link.socket_(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (s_debug_link.listener == INVALID_SOCKET)
     {
-        printf("[DBG] socket failed: %d\r\n", arex_debug_last_error());
+        printf("[DBG] socket failed: %d\r\n", debug_last_error());
         s_debug_link.WSACleanup_();
         return;
     }
-    if (!arex_debug_set_nonblocking(s_debug_link.listener))
+    if (!debug_set_nonblocking(s_debug_link.listener))
     {
-        printf("[DBG] ioctlsocket failed: %d\r\n", arex_debug_last_error());
-        arex_debug_close_socket(&s_debug_link.listener);
+        printf("[DBG] ioctlsocket failed: %d\r\n", debug_last_error());
+        debug_close_socket(&s_debug_link.listener);
         s_debug_link.WSACleanup_();
         return;
     }
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = arex_debug_swap16((uint16_t)AREX_DEBUG_TCP_PORT);
+    addr.sin_port = debug_swap16((uint16_t)DEBUG_TCP_PORT);
     addr.sin_addr.s_addr = 0x0100007FUL;  /* 127.0.0.1 in network byte order on little-endian Windows. */
 
     if (s_debug_link.bind_(s_debug_link.listener, (const struct sockaddr *)&addr, sizeof(addr)) != 0)
     {
         printf("[DBG] bind 127.0.0.1:%u failed: %d\r\n",
-               (unsigned)AREX_DEBUG_TCP_PORT,
-               arex_debug_last_error());
-        arex_debug_close_socket(&s_debug_link.listener);
+               (unsigned)DEBUG_TCP_PORT,
+               debug_last_error());
+        debug_close_socket(&s_debug_link.listener);
         s_debug_link.WSACleanup_();
         return;
     }
     if (s_debug_link.listen_(s_debug_link.listener, 1) != 0)
     {
-        printf("[DBG] listen failed: %d\r\n", arex_debug_last_error());
-        arex_debug_close_socket(&s_debug_link.listener);
+        printf("[DBG] listen failed: %d\r\n", debug_last_error());
+        debug_close_socket(&s_debug_link.listener);
         s_debug_link.WSACleanup_();
         return;
     }
 
-    s_debug_link.timer = lv_timer_create(arex_debug_poll_cb, 50, NULL);
+    s_debug_link.timer = lv_timer_create(debug_poll_cb, 50, NULL);
     s_debug_link.started = true;
     printf("[DBG] TCP debug link listening on 127.0.0.1:%u\r\n",
-           (unsigned)AREX_DEBUG_TCP_PORT);
+           (unsigned)DEBUG_TCP_PORT);
 }
 
-bool arex_debug_link_pc_manual_mode(void)
+bool debug_link_pc_manual_mode(void)
 {
     return s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET;
 }
 
-bool arex_debug_link_pc_consume_connect_event(void)
+bool debug_link_pc_consume_connect_event(void)
 {
     bool event = s_debug_link.connect_event;
     s_debug_link.connect_event = false;
     return event;
 }
 
-uint16_t arex_debug_link_pc_time_scale(void)
+uint16_t debug_link_pc_time_scale(void)
 {
     return s_debug_link.time_scale > 0U ? s_debug_link.time_scale : 1U;
 }
 
 #else
 
-void arex_debug_link_pc_start(void)
+void debug_link_pc_start(void)
 {
 }
 
-bool arex_debug_link_pc_manual_mode(void)
-{
-    return false;
-}
-
-bool arex_debug_link_pc_consume_connect_event(void)
+bool debug_link_pc_manual_mode(void)
 {
     return false;
 }
 
-uint16_t arex_debug_link_pc_time_scale(void)
+bool debug_link_pc_consume_connect_event(void)
+{
+    return false;
+}
+
+uint16_t debug_link_pc_time_scale(void)
 {
     return 1U;
 }
 
 #endif /* PC_SIMULATOR && _WIN32 */
 
-#endif /* AREX_DEBUG_LINK_PC_IMPLEMENTATION */
+#endif /* DEBUG_LINK_PC_IMPLEMENTATION */
 
-#endif /* AREX_DEBUG_LINK_PC_H */
+#endif /* DEBUG_LINK_PC_H */
