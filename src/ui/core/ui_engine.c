@@ -114,19 +114,19 @@ void sys_config_defaults(sys_config_t *cfg)
     /* ========== [A] 分割线透明========== */
     cfg->sep_alpha  = 51;   /* 20% of 255 SystemData 顶部分割线透明*/
 
-    /* ========== [R] Classic 上下布局 10U 高度分配 (当前未使 ==========
-     * 1U = 10px，总计 10U = 100px（预留将来改为上下分区流式布局
+    /* ========== [R] Classic 上下布局 10U 高度分配 (当前未使用) ==========
+     * 1U = 10px，总计 10U = 100px，预留给后续上下分区流式布局。
      * DEPTH 大通栏 NDL/TTS 双拼 POD 双拼 BATT 双拼 GAS DIVE TIME
      */
     cfg->h_depth         = 8;   /* DEPTH 大通栏: 8U=80px */
-    cfg->h_ndl           = 6;   /* NDL/TTS 鍙屾嫾: 6U=60px */
-    cfg->h_pod           = 6;   /* POD 1/2 鍙屾嫾: 6U=60px */
-    cfg->h_batt          = 5;   /* BATT/W.TIME 鍙屾嫾: 5U=50px */
+    cfg->h_ndl           = 6;   /* NDL/TTS 双拼: 6U=60px */
+    cfg->h_pod           = 6;   /* POD 1/2 双拼: 6U=60px */
+    cfg->h_batt          = 5;   /* BATT/W.TIME 双拼: 5U=50px */
     cfg->h_gas           = 6;   /* GAS 中通栏: 6U=60px */
-    cfg->h_time          = 5;   /* DIVE TIME 搴曢儴: 5U=50px */
+    cfg->h_time          = 5;   /* DIVE TIME 底部: 5U=50px */
     cfg->title_h_u       = 2;   /* [R] 标题高度（待用） */
-    cfg->h_menu_item     = 5;   /* [R] 菜单项高度（待用*/
-    cfg->gap_menu        = 1;   /* [R] 菜单项间距（待用*/
+    cfg->h_menu_item     = 5;   /* [R] 菜单项高度（待用） */
+    cfg->gap_menu        = 1;   /* [R] 菜单项间距（待用） */
     cfg->h_tissues_chart = 9;   /* [R] 组织柱图高度（待用） */
 
     /* ========== [A] 面板间距 ========== */
@@ -140,12 +140,12 @@ void sys_config_defaults(sys_config_t *cfg)
      *  row0: [DEPTH 2x2 大块     ] [TEMP  ] [HEADING 2x1]
      *  row2: [空槽      ]          [BATT   ] [PPO2 1x1]
      *  row3: [NDL 2x1           ] [TTS 2x1 ] [CNS  1x1 ]
-     *  row4: [POD1              ] [POD2    ] [绌烘Ы   ]
-     *  row5: [绌烘Ы               ] [绌烘Ы    ] [绌烘Ы   ]
+     *  row4: [POD1              ] [POD2    ] [EMPTY ]
+     *  row5: [EMPTY             ] [EMPTY   ] [EMPTY ]
      *
-     *  简洁位置配置：widget_id + x/y 三字段，span_w/h MCU 样式表自动推
+     *  简洁位置配置：widget_id + x/y 三字段，span_w/h 由组件样式表推导。
      */
-    /* 兼容新架 使用 custom_cards[0] 存储单张卡片的配*/
+    /* 兼容新架构：使用 custom_cards[0] 存储单张自定义卡片配置。 */
     cfg->custom_card_count = 1;
     cfg->custom_cards[0].widget_count = 12;
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
@@ -163,7 +163,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->custom_cards[0].widgets[3]  = (grid_widget_t)
     {
         COMP_EMPTY,           0, 2
-    };  /* SAC 已移*/
+    };  /* SAC 已移除 */
     cfg->custom_cards[0].widgets[4]  = (grid_widget_t)
     {
         COMP_BATTERY_0806,   2, 2
@@ -194,7 +194,7 @@ void sys_config_defaults(sys_config_t *cfg)
     };
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
-     * 160x420 区域 = 280px) x 760px)，由 render_left_anchor_grid() 渲染
+     * 160x420 区域，由 render_left_anchor_grid() 渲染。
      *
      *  Grid Layout:
      *    Row 0: NDL      | (2x1 160x60)
@@ -202,9 +202,9 @@ void sys_config_defaults(sys_config_t *cfg)
      *    Row 3: POD1     | POD2    (1x1 80x60)
      *    Row 4: TIME     | (2x1 160x60)
      *    Row 5: GAS      | (2x1 160x60)
-     *    Row 6: SYS      | (2x1 160x60，SystemData 可配
+     *    Row 6: SYS      | (2x1 160x60，SystemData 可配)
      */
-    /* 简洁位置配置：widget_id + x/y，span_w/h MCU 样式表自动推*/
+    /* 简洁位置配置：widget_id + x/y，span_w/h 由组件样式表推导。 */
     cfg->left_widgets[0] = (grid_widget_t)
     {
         COMP_NDL_STOP_1606,   0, 0
@@ -221,7 +221,7 @@ void sys_config_defaults(sys_config_t *cfg)
     {
         COMP_GAS_1606,        0, 4
     };
-    /* Ĭϲȹر POD1/POD2 ʾλӰ߶ */
+    /* 默认关闭 POD1/POD2 显示位，避免影响左侧高度。 */
     cfg->left_widgets[4] = (grid_widget_t)
     {
         COMP_EMPTY,           0, 5
@@ -235,7 +235,7 @@ void sys_config_defaults(sys_config_t *cfg)
         COMP_SYS_1606,        0, 6
     };
 
-    /* 动态计算实widget 数量（以最后一个非widget 为准*/
+    /* 动态计算实际 widget 数量，以最后一个非空 widget 为准。 */
     cfg->left_widget_count = 0;
     for (int i = 0; i < LEFT_MAX_WIDGETS; i++)
     {
@@ -245,31 +245,30 @@ void sys_config_defaults(sys_config_t *cfg)
         }
     }
 
-    /* ========== [A] 右侧卡片顺序 (tileview 滑动顺序) ==========
+    /* ========== [A] 右侧页面顺序 (tileview 滑动顺序) ==========
      * card_order[pos] = page_id
-     * INFO(0) 固定，SETUP(13) 固定，中12 张可APP 重排
-     * 必须初始化所14 个位置！
-     * PAGE_ID_UNUSED(0xFF)=δռòλʾdot, PAGE_ID_BLANK=հ׿ҲЧƬӦʾdot
+     * INFO/SETUP 固定，中间动态页面可由 APP 重排。
+     * PAGE_ID_UNUSED(0xFF) 不显示 dot，PAGE_ID_BLANK 显示空白页 dot。
      */
     memset(cfg->card_order, PAGE_ID_UNUSED, sizeof(cfg->card_order));
-    cfg->card_order[PAGE_POS_INFO]   = PAGE_ID_INFO;//菜单，不算卡
+    cfg->card_order[PAGE_POS_INFO]   = PAGE_ID_INFO;  /* 菜单，不算业务卡片 */
     cfg->card_order[PAGE_POS_1]      = PAGE_ID_COMPASS;
     cfg->card_order[PAGE_POS_2]      = PAGE_ID_DECO;
     cfg->card_order[PAGE_POS_3]      = PAGE_ID_PLAN;
     cfg->card_order[PAGE_POS_4]      = PAGE_ID_GAS;
     cfg->card_order[PAGE_POS_5]      = PAGE_ID_CUSTOM_GRID;
     /* PAGE_POS_7 ~ PAGE_POS_12 保持 PAGE_ID_BLANK */
-    cfg->card_order[PAGE_POS_SETUP]  = PAGE_ID_SETUP;//菜单，不算卡
+    cfg->card_order[PAGE_POS_SETUP]  = PAGE_ID_SETUP;  /* 菜单，不算业务卡片 */
 
-    /* ========== [A] 卡片槽位映射 ==========
+    /* ========== [A] 自定义卡片槽位映射 ==========
      * custom_card_slot[pos] = custom_card_index (0~11)
-     * pos Ӧ card_order еĶ̬λ
-     * ĬϣһCUSTOM_GRID Ƭӳcustom_cards[0]
+     * pos 对应 card_order 的动态页面位置。
+     * 默认把 CUSTOM_GRID 页面映射到 custom_cards[0]。
      */
     memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
-    cfg->custom_card_slot[PAGE_POS_5] = 0;  /* CUSTOM_GRID 映射custom_cards[0] */
+    cfg->custom_card_slot[PAGE_POS_5] = 0;  /* CUSTOM_GRID 映射 custom_cards[0] */
 
-    /* ========== [A] 用户设置默认========== */
+    /* ========== [A] 用户设置默认值 ========== */
     cfg->mod_ppo2       = 1.4f;
     cfg->conservatism   = CONSERVATISM_MED;
     cfg->salinity_mode   = 0;    /* FRESH */
