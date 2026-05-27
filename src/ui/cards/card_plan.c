@@ -213,7 +213,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
     /* 1. 同步 HTML 边距参数（基于实际画布尺寸动态计算） */
     float pad_x      = 45.0f;
     float pad_y_top  = 15.0f;
-    float pad_y_bot  = 25.0f;
+    float pad_y_bot  = 34.0f;
     float pad_right  = 24.0f;
     float chart_w    = (float)(area->x2 - area->x1);
     float chart_h    = (float)(area->y2 - area->y1);
@@ -362,7 +362,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
             lbl_left -= shift;
             lbl_right -= shift;
         }
-        lv_area_t t_area = {lbl_left, area->y2 - 18, lbl_right, area->y2};
+        lv_area_t t_area = {lbl_left, area->y2 - 24, lbl_right, area->y2 - 6};
         lv_draw_label(draw_ctx, &txt_dsc, &t_area, buf, NULL);
     }
     txt_dsc.align = LV_TEXT_ALIGN_LEFT;
@@ -379,9 +379,9 @@ static void plan_chart_draw_cb(lv_event_t *e)
     lv_area_t unit_area =
     {
         area->x1 + 1,
-        area->y2 - 12,
+        area->y2 - 24,
         area->x1 + 34,
-        area->y2 + 10
+        area->y2 - 6
     };
     lv_draw_label(draw_ctx, &unit_dsc, &unit_area,
                   x_axis_in_minutes ? "m/min" : "m/s", NULL);
