@@ -76,21 +76,25 @@ static void build_info_rows(uint8_t index)
         /* INFO 普通详情页只读；DIVE PLAN 例外，它有 EXIT/NEXT 等可操作行。 */
         if (s_current_menu == MENU_INFO_DIVE_PLAN)
         {
+            submenu_dive_plan_snapshot_t snapshot;
+
+            submenu_dive_plan_get_snapshot(&snapshot);
             if (i == 0U)
             {
                 id = MENU_ITEM_DIVE_PLAN_EXIT;
             }
-            else if (i == 1U)
+            else if (snapshot.page == DIVE_PLAN_PAGE_READY)
             {
-                id = MENU_ITEM_DIVE_PLAN_NEXT;
+                id = MENU_ITEM_DIVE_PLAN_PLAN;
             }
-            else if (i == 2U)
+            else if (snapshot.page == DIVE_PLAN_PAGE_RESULT &&
+                     snapshot.result_page_index + 1U < snapshot.result_total_pages)
             {
                 id = MENU_ITEM_DIVE_PLAN_MORE;
             }
             else
             {
-                id = MENU_ITEM_DIVE_PLAN_PLAN;
+                id = MENU_ITEM_DIVE_PLAN_NEXT;
             }
             type = MENU_ROW_DIVE_PLAN;
         }

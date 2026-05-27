@@ -7,6 +7,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef PC_SIMULATOR
+#include "../../algo_sim/buhlmann_debug.h"
+#endif
+
 #define PLAN_ROWS_PER_PAGE 8U
 
 typedef struct
@@ -109,6 +113,66 @@ static uint8_t plan_result_total_pages(void)
     }
     return s_state.result.total_pages;
 }
+
+#ifdef PC_SIMULATOR
+static dive_plan_row_type_t plan_row_type_from_algo(buhlmann_debug_plan_row_type_t type)
+{
+    switch (type)
+    {
+    case BUHLMANN_DEBUG_PLAN_ROW_ASCENT:
+        return DIVE_PLAN_ROW_ASCENT;
+    case BUHLMANN_DEBUG_PLAN_ROW_DECO_STOP:
+        return DIVE_PLAN_ROW_DECO_STOP;
+    case BUHLMANN_DEBUG_PLAN_ROW_BOTTOM:
+    default:
+        return DIVE_PLAN_ROW_BOTTOM;
+    }
+}
+
+static bool plan_calculate_result(void)
+{
+    buhlmann_debug_plan_result_t algo_result;
+    dive_plan_result_snapshot_t snapshot;
+
+    if (!buhlmann_debug_plan_calculate(s_state.depth_m,
+                                       s_state.time_min,
+                                       s_state.rmv_lpm,
+                                       &algo_result))
+    {
+        submenu_dive_plan_set_result_snapshot(NULL);
+        return false;
+    }
+
+    (void)memset(&snapshot, 0, sizeof(snapshot));
+    snapshot.valid = 1U;
+    snapshot.page = 0U;
+    snapshot.entry_count = (algo_result.entry_count > 16U) ? 16U : algo_result.entry_count;
+    snapshot.total_pages = (uint8_t)((snapshot.entry_count + PLAN_ROWS_PER_PAGE - 1U) / PLAN_ROWS_PER_PAGE);
+    if (snapshot.total_pages == 0U)
+    {
+        snapshot.total_pages = 1U;
+    }
+    snapshot.total_runtime_min = algo_result.total_runtime_min;
+    snapshot.total_deco_min = algo_result.total_deco_min;
+    snapshot.total_gas_l = algo_result.total_gas_l;
+    snapshot.cns_pct = algo_result.cns_pct;
+    snapshot.otu = algo_result.otu;
+
+    for (uint8_t i = 0U; i < snapshot.entry_count; i++)
+    {
+        snapshot.rows[i].type = plan_row_type_from_algo(algo_result.entries[i].type);
+        snapshot.rows[i].depth_m = algo_result.entries[i].depth_m;
+        snapshot.rows[i].time_min = algo_result.entries[i].time_min;
+        snapshot.rows[i].run_min = algo_result.entries[i].run_min;
+        snapshot.rows[i].o2_pct = algo_result.entries[i].o2_pct;
+        snapshot.rows[i].he_pct = algo_result.entries[i].he_pct;
+        snapshot.rows[i].gas_l = algo_result.entries[i].gas_l;
+    }
+
+    submenu_dive_plan_set_result_snapshot(&snapshot);
+    return true;
+}
+#endif
 
 void submenu_dive_plan_set_result_snapshot(const dive_plan_result_snapshot_t *snapshot)
 {
@@ -331,7 +395,11 @@ bool submenu_dive_plan_handle_action(menu_item_id_t item_id,
     {
         plan_ensure_defaults();
         s_state.result_page = 0U;
+#ifdef PC_SIMULATOR
+        s_state.page = plan_calculate_result() ? DIVE_PLAN_PAGE_RESULT : DIVE_PLAN_PAGE_ERROR;
+#else
         s_state.page = DIVE_PLAN_PAGE_ERROR;
+#endif
         if (out_keep_index != NULL)
         {
             *out_keep_index = 1U;
