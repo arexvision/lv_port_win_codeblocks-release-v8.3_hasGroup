@@ -1020,9 +1020,59 @@ uint8_t submenu_nitrox_o2_pct(void)
     return s_nitrox_o2_pct;
 }
 
+uint8_t submenu_three_gas_o2_pct(uint8_t gas_index)
+{
+    return s_three_gas_o2_pct[gas_index];
+}
+
+uint8_t submenu_oc_tech_draft_o2_pct(uint8_t slot)
+{
+    return s_oc_tech_draft_o2_pct[slot];
+}
+
+uint8_t submenu_oc_tech_draft_he_pct(uint8_t slot)
+{
+    return s_oc_tech_draft_he_pct[slot];
+}
+
 uint8_t submenu_oc_tech_edit_slot(void)
 {
     return s_oc_tech_edit_slot;
+}
+
+uint16_t submenu_depth_alarm_m(void)
+{
+    return s_depth_alarm_m;
+}
+
+uint16_t submenu_time_alarm_min(void)
+{
+    return s_time_alarm_min;
+}
+
+uint16_t submenu_datetime_year(void)
+{
+    return s_datetime_year;
+}
+
+uint8_t submenu_datetime_month(void)
+{
+    return s_datetime_month;
+}
+
+uint8_t submenu_datetime_day(void)
+{
+    return s_datetime_day;
+}
+
+uint8_t submenu_datetime_hour(void)
+{
+    return s_datetime_hour;
+}
+
+uint8_t submenu_datetime_minute(void)
+{
+    return s_datetime_minute;
 }
 
 int8_t submenu_setup_index_for_title(const char *title)
@@ -2247,12 +2297,10 @@ uint16_t submenu_dive_plan_otu(void)
 #endif
 }
 
-bool submenu_dive_plan_handle_action(uint8_t item_index,
-                                          const char *item_text,
+bool submenu_dive_plan_handle_action(bool exit_action,
                                           bool *out_close_submenu,
                                           uint8_t *out_keep_index)
 {
-    (void)item_index;
     if (out_close_submenu)
     {
         *out_close_submenu = false;
@@ -2261,12 +2309,8 @@ bool submenu_dive_plan_handle_action(uint8_t item_index,
     {
         *out_keep_index = 0U;
     }
-    if (!item_text)
-    {
-        return false;
-    }
 
-    if (strcmp(item_text, "Exit") == 0)
+    if (exit_action)
     {
         if (out_close_submenu)
         {
@@ -2275,42 +2319,7 @@ bool submenu_dive_plan_handle_action(uint8_t item_index,
         return true;
     }
 
-    if (strcmp(item_text, "Next >") == 0)
-    {
-        switch (s_plan_page)
-        {
-        case PLAN_PAGE_DEPTH:
-            s_plan_page = PLAN_PAGE_TIME;
-            break;
-        case PLAN_PAGE_TIME:
-            s_plan_page = PLAN_PAGE_RMV;
-            break;
-        case PLAN_PAGE_RMV:
-            s_plan_page = PLAN_PAGE_READY;
-            break;
-        case PLAN_PAGE_RESULT:
-        case PLAN_PAGE_ERROR:
-            s_plan_page = PLAN_PAGE_READY;
-            break;
-        default:
-            break;
-        }
-        if (out_keep_index) *out_keep_index = 1U;
-        return true;
-    }
-
-    if (strcmp(item_text, "More >") == 0)
-    {
-        uint8_t total_pages = plan_result_total_pages();
-        if (s_plan_result_page + 1U < total_pages)
-        {
-            s_plan_result_page++;
-        }
-        if (out_keep_index) *out_keep_index = 1U;
-        return true;
-    }
-
-    if (strcmp(item_text, "Plan >") == 0)
+    if (s_plan_page == PLAN_PAGE_READY)
     {
         plan_ensure_defaults();
         s_plan_result_page = 0U;
@@ -2330,6 +2339,47 @@ bool submenu_dive_plan_handle_action(uint8_t item_index,
 #else
         s_plan_page = PLAN_PAGE_ERROR;
 #endif
+        if (out_keep_index) *out_keep_index = 1U;
+        return true;
+    }
+
+    if (s_plan_page == PLAN_PAGE_RESULT)
+    {
+        uint8_t total_pages = plan_result_total_pages();
+        if (s_plan_result_page + 1U < total_pages)
+        {
+            s_plan_result_page++;
+        }
+        else
+        {
+            s_plan_page = PLAN_PAGE_READY;
+        }
+        if (out_keep_index) *out_keep_index = 1U;
+        return true;
+    }
+
+    if (s_plan_page == PLAN_PAGE_DEPTH ||
+        s_plan_page == PLAN_PAGE_TIME ||
+        s_plan_page == PLAN_PAGE_RMV ||
+        s_plan_page == PLAN_PAGE_ERROR)
+    {
+        switch (s_plan_page)
+        {
+        case PLAN_PAGE_DEPTH:
+            s_plan_page = PLAN_PAGE_TIME;
+            break;
+        case PLAN_PAGE_TIME:
+            s_plan_page = PLAN_PAGE_RMV;
+            break;
+        case PLAN_PAGE_RMV:
+            s_plan_page = PLAN_PAGE_READY;
+            break;
+        case PLAN_PAGE_ERROR:
+            s_plan_page = PLAN_PAGE_READY;
+            break;
+        default:
+            break;
+        }
         if (out_keep_index) *out_keep_index = 1U;
         return true;
     }

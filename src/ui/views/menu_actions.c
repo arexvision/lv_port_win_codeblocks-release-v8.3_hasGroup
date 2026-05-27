@@ -263,39 +263,6 @@ static bool confirm_setting_for_id(menu_item_id_t id,
     }
 }
 
-static bool direct_setting_for_row(uint8_t row_index,
-                                   const menu_row_t *row,
-                                   submenu_setting_confirm_t *out_setting)
-{
-    /* 兼容旧后端：还没迁完的设置项临时走 submenu_model。
-     * 新增简单设置时优先写独立 handle_xxx()，不要继续扩大这里的字符串逻辑。
-     */
-    return submenu_direct_setting_from_selection(menu_runtime_current_title(),
-                                                 row_index,
-                                                 row ? row->label : NULL,
-                                                 out_setting);
-}
-
-static bool confirm_setting_for_row(uint8_t row_index,
-                                    const menu_row_t *row,
-                                    submenu_setting_confirm_t *out_setting)
-{
-    return submenu_setting_from_selection(menu_runtime_current_title(),
-                                          row_index,
-                                          row ? row->label : NULL,
-                                          out_setting);
-}
-
-static bool edit_spec_for_row(uint8_t row_index,
-                              const menu_row_t *row,
-                              submenu_edit_spec_t *out_spec)
-{
-    return submenu_edit_spec_from_selection(menu_runtime_current_title(),
-                                            row_index,
-                                            row ? row->label : NULL,
-                                            out_spec);
-}
-
 static bool handle_conservatism(menu_item_id_t id, menu_action_t *action)
 {
     uint8_t index;
@@ -367,8 +334,22 @@ static bool handle_compass(menu_item_id_t id, menu_action_t *action)
     return false;
 }
 
+static const char *light_level_label(menu_item_id_t id)
+{
+    switch (id)
+    {
+    case MENU_ITEM_LIGHT_LEVEL_10:  return "10%";
+    case MENU_ITEM_LIGHT_LEVEL_30:  return "30%";
+    case MENU_ITEM_LIGHT_LEVEL_50:  return "50%";
+    case MENU_ITEM_LIGHT_LEVEL_70:  return "70%";
+    case MENU_ITEM_LIGHT_LEVEL_100: return "100%";
+    default:                       return "";
+    }
+}
+
 static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t *action)
 {
+    (void)row;
     if (id == MENU_ITEM_LIGHT_POWER)
     {
         g_light_power_state = !g_light_power_state;
@@ -380,27 +361,128 @@ static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t
     if (id >= MENU_ITEM_LIGHT_LEVEL_10 && id <= MENU_ITEM_LIGHT_LEVEL_100)
     {
         ui_on_light_color_set(menu_defs_light_color_name(menu_runtime_current_id()),
-                              row ? row->label : "");
+                              light_level_label(id));
         action->type = MENU_ACTION_CLOSE;
         return true;
     }
     return false;
 }
 
+static void edit_spec_prepare(submenu_edit_spec_t *spec,
+                              submenu_setting_kind_t kind,
+                              uint8_t arg,
+                              float value,
+                              float min,
+                              float max,
+                              float step,
+                              uint8_t decimals,
+                              const char *label)
+{
+    memset(spec, 0, sizeof(*spec));
+    spec->kind = kind;
+    spec->arg = arg;
+    spec->value = value;
+    spec->min = min;
+    spec->max = max;
+    spec->step = step;
+    spec->decimals = decimals;
+    snprintf(spec->label, sizeof(spec->label), "%s", label);
+}
+
+static bool edit_spec_for_id(menu_item_id_t id, submenu_edit_spec_t *out_spec)
+{
+    if (!out_spec)
+    {
+        return false;
+    }
+
+    switch (id)
+    {
+    case MENU_ITEM_DIVE_MOD_PPO2:
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_MOD_PPO2, 0U,
+                          g_sys_config.mod_ppo2, 1.0f, 1.6f, 0.1f, 1U, "MOD PO2:");
+        return true;
+    case MENU_ITEM_NITROX_O2:
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_NITROX_O2, 0U,
+                          (float)submenu_nitrox_o2_pct(), 21.0f, 40.0f, 1.0f, 0U, "O2:");
+        return true;
+    case MENU_ITEM_THREE_GAS_O2_0:
+    case MENU_ITEM_THREE_GAS_O2_1:
+    case MENU_ITEM_THREE_GAS_O2_2:
+    {
+        uint8_t gas_index = (uint8_t)(id - MENU_ITEM_THREE_GAS_O2_0);
+        char label[20];
+        snprintf(label, sizeof(label), "GAS %u:", (unsigned)(gas_index + 1U));
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_3GAS_O2, gas_index,
+                          (float)submenu_three_gas_o2_pct(gas_index),
+                          21.0f, 100.0f, 1.0f, 0U, label);
+        return true;
+    }
+    case MENU_ITEM_OC_TECH_EDIT_O2:
+    case MENU_ITEM_OC_TECH_EDIT_HE:
+    {
+        uint8_t slot = submenu_oc_tech_edit_slot();
+        uint8_t o2 = submenu_oc_tech_draft_o2_pct(slot);
+        uint8_t he = submenu_oc_tech_draft_he_pct(slot);
+        bool edit_he = (id == MENU_ITEM_OC_TECH_EDIT_HE);
+        float min = edit_he ? 0.0f : 8.0f;
+        float max = edit_he ? (float)(100U - o2) : (float)(100U - he);
+        if (max < min)
+        {
+            max = min;
+        }
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_OC_TECH_GAS,
+                          (uint8_t)(slot * 2U + (edit_he ? 1U : 0U)),
+                          edit_he ? (float)he : (float)o2,
+                          min, max, 1.0f, 0U,
+                          edit_he ? "HE PERCENT:" : "O2 PERCENT:");
+        return true;
+    }
+    case MENU_ITEM_ALERT_DEPTH:
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_DEPTH_ALARM, 0U,
+                          (float)submenu_depth_alarm_m(), 10.0f, 150.0f, 10.0f, 0U, "DEPTH:");
+        return true;
+    case MENU_ITEM_ALERT_TIME:
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_TIME_ALARM, 0U,
+                          (float)submenu_time_alarm_min(), 10.0f, 300.0f, 10.0f, 0U, "TIME:");
+        return true;
+    case MENU_ITEM_DATE_YEAR:
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_DATETIME_FIELD, 0U,
+                          (float)submenu_datetime_year(), 2000.0f, 2099.0f, 1.0f, 0U, "YEAR:");
+        return true;
+    case MENU_ITEM_DATE_MONTH:
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_DATETIME_FIELD, 1U,
+                          (float)submenu_datetime_month(), 1.0f, 12.0f, 1.0f, 0U, "MONTH:");
+        return true;
+    case MENU_ITEM_DATE_DAY:
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_DATETIME_FIELD, 2U,
+                          (float)submenu_datetime_day(), 1.0f, 31.0f, 1.0f, 0U, "DAY:");
+        return true;
+    case MENU_ITEM_DATE_HOUR:
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_DATETIME_FIELD, 3U,
+                          (float)submenu_datetime_hour(), 0.0f, 23.0f, 1.0f, 0U, "HOUR:");
+        return true;
+    case MENU_ITEM_DATE_MINUTE:
+        edit_spec_prepare(out_spec, SUBMENU_SETTING_DATETIME_FIELD, 4U,
+                          (float)submenu_datetime_minute(), 0.0f, 59.0f, 1.0f, 0U, "MINUTE:");
+        return true;
+    default:
+        return false;
+    }
+}
+
 static bool handle_dive_plan(uint8_t row_index, const menu_row_t *row, menu_action_t *action)
 {
-    /* DIVE PLAN 内部仍有自己的页状态和 NEXT/RESULT 逻辑，
-     * 所以这里只把稳定 row index/label 转交给旧 plan 状态机。
-     */
     bool close_submenu = false;
     uint8_t keep_idx = row_index;
+    bool exit_action;
 
     if (!menu_runtime_is_dive_plan())
     {
         return false;
     }
-    if (!submenu_dive_plan_handle_action(row_index,
-                                         row ? row->label : NULL,
+    exit_action = (row && row->id == MENU_ITEM_DIVE_PLAN_EXIT);
+    if (!submenu_dive_plan_handle_action(exit_action,
                                          &close_submenu,
                                          &keep_idx))
     {
@@ -481,26 +563,9 @@ bool menu_actions_handle_select(uint8_t row_index,
         return true;
     }
 
-    if (edit_spec_for_row(row_index, row, &out_action->edit_spec))
+    if (edit_spec_for_id(row->id, &out_action->edit_spec))
     {
         out_action->type = MENU_ACTION_BEGIN_EDIT;
-        return true;
-    }
-
-    if (direct_setting_for_row(row_index, row, &setting))
-    {
-        submenu_apply_setting(setting.kind, setting.arg, setting.value);
-        dispatch_setting_callback(&setting);
-        out_action->type = (setting.kind == SUBMENU_SETTING_OC_TECH_SAVE)
-                           ? MENU_ACTION_CLOSE : MENU_ACTION_REFRESH;
-        return true;
-    }
-
-    if (confirm_setting_for_row(row_index, row, &setting))
-    {
-        s_pending_setting = setting;
-        out_action->type = MENU_ACTION_SHOW_CONFIRM;
-        out_action->modal_text = s_pending_setting.body;
         return true;
     }
 

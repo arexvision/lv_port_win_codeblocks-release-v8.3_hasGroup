@@ -127,7 +127,17 @@ uint8_t submenu_log_rate_s(void);
 bool submenu_bluetooth_enabled(void);
 uint8_t submenu_three_gas_count(void);
 uint8_t submenu_nitrox_o2_pct(void);
+uint8_t submenu_three_gas_o2_pct(uint8_t gas_index);
+uint8_t submenu_oc_tech_draft_o2_pct(uint8_t slot);
+uint8_t submenu_oc_tech_draft_he_pct(uint8_t slot);
 uint8_t submenu_oc_tech_edit_slot(void);
+uint16_t submenu_depth_alarm_m(void);
+uint16_t submenu_time_alarm_min(void);
+uint16_t submenu_datetime_year(void);
+uint8_t submenu_datetime_month(void);
+uint8_t submenu_datetime_day(void);
+uint8_t submenu_datetime_hour(void);
+uint8_t submenu_datetime_minute(void);
 
 const char **submenu_build_compass_cal_items(uint8_t *out_count);
 const char **submenu_nested_items_for(const char *title, uint8_t *out_count);
@@ -175,8 +185,7 @@ uint16_t submenu_dive_plan_total_deco_min(void);
 uint16_t submenu_dive_plan_total_gas_l(void);
 uint16_t submenu_dive_plan_cns_pct(void);
 uint16_t submenu_dive_plan_otu(void);
-bool submenu_dive_plan_handle_action(uint8_t item_index,
-                                          const char *item_text,
+bool submenu_dive_plan_handle_action(bool exit_action,
                                           bool *out_close_submenu,
                                           uint8_t *out_keep_index);
 

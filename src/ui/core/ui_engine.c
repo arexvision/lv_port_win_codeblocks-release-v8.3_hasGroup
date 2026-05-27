@@ -258,7 +258,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->card_order[PAGE_POS_3]      = PAGE_ID_PLAN;
     cfg->card_order[PAGE_POS_4]      = PAGE_ID_GAS;
     cfg->card_order[PAGE_POS_5]      = PAGE_ID_CUSTOM_GRID;
-    /* PAGE_POS_7 ~ PAGE_POS_12 淇濇寔 PAGE_ID_BLANK */
+    /* PAGE_POS_7 ~ PAGE_POS_12 保持 PAGE_ID_BLANK */
     cfg->card_order[PAGE_POS_SETUP]  = PAGE_ID_SETUP;//菜单，不算卡
 
     /* ========== [A] 卡片槽位映射 ==========
