@@ -257,25 +257,50 @@ static void plan_chart_draw_cb(lv_event_t *e)
     if (target_max_t_sec < 20.0f) target_max_t_sec = 20.0f;
 
     float max_t_axis_sec = 20.0f;
-    if (target_max_t_sec > 120.0f)
+    if (target_max_t_sec > 3600.0f)
+        max_t_axis_sec = ceilf(target_max_t_sec / 3600.0f) * 3600.0f;
+    else if (target_max_t_sec > 120.0f)
         max_t_axis_sec = ceilf(target_max_t_sec / 60.0f) * 60.0f;
     else
         max_t_axis_sec = ceilf(target_max_t_sec / 10.0f) * 10.0f;
 
-    /* X轴显示分两种模式：
-     * 1. 整个时间轴还在 1 分钟内：用秒，左下角显示 m/s。
-     * 2. 整个时间轴超过 1 分钟：直接切到分钟，刻度只显示整数分钟。
+    /* X轴按总时长切换单位：
+     * 1. 1 分钟内：秒，左下角显示 m/s。
+     * 2. 1 分钟到 1 小时：分钟，刻度只显示整数分钟。
+     * 3. 超过 1 小时：小时，刻度只显示整数小时。
      */
-    bool x_axis_in_minutes = (max_t_axis_sec > 60.0f);
+    enum
+    {
+        X_AXIS_SECONDS,
+        X_AXIS_MINUTES,
+        X_AXIS_HOURS
+    } x_axis_mode = X_AXIS_SECONDS;
+
+    if (max_t_axis_sec > 3600.0f)
+    {
+        x_axis_mode = X_AXIS_HOURS;
+    }
+    else if (max_t_axis_sec > 60.0f)
+    {
+        x_axis_mode = X_AXIS_MINUTES;
+    }
+
     int x_step = 10;
-    if (x_axis_in_minutes)
+    if (x_axis_mode == X_AXIS_HOURS)
+    {
+        float max_t_axis_h = max_t_axis_sec / 3600.0f;
+        if (max_t_axis_h <= 6.0f)       x_step = 3600;
+        else if (max_t_axis_h <= 12.0f) x_step = 7200;
+        else if (max_t_axis_h <= 24.0f) x_step = 14400;
+        else                            x_step = 21600;
+    }
+    else if (x_axis_mode == X_AXIS_MINUTES)
     {
         float max_t_axis_min = max_t_axis_sec / 60.0f;
         if (max_t_axis_min <= 10.0f)      x_step = 60;
         else if (max_t_axis_min <= 20.0f) x_step = 120;
         else if (max_t_axis_min <= 40.0f) x_step = 300;
-        else if (max_t_axis_min <= 80.0f) x_step = 600;
-        else                               x_step = 900;
+        else                              x_step = 600;
     }
 
     /* 5. 秒数映射宏 */
@@ -331,7 +356,11 @@ static void plan_chart_draw_cb(lv_event_t *e)
         lv_draw_line(draw_ctx, &line_dsc, &pts[0], &pts[1]);
 
         char buf[16];
-        if (x_axis_in_minutes)
+        if (x_axis_mode == X_AXIS_HOURS)
+        {
+            snprintf(buf, sizeof(buf), "%d", t / 3600);
+        }
+        else if (x_axis_mode == X_AXIS_MINUTES)
         {
             snprintf(buf, sizeof(buf), "%d", t / 60);
         }
@@ -369,7 +398,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
     txt_dsc.align = LV_TEXT_ALIGN_LEFT;
 
     /* ==========================================
-     * 绘制左下角坐标系单位：秒模式 m/s，分钟模式 m/min
+     * 绘制左下角坐标系单位：m/s、m/min、m/h
      * ========================================== */
     lv_draw_label_dsc_t unit_dsc;
     lv_draw_label_dsc_init(&unit_dsc);
@@ -384,8 +413,16 @@ static void plan_chart_draw_cb(lv_event_t *e)
         area->x1 + 42,
         area->y2 - 4
     };
-    lv_draw_label(draw_ctx, &unit_dsc, &unit_area,
-                  x_axis_in_minutes ? "m/min" : "m/s", NULL);
+    const char *x_unit = "m/s";
+    if (x_axis_mode == X_AXIS_HOURS)
+    {
+        x_unit = "m/h";
+    }
+    else if (x_axis_mode == X_AXIS_MINUTES)
+    {
+        x_unit = "m/min";
+    }
+    lv_draw_label(draw_ctx, &unit_dsc, &unit_area, x_unit, NULL);
 
     /* ==========================================
      * 绘制历史真实轨迹（实线）
