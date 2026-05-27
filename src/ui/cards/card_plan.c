@@ -374,13 +374,13 @@ static void plan_chart_draw_cb(lv_event_t *e)
     lv_draw_label_dsc_init(&unit_dsc);
     unit_dsc.font = get_font(FONT_ID_SMALL);
     unit_dsc.color = LIGHT;
-    unit_dsc.opa = 191;
+    unit_dsc.opa = 160;
 
     lv_area_t unit_area =
     {
-        area->x1 + 2,
-        area->y2 - 14,
-        area->x1 + 60,
+        area->x1 + 1,
+        area->y2 - 12,
+        area->x1 + 34,
         area->y2 + 10
     };
     lv_draw_label(draw_ctx, &unit_dsc, &unit_area,
