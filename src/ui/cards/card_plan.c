@@ -114,10 +114,30 @@ void dive_log_append(float current_time_s, float current_depth_m)
             return;
         }
 
-        /* 同一秒内的重复采样只更新最后一个点，避免轨迹堆积和折返 */
+        /* 同一秒内如果深度没变，就只更新最后一个点；
+         * 如果深度变了，则保留同一秒内的转折，避免调试/TCP 手动改深度时
+         * 把“原来的最后一个平台点”覆盖掉，图上看起来像历史轨迹突然丢失。
+         */
         if (fabsf(current_time_s - last->time_s) < 0.001f)
         {
-            last->depth_m = current_depth_m;
+            if (fabsf(last->depth_m - current_depth_m) < 0.001f)
+            {
+                last->depth_m = current_depth_m;
+                return;
+            }
+
+            if (g_dive_log_count >= MAX_DIVE_LOG &&
+                dive_log_make_room_for(current_time_s, current_depth_m))
+            {
+                return;
+            }
+
+            if (g_dive_log_count < MAX_DIVE_LOG)
+            {
+                g_dive_log[g_dive_log_count].time_s  = current_time_s;
+                g_dive_log[g_dive_log_count].depth_m = current_depth_m;
+                g_dive_log_count++;
+            }
             return;
         }
     }
