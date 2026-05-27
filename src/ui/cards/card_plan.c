@@ -49,17 +49,15 @@ static void dive_log_remove_at(uint16_t index)
     g_dive_log_count--;
 }
 
-static bool dive_log_make_room_for(float current_time_s, float current_depth_m)
+static void dive_log_make_room(void)
 {
     if (g_dive_log_count < MAX_DIVE_LOG)
     {
-        return false;
+        return;
     }
     if (g_dive_log_count < 3U)
     {
-        g_dive_log[g_dive_log_count - 1U].time_s = current_time_s;
-        g_dive_log[g_dive_log_count - 1U].depth_m = current_depth_m;
-        return true;
+        return;
     }
 
     uint16_t drop_index = 1U;
@@ -76,22 +74,7 @@ static bool dive_log_make_room_for(float current_time_s, float current_depth_m)
         }
     }
 
-    dive_pt_t next =
-    {
-        .time_s = current_time_s,
-        .depth_m = current_depth_m
-    };
-    float tail_area = dive_log_triangle_area(&g_dive_log[g_dive_log_count - 2U],
-                                             &g_dive_log[g_dive_log_count - 1U],
-                                             &next);
-    if (tail_area <= drop_area)
-    {
-        g_dive_log[g_dive_log_count - 1U] = next;
-        return true;
-    }
-
     dive_log_remove_at(drop_index);
-    return false;
 }
 
 /* ============================================================
@@ -126,10 +109,9 @@ void dive_log_append(float current_time_s, float current_depth_m)
                 return;
             }
 
-            if (g_dive_log_count >= MAX_DIVE_LOG &&
-                dive_log_make_room_for(current_time_s, current_depth_m))
+            if (g_dive_log_count >= MAX_DIVE_LOG)
             {
-                return;
+                dive_log_make_room();
             }
 
             if (g_dive_log_count < MAX_DIVE_LOG)
@@ -142,10 +124,9 @@ void dive_log_append(float current_time_s, float current_depth_m)
         }
     }
 
-    if (g_dive_log_count >= MAX_DIVE_LOG &&
-        dive_log_make_room_for(current_time_s, current_depth_m))
+    if (g_dive_log_count >= MAX_DIVE_LOG)
     {
-        return;
+        dive_log_make_room();
     }
 
     if (g_dive_log_count < MAX_DIVE_LOG)
