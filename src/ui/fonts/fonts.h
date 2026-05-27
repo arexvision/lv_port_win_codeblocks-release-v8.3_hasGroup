@@ -74,6 +74,7 @@ extern const lv_font_t lv_font_ordinar_64;
  * ================================================================ */
 #ifdef USE_FONT_CONSOLA
 #define FONT_SMALL    (&lv_font_consola_20)  /* 20px  小字体 - 标签/单位/Badge/标题 */
+#define FONT_14       (&lv_font_consola_14)  /* 14px  极小辅助文字 */
 #define FONT_TITLE    (&lv_font_consola_20)  /* 20px  菜单项/卡片标题(规范21px) */
 #define FONT_MEDIUM   (&lv_font_consola_32)  /* 32px  中字体 - 数据值 */
 #define FONT_LARGE    (&lv_font_consola_64)  /* 64px  大字体 - 深度大数字 */
@@ -83,6 +84,7 @@ extern const lv_font_t lv_font_ordinar_64;
 #define FONT_24       (&lv_font_consola_24)  /* 24px  中等标题 */
 #elif defined(USE_FONT_COURIER)
 #define FONT_SMALL    (&lv_font_courier_20)  /* 20px  小字体 - 标签/单位/Badge/标题 */
+#define FONT_14       (&lv_font_courier_14)  /* 14px  极小辅助文字 */
 #define FONT_TITLE    (&lv_font_courier_20)  /* 20px  菜单项/卡片标题(规范21px) */
 #define FONT_MEDIUM   (&lv_font_courier_32)  /* 32px  中字体 - 数据值 */
 #define FONT_LARGE    (&lv_font_courier_64)  /* 64px  大字体 - 深度大数字 */
@@ -92,6 +94,7 @@ extern const lv_font_t lv_font_ordinar_64;
 #define FONT_24       (&lv_font_courier_24)  /* 24px  中等标题 */
 #elif defined(USE_FONT_ORDINAR)
 #define FONT_SMALL    (&lv_font_ordinar_20)  /* 20px  小字体 - 标签/单位/Badge/标题 */
+#define FONT_14       (&lv_font_ordinar_14)  /* 14px  极小辅助文字 */
 #define FONT_TITLE    (&lv_font_ordinar_20)  /* 20px  菜单项/卡片标题 */
 #define FONT_MEDIUM   (&lv_font_ordinar_32)  /* 32px  中字体 - 数据值 */
 #define FONT_LARGE    (&lv_font_ordinar_64)  /* 64px  大字体 - 深度大数字 */
@@ -101,6 +104,7 @@ extern const lv_font_t lv_font_ordinar_64;
 #define FONT_24       (&lv_font_ordinar_24)  /* 24px  中等标题 */
 #else
 #define FONT_SMALL    (lv_font_montserrat_20)
+#define FONT_14       (lv_font_montserrat_14)
 #define FONT_TITLE    (lv_font_montserrat_20)
 #define FONT_MEDIUM   (lv_font_montserrat_32)
 #define FONT_LARGE    (lv_font_montserrat_64)

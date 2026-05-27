@@ -372,16 +372,16 @@ static void plan_chart_draw_cb(lv_event_t *e)
      * ========================================== */
     lv_draw_label_dsc_t unit_dsc;
     lv_draw_label_dsc_init(&unit_dsc);
-    unit_dsc.font = get_font(FONT_ID_SMALL);
+    unit_dsc.font = FONT_14;
     unit_dsc.color = LIGHT;
-    unit_dsc.opa = 160;
+    unit_dsc.opa = 191;
 
     lv_area_t unit_area =
     {
         area->x1 + 1,
-        area->y2 - 24,
-        area->x1 + 34,
-        area->y2 - 6
+        area->y2 - 22,
+        area->x1 + 42,
+        area->y2 - 4
     };
     lv_draw_label(draw_ctx, &unit_dsc, &unit_area,
                   x_axis_in_minutes ? "m/min" : "m/s", NULL);
