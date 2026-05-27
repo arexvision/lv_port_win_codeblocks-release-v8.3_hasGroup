@@ -441,8 +441,8 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
 
         for (uint8_t col = 0; col < LEFT_COLS; col++)
         {
-            grid_widget_t *top_cfg = left_find_widget_at_cell(col, (uint8_t)(row - 1));
-            grid_widget_t *bottom_cfg = left_find_widget_at_cell(col, row);
+            const grid_widget_t *top_cfg = left_find_widget_at_cell(col, (uint8_t)(row - 1));
+            const grid_widget_t *bottom_cfg = left_find_widget_at_cell(col, row);
             bool draw_seg = (top_cfg != NULL && bottom_cfg != NULL && top_cfg != bottom_cfg);
 
             if (draw_seg)
@@ -475,7 +475,6 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
 static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_card_idx)
 {
     if (!card_custom ||
-            custom_card_idx >= 0U ||
             custom_card_idx >= MAX_CUSTOM_CARDS)
     {
         return;
