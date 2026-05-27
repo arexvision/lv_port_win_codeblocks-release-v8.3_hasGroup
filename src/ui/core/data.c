@@ -3,9 +3,10 @@
 #include <math.h>
 #include <string.h>
 #include "stdio.h"
-/* card_plan.c 中的减压站序列全局数组（由减压引擎写入，UI 消费） */
-extern deco_stop_t g_deco_stops[MAX_DECO_STOPS];
-extern uint16_t         g_deco_stop_count;
+
+/* 减压站预测数据由 data bus 统一持有，卡片只负责读取和绘制。 */
+deco_stop_t g_deco_stops[MAX_DECO_STOPS];
+uint16_t g_deco_stop_count;
 
 #ifdef PC_SIMULATOR
 #include "lvgl.h"

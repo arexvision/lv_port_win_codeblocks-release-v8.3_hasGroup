@@ -34,7 +34,7 @@ flowchart TD
     SubmenuView --> MenuRuntime["menu_runtime.c/h<br/>当前菜单与父级栈"]
     MenuRuntime --> MenuDefs["menu_defs.c/h<br/>菜单 ID 与显示定义"]
     SubmenuView --> MenuActions["menu_actions.c/h<br/>菜单动作分发"]
-    MenuRuntime --> SubmenuModel["submenu_model.c/h<br/>动态文案与旧兼容模型"]
+    MenuRuntime --> SubmenuModel["submenu_model.c/h<br/>动态文案与复杂编辑状态"]
     MenuActions --> SubmenuModel
 
     UpdateRouter --> WidgetUpdate["comp_update.c/h<br/>组件数据刷新"]
@@ -104,7 +104,7 @@ sequenceDiagram
     participant Runtime as 菜单运行时<br/>menu_runtime
     participant Defs as 菜单定义<br/>menu_defs
     participant Actions as 动作分发<br/>menu_actions
-    participant Model as 动态文案/兼容模型<br/>submenu_model
+    participant Model as 动态文案/复杂编辑状态<br/>submenu_model
     participant Screen as 屏幕门面<br/>screen
     participant Callback as 业务回调<br/>callbacks
 
@@ -181,8 +181,8 @@ flowchart TD
 | `views/menu_defs.h/c` | 菜单定义层：稳定 `menu_id_t` / `menu_item_id_t`、顶层 INFO/SETUP 定义表、标题和子菜单映射。 |
 | `views/menu_runtime.h/c` | 菜单运行时层：当前菜单、父级栈、当前 `menu_row_t[]`、默认选中项和刷新。 |
 | `views/menu_actions.h/c` | 菜单动作层：按 row ID 执行打开子菜单、设置项、确认弹窗、GAS/LIGHT/COMPASS/DIVE PLAN 入口。 |
-| `views/submenu_model.h` | 兼容模型 API，保留动态文案、内联编辑规格和部分旧设置后端。 |
-| `views/submenu_model.c` | INFO/SETUP 动态文案、复杂编辑流程与旧兼容后端；新菜单业务优先迁到 `menu_defs/runtime/actions`。 |
+| `views/submenu_model.h` | 菜单模型辅助 API，提供动态文案、内联编辑规格、DIVE PLAN 数据和设置值应用接口。 |
+| `views/submenu_model.c` | INFO/SETUP 动态文案、复杂编辑流程与 DIVE PLAN 状态；不再按标题/行文本解析菜单业务动作。 |
 | `views/modal_view.h` | 弹窗创建、显示、隐藏、pulse、上下文恢复 API。 |
 | `views/modal_view.c` | GAS / COMPASS / ACT 等确认弹窗的 LVGL 对象管理与动画。 |
 

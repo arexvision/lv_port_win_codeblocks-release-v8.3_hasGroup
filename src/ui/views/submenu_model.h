@@ -107,11 +107,8 @@ typedef struct
     uint16_t gas_l;
 } dive_plan_row_t;
 
-const char *submenu_info_title(uint8_t index);
 const char **submenu_build_info_items(uint8_t index, uint8_t *out_count);
 
-const char *submenu_setup_title(uint8_t index);
-int8_t submenu_setup_index_for_title(const char *title);
 const char **submenu_build_setup_items(uint8_t index, uint8_t *out_count);
 const setting_option_t *submenu_conservatism_option(uint8_t index);
 const char *submenu_conservatism_badge(uint8_t level);
@@ -140,27 +137,19 @@ uint8_t submenu_datetime_hour(void);
 uint8_t submenu_datetime_minute(void);
 
 const char **submenu_build_compass_cal_items(uint8_t *out_count);
-const char **submenu_nested_items_for(const char *title, uint8_t *out_count);
-const char **submenu_child_items_for(const char *current_title,
-                                          uint8_t item_index,
-                                          const char *item_text,
-                                          char *out_title,
-                                          uint8_t out_title_size,
-                                          uint8_t *out_count);
+const char **submenu_build_mode_setup_items(uint8_t *out_count);
+const char **submenu_build_nitrox_items(uint8_t *out_count);
+const char **submenu_build_three_gas_items(uint8_t *out_count);
+const char **submenu_build_oc_tech_items(uint8_t *out_count);
+void submenu_begin_oc_tech_edit(uint8_t slot);
+const char **submenu_build_oc_tech_edit_items(uint8_t *out_count);
+const char **submenu_build_dive_setup_items(uint8_t *out_count);
+const char **submenu_build_ai_setup_items(uint8_t *out_count);
+const char **submenu_build_alerts_setup_items(uint8_t *out_count);
+const char **submenu_build_display_items(uint8_t *out_count);
+const char **submenu_build_datetime_items(uint8_t *out_count);
+const char **submenu_build_light_level_items(uint8_t *out_count);
 
-bool submenu_is_readonly_info_title(const char *title);
-bool submenu_setting_from_selection(const char *current_title,
-                                         uint8_t item_index,
-                                         const char *item_text,
-                                         submenu_setting_confirm_t *out_setting);
-bool submenu_direct_setting_from_selection(const char *current_title,
-                                                uint8_t item_index,
-                                                const char *item_text,
-                                                submenu_setting_confirm_t *out_setting);
-bool submenu_edit_spec_from_selection(const char *current_title,
-                                           uint8_t item_index,
-                                           const char *item_text,
-                                           submenu_edit_spec_t *out_spec);
 void submenu_apply_setting(submenu_setting_kind_t kind, uint8_t arg, uint16_t value);
 void submenu_apply_edit_value(submenu_setting_kind_t kind, uint8_t arg, float value);
 uint8_t submenu_safety_stop_depth_m(uint8_t value);

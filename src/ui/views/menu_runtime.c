@@ -187,12 +187,12 @@ static void build_setup_systems(void)
     rows_from_labels(labels, count, ids, types);
 }
 
-static void build_nested_by_title(const char *title,
-                                  const menu_item_id_t *ids,
-                                  const menu_row_type_t *types)
+static void build_from_model(const char **(*builder)(uint8_t *out_count),
+                             const menu_item_id_t *ids,
+                             const menu_row_type_t *types)
 {
     uint8_t count = 0;
-    const char **labels = submenu_nested_items_for(title, &count);
+    const char **labels = builder(&count);
     rows_from_labels(labels, count, ids, types);
 }
 
@@ -206,7 +206,7 @@ static void build_light_color(void)
         MENU_ITEM_LIGHT_LEVEL_70,
         MENU_ITEM_LIGHT_LEVEL_100,
     };
-    build_nested_by_title(menu_defs_title(s_current_menu), ids, NULL);
+    build_from_model(submenu_build_light_level_items, ids, NULL);
 }
 
 static void build_rows(void)
@@ -258,7 +258,7 @@ static void build_rows(void)
             MENU_ITEM_MODE_THREE_GAS,
             MENU_ITEM_MODE_OC_TECH,
         };
-        build_nested_by_title("MODE SETUP", ids, NULL);
+        build_from_model(submenu_build_mode_setup_items, ids, NULL);
         break;
     }
     case MENU_NITROX:
@@ -268,7 +268,7 @@ static void build_rows(void)
             MENU_ITEM_NITROX_O2,
             MENU_ITEM_NITROX_CONFIRM,
         };
-        build_nested_by_title("NITROX", ids, NULL);
+        build_from_model(submenu_build_nitrox_items, ids, NULL);
         break;
     }
     case MENU_THREE_GAS:
@@ -281,7 +281,7 @@ static void build_rows(void)
             MENU_ITEM_THREE_GAS_COUNT,
             MENU_ITEM_THREE_GAS_CONFIRM,
         };
-        build_nested_by_title("3 GAS", ids, NULL);
+        build_from_model(submenu_build_three_gas_items, ids, NULL);
         break;
     }
     case MENU_OC_TECH:
@@ -295,7 +295,7 @@ static void build_rows(void)
             MENU_ITEM_OC_TECH_SLOT_4,
             MENU_ITEM_OC_TECH_CONFIRM,
         };
-        build_nested_by_title("OC Tech", ids, NULL);
+        build_from_model(submenu_build_oc_tech_items, ids, NULL);
         break;
     }
     case MENU_OC_TECH_EDIT:
@@ -307,7 +307,7 @@ static void build_rows(void)
             MENU_ITEM_OC_TECH_EDIT_SAVE,
             MENU_ITEM_BACK,
         };
-        build_nested_by_title(s_oc_tech_edit_title, ids, NULL);
+        build_from_model(submenu_build_oc_tech_edit_items, ids, NULL);
         break;
     }
     case MENU_DIVE_SETUP:
@@ -320,7 +320,7 @@ static void build_rows(void)
             MENU_ITEM_DIVE_LAST_DECO,
             MENU_ITEM_DIVE_ALTITUDE,
         };
-        build_nested_by_title("DIVE SETUP", ids, NULL);
+        build_from_model(submenu_build_dive_setup_items, ids, NULL);
         break;
     }
     case MENU_AI_SETUP:
@@ -331,7 +331,7 @@ static void build_rows(void)
             MENU_ITEM_AI_TANK_1,
             MENU_ITEM_AI_GTR,
         };
-        build_nested_by_title("AI SETUP", ids, NULL);
+        build_from_model(submenu_build_ai_setup_items, ids, NULL);
         break;
     }
     case MENU_ALERTS_SETUP:
@@ -342,7 +342,7 @@ static void build_rows(void)
             MENU_ITEM_ALERT_TIME,
             MENU_ITEM_ALERT_NDL,
         };
-        build_nested_by_title("ALERTS SETUP", ids, NULL);
+        build_from_model(submenu_build_alerts_setup_items, ids, NULL);
         break;
     }
     case MENU_DISPLAY:
@@ -355,7 +355,7 @@ static void build_rows(void)
             MENU_ITEM_DISPLAY_BLUETOOTH,
             MENU_ITEM_DISPLAY_RESET,
         };
-        build_nested_by_title("DISPLAY", ids, NULL);
+        build_from_model(submenu_build_display_items, ids, NULL);
         break;
     }
     case MENU_DATE_CLOCK:
@@ -368,7 +368,7 @@ static void build_rows(void)
             MENU_ITEM_DATE_HOUR,
             MENU_ITEM_DATE_MINUTE,
         };
-        build_nested_by_title("DATE & CLOCK", ids, NULL);
+        build_from_model(submenu_build_datetime_items, ids, NULL);
         break;
     }
     case MENU_LIGHT_RED:
@@ -435,17 +435,11 @@ bool menu_runtime_open_child(menu_id_t child_id, menu_item_id_t source_item)
         {
             slot = (uint8_t)(source_item - MENU_ITEM_OC_TECH_SLOT_0);
         }
-        char title[24];
-        char unused_title[24];
-        uint8_t unused_count = 0U;
-        lv_snprintf(title, sizeof(title), "G%u TRIMIX", (unsigned)(slot + 1U));
-        (void)submenu_child_items_for("OC Tech",
-                                      slot,
-                                      title,
-                                      unused_title,
-                                      sizeof(unused_title),
-                                      &unused_count);
-        lv_snprintf(s_oc_tech_edit_title, sizeof(s_oc_tech_edit_title), "%s", title);
+        submenu_begin_oc_tech_edit(slot);
+        lv_snprintf(s_oc_tech_edit_title,
+                    sizeof(s_oc_tech_edit_title),
+                    "G%u TRIMIX",
+                    (unsigned)(slot + 1U));
     }
     push_current(source_item);
     s_current_menu = child_id;

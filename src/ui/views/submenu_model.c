@@ -12,11 +12,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char *s_info_titles[SUBMENU_INFO_COUNT] =
-{
-    "LAST DIVE", "DIVE PLAN", "TISSUE & TOX", "GAS & CALC", "SENSOR & DEVICE"
-};
-
 static char s_info_str[SUBMENU_INFO_COUNT][6][32];
 static const char *s_info_dyn[SUBMENU_INFO_COUNT][7];
 static char s_plan_str[16][48];
@@ -53,18 +48,10 @@ static const char *s_setup_sub[SUBMENU_SETUP_COUNT][7] =
     { "VERSION: " SYSTEM_VERSION, "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
 };
 
-static const char *s_setup_titles[SUBMENU_SETUP_COUNT] =
-{
-    "GAS SWITCH", "CONSERVATISM", "BRIGHTNESS", "COMPASS CAL", "LIGHT CONTROL", "SYSTEMS SETUP"
-};
-
 static char s_system_mode_str[28];
 static const char *s_system_setup_dyn[7];
 
-static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
+static const char *s_nested_light_levels[] = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS", "OC Tech", NULL };
 static const uint8_t s_safety_stop_values[] = { 0, 3, 4, 5 };
 static const uint8_t s_last_deco_values[] = { 3, 6 };
@@ -180,43 +167,6 @@ static uint8_t count_items(const char **items, uint8_t max_count)
         count++;
     }
     return count;
-}
-
-static const char *strip_title_prefix(const char *title)
-{
-    if (title && title[0] == '>' && title[1] == ' ')
-    {
-        return title + 2;
-    }
-    return title;
-}
-
-static void normalize_menu_key(const char *text, char *out, uint8_t out_size)
-{
-    if (!out || out_size == 0)
-    {
-        return;
-    }
-    out[0] = '\0';
-    if (!text)
-    {
-        return;
-    }
-
-    lv_snprintf(out, out_size, "%s", strip_title_prefix(text));
-    size_t len = strlen(out);
-    while (len > 0 && out[len - 1] == ' ')
-    {
-        out[--len] = '\0';
-    }
-    if (len > 0 && out[len - 1] == '>')
-    {
-        out[--len] = '\0';
-    }
-    while (len > 0 && out[len - 1] == ' ')
-    {
-        out[--len] = '\0';
-    }
 }
 
 static float gas_mod_for_o2(uint8_t o2_pct)
@@ -466,31 +416,7 @@ static void format_oc_tech_list_item(char *out, size_t out_size, uint8_t slot)
     }
 }
 
-static bool oc_tech_slot_from_title(const char *title, uint8_t *out_slot)
-{
-    unsigned slot_no = 0;
-    const char *clean_title = strip_title_prefix(title);
-
-    if (!clean_title)
-    {
-        return false;
-    }
-    if (sscanf(clean_title, "G%u TRIMIX", &slot_no) != 1)
-    {
-        return false;
-    }
-    if (slot_no < 1U || slot_no > 5U)
-    {
-        return false;
-    }
-    if (out_slot)
-    {
-        *out_slot = (uint8_t)(slot_no - 1U);
-    }
-    return true;
-}
-
-static void begin_oc_tech_slot_edit(uint8_t slot)
+void submenu_begin_oc_tech_edit(uint8_t slot)
 {
     if (slot >= 5U)
     {
@@ -776,15 +702,6 @@ static void format_pressure(char *out, size_t out_size, const char *label, float
     }
 }
 
-const char *submenu_info_title(uint8_t index)
-{
-    if (index >= SUBMENU_INFO_COUNT)
-    {
-        return NULL;
-    }
-    return s_info_titles[index];
-}
-
 const char **submenu_build_info_items(uint8_t index, uint8_t *out_count)
 {
     if (out_count)
@@ -941,15 +858,6 @@ const char **submenu_build_info_items(uint8_t index, uint8_t *out_count)
     return s_info_dyn[index];
 }
 
-const char *submenu_setup_title(uint8_t index)
-{
-    if (index >= SUBMENU_SETUP_COUNT)
-    {
-        return NULL;
-    }
-    return s_setup_titles[index];
-}
-
 const setting_option_t *submenu_conservatism_option(uint8_t index)
 {
     return &s_conservatism_options[index];
@@ -1073,24 +981,6 @@ uint8_t submenu_datetime_hour(void)
 uint8_t submenu_datetime_minute(void)
 {
     return s_datetime_minute;
-}
-
-int8_t submenu_setup_index_for_title(const char *title)
-{
-    const char *clean_title = strip_title_prefix(title);
-    if (!clean_title)
-    {
-        return -1;
-    }
-
-    for (uint8_t i = 0; i < SUBMENU_SETUP_COUNT; i++)
-    {
-        if (strcmp(clean_title, s_setup_titles[i]) == 0)
-        {
-            return (int8_t)i;
-        }
-    }
-    return -1;
 }
 
 const char **submenu_build_compass_cal_items(uint8_t *out_count)
@@ -1264,12 +1154,11 @@ const char **submenu_build_setup_items(uint8_t index, uint8_t *out_count)
     {
         return NULL;
     }
-    if (strcmp(s_setup_titles[index], "GAS SWITCH") == 0)
+    switch (index)
     {
+    case 0:
         return build_gas_switch_items(out_count);
-    }
-    if (strcmp(s_setup_titles[index], "CONSERVATISM") == 0)
-    {
+    case 1:
         for (uint8_t i = 0; i < CONSERVATISM_COUNT; i++)
         {
             s_conservatism_dyn[i] = s_conservatism_options[i].menu_label;
@@ -1280,13 +1169,7 @@ const char **submenu_build_setup_items(uint8_t index, uint8_t *out_count)
             *out_count = CONSERVATISM_COUNT;
         }
         return s_conservatism_dyn;
-    }
-    if (strcmp(s_setup_titles[index], "COMPASS CAL") == 0)
-    {
-        return submenu_build_compass_cal_items(out_count);
-    }
-    if (strcmp(s_setup_titles[index], "BRIGHTNESS") == 0)
-    {
+    case 2:
         for (uint8_t i = 0; i < BRIGHTNESS_COUNT; i++)
         {
             s_brightness_dyn[i] = s_brightness_options[i].menu_label;
@@ -1297,18 +1180,20 @@ const char **submenu_build_setup_items(uint8_t index, uint8_t *out_count)
             *out_count = BRIGHTNESS_COUNT;
         }
         return s_brightness_dyn;
-    }
-    if (strcmp(s_setup_titles[index], "SYSTEMS SETUP") == 0)
-    {
+    case 3:
+        return submenu_build_compass_cal_items(out_count);
+    case 5:
         return build_systems_setup_items(out_count);
-    }
-
-    const char **items = s_setup_sub[index];
-    if (out_count)
+    default:
     {
-        *out_count = count_items(items, 7);
+        const char **items = s_setup_sub[index];
+        if (out_count)
+        {
+            *out_count = count_items(items, 7);
+        }
+        return items;
     }
-    return items;
+    }
 }
 
 static const char **build_nested_dive_setup(uint8_t *out_count)
@@ -1409,515 +1294,67 @@ static const char **build_nested_datetime(uint8_t *out_count)
     return s_nested_datetime;
 }
 
-const char **submenu_nested_items_for(const char *title, uint8_t *out_count)
+const char **submenu_build_mode_setup_items(uint8_t *out_count)
 {
-    char clean_title_buf[40];
-    normalize_menu_key(title, clean_title_buf, sizeof(clean_title_buf));
-    const char *clean_title = clean_title_buf;
-    const char **items = NULL;
-    uint8_t max_count = 64;
-
     if (out_count)
     {
-        *out_count = 0;
+        *out_count = count_items(s_nested_mode_setup, 5);
     }
-    if (clean_title[0] == '\0')
-    {
-        return NULL;
-    }
-
-    if      (strcmp(clean_title, "MODE SETUP") == 0) items = s_nested_mode_setup;
-    else if (strcmp(clean_title, "NITROX") == 0) return build_nested_nitrox(out_count);
-    else if (strcmp(clean_title, "3 GAS") == 0) return build_nested_three_gas(out_count);
-    else if (strcmp(clean_title, "OC Tech") == 0) return build_nested_oc_tech(out_count);
-    else if (oc_tech_slot_from_title(clean_title, &s_oc_tech_edit_slot)) return build_nested_oc_tech_edit(s_oc_tech_edit_slot, out_count);
-    else if (strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) return build_nested_dive_setup(out_count);
-    else if (strcmp(clean_title, "AI SETUP") == 0) return build_nested_ai_setup(out_count);
-    else if (strcmp(clean_title, "ALERTS SETUP") == 0) return build_nested_alerts_setup(out_count);
-    else if (strcmp(clean_title, "DISPLAY") == 0) return build_nested_display_sys(out_count);
-    else if (strcmp(clean_title, "DATE & CLOCK") == 0) return build_nested_datetime(out_count);
-    else if (strcmp(clean_title, "RED") == 0) items = s_nested_red;
-    else if (strcmp(clean_title, "GREEN") == 0) items = s_nested_green;
-    else if (strcmp(clean_title, "BLUE") == 0) items = s_nested_blue;
-    else if (strcmp(clean_title, "WHITE") == 0) items = s_nested_white;
-
-    if (items && out_count)
-    {
-        *out_count = count_items(items, max_count);
-    }
-    return items;
+    return s_nested_mode_setup;
 }
 
-const char **submenu_child_items_for(const char *current_title,
-                                          uint8_t item_index,
-                                          const char *item_text,
-                                          char *out_title,
-                                          uint8_t out_title_size,
-                                          uint8_t *out_count)
+const char **submenu_build_nitrox_items(uint8_t *out_count)
 {
-    char key[40];
-    uint8_t count = 0;
-    const char **items = NULL;
+    return build_nested_nitrox(out_count);
+}
 
+const char **submenu_build_three_gas_items(uint8_t *out_count)
+{
+    return build_nested_three_gas(out_count);
+}
+
+const char **submenu_build_oc_tech_items(uint8_t *out_count)
+{
+    return build_nested_oc_tech(out_count);
+}
+
+const char **submenu_build_oc_tech_edit_items(uint8_t *out_count)
+{
+    return build_nested_oc_tech_edit(s_oc_tech_edit_slot, out_count);
+}
+
+const char **submenu_build_dive_setup_items(uint8_t *out_count)
+{
+    return build_nested_dive_setup(out_count);
+}
+
+const char **submenu_build_ai_setup_items(uint8_t *out_count)
+{
+    return build_nested_ai_setup(out_count);
+}
+
+const char **submenu_build_alerts_setup_items(uint8_t *out_count)
+{
+    return build_nested_alerts_setup(out_count);
+}
+
+const char **submenu_build_display_items(uint8_t *out_count)
+{
+    return build_nested_display_sys(out_count);
+}
+
+const char **submenu_build_datetime_items(uint8_t *out_count)
+{
+    return build_nested_datetime(out_count);
+}
+
+const char **submenu_build_light_level_items(uint8_t *out_count)
+{
     if (out_count)
     {
-        *out_count = 0;
+        *out_count = count_items(s_nested_light_levels, 6);
     }
-    if (out_title && out_title_size > 0)
-    {
-        out_title[0] = '\0';
-    }
-    if (!item_text)
-    {
-        return NULL;
-    }
-
-    const char *clean_current_title = strip_title_prefix(current_title);
-    if (clean_current_title && strcmp(clean_current_title, "SYSTEMS SETUP") == 0)
-    {
-        static const char *system_child_titles[] =
-        {
-            NULL,
-            "MODE SETUP",
-            "DIVE SETUP",
-            "AI SETUP",
-            "ALERTS SETUP",
-            "DISPLAY",
-        };
-        if (item_index < (sizeof(system_child_titles) / sizeof(system_child_titles[0])) &&
-            system_child_titles[item_index])
-        {
-            lv_snprintf(key, sizeof(key), "%s", system_child_titles[item_index]);
-        }
-        else
-        {
-            key[0] = '\0';
-        }
-    }
-    else if (clean_current_title && strcmp(clean_current_title, "LIGHT CONTROL") == 0)
-    {
-        static const char *light_child_titles[] =
-        {
-            NULL,
-            "RED",
-            "GREEN",
-            "BLUE",
-            "WHITE",
-        };
-        if (item_index < (sizeof(light_child_titles) / sizeof(light_child_titles[0])) &&
-            light_child_titles[item_index])
-        {
-            lv_snprintf(key, sizeof(key), "%s", light_child_titles[item_index]);
-        }
-        else
-        {
-            key[0] = '\0';
-        }
-    }
-    else if (clean_current_title && strcmp(clean_current_title, "MODE SETUP") == 0)
-    {
-        if (item_index == 1)
-        {
-            lv_snprintf(key, sizeof(key), "%s", "NITROX");
-        }
-        else if (item_index == 2)
-        {
-            lv_snprintf(key, sizeof(key), "%s", "3 GAS");
-        }
-        else if (item_index == 3)
-        {
-            lv_snprintf(key, sizeof(key), "%s", "OC Tech");
-        }
-        else
-        {
-            key[0] = '\0';
-        }
-    }
-    else if (clean_current_title && strcmp(clean_current_title, "OC Tech") == 0)
-    {
-        if (item_index < 5U)
-        {
-            begin_oc_tech_slot_edit(item_index);
-            lv_snprintf(key, sizeof(key), "G%u TRIMIX", (unsigned)(item_index + 1U));
-            items = build_nested_oc_tech_edit(item_index, &count);
-            if (out_title && out_title_size > 0)
-            {
-                lv_snprintf(out_title, out_title_size, "%s", key);
-            }
-            if (out_count)
-            {
-                *out_count = count;
-            }
-            return items;
-        }
-        key[0] = '\0';
-    }
-    else
-    {
-        normalize_menu_key(item_text, key, sizeof(key));
-        if (strcmp(clean_current_title ? clean_current_title : "", "DISPLAY") == 0)
-        {
-            if (item_index == 1)
-            {
-                lv_snprintf(key, sizeof(key), "%s", "DATE & CLOCK");
-            }
-            else
-            {
-                key[0] = '\0';
-            }
-        }
-    }
-
-    items = submenu_nested_items_for(key, &count);
-    if (!items || count == 0)
-    {
-        return NULL;
-    }
-
-    if (out_title && out_title_size > 0)
-    {
-        lv_snprintf(out_title, out_title_size, "%s", key);
-    }
-    if (out_count)
-    {
-        *out_count = count;
-    }
-    return items;
-}
-
-bool submenu_setting_from_selection(const char *current_title,
-                                         uint8_t item_index,
-                                         const char *item_text,
-                                         submenu_setting_confirm_t *out_setting)
-{
-    const char *clean_title = strip_title_prefix(current_title);
-    if (!clean_title || !item_text || !out_setting)
-    {
-        return false;
-    }
-
-    memset(out_setting, 0, sizeof(*out_setting));
-
-    if (strcmp(clean_title, "MODE SETUP") == 0 && item_index == 0)
-    {
-        out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
-        out_setting->value = 0;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DIVE MODE\nAIR");
-        return true;
-    }
-
-    if (strcmp(clean_title, "NITROX") == 0 && item_index == 1)
-    {
-        out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
-        out_setting->value = 1;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DIVE MODE\nNITROX %u%%", (unsigned)s_nitrox_o2_pct);
-        return true;
-    }
-
-    if (strcmp(clean_title, "3 GAS") == 0 && item_index == 4)
-    {
-        out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
-        out_setting->value = 2;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DIVE MODE\n3 GAS / %u ACTIVE", (unsigned)s_three_gas_count);
-        return true;
-    }
-
-    if (strcmp(clean_title, "OC Tech") == 0 && item_index == 5)
-    {
-        out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
-        out_setting->value = 3;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DIVE MODE\nOC Tech ACTIVE");
-        return true;
-    }
-
-    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 4)
-    {
-        out_setting->kind = SUBMENU_SETTING_RESET_DEFAULTS;
-        out_setting->value = 0;
-        lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "RESET DEFAULTS\nDISPLAY SETUP");
-        return true;
-    }
-
-    return false;
-}
-
-bool submenu_direct_setting_from_selection(const char *current_title,
-                                                uint8_t item_index,
-                                                const char *item_text,
-                                                submenu_setting_confirm_t *out_setting)
-{
-    const char *clean_title = strip_title_prefix(current_title);
-    (void)item_text;
-    if (!clean_title || !out_setting)
-    {
-        return false;
-    }
-
-    memset(out_setting, 0, sizeof(*out_setting));
-
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 0)
-    {
-        uint8_t next = (uint8_t)((salinity_mode_from_config() + 1U) % 3U);
-        out_setting->kind = SUBMENU_SETTING_SALINITY;
-        out_setting->value = next;
-        return true;
-    }
-
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 2)
-    {
-        uint8_t next = (uint8_t)((s_safety_stop_mode + 1) %
-                       (sizeof(s_safety_stop_values) / sizeof(s_safety_stop_values[0])));
-        out_setting->kind = SUBMENU_SETTING_SAFETY_STOP;
-        out_setting->value = next;
-        return true;
-    }
-
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 3)
-    {
-        uint8_t next = (uint8_t)((last_deco_mode_from_config() + 1U) %
-                       (sizeof(s_last_deco_values) / sizeof(s_last_deco_values[0])));
-        out_setting->kind = SUBMENU_SETTING_LAST_DECO;
-        out_setting->value = next;
-        return true;
-    }
-
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 4)
-    {
-        uint8_t next = (uint8_t)((s_altitude_level + 1) % 4);
-        out_setting->kind = SUBMENU_SETTING_ALTITUDE;
-        out_setting->value = next;
-        return true;
-    }
-
-    if (strcmp(clean_title, "AI SETUP") == 0 && item_index < 2)
-    {
-        uint8_t next = (uint8_t)((s_ai_tank_state[item_index] + 1) % 3);
-        out_setting->kind = SUBMENU_SETTING_AI_TANK_STATE;
-        out_setting->arg = item_index;
-        out_setting->value = next;
-        return true;
-    }
-
-    if (strcmp(clean_title, "AI SETUP") == 0 && item_index == 2)
-    {
-        out_setting->kind = SUBMENU_SETTING_GTR_MODE;
-        out_setting->value = s_gtr_enabled ? 0 : 1;
-        return true;
-    }
-
-    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 0)
-    {
-        out_setting->kind = SUBMENU_SETTING_UNITS;
-        out_setting->value = (s_units_mode == 0) ? 1 : 0;
-        return true;
-    }
-
-    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 2)
-    {
-        uint8_t next_index = 0;
-        for (uint8_t i = 0; i < (sizeof(s_log_rate_values) / sizeof(s_log_rate_values[0])); i++)
-        {
-            if (s_log_rate_values[i] == s_log_rate_s)
-            {
-                next_index = (uint8_t)((i + 1) % (sizeof(s_log_rate_values) / sizeof(s_log_rate_values[0])));
-                break;
-            }
-        }
-        out_setting->kind = SUBMENU_SETTING_LOG_RATE;
-        out_setting->value = s_log_rate_values[next_index];
-        return true;
-    }
-
-    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 3)
-    {
-        out_setting->kind = SUBMENU_SETTING_BLUETOOTH;
-        out_setting->value = s_bluetooth_enabled ? 0 : 1;
-        return true;
-    }
-
-    if (strcmp(clean_title, "3 GAS") == 0 && item_index == 3)
-    {
-        out_setting->kind = SUBMENU_SETTING_3GAS_COUNT;
-        out_setting->value = (s_three_gas_count >= 3U) ? 1U : (uint16_t)(s_three_gas_count + 1U);
-        return true;
-    }
-
-    if (oc_tech_slot_from_title(clean_title, &s_oc_tech_edit_slot) && item_index == 2)
-    {
-        out_setting->kind = SUBMENU_SETTING_OC_TECH_SAVE;
-        out_setting->arg = s_oc_tech_edit_slot;
-        return true;
-    }
-
-    return false;
-}
-
-bool submenu_edit_spec_from_selection(const char *current_title,
-                                           uint8_t item_index,
-                                           const char *item_text,
-                                           submenu_edit_spec_t *out_spec)
-{
-    const char *clean_title = strip_title_prefix(current_title);
-    (void)item_text;
-    if (!clean_title || !out_spec)
-    {
-        return false;
-    }
-    memset(out_spec, 0, sizeof(*out_spec));
-
-    if (strcmp(clean_title, "DIVE PLAN") == 0)
-    {
-        (void)item_index;
-        return false;
-    }
-
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 1)
-    {
-        out_spec->kind = SUBMENU_SETTING_MOD_PPO2;
-        out_spec->value = g_sys_config.mod_ppo2;
-        out_spec->min = 1.0f;
-        out_spec->max = 1.6f;
-        out_spec->step = 0.1f;
-        out_spec->decimals = 1;
-        lv_snprintf(out_spec->label, sizeof(out_spec->label), "MOD PO2:");
-        return true;
-    }
-
-    if (strcmp(clean_title, "NITROX") == 0 && item_index == 0)
-    {
-        out_spec->kind = SUBMENU_SETTING_NITROX_O2;
-        out_spec->value = (float)s_nitrox_o2_pct;
-        out_spec->min = 21.0f;
-        out_spec->max = 40.0f;
-        out_spec->step = 1.0f;
-        out_spec->decimals = 0;
-        lv_snprintf(out_spec->label, sizeof(out_spec->label), "O2:");
-        return true;
-    }
-
-    if (strcmp(clean_title, "3 GAS") == 0 && item_index < 3)
-    {
-        out_spec->kind = SUBMENU_SETTING_3GAS_O2;
-        out_spec->arg = item_index;
-        out_spec->value = (float)s_three_gas_o2_pct[item_index];
-        out_spec->min = 21.0f;
-        out_spec->max = 100.0f;
-        out_spec->step = 1.0f;
-        out_spec->decimals = 0;
-        lv_snprintf(out_spec->label, sizeof(out_spec->label), "GAS %u:", (unsigned)(item_index + 1U));
-        return true;
-    }
-
-    if (oc_tech_slot_from_title(clean_title, &s_oc_tech_edit_slot) && item_index < 2)
-    {
-        uint8_t slot = s_oc_tech_edit_slot;
-        bool edit_he = (item_index == 1U);
-        uint8_t o2 = s_oc_tech_draft_o2_pct[slot];
-        uint8_t he = s_oc_tech_draft_he_pct[slot];
-
-        out_spec->kind = SUBMENU_SETTING_OC_TECH_GAS;
-        out_spec->arg = (uint8_t)(slot * 2U + item_index);
-        out_spec->step = 1.0f;
-        out_spec->decimals = 0;
-        if (edit_he)
-        {
-            out_spec->value = (float)he;
-            out_spec->min = 0.0f;
-            out_spec->max = (float)(100U - o2);
-            lv_snprintf(out_spec->label, sizeof(out_spec->label), "HE PERCENT:");
-        }
-        else
-        {
-            out_spec->value = (float)o2;
-            out_spec->min = 8.0f;
-            out_spec->max = (float)(100U - he);
-            if (out_spec->max < out_spec->min)
-            {
-                out_spec->max = out_spec->min;
-            }
-            lv_snprintf(out_spec->label, sizeof(out_spec->label), "O2 PERCENT:");
-        }
-        return true;
-    }
-
-    if (strcmp(clean_title, "ALERTS SETUP") == 0 && item_index == 0)
-    {
-        out_spec->kind = SUBMENU_SETTING_DEPTH_ALARM;
-        out_spec->value = (float)s_depth_alarm_m;
-        out_spec->min = 10.0f;
-        out_spec->max = 150.0f;
-        out_spec->step = 10.0f;
-        out_spec->decimals = 0;
-        lv_snprintf(out_spec->label, sizeof(out_spec->label), "DEPTH:");
-        return true;
-    }
-
-    if (strcmp(clean_title, "ALERTS SETUP") == 0 && item_index == 1)
-    {
-        out_spec->kind = SUBMENU_SETTING_TIME_ALARM;
-        out_spec->value = (float)s_time_alarm_min;
-        out_spec->min = 10.0f;
-        out_spec->max = 300.0f;
-        out_spec->step = 10.0f;
-        out_spec->decimals = 0;
-        lv_snprintf(out_spec->label, sizeof(out_spec->label), "TIME:");
-        return true;
-    }
-
-    if (strcmp(clean_title, "DATE & CLOCK") == 0)
-    {
-        out_spec->kind = SUBMENU_SETTING_DATETIME_FIELD;
-        out_spec->decimals = 0;
-        out_spec->step = 1.0f;
-
-        switch (item_index)
-        {
-        case 0:
-            out_spec->arg = DATETIME_FIELD_YEAR;
-            out_spec->value = (float)s_datetime_year;
-            out_spec->min = 2000.0f;
-            out_spec->max = 2099.0f;
-            lv_snprintf(out_spec->label, sizeof(out_spec->label), "YEAR:");
-            return true;
-        case 1:
-            out_spec->arg = DATETIME_FIELD_MONTH;
-            out_spec->value = (float)s_datetime_month;
-            out_spec->min = 1.0f;
-            out_spec->max = 12.0f;
-            lv_snprintf(out_spec->label, sizeof(out_spec->label), "MONTH:");
-            return true;
-        case 2:
-            out_spec->arg = DATETIME_FIELD_DAY;
-            out_spec->value = (float)s_datetime_day;
-            out_spec->min = 1.0f;
-            out_spec->max = 31.0f;
-            lv_snprintf(out_spec->label, sizeof(out_spec->label), "DAY:");
-            return true;
-        case 3:
-            out_spec->arg = DATETIME_FIELD_HOUR;
-            out_spec->value = (float)s_datetime_hour;
-            out_spec->min = 0.0f;
-            out_spec->max = 23.0f;
-            lv_snprintf(out_spec->label, sizeof(out_spec->label), "HOUR:");
-            return true;
-        case 4:
-            out_spec->arg = DATETIME_FIELD_MINUTE;
-            out_spec->value = (float)s_datetime_minute;
-            out_spec->min = 0.0f;
-            out_spec->max = 59.0f;
-            lv_snprintf(out_spec->label, sizeof(out_spec->label), "MINUTE:");
-            return true;
-        default:
-            break;
-        }
-    }
-
-    return false;
+    return s_nested_light_levels;
 }
 
 void submenu_apply_setting(submenu_setting_kind_t kind, uint8_t arg, uint16_t value)
@@ -2385,18 +1822,4 @@ bool submenu_dive_plan_handle_action(bool exit_action,
     }
 
     return false;
-}
-
-bool submenu_is_readonly_info_title(const char *title)
-{
-    const char *clean_title = strip_title_prefix(title);
-    if (!clean_title)
-    {
-        return false;
-    }
-
-    return strcmp(clean_title, "LAST DIVE") == 0 ||
-           strcmp(clean_title, "TISSUE & TOX") == 0 ||
-           strcmp(clean_title, "GAS & CALC") == 0 ||
-           strcmp(clean_title, "SENSOR & DEVICE") == 0;
 }

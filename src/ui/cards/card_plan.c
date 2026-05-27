@@ -21,8 +21,6 @@
  * ============================================================ */
 dive_pt_t   g_dive_log[MAX_DIVE_LOG];
 uint16_t         g_dive_log_count;
-deco_stop_t g_deco_stops[MAX_DECO_STOPS];
-uint16_t         g_deco_stop_count;
 
 /* 满 200 点后压掉最接近直线的内部点，保留明显转折，避免轨迹失真。 */
 static float dive_log_triangle_area(const dive_pt_t *a,
@@ -141,7 +139,7 @@ void dive_log_append(float current_time_s, float current_depth_m)
 void dive_log_reset(void)
 {
     g_dive_log_count = 0;
-    g_deco_stop_count = 0;
+    bus_set_deco_plan(NULL, 0);
 }
 
 /* ============================================================
