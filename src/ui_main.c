@@ -1,10 +1,13 @@
 #include "ui/core/ui_engine.h"
 #include "ui/core/ui_state.h"
 #include "ui/screen/screen.h"
-#include "hal_sim/input_pc.h"
-#include "hal_sim/sim_data.h"
 #include "lvgl/lvgl.h"
 #include "ui_main.h"
+
+#ifdef PC_SIMULATOR
+#include "hal_sim/input_pc.h"
+#include "hal_sim/sim_data.h"
+#endif
 
 static lv_timer_t *s_update_task_timer;  /* 50ms UI 消费定时器 */
 
