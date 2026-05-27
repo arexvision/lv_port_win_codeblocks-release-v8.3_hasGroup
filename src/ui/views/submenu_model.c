@@ -975,6 +975,56 @@ uint8_t submenu_brightness_visible_opa(uint8_t level)
     return s_brightness_options[level].visible_opa;
 }
 
+uint8_t submenu_safety_stop_mode(void)
+{
+    return s_safety_stop_mode;
+}
+
+uint8_t submenu_altitude_level(void)
+{
+    return s_altitude_level;
+}
+
+uint8_t submenu_ai_tank_state(uint8_t tank_index)
+{
+    return s_ai_tank_state[tank_index];
+}
+
+bool submenu_gtr_enabled(void)
+{
+    return s_gtr_enabled != 0U;
+}
+
+uint8_t submenu_units_mode(void)
+{
+    return s_units_mode;
+}
+
+uint8_t submenu_log_rate_s(void)
+{
+    return s_log_rate_s;
+}
+
+bool submenu_bluetooth_enabled(void)
+{
+    return s_bluetooth_enabled != 0U;
+}
+
+uint8_t submenu_three_gas_count(void)
+{
+    return s_three_gas_count;
+}
+
+uint8_t submenu_nitrox_o2_pct(void)
+{
+    return s_nitrox_o2_pct;
+}
+
+uint8_t submenu_oc_tech_edit_slot(void)
+{
+    return s_oc_tech_edit_slot;
+}
+
 int8_t submenu_setup_index_for_title(const char *title)
 {
     const char *clean_title = strip_title_prefix(title);

@@ -6,6 +6,7 @@
 #include "../screen/screen.h"
 #include "menu_runtime.h"
 #include "submenu_model.h"
+#include <stdio.h>
 #include <string.h>
 
 static submenu_setting_confirm_t s_pending_setting;
@@ -104,6 +105,164 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
     }
 }
 
+static uint8_t next_log_rate_s(void)
+{
+    static const uint8_t values[] = { 2, 5, 10, 30 };
+    uint8_t current = submenu_log_rate_s();
+
+    for (uint8_t i = 0; i < (sizeof(values) / sizeof(values[0])); i++)
+    {
+        if (values[i] == current)
+        {
+            uint8_t next = (uint8_t)((i + 1U) % (sizeof(values) / sizeof(values[0])));
+            return values[next];
+        }
+    }
+    return values[0];
+}
+
+static void setting_prepare(submenu_setting_confirm_t *setting,
+                            submenu_setting_kind_t kind,
+                            uint8_t arg,
+                            uint16_t value)
+{
+    memset(setting, 0, sizeof(*setting));
+    setting->kind = kind;
+    setting->arg = arg;
+    setting->value = value;
+}
+
+static bool direct_setting_for_id(menu_item_id_t id,
+                                  submenu_setting_confirm_t *out_setting)
+{
+    if (!out_setting)
+    {
+        return false;
+    }
+
+    switch (id)
+    {
+    case MENU_ITEM_DIVE_SALINITY:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_SALINITY,
+                        0U,
+                        (uint16_t)((g_sys_config.salinity_mode + 1U) % 3U));
+        return true;
+    case MENU_ITEM_DIVE_SAFETY_STOP:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_SAFETY_STOP,
+                        0U,
+                        (uint16_t)((submenu_safety_stop_mode() + 1U) % 4U));
+        return true;
+    case MENU_ITEM_DIVE_LAST_DECO:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_LAST_DECO,
+                        0U,
+                        (g_sys_config.last_deco_stop_m == 6U) ? 0U : 1U);
+        return true;
+    case MENU_ITEM_DIVE_ALTITUDE:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_ALTITUDE,
+                        0U,
+                        (uint16_t)((submenu_altitude_level() + 1U) % 4U));
+        return true;
+    case MENU_ITEM_AI_TANK_0:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_AI_TANK_STATE,
+                        0U,
+                        (uint16_t)((submenu_ai_tank_state(0U) + 1U) % 3U));
+        return true;
+    case MENU_ITEM_AI_TANK_1:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_AI_TANK_STATE,
+                        1U,
+                        (uint16_t)((submenu_ai_tank_state(1U) + 1U) % 3U));
+        return true;
+    case MENU_ITEM_AI_GTR:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_GTR_MODE,
+                        0U,
+                        submenu_gtr_enabled() ? 0U : 1U);
+        return true;
+    case MENU_ITEM_DISPLAY_UNITS:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_UNITS,
+                        0U,
+                        submenu_units_mode() == 0U ? 1U : 0U);
+        return true;
+    case MENU_ITEM_DISPLAY_LOG_RATE:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_LOG_RATE,
+                        0U,
+                        next_log_rate_s());
+        return true;
+    case MENU_ITEM_DISPLAY_BLUETOOTH:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_BLUETOOTH,
+                        0U,
+                        submenu_bluetooth_enabled() ? 0U : 1U);
+        return true;
+    case MENU_ITEM_THREE_GAS_COUNT:
+    {
+        uint8_t count = submenu_three_gas_count();
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_3GAS_COUNT,
+                        0U,
+                        count >= 3U ? 1U : (uint16_t)(count + 1U));
+        return true;
+    }
+    case MENU_ITEM_OC_TECH_EDIT_SAVE:
+        setting_prepare(out_setting,
+                        SUBMENU_SETTING_OC_TECH_SAVE,
+                        submenu_oc_tech_edit_slot(),
+                        0U);
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool confirm_setting_for_id(menu_item_id_t id,
+                                   submenu_setting_confirm_t *out_setting)
+{
+    if (!out_setting)
+    {
+        return false;
+    }
+
+    switch (id)
+    {
+    case MENU_ITEM_MODE_AIR:
+        setting_prepare(out_setting, SUBMENU_SETTING_DIVE_MODE, 0U, 0U);
+        snprintf(out_setting->body, sizeof(out_setting->body), "DIVE MODE\nAIR");
+        return true;
+    case MENU_ITEM_NITROX_CONFIRM:
+        setting_prepare(out_setting, SUBMENU_SETTING_DIVE_MODE, 0U, 1U);
+        snprintf(out_setting->body,
+                 sizeof(out_setting->body),
+                 "DIVE MODE\nNITROX %u%%",
+                 (unsigned)submenu_nitrox_o2_pct());
+        return true;
+    case MENU_ITEM_THREE_GAS_CONFIRM:
+        setting_prepare(out_setting, SUBMENU_SETTING_DIVE_MODE, 0U, 2U);
+        snprintf(out_setting->body,
+                 sizeof(out_setting->body),
+                 "DIVE MODE\n3 GAS / %u ACTIVE",
+                 (unsigned)submenu_three_gas_count());
+        return true;
+    case MENU_ITEM_OC_TECH_CONFIRM:
+        setting_prepare(out_setting, SUBMENU_SETTING_DIVE_MODE, 0U, 3U);
+        snprintf(out_setting->body, sizeof(out_setting->body), "DIVE MODE\nOC Tech ACTIVE");
+        return true;
+    case MENU_ITEM_DISPLAY_RESET:
+        setting_prepare(out_setting, SUBMENU_SETTING_RESET_DEFAULTS, 0U, 0U);
+        snprintf(out_setting->body, sizeof(out_setting->body), "RESET DEFAULTS\nDISPLAY SETUP");
+        return true;
+    default:
+        return false;
+    }
+}
+
 static bool direct_setting_for_row(uint8_t row_index,
                                    const menu_row_t *row,
                                    submenu_setting_confirm_t *out_setting)
@@ -168,8 +327,8 @@ static bool handle_brightness(menu_item_id_t id, menu_action_t *action)
 
     index = (uint8_t)(id - MENU_ITEM_BRIGHTNESS_ECO);
     option = submenu_brightness_option(index);
-    g_sys_config.brightness = option->value;
-    set_brightness(g_sys_config.brightness);
+    bus_set_brightness(option->value);
+    set_brightness(option->value);
     screen_update_setup_badge(2, option->badge_label);
     action->type = MENU_ACTION_CLOSE;
     return true;
@@ -302,6 +461,23 @@ bool menu_actions_handle_select(uint8_t row_index,
         /* 已经被新 ID 分发处理的设置项，到这里就结束。
          * 这也是后续迁移更多设置项的推荐模式。
          */
+        return true;
+    }
+
+    if (direct_setting_for_id(row->id, &setting))
+    {
+        submenu_apply_setting(setting.kind, setting.arg, setting.value);
+        dispatch_setting_callback(&setting);
+        out_action->type = (setting.kind == SUBMENU_SETTING_OC_TECH_SAVE)
+                           ? MENU_ACTION_CLOSE : MENU_ACTION_REFRESH;
+        return true;
+    }
+
+    if (confirm_setting_for_id(row->id, &setting))
+    {
+        s_pending_setting = setting;
+        out_action->type = MENU_ACTION_SHOW_CONFIRM;
+        out_action->modal_text = s_pending_setting.body;
         return true;
     }
 

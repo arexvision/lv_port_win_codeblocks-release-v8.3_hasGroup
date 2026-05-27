@@ -1026,6 +1026,11 @@ void bus_set_last_deco_stop(uint8_t depth_m)
     bus_apply_algo_last_deco(depth_m);
 }
 
+void bus_set_brightness(uint8_t level)
+{
+    g_sys_config.brightness = level;
+}
+
 void bus_set_salinity_mode(uint8_t mode)
 {
     if (mode > 2U) mode = 0U;

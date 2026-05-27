@@ -118,6 +118,16 @@ const char *submenu_conservatism_badge(uint8_t level);
 const brightness_option_t *submenu_brightness_option(uint8_t index);
 const char *submenu_brightness_badge(uint8_t level);
 uint8_t submenu_brightness_visible_opa(uint8_t level);
+uint8_t submenu_safety_stop_mode(void);
+uint8_t submenu_altitude_level(void);
+uint8_t submenu_ai_tank_state(uint8_t tank_index);
+bool submenu_gtr_enabled(void);
+uint8_t submenu_units_mode(void);
+uint8_t submenu_log_rate_s(void);
+bool submenu_bluetooth_enabled(void);
+uint8_t submenu_three_gas_count(void);
+uint8_t submenu_nitrox_o2_pct(void);
+uint8_t submenu_oc_tech_edit_slot(void);
 
 const char **submenu_build_compass_cal_items(uint8_t *out_count);
 const char **submenu_nested_items_for(const char *title, uint8_t *out_count);

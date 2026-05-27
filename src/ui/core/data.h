@@ -152,6 +152,7 @@ void bus_set_ndl(int16_t ndl_min);
 void bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high);
 void bus_set_salinity_mode(uint8_t mode);
 void bus_set_last_deco_stop(uint8_t depth_m);
+void bus_set_brightness(uint8_t level);
 
 /* --- 技术潜水参数接口 --- */
 void bus_set_mod(float mod_m);
