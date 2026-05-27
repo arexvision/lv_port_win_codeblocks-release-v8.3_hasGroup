@@ -1,7 +1,10 @@
 #ifndef LAYOUT_VIEW_H
 #define LAYOUT_VIEW_H
 
-#include "../core/ui_engine.h"
+#include "../core/ui_defs.h"
+#include "../core/ui_types.h"
+#include "../comp/comp_style_types.h"
+#include "page_registry_types.h"
 
 #ifdef __cplusplus
 extern "C" {

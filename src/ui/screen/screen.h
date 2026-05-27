@@ -2,8 +2,9 @@
 #define SCREEN_HDR
 
 #include "lvgl/lvgl.h"
-#include "../core/ui_engine.h"
-#include "../views/submenu_model.h"
+#include "../core/ui_defs.h"
+#include "../core/ui_types.h"
+#include "../views/submenu_types.h"
 #include "../fonts/fonts.h"
 #include <stdint.h>
 #include <stdbool.h>

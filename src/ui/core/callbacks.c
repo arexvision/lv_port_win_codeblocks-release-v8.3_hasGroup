@@ -15,6 +15,19 @@ void bus_set_light_power(bool on)
 }
 
 WEAK_CALLBACK
+bool bus_get_light_power(void)
+{
+    return g_light_power_state;
+}
+
+WEAK_CALLBACK
+void bus_toggle_light_power(void)
+{
+    g_light_power_state = !g_light_power_state;
+    bus_set_light_power(g_light_power_state);
+}
+
+WEAK_CALLBACK
 void ui_on_light_color_set(const char *color, const char *level)
 {
     printf("[LIGHT] Color: %s, Level: %s\n", color, level);
@@ -29,16 +42,7 @@ void set_brightness(uint8_t level)
 WEAK_CALLBACK
 void ui_on_conservatism_set(uint8_t level)
 {
-    static const uint8_t gf_table[][2] =
-    {
-        { 40, 95 },
-        { 40, 85 },
-        { 30, 70 },
-        { 50, 70 },
-    };
-
-    g_sys_config.conservatism = level;
-    bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
+    bus_set_conservatism(level);
 }
 
 WEAK_CALLBACK
@@ -127,7 +131,7 @@ void ui_on_gtr_mode_set(bool enabled)
 WEAK_CALLBACK
 void ui_on_mod_ppo2_set(float ppo2)
 {
-    g_sys_config.mod_ppo2 = ppo2;
+    bus_set_mod_ppo2(ppo2);
     printf("[DIVE_SETUP] MOD PPO2: %.1f\n", (double)ppo2);
 }
 

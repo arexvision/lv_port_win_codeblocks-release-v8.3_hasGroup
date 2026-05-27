@@ -383,10 +383,6 @@ void alarm_view_tick(const alarm_view_context_t *ctx)
             }
             alarm_view_restore_targets(ctx, s_prev_targets, s_prev_target_count);
             s_prev_target_count = 0;
-            if (ctx && ctx->alarm_pending_click)
-            {
-                *ctx->alarm_pending_click = false;
-            }
         }
 
         s_last_visible = false;
@@ -468,10 +464,6 @@ void alarm_view_tick(const alarm_view_context_t *ctx)
                                  display->level, phase_on, false);
     }
 
-    if (ctx && ctx->alarm_pending_click)
-    {
-        *ctx->alarm_pending_click = (display->level >= ALARM_WARN);
-    }
     s_last_visible = true;
     s_last_level = display->level;
     s_last_phase = phase_on;

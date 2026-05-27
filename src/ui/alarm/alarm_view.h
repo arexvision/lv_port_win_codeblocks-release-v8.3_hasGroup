@@ -20,7 +20,7 @@ typedef struct
     uint16_t safe_zone_w;
     uint16_t left_anchor_w;
     uint16_t panel_gap_px;
-    bool *alarm_pending_click;
+    bool alarm_pending_click;
 } alarm_view_context_t;
 
 void alarm_view_tick(const alarm_view_context_t *ctx);

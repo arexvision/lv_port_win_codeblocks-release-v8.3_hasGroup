@@ -1,0 +1,5 @@
+#include "ui_vm.h"
+#include "vm/ui_vm_dashboard.h"
+#include "vm/ui_vm_info.h"
+#include "vm/ui_vm_menu.h"
+#include "vm/ui_vm_plan_chart.h"

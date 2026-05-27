@@ -1800,6 +1800,7 @@
 		<Unit filename="src/algo_sim/buhlmann_debug.h" />
 		<Unit filename="src/algo_sim/rtdevice.h" />
 		<Unit filename="src/algo_sim/rtthread.h" />
+		<Unit filename="src/hal_sim/README.md" />
 		<Unit filename="src/hal_sim/debug_link_pc.h" />
 		<Unit filename="src/hal_sim/input_pc.c">
 			<Option compilerVar="CC" />
@@ -1809,6 +1810,8 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/hal_sim/sim_data.h" />
+		<Unit filename="src/header.py" />
+		<Unit filename="src/lv_100ask_teach_demos.h" />
 		<Unit filename="src/ui/alarm/README.md" />
 		<Unit filename="src/ui/alarm/alarm.c">
 			<Option compilerVar="CC" />
@@ -1858,18 +1861,56 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/core/data.h" />
+		<Unit filename="src/ui/core/ui_defs.h" />
+		<Unit filename="src/ui/core/ui_dirty.h" />
 		<Unit filename="src/ui/core/ui_engine.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/core/ui_engine.h" />
+		<Unit filename="src/ui/core/ui_runtime.h" />
 		<Unit filename="src/ui/core/ui_state.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/core/ui_state.h" />
+		<Unit filename="src/ui/core/ui_types.h" />
+		<Unit filename="src/ui/core/ui_vm.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/core/ui_vm.h" />
 		<Unit filename="src/ui/core/update_router.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/core/update_router.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_dashboard.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/core/vm/ui_vm_dashboard.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_dashboard_types.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_info.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/core/vm/ui_vm_info.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_info_types.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_menu.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/core/vm/ui_vm_menu.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_menu_types.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_plan_chart.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/core/vm/ui_vm_plan_chart.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_plan_chart_types.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_plan_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/core/vm/ui_vm_plan_view.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_plan_view_types.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_system_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/core/vm/ui_vm_system_view.h" />
+		<Unit filename="src/ui/core/vm/ui_vm_system_view_types.h" />
 		<Unit filename="src/ui/fonts/FONT_GUIDE.md" />
 		<Unit filename="src/ui/fonts/README.md" />
 		<Unit filename="src/ui/fonts/fonts.h" />
@@ -1987,23 +2028,38 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/screen/README.md" />
-		<Unit filename="src/ui/screen/page_registry.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="src/ui/screen/page_registry.h" />
+		<Unit filename="src/ui/screen/card_registry.h" />
 		<Unit filename="src/ui/screen/layout_view.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/screen/layout_view.h" />
+		<Unit filename="src/ui/screen/page_registry.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/screen/page_registry.h" />
+		<Unit filename="src/ui/screen/page_registry_types.h" />
 		<Unit filename="src/ui/screen/screen.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/screen/screen.h" />
-		<Unit filename="src/ui/views/README.md" />
-		<Unit filename="src/ui/views/modal_view.c">
+		<Unit filename="src/ui/screen/screen_dots.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/ui/views/modal_view.h" />
+		<Unit filename="src/ui/screen/screen_dots.h" />
+		<Unit filename="src/ui/screen/screen_edit.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/screen/screen_edit.h" />
+		<Unit filename="src/ui/screen/screen_internal.h" />
+		<Unit filename="src/ui/screen/screen_layout.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/screen/screen_layout.h" />
+		<Unit filename="src/ui/screen/screen_overlay.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/screen/screen_overlay.h" />
+		<Unit filename="src/ui/views/README.md" />
 		<Unit filename="src/ui/views/menu_actions.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -2016,6 +2072,10 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/views/menu_runtime.h" />
+		<Unit filename="src/ui/views/modal_view.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/views/modal_view.h" />
 		<Unit filename="src/ui/views/submenu_model.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -2024,12 +2084,16 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/views/submenu_view.h" />
-		<Unit filename="src/header.py" />
-		<Unit filename="src/lv_100ask_teach_demos.h" />
 		<Unit filename="src/ui_main.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui_main.h" />
+		<Unit filename="src/ui/views/submenu_dive_plan_state.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/views/submenu_dive_plan_state.h" />
+		<Unit filename="src/ui/views/submenu_dive_plan_types.h" />
+		<Unit filename="src/ui/views/submenu_types.h" />
 		<Extensions>
 			<code_completion>
 				<search_path add="E:\Projects\LittlevGL\" />

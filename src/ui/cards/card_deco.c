@@ -1,6 +1,8 @@
 #include "../screen/screen.h"
 #include "../core/data.h"
 #include "../core/ui_engine.h"
+#include "../core/ui_vm.h"
+#include "../core/vm/ui_vm_dashboard_types.h"
 #include "../screen/layout_view.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/fonts.h"
@@ -34,14 +36,31 @@ static lv_obj_t *s_mvalue_label;
 
 static lv_timer_t *s_tissue_flash_timer;
 static bool        s_tissue_flash_phase;
+static ui_vm_deco_t s_deco_vm_cache;
 
 void card_deco_update(void);
+
+static bool deco_obj_is_valid(lv_obj_t **obj_ref)
+{
+    if (obj_ref == NULL || *obj_ref == NULL)
+    {
+        return false;
+    }
+
+    if (!lv_obj_is_valid(*obj_ref))
+    {
+        *obj_ref = NULL;
+        return false;
+    }
+
+    return true;
+}
 
 static bool any_tissue_danger(void)
 {
     for (int i = 0; i < 16; i++)
     {
-        if (g_sensor_data.tissue_pct[i] >= TISSUE_DANGER_PCT) return true;
+        if (s_deco_vm_cache.tissue_pct[i] >= TISSUE_DANGER_PCT) return true;
     }
     return false;
 }
@@ -52,10 +71,15 @@ static void tissue_danger_flash_cb(lv_timer_t *t)
     s_tissue_flash_phase = !s_tissue_flash_phase;
     for (int i = 0; i < 16; i++)
     {
-        if (g_sensor_data.tissue_pct[i] >= TISSUE_DANGER_PCT)
+        if (s_deco_vm_cache.tissue_pct[i] >= TISSUE_DANGER_PCT)
         {
             // 危险时在 亮绿 和 暗绿空槽 之间闪烁
             lv_color_t c = s_tissue_flash_phase ? GREEN : DARK;
+            if (!deco_obj_is_valid(&s_bars[i]))
+            {
+                continue;
+            }
+
             lv_obj_t *bar_fill = lv_obj_get_child(s_bars[i], 0);
             if (bar_fill)
             {
@@ -96,8 +120,8 @@ static lv_color_t tissue_fill_color(uint8_t pct, uint8_t gf_high)
 
 static uint8_t card_deco_get_gf_high_pct(void)
 {
-    uint8_t gf_high = g_sensor_data.gf_high;
-    if (gf_high == 0)
+    uint8_t gf_high = s_deco_vm_cache.gf_high;
+    if (gf_high == 0U)
     {
         gf_high = 70;
     }
@@ -110,11 +134,7 @@ static uint8_t card_deco_get_gf_high_pct(void)
 
 static uint8_t card_deco_get_gf_low_pct(void)
 {
-    uint8_t gf_low = g_sensor_data.gf_low;
-    if (gf_low == 0)
-    {
-        gf_low = 30;
-    }
+    uint8_t gf_low = s_deco_vm_cache.gf_low;
     if (gf_low > 100)
     {
         gf_low = 100;
@@ -124,12 +144,17 @@ static uint8_t card_deco_get_gf_low_pct(void)
 
 static bool card_deco_tissue_chart_active(void)
 {
-    return (g_sensor_data.depth > 0.3f) || (g_sensor_data.dive_time_s > 0);
+    return s_deco_vm_cache.chart_active != 0U;
 }
 
 static void card_deco_update_mvalue_line(void)
 {
-    if (!s_mvalue_line || !s_mvalue_label)
+    if (!deco_obj_is_valid(&s_mvalue_line) || !deco_obj_is_valid(&s_mvalue_label))
+    {
+        return;
+    }
+
+    if (!deco_obj_is_valid(&s_bars[0]))
     {
         return;
     }
@@ -155,7 +180,12 @@ static void card_deco_update_mvalue_line(void)
 
 static void surf_gf_apply_style(void)
 {
-    if (g_sensor_data.surf_gf > 100.0f)
+    if (!deco_obj_is_valid(&s_lbl_surf_gf))
+    {
+        return;
+    }
+
+    if (s_deco_vm_cache.surf_gf_alert != 0U)
     {
         lv_obj_set_style_bg_color(s_lbl_surf_gf, BLACK, 0);
         lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_COVER, 0);
@@ -221,7 +251,7 @@ void card_deco_create(lv_obj_t *parent)
 {
     render_card_title(parent, "TISSUES & DECO");
 
-    int right_canvas_w = (int)g_sys_config.safe_zone_w - 160 - (int)(g_sys_config.gap_u * 10);
+    int right_canvas_w = (int)(ui_safe_zone_w_get() - 160 - (int)(ui_panel_gap_px_get()));
 
     make_grid_row(parent, DECO_CONTENT_Y,
                   "ALGORITHM", "ZHL-16C", NULL,
@@ -301,6 +331,7 @@ void card_deco_create(lv_obj_t *parent)
     lv_obj_set_style_bg_opa(s_mvalue_label, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(s_mvalue_label, BLACK, 0);
 
+    ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
     card_deco_update();
 }
 
@@ -311,23 +342,37 @@ void card_deco_update(void)
     uint8_t gf_high = card_deco_get_gf_high_pct();
     bool chart_active = card_deco_tissue_chart_active();
 
-    if (s_lbl_gf_setting)
+    if (deco_obj_is_valid(&s_lbl_gf_setting))
     {
         lv_label_set_text_fmt(s_lbl_gf_setting, "%u / %u", gf_low, gf_high);
     }
 
-    snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.gf99);
-    lv_label_set_text(s_lbl_gf99, buf);
+    ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
 
-    snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.surf_gf);
-    lv_label_set_text(s_lbl_surf_gf, buf);
+    snprintf(buf, sizeof(buf), "%s", s_deco_vm_cache.gf99);
+    if (deco_obj_is_valid(&s_lbl_gf99))
+    {
+        lv_label_set_text(s_lbl_gf99, buf);
+    }
+
+    snprintf(buf, sizeof(buf), "%s", s_deco_vm_cache.surf_gf);
+    if (deco_obj_is_valid(&s_lbl_surf_gf))
+    {
+        lv_label_set_text(s_lbl_surf_gf, buf);
+    }
     surf_gf_apply_style();
 
-    snprintf(buf, sizeof(buf), "%d%%", g_sensor_data.cns_pct);
-    lv_label_set_text(s_lbl_cns, buf);
+    snprintf(buf, sizeof(buf), "%s", s_deco_vm_cache.cns);
+    if (deco_obj_is_valid(&s_lbl_cns))
+    {
+        lv_label_set_text(s_lbl_cns, buf);
+    }
 
-    snprintf(buf, sizeof(buf), "%d", g_sensor_data.otu);
-    lv_label_set_text(s_lbl_otu, buf);
+    snprintf(buf, sizeof(buf), "%s", s_deco_vm_cache.otu);
+    if (deco_obj_is_valid(&s_lbl_otu))
+    {
+        lv_label_set_text(s_lbl_otu, buf);
+    }
 
     card_deco_update_mvalue_line();
 
@@ -335,7 +380,11 @@ void card_deco_update(void)
 
     for (int i = 0; i < 16; i++)
     {
-        uint8_t pct = g_sensor_data.tissue_pct[i];
+        uint8_t pct = s_deco_vm_cache.tissue_pct[i];
+        if (!deco_obj_is_valid(&s_bars[i]))
+        {
+            continue;
+        }
 
         lv_obj_t *bar_fill = lv_obj_get_child(s_bars[i], 0);
         if (bar_fill)

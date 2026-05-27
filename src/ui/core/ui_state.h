@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "../views/submenu_model.h"
+#include "../views/submenu_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -69,8 +69,8 @@ typedef enum
 } compass_cal_ui_state_t;
 
 /* =========================================
-   UI Context — everything the state machine
-   needs to know to render and handle input
+   UI Context — state store (private to ui_state.c)
+   外部模块必须通过 getter/setter 访问，禁止直接读写
    ========================================= */
 typedef struct
 {
@@ -122,8 +122,6 @@ typedef struct
 
 } ui_ctx_t;
 
-extern ui_ctx_t g_ui;
-
 /* =========================================
    Public API — called from input.c
    ========================================= */
@@ -134,6 +132,56 @@ void ui_handle_rotate(int8_t dir);
 
 void ui_handle_click(void);
 void ui_handle_back(void);
+
+ui_state_t ui_state_get_state(void);
+void ui_state_set_state(ui_state_t state);
+uint8_t ui_state_get_dash_page(void);
+void ui_state_set_dash_page(uint8_t page);
+uint8_t ui_state_get_menu_info_idx(void);
+void ui_state_set_menu_info_idx(uint8_t idx);
+uint8_t ui_state_get_menu_setup_idx(void);
+void ui_state_set_menu_setup_idx(uint8_t idx);
+uint8_t ui_state_get_gas_cursor(void);
+void ui_state_set_gas_cursor(uint8_t cursor);
+uint8_t ui_state_get_sub_menu_idx(void);
+void ui_state_set_sub_menu_idx(uint8_t idx);
+uint8_t ui_state_get_sub_item_count(void);
+void ui_state_set_sub_item_count(uint8_t count);
+ui_state_t ui_state_get_sub_parent(void);
+void ui_state_set_sub_parent(ui_state_t state);
+uint8_t ui_state_get_sub_history_depth(void);
+void ui_state_set_sub_history_depth(uint8_t depth);
+bool ui_state_get_gas_modal_from_submenu(void);
+void ui_state_set_gas_modal_from_submenu(bool enabled);
+bool ui_state_get_alarm_pending_click(void);
+void ui_state_set_alarm_pending_click(bool pending);
+bool ui_state_get_edit_active(void);
+void ui_state_set_edit_active(bool active);
+uint8_t ui_state_get_edit_item_index(void);
+void ui_state_set_edit_item_index(uint8_t index);
+bool ui_state_get_edit_value_active(void);
+float ui_state_get_edit_value(void);
+void ui_state_set_edit_value(float value);
+float ui_state_get_edit_original(void);
+void ui_state_set_edit_original(float value);
+float ui_state_get_edit_min(void);
+void ui_state_set_edit_min(float value);
+float ui_state_get_edit_max(void);
+void ui_state_set_edit_max(float value);
+float ui_state_get_edit_step(void);
+void ui_state_set_edit_step(float value);
+submenu_setting_kind_t ui_state_get_edit_setting_kind(void);
+void ui_state_set_edit_setting_kind(submenu_setting_kind_t kind);
+uint8_t ui_state_get_edit_setting_arg(void);
+void ui_state_set_edit_setting_arg(uint8_t arg);
+uint8_t ui_state_get_edit_decimals(void);
+void ui_state_set_edit_decimals(uint8_t decimals);
+const char *ui_state_get_edit_label(void);
+void ui_state_set_edit_label(const char *label);
+bool ui_state_get_heading_lock_pending(void);
+void ui_state_set_heading_lock_pending(bool pending);
+bool ui_state_get_heading_lock_active(void);
+void ui_state_set_heading_lock_active(bool active);
 
 /* =========================================
    Internal helpers (used by cards too)

@@ -1,6 +1,8 @@
 #include "../screen/screen.h"
 #include "../core/data.h"
 #include "../core/ui_engine.h"
+#include "../core/ui_vm.h"
+#include "../core/vm/ui_vm_menu_types.h"
 #include "../core/ui_state.h"
 #include "../screen/layout_view.h"
 #include "../views/menu_defs.h"
@@ -23,6 +25,7 @@ const menu_list_cfg_t menu_info_cfg =
 };
 
 static lv_obj_t *s_list;
+static ui_vm_menu_layout_t s_menu_layout_vm;
 
 void menu_info_create(lv_obj_t *parent)
 {
@@ -31,12 +34,12 @@ void menu_info_create(lv_obj_t *parent)
 
     render_card_title(parent, "INFO MENU");
 
-    int right_canvas_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
-                         - ((int)g_sys_config.gap_u * BASE_U);
+    ui_vm_menu_layout_update(&s_menu_layout_vm, NULL);
+    int right_canvas_w = (int)s_menu_layout_vm.right_canvas_w;
 
     /* 列表总高度从 h_menu_item 和 gap_menu 推算。 */
-    uint16_t item_h_px = (uint16_t)g_sys_config.h_menu_item * BASE_U;
-    uint16_t gap_y_px  = (uint16_t)g_sys_config.gap_menu * BASE_U;
+    uint16_t item_h_px = s_menu_layout_vm.item_h_px;
+    uint16_t gap_y_px  = s_menu_layout_vm.gap_y_px;
     uint16_t list_h = info_count * item_h_px
                       + (info_count - 1) * gap_y_px;
 

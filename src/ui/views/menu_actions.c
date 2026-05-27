@@ -6,7 +6,6 @@
 #include "../screen/screen.h"
 #include "menu_runtime.h"
 #include "submenu_model.h"
-#include <stdio.h>
 #include <string.h>
 
 static submenu_setting_confirm_t s_pending_setting;
@@ -105,162 +104,52 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
     }
 }
 
-static uint8_t next_log_rate_s(void)
-{
-    static const uint8_t values[] = { 2, 5, 10, 30 };
-    uint8_t current = submenu_log_rate_s();
-
-    for (uint8_t i = 0; i < (sizeof(values) / sizeof(values[0])); i++)
-    {
-        if (values[i] == current)
-        {
-            uint8_t next = (uint8_t)((i + 1U) % (sizeof(values) / sizeof(values[0])));
-            return values[next];
-        }
-    }
-    return values[0];
-}
-
-static void setting_prepare(submenu_setting_confirm_t *setting,
-                            submenu_setting_kind_t kind,
-                            uint8_t arg,
-                            uint16_t value)
-{
-    memset(setting, 0, sizeof(*setting));
-    setting->kind = kind;
-    setting->arg = arg;
-    setting->value = value;
-}
-
-static bool direct_setting_for_id(menu_item_id_t id,
-                                  submenu_setting_confirm_t *out_setting)
-{
-    if (!out_setting)
-    {
-        return false;
-    }
-
-    switch (id)
-    {
-    case MENU_ITEM_DIVE_SALINITY:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_SALINITY,
-                        0U,
-                        (uint16_t)((g_sys_config.salinity_mode + 1U) % 3U));
-        return true;
-    case MENU_ITEM_DIVE_SAFETY_STOP:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_SAFETY_STOP,
-                        0U,
-                        (uint16_t)((submenu_safety_stop_mode() + 1U) % 4U));
-        return true;
-    case MENU_ITEM_DIVE_LAST_DECO:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_LAST_DECO,
-                        0U,
-                        (g_sys_config.last_deco_stop_m == 6U) ? 0U : 1U);
-        return true;
-    case MENU_ITEM_DIVE_ALTITUDE:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_ALTITUDE,
-                        0U,
-                        (uint16_t)((submenu_altitude_level() + 1U) % 4U));
-        return true;
-    case MENU_ITEM_AI_TANK_0:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_AI_TANK_STATE,
-                        0U,
-                        (uint16_t)((submenu_ai_tank_state(0U) + 1U) % 3U));
-        return true;
-    case MENU_ITEM_AI_TANK_1:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_AI_TANK_STATE,
-                        1U,
-                        (uint16_t)((submenu_ai_tank_state(1U) + 1U) % 3U));
-        return true;
-    case MENU_ITEM_AI_GTR:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_GTR_MODE,
-                        0U,
-                        submenu_gtr_enabled() ? 0U : 1U);
-        return true;
-    case MENU_ITEM_DISPLAY_UNITS:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_UNITS,
-                        0U,
-                        submenu_units_mode() == 0U ? 1U : 0U);
-        return true;
-    case MENU_ITEM_DISPLAY_LOG_RATE:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_LOG_RATE,
-                        0U,
-                        next_log_rate_s());
-        return true;
-    case MENU_ITEM_DISPLAY_BLUETOOTH:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_BLUETOOTH,
-                        0U,
-                        submenu_bluetooth_enabled() ? 0U : 1U);
-        return true;
-    case MENU_ITEM_THREE_GAS_COUNT:
-    {
-        uint8_t count = submenu_three_gas_count();
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_3GAS_COUNT,
-                        0U,
-                        count >= 3U ? 1U : (uint16_t)(count + 1U));
-        return true;
-    }
-    case MENU_ITEM_OC_TECH_EDIT_SAVE:
-        setting_prepare(out_setting,
-                        SUBMENU_SETTING_OC_TECH_SAVE,
-                        submenu_oc_tech_edit_slot(),
-                        0U);
-        return true;
-    default:
-        return false;
-    }
-}
-
-static bool confirm_setting_for_id(menu_item_id_t id,
+static bool direct_setting_for_row(uint8_t row_index,
+                                   const menu_row_t *row,
                                    submenu_setting_confirm_t *out_setting)
 {
-    if (!out_setting)
+    if (row != NULL && submenu_direct_setting_from_ids(menu_runtime_current_id(),
+                                                       row->id,
+                                                       out_setting))
     {
-        return false;
+        return true;
     }
+    return submenu_direct_setting_from_selection(menu_runtime_current_title(),
+                                                 row_index,
+                                                 row ? row->label : NULL,
+                                                 out_setting);
+}
 
-    switch (id)
+static bool confirm_setting_for_row(uint8_t row_index,
+                                    const menu_row_t *row,
+                                    submenu_setting_confirm_t *out_setting)
+{
+    if (row != NULL && submenu_setting_from_ids(menu_runtime_current_id(),
+                                                row->id,
+                                                out_setting))
     {
-    case MENU_ITEM_MODE_AIR:
-        setting_prepare(out_setting, SUBMENU_SETTING_DIVE_MODE, 0U, 0U);
-        snprintf(out_setting->body, sizeof(out_setting->body), "DIVE MODE\nAIR");
         return true;
-    case MENU_ITEM_NITROX_CONFIRM:
-        setting_prepare(out_setting, SUBMENU_SETTING_DIVE_MODE, 0U, 1U);
-        snprintf(out_setting->body,
-                 sizeof(out_setting->body),
-                 "DIVE MODE\nNITROX %u%%",
-                 (unsigned)submenu_nitrox_o2_pct());
-        return true;
-    case MENU_ITEM_THREE_GAS_CONFIRM:
-        setting_prepare(out_setting, SUBMENU_SETTING_DIVE_MODE, 0U, 2U);
-        snprintf(out_setting->body,
-                 sizeof(out_setting->body),
-                 "DIVE MODE\n3 GAS / %u ACTIVE",
-                 (unsigned)submenu_three_gas_count());
-        return true;
-    case MENU_ITEM_OC_TECH_CONFIRM:
-        setting_prepare(out_setting, SUBMENU_SETTING_DIVE_MODE, 0U, 3U);
-        snprintf(out_setting->body, sizeof(out_setting->body), "DIVE MODE\nOC Tech ACTIVE");
-        return true;
-    case MENU_ITEM_DISPLAY_RESET:
-        setting_prepare(out_setting, SUBMENU_SETTING_RESET_DEFAULTS, 0U, 0U);
-        snprintf(out_setting->body, sizeof(out_setting->body), "RESET DEFAULTS\nDISPLAY SETUP");
-        return true;
-    default:
-        return false;
     }
+    return submenu_setting_from_selection(menu_runtime_current_title(),
+                                          row_index,
+                                          row ? row->label : NULL,
+                                          out_setting);
+}
+
+static bool edit_spec_for_row(uint8_t row_index,
+                              const menu_row_t *row,
+                              submenu_edit_spec_t *out_spec)
+{
+    if (row != NULL && submenu_edit_spec_from_ids(menu_runtime_current_id(),
+                                                  row->id,
+                                                  out_spec))
+    {
+        return true;
+    }
+    return submenu_edit_spec_from_selection(menu_runtime_current_title(),
+                                            row_index,
+                                            row ? row->label : NULL,
+                                            out_spec);
 }
 
 static bool handle_conservatism(menu_item_id_t id, menu_action_t *action)
@@ -294,7 +183,6 @@ static bool handle_brightness(menu_item_id_t id, menu_action_t *action)
 
     index = (uint8_t)(id - MENU_ITEM_BRIGHTNESS_ECO);
     option = submenu_brightness_option(index);
-    bus_set_brightness(option->value);
     set_brightness(option->value);
     screen_update_setup_badge(2, option->badge_label);
     action->type = MENU_ACTION_CLOSE;
@@ -307,8 +195,8 @@ static bool handle_gas_switch(menu_item_id_t id, menu_action_t *action)
     {
         return false;
     }
-    g_ui.gas_cursor = (uint8_t)(id - MENU_ITEM_GAS_SLOT_0);
-    g_ui.gas_modal_from_submenu = true;
+    ui_state_set_gas_cursor((uint8_t)(id - MENU_ITEM_GAS_SLOT_0));
+    ui_state_set_gas_modal_from_submenu(true);
     action->type = MENU_ACTION_SHOW_GAS_MODAL;
     return true;
 }
@@ -334,26 +222,11 @@ static bool handle_compass(menu_item_id_t id, menu_action_t *action)
     return false;
 }
 
-static const char *light_level_label(menu_item_id_t id)
-{
-    switch (id)
-    {
-    case MENU_ITEM_LIGHT_LEVEL_10:  return "10%";
-    case MENU_ITEM_LIGHT_LEVEL_30:  return "30%";
-    case MENU_ITEM_LIGHT_LEVEL_50:  return "50%";
-    case MENU_ITEM_LIGHT_LEVEL_70:  return "70%";
-    case MENU_ITEM_LIGHT_LEVEL_100: return "100%";
-    default:                       return "";
-    }
-}
-
 static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t *action)
 {
-    (void)row;
     if (id == MENU_ITEM_LIGHT_POWER)
     {
-        g_light_power_state = !g_light_power_state;
-        bus_set_light_power(g_light_power_state);
+        bus_toggle_light_power();
         action->type = MENU_ACTION_REFRESH;
         return true;
     }
@@ -361,128 +234,23 @@ static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t
     if (id >= MENU_ITEM_LIGHT_LEVEL_10 && id <= MENU_ITEM_LIGHT_LEVEL_100)
     {
         ui_on_light_color_set(menu_defs_light_color_name(menu_runtime_current_id()),
-                              light_level_label(id));
+                              row ? row->label : "");
         action->type = MENU_ACTION_CLOSE;
         return true;
     }
     return false;
 }
 
-static void edit_spec_prepare(submenu_edit_spec_t *spec,
-                              submenu_setting_kind_t kind,
-                              uint8_t arg,
-                              float value,
-                              float min,
-                              float max,
-                              float step,
-                              uint8_t decimals,
-                              const char *label)
-{
-    memset(spec, 0, sizeof(*spec));
-    spec->kind = kind;
-    spec->arg = arg;
-    spec->value = value;
-    spec->min = min;
-    spec->max = max;
-    spec->step = step;
-    spec->decimals = decimals;
-    snprintf(spec->label, sizeof(spec->label), "%s", label);
-}
-
-static bool edit_spec_for_id(menu_item_id_t id, submenu_edit_spec_t *out_spec)
-{
-    if (!out_spec)
-    {
-        return false;
-    }
-
-    switch (id)
-    {
-    case MENU_ITEM_DIVE_MOD_PPO2:
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_MOD_PPO2, 0U,
-                          g_sys_config.mod_ppo2, 1.0f, 1.6f, 0.1f, 1U, "MOD PO2:");
-        return true;
-    case MENU_ITEM_NITROX_O2:
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_NITROX_O2, 0U,
-                          (float)submenu_nitrox_o2_pct(), 21.0f, 40.0f, 1.0f, 0U, "O2:");
-        return true;
-    case MENU_ITEM_THREE_GAS_O2_0:
-    case MENU_ITEM_THREE_GAS_O2_1:
-    case MENU_ITEM_THREE_GAS_O2_2:
-    {
-        uint8_t gas_index = (uint8_t)(id - MENU_ITEM_THREE_GAS_O2_0);
-        char label[20];
-        snprintf(label, sizeof(label), "GAS %u:", (unsigned)(gas_index + 1U));
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_3GAS_O2, gas_index,
-                          (float)submenu_three_gas_o2_pct(gas_index),
-                          21.0f, 100.0f, 1.0f, 0U, label);
-        return true;
-    }
-    case MENU_ITEM_OC_TECH_EDIT_O2:
-    case MENU_ITEM_OC_TECH_EDIT_HE:
-    {
-        uint8_t slot = submenu_oc_tech_edit_slot();
-        uint8_t o2 = submenu_oc_tech_draft_o2_pct(slot);
-        uint8_t he = submenu_oc_tech_draft_he_pct(slot);
-        bool edit_he = (id == MENU_ITEM_OC_TECH_EDIT_HE);
-        float min = edit_he ? 0.0f : 8.0f;
-        float max = edit_he ? (float)(100U - o2) : (float)(100U - he);
-        if (max < min)
-        {
-            max = min;
-        }
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_OC_TECH_GAS,
-                          (uint8_t)(slot * 2U + (edit_he ? 1U : 0U)),
-                          edit_he ? (float)he : (float)o2,
-                          min, max, 1.0f, 0U,
-                          edit_he ? "HE PERCENT:" : "O2 PERCENT:");
-        return true;
-    }
-    case MENU_ITEM_ALERT_DEPTH:
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_DEPTH_ALARM, 0U,
-                          (float)submenu_depth_alarm_m(), 10.0f, 150.0f, 10.0f, 0U, "DEPTH:");
-        return true;
-    case MENU_ITEM_ALERT_TIME:
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_TIME_ALARM, 0U,
-                          (float)submenu_time_alarm_min(), 10.0f, 300.0f, 10.0f, 0U, "TIME:");
-        return true;
-    case MENU_ITEM_DATE_YEAR:
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_DATETIME_FIELD, 0U,
-                          (float)submenu_datetime_year(), 2000.0f, 2099.0f, 1.0f, 0U, "YEAR:");
-        return true;
-    case MENU_ITEM_DATE_MONTH:
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_DATETIME_FIELD, 1U,
-                          (float)submenu_datetime_month(), 1.0f, 12.0f, 1.0f, 0U, "MONTH:");
-        return true;
-    case MENU_ITEM_DATE_DAY:
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_DATETIME_FIELD, 2U,
-                          (float)submenu_datetime_day(), 1.0f, 31.0f, 1.0f, 0U, "DAY:");
-        return true;
-    case MENU_ITEM_DATE_HOUR:
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_DATETIME_FIELD, 3U,
-                          (float)submenu_datetime_hour(), 0.0f, 23.0f, 1.0f, 0U, "HOUR:");
-        return true;
-    case MENU_ITEM_DATE_MINUTE:
-        edit_spec_prepare(out_spec, SUBMENU_SETTING_DATETIME_FIELD, 4U,
-                          (float)submenu_datetime_minute(), 0.0f, 59.0f, 1.0f, 0U, "MINUTE:");
-        return true;
-    default:
-        return false;
-    }
-}
-
 static bool handle_dive_plan(uint8_t row_index, const menu_row_t *row, menu_action_t *action)
 {
     bool close_submenu = false;
     uint8_t keep_idx = row_index;
-    bool exit_action;
 
     if (!menu_runtime_is_dive_plan())
     {
         return false;
     }
-    exit_action = (row && row->id == MENU_ITEM_DIVE_PLAN_EXIT);
-    if (!submenu_dive_plan_handle_action(exit_action,
+    if (!submenu_dive_plan_handle_action(row ? row->id : MENU_ITEM_NONE,
                                          &close_submenu,
                                          &keep_idx))
     {
@@ -546,7 +314,13 @@ bool menu_actions_handle_select(uint8_t row_index,
         return true;
     }
 
-    if (direct_setting_for_id(row->id, &setting))
+    if (edit_spec_for_row(row_index, row, &out_action->edit_spec))
+    {
+        out_action->type = MENU_ACTION_BEGIN_EDIT;
+        return true;
+    }
+
+    if (direct_setting_for_row(row_index, row, &setting))
     {
         submenu_apply_setting(setting.kind, setting.arg, setting.value);
         dispatch_setting_callback(&setting);
@@ -555,17 +329,11 @@ bool menu_actions_handle_select(uint8_t row_index,
         return true;
     }
 
-    if (confirm_setting_for_id(row->id, &setting))
+    if (confirm_setting_for_row(row_index, row, &setting))
     {
         s_pending_setting = setting;
         out_action->type = MENU_ACTION_SHOW_CONFIRM;
         out_action->modal_text = s_pending_setting.body;
-        return true;
-    }
-
-    if (edit_spec_for_id(row->id, &out_action->edit_spec))
-    {
-        out_action->type = MENU_ACTION_BEGIN_EDIT;
         return true;
     }
 

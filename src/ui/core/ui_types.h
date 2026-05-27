@@ -1,0 +1,167 @@
+#ifndef UI_TYPES_H
+#define UI_TYPES_H
+
+#include "ui_defs.h"
+#include "ui_dirty.h"
+#include "../screen/page_registry_types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define LEFT_MAX_WIDGETS 12
+#define MAX_5F_WIDGETS   30
+#define MAX_CUSTOM_CARDS  MAX_DYNAMIC_SLOTS
+
+typedef struct
+{
+    uint8_t widget_id;
+    uint8_t x;
+    uint8_t y;
+} grid_widget_t;
+
+typedef struct
+{
+    uint8_t            widget_count;
+    grid_widget_t widgets[MAX_5F_WIDGETS];
+} custom_card_cfg_t;
+
+#pragma pack(push, 1)
+typedef struct
+{
+    uint16_t safe_zone_w;
+    uint16_t safe_zone_h;
+    int16_t  offset_x;
+    int16_t  offset_y;
+    uint8_t  theme_mode;
+    uint8_t  layout_order;
+    uint8_t  dots_position;
+    uint8_t  compass_style;
+    uint8_t  flash_speed;
+    bool     mask_enabled;
+    bool     split_outward;
+    uint8_t  sep_style;
+    uint8_t  sep_thick;
+    uint8_t  sep_alpha;
+    uint8_t  h_depth;
+    uint8_t  h_ndl;
+    uint8_t  h_pod;
+    uint8_t  h_batt;
+    uint8_t  h_gas;
+    uint8_t  h_time;
+    uint8_t  gap_u;
+    uint8_t  panel_gap_u;
+    uint8_t  title_h_u;
+    uint8_t  h_menu_item;
+    uint8_t  gap_menu;
+    uint8_t  h_tissues_chart;
+    uint8_t            left_widget_count;
+    grid_widget_t left_widgets[LEFT_MAX_WIDGETS];
+    uint8_t                custom_card_count;
+    custom_card_cfg_t custom_cards[MAX_CUSTOM_CARDS];
+    uint8_t                custom_card_slot[PAGE_COUNT];
+    uint8_t card_order[PAGE_COUNT];
+    float   mod_ppo2;
+    uint8_t conservatism;
+    uint8_t salinity_mode;
+    uint8_t last_deco_stop_m;
+    uint8_t brightness;
+} sys_config_t;
+#pragma pack(pop)
+
+typedef enum
+{
+    STOP_NONE = 0,
+    STOP_SAFETY,
+    STOP_DECO
+} stop_type_t;
+
+typedef struct
+{
+    float   depth;
+    int16_t ndl;
+    int16_t ndl_stop_value;
+    uint8_t ndl_bar_pct;
+    stop_type_t stop_type;
+    float            stop_depth_m;
+    uint16_t         stop_time_total_s;
+    uint16_t         stop_time_left_s;
+    bool             in_stop_zone;
+    uint16_t tts;
+    uint32_t dive_time_s;
+    uint32_t surface_time_s;
+    char    gas_name[16];
+    uint8_t gas_active_idx;
+    float   temperature_c;
+    float   bat_temperature_c;
+    float   prj_temperature_c;
+    bool    bat_temperature_valid;
+    bool    prj_temperature_valid;
+    float   battery_pct;
+    uint8_t sys_time_h;
+    uint8_t sys_time_m;
+    float   ascent_rate;
+    uint16_t heading;
+    bool    heading_locked;
+    uint16_t heading_target;
+    float   ppo2[GAS_COUNT];
+    char    gas_slot_name[GAS_COUNT][16];
+    uint8_t gas_slot_o2_pct[GAS_COUNT];
+    uint8_t gas_slot_he_pct[GAS_COUNT];
+    float   gas_slot_mod_m[GAS_COUNT];
+    uint8_t gas_slot_count;
+    int16_t next_stop_m;
+    uint8_t next_stop_min;
+    float   pod1_bar;
+    float   pod2_bar;
+    uint8_t cylinder_count;
+    float   sac_rate;
+    float   max_depth;
+    float   avg_depth;
+    float   min_temp;
+    float   max_temp;
+    float   avg_temp;
+    float   surf_gf;
+    float   gf99;
+    uint8_t gf_low;
+    uint8_t gf_high;
+    float   mod_m;
+    float   ceiling_m;
+    float   gas_density;
+    float   fio2_pct;
+    uint8_t gas_o2_pct;
+    uint8_t gas_he_pct;
+    uint8_t  tissue_pct[16];
+    uint8_t  cns_pct;
+    uint16_t otu;
+    bool    deco_violation;
+    bool    strobe_on;
+    bool    flashlight_on;
+    uint32_t dirty_mask;
+} sensor_data_t;
+
+extern sys_config_t  g_sys_config;
+extern sensor_data_t g_sensor_data;
+
+typedef struct
+{
+    float time_s;
+    float depth_m;
+} dive_pt_t;
+
+typedef struct
+{
+    float depth_m;
+    float stay_min;
+} deco_stop_t;
+
+#define MAX_DIVE_LOG   200
+#ifndef MAX_DECO_STOPS
+#define MAX_DECO_STOPS 10
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* UI_TYPES_H */

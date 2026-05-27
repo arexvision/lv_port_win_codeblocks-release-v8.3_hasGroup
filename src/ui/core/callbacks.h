@@ -11,6 +11,8 @@ extern "C" {
 /* Business-layer callbacks used by setup/light-control UI. */
 extern bool g_light_power_state;
 void bus_set_light_power(bool on);
+bool bus_get_light_power(void);
+void bus_toggle_light_power(void);
 void ui_on_light_color_set(const char *color, const char *level);
 void set_software_brightness_enabled(bool enabled);
 void apply_software_brightness(uint8_t level);

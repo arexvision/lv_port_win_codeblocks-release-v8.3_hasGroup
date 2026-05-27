@@ -1,6 +1,7 @@
 #ifndef PAGE_REGISTRY_H
 #define PAGE_REGISTRY_H
 
+#include "page_registry_types.h"
 #include "lvgl/lvgl.h"
 #include <stdint.h>
 
@@ -8,53 +9,7 @@
 extern "C" {
 #endif
 
-/* 右侧 tileview 的页面类型 ID。
- * 数值必须保持稳定：BLE 旧协议通过 card_order[8] 下发这些数字。
- * 可以改源码命名，不能随意改这里的取值。
- */
-typedef enum
-{
-    PAGE_ID_INFO        = 0,
-    PAGE_ID_COMPASS     = 1,
-    PAGE_ID_DECO        = 2,
-    PAGE_ID_GAS         = 3,
-    PAGE_ID_PLAN        = 4,
-    PAGE_ID_CUSTOM_GRID = 5,
-    PAGE_ID_BLANK       = 6,
-    PAGE_ID_SETUP       = 7,
-    PAGE_ID_COUNT
-} page_id_t;
-
-#define PAGE_ID_UNUSED 0xFF
-
-/* 右侧 tileview 的存储位置。
- * INFO 固定在 0，SETUP 固定在最后一个存储槽；中间是 APP/BLE 可重排的动态页。
- */
-#define MAX_DYNAMIC_SLOTS 12
-
-typedef enum
-{
-    PAGE_POS_INFO          = 0,
-    PAGE_POS_DYNAMIC_FIRST = 1,
-    PAGE_POS_SETUP         = PAGE_POS_DYNAMIC_FIRST + MAX_DYNAMIC_SLOTS,
-    PAGE_POS_COUNT
-} page_pos_t;
-
-#define PAGE_POS_1   (PAGE_POS_DYNAMIC_FIRST + 0)
-#define PAGE_POS_2   (PAGE_POS_DYNAMIC_FIRST + 1)
-#define PAGE_POS_3   (PAGE_POS_DYNAMIC_FIRST + 2)
-#define PAGE_POS_4   (PAGE_POS_DYNAMIC_FIRST + 3)
-#define PAGE_POS_5   (PAGE_POS_DYNAMIC_FIRST + 4)
-#define PAGE_POS_6   (PAGE_POS_DYNAMIC_FIRST + 5)
-#define PAGE_POS_7   (PAGE_POS_DYNAMIC_FIRST + 6)
-#define PAGE_POS_8   (PAGE_POS_DYNAMIC_FIRST + 7)
-#define PAGE_POS_9   (PAGE_POS_DYNAMIC_FIRST + 8)
-#define PAGE_POS_10  (PAGE_POS_DYNAMIC_FIRST + 9)
-#define PAGE_POS_11  (PAGE_POS_DYNAMIC_FIRST + 10)
-#define PAGE_POS_12  (PAGE_POS_DYNAMIC_FIRST + 11)
-
-#define PAGE_COUNT      PAGE_POS_COUNT
-#define DASH_PAGE_COUNT MAX_DYNAMIC_SLOTS
+typedef struct ui_vm_plan_chart ui_vm_plan_chart_t;
 
 typedef enum
 {
@@ -74,6 +29,7 @@ typedef struct
     void (*create_cb)(lv_obj_t *parent);
     void (*update_cb)(void);
     void (*on_enter_cb)(void);
+    void (*update_vm_cb)(const void *vm);
 } page_t;
 
 uint8_t page_count(void);
@@ -139,9 +95,10 @@ void menu_info_update(void);
 void card_compass_update(void);
 void card_deco_update(void);
 void card_gas_update(void);
-void card_plan_update(void);
+void card_plan_update(const ui_vm_plan_chart_t *vm);
 void card_blank_update(void);
 void menu_setup_update(void);
+void page_registry_update_plan_vm(const ui_vm_plan_chart_t *vm);
 
 #ifdef __cplusplus
 }

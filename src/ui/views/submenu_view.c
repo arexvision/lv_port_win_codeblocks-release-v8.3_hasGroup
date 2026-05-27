@@ -1,10 +1,12 @@
 #include "submenu_view.h"
 
 #include "../core/callbacks.h"
+#include "../core/data.h"
 #include "../screen/screen.h"
 #include "menu_actions.h"
 #include "menu_runtime.h"
-#include "submenu_model.h"
+#include "../core/vm/ui_vm_plan_view.h"
+#include "../core/vm/ui_vm_system_view.h"
 #include "../core/ui_state.h"
 #include "../fonts/fonts.h"
 
@@ -19,6 +21,21 @@ static uint16_t s_submenu_height = 0;
 static bool submenu_is_dive_plan_visible(void)
 {
     return menu_runtime_is_dive_plan();
+}
+
+static uint16_t submenu_right_width(void)
+{
+    return (s_submenu_width > 0U)
+           ? s_submenu_width
+           : (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W - ui_panel_gap_px_get());
+}
+
+static bool submenu_light_power_on(void)
+{
+    ui_vm_submenu_view_t vm;
+
+    ui_vm_submenu_view_update(&vm);
+    return (vm.light_power_on != 0U);
 }
 
 void submenu_view_reset(void)
@@ -84,9 +101,7 @@ void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 static void submenu_slide_in(void)
 {
     if (!s_submenu_layer) return;
-    uint16_t right_w_fallback = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
-                                - g_sys_config.panel_gap_u * BASE_U;
-    uint16_t slide_w = s_submenu_width > 0 ? s_submenu_width : right_w_fallback;
+    uint16_t slide_w = submenu_right_width();
 
     lv_anim_t a;
     lv_anim_init(&a);
@@ -101,9 +116,7 @@ static void submenu_slide_in(void)
 static void submenu_slide_out(void)
 {
     if (!s_submenu_layer) return;
-    uint16_t right_w_fallback = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
-                                - g_sys_config.panel_gap_u * BASE_U;
-    uint16_t slide_w = s_submenu_width > 0 ? s_submenu_width : right_w_fallback;
+    uint16_t slide_w = submenu_right_width();
 
     lv_anim_t a;
     lv_anim_init(&a);
@@ -165,11 +178,9 @@ static lv_obj_t *plan_make_button(lv_obj_t *parent, const char *text, int x, int
 
 static void plan_draw_header(lv_obj_t *parent, int w)
 {
-    float depth_m = 0.0f;
-    float rmv_lpm = 0.0f;
-    uint16_t time_min = 0U;
-    char buf[24];
-    submenu_dive_plan_get_inputs(&depth_m, &time_min, &rmv_lpm);
+    ui_vm_dive_plan_view_t vm;
+
+    ui_vm_dive_plan_view_update(&vm);
 
     lv_obj_t *oc = lv_obj_create(parent);
     lv_obj_remove_style_all(oc);
@@ -185,10 +196,8 @@ static void plan_draw_header(lv_obj_t *parent, int w)
     plan_make_label(parent, "TIME", FONT_ID_SMALL, GREEN, 155, 12, 70, 18, LV_TEXT_ALIGN_CENTER);
     plan_make_label(parent, "RMV", FONT_ID_SMALL, GREEN, 240, 12, 70, 18, LV_TEXT_ALIGN_CENTER);
 
-    dive_plan_page_t page = submenu_dive_plan_page();
-    lv_snprintf(buf, sizeof(buf), "%u", (unsigned)(depth_m + 0.5f));
     plan_make_label(parent,
-                    (page == DIVE_PLAN_PAGE_DEPTH) ? "---" : buf,
+                    (vm.page == (uint8_t)DIVE_PLAN_PAGE_DEPTH) ? "---" : vm.depth_value,
                     FONT_ID_SMALL,
                     LIGHT,
                     70,
@@ -196,9 +205,8 @@ static void plan_draw_header(lv_obj_t *parent, int w)
                     70,
                     18,
                     LV_TEXT_ALIGN_CENTER);
-    lv_snprintf(buf, sizeof(buf), "%u", (unsigned)time_min);
     plan_make_label(parent,
-                    (page <= DIVE_PLAN_PAGE_TIME) ? "--" : buf,
+                    (vm.page <= (uint8_t)DIVE_PLAN_PAGE_TIME) ? "--" : vm.time_value,
                     FONT_ID_SMALL,
                     LIGHT,
                     155,
@@ -206,9 +214,8 @@ static void plan_draw_header(lv_obj_t *parent, int w)
                     70,
                     18,
                     LV_TEXT_ALIGN_CENTER);
-    lv_snprintf(buf, sizeof(buf), "%u", (unsigned)(rmv_lpm + 0.5f));
     plan_make_label(parent,
-                    (page <= DIVE_PLAN_PAGE_RMV) ? "--" : buf,
+                    (vm.page <= (uint8_t)DIVE_PLAN_PAGE_RMV) ? "--" : vm.rmv_value,
                     FONT_ID_SMALL,
                     LIGHT,
                     240,
@@ -217,16 +224,18 @@ static void plan_draw_header(lv_obj_t *parent, int w)
                     18,
                     LV_TEXT_ALIGN_CENTER);
 
-    uint8_t header_o2 = submenu_dive_plan_header_gas_o2();
-    if (header_o2)
+    if (vm.header_gas_o2 != 0U)
     {
-        lv_snprintf(buf, sizeof(buf), "%u", (unsigned)header_o2);
+        {
+            char buf[8];
+            lv_snprintf(buf, sizeof(buf), "%u", (unsigned)vm.header_gas_o2);
+            plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, w - 74, 12, 54, 18, LV_TEXT_ALIGN_CENTER);
+        }
     }
     else
     {
-        lv_snprintf(buf, sizeof(buf), "---");
+        plan_make_label(parent, "---", FONT_ID_SMALL, LIGHT, w - 74, 12, 54, 18, LV_TEXT_ALIGN_CENTER);
     }
-    plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, w - 74, 12, 54, 18, LV_TEXT_ALIGN_CENTER);
 }
 
 static void plan_draw_bottom_line(lv_obj_t *parent, int w)
@@ -241,41 +250,23 @@ static void plan_draw_bottom_line(lv_obj_t *parent, int w)
 
 static void plan_draw_input(lv_obj_t *parent, int w)
 {
-    float depth_m = 0.0f;
-    float rmv_lpm = 0.0f;
-    uint16_t time_min = 0U;
+    ui_vm_dive_plan_view_t vm;
     char buf[48];
-    const char *prompt = "Enter Bottom Depth";
-    const char *unit = "in meters";
-    uint16_t min_v = 3U;
-    uint16_t max_v = 120U;
-    uint16_t value = 30U;
-    dive_plan_page_t page = submenu_dive_plan_page();
 
-    submenu_dive_plan_get_inputs(&depth_m, &time_min, &rmv_lpm);
-    if (page == DIVE_PLAN_PAGE_TIME)
+    ui_vm_dive_plan_view_update(&vm);
+
+    if (vm.page == (uint8_t)DIVE_PLAN_PAGE_TIME)
     {
-        prompt = "Enter Bottom Time";
-        unit = "in minutes";
-        min_v = 1U;
-        max_v = 300U;
-        value = time_min;
+        plan_make_label(parent, vm.time_value, FONT_ID_MEDIUM, LIGHT, 0, 98, w, 42, LV_TEXT_ALIGN_CENTER);
     }
-    else if (page == DIVE_PLAN_PAGE_RMV)
+    else if (vm.page == (uint8_t)DIVE_PLAN_PAGE_RMV)
     {
-        prompt = "Enter RMV";
-        unit = "in Liters/min";
-        min_v = 5U;
-        max_v = 50U;
-        value = (uint16_t)(rmv_lpm + 0.5f);
+        plan_make_label(parent, vm.rmv_value, FONT_ID_MEDIUM, LIGHT, 0, 98, w, 42, LV_TEXT_ALIGN_CENTER);
     }
     else
     {
-        value = (uint16_t)(depth_m + 0.5f);
+        plan_make_label(parent, vm.depth_value, FONT_ID_MEDIUM, LIGHT, 0, 98, w, 42, LV_TEXT_ALIGN_CENTER);
     }
-
-    lv_snprintf(buf, sizeof(buf), "%u", (unsigned)value);
-    plan_make_label(parent, buf, FONT_ID_MEDIUM, LIGHT, 0, 98, w, 42, LV_TEXT_ALIGN_CENTER);
 
     lv_obj_t *underline = lv_obj_create(parent);
     lv_obj_remove_style_all(underline);
@@ -284,12 +275,10 @@ static void plan_draw_input(lv_obj_t *parent, int w)
     lv_obj_set_style_bg_color(underline, lv_color_make(255, 255, 0), 0);
     lv_obj_set_style_bg_opa(underline, LV_OPA_COVER, 0);
 
-    plan_make_label(parent, prompt, FONT_ID_SMALL, LIGHT, 0, 166, w, 22, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, unit, FONT_ID_SMALL, LIGHT, 0, 190, w, 22, LV_TEXT_ALIGN_CENTER);
-    lv_snprintf(buf, sizeof(buf), "MIN: %u", (unsigned)min_v);
-    plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, 0, 224, w, 18, LV_TEXT_ALIGN_CENTER);
-    lv_snprintf(buf, sizeof(buf), "MAX: %u", (unsigned)max_v);
-    plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, 0, 246, w, 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.input_prompt, FONT_ID_SMALL, LIGHT, 0, 166, w, 22, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.input_unit, FONT_ID_SMALL, LIGHT, 0, 190, w, 22, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.input_min_text, FONT_ID_SMALL, LIGHT, 0, 224, w, 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.input_max_text, FONT_ID_SMALL, LIGHT, 0, 246, w, 18, LV_TEXT_ALIGN_CENTER);
 
     lv_obj_t *spin = lv_obj_create(parent);
     lv_obj_remove_style_all(spin);
@@ -299,7 +288,18 @@ static void plan_draw_input(lv_obj_t *parent, int w)
     lv_obj_set_style_bg_opa(spin, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(spin, DARK, 0);
     lv_obj_set_style_border_width(spin, 1, 0);
-    lv_snprintf(buf, sizeof(buf), "%u", (unsigned)value);
+    if (vm.page == (uint8_t)DIVE_PLAN_PAGE_TIME)
+    {
+        lv_snprintf(buf, sizeof(buf), "%s", vm.time_value);
+    }
+    else if (vm.page == (uint8_t)DIVE_PLAN_PAGE_RMV)
+    {
+        lv_snprintf(buf, sizeof(buf), "%s", vm.rmv_value);
+    }
+    else
+    {
+        lv_snprintf(buf, sizeof(buf), "%s", vm.depth_value);
+    }
     plan_make_label(spin, buf, FONT_ID_SMALL, BLACK, 6, 2, 78, 20, LV_TEXT_ALIGN_RIGHT);
     plan_make_label(spin, "^", FONT_ID_SMALL, DARK, 84, 0, 14, 12, LV_TEXT_ALIGN_CENTER);
     plan_make_label(spin, "v", FONT_ID_SMALL, DARK, 84, 12, 14, 12, LV_TEXT_ALIGN_CENTER);
@@ -307,47 +307,24 @@ static void plan_draw_input(lv_obj_t *parent, int w)
 
 static void plan_draw_ready(lv_obj_t *parent, int w)
 {
-    char buf[48];
-    plan_make_label(parent, "Ready to Plan Dive", FONT_ID_SMALL, LIGHT, 0, 106, w, 24, LV_TEXT_ALIGN_CENTER);
-    lv_snprintf(buf,
-                sizeof(buf),
-                "GF:              %u/%u",
-                (unsigned)submenu_dive_plan_gf_low(),
-                (unsigned)submenu_dive_plan_gf_high());
-    plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, 96, 168, w - 192, 22, LV_TEXT_ALIGN_LEFT);
-    lv_snprintf(buf,
-                sizeof(buf),
-                "Last Stop:       %um",
-                (unsigned)submenu_dive_plan_last_stop_m());
-    plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, 96, 200, w - 192, 22, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, "Start CNS:       0%", FONT_ID_SMALL, LIGHT, 96, 232, w - 192, 22, LV_TEXT_ALIGN_LEFT);
-}
+    ui_vm_dive_plan_view_t vm;
 
-static const char *plan_time_text(const dive_plan_row_t *row, char *buf, size_t buf_size)
-{
-    if (row->type == DIVE_PLAN_ROW_BOTTOM)
-    {
-        return "bot";
-    }
-    if (row->type == DIVE_PLAN_ROW_ASCENT)
-    {
-        return "asc";
-    }
-    lv_snprintf(buf, buf_size, "%u", (unsigned)row->time_min);
-    return buf;
+    ui_vm_dive_plan_view_update(&vm);
+
+    plan_make_label(parent, "Ready to Plan Dive", FONT_ID_SMALL, LIGHT, 0, 106, w, 24, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.ready_gf_text, FONT_ID_SMALL, LIGHT, 96, 168, w - 192, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.ready_last_stop_text, FONT_ID_SMALL, LIGHT, 96, 200, w - 192, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.ready_start_cns_text, FONT_ID_SMALL, LIGHT, 96, 232, w - 192, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.gas_summary, FONT_ID_SMALL, LIGHT, 96, 264, w - 192, 22, LV_TEXT_ALIGN_LEFT);
 }
 
 static void plan_draw_result(lv_obj_t *parent, int w)
 {
-    char buf[16];
+    ui_vm_dive_plan_view_t vm;
     static const int col_x[] = { 20, 88, 166, 244, 334 };
     static const int col_w[] = { 64, 72, 72, 82, 72 };
-    uint8_t page = submenu_dive_plan_result_page_index();
-    uint8_t total_pages = submenu_dive_plan_result_total_pages();
-    uint8_t entry_count = submenu_dive_plan_result_entry_count();
-    uint8_t start = (uint8_t)(page * 8U);
-    uint8_t end = (uint8_t)(start + 8U);
-    if (end > entry_count) end = entry_count;
+
+    ui_vm_dive_plan_view_update(&vm);
 
     plan_make_label(parent, "Stp", FONT_ID_SMALL, GREEN, col_x[0], 68, col_w[0], 18, LV_TEXT_ALIGN_CENTER);
     plan_make_label(parent, "Tme", FONT_ID_SMALL, GREEN, col_x[1], 68, col_w[1], 18, LV_TEXT_ALIGN_CENTER);
@@ -363,45 +340,47 @@ static void plan_draw_result(lv_obj_t *parent, int w)
     lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
 
     int y = 100;
-    for (uint8_t i = start; i < end; i++)
+    for (uint8_t i = 0U; i < 8U; i++)
     {
-        dive_plan_row_t row;
-        char tme[8];
-        if (!submenu_dive_plan_result_row(i, &row))
+        if (vm.rows[i].valid == 0U)
         {
             continue;
         }
-        const char *tme_text = plan_time_text(&row, tme, sizeof(tme));
-        lv_snprintf(buf, sizeof(buf), "%dm", (int)row.depth_m);
-        plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, col_x[0], y, col_w[0], 18, LV_TEXT_ALIGN_CENTER);
-        plan_make_label(parent, tme_text, FONT_ID_SMALL, LIGHT, col_x[1], y, col_w[1], 18, LV_TEXT_ALIGN_CENTER);
-        lv_snprintf(buf, sizeof(buf), "%u", (unsigned)row.run_min);
-        plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, col_x[2], y, col_w[2], 18, LV_TEXT_ALIGN_CENTER);
-        lv_snprintf(buf, sizeof(buf), "%02u/%02u", (unsigned)row.o2_pct, (unsigned)row.he_pct);
-        plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, col_x[3], y, col_w[3], 18, LV_TEXT_ALIGN_CENTER);
-        lv_snprintf(buf, sizeof(buf), "%u", (unsigned)row.gas_l);
-        plan_make_label(parent, buf, FONT_ID_SMALL, LIGHT, col_x[4], y, col_w[4], 18, LV_TEXT_ALIGN_RIGHT);
+        plan_make_label(parent, vm.rows[i].depth_text, FONT_ID_SMALL, LIGHT, col_x[0], y, col_w[0], 18, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.rows[i].time_text, FONT_ID_SMALL, LIGHT, col_x[1], y, col_w[1], 18, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.rows[i].run_text, FONT_ID_SMALL, LIGHT, col_x[2], y, col_w[2], 18, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.rows[i].gas_text, FONT_ID_SMALL, LIGHT, col_x[3], y, col_w[3], 18, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.rows[i].qty_text, FONT_ID_SMALL, LIGHT, col_x[4], y, col_w[4], 18, LV_TEXT_ALIGN_RIGHT);
         y += 26;
     }
 
-    lv_snprintf(buf, sizeof(buf), "Page %u/%u", (unsigned)(page + 1U), (unsigned)total_pages);
-    plan_make_label(parent, buf, FONT_ID_SMALL, GREEN, 0, (int)s_submenu_height - 86, w, 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.result_page_text, FONT_ID_SMALL, GREEN, 0, (int)s_submenu_height - 86, w, 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.result_runtime_text, FONT_ID_SMALL, LIGHT, 16, (int)s_submenu_height - 66, 120, 18, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.result_deco_text, FONT_ID_SMALL, LIGHT, 140, (int)s_submenu_height - 66, 120, 18, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.result_gas_text, FONT_ID_SMALL, LIGHT, 264, (int)s_submenu_height - 66, 80, 18, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.result_cns_text, FONT_ID_SMALL, LIGHT, 16, (int)s_submenu_height - 48, 80, 18, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.result_otu_text, FONT_ID_SMALL, LIGHT, 100, (int)s_submenu_height - 48, 80, 18, LV_TEXT_ALIGN_LEFT);
 }
 
 static void plan_draw_error(lv_obj_t *parent, int w)
 {
-    plan_make_label(parent, "Plan Failed", FONT_ID_MEDIUM, LIGHT, 0, 118, w, 40, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, "Check depth, time, RMV and gas setup",
-                    FONT_ID_SMALL, LIGHT, 0, 176, w, 24, LV_TEXT_ALIGN_CENTER);
+    ui_vm_dive_plan_view_t vm;
+
+    ui_vm_dive_plan_view_update(&vm);
+
+    plan_make_label(parent, vm.error_title, FONT_ID_MEDIUM, LIGHT, 0, 118, w, 40, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.error_hint, FONT_ID_SMALL, LIGHT, 0, 176, w, 24, LV_TEXT_ALIGN_CENTER);
 }
 
 static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
 {
+    ui_vm_dive_plan_view_t vm;
+
     if (!s_submenu_list) return;
 
-    int w = (s_submenu_width > 0)
-            ? (int)s_submenu_width
-            : (int)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W - g_sys_config.panel_gap_u * BASE_U);
+    ui_vm_dive_plan_view_update(&vm);
+
+    int w = (int)submenu_right_width();
 
     lv_obj_clean(s_submenu_list);
     s_light_status_lbl = NULL;
@@ -416,7 +395,7 @@ static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
     }
 
     plan_draw_header(s_submenu_list, w);
-    switch (submenu_dive_plan_page())
+    switch ((dive_plan_page_t)vm.page)
     {
     case DIVE_PLAN_PAGE_READY:
         plan_draw_ready(s_submenu_list, w);
@@ -479,13 +458,11 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
     s_light_status_lbl = NULL;  /* 重置 LIGHT 状态标签 */
 
     /* right_w 从缓存读取，fallback = safe_zone_w - left_anchor_w - panel_gap */
-    uint16_t right_w = (s_submenu_width > 0)
-                       ? s_submenu_width
-                       : (g_sys_config.safe_zone_w - LEFT_ANCHOR_W - g_sys_config.panel_gap_u * BASE_U);
+    uint16_t right_w = submenu_right_width();
     uint16_t sub_w = right_w;
-    int item_h = (int)(g_sys_config.h_menu_item * BASE_U);  /* 5U=50px */
+    int item_h = (int)ui_menu_item_h_px_get();
     int item_w = (int)sub_w - 15;
-    int gap_y  = (int)(g_sys_config.gap_menu * BASE_U);   /* 1U=10px */
+    int gap_y  = (int)ui_menu_gap_px_get();
     int current_y = 0;
     bool compact_plan = menu_runtime_is_dive_plan_result();
     if (compact_plan)
@@ -521,12 +498,12 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
 
             /* "ON"/"OFF" 标签在右侧 */
             lv_obj_t *lbl_status = lv_label_create(item);
-            lv_obj_set_style_text_color(lbl_status, g_light_power_state ? GREEN : LIGHT, 0);
+            lv_obj_set_style_text_color(lbl_status, submenu_light_power_on() ? GREEN : LIGHT, 0);
             lv_obj_set_style_text_font(lbl_status, get_font(FONT_ID_TITLE), 0);
             lv_obj_set_size(lbl_status, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(lbl_status, LV_ALIGN_RIGHT_MID, -12, 0);
             lv_obj_set_style_text_align(lbl_status, LV_TEXT_ALIGN_RIGHT, 0);
-            lv_label_set_text(lbl_status, g_light_power_state ? "ON" : "OFF");
+            lv_label_set_text(lbl_status, submenu_light_power_on() ? "ON" : "OFF");
 
             /* 保存状态标签引用，用于点击时更新 */
             s_light_status_lbl = lbl_status;
@@ -554,7 +531,7 @@ static void submenu_populate_current(void)
     uint8_t count = 0;
     const menu_row_t *rows = menu_runtime_current_rows(&count);
     submenu_populate(menu_runtime_current_title(), rows, count);
-    g_ui.sub_item_count = count;
+    ui_state_set_sub_item_count(count);
 }
 
 void screen_set_submenu_selection(uint8_t idx)
@@ -563,7 +540,7 @@ void screen_set_submenu_selection(uint8_t idx)
     if (submenu_is_dive_plan_visible())
     {
         uint32_t cnt = lv_obj_get_child_cnt(s_submenu_list);
-        uint32_t action_count = g_ui.sub_item_count;
+        uint32_t action_count = ui_state_get_sub_item_count();
         if (action_count > cnt)
         {
             action_count = cnt;
@@ -596,7 +573,7 @@ void screen_set_submenu_selection(uint8_t idx)
         lv_obj_t *item = lv_obj_get_child(s_submenu_list, i);
         lv_obj_t *lbl  = lv_obj_get_child(item, 0);
         /* 正在编辑的 item 由 begin_edit_value 单独管理，不参与选中态刷新 */
-        if (g_ui.edit_ctx.active && (uint8_t)i == g_ui.edit_ctx.item_index) continue;
+        if (ui_state_get_edit_active() && ((uint8_t)i == ui_state_get_edit_item_index())) continue;
         if (i == idx)
         {
             lv_obj_add_state(item, LV_STATE_FOCUSED);  // HOTFIX: Clear LVGL states to fix bold residue.
@@ -634,7 +611,7 @@ void screen_set_submenu_selection(uint8_t idx)
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
-                lv_obj_set_style_text_color(lbl2, g_light_power_state ? GREEN : LIGHT, 0);
+                lv_obj_set_style_text_color(lbl2, submenu_light_power_on() ? GREEN : LIGHT, 0);
                 lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
             }
         }
@@ -657,12 +634,12 @@ void screen_open_info_submenu(uint8_t item_idx)
 
     submenu_populate_current();
     (void)menu_runtime_current_rows(&count);
-    g_ui.sub_item_count = count;
-    g_ui.sub_menu_idx   = menu_runtime_default_selection();
-    g_ui.sub_parent     = UI_INFO;
-    g_ui.state          = UI_SUB_MENU;
-    g_ui.sub_history_depth = 0;
-    screen_set_submenu_selection(g_ui.sub_menu_idx);
+    ui_state_set_sub_item_count(count);
+    ui_state_set_sub_menu_idx(menu_runtime_default_selection());
+    ui_state_set_sub_parent(UI_INFO);
+    ui_state_set_state(UI_SUB_MENU);
+    ui_state_set_sub_history_depth(0U);
+    screen_set_submenu_selection(ui_state_get_sub_menu_idx());
     submenu_slide_in();
 }
 
@@ -677,12 +654,12 @@ static void refresh_info_submenu_page(uint8_t keep_idx)
     }
 
     submenu_populate_current();
-    g_ui.sub_item_count = count;
+    ui_state_set_sub_item_count(count);
     if (keep_idx >= count)
     {
         keep_idx = (uint8_t)(count - 1U);
     }
-    g_ui.sub_menu_idx = keep_idx;
+    ui_state_set_sub_menu_idx(keep_idx);
     screen_set_submenu_selection(keep_idx);
 }
 
@@ -692,17 +669,21 @@ void screen_refresh_info_submenu_if_open(void)
     {
         return;
     }
-    if (g_ui.state != UI_SUB_MENU || g_ui.sub_parent != UI_INFO || g_ui.sub_history_depth != 0)
+    if ((ui_state_get_state() != UI_SUB_MENU) ||
+        (ui_state_get_sub_parent() != UI_INFO) ||
+        (ui_state_get_sub_history_depth() != 0U))
     {
         return;
     }
 
-    refresh_info_submenu_page(g_ui.sub_menu_idx);
+    refresh_info_submenu_page(ui_state_get_sub_menu_idx());
 }
 
 bool screen_handle_dive_plan_rotate(int8_t dir)
 {
-    if (g_ui.state != UI_SUB_MENU || g_ui.sub_parent != UI_INFO || !submenu_is_dive_plan_visible())
+    if ((ui_state_get_state() != UI_SUB_MENU) ||
+        (ui_state_get_sub_parent() != UI_INFO) ||
+        !submenu_is_dive_plan_visible())
     {
         return false;
     }
@@ -734,12 +715,12 @@ static bool refresh_compass_cal_submenu(void)
         return false;
     }
     submenu_populate_current();
-    g_ui.sub_item_count = count;
-    if (g_ui.sub_menu_idx >= count)
+    ui_state_set_sub_item_count(count);
+    if (ui_state_get_sub_menu_idx() >= count)
     {
-        g_ui.sub_menu_idx = count - 1;
+        ui_state_set_sub_menu_idx((uint8_t)(count - 1U));
     }
-    screen_set_submenu_selection(g_ui.sub_menu_idx);
+    screen_set_submenu_selection(ui_state_get_sub_menu_idx());
     return true;
 }
 
@@ -753,11 +734,11 @@ void screen_open_setup_submenu(uint8_t item_idx)
 
     submenu_populate_current();
     (void)menu_runtime_current_rows(&count);
-    g_ui.sub_item_count = count;
-    g_ui.sub_menu_idx   = 0;
-    g_ui.sub_parent     = UI_SETUP;
-    g_ui.state          = UI_SUB_MENU;
-    g_ui.sub_history_depth = 0;
+    ui_state_set_sub_item_count(count);
+    ui_state_set_sub_menu_idx(0U);
+    ui_state_set_sub_parent(UI_SETUP);
+    ui_state_set_state(UI_SUB_MENU);
+    ui_state_set_sub_history_depth(0U);
     submenu_slide_in();
 }
 
@@ -773,9 +754,9 @@ void screen_open_nested_submenu(const char *title, const char **items, uint8_t c
     (void)count;
     submenu_populate_current();
     (void)menu_runtime_current_rows(&count);
-    g_ui.sub_item_count = count;
-    g_ui.sub_menu_idx   = 0;
-    g_ui.state = UI_SUB_MENU;
+    ui_state_set_sub_item_count(count);
+    ui_state_set_sub_menu_idx(0U);
+    ui_state_set_state(UI_SUB_MENU);
 }
 
 static void refresh_current_submenu_page(uint8_t keep_idx)
@@ -789,12 +770,12 @@ static void refresh_current_submenu_page(uint8_t keep_idx)
     }
 
     submenu_populate_current();
-    g_ui.sub_item_count = count;
+    ui_state_set_sub_item_count(count);
     if (keep_idx >= count)
     {
         keep_idx = (uint8_t)(count - 1);
     }
-    g_ui.sub_menu_idx = keep_idx;
+    ui_state_set_sub_menu_idx(keep_idx);
     screen_set_submenu_selection(keep_idx);
 }
 
@@ -803,7 +784,7 @@ void screen_handle_submenu_select(uint8_t item_idx)
     menu_action_t action;
     const menu_row_t *row;
     if (!s_submenu_list || !s_submenu_title) return;
-    if (item_idx >= g_ui.sub_item_count) return;
+    if (item_idx >= ui_state_get_sub_item_count()) return;
     row = menu_runtime_row_at(item_idx);
     if (!menu_actions_handle_select(item_idx, row, &action))
     {
@@ -820,8 +801,8 @@ void screen_handle_submenu_select(uint8_t item_idx)
         if (menu_runtime_open_child(action.child_menu, row->id))
         {
             submenu_populate_current();
-            g_ui.sub_menu_idx = 0;
-            screen_set_submenu_selection(g_ui.sub_menu_idx);
+            ui_state_set_sub_menu_idx(0U);
+            screen_set_submenu_selection(ui_state_get_sub_menu_idx());
         }
         break;
     case MENU_ACTION_REFRESH:
@@ -829,14 +810,14 @@ void screen_handle_submenu_select(uint8_t item_idx)
         break;
     case MENU_ACTION_SHOW_CONFIRM:
         screen_show_modal_setup_confirm(action.modal_text);
-        g_ui.state = UI_MODAL_SETUP_CONFIRM;
+        ui_state_set_state(UI_MODAL_SETUP_CONFIRM);
         break;
     case MENU_ACTION_BEGIN_EDIT:
         screen_begin_edit_value(item_idx, &action.edit_spec);
         break;
     case MENU_ACTION_SHOW_GAS_MODAL:
         screen_show_modal_gas();
-        g_ui.state = UI_MODAL_GAS;
+        ui_state_set_state(UI_MODAL_GAS);
         break;
     case MENU_ACTION_SHOW_TEXT_MODAL:
         screen_show_modal_act(action.modal_text);
@@ -850,12 +831,12 @@ void screen_close_submenu(void)
 {
     if (!s_submenu_layer || !s_submenu_title || !s_submenu_list)
     {
-        g_ui.sub_history_depth = 0;
-        g_ui.sub_item_count = 0;
-        g_ui.sub_menu_idx = 0;
-        g_ui.edit_ctx.active = false;
-        g_ui.gas_modal_from_submenu = false;
-        g_ui.state = g_ui.sub_parent;
+        ui_state_set_sub_history_depth(0U);
+        ui_state_set_sub_item_count(0U);
+        ui_state_set_sub_menu_idx(0U);
+        ui_state_set_edit_active(false);
+        ui_state_set_gas_modal_from_submenu(false);
+        ui_state_set_state(ui_state_get_sub_parent());
         return;
     }
 
@@ -866,23 +847,23 @@ void screen_close_submenu(void)
         if (count > 0)
         {
             submenu_populate_current();
-            g_ui.sub_item_count = count;
-            if (g_ui.sub_menu_idx >= count)
+            ui_state_set_sub_item_count(count);
+            if (ui_state_get_sub_menu_idx() >= count)
             {
-                g_ui.sub_menu_idx = count - 1;
+                ui_state_set_sub_menu_idx((uint8_t)(count - 1U));
             }
-            screen_set_submenu_selection(g_ui.sub_menu_idx);
+            screen_set_submenu_selection(ui_state_get_sub_menu_idx());
         }
-        g_ui.state = UI_SUB_MENU;
+        ui_state_set_state(UI_SUB_MENU);
         return;
     }
     submenu_slide_out();
     menu_runtime_reset();
     menu_actions_clear_pending();
-    g_ui.sub_history_depth = 0;
-    g_ui.sub_item_count = 0;
-    g_ui.sub_menu_idx = 0;
-    g_ui.state = g_ui.sub_parent;
+    ui_state_set_sub_history_depth(0U);
+    ui_state_set_sub_item_count(0U);
+    ui_state_set_sub_menu_idx(0U);
+    ui_state_set_state(ui_state_get_sub_parent());
 }
 
 void screen_confirm_submenu_setting(void)
@@ -892,18 +873,18 @@ void screen_confirm_submenu_setting(void)
     if (!menu_actions_confirm_pending(&close_extra_mode_layer, &return_dash_after_apply))
     {
         screen_hide_modal();
-        g_ui.state = UI_SUB_MENU;
+        ui_state_set_state(UI_SUB_MENU);
         return;
     }
     screen_hide_modal();
     if (return_dash_after_apply)
     {
-        g_ui.sub_history_depth = 0;
-        g_ui.edit_ctx.active = false;
+        ui_state_set_sub_history_depth(0U);
+        ui_state_set_edit_active(false);
         menu_runtime_reset();
         menu_actions_clear_pending();
         submenu_slide_out();
-        g_ui.state = UI_DASH;
+        ui_state_set_state(UI_DASH);
         return;
     }
     screen_close_submenu();
@@ -917,5 +898,5 @@ void screen_cancel_submenu_setting(void)
 {
     menu_actions_clear_pending();
     screen_hide_modal();
-    g_ui.state = UI_SUB_MENU;
+    ui_state_set_state(UI_SUB_MENU);
 }

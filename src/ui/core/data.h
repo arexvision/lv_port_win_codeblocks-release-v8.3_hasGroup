@@ -19,6 +19,8 @@ typedef int rt_base_t;
 #include <rthw.h>
 #endif
 
+#include "ui_types.h"
+
 /* =========================================================
  * Data Bus — 硬件写入接口层
  *
@@ -29,8 +31,6 @@ typedef int rt_base_t;
  *   硬件传感器 ──bus_set_*()──▶ g_sensor_data (dirty_mask)
  *   BLE 任务   ──bus_set_ui_layout()──▶ g_sys_config + DIRTY_UI_LAYOUT
  * ========================================================= */
-#include "ui_engine.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -150,9 +150,10 @@ void bus_set_ndl(int16_t ndl_min);
 
 /* --- 用户设置接口 --- */
 void bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high);
+void bus_set_conservatism(uint8_t level);
+void bus_set_mod_ppo2(float ppo2);
 void bus_set_salinity_mode(uint8_t mode);
 void bus_set_last_deco_stop(uint8_t depth_m);
-void bus_set_brightness(uint8_t level);
 
 /* --- 技术潜水参数接口 --- */
 void bus_set_mod(float mod_m);
@@ -161,7 +162,100 @@ void bus_set_gas_mix(uint8_t o2_pct, uint8_t he_pct);
 void bus_set_gas_density(float density);
 void bus_set_fio2(float fio2_pct);
 
-/* --- 历史轨迹推流（已在 card_plan.c 中实现，此处声明导出） --- */
+/* --- UI 只读快照/意图接口 --- */
+uint16_t ui_safe_zone_w_get(void);
+uint16_t ui_safe_zone_h_get(void);
+int16_t ui_offset_x_get(void);
+int16_t ui_offset_y_get(void);
+bool ui_mask_enabled_get(void);
+uint16_t ui_block_gap_px_get(void);
+uint16_t ui_panel_gap_px_get(void);
+uint16_t ui_menu_gap_px_get(void);
+uint16_t ui_menu_item_h_px_get(void);
+uint16_t ui_tissues_chart_h_px_get(void);
+order_t ui_layout_order_get(void);
+uint8_t ui_dots_position_get(void);
+uint8_t ui_depth_h_u_get(void);
+uint8_t ui_ndl_h_u_get(void);
+uint8_t ui_pod_h_u_get(void);
+uint8_t ui_batt_h_u_get(void);
+uint8_t ui_gas_h_u_get(void);
+uint8_t ui_time_h_u_get(void);
+uint8_t ui_left_widget_count_get(void);
+const grid_widget_t *ui_left_widget_get(uint8_t index);
+uint8_t ui_custom_card_count_get(void);
+uint8_t ui_custom_card_widget_count_get(uint8_t custom_card_idx);
+const grid_widget_t *ui_custom_card_widget_get(uint8_t custom_card_idx, uint8_t widget_idx);
+uint8_t ui_custom_card_slot_get(uint8_t storage_pos);
+float bus_get_depth(void);
+float bus_get_stop_depth_m(void);
+stop_type_t bus_get_stop_type(void);
+uint8_t bus_get_ndl_bar_pct(void);
+uint16_t bus_get_stop_time_total_s(void);
+uint16_t bus_get_stop_time_left_s(void);
+bool bus_get_in_stop_zone(void);
+int16_t bus_get_ndl(void);
+int16_t bus_get_ndl_stop_value(void);
+float bus_get_max_depth(void);
+float bus_get_avg_depth(void);
+uint32_t bus_get_dive_time_s(void);
+uint32_t bus_get_surface_time_s(void);
+float bus_get_battery_pct(void);
+float bus_get_pod1_bar(void);
+float bus_get_pod2_bar(void);
+float bus_get_temperature(void);
+float bus_get_min_temp(void);
+float bus_get_avg_temp(void);
+float bus_get_max_temp(void);
+bool bus_get_bat_temperature_valid(void);
+bool bus_get_prj_temperature_valid(void);
+float bus_get_bat_temperature(void);
+float bus_get_prj_temperature(void);
+float bus_get_ascent_rate(void);
+uint16_t bus_get_sys_time_h(void);
+uint16_t bus_get_sys_time_m(void);
+uint8_t bus_get_gas_slot_count(void);
+uint8_t bus_get_gas_active_idx(void);
+const char *bus_get_gas_slot_name(uint8_t gas_idx);
+uint8_t bus_get_gas_slot_o2_pct(uint8_t gas_idx);
+uint8_t bus_get_gas_slot_he_pct(uint8_t gas_idx);
+float bus_get_gas_slot_mod_m(uint8_t gas_idx);
+float bus_get_gas_slot_ppo2(uint8_t gas_idx);
+uint8_t bus_get_gas_mix_o2(void);
+uint8_t bus_get_gas_mix_he(void);
+float bus_get_gas_density(void);
+float bus_get_mod_m(void);
+float bus_get_ceiling_m(void);
+float bus_get_mod_ppo2(void);
+float bus_get_fio2_pct(void);
+uint8_t bus_get_gf_low(void);
+uint8_t bus_get_gf_high(void);
+float bus_get_gf99(void);
+float bus_get_surf_gf(void);
+uint8_t bus_get_cns_pct(void);
+uint16_t bus_get_otu(void);
+uint8_t bus_get_tissue_pct(uint8_t index);
+uint8_t bus_get_pod_count(void);
+float bus_get_pod_bar(uint8_t pod_idx);
+float bus_get_tts(void);
+float bus_get_sac_rate(void);
+uint8_t bus_get_last_deco_stop(void);
+uint8_t bus_get_salinity_mode(void);
+uint8_t bus_get_conservatism(void);
+uint8_t bus_get_brightness(void);
+bool bus_is_heading_locked(void);
+uint16_t bus_get_heading(void);
+uint16_t bus_get_heading_target(void);
+void bus_lock_heading_to_current(void);
+void bus_clear_heading_lock(void);
+
+/* --- 历史轨迹 / 减压停留原始数据只读接口 --- */
+uint8_t bus_get_dive_log_count(void);
+bool bus_get_dive_log_point(uint8_t index, dive_pt_t *out_point);
+uint8_t bus_get_deco_stop_count(void);
+bool bus_get_deco_stop(uint8_t index, deco_stop_t *out_stop);
+
+/* --- 历史轨迹推流 --- */
 void dive_log_append(float current_time_s, float current_depth_m);
 void dive_log_reset(void);
 

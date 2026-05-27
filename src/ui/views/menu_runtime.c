@@ -76,7 +76,22 @@ static void build_info_rows(uint8_t index)
         /* INFO 普通详情页只读；DIVE PLAN 例外，它有 EXIT/NEXT 等可操作行。 */
         if (s_current_menu == MENU_INFO_DIVE_PLAN)
         {
-            id = (i == 0U) ? MENU_ITEM_DIVE_PLAN_EXIT : MENU_ITEM_DIVE_PLAN_PRIMARY;
+            if (i == 0U)
+            {
+                id = MENU_ITEM_DIVE_PLAN_EXIT;
+            }
+            else if (i == 1U)
+            {
+                id = MENU_ITEM_DIVE_PLAN_NEXT;
+            }
+            else if (i == 2U)
+            {
+                id = MENU_ITEM_DIVE_PLAN_MORE;
+            }
+            else
+            {
+                id = MENU_ITEM_DIVE_PLAN_PLAN;
+            }
             type = MENU_ROW_DIVE_PLAN;
         }
         row_add(id, type, labels[i]);
@@ -187,12 +202,12 @@ static void build_setup_systems(void)
     rows_from_labels(labels, count, ids, types);
 }
 
-static void build_from_model(const char **(*builder)(uint8_t *out_count),
-                             const menu_item_id_t *ids,
-                             const menu_row_type_t *types)
+static void build_nested_by_title(const char *title,
+                                  const menu_item_id_t *ids,
+                                  const menu_row_type_t *types)
 {
     uint8_t count = 0;
-    const char **labels = builder(&count);
+    const char **labels = submenu_nested_items_for(title, &count);
     rows_from_labels(labels, count, ids, types);
 }
 
@@ -206,7 +221,7 @@ static void build_light_color(void)
         MENU_ITEM_LIGHT_LEVEL_70,
         MENU_ITEM_LIGHT_LEVEL_100,
     };
-    build_from_model(submenu_build_light_level_items, ids, NULL);
+    build_nested_by_title(menu_defs_title(s_current_menu), ids, NULL);
 }
 
 static void build_rows(void)
@@ -258,7 +273,7 @@ static void build_rows(void)
             MENU_ITEM_MODE_THREE_GAS,
             MENU_ITEM_MODE_OC_TECH,
         };
-        build_from_model(submenu_build_mode_setup_items, ids, NULL);
+        build_nested_by_title("MODE SETUP", ids, NULL);
         break;
     }
     case MENU_NITROX:
@@ -268,7 +283,7 @@ static void build_rows(void)
             MENU_ITEM_NITROX_O2,
             MENU_ITEM_NITROX_CONFIRM,
         };
-        build_from_model(submenu_build_nitrox_items, ids, NULL);
+        build_nested_by_title("NITROX", ids, NULL);
         break;
     }
     case MENU_THREE_GAS:
@@ -281,7 +296,7 @@ static void build_rows(void)
             MENU_ITEM_THREE_GAS_COUNT,
             MENU_ITEM_THREE_GAS_CONFIRM,
         };
-        build_from_model(submenu_build_three_gas_items, ids, NULL);
+        build_nested_by_title("3 GAS", ids, NULL);
         break;
     }
     case MENU_OC_TECH:
@@ -295,7 +310,7 @@ static void build_rows(void)
             MENU_ITEM_OC_TECH_SLOT_4,
             MENU_ITEM_OC_TECH_CONFIRM,
         };
-        build_from_model(submenu_build_oc_tech_items, ids, NULL);
+        build_nested_by_title("OC Tech", ids, NULL);
         break;
     }
     case MENU_OC_TECH_EDIT:
@@ -307,7 +322,7 @@ static void build_rows(void)
             MENU_ITEM_OC_TECH_EDIT_SAVE,
             MENU_ITEM_BACK,
         };
-        build_from_model(submenu_build_oc_tech_edit_items, ids, NULL);
+        build_nested_by_title(s_oc_tech_edit_title, ids, NULL);
         break;
     }
     case MENU_DIVE_SETUP:
@@ -320,7 +335,7 @@ static void build_rows(void)
             MENU_ITEM_DIVE_LAST_DECO,
             MENU_ITEM_DIVE_ALTITUDE,
         };
-        build_from_model(submenu_build_dive_setup_items, ids, NULL);
+        build_nested_by_title("DIVE SETUP", ids, NULL);
         break;
     }
     case MENU_AI_SETUP:
@@ -331,7 +346,7 @@ static void build_rows(void)
             MENU_ITEM_AI_TANK_1,
             MENU_ITEM_AI_GTR,
         };
-        build_from_model(submenu_build_ai_setup_items, ids, NULL);
+        build_nested_by_title("AI SETUP", ids, NULL);
         break;
     }
     case MENU_ALERTS_SETUP:
@@ -342,7 +357,7 @@ static void build_rows(void)
             MENU_ITEM_ALERT_TIME,
             MENU_ITEM_ALERT_NDL,
         };
-        build_from_model(submenu_build_alerts_setup_items, ids, NULL);
+        build_nested_by_title("ALERTS SETUP", ids, NULL);
         break;
     }
     case MENU_DISPLAY:
@@ -355,7 +370,7 @@ static void build_rows(void)
             MENU_ITEM_DISPLAY_BLUETOOTH,
             MENU_ITEM_DISPLAY_RESET,
         };
-        build_from_model(submenu_build_display_items, ids, NULL);
+        build_nested_by_title("DISPLAY", ids, NULL);
         break;
     }
     case MENU_DATE_CLOCK:
@@ -368,7 +383,7 @@ static void build_rows(void)
             MENU_ITEM_DATE_HOUR,
             MENU_ITEM_DATE_MINUTE,
         };
-        build_from_model(submenu_build_datetime_items, ids, NULL);
+        build_nested_by_title("DATE & CLOCK", ids, NULL);
         break;
     }
     case MENU_LIGHT_RED:
@@ -391,7 +406,7 @@ static void push_current(menu_item_id_t source_item)
         return;
     }
     s_stack[s_stack_depth].menu_id = s_current_menu;
-    s_stack[s_stack_depth].selected_idx = g_ui.sub_menu_idx;
+    s_stack[s_stack_depth].selected_idx = ui_state_get_sub_menu_idx();
     s_stack_depth++;
 }
 
@@ -427,19 +442,9 @@ bool menu_runtime_open_child(menu_id_t child_id, menu_item_id_t source_item)
     }
     if (child_id == MENU_OC_TECH_EDIT)
     {
-        /* OC Tech 每个气体槽共用同一个编辑菜单，但标题和 draft slot 不同。
-         * 这里仍复用旧 submenu_model 初始化 draft 数据。
-         */
-        uint8_t slot = 0U;
-        if (source_item >= MENU_ITEM_OC_TECH_SLOT_0 && source_item <= MENU_ITEM_OC_TECH_SLOT_4)
-        {
-            slot = (uint8_t)(source_item - MENU_ITEM_OC_TECH_SLOT_0);
-        }
-        submenu_begin_oc_tech_edit(slot);
-        lv_snprintf(s_oc_tech_edit_title,
-                    sizeof(s_oc_tech_edit_title),
-                    "G%u TRIMIX",
-                    (unsigned)(slot + 1U));
+        submenu_prepare_oc_tech_child(source_item,
+                                      s_oc_tech_edit_title,
+                                      sizeof(s_oc_tech_edit_title));
     }
     push_current(source_item);
     s_current_menu = child_id;
@@ -456,7 +461,7 @@ bool menu_runtime_back(void)
     s_stack_depth--;
     s_current_menu = s_stack[s_stack_depth].menu_id;
     build_rows();
-    g_ui.sub_menu_idx = s_stack[s_stack_depth].selected_idx;
+    ui_state_set_sub_menu_idx(s_stack[s_stack_depth].selected_idx);
     return true;
 }
 

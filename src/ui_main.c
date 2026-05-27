@@ -25,9 +25,9 @@ void UI_main(void)
     ui_state_init();
 
 #if ENABLE_INFO_MENU
-    g_ui.state = UI_INFO;
-    g_ui.dash_page = PAGE_POS_INFO;
-    g_ui.menu_info_idx = 0;
+    ui_state_set_state(UI_INFO);
+    ui_state_set_dash_page(PAGE_POS_INFO);
+    ui_state_set_menu_info_idx(0);
     screen_scroll_to_page(PAGE_POS_INFO);
     screen_set_info_selection(0);
 #else

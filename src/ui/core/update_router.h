@@ -7,7 +7,6 @@
 extern "C" {
 #endif
 
-void ui_update_router_tick(void);
 void ui_update_router_dispatch(uint32_t dirty_mask);
 
 #ifdef __cplusplus

@@ -1,4 +1,7 @@
 #include "../core/ui_engine.h"
+#include "../core/data.h"
+#include "../core/ui_vm.h"
+#include "../core/vm/ui_vm_dashboard.h"
 #include "layout_view.h"
 #include "../comp/comp_style.h"
 #include "../comp/comp_view.h"
@@ -10,23 +13,41 @@
 static lv_obj_t *s_left_bat_lbl = NULL;
 static lv_obj_t *s_left_prj_lbl = NULL;
 
+static bool layout_label_is_valid(lv_obj_t **obj_ref)
+{
+    if (obj_ref == NULL || *obj_ref == NULL)
+    {
+        return false;
+    }
+
+    if (!lv_obj_is_valid(*obj_ref))
+    {
+        *obj_ref = NULL;
+        return false;
+    }
+
+    return true;
+}
+
 bool safe_zone_in_danger(void)
 {
-    int16_t max_offset_x = (int16_t)((PHYSICAL_W - g_sys_config.safe_zone_w) / 2);
-    int16_t max_offset_y = (int16_t)((PHYSICAL_H - g_sys_config.safe_zone_h) / 2);
+    uint16_t safe_w = ui_safe_zone_w_get();
+    uint16_t safe_h = ui_safe_zone_h_get();
+    int16_t max_offset_x = (int16_t)((PHYSICAL_W - safe_w) / 2);
+    int16_t max_offset_y = (int16_t)((PHYSICAL_H - safe_h) / 2);
 
-    if (g_sys_config.offset_x < -max_offset_x || g_sys_config.offset_x > max_offset_x)
+    if (ui_offset_x_get() < -max_offset_x || ui_offset_x_get() > max_offset_x)
     {
         return true;
     }
-    if (g_sys_config.offset_y < -max_offset_y || g_sys_config.offset_y > max_offset_y)
+    if (ui_offset_y_get() < -max_offset_y || ui_offset_y_get() > max_offset_y)
     {
         return true;
     }
 
-    if (g_sys_config.mask_enabled)
+    if (ui_mask_enabled_get())
     {
-        int16_t bottom_edge = (int16_t)(PHYSICAL_H / 2 + g_sys_config.safe_zone_h / 2 + g_sys_config.offset_y);
+        int16_t bottom_edge = (int16_t)(PHYSICAL_H / 2 + safe_h / 2 + ui_offset_y_get());
         if (bottom_edge > PHYSICAL_H - MASK_EDGE_GUARD)
         {
             return true;
@@ -43,10 +64,10 @@ void calc_layout_rect(int16_t *out_x, int16_t *out_y,
     int16_t center_x = (int16_t)(PHYSICAL_W / 2) + anchor_offset_x;
     int16_t center_y = (int16_t)(PHYSICAL_H / 2) + anchor_offset_y;
 
-    *out_x = center_x - (int16_t)(g_sys_config.safe_zone_w / 2);
-    *out_y = center_y - (int16_t)(g_sys_config.safe_zone_h / 2);
-    *out_w = g_sys_config.safe_zone_w;
-    *out_h = g_sys_config.safe_zone_h;
+    *out_x = center_x - (int16_t)(ui_safe_zone_w_get() / 2);
+    *out_y = center_y - (int16_t)(ui_safe_zone_h_get() / 2);
+    *out_w = ui_safe_zone_w_get();
+    *out_h = ui_safe_zone_h_get();
 }
 
 void calc_tech_layout(int16_t *out_lx, int16_t *out_ly,
@@ -54,25 +75,25 @@ void calc_tech_layout(int16_t *out_lx, int16_t *out_ly,
                            int16_t *out_rx, int16_t *out_ry,
                            uint16_t *out_rw, uint16_t *out_rh)
 {
-    uint16_t gap = g_sys_config.gap_u * BASE_U;
+    uint16_t gap = ui_panel_gap_px_get();
 
-    if (g_sys_config.layout_order == ORDER_NORMAL)
+    if (ui_layout_order_get() == ORDER_NORMAL)
     {
         *out_lx = 0;
         *out_rx = (int16_t)(LEFT_ANCHOR_W + gap);
     }
     else
     {
-        *out_lx = (int16_t)(g_sys_config.safe_zone_w - LEFT_ANCHOR_W - gap);
+        *out_lx = (int16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W - gap);
         *out_rx = 0;
     }
 
     *out_ly = 0;
     *out_ry = 0;
     *out_lw = LEFT_ANCHOR_W;
-    *out_lh = g_sys_config.safe_zone_h;
-    *out_rw = g_sys_config.safe_zone_w - LEFT_ANCHOR_W - gap;
-    *out_rh = g_sys_config.safe_zone_h;
+    *out_lh = ui_safe_zone_h_get();
+    *out_rw = ui_safe_zone_w_get() - LEFT_ANCHOR_W - gap;
+    *out_rh = ui_safe_zone_h_get();
 }
 
 void calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
@@ -80,26 +101,26 @@ void calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
                               int16_t *out_bot_x, int16_t *out_bot_y,
                               uint16_t *out_bot_w, uint16_t *out_bot_h)
 {
-    uint16_t gap = g_sys_config.gap_u * BASE_U;
+    uint16_t gap = ui_panel_gap_px_get();
     uint16_t top_h = 0;
 
-    top_h += g_sys_config.h_depth * BASE_U;
-    top_h += g_sys_config.h_ndl * BASE_U + gap;
-    top_h += g_sys_config.h_pod * BASE_U + gap;
-    top_h += g_sys_config.h_batt * BASE_U + gap;
-    top_h += g_sys_config.h_gas * BASE_U + gap;
-    top_h += g_sys_config.h_time * BASE_U;
+    top_h += (uint16_t)(ui_depth_h_u_get() * BASE_U);
+    top_h += (uint16_t)(ui_ndl_h_u_get() * BASE_U + gap);
+    top_h += (uint16_t)(ui_pod_h_u_get() * BASE_U + gap);
+    top_h += (uint16_t)(ui_batt_h_u_get() * BASE_U + gap);
+    top_h += (uint16_t)(ui_gas_h_u_get() * BASE_U + gap);
+    top_h += (uint16_t)(ui_time_h_u_get() * BASE_U);
 
     if (top_h < MIN_CLASSIC_TOP_H)
     {
         top_h = MIN_CLASSIC_TOP_H;
     }
 
-    uint16_t bottom_h = (g_sys_config.safe_zone_h > top_h + gap)
-                        ? (g_sys_config.safe_zone_h - top_h - gap)
+    uint16_t bottom_h = (ui_safe_zone_h_get() > top_h + gap)
+                        ? (ui_safe_zone_h_get() - top_h - gap)
                         : MIN_CLASSIC_TOP_H;
 
-    if (g_sys_config.layout_order == ORDER_NORMAL)
+    if (ui_layout_order_get() == ORDER_NORMAL)
     {
         *out_top_x = 0;
         *out_bot_x = 0;
@@ -114,9 +135,9 @@ void calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
         *out_bot_y = 0;
     }
 
-    *out_top_w = g_sys_config.safe_zone_w;
+    *out_top_w = ui_safe_zone_w_get();
     *out_top_h = top_h;
-    *out_bot_w = g_sys_config.safe_zone_w;
+    *out_bot_w = ui_safe_zone_w_get();
     *out_bot_h = bottom_h;
 }
 
@@ -164,17 +185,17 @@ void render_dynamic_menu(lv_obj_t *parent_card,
 {
     if (!parent_card || !items || item_count == 0) return;
 
-    int right_canvas_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
-                         - ((int)g_sys_config.gap_u * BASE_U);
+    int right_canvas_w = (int)ui_safe_zone_w_get() - LEFT_ANCHOR_W
+                         - (int)ui_panel_gap_px_get();
     int item_w = right_canvas_w - 15;
 
     int current_y = start_y;
     for (uint8_t i = 0; i < item_count; i++)
     {
         const menu_item_cfg_t *item_cfg = &items[i];
-        int item_h = (int)(item_cfg->height_u > 0 ? item_cfg->height_u : g_sys_config.h_menu_item)
+        int item_h = (int)((item_cfg->height_u > 0U) ? item_cfg->height_u : (uint8_t)(ui_menu_item_h_px_get() / BASE_U))
                      * BASE_U;
-        int gap_y = (int)g_sys_config.gap_menu * BASE_U;
+        int gap_y = (int)ui_menu_gap_px_get();
 
         lv_obj_t *item = lv_obj_create(parent_card);
         lv_obj_remove_style_all(item);
@@ -222,8 +243,8 @@ void render_dynamic_menu(lv_obj_t *parent_card,
 
 void render_card_title(lv_obj_t *parent_card, const char *title_text)
 {
-    uint16_t right_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
-                       - ((int)g_sys_config.gap_u * BASE_U);
+    uint16_t right_w = (uint16_t)((int)ui_safe_zone_w_get() - LEFT_ANCHOR_W
+                       - (int)ui_panel_gap_px_get());
 
     lv_obj_t *lbl = lv_label_create(parent_card);
     lv_obj_remove_style_all(lbl);
@@ -283,35 +304,20 @@ static void add_left_anchor_sep_line(lv_obj_t *parent, lv_coord_t x, lv_coord_t 
     lv_obj_clear_flag(line, LV_OBJ_FLAG_SCROLLABLE);
 }
 
-static void format_left_temp_text(char *buf, size_t len, float temp_c, bool valid)
-{
-    if (!valid)
-    {
-        snprintf(buf, len, "--");
-        return;
-    }
-
-    snprintf(buf, len, "%.1fC", (double)temp_c);
-}
-
 void refresh_left_aux_slots(void)
 {
-    char buf[16];
+    ui_vm_left_aux_t vm;
 
-    if (s_left_bat_lbl)
+    ui_vm_left_aux_update(&vm);
+
+    if (layout_label_is_valid(&s_left_bat_lbl))
     {
-        format_left_temp_text(buf, sizeof(buf),
-                                   g_sensor_data.bat_temperature_c,
-                                   g_sensor_data.bat_temperature_valid);
-        lv_label_set_text(s_left_bat_lbl, buf);
+        lv_label_set_text(s_left_bat_lbl, vm.battery_temp_text);
     }
 
-    if (s_left_prj_lbl)
+    if (layout_label_is_valid(&s_left_prj_lbl))
     {
-        format_left_temp_text(buf, sizeof(buf),
-                                   g_sensor_data.prj_temperature_c,
-                                   g_sensor_data.prj_temperature_valid);
-        lv_label_set_text(s_left_prj_lbl, buf);
+        lv_label_set_text(s_left_prj_lbl, vm.project_temp_text);
     }
 }
 
@@ -359,11 +365,15 @@ static lv_obj_t *create_left_aux_slot(lv_obj_t *parent,
     return obj;
 }
 
-static grid_widget_t *left_find_widget_at_cell(uint8_t col, uint8_t row)
+static const grid_widget_t *left_find_widget_at_cell(uint8_t col, uint8_t row)
 {
-    for (uint8_t i = 0; i < g_sys_config.left_widget_count && i < LEFT_MAX_WIDGETS; i++)
+    for (uint8_t i = 0; i < ui_left_widget_count_get() && i < LEFT_MAX_WIDGETS; i++)
     {
-        grid_widget_t *cfg = &g_sys_config.left_widgets[i];
+        const grid_widget_t *cfg = ui_left_widget_get(i);
+        if (cfg == NULL)
+        {
+            continue;
+        }
         if (cfg->widget_id == COMP_EMPTY)
         {
             continue;
@@ -393,9 +403,13 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
     const uint16_t cell_w = LEFT_CELL_W;
     const uint16_t cell_h = LEFT_CELL_H;
 
-    for (uint8_t i = 0; i < g_sys_config.left_widget_count && i < LEFT_MAX_WIDGETS; i++)
+    for (uint8_t i = 0; i < ui_left_widget_count_get() && i < LEFT_MAX_WIDGETS; i++)
     {
-        grid_widget_t *cfg = &g_sys_config.left_widgets[i];
+        const grid_widget_t *cfg = ui_left_widget_get(i);
+        if (cfg == NULL)
+        {
+            continue;
+        }
         if (cfg->widget_id == COMP_EMPTY) continue;
 
         const comp_style_t *style = comp_get_style(cfg->widget_id);
@@ -460,7 +474,8 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
 
 static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_card_idx)
 {
-    if (!card_custom || custom_card_idx >= g_sys_config.custom_card_count ||
+    if (!card_custom ||
+            custom_card_idx >= 0U ||
             custom_card_idx >= MAX_CUSTOM_CARDS)
     {
         return;
@@ -468,17 +483,17 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
 
     uint16_t parent_w = lv_obj_get_width(card_custom);
     uint16_t parent_h = lv_obj_get_height(card_custom);
-    uint8_t count = g_sys_config.custom_cards[custom_card_idx].widget_count;
-    uint16_t fallback_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
-                          - (g_sys_config.panel_gap_u * BASE_U);
+    uint8_t count = ui_custom_card_widget_count_get(custom_card_idx);
+    uint16_t fallback_w = ui_safe_zone_w_get() - LEFT_ANCHOR_W
+                          - ui_panel_gap_px_get();
 
-    if (parent_w == 0 || parent_w > g_sys_config.safe_zone_w)
+    if (parent_w == 0 || parent_w > ui_safe_zone_w_get())
     {
         parent_w = fallback_w;
     }
-    if (parent_h == 0 || parent_h > g_sys_config.safe_zone_h)
+    if (parent_h == 0 || parent_h > ui_safe_zone_h_get())
     {
-        parent_h = g_sys_config.safe_zone_h;
+        parent_h = ui_safe_zone_h_get();
     }
 
     if (count > MAX_5F_WIDGETS)
@@ -491,7 +506,11 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
 
     for (uint8_t i = 0; i < count; i++)
     {
-        grid_widget_t *widget = &g_sys_config.custom_cards[custom_card_idx].widgets[i];
+        const grid_widget_t *widget = ui_custom_card_widget_get(custom_card_idx, i);
+        if (widget == NULL)
+        {
+            continue;
+        }
         comp_id_t w_id = widget->widget_id;
         uint8_t c = widget->x;
         uint8_t r = widget->y;

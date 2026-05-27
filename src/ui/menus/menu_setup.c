@@ -1,9 +1,11 @@
 #include "../screen/screen.h"
 #include "../core/ui_engine.h"
+#include "../core/vm/ui_vm_menu.h"
+#include "../core/vm/ui_vm_menu_types.h"
 #include "../core/ui_state.h"
 #include "../screen/layout_view.h"
 #include "../views/menu_defs.h"
-#include "../views/submenu_model.h"
+#include "../views/submenu_types.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/fonts.h"
 #include <stdio.h>
@@ -24,12 +26,29 @@ const menu_list_cfg_t menu_setup_cfg =
 };
 
 static lv_obj_t *s_list;
+static ui_vm_menu_layout_t s_menu_layout_vm;
 
 /* badge 句柄数组：由动态菜单工厂输出的 item handles 填充。
  * child 0=title label，child 1=badge label。
  */
 static lv_obj_t *s_setup_item_objs[SETUP_ITEM_COUNT];
 static lv_obj_t *s_setup_badge_lbls[SETUP_ITEM_COUNT];
+
+static bool menu_setup_obj_is_valid(lv_obj_t **obj_ref)
+{
+    if (obj_ref == NULL || *obj_ref == NULL)
+    {
+        return false;
+    }
+
+    if (!lv_obj_is_valid(*obj_ref))
+    {
+        *obj_ref = NULL;
+        return false;
+    }
+
+    return true;
+}
 
 void menu_setup_create(lv_obj_t *parent)
 {
@@ -38,11 +57,11 @@ void menu_setup_create(lv_obj_t *parent)
 
     render_card_title(parent, "DIVE MENU");
 
-    int right_canvas_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
-                         - ((int)g_sys_config.gap_u * BASE_U);
+    ui_vm_menu_layout_update(&s_menu_layout_vm, NULL);
+    int right_canvas_w = (int)s_menu_layout_vm.right_canvas_w;
 
-    uint16_t item_h_px = (uint16_t)g_sys_config.h_menu_item * BASE_U;
-    uint16_t gap_y_px  = (uint16_t)g_sys_config.gap_menu * BASE_U;
+    uint16_t item_h_px = s_menu_layout_vm.item_h_px;
+    uint16_t gap_y_px  = s_menu_layout_vm.gap_y_px;
     uint16_t list_h = setup_count * item_h_px
                       + (setup_count - 1) * gap_y_px;
 
@@ -70,33 +89,31 @@ void menu_setup_create(lv_obj_t *parent)
 
 void menu_setup_update(void)
 {
-    if (!s_list) return;
+    ui_vm_setup_menu_t vm;
 
-    static const char *cal_str[] = { "AUTO", "LEARN", "OK" };
+    if (!menu_setup_obj_is_valid(&s_list)) return;
+
     static compass_cal_ui_state_t last_cal_state = COMPASS_CAL_IDLE;
+    static const char *const cal_str[] = { "AUTO", "LEARN", "OK" };
 
-    uint8_t cons = g_sys_config.conservatism;
-    uint8_t brt  = g_sys_config.brightness;
-    compass_cal_ui_state_t cal_state = get_compass_calibration_ui_state();
+    ui_vm_setup_menu_update(&vm);
 
-    if (s_setup_badge_lbls[1])
+    if (menu_setup_obj_is_valid(&s_setup_badge_lbls[1]))
     {
-        lv_label_set_text(s_setup_badge_lbls[1], submenu_conservatism_badge(cons));
+        lv_label_set_text(s_setup_badge_lbls[1], vm.conservatism_badge);
     }
-    if (s_setup_badge_lbls[2])
+    if (menu_setup_obj_is_valid(&s_setup_badge_lbls[2]))
     {
-        lv_label_set_text(s_setup_badge_lbls[2], submenu_brightness_badge(brt));
+        lv_label_set_text(s_setup_badge_lbls[2], vm.brightness_badge);
     }
-    if (s_setup_badge_lbls[3])
+    if (menu_setup_obj_is_valid(&s_setup_badge_lbls[3]))
     {
-        uint8_t idx = 0;
-        if (cal_state == COMPASS_CAL_RUNNING) idx = 1;
-        else if (cal_state == COMPASS_CAL_READY) idx = 2;
+        uint8_t idx = (vm.compass_cal_badge_idx <= 2U) ? vm.compass_cal_badge_idx : 0U;
         lv_label_set_text(s_setup_badge_lbls[3], cal_str[idx]);
     }
-    if (cal_state != last_cal_state)
+    if (vm.compass_cal_state != last_cal_state)
     {
-        last_cal_state = cal_state;
+        last_cal_state = vm.compass_cal_state;
         screen_refresh_compass_cal_submenu_if_open();
     }
 }

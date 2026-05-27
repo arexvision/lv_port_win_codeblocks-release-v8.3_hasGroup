@@ -1,4 +1,6 @@
 #include "../core/ui_engine.h"
+#include "../core/data.h"
+#include "../core/vm/ui_vm_dashboard.h"
 #include "comp_view.h"
 #include "comp_style.h"
 #include "../fonts/fonts.h"
@@ -44,6 +46,7 @@ static lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
 static uint8_t  s_ascent_icon_count = 0;
 static ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
 static uint8_t      s_ndl_handle_count = 0;
+static ui_vm_ndl_stop_t s_ndl_draw_vm[MAX_NDL_ICONS];
 
 static uint8_t ui_clamp_battery_pct(float pct)
 {
@@ -88,6 +91,22 @@ static lv_obj_t *s_sys_strobe_img = NULL;    /* 留转灯图*/
 static lv_obj_t *s_sys_flash_img = NULL;     /* 手电筒图*/
 static lv_obj_t *s_sys_cyl_lbl = NULL;      /* 气瓶数量文本 "x0" */
 
+static bool ui_obj_is_valid(lv_obj_t **obj_ref)
+{
+    if (obj_ref == NULL || *obj_ref == NULL)
+    {
+        return false;
+    }
+
+    if (!lv_obj_is_valid(*obj_ref))
+    {
+        *obj_ref = NULL;
+        return false;
+    }
+
+    return true;
+}
+
 /* =========================================================
  * 获取 POD 标签（根据当前渲染计数器返回值）
  * 返回 POD1_TAG POD2_TAG，用于烙印到 user_data
@@ -122,6 +141,7 @@ void reset_widget_render_state(void)
     s_ascent_icon_count = 0;
     memset(s_ndl_handles, 0, sizeof(s_ndl_handles));
     s_ndl_handle_count = 0;
+    memset(s_ndl_draw_vm, 0, sizeof(s_ndl_draw_vm));
 
     s_pod_render_count = 0;
 
@@ -143,48 +163,48 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
     lv_obj_t * obj = lv_event_get_target(e);
     lv_draw_ctx_t * draw_ctx = lv_event_get_draw_ctx(e);
     lv_area_t * area = &obj->coords;
+    const ui_vm_ndl_stop_t *vm = (const ui_vm_ndl_stop_t *)lv_event_get_user_data(e);
 
     int total_w = lv_area_get_width(area);
     int gap = 3;
     int block_w = (total_w - 9 * gap) / 10;
     if (block_w < 1) block_w = 1;
 
-    /* 计算总体百分比：
-     * - 常态：NDL/99 显示9 视为满格
-     * - 安全停留：未进站前仍NDL；进站后按停留剩余时间缩
-     * - 减压停留：未进站前保持满格；进站后按当前减压站剩余时间缩*/
     float pct = 0.0f;
-    if (g_sensor_data.stop_type == STOP_NONE)
+    if (vm != NULL)
     {
-        if (g_sensor_data.ndl_bar_pct <= 100U)
+        if (vm->stop_type == STOP_NONE)
         {
-            pct = (float)g_sensor_data.ndl_bar_pct / 100.0f;
+            if (vm->ndl_bar_pct <= 100U)
+            {
+                pct = (float)vm->ndl_bar_pct / 100.0f;
+            }
+            else
+            {
+                pct = (float)vm->ndl / 99.0f;
+            }
         }
-        else
+        else if (vm->stop_type == STOP_SAFETY)
         {
-            pct = (float)g_sensor_data.ndl / 99.0f;
+            if (vm->stop_time_total_s > 0U)
+            {
+                pct = (float)vm->stop_time_left_s / (float)vm->stop_time_total_s;
+            }
+            else
+            {
+                pct = 1.0f;
+            }
         }
-    }
-    else if (g_sensor_data.stop_type == STOP_SAFETY)
-    {
-        if (g_sensor_data.stop_time_total_s > 0)
+        else if (vm->stop_type == STOP_DECO)
         {
-            pct = (float)g_sensor_data.stop_time_left_s / g_sensor_data.stop_time_total_s;
-        }
-        else
-        {
-            pct = 1.0f;
-        }
-    }
-    else if (g_sensor_data.stop_type == STOP_DECO)
-    {
-        if (!g_sensor_data.in_stop_zone)
-        {
-            pct = 1.0f;
-        }
-        else if (g_sensor_data.stop_time_total_s > 0)
-        {
-            pct = (float)g_sensor_data.stop_time_left_s / g_sensor_data.stop_time_total_s;
+            if (vm->in_stop_zone == 0U)
+            {
+                pct = 1.0f;
+            }
+            else if (vm->stop_time_total_s > 0U)
+            {
+                pct = (float)vm->stop_time_left_s / (float)vm->stop_time_total_s;
+            }
         }
     }
     if (pct > 1.0f) pct = 1.0f;
@@ -341,13 +361,16 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     {
         /* 样式参数来自 comp_style_t */
         const style_depth_t *s = &style->spec.depth;
+        ui_vm_depth_t depth_vm;
+
+        ui_vm_depth_update(&depth_vm, NULL);
 
         /* ==========================================
          * 1. 超大号整-> 宽度必须紧密包裹
          * ========================================== */
         lv_obj_t *int_lbl = lv_label_create(obj);
         if (SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(int_lbl, "--");
-        else lv_label_set_text_fmt(int_lbl, "%d", (int)g_sensor_data.depth);
+        else lv_label_set_text_fmt(int_lbl, "%d", (int)depth_vm.int_part);
         // 字体从字典读取（font_id = HUGE 58px
         lv_obj_set_style_text_font(int_lbl, get_font(style->font_id), 0);
         lv_obj_set_style_text_color(int_lbl, GREEN, 0);
@@ -364,14 +387,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
          * ========================================== */
         lv_obj_t *dec_lbl = lv_label_create(obj);
         if (SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
-        else
-        {
-            /* 提取小数部分：只保留一位小数，范围 0-9 */
-            float decimal_part = fabsf(g_sensor_data.depth - (int)g_sensor_data.depth);
-            int dd = (int)(decimal_part * 10 + 0.5f);
-            if (dd > 9) dd = 9;  /* 防止浮点精度问题导致多位*/
-            lv_label_set_text_fmt(dec_lbl, ".%d", dd);
-        }
+        else lv_label_set_text_fmt(dec_lbl, ".%u", (unsigned)depth_vm.dec_part);
         // 字体从字典读取（title_font_id = MEDIUM 28px，小数比整数小）
         lv_obj_set_style_text_font(dec_lbl, get_font(style->title_font_id), 0);
         lv_obj_set_style_text_color(dec_lbl, GREEN, 0);
@@ -411,6 +427,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         /* NDL 变形金刚：从 style->spec.ndl_stop 读取所有位置参*/
         if (s_ndl_handle_count >= MAX_NDL_ICONS) return obj;
         ndl_handle_t *h = &s_ndl_handles[s_ndl_handle_count++];
+        ui_vm_ndl_stop_t *draw_vm = &s_ndl_draw_vm[s_ndl_handle_count - 1U];
         h->comp = obj;
 
         const style_ndl_stop_t *s = &style->spec.ndl_stop;
@@ -422,7 +439,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_size(h->horiz_bg, abs_w - 16, 10);
         /* 贴紧底部，略微上4px */
         lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
-        lv_obj_add_event_cb(h->horiz_bg, ndl_horiz_bar_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
+        memset(draw_vm, 0, sizeof(*draw_vm));
+        lv_obj_add_event_cb(h->horiz_bg, ndl_horiz_bar_draw_cb, LV_EVENT_DRAW_MAIN, draw_vm);
         lv_obj_add_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
 
         /* 顶部标题（默认隐藏，停留态时显示*/
@@ -439,7 +457,11 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         if (SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(h->main_val, "--");
         else
-            lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
+        {
+            ui_vm_ndl_stop_t ndl_vm;
+            ui_vm_ndl_stop_update(&ndl_vm, NULL);
+            lv_label_set_text_fmt(h->main_val, "%d", ndl_vm.ndl_stop_value);
+        }
 
         /* 底部标题 (NDL 45) */
         h->sub_bot = lv_label_create(obj);
@@ -460,7 +482,11 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         if (SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(s_sys_batt_lbl, "--%");
         else
-            lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", ui_clamp_battery_pct(g_sensor_data.battery_pct));
+        {
+            ui_vm_sys_t sys_vm;
+            ui_vm_sys_update(&sys_vm, NULL);
+            lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", sys_vm.battery_pct);
+        }
 
         /* 右侧：温Label */
         s_sys_temp_lbl = lv_label_create(obj);
@@ -471,9 +497,11 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_label_set_text(s_sys_temp_lbl, "-- C");
         else
         {
-            int t_int = (int)g_sensor_data.temperature_c;
-            int t_dec = (int)(fabsf(g_sensor_data.temperature_c - t_int) * 10);
-            lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%d C", t_int, t_dec);
+            ui_vm_sys_t sys_vm;
+            ui_vm_sys_update(&sys_vm, NULL);
+            lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%d C",
+                                  (int)sys_vm.temp_int,
+                                  (int)sys_vm.temp_dec);
         }
 
         return obj;
@@ -526,127 +554,19 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             switch (w_id)
             {
             case COMP_DEPTH_1612:
-            case COMP_DEPTH_1606:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.depth);
-                break;
             case COMP_NDL_STOP_1606:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.ndl_stop_value);
-                break;
-            case COMP_DIVE_TIME_1606:
-                snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.dive_time_s/60, g_sensor_data.dive_time_s%60);
-                break;
-            case COMP_GAS_1606:
-                snprintf(buf, sizeof(buf), "%s", g_sensor_data.gas_name);
-                break;
-            case COMP_SYS_1606:
-                snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.sys_time_h, g_sensor_data.sys_time_m);
-                break;
             case COMP_TEMP_0806:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.temperature_c);
-                break;
-            case COMP_TIME_1606:
-                snprintf(buf, sizeof(buf), "%02d:%02d", g_sensor_data.sys_time_h, g_sensor_data.sys_time_m);
-                break;
-            case COMP_TTS_0806:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.tts);
-                break;
-            case COMP_ASCENT_0806:
-            case COMP_ASCENT_0812:
-                snprintf(buf, sizeof(buf), "%+.1f", (double)g_sensor_data.ascent_rate);
-                break;
-            case COMP_COMPASS_1612:
-                snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading);
-                break;
             case COMP_BATTERY_0806:
-                snprintf(buf, sizeof(buf), "%u", ui_clamp_battery_pct(g_sensor_data.battery_pct));
-                break;
-            case COMP_STOP_DEPTH_0806:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.stop_depth_m);
-                break;
             case COMP_STOP_TIME_1606:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.stop_time_left_s);
-                break;
-            case COMP_PPO2_0806:
-                snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.ppo2[g_sensor_data.gas_active_idx]);
-                break;
-            case COMP_SURF_GF_0806:
-                snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.surf_gf);
-                break;
-            case COMP_GF99_0806:
-                snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.gf99);
-                break;
-            case COMP_CNS_0806:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.cns_pct);
-                break;
-            case COMP_OTU_0806:
-                snprintf(buf, sizeof(buf), "%d", g_sensor_data.otu);
-                break;
-            case COMP_GF_0806:
-                snprintf(buf, sizeof(buf), "%d/%d", g_sensor_data.gf_low, g_sensor_data.gf_high);
-                break;
-            case COMP_MOD_0806:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.mod_m);
-                break;
-            case COMP_CEILING_0806:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.ceiling_m);
-                break;
-            case COMP_GAS_MIX_1606:
-                snprintf(buf, sizeof(buf), "%d/%d", g_sensor_data.gas_o2_pct, g_sensor_data.gas_he_pct);
-                break;
-            case COMP_GAS_DENS_0806:
-                snprintf(buf, sizeof(buf), "%.2f", (double)g_sensor_data.gas_density);
-                break;
-            case COMP_FIO2_0806:
-                snprintf(buf, sizeof(buf), "%.0f%%", (double)g_sensor_data.fio2_pct);
-                break;
-            case COMP_HEADING_0806:
-                snprintf(buf, sizeof(buf), "%03d", g_sensor_data.heading);
-                break;
-            /* ===== POD 单模具：数据源根pod_index 动态分===== */
             case COMP_POD_0806:
-                if (is_pod_mold)
-                {
-                    if (pod_index == 1)
-                    {
-                        snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod1_bar);
-                    }
-                    else
-                    {
-                        snprintf(buf, sizeof(buf), "%.0f", (double)g_sensor_data.pod2_bar);
-                    }
-                }
-                else
-                {
-                    snprintf(buf, sizeof(buf), "--");
-                }
-                break;
-            case COMP_DEPTH_MAX_0806:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_depth);
-                break;
-            case COMP_DEPTH_AVG_0806:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_depth);
-                break;
-            case COMP_TEMP_MIN_0806:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.min_temp);
-                break;
-            case COMP_TEMP_AVG_0806:
-                snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.avg_temp);
-                break;
-            /* 🚨 以下已废弃，Protobuf 已移除对ID
-            case COMP_WTIME_0806: {
-                uint32_t t = g_sensor_data.surface_time_s;
-                snprintf(buf, sizeof(buf), "%02d:%02d", t / 60, t % 60);
-            break;
-            }
-            case COMP_TEMP_MAX_0806: snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.max_temp); break;
-            case COMP_SAC_RATE_0806:  snprintf(buf, sizeof(buf), "%.1f", (double)g_sensor_data.sac_rate); break;
-            case COMP_PPO2_SAFE_0806: snprintf(buf, sizeof(buf), "%.2f", 1.4); break;
-            case COMP_NDL_SAFE_0806:  snprintf(buf, sizeof(buf), "%d", 5); break;
-            case COMP_SAC_SAFE_0806:  snprintf(buf, sizeof(buf), "%.1f", 25.0); break;
-            */
             default:
-                snprintf(buf, sizeof(buf), "--");
+            {
+                ui_vm_value_text_t value_vm;
+                ui_vm_value_text_update(&value_vm, w_id, pod_index);
+                snprintf(buf, sizeof(buf), "%s", value_vm.text);
                 break;
+            }
+            /* 历史旧 ID 已移除，展示文本统一走 ui_vm_value_text_update()。 */
             }
             lv_label_set_text(val_lbl, buf);
         }
@@ -716,12 +636,14 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_obj_set_style_border_color(bat_bg, GREEN, 0);
             lv_obj_set_style_radius(bat_bg, 2, 0);
 
-            uint8_t pct = ui_clamp_battery_pct(g_sensor_data.battery_pct);
+            ui_vm_sys_t vm_sys;
+            ui_vm_sys_update(&vm_sys, NULL);
+            uint8_t pct = vm_sys.battery_pct;
             lv_obj_t *bat_fill = lv_obj_create(bat_bg);
             lv_obj_remove_style_all(bat_fill);
-            lv_obj_set_size(bat_fill, LV_PCT(pct > 20 ? 100 : pct), LV_PCT(100));
+            lv_obj_set_size(bat_fill, LV_PCT(vm_sys.battery_low ? pct : 100U), LV_PCT(100));
             lv_obj_align(bat_fill, LV_ALIGN_LEFT_MID, 0, 0);
-            lv_obj_set_style_bg_color(bat_fill, pct > 20 ? GREEN : LIGHT, 0);
+            lv_obj_set_style_bg_color(bat_fill, vm_sys.battery_low ? LIGHT : GREEN, 0);
             lv_obj_set_style_bg_opa(bat_fill, LV_OPA_COVER, 0);
             lv_obj_set_style_radius(bat_fill, 1, 0);
             (void)bat_fill;
@@ -731,8 +653,12 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     return obj;
 }
 
-void comp_refresh_ndl_stop(uint32_t dirty_mask)
+void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)
 {
+    if (vm == NULL)
+    {
+        return;
+    }
     if (s_ndl_handle_count == 0)
     {
         return;
@@ -752,11 +678,25 @@ void comp_refresh_ndl_stop(uint32_t dirty_mask)
     for (int i = 0; i < s_ndl_handle_count; i++)
     {
         ndl_handle_t *h = &s_ndl_handles[i];
+        ui_vm_ndl_stop_t *draw_vm = &s_ndl_draw_vm[i];
+
+        if (!ui_obj_is_valid(&h->comp) ||
+            !ui_obj_is_valid(&h->horiz_bg) ||
+            !ui_obj_is_valid(&h->main_val) ||
+            !ui_obj_is_valid(&h->title_top) ||
+            !ui_obj_is_valid(&h->sub_bot))
+        {
+            memset(h, 0, sizeof(*h));
+            memset(draw_vm, 0, sizeof(*draw_vm));
+            continue;
+        }
+
+        memcpy(draw_vm, vm, sizeof(*draw_vm));
 
         lv_obj_clear_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
         lv_obj_invalidate(h->horiz_bg);
 
-        if (g_sensor_data.stop_type == STOP_NONE)
+        if (vm->stop_type == STOP_NONE)
         {
             lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
@@ -765,85 +705,92 @@ void comp_refresh_ndl_stop(uint32_t dirty_mask)
             lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
 
             lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
-            lv_label_set_text_fmt(h->main_val, "%d", g_sensor_data.ndl);
+            lv_label_set_text_fmt(h->main_val, "%d", vm->ndl);
             lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
         }
-        else if (g_sensor_data.stop_type == STOP_SAFETY)
+        else if (vm->stop_type == STOP_SAFETY)
         {
             lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
-            lv_label_set_text_fmt(h->title_top, "SAFE %dm", (int)g_sensor_data.stop_depth_m);
+            lv_label_set_text_fmt(h->title_top, "SAFE %dm", (int)vm->stop_depth_m);
             lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 8, 2);
 
-            if (g_sensor_data.in_stop_zone)
+            if (vm->in_stop_zone != 0U)
             {
                 lv_label_set_text(h->sub_bot, "IN STOP");
             }
             else
             {
-                lv_label_set_text_fmt(h->sub_bot, "NDL %d", g_sensor_data.ndl);
+                lv_label_set_text_fmt(h->sub_bot, "NDL %d", vm->ndl);
             }
             lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16);
 
-            int m = g_sensor_data.stop_time_left_s / 60;
-            int s = g_sensor_data.stop_time_left_s % 60;
+            int m = vm->stop_time_left_s / 60;
+            int s = vm->stop_time_left_s % 60;
             lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
             lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
             lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
         }
-        else if (g_sensor_data.stop_type == STOP_DECO)
+        else if (vm->stop_type == STOP_DECO)
         {
             lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
-            lv_label_set_text_fmt(h->title_top, "DECO %dm", (int)g_sensor_data.stop_depth_m);
+            lv_label_set_text_fmt(h->title_top, "DECO %dm", (int)vm->stop_depth_m);
             lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 8, 2);
 
-            int m = g_sensor_data.stop_time_left_s / 60;
-            int s = g_sensor_data.stop_time_left_s % 60;
+            int m = vm->stop_time_left_s / 60;
+            int s = vm->stop_time_left_s % 60;
             lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
             lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
             lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
         }
+    }
+}
+
+void comp_refresh_ndl_stop(uint32_t dirty_mask)
+{
+    ui_vm_ndl_stop_t vm;
+    ui_vm_ndl_stop_update(&vm, NULL);
+    comp_refresh_ndl_stop_vm(&vm, dirty_mask);
+}
+
+void comp_refresh_sys_vm(const ui_vm_sys_t *vm, uint32_t dirty_mask)
+{
+    if (vm == NULL)
+    {
+        return;
+    }
+    if ((dirty_mask & DIRTY_BATT) && ui_obj_is_valid(&s_sys_batt_lbl))
+    {
+        lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", vm->battery_pct);
+    }
+    if ((dirty_mask & DIRTY_TEMP) && ui_obj_is_valid(&s_sys_temp_lbl))
+    {
+        lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%d C", (int)vm->temp_int, (int)vm->temp_dec);
     }
 }
 
 void comp_refresh_sys(uint32_t dirty_mask)
 {
-    if ((dirty_mask & DIRTY_BATT) && s_sys_batt_lbl)
-    {
-        lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", ui_clamp_battery_pct(g_sensor_data.battery_pct));
-    }
-    if ((dirty_mask & DIRTY_TEMP) && s_sys_temp_lbl)
-    {
-        int t_int = (int)g_sensor_data.temperature_c;
-        int t_dec = (int)(fabsf(g_sensor_data.temperature_c - t_int) * 10);
-        lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%d C", t_int, t_dec);
-    }
+    ui_vm_sys_t vm;
+    ui_vm_sys_update(&vm, NULL);
+    comp_refresh_sys_vm(&vm, dirty_mask);
 }
 
-void comp_refresh_ascent_icons(float rate)
+void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)
 {
     static int8_t s_last_direction = 0;  /* 0=still, 1=up, -1=down */
 
-    if (s_ascent_icon_count == 0)
+    if ((vm == NULL) || (s_ascent_icon_count == 0))
     {
         return;
     }
 
-    bool is_moving = (fabsf(rate) >= RATE_STILL_THRESHOLD);
-    bool current_flash_state = (lv_tick_get() / 500) % 2 == 0;
-
-    int8_t current_direction = 0;
-    if (rate > 0.0f)
-    {
-        current_direction = 1;
-    }
-    else if (rate < 0.0f)
-    {
-        current_direction = -1;
-    }
+    bool is_moving = (vm->is_moving != 0U);
+    bool current_flash_state = (vm->flash_on != 0U);
+    int8_t current_direction = vm->direction;
 
     const void *target_img_src = &sudo_up_level0;
 
@@ -854,11 +801,11 @@ void comp_refresh_ascent_icons(float rate)
     }
     else if (current_direction > 0)
     {
-        if (rate >= RATE_LEVEL2_THRESHOLD)
+        if (vm->rate >= RATE_LEVEL2_THRESHOLD)
         {
             target_img_src = current_flash_state ? &sudo_up_level2 : &sudo_up_level0;
         }
-        else if (rate >= RATE_LEVEL1_THRESHOLD)
+        else if (vm->rate >= RATE_LEVEL1_THRESHOLD)
         {
             target_img_src = current_flash_state ? &sudo_up_level1 : &sudo_up_level0;
         }
@@ -869,11 +816,11 @@ void comp_refresh_ascent_icons(float rate)
     }
     else
     {
-        if (rate <= -RATE_LEVEL2_THRESHOLD)
+        if (vm->rate <= -RATE_LEVEL2_THRESHOLD)
         {
             target_img_src = current_flash_state ? &sudo_down_level2 : &sudo_down_level0;
         }
-        else if (rate <= -RATE_LEVEL1_THRESHOLD)
+        else if (vm->rate <= -RATE_LEVEL1_THRESHOLD)
         {
             target_img_src = current_flash_state ? &sudo_down_level1 : &sudo_down_level0;
         }
@@ -890,7 +837,7 @@ void comp_refresh_ascent_icons(float rate)
 
     for (int i = 0; i < s_ascent_icon_count; i++)
     {
-        if (s_img_ascent_rate[i] != NULL)
+        if (ui_obj_is_valid(&s_img_ascent_rate[i]))
         {
             lv_img_set_src(s_img_ascent_rate[i], target_img_src);
         }

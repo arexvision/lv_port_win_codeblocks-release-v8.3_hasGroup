@@ -2,6 +2,8 @@
 #include "../core/data.h"
 #include "../core/ui_engine.h"
 #include "../core/ui_state.h"
+#include "../core/ui_vm.h"
+#include "../core/vm/ui_vm_dashboard_types.h"
 #include "../screen/layout_view.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/fonts.h"
@@ -15,6 +17,23 @@ static lv_obj_t *s_lbl_name[GAS_COUNT];
 static lv_obj_t *s_lbl_ppo2[GAS_COUNT];
 static lv_obj_t *s_lbl_mod[GAS_COUNT];
 static lv_obj_t *s_hint;
+static ui_vm_gas_t s_gas_vm_cache;
+
+static bool gas_obj_is_valid(lv_obj_t **obj_ref)
+{
+    if (obj_ref == NULL || *obj_ref == NULL)
+    {
+        return false;
+    }
+
+    if (!lv_obj_is_valid(*obj_ref))
+    {
+        *obj_ref = NULL;
+        return false;
+    }
+
+    return true;
+}
 
 void card_gas_update(void); /* forward declaration */
 
@@ -22,10 +41,14 @@ void card_gas_create(lv_obj_t *parent)
 {
     render_card_title(parent, "GAS SWITCH");
 
-    int right_canvas_w = g_sys_config.safe_zone_w - LEFT_ANCHOR_W
-                         - ((int)g_sys_config.gap_u * BASE_U);
+    ui_vm_gas_update(&s_gas_vm_cache,
+                     NULL,
+                     NULL,
+                     ui_state_get_state(),
+                     ui_state_get_gas_cursor());
+    int right_canvas_w = (int)s_gas_vm_cache.right_canvas_w;
     int row_w = right_canvas_w - 15;   /* 右侧 15px 呼吸间隙 */
-    int gap_y = (int)g_sys_config.gap_menu * BASE_U;  /* 从配置推算 */
+    int gap_y = (int)s_gas_vm_cache.gap_y;
 
     for (int i = 0; i < GAS_COUNT; i++)
     {
@@ -86,26 +109,23 @@ void card_gas_create(lv_obj_t *parent)
 
 void card_gas_update(void)
 {
-    uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count > GAS_COUNT)
-    {
-        gas_count = GAS_COUNT;
-    }
-
     for (int i = 0; i < GAS_COUNT; i++)
     {
-        if (i >= gas_count)
+        if (!gas_obj_is_valid(&s_items[i]) ||
+            !gas_obj_is_valid(&s_lbl_name[i]) ||
+            !gas_obj_is_valid(&s_lbl_mod[i]) ||
+            !gas_obj_is_valid(&s_lbl_ppo2[i]))
+        {
+            continue;
+        }
+
+        if (s_gas_vm_cache.visible[i] == 0U)
         {
             lv_obj_add_flag(s_items[i], LV_OBJ_FLAG_HIDDEN);
             continue;
         }
         lv_obj_clear_flag(s_items[i], LV_OBJ_FLAG_HIDDEN);
-
-        bool is_active  = (g_sensor_data.gas_active_idx == (uint8_t)i);
-        bool is_cursor  = (g_ui.state == UI_EDIT_GAS && g_ui.gas_cursor == (uint8_t)i);
-
-        /* 高亮条件：光标所在行始终高亮；非编辑模式下，激活气体高亮 */
-        bool highlight = is_cursor || (is_active && g_ui.state != UI_EDIT_GAS);
+        bool highlight = (s_gas_vm_cache.highlighted[i] != 0U);
 
         lv_color_t fg = GREEN;
 
@@ -122,26 +142,9 @@ void card_gas_update(void)
             lv_obj_clear_state(s_items[i], LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);
         }
 
-        const char *slot_name = g_sensor_data.gas_slot_name[i][0] ? g_sensor_data.gas_slot_name[i]
-                                : GAS_NAMES[i];
-        float mod_m = g_sensor_data.gas_slot_mod_m[i];
-        float ppo2 = g_sensor_data.ppo2[i];
-
-        char buf[32];
-        lv_label_set_text_fmt(s_lbl_name[i], "%s", slot_name);
-
-        if (mod_m > 0.0f)
-        {
-            snprintf(buf, sizeof(buf), "MOD %.0fm", (double)mod_m);
-        }
-        else
-        {
-            snprintf(buf, sizeof(buf), "MOD --");
-        }
-        lv_label_set_text(s_lbl_mod[i], buf);
-
-        snprintf(buf, sizeof(buf), "PO2 %.2f", (double)ppo2);
-        lv_label_set_text(s_lbl_ppo2[i], buf);
+        lv_label_set_text(s_lbl_name[i], s_gas_vm_cache.names[i]);
+        lv_label_set_text(s_lbl_mod[i], s_gas_vm_cache.mod_text[i]);
+        lv_label_set_text(s_lbl_ppo2[i], s_gas_vm_cache.ppo2_text[i]);
 
         /* Recolor children */
         if (s_lbl_name[i])
@@ -162,15 +165,8 @@ void card_gas_update(void)
     }
 
     /* Update hint text based on edit state */
-    if (s_hint)
+    if (gas_obj_is_valid(&s_hint))
     {
-        const char *hint = "[ NO ACTIVE GAS ]";
-        if (gas_count > 0U)
-        {
-            hint = (g_ui.state == UI_EDIT_GAS)
-                   ? "[ SCROLL TO SELECT / PRESS TO CONFIRM ]"
-                   : "[ PRESS TO SWITCH GAS ]";
-        }
-        lv_label_set_text(s_hint, hint);
+        lv_label_set_text(s_hint, s_gas_vm_cache.hint);
     }
 }

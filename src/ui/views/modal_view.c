@@ -1,7 +1,9 @@
 #include "modal_view.h"
 
-#include "../core/ui_engine.h"
 #include "../core/ui_state.h"
+#include "../core/ui_runtime.h"
+#include "../core/vm/ui_vm_menu.h"
+#include "../core/vm/ui_vm_menu_types.h"
 #include "../fonts/fonts.h"
 
 #include <stdio.h>
@@ -40,9 +42,9 @@ static void modal_act_timer_cb(lv_timer_t *t)
 {
     (void)t;
     screen_hide_modal();
-    if (g_ui.state == UI_MODAL_ACT)
+    if (ui_state_get_state() == UI_MODAL_ACT)
     {
-        g_ui.state = (g_ui.sub_item_count > 0) ? UI_SUB_MENU : UI_DASH;
+        ui_state_set_state((ui_state_get_sub_item_count() > 0U) ? UI_SUB_MENU : UI_DASH);
     }
     lv_timer_del(t);
 }
@@ -83,7 +85,7 @@ void screen_show_modal_act(const char *action_text)
     }
     modal_set_content("ACTION", action_text ? action_text : "", "[ ESC TO BACK ]");
     lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
-    g_ui.state = UI_MODAL_ACT;
+    ui_state_set_state(UI_MODAL_ACT);
     lv_timer_create(modal_act_timer_cb, 1000, NULL);
 }
 
@@ -100,37 +102,23 @@ void screen_show_modal_setup_confirm(const char *body)
 
 void screen_show_modal_gas(void)
 {
+    ui_vm_modal_gas_t vm;
+
     if (!s_modal)
     {
         return;
     }
 
-    uint8_t gas_count = g_sensor_data.gas_slot_count;
-    if (gas_count > GAS_COUNT)
+    ui_vm_modal_gas_update(&vm, ui_state_get_gas_cursor());
+
+    if (vm.valid == 0U)
     {
-        gas_count = GAS_COUNT;
-    }
-    if (gas_count == 0U)
-    {
-        modal_set_content("CONFIRM GAS", "NO ACTIVE GAS", "[ ESC CANCEL ]");
+        modal_set_content(vm.title, vm.body, vm.hint);
         lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
         return;
     }
-    uint8_t ci = (g_ui.gas_cursor < gas_count) ? g_ui.gas_cursor : 0U;
-    char body[32];
-    const char *gas_name = g_sensor_data.gas_slot_name[ci][0]
-                           ? g_sensor_data.gas_slot_name[ci]
-                           : GAS_NAMES[ci];
-    float mod_m = g_sensor_data.gas_slot_mod_m[ci] > 0.0f
-                  ? g_sensor_data.gas_slot_mod_m[ci]
-                  : (float)GAS_MOD_M[ci];
-    snprintf(body, sizeof(body), "%s\nMOD: %.0fm", gas_name, (double)mod_m);
 
-    const char *hint = (g_sensor_data.depth > mod_m)
-                       ? "[ FATAL: OVER MOD ]"
-                       : "[ ENTER CONFIRM ]  [ ESC CANCEL ]";
-
-    modal_set_content("CONFIRM GAS", body, hint);
+    modal_set_content(vm.title, vm.body, vm.hint);
     lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
 }
 

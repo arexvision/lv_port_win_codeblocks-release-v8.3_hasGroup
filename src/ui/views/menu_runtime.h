@@ -2,6 +2,7 @@
 #define MENU_RUNTIME_H
 
 #include "menu_defs.h"
+#include "submenu_dive_plan_state.h"
 
 #ifdef __cplusplus
 extern "C" {

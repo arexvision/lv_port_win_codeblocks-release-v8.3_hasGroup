@@ -4,13 +4,14 @@
  *
  * 设计核心：双层位置空间
  *   - display_pos: 用户看到的滑动顺序（0=INFO, 1~N=动态页, 最后=DIVE MENU）
- *   - storage_pos: g_sys_config.card_order[] 的数组索引（INFO=0, SETUP=13, 动态槽=1~12）
+ *   - storage_pos: 布局配置数组的数组索引（INFO=0, SETUP=13, 动态槽=1~12）
  *
  * BLE 旧协议字段仍叫 card_order[8]，但 UI 内部概念是 page。
  */
 
 #include "page_registry.h"
 #include "../core/ui_engine.h"
+#include "../core/vm/ui_vm_plan_chart.h"
 
 /* INFO/DIVE MENU 是顶层菜单页，源码在 menus/。
  * 它们仍登记在这里，是因为右侧 tileview 由 page_registry 统一管理。
@@ -24,7 +25,7 @@ void card_deco_update(void);
 void card_gas_create(lv_obj_t *parent);
 void card_gas_update(void);
 void card_plan_create(lv_obj_t *parent);
-void card_plan_update(void);
+void card_plan_update(const ui_vm_plan_chart_t *vm);
 void card_blank_create(lv_obj_t *parent);
 void card_blank_update(void);
 void menu_setup_create(lv_obj_t *parent);
@@ -32,6 +33,11 @@ void menu_setup_update(void);
 
 extern const menu_list_cfg_t menu_info_cfg;
 extern const menu_list_cfg_t menu_setup_cfg;
+
+static void page_plan_update_vm_bridge(const void *vm)
+{
+    card_plan_update((const ui_vm_plan_chart_t *)vm);
+}
 
 static page_t g_pages[PAGE_ID_COUNT] =
 {
@@ -82,8 +88,9 @@ static page_t g_pages[PAGE_ID_COUNT] =
         .config_data = NULL,
         .tile_obj    = NULL,
         .create_cb   = card_plan_create,
-        .update_cb   = card_plan_update,
+        .update_cb   = NULL,
         .on_enter_cb = NULL,
+        .update_vm_cb = page_plan_update_vm_bridge,
     },
     [PAGE_ID_CUSTOM_GRID] = {
         .id          = PAGE_ID_CUSTOM_GRID,
@@ -173,6 +180,18 @@ uint8_t page_storage_pos(uint8_t display_pos)
     }
 
     return 0xFF;
+}
+
+void page_registry_update_plan_vm(const ui_vm_plan_chart_t *vm)
+{
+    page_t *page = page_get_by_id(PAGE_ID_PLAN);
+
+    if (page == NULL || page->update_vm_cb == NULL)
+    {
+        return;
+    }
+
+    page->update_vm_cb(vm);
 }
 
 uint8_t page_id_at(uint8_t display_pos)

@@ -2,16 +2,18 @@
 #include "../alarm/alarm.h"
 #include <math.h>
 #include <string.h>
+#include <float.h>
 #include "stdio.h"
-
-/* 减压站预测数据由 data bus 统一持有，卡片只负责读取和绘制。 */
-deco_stop_t g_deco_stops[MAX_DECO_STOPS];
-uint16_t g_deco_stop_count;
 
 #ifdef PC_SIMULATOR
 #include "lvgl.h"
 #include "../../algo_sim/buhlmann_debug.h"
 #endif
+
+static dive_pt_t s_dive_log[MAX_DIVE_LOG];
+static uint16_t s_dive_log_count;
+static deco_stop_t s_deco_stops[MAX_DECO_STOPS];
+static uint16_t s_deco_stop_count;
 
 /* =========================================================
  * Data Bus Setter 实现 — 硬件/模拟层专用
@@ -102,6 +104,63 @@ static uint32_t _depth_sample_count = 0;  /* 深度采样次数 */
 /* 温度统计累计值 */
 static float    _temp_sum = 0.0f;        /* 温度累计和 */
 static uint32_t _temp_sample_count = 0;  /* 温度采样次数 */
+
+static float dive_log_triangle_area(const dive_pt_t *a,
+                                    const dive_pt_t *b,
+                                    const dive_pt_t *c)
+{
+    float ab_t = b->time_s - a->time_s;
+    float ab_d = b->depth_m - a->depth_m;
+    float ac_t = c->time_s - a->time_s;
+    float ac_d = c->depth_m - a->depth_m;
+    return fabsf(ab_t * ac_d - ab_d * ac_t);
+}
+
+static void dive_log_remove_at(uint16_t index)
+{
+    if (index >= s_dive_log_count)
+    {
+        return;
+    }
+    if (index + 1U < s_dive_log_count)
+    {
+        (void)memmove(&s_dive_log[index],
+                      &s_dive_log[index + 1U],
+                      (s_dive_log_count - index - 1U) * sizeof(s_dive_log[0]));
+    }
+    s_dive_log_count--;
+}
+
+static void dive_log_make_room(void)
+{
+    if (s_dive_log_count < MAX_DIVE_LOG)
+    {
+        return;
+    }
+    if (s_dive_log_count < 3U)
+    {
+        return;
+    }
+
+    {
+        uint16_t drop_index = 1U;
+        float drop_area = FLT_MAX;
+
+        for (uint16_t i = 1U; i + 1U < s_dive_log_count; i++)
+        {
+            float area = dive_log_triangle_area(&s_dive_log[i - 1U],
+                                                &s_dive_log[i],
+                                                &s_dive_log[i + 1U]);
+            if (area < drop_area)
+            {
+                drop_area = area;
+                drop_index = i;
+            }
+        }
+
+        dive_log_remove_at(drop_index);
+    }
+}
 
 static void ascent_rate_reset(void)
 {
@@ -303,7 +362,7 @@ void data_init(void)
     g_sensor_data.gas_slot_mod_m[4] = 0.0f;
 
     /* 减压站预测数据初始化（仅初始化节数，数据本身由减压引擎填充） */
-    g_deco_stop_count = 0;
+    s_deco_stop_count = 0U;
 }
 
 void bus_raise_alarm(alarm_level_t level,
@@ -655,10 +714,10 @@ void bus_set_deco_plan(const deco_stop_t *stops, uint8_t count)
         count = MAX_DECO_STOPS;
     }
     rt_base_t level = rt_hw_interrupt_disable();
-    g_deco_stop_count = count;
-    if (count > 0 && stops != NULL)
+    s_deco_stop_count = count;
+    if ((count > 0U) && (stops != NULL))
     {
-        memcpy(g_deco_stops, stops, count * sizeof(deco_stop_t));
+        (void)memcpy(s_deco_stops, stops, count * sizeof(deco_stop_t));
     }
     g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
     rt_hw_interrupt_enable(level);
@@ -1016,6 +1075,33 @@ void bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high)
     bus_apply_algo_gf(gf_low, gf_high);
 }
 
+void bus_set_conservatism(uint8_t level)
+{
+    static const uint8_t gf_table[][2] =
+    {
+        { 40U, 95U },
+        { 40U, 85U },
+        { 30U, 70U },
+        { 50U, 70U },
+    };
+
+    if (level >= (sizeof(gf_table) / sizeof(gf_table[0])))
+    {
+        level = 0U;
+    }
+
+    bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
+}
+
+void bus_set_mod_ppo2(float ppo2)
+{
+    if (g_sys_config.mod_ppo2 != ppo2)
+    {
+        g_sys_config.mod_ppo2 = ppo2;
+        g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
+    }
+}
+
 void bus_set_last_deco_stop(uint8_t depth_m)
 {
     depth_m = (depth_m == 6U) ? 6U : 3U;
@@ -1025,11 +1111,6 @@ void bus_set_last_deco_stop(uint8_t depth_m)
         g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
     }
     bus_apply_algo_last_deco(depth_m);
-}
-
-void bus_set_brightness(uint8_t level)
-{
-    g_sys_config.brightness = level;
 }
 
 void bus_set_salinity_mode(uint8_t mode)
@@ -1093,6 +1174,596 @@ void bus_set_fio2(float fio2_pct)
         g_sensor_data.fio2_pct = fio2_pct;
         g_sensor_data.dirty_mask |= DIRTY_FIO2;
     }
+}
+
+uint16_t ui_safe_zone_w_get(void)
+{
+    return g_sys_config.safe_zone_w;
+}
+
+uint16_t ui_safe_zone_h_get(void)
+{
+    return g_sys_config.safe_zone_h;
+}
+
+int16_t ui_offset_x_get(void)
+{
+    return g_sys_config.offset_x;
+}
+
+int16_t ui_offset_y_get(void)
+{
+    return g_sys_config.offset_y;
+}
+
+bool ui_mask_enabled_get(void)
+{
+    return g_sys_config.mask_enabled;
+}
+
+uint16_t ui_block_gap_px_get(void)
+{
+    return (uint16_t)(g_sys_config.gap_u * BASE_U);
+}
+
+uint16_t ui_panel_gap_px_get(void)
+{
+    return (uint16_t)(g_sys_config.panel_gap_u * BASE_U);
+}
+
+uint16_t ui_menu_gap_px_get(void)
+{
+    return (uint16_t)(g_sys_config.gap_menu * BASE_U);
+}
+
+uint16_t ui_menu_item_h_px_get(void)
+{
+    return (uint16_t)(g_sys_config.h_menu_item * BASE_U);
+}
+
+uint16_t ui_tissues_chart_h_px_get(void)
+{
+    return (uint16_t)(g_sys_config.h_tissues_chart * BASE_U);
+}
+
+order_t ui_layout_order_get(void)
+{
+    return g_sys_config.layout_order;
+}
+
+uint8_t ui_dots_position_get(void)
+{
+    return g_sys_config.dots_position;
+}
+
+uint8_t ui_depth_h_u_get(void)
+{
+    return g_sys_config.h_depth;
+}
+
+uint8_t ui_ndl_h_u_get(void)
+{
+    return g_sys_config.h_ndl;
+}
+
+uint8_t ui_pod_h_u_get(void)
+{
+    return g_sys_config.h_pod;
+}
+
+uint8_t ui_batt_h_u_get(void)
+{
+    return g_sys_config.h_batt;
+}
+
+uint8_t ui_gas_h_u_get(void)
+{
+    return g_sys_config.h_gas;
+}
+
+uint8_t ui_time_h_u_get(void)
+{
+    return g_sys_config.h_time;
+}
+
+uint8_t ui_left_widget_count_get(void)
+{
+    return g_sys_config.left_widget_count;
+}
+
+const grid_widget_t *ui_left_widget_get(uint8_t index)
+{
+    return (index < LEFT_MAX_WIDGETS) ? &g_sys_config.left_widgets[index] : NULL;
+}
+
+uint8_t ui_custom_card_count_get(void)
+{
+    return g_sys_config.custom_card_count;
+}
+
+uint8_t ui_custom_card_widget_count_get(uint8_t custom_card_idx)
+{
+    if (custom_card_idx >= MAX_CUSTOM_CARDS)
+    {
+        return 0U;
+    }
+    return g_sys_config.custom_cards[custom_card_idx].widget_count;
+}
+
+const grid_widget_t *ui_custom_card_widget_get(uint8_t custom_card_idx, uint8_t widget_idx)
+{
+    if ((custom_card_idx >= MAX_CUSTOM_CARDS) || (widget_idx >= MAX_5F_WIDGETS))
+    {
+        return NULL;
+    }
+    return &g_sys_config.custom_cards[custom_card_idx].widgets[widget_idx];
+}
+
+uint8_t ui_custom_card_slot_get(uint8_t storage_pos)
+{
+    if (storage_pos >= PAGE_COUNT)
+    {
+        return 0xFFU;
+    }
+    return g_sys_config.custom_card_slot[storage_pos];
+}
+
+float bus_get_depth(void)
+{
+    return g_sensor_data.depth;
+}
+
+float bus_get_stop_depth_m(void)
+{
+    return g_sensor_data.stop_depth_m;
+}
+
+stop_type_t bus_get_stop_type(void)
+{
+    return g_sensor_data.stop_type;
+}
+
+uint8_t bus_get_ndl_bar_pct(void)
+{
+    return g_sensor_data.ndl_bar_pct;
+}
+
+uint16_t bus_get_stop_time_total_s(void)
+{
+    return g_sensor_data.stop_time_total_s;
+}
+
+uint16_t bus_get_stop_time_left_s(void)
+{
+    return g_sensor_data.stop_time_left_s;
+}
+
+bool bus_get_in_stop_zone(void)
+{
+    return g_sensor_data.in_stop_zone;
+}
+
+int16_t bus_get_ndl(void)
+{
+    return g_sensor_data.ndl;
+}
+
+int16_t bus_get_ndl_stop_value(void)
+{
+    return g_sensor_data.ndl_stop_value;
+}
+
+float bus_get_max_depth(void)
+{
+    return g_sensor_data.max_depth;
+}
+
+float bus_get_avg_depth(void)
+{
+    return g_sensor_data.avg_depth;
+}
+
+uint32_t bus_get_dive_time_s(void)
+{
+    return g_sensor_data.dive_time_s;
+}
+
+uint32_t bus_get_surface_time_s(void)
+{
+    return g_sensor_data.surface_time_s;
+}
+
+float bus_get_battery_pct(void)
+{
+    return g_sensor_data.battery_pct;
+}
+
+float bus_get_pod1_bar(void)
+{
+    return g_sensor_data.pod1_bar;
+}
+
+float bus_get_pod2_bar(void)
+{
+    return g_sensor_data.pod2_bar;
+}
+
+float bus_get_temperature(void)
+{
+    return g_sensor_data.temperature_c;
+}
+
+float bus_get_min_temp(void)
+{
+    return g_sensor_data.min_temp;
+}
+
+float bus_get_avg_temp(void)
+{
+    return g_sensor_data.avg_temp;
+}
+
+float bus_get_max_temp(void)
+{
+    return g_sensor_data.max_temp;
+}
+
+bool bus_get_bat_temperature_valid(void)
+{
+    return g_sensor_data.bat_temperature_valid;
+}
+
+bool bus_get_prj_temperature_valid(void)
+{
+    return g_sensor_data.prj_temperature_valid;
+}
+
+float bus_get_bat_temperature(void)
+{
+    return g_sensor_data.bat_temperature_c;
+}
+
+float bus_get_prj_temperature(void)
+{
+    return g_sensor_data.prj_temperature_c;
+}
+
+float bus_get_ascent_rate(void)
+{
+    return g_sensor_data.ascent_rate;
+}
+
+uint16_t bus_get_sys_time_h(void)
+{
+    return g_sensor_data.sys_time_h;
+}
+
+uint16_t bus_get_sys_time_m(void)
+{
+    return g_sensor_data.sys_time_m;
+}
+
+uint8_t bus_get_gas_slot_count(void)
+{
+    uint8_t count = g_sensor_data.gas_slot_count;
+    return (count > GAS_COUNT) ? GAS_COUNT : count;
+}
+
+uint8_t bus_get_gas_active_idx(void)
+{
+    uint8_t count = bus_get_gas_slot_count();
+    uint8_t idx = g_sensor_data.gas_active_idx;
+
+    if ((count == 0U) || (idx >= count))
+    {
+        return 0U;
+    }
+
+    return idx;
+}
+
+const char *bus_get_gas_slot_name(uint8_t gas_idx)
+{
+    if (gas_idx >= GAS_COUNT)
+    {
+        return NULL;
+    }
+
+    if (g_sensor_data.gas_slot_name[gas_idx][0] != '\0')
+    {
+        return g_sensor_data.gas_slot_name[gas_idx];
+    }
+
+    return GAS_NAMES[gas_idx];
+}
+
+uint8_t bus_get_gas_slot_o2_pct(uint8_t gas_idx)
+{
+    if (gas_idx >= GAS_COUNT)
+    {
+        return 0U;
+    }
+
+    return g_sensor_data.gas_slot_o2_pct[gas_idx];
+}
+
+uint8_t bus_get_gas_slot_he_pct(uint8_t gas_idx)
+{
+    if (gas_idx >= GAS_COUNT)
+    {
+        return 0U;
+    }
+
+    return g_sensor_data.gas_slot_he_pct[gas_idx];
+}
+
+float bus_get_gas_slot_mod_m(uint8_t gas_idx)
+{
+    if (gas_idx >= GAS_COUNT)
+    {
+        return 0.0f;
+    }
+
+    return g_sensor_data.gas_slot_mod_m[gas_idx];
+}
+
+float bus_get_gas_slot_ppo2(uint8_t gas_idx)
+{
+    if (gas_idx >= GAS_COUNT)
+    {
+        return 0.0f;
+    }
+
+    return g_sensor_data.ppo2[gas_idx];
+}
+
+uint8_t bus_get_gas_mix_o2(void)
+{
+    return g_sensor_data.gas_o2_pct;
+}
+
+uint8_t bus_get_gas_mix_he(void)
+{
+    return g_sensor_data.gas_he_pct;
+}
+
+float bus_get_gas_density(void)
+{
+    return g_sensor_data.gas_density;
+}
+
+float bus_get_mod_m(void)
+{
+    return g_sensor_data.mod_m;
+}
+
+float bus_get_ceiling_m(void)
+{
+    return g_sensor_data.ceiling_m;
+}
+
+float bus_get_mod_ppo2(void)
+{
+    return g_sys_config.mod_ppo2;
+}
+
+float bus_get_fio2_pct(void)
+{
+    return g_sensor_data.fio2_pct;
+}
+
+uint8_t bus_get_gf_low(void)
+{
+    return g_sensor_data.gf_low;
+}
+
+uint8_t bus_get_gf_high(void)
+{
+    return g_sensor_data.gf_high;
+}
+
+float bus_get_gf99(void)
+{
+    return g_sensor_data.gf99;
+}
+
+float bus_get_surf_gf(void)
+{
+    return g_sensor_data.surf_gf;
+}
+
+uint8_t bus_get_cns_pct(void)
+{
+    return g_sensor_data.cns_pct;
+}
+
+uint16_t bus_get_otu(void)
+{
+    return g_sensor_data.otu;
+}
+
+uint8_t bus_get_tissue_pct(uint8_t index)
+{
+    if (index >= 16U)
+    {
+        return 0U;
+    }
+
+    return g_sensor_data.tissue_pct[index];
+}
+
+uint8_t bus_get_pod_count(void)
+{
+    return g_sensor_data.gas_slot_count;
+}
+
+float bus_get_pod_bar(uint8_t pod_idx)
+{
+    return (pod_idx == 0U) ? g_sensor_data.pod1_bar : g_sensor_data.pod2_bar;
+}
+
+float bus_get_tts(void)
+{
+    return (float)g_sensor_data.tts;
+}
+
+float bus_get_sac_rate(void)
+{
+    return g_sensor_data.sac_rate;
+}
+
+uint8_t bus_get_last_deco_stop(void)
+{
+    return g_sys_config.last_deco_stop_m;
+}
+
+uint8_t bus_get_salinity_mode(void)
+{
+    return g_sys_config.salinity_mode;
+}
+
+uint8_t bus_get_conservatism(void)
+{
+    return g_sys_config.conservatism;
+}
+
+uint8_t bus_get_brightness(void)
+{
+    return g_sys_config.brightness;
+}
+
+uint8_t bus_get_dive_log_count(void)
+{
+    if (s_dive_log_count > MAX_DIVE_LOG)
+    {
+        return (uint8_t)MAX_DIVE_LOG;
+    }
+
+    return (uint8_t)s_dive_log_count;
+}
+
+bool bus_get_dive_log_point(uint8_t index, dive_pt_t *out_point)
+{
+    if ((out_point == NULL) || (index >= s_dive_log_count))
+    {
+        return false;
+    }
+
+    *out_point = s_dive_log[index];
+    return true;
+}
+
+uint8_t bus_get_deco_stop_count(void)
+{
+    if (s_deco_stop_count > MAX_DECO_STOPS)
+    {
+        return (uint8_t)MAX_DECO_STOPS;
+    }
+
+    return (uint8_t)s_deco_stop_count;
+}
+
+bool bus_get_deco_stop(uint8_t index, deco_stop_t *out_stop)
+{
+    if ((out_stop == NULL) || (index >= s_deco_stop_count))
+    {
+        return false;
+    }
+
+    *out_stop = s_deco_stops[index];
+    return true;
+}
+
+bool bus_is_heading_locked(void)
+{
+    return g_sensor_data.heading_locked;
+}
+
+uint16_t bus_get_heading(void)
+{
+    return g_sensor_data.heading;
+}
+
+uint16_t bus_get_heading_target(void)
+{
+    return g_sensor_data.heading_target;
+}
+
+void bus_lock_heading_to_current(void)
+{
+    if (!g_sensor_data.heading_locked)
+    {
+        g_sensor_data.heading_locked = true;
+        g_sensor_data.heading_target = g_sensor_data.heading;
+        g_sensor_data.dirty_mask |= DIRTY_HEADING;
+    }
+}
+
+void bus_clear_heading_lock(void)
+{
+    if (g_sensor_data.heading_locked)
+    {
+        g_sensor_data.heading_locked = false;
+        g_sensor_data.dirty_mask |= DIRTY_HEADING;
+    }
+}
+
+void dive_log_append(float current_time_s, float current_depth_m)
+{
+    if (current_time_s < 0.0f)
+    {
+        return;
+    }
+
+    if (s_dive_log_count > 0U)
+    {
+        dive_pt_t *last = &s_dive_log[s_dive_log_count - 1U];
+
+        if (current_time_s < last->time_s)
+        {
+            return;
+        }
+
+        if (fabsf(current_time_s - last->time_s) < 0.001f)
+        {
+            if (fabsf(last->depth_m - current_depth_m) < 0.001f)
+            {
+                last->depth_m = current_depth_m;
+                return;
+            }
+
+            if (s_dive_log_count >= MAX_DIVE_LOG)
+            {
+                dive_log_make_room();
+            }
+
+            if (s_dive_log_count < MAX_DIVE_LOG)
+            {
+                s_dive_log[s_dive_log_count].time_s  = current_time_s;
+                s_dive_log[s_dive_log_count].depth_m = current_depth_m;
+                s_dive_log_count++;
+            }
+            return;
+        }
+    }
+
+    if (s_dive_log_count >= MAX_DIVE_LOG)
+    {
+        dive_log_make_room();
+    }
+
+    if (s_dive_log_count < MAX_DIVE_LOG)
+    {
+        s_dive_log[s_dive_log_count].time_s  = current_time_s;
+        s_dive_log[s_dive_log_count].depth_m = current_depth_m;
+        s_dive_log_count++;
+    }
+}
+
+void dive_log_reset(void)
+{
+    s_dive_log_count = 0U;
+    s_deco_stop_count = 0U;
 }
 
 /* =========================================================

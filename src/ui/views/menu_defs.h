@@ -2,7 +2,7 @@
 #define MENU_DEFS_H
 
 #include "../core/ui_engine.h"
-#include "submenu_model.h"
+#include "submenu_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -172,6 +172,9 @@ typedef enum
     MENU_ITEM_DATE_MINUTE,
 
     MENU_ITEM_DIVE_PLAN_EXIT,
+    MENU_ITEM_DIVE_PLAN_NEXT,
+    MENU_ITEM_DIVE_PLAN_MORE,
+    MENU_ITEM_DIVE_PLAN_PLAN,
     MENU_ITEM_DIVE_PLAN_PRIMARY,
 } menu_item_id_t;
 

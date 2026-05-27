@@ -80,7 +80,7 @@ static int16_t s_display_key = -2;
 
 static void alarm_mark_dirty(void)
 {
-    g_sensor_data.dirty_mask |= DIRTY_ALARM;
+    bus_requeue_dirty(DIRTY_ALARM);
     s_display.revision++;
 }
 

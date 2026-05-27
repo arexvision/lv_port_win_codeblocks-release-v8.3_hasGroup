@@ -2,6 +2,7 @@
 #include "../core/data.h"
 #include "../core/ui_engine.h"
 #include "../core/ui_state.h"
+#include "../core/vm/ui_vm_dashboard.h"
 #include "../screen/layout_view.h"
 #include "card_compass.h"
 #include "lvgl/lvgl.h"
@@ -32,6 +33,8 @@ extern void rt_kprintf(const char *fmt, ...);
 #define PX_PER_DEGREE       3.0f   /* 像素/度比例 */
 #define TAPE_TOP_OFFSET     10      /* 卷尺距标题区顶部的偏移 */
 
+static ui_vm_compass_t s_compass_vm_cache;
+
 /* ============================================================
  * 罗盘卷尺底层数学绘制引擎 (0 RAM 开销)
  *
@@ -55,7 +58,7 @@ static void compass_tape_draw_cb(lv_event_t *e)
     int box_w = lv_area_get_width(area);
     int center_x = area->x1 + (box_w / 2);  /* 屏幕视口正中心 */
 
-    float heading = (float)g_sensor_data.heading;  /* 当前航向 */
+    float heading = (float)s_compass_vm_cache.heading;  /* 当前航向 */
 
     /* ---- 1. 初始化画笔 ---- */
     lv_draw_line_dsc_t line_dsc;
@@ -143,9 +146,9 @@ static void compass_tape_draw_cb(lv_event_t *e)
     lv_draw_line(draw_ctx, &line_dsc, &center_pts[0], &center_pts[1]);
 
     /* ---- 6. 目标锁定游标 (如果用户锁定了航向) ---- */
-    if (g_sensor_data.heading_locked)
+    if (s_compass_vm_cache.locked != 0U)
     {
-        float target_dx = (float)(g_sensor_data.heading_target - heading);
+        float target_dx = (float)(s_compass_vm_cache.heading_target - heading);
 
         /* 处理捷径逻辑 (如当前350，目标10，应向右走20度而不是向左走340度) */
         if (target_dx > 180.0f) target_dx -= 360.0f;
@@ -173,6 +176,22 @@ static lv_obj_t *s_compass_tape_obj = NULL;   /* 卷尺绘制对象 */
 static lv_obj_t *s_heading_val_lbl = NULL;    /* 巨型航向文本 */
 static lv_obj_t *s_heading_hint_lbl = NULL;   /* 顶部操作提示 */
 
+static bool compass_obj_is_valid(lv_obj_t **obj_ref)
+{
+    if (obj_ref == NULL || *obj_ref == NULL)
+    {
+        return false;
+    }
+
+    if (!lv_obj_is_valid(*obj_ref))
+    {
+        *obj_ref = NULL;
+        return false;
+    }
+
+    return true;
+}
+
 /* ============================================================
  * 罗盘卡片工厂渲染函数
  *
@@ -187,8 +206,7 @@ void render_compass_custom(lv_obj_t *parent_card)
     render_card_title(parent_card, "NAV COMPASS");
 
     /* 计算右侧区域宽度 */
-    int right_canvas_w = (int)g_sys_config.safe_zone_w - (int)LEFT_ANCHOR_W
-                         - (int)(g_sys_config.gap_u * BASE_U);
+    int right_canvas_w = (int)s_compass_vm_cache.right_canvas_w;
 
     /* ========================================================
      * 1. 顶部操作提示区 (Target Locked / Enter mark)
@@ -199,9 +217,9 @@ void render_compass_custom(lv_obj_t *parent_card)
     lv_obj_set_style_text_color(s_heading_hint_lbl, LIGHT, 0);
     lv_obj_align(s_heading_hint_lbl, LV_ALIGN_TOP_MID, 0, CARD_TITLE_H + 20);
 
-    if (g_sensor_data.heading_locked)
+    if (s_compass_vm_cache.locked != 0U)
     {
-        lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d ]", g_sensor_data.heading_target);
+        lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d ]", s_compass_vm_cache.heading_target);
     }
     else
     {
@@ -216,7 +234,7 @@ void render_compass_custom(lv_obj_t *parent_card)
     lv_obj_set_style_text_color(s_heading_val_lbl, GREEN, 0);
     /* 核心修复：绝对居中，并稍微往上抬一点点 */
     lv_obj_align(s_heading_val_lbl, LV_ALIGN_CENTER, 0, -10);
-    lv_label_set_text_fmt(s_heading_val_lbl, "%03d", g_sensor_data.heading);
+    lv_label_set_text_fmt(s_heading_val_lbl, "%03d", s_compass_vm_cache.heading);
 
     /* 度数空心小圆圈 */
     lv_obj_t *degree_circle = lv_obj_create(parent_card);
@@ -244,23 +262,28 @@ void render_compass_custom(lv_obj_t *parent_card)
 
 void card_compass_create(lv_obj_t *parent)
 {
+    ui_vm_compass_update(&s_compass_vm_cache, NULL, NULL);
     render_compass_custom(parent);
 }
 
-void card_compass_refresh_heading(bool force_refresh)
+void card_compass_refresh_heading_vm(const ui_vm_compass_t *vm, bool force_refresh)
 {
+    if (vm != NULL)
+    {
+        s_compass_vm_cache = *vm;
+    }
 #if BLE_COMPASS_DIAG_LOG_ENABLED
     static uint32_t s_last_compass_ui_log_tick = 0;
     static uint16_t s_last_compass_ui_heading = 0xFFFFU;
 
     if (force_refresh)
     {
-        ble_sensor_debug_note_ui_force_refresh(g_sensor_data.heading);
+        ble_sensor_debug_note_ui_force_refresh(s_compass_vm_cache.heading);
     }
     else
     {
         uint32_t now_tick = lv_tick_get();
-        bool heading_changed = (s_last_compass_ui_heading != g_sensor_data.heading);
+        bool heading_changed = (s_last_compass_ui_heading != s_compass_vm_cache.heading);
         bool heartbeat_due =
             (s_last_compass_ui_log_tick == 0U) ||
             ((now_tick - s_last_compass_ui_log_tick) >= 2000U);
@@ -268,15 +291,15 @@ void card_compass_refresh_heading(bool force_refresh)
         if (heading_changed || heartbeat_due)
         {
             s_last_compass_ui_log_tick = now_tick;
-            s_last_compass_ui_heading = g_sensor_data.heading;
-            ble_sensor_debug_note_ui_dirty(g_sensor_data.heading);
+            s_last_compass_ui_heading = s_compass_vm_cache.heading;
+            ble_sensor_debug_note_ui_dirty(s_last_compass_ui_heading);
 #if BLE_COMPASS_DIAG_SYSTEM_LOG_ENABLED
             rt_kprintf("[COMPASS_UI] dirty heading=%u label=%d tape=%d card=%u dash=%u\r\n",
-                       g_sensor_data.heading,
+                       s_last_compass_ui_heading,
                        s_heading_val_lbl ? 1 : 0,
                        s_compass_tape_obj ? 1 : 0,
-                       g_sys_config.card_order[g_ui.dash_page],
-                       g_ui.dash_page);
+                       0,
+                       0);
 #endif
         }
     }
@@ -284,19 +307,19 @@ void card_compass_refresh_heading(bool force_refresh)
     (void)force_refresh;
 #endif
 
-    if (s_heading_val_lbl)
+    if (compass_obj_is_valid(&s_heading_val_lbl))
     {
-        lv_label_set_text_fmt(s_heading_val_lbl, "%03d", g_sensor_data.heading);
+        lv_label_set_text_fmt(s_heading_val_lbl, "%03d", s_compass_vm_cache.heading);
     }
-    if (s_compass_tape_obj)
+    if (compass_obj_is_valid(&s_compass_tape_obj))
     {
         lv_obj_invalidate(s_compass_tape_obj);
     }
-    if (s_heading_hint_lbl)
+    if (compass_obj_is_valid(&s_heading_hint_lbl))
     {
-        if (g_sensor_data.heading_locked)
+        if (s_compass_vm_cache.locked != 0U)
         {
-            lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d ]", g_sensor_data.heading_target);
+            lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d ]", s_compass_vm_cache.heading_target);
         }
         else
         {
@@ -305,8 +328,13 @@ void card_compass_refresh_heading(bool force_refresh)
     }
 }
 
+void card_compass_refresh_heading(bool force_refresh)
+{
+    card_compass_refresh_heading_vm(&s_compass_vm_cache, force_refresh);
+}
+
 void card_compass_update(void)
 {
-    /* Keep compass labels and the custom tape draw surface in sync. */
-    card_compass_refresh_heading(false);
+    ui_vm_compass_update(&s_compass_vm_cache, NULL, NULL);
+    card_compass_refresh_heading_vm(&s_compass_vm_cache, false);
 }
