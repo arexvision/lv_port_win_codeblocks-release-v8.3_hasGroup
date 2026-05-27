@@ -338,17 +338,29 @@ static void plan_chart_draw_cb(lv_event_t *e)
         {
             snprintf(buf, sizeof(buf), "%d", t);
         }
-        lv_coord_t lbl_left = x - 20;
-        lv_coord_t lbl_right = x + 20;
-        if (lbl_left < (lv_coord_t)x_axis_left)
+
+        /* 刻度文字按真实字宽居中到网格线上。
+         * 之前这里用固定 40px 文本框，并在左右边界直接裁切，
+         * 会把 0 和最后一项的标签视觉上往中间推，产生“0 到 1 更窄”的错觉。
+         */
+        lv_point_t tick_text_size;
+        lv_txt_get_size(&tick_text_size, buf, txt_dsc.font, txt_dsc.letter_space,
+                        txt_dsc.line_space, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+        lv_coord_t tick_pad_x = 4;
+        lv_coord_t lbl_left = x - (tick_text_size.x / 2) - tick_pad_x;
+        lv_coord_t lbl_right = x + ((tick_text_size.x + 1) / 2) + tick_pad_x;
+
+        if (lbl_left < area->x1)
         {
-            lbl_left = (lv_coord_t)x_axis_left;
-            lbl_right = lbl_left + 40;
+            lv_coord_t shift = area->x1 - lbl_left;
+            lbl_left += shift;
+            lbl_right += shift;
         }
-        if (lbl_right > (lv_coord_t)x_axis_right)
+        if (lbl_right > area->x2)
         {
-            lbl_right = (lv_coord_t)x_axis_right;
-            lbl_left = lbl_right - 40;
+            lv_coord_t shift = lbl_right - area->x2;
+            lbl_left -= shift;
+            lbl_right -= shift;
         }
         lv_area_t t_area = {lbl_left, area->y2 - 18, lbl_right, area->y2};
         lv_draw_label(draw_ctx, &txt_dsc, &t_area, buf, NULL);
