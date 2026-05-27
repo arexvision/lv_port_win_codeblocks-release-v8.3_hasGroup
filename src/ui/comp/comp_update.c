@@ -7,6 +7,10 @@
 #include <math.h>
 #include <stdio.h>
 
+#define POD_TAG_BASE  1000U
+#define POD1_TAG      ((uintptr_t)(POD_TAG_BASE + COMP_POD_0806))
+#define POD2_TAG      ((uintptr_t)(2U * POD_TAG_BASE + COMP_POD_0806))
+
 static void comp_sync_text_from_vm(comp_id_t w_id, uint8_t pod_index)
 {
     ui_vm_value_text_t value_vm;
@@ -50,27 +54,6 @@ void comp_set_value(comp_id_t id, float value)
                 if (part1 && lv_obj_is_valid(part1) && lv_obj_check_type(part1, &lv_label_class))
                 {
                     lv_label_set_text_fmt(part1, ".%d", dd);
-                }
-                continue;
-            }
-
-            if (child_tag == (uintptr_t)COMP_POD_0806)
-            {
-                int16_t sub_cnt = lv_obj_get_child_cnt(child);
-                for (int16_t j = 0; j < sub_cnt; j++)
-                {
-                    lv_obj_t *sub = lv_obj_get_child(child, j);
-                    if (!sub || !lv_obj_is_valid(sub)) continue;
-                    if ((uintptr_t)lv_obj_get_user_data(sub) == (uintptr_t)COMP_POD_0806)
-                    {
-                        if (lv_obj_check_type(sub, &lv_label_class))
-                        {
-                            char buf[32];
-                            snprintf(buf, sizeof(buf), "%.0f", (double)value);
-                            lv_label_set_text(sub, buf);
-                        }
-                        break;
-                    }
                 }
                 continue;
             }
@@ -157,6 +140,50 @@ void comp_set_text(comp_id_t id, const char *text)
     }
 }
 
+static void comp_sync_pod_values(void)
+{
+    uint8_t max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS)
+                        ? g_card_custom_obj_count
+                        : MAX_CUSTOM_CARDS;
+
+    for (uint8_t c = 0; c <= max_count; c++)
+    {
+        lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
+        if (!container || !lv_obj_is_valid(container)) continue;
+
+        int16_t child_cnt = lv_obj_get_child_cnt(container);
+        for (int16_t i = 0; i < child_cnt; i++)
+        {
+            lv_obj_t *child = lv_obj_get_child(container, i);
+            if (!child || !lv_obj_is_valid(child)) continue;
+
+            uintptr_t child_tag = (uintptr_t)lv_obj_get_user_data(child);
+            if (child_tag != POD1_TAG && child_tag != POD2_TAG)
+            {
+                continue;
+            }
+
+            ui_vm_value_text_t value_vm;
+            uint8_t pod_index = (child_tag == POD2_TAG) ? 2U : 1U;
+            ui_vm_value_text_update(&value_vm, COMP_POD_0806, pod_index);
+
+            int16_t sub_cnt = lv_obj_get_child_cnt(child);
+            for (int16_t j = 0; j < sub_cnt; j++)
+            {
+                lv_obj_t *sub = lv_obj_get_child(child, j);
+                if (!sub || !lv_obj_is_valid(sub)) continue;
+
+                if ((uintptr_t)lv_obj_get_user_data(sub) == (uintptr_t)COMP_POD_0806 &&
+                    lv_obj_check_type(sub, &lv_label_class))
+                {
+                    lv_label_set_text(sub, value_vm.text);
+                    break;
+                }
+            }
+        }
+    }
+}
+
 void comp_sync_data(comp_id_t w_id)
 {
     switch (w_id)
@@ -165,7 +192,6 @@ void comp_sync_data(comp_id_t w_id)
      * 1. 核心驻留& 复杂状态机 (这些由专属函数处理，这里做兜
      * ========================================================= */
     case COMP_NDL_STOP_1606:
-    case COMP_COMPASS_1612:
     case COMP_TISSUE_GF_4012:
     case COMP_TISSUE_RAW_4012:
         /* 这些是包含动多元素的复杂状态机，已ui_update_task 有专属刷新逻辑 */
@@ -283,12 +309,12 @@ void comp_sync_data(comp_id_t w_id)
      * 7. 传感& 拓展 (Sensors)
      * ========================================================= */
     case COMP_HEADING_0806:
+    case COMP_COMPASS_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
     case COMP_POD_0806:
-        /* POD 由状态机使用 user_data 靶向刷新，此处做兜底 */
-        comp_sync_text_from_vm(COMP_POD_0806, 1U);
+        comp_sync_pod_values();
         break;
 
     case COMP_DEPTH_MAX_0806:
