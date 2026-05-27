@@ -261,14 +261,21 @@ static void plan_chart_draw_cb(lv_event_t *e)
     else
         max_t_axis_sec = ceilf(target_max_t_sec / 10.0f) * 10.0f;
 
-    /* X轴步长动态分配（秒） */
+    /* X轴显示分两种模式：
+     * 1. 整个时间轴还在 1 分钟内：用秒，左下角显示 m/s。
+     * 2. 整个时间轴超过 1 分钟：直接切到分钟，刻度只显示整数分钟。
+     */
+    bool x_axis_in_minutes = (max_t_axis_sec > 60.0f);
     int x_step = 10;
-    if (max_t_axis_sec > 60)    x_step = 15;
-    if (max_t_axis_sec > 120)   x_step = 30;
-    if (max_t_axis_sec > 300)   x_step = 60;
-    if (max_t_axis_sec > 600)   x_step = 120;
-    if (max_t_axis_sec > 1200)  x_step = 300;
-    if (max_t_axis_sec > 3600)  x_step = 600;
+    if (x_axis_in_minutes)
+    {
+        float max_t_axis_min = max_t_axis_sec / 60.0f;
+        if (max_t_axis_min <= 10.0f)      x_step = 60;
+        else if (max_t_axis_min <= 20.0f) x_step = 120;
+        else if (max_t_axis_min <= 40.0f) x_step = 300;
+        else if (max_t_axis_min <= 80.0f) x_step = 600;
+        else                               x_step = 900;
+    }
 
     /* 5. 秒数映射宏 */
 #define MAP_X(t_sec) ((lv_coord_t)(x_axis_left + ((t_sec) / max_t_axis_sec) * w))
@@ -309,7 +316,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
     }
 
     /* ==========================================
-     * 绘制 X 轴网格（时间：秒，居中对齐刻度数字）
+     * 绘制 X 轴网格（时间，居中对齐刻度数字）
      * ========================================== */
     txt_dsc.align = LV_TEXT_ALIGN_CENTER;
     for (int t = 0; t <= (int)max_t_axis_sec; t += x_step)
@@ -323,12 +330,9 @@ static void plan_chart_draw_cb(lv_event_t *e)
         lv_draw_line(draw_ctx, &line_dsc, &pts[0], &pts[1]);
 
         char buf[16];
-        if (max_t_axis_sec >= 120.0f)
+        if (x_axis_in_minutes)
         {
-            if (t % 60 == 0)
-                snprintf(buf, sizeof(buf), "%d", t / 60);
-            else
-                snprintf(buf, sizeof(buf), "%.1f", (float)t / 60.0f);
+            snprintf(buf, sizeof(buf), "%d", t / 60);
         }
         else
         {
@@ -352,7 +356,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
     txt_dsc.align = LV_TEXT_ALIGN_LEFT;
 
     /* ==========================================
-     * 绘制左下角坐标系单位 (m/min)
+     * 绘制左下角坐标系单位：秒模式 m/s，分钟模式 m/min
      * ========================================== */
     lv_draw_label_dsc_t unit_dsc;
     lv_draw_label_dsc_init(&unit_dsc);
@@ -367,7 +371,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
         area->x1 + 60,
         area->y2 + 10
     };
-    lv_draw_label(draw_ctx, &unit_dsc, &unit_area, "m/min", NULL);
+    lv_draw_label(draw_ctx, &unit_dsc, &unit_area,
+                  x_axis_in_minutes ? "m/min" : "m/s", NULL);
 
     /* ==========================================
      * 绘制历史真实轨迹（实线）
