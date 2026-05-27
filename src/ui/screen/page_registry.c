@@ -130,7 +130,7 @@ static uint8_t dynamic_page_count_all(void)
     for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < PAGE_POS_SETUP; ++pos)
     {
         uint8_t id = g_sys_page_order(pos);
-        if (id != PAGE_ID_UNUSED)
+        if (id != PAGE_ID_UNUSED && id != PAGE_ID_BLANK)
         {
             count++;
         }
@@ -172,7 +172,27 @@ uint8_t page_storage_pos(uint8_t display_pos)
     }
     if (display_pos >= PAGE_POS_DYNAMIC_FIRST && display_pos < setup_pos)
     {
-        return display_pos;
+        uint8_t visible_pos = PAGE_POS_DYNAMIC_FIRST;
+
+        for (uint8_t storage_pos = PAGE_POS_DYNAMIC_FIRST;
+             storage_pos < PAGE_POS_SETUP;
+             storage_pos++)
+        {
+            uint8_t id = g_sys_page_order(storage_pos);
+
+            if (id == PAGE_ID_UNUSED || id == PAGE_ID_BLANK)
+            {
+                continue;
+            }
+
+            if (visible_pos == display_pos)
+            {
+                return storage_pos;
+            }
+            visible_pos++;
+        }
+
+        return 0xFF;
     }
     if (display_pos == setup_pos)
     {

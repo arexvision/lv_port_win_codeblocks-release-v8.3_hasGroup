@@ -134,7 +134,7 @@ void safe_zone_reposition(void)
         {
             for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < ui_state_get_dash_page(); pos++)
             {
-                uint8_t page_id = g_sys_page_order(pos);
+                uint8_t page_id = page_id_at(pos);
                 if (page_id != PAGE_ID_UNUSED && page_id != PAGE_ID_BLANK)
                 {
                     active_idx++;
@@ -342,7 +342,7 @@ void screen_rebuild_tileview(void)
     memset(s_tile_objs, 0, sizeof(s_tile_objs));
     memset(g_card_custom_objs, 0, sizeof(g_card_custom_objs));
     g_card_custom_obj_count = 0;
-    for (uint8_t i = 0; i < count; i++)
+    for (uint8_t i = 0; i < PAGE_ID_COUNT; i++)
     {
         page_t *page = page_get_by_id(i);
         if (page) page->tile_obj = NULL;
@@ -402,7 +402,7 @@ void screen_rebuild_tileview(void)
     {
         for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < ui_state_get_dash_page(); pos++)
         {
-            uint8_t page_id = g_sys_page_order(pos);
+            uint8_t page_id = page_id_at(pos);
             if (page_id != PAGE_ID_UNUSED && page_id != PAGE_ID_BLANK)
             {
                 active_idx++;

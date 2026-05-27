@@ -265,7 +265,7 @@ void screen_scroll_to_page(uint8_t tile_pos)
     lv_obj_update_layout(tile);
     lv_obj_invalidate(tile);
 
-    if (g_sys_page_order(tile_pos) == PAGE_ID_COMPASS)
+    if (page_id_at(tile_pos) == PAGE_ID_COMPASS)
     {
         card_compass_refresh_heading(true);
     }
@@ -277,7 +277,7 @@ void screen_scroll_to_page(uint8_t tile_pos)
         uint8_t active_idx = 0;
         for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
         {
-            uint8_t page_id = g_sys_page_order(pos);
+            uint8_t page_id = page_id_at(pos);
             if (page_id != PAGE_ID_UNUSED && page_id != PAGE_ID_BLANK)
             {
                 active_idx++;

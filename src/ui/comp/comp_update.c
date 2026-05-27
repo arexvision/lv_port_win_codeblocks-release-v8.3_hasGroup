@@ -179,6 +179,9 @@ void comp_sync_data(comp_id_t w_id)
      * 2. 深度组件
      * ========================================================= */
     case COMP_DEPTH_1612:
+        comp_set_value(w_id, bus_get_depth());
+        break;
+
     case COMP_DEPTH_1606:
         comp_sync_text_from_vm(w_id, 0U);
         break;
