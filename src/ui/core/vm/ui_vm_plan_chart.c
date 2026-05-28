@@ -73,7 +73,11 @@ static float vm_plan_time_axis(float current_time_s, float predicted_t_sec)
         target_max_t_sec = 20.0f;
     }
 
-    if (target_max_t_sec > 120.0f)
+    if (target_max_t_sec > 3600.0f)
+    {
+        axis = ceilf(target_max_t_sec / 3600.0f) * 3600.0f;
+    }
+    else if (target_max_t_sec > 60.0f)
     {
         axis = ceilf(target_max_t_sec / 60.0f) * 60.0f;
     }
@@ -89,29 +93,33 @@ static uint16_t vm_plan_time_step(float max_t_axis_sec)
 {
     uint16_t x_step = 10U;
 
-    if (max_t_axis_sec > 3600.0f)
+    if (max_t_axis_sec > 28800.0f)
     {
-        x_step = 600U;
+        x_step = 14400U;
+    }
+    else if (max_t_axis_sec > 14400.0f)
+    {
+        x_step = 7200U;
+    }
+    else if (max_t_axis_sec > 3600.0f)
+    {
+        x_step = 3600U;
     }
     else if (max_t_axis_sec > 1200.0f)
     {
-        x_step = 300U;
+        x_step = 600U;
     }
     else if (max_t_axis_sec > 600.0f)
     {
-        x_step = 120U;
+        x_step = 300U;
     }
     else if (max_t_axis_sec > 300.0f)
     {
-        x_step = 60U;
-    }
-    else if (max_t_axis_sec > 120.0f)
-    {
-        x_step = 30U;
+        x_step = 120U;
     }
     else if (max_t_axis_sec > 60.0f)
     {
-        x_step = 15U;
+        x_step = 60U;
     }
     else
     {
