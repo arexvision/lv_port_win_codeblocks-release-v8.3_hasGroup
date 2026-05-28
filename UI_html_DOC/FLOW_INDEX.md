@@ -12,6 +12,7 @@
 | 增加一个新的子菜单页，比如 DISPLAY 下面再加一层 | `FLOW_ADD_SUBMENU_PAGE.md` |
 | 增加一个右侧 tileview 页面，比如新业务卡片 | `FLOW_ADD_RIGHT_PAGE.md` |
 | 算法/TCP 新增一个数据字段并显示到 UI | `FLOW_ADD_DATA_FIELD_TO_UI.md` |
+| 真机侧触发/解除警告，或新增固定警告 ID | `ALARM_SYSTEM_PORTING_GUIDE.md` |
 
 ## 总规则
 
