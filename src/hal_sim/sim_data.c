@@ -1,6 +1,5 @@
 #include "sim_data.h"
 
-#include "../ui/alarm/alarm.h"
 #include "../ui/core/data.h"
 #include "../algo_sim/buhlmann_debug.h"
 #ifndef PC_SIMULATOR
@@ -18,7 +17,6 @@
 #endif
 
 static lv_timer_t *s_sim_timer;
-static lv_timer_t *s_l1_alarm_timer;
 
 #define SIM_LAYOUT_PHASE_COUNT 3U
 #define SIM_LAYOUT_SWITCH_TICKS 5U
@@ -438,13 +436,6 @@ static void sim_tick_cb(lv_timer_t *t)
     }
 }
 
-static void sim_l1_alarm_timer_cb(lv_timer_t *t)
-{
-    alarm_set_active(ALARM_ID_INFO_SAFETY_STOP, true);
-    s_l1_alarm_timer = NULL;
-    lv_timer_del(t);
-}
-
 void sim_data_start(void)
 {
     if (s_sim_timer != NULL) {
@@ -458,8 +449,5 @@ void sim_data_start(void)
 #endif
 
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
-
-
-    // s_l1_alarm_timer = lv_timer_create(sim_l1_alarm_timer_cb, 1000, NULL);
 
 }

@@ -383,8 +383,9 @@ void ui_init(void)
         sys_config_defaults(&g_sys_config);
     }
 
-    /* 2. 传感器数据清*/
+    /* 2. 传感器数据和告警状态初始化 */
     data_init();
+    alarm_init();
 }
 
 /* =========================================================
@@ -438,27 +439,6 @@ uint8_t   g_card_custom_obj_count;
  * 注意：复杂状态机组件（NDL_STOP/SYS/COMPASS/TISSUE）已在 update_task
  *       有专属刷新逻辑，此处仅做兜底处理
  * ========================================================= */
-
-/* =========================================================
- * 🚨 靶向告警触发引擎（新版本：仅设置状态，50ms 定时器执行闪烁）
- * ========================================================= */
-void trigger_alarm(alarm_level_t level,
-                        const char *eng_text,
-                        comp_id_t target_id)
-{
-    (void)alarm_raise_custom(level, eng_text, target_id);
-    ui_state_set_alarm_pending_click(level >= ALARM_WARN);
-}
-
-/* =========================================================
- * 🚨 清除所有告警样式（50ms 定时器会自动把样式复原）
- * 新逻辑：速度降到安全范围后自动清除，但最少显示 5 秒
- * ========================================================= */
-void clear_all_alarm_styles(void)
-{
-    alarm_clear_all();
-    ui_state_set_alarm_pending_click(false);
-}
 
 bool alarm_mark_clear_requested(void)
 {

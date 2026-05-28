@@ -65,6 +65,7 @@ bool alarm_set_active(alarm_id_t id, bool active);
 bool alarm_raise_custom(alarm_level_t level,
                              const char *text,
                              comp_id_t target);
+bool alarm_clear_custom(void);
 void alarm_clear_all(void);
 /* ACK 当前展示告警，用于支持用户手动确认隐藏。 */
 bool alarm_ack_current(void);

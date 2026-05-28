@@ -85,6 +85,8 @@ Hardware/BLE → bus_set_*() → g_sensor_data (dirty_mask)
 
 **Rule:** never write `g_sensor_data` or `g_sys_config` directly from outside `ui_engine.c`. Always use `bus_set_*()`.
 
+Alarm state is not part of the data bus. `bus_set_*()` must only update data and dirty masks; it must not evaluate thresholds or trigger/clear warnings. Warning ownership belongs to the algorithm, sensor, platform, or debug layer, which should call `alarm_set_active()`, `alarm_raise_custom()`, `alarm_clear_custom()`, or `alarm_clear_all()` explicitly.
+
 ### Screen layout
 
 - **Left anchor:** 2-column × 7-row fixed grid (160px wide) — always-visible dive metrics

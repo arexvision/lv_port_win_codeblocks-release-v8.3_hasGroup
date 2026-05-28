@@ -457,7 +457,7 @@ static void debug_send_help(void)
         "  cns <pct> | otu <value> | mod <m> | ceiling <m> | mix <o2> <he> | dens <g_l> | fio2 <pct>\r\n"
         "  gas_count <n> | gas <slot> [name] | gas_slot <slot> <o2> <he> <mod> [name]\r\n"
         "  layout <default|current|gas>\r\n"
-        "  alarm <info|warn|crit> <text>\r\n"
+        "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "Slots are 0-based. TCP disables the auto depth script; the 1Hz clock keeps running.\r\n");
 }
 
@@ -1095,6 +1095,13 @@ static void debug_exec_line(char *line)
         char *text = debug_trim(cursor);
         alarm_level_t level = ALARM_INFO;
 
+        if (debug_streq(level_text, "clear"))
+        {
+            alarm_clear_custom();
+            debug_send_raw("OK alarm clear\r\n");
+            return;
+        }
+
         if (debug_streq(level_text, "warn"))
         {
             level = ALARM_WARN;
@@ -1105,7 +1112,7 @@ static void debug_exec_line(char *line)
         }
         else if (!debug_streq(level_text, "info"))
         {
-            debug_send_raw("ERR usage: alarm <info|warn|crit> <text>\r\n");
+            debug_send_raw("ERR usage: alarm <info|warn|crit> <text> | alarm clear\r\n");
             return;
         }
 
@@ -1113,7 +1120,7 @@ static void debug_exec_line(char *line)
         {
             text = "DEBUG ALARM";
         }
-        bus_raise_alarm(level, text, COMP_EMPTY);
+        alarm_raise_custom(level, text, COMP_EMPTY);
         debug_sendf("OK alarm %s %s\r\n", level_text, text);
         return;
     }

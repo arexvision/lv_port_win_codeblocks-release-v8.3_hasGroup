@@ -23,8 +23,6 @@ void sys_config_defaults(sys_config_t *cfg);
 lv_text_align_t align_to_lv(uint8_t align);
 lv_align_t align_to_lv_align(uint8_t align);
 const lv_font_t *get_font(uint8_t font_id);
-void trigger_alarm(alarm_level_t level, const char *eng_text, comp_id_t target_id);
-void clear_all_alarm_styles(void);
 bool alarm_mark_clear_requested(void);
 const char *comp_get_name(comp_id_t id);
 void ui_update_task(lv_timer_t *timer);

@@ -355,6 +355,18 @@ bool alarm_raise_custom(alarm_level_t level,
     return true;
 }
 
+bool alarm_clear_custom(void)
+{
+    if (!s_custom_alarm.active)
+    {
+        return false;
+    }
+
+    memset(&s_custom_alarm, 0, sizeof(s_custom_alarm));
+    alarm_mark_dirty();
+    return true;
+}
+
 void alarm_clear_all(void)
 {
     memset(s_alarm_states, 0, sizeof(s_alarm_states));

@@ -280,10 +280,6 @@ void bus_clear_all_dirty(void);
 // /* 重置潜水统计值（开始新潜水时调用） */
 // void bus_reset_stats(void);
 
-void bus_raise_alarm(alarm_level_t level,
-                          const char *text,
-                          comp_id_t target);
-
 /* --- 配置持久化（weak 实现由具体平台覆盖） --- */
 bool config_load(sys_config_t *cfg);
 bool config_save(const sys_config_t *cfg);
