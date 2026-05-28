@@ -145,6 +145,35 @@ static void dive_log_make_room(void)
     }
 }
 
+static bool deco_plan_equals_current(const deco_stop_t *stops, uint8_t count)
+{
+    if (s_deco_stop_count != count)
+    {
+        return false;
+    }
+
+    if (count == 0U)
+    {
+        return true;
+    }
+
+    if (stops == NULL)
+    {
+        return false;
+    }
+
+    for (uint8_t i = 0U; i < count; i++)
+    {
+        if ((fabsf(s_deco_stops[i].depth_m - stops[i].depth_m) > 0.01f) ||
+                (fabsf(s_deco_stops[i].stay_min - stops[i].stay_min) > 0.01f))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void data_init(void)
 {
     memset(&g_sensor_data, 0, sizeof(g_sensor_data));
@@ -196,8 +225,6 @@ void bus_set_depth(float depth_m)
     {
         g_sensor_data.depth = depth_m;
         g_sensor_data.dirty_mask |= DIRTY_DEPTH;
-        /* 轨迹+减压站图表需要刷新 */
-        g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
 
         /* 统计计算：最大深度 + 平均深度 */
         if (depth_m > g_sensor_data.max_depth)
@@ -303,8 +330,6 @@ void bus_set_dive_time(uint32_t dive_s)
     {
         g_sensor_data.dive_time_s = dive_s;
         g_sensor_data.dirty_mask |= DIRTY_DIVE_TIME;
-        /* 潜水时间推进，图表的 NOW 点会随之右移 */
-        g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
     }
 }
 
@@ -495,13 +520,23 @@ void bus_set_deco_plan(const deco_stop_t *stops, uint8_t count)
     {
         count = MAX_DECO_STOPS;
     }
+    if (stops == NULL)
+    {
+        count = 0U;
+    }
+
     rt_base_t level = rt_hw_interrupt_disable();
+    if (deco_plan_equals_current(stops, count))
+    {
+        rt_hw_interrupt_enable(level);
+        return;
+    }
+
     s_deco_stop_count = count;
     if ((count > 0U) && (stops != NULL))
     {
         (void)memcpy(s_deco_stops, stops, count * sizeof(deco_stop_t));
     }
-    g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
     rt_hw_interrupt_enable(level);
 }
 
@@ -1555,6 +1590,7 @@ void dive_log_append(float current_time_s, float current_depth_m)
                 s_dive_log[s_dive_log_count].time_s  = current_time_s;
                 s_dive_log[s_dive_log_count].depth_m = current_depth_m;
                 s_dive_log_count++;
+                g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
             }
             return;
         }
@@ -1570,6 +1606,7 @@ void dive_log_append(float current_time_s, float current_depth_m)
         s_dive_log[s_dive_log_count].time_s  = current_time_s;
         s_dive_log[s_dive_log_count].depth_m = current_depth_m;
         s_dive_log_count++;
+        g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
     }
 }
 
