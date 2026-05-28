@@ -10,7 +10,10 @@
 #include "../core/data.h"
 #include "../core/vm/ui_vm_menu.h"
 #include "../core/vm/ui_vm_plan_view.h"
+
+#if defined(PC_SIMULATOR) && defined(_WIN32)
 #include "../../algo_sim/buhlmann_debug.h"
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -126,6 +129,7 @@ static uint8_t plan_result_total_pages(void)
     return s_state.result.total_pages;
 }
 
+#if defined(PC_SIMULATOR) && defined(_WIN32)
 static dive_plan_row_type_t plan_row_type_from_algo(buhlmann_debug_plan_row_type_t type)
 {
     switch (type)
@@ -139,9 +143,11 @@ static dive_plan_row_type_t plan_row_type_from_algo(buhlmann_debug_plan_row_type
         return DIVE_PLAN_ROW_BOTTOM;
     }
 }
+#endif
 
 static void plan_execute(void)
 {
+#if defined(PC_SIMULATOR) && defined(_WIN32)
     buhlmann_debug_plan_result_t algo_result;
     dive_plan_result_snapshot_t snapshot;
     uint8_t row_count;
@@ -191,6 +197,10 @@ static void plan_execute(void)
 
     submenu_dive_plan_set_result_snapshot(&snapshot);
     s_state.page = DIVE_PLAN_PAGE_RESULT;
+#else
+    submenu_dive_plan_set_result_snapshot(NULL);
+    s_state.page = DIVE_PLAN_PAGE_ERROR;
+#endif
 }
 
 void submenu_dive_plan_set_result_snapshot(const dive_plan_result_snapshot_t *snapshot)

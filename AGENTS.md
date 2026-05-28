@@ -28,6 +28,8 @@ Do not introduce project-name prefixes in code identifiers or directory names. N
 
 Menu business logic must be driven by stable IDs (`menu_id_t`, `menu_item_id_t`) and row types. Display strings are only for LVGL labels; do not branch on menu titles or row text with `strcmp` in selection/action paths.
 
+PC simulator-only modules (`src/hal_sim`, `src/algo_sim`, `input_pc`, `buhlmann_debug`, TCP/debug-link code, Windows-only headers) must not be included unguarded from shared UI/core code. If shared code needs a PC-only hook, wrap both the include and the call site with `#if defined(PC_SIMULATOR) && defined(_WIN32)`, and provide a non-PC fallback path that still compiles for the embedded target.
+
 ## Git / Commit
 
 本仓库的 commit message 默认使用中文；只有用户明确要求时，才使用其他语言。
