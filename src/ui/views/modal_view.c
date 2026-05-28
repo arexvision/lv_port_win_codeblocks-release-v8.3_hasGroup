@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/views/modal_view.c
+ * 作用: 该文件属于视图表现模块，负责菜单、子菜单、模态框或特定视图状态的展示与交互联动。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "modal_view.h"
 
 #include "../core/ui_state.h"
@@ -13,12 +20,14 @@ static lv_obj_t *s_modal_box = NULL;
 
 void modal_view_reset(void)
 {
+    /* 布局重建后旧模态框对象会失效，因此只保留空引用。 */
     s_modal = NULL;
     s_modal_box = NULL;
 }
 
 void modal_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 {
+    /* 模态层由全屏遮罩和中央弹框两部分组成。 */
     s_modal = lv_obj_create(parent);
     lv_obj_set_size(s_modal, width, height);
     lv_obj_set_pos(s_modal, 0, 0);
@@ -40,6 +49,7 @@ void modal_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 
 static void modal_act_timer_cb(lv_timer_t *t)
 {
+    /* 动作提示类弹窗到时后自动关闭，并把状态机恢复到上一级界面。 */
     (void)t;
     screen_hide_modal();
     if (ui_state_get_state() == UI_MODAL_ACT)
@@ -51,6 +61,7 @@ static void modal_act_timer_cb(lv_timer_t *t)
 
 static void modal_set_content(const char *title, const char *body, const char *hint)
 {
+    /* 每次展示弹窗前都重新构建内容，避免残留旧文本。 */
     if (!s_modal_box)
     {
         return;
@@ -79,6 +90,7 @@ static void modal_set_content(const char *title, const char *body, const char *h
 
 void screen_show_modal_act(const char *action_text)
 {
+    /* ACTION 弹窗用于展示短时操作反馈，会自动消失。 */
     if (!s_modal)
     {
         return;
@@ -91,6 +103,7 @@ void screen_show_modal_act(const char *action_text)
 
 void screen_show_modal_setup_confirm(const char *body)
 {
+    /* 设置确认弹窗需要用户明确确认或取消。 */
     if (!s_modal)
     {
         return;
@@ -102,6 +115,7 @@ void screen_show_modal_setup_confirm(const char *body)
 
 void screen_show_modal_gas(void)
 {
+    /* 气体弹窗内容完全由 VM 提供，view 层只负责显示。 */
     ui_vm_modal_gas_t vm;
 
     if (!s_modal)
@@ -124,6 +138,7 @@ void screen_show_modal_gas(void)
 
 void screen_show_modal_compass(void)
 {
+    /* 罗盘目标清除弹窗是一个固定文案确认框。 */
     if (!s_modal)
     {
         return;
@@ -135,6 +150,7 @@ void screen_show_modal_compass(void)
 
 void screen_pulse_modal(void)
 {
+    /* 轻微左右抖动用于提示当前弹窗需要用户注意。 */
     if (!s_modal_box)
     {
         return;
@@ -153,6 +169,7 @@ void screen_pulse_modal(void)
 
 void screen_hide_modal(void)
 {
+    /* 隐藏时只加 hidden 标志，保留对象以便下次复用。 */
     if (!s_modal)
     {
         return;

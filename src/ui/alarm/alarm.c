@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/alarm/alarm.c
+ * 作用: 该文件属于闹钟界面模块，负责闹钟数据、视图构建、交互刷新或与上层 UI 状态之间的衔接。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时建议先理解该文件在 app_ui 流程中的位置，再修改注释所描述的职责边界，避免把数据准备、状态切换和视图渲染职责混杂到一起。
+ */
+
 #include "alarm.h"
 #include "../core/data.h"
 #include "lvgl/lvgl.h"
@@ -80,28 +87,33 @@ static int16_t s_display_key = -2;
 
 static void alarm_mark_dirty(void)
 {
+    /* 告警显示内容发生变化后，通过脏标记通知 UI 层刷新告警区域。 */
     bus_requeue_dirty(DIRTY_ALARM);
     s_display.revision++;
 }
 
 static uint32_t alarm_now(void)
 {
+    /* 统一使用 LVGL tick 作为告警时间基准，便于和 UI 动画节奏保持一致。 */
     return lv_tick_get();
 }
 
 static bool alarm_is_ack_hidden(uint8_t id)
 {
+    /* ACK_HIDE 策略表示用户确认后先隐藏，但条件未解除前仍保留内部状态。 */
     return s_alarm_states[id].acked &&
            s_alarm_defs[id].clear_policy == ALARM_CLEAR_ACK_HIDE;
 }
 
 static bool alarm_is_displayable(uint8_t id)
 {
+    /* 活跃且未被 ACK 隐藏的告警，才允许进入展示候选集。 */
     return s_alarm_states[id].active && !alarm_is_ack_hidden(id);
 }
 
 static bool alarm_custom_is_displayable(void)
 {
+    /* 自定义告警走和标准告警相同的显示资格判断逻辑。 */
     return s_custom_alarm.active &&
            !(s_custom_alarm.acked &&
              s_custom_alarm.clear_policy == ALARM_CLEAR_ACK_HIDE);
@@ -110,6 +122,7 @@ static bool alarm_custom_is_displayable(void)
 static bool alarm_target_add(comp_id_t *targets, uint8_t *count,
                              uint8_t max_targets, comp_id_t target)
 {
+    /* 这个工具函数用于收集需要被高亮的组件列表，同时做去重和容量保护。 */
     if (target == COMP_EMPTY || targets == NULL || count == NULL)
     {
         return false;
@@ -135,6 +148,7 @@ static bool alarm_target_add(comp_id_t *targets, uint8_t *count,
 
 static alarm_level_t alarm_highest_level(void)
 {
+    /* 当前展示优先级完全由“最高告警等级”决定。 */
     alarm_level_t level = ALARM_NONE;
 
     for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
@@ -159,6 +173,7 @@ static alarm_level_t alarm_highest_level(void)
 
 static uint8_t alarm_collect_level(alarm_level_t level, int16_t *items, uint8_t max_items)
 {
+    /* 先收集同等级候选，再按 seq 排序，保证轮播顺序和触发顺序一致。 */
     uint8_t count = 0;
 
     for (uint8_t i = 0; i < ALARM_ID_COUNT && count < max_items; i++)
@@ -195,6 +210,7 @@ static uint8_t alarm_collect_level(alarm_level_t level, int16_t *items, uint8_t 
 
 static uint32_t alarm_level_first_tick(alarm_level_t level)
 {
+    /* 同等级多告警轮播时，first_tick 用来决定轮播起点和时间基准。 */
     uint32_t first = 0xFFFFFFFFU;
 
     for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
@@ -219,6 +235,7 @@ static uint32_t alarm_level_first_tick(alarm_level_t level)
 
 static void alarm_update_display(uint32_t now_ms)
 {
+    /* 这个函数负责把“内部告警状态集合”压缩成“当前前台显示的一条 banner”。 */
     alarm_level_t level = alarm_highest_level();
     int16_t old_key = s_display_key;
 
@@ -232,6 +249,7 @@ static void alarm_update_display(uint32_t now_ms)
     }
     else
     {
+        /* 同等级多条告警时按照固定时间窗口轮播展示。 */
         int16_t items[ALARM_ID_COUNT + 1];
         uint8_t count = alarm_collect_level(level, items, (uint8_t)(ALARM_ID_COUNT + 1));
         uint8_t pick = 0;
@@ -248,6 +266,7 @@ static void alarm_update_display(uint32_t now_ms)
 
         if (key >= 0)
         {
+            /* 标准告警从静态定义表取文本和目标组件。 */
             s_display.text = s_alarm_defs[key].text;
             s_display.banner_target = s_alarm_defs[key].target;
         }

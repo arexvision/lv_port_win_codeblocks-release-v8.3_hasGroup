@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/alarm/alarm_view.c
+ * 作用: 该文件属于闹钟界面模块，负责闹钟数据、视图构建、交互刷新或与上层 UI 状态之间的衔接。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时建议先理解该文件在 app_ui 流程中的位置，再修改注释所描述的职责边界，避免把数据准备、状态切换和视图渲染职责混杂到一起。
+ */
+
 #include "alarm_view.h"
 #include "alarm.h"
 
@@ -11,12 +18,14 @@ static lv_obj_t *s_alarm_banner_lbl;
 
 static lv_color_t alarm_view_level_color(alarm_level_t level)
 {
+    /* 当前实现下告警条统一使用绿色系，等级差异主要通过样式和闪烁节奏体现。 */
     (void)level;
     return GREEN;
 }
 
 static lv_color_t alarm_view_dim_green(uint8_t percent)
 {
+    /* 生成低亮度绿色，用于 WARN 状态下的弱背景强调。 */
     uint8_t channel = (uint8_t)((255U * (uint16_t)percent) / 100U);
     return lv_color_make(0x00, channel, 0x00);
 }
@@ -36,6 +45,7 @@ static void alarm_view_banner_hide_ready(lv_anim_t *anim)
 
 static void alarm_view_banner_cancel_anim(void)
 {
+    /* 重新进入 banner 显示前，先清掉旧动画，避免状态切换时残留位移或透明度过渡。 */
     if (!s_alarm_banner)
     {
         return;
@@ -76,6 +86,7 @@ static void alarm_view_banner_anim_opa(lv_opa_t start_opa,
 
 static void alarm_view_banner_animate_in(void)
 {
+    /* 进入动画通过“位移 + 透明度”双通道完成，增强告警进入感。 */
     if (!s_alarm_banner)
     {
         return;
@@ -98,6 +109,7 @@ static void alarm_view_banner_animate_in(void)
 
 static void alarm_view_banner_animate_out(void)
 {
+    /* 退出动画与进入动画对称，结束后再隐藏对象，防止对象瞬间消失。 */
     if (!s_alarm_banner)
     {
         return;
@@ -117,6 +129,7 @@ static void alarm_view_banner_animate_out(void)
 
 static void alarm_view_reset_banner_if_invalid(lv_obj_t *safe_zone)
 {
+    /* 如果安全区重建了，旧 banner 指针就失效，必须强制丢弃。 */
     if (!s_alarm_banner)
     {
         return;
@@ -133,6 +146,7 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
                                    alarm_level_t level,
                                    const char *text)
 {
+    /* banner 是闹钟模块对外可见的最直接 UI 反馈。 */
     if (!ctx || !ctx->safe_zone)
     {
         return;
@@ -148,6 +162,7 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
 
     if (!s_alarm_banner)
     {
+        /* 首次创建时只搭骨架，后续复用对象减少频繁销毁创建。 */
         s_alarm_banner = lv_obj_create(ctx->safe_zone);
         lv_obj_remove_style_all(s_alarm_banner);
         lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
@@ -179,6 +194,7 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
 
 static bool alarm_view_target_match(uintptr_t raw, comp_id_t target)
 {
+    /* 这里同时兼容完整 ID 和 POD 这类做过压缩编码的目标。 */
     if (raw == (uintptr_t)target)
     {
         return true;
@@ -192,6 +208,7 @@ static bool alarm_view_target_match(uintptr_t raw, comp_id_t target)
 
 static void alarm_view_set_text_color_recursive(lv_obj_t *obj, lv_color_t color)
 {
+    /* 递归遍历子树，确保 banner 内部所有 label 都同步变色。 */
     if (!obj)
     {
         return;
@@ -213,6 +230,7 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
                                           alarm_level_t level,
                                           bool phase_on)
 {
+    /* 告警高亮的核心逻辑：按等级切换底色、边框和文字颜色。 */
     lv_color_t alarm_color = alarm_view_level_color(level);
     lv_color_t text_color = GREEN;
 

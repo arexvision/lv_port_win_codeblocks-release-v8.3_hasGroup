@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/core/ui_state.h
+ * 作用: 该文件属于 UI 核心模块，负责状态机、数据桥接、事件分发、更新调度或 UI 运行时公共定义。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #ifndef UI_STATE_H
 #define UI_STATE_H
 
@@ -16,6 +23,7 @@ extern "C" {
 /* =========================================
    UI State Machine — mirrors HTML STATE obj
    ========================================= */
+/* UI 全局状态机入口，旋钮/点击/返回键都会先转成这里的状态流转。 */
 typedef enum
 {
     UI_DASH         = 0,  /* scrolling dashboard pages */
@@ -33,6 +41,7 @@ typedef enum
 /* Sub-menu history entry */
 typedef struct
 {
+    /* 用于返回上一级子菜单时恢复标题和选中行。 */
     char    title[32];
     uint8_t idx;
 } sub_history_t;
@@ -72,6 +81,7 @@ typedef enum
    UI Context — state store (private to ui_state.c)
    外部模块必须通过 getter/setter 访问，禁止直接读写
    ========================================= */
+/* 这个上下文是 UI 层唯一的状态仓库，禁止外部直接修改字段。 */
 typedef struct
 {
     ui_state_t  state;
@@ -125,6 +135,7 @@ typedef struct
 /* =========================================
    Public API — called from input.c
    ========================================= */
+/* 这些接口是输入层和 UI 状态机之间的唯一公共入口。 */
 void ui_state_init(void);
 
 /* dir: +1 = scroll down/right,  -1 = scroll up/left */
@@ -195,6 +206,7 @@ void ui_go_to_page(uint8_t idx);
 /* =========================================
    气体切换命令队列接口（UI 层调用）
    ========================================= */
+/* 这一组接口只负责投递/消费命令，不直接改算法数据。 */
 /* 请求气体切换（不直接修改数据源，发送命令到队列） */
 void request_gas_switch(uint8_t gas_idx);
 

@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/screen/layout_view.c
+ * 作用: 该文件属于屏幕或页面编排模块，负责整屏布局、分页切换、覆盖层、编辑态显示或页面注册管理。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "../core/ui_engine.h"
 #include "../core/data.h"
 #include "../core/ui_vm.h"
@@ -15,6 +22,7 @@ static lv_obj_t *s_left_prj_lbl = NULL;
 
 static bool layout_label_is_valid(lv_obj_t **obj_ref)
 {
+    /* 句柄失效后直接置空，避免后续继续操作已经被 LVGL 删除的对象。 */
     if (obj_ref == NULL || *obj_ref == NULL)
     {
         return false;
@@ -31,6 +39,12 @@ static bool layout_label_is_valid(lv_obj_t **obj_ref)
 
 bool safe_zone_in_danger(void)
 {
+    /* 这个判断用于检测安全区偏移是否已经超过屏幕容忍范围。 */
+    /* safe zone 是整个 UI 的“可安全显示矩形”。
+     * 只要偏移过大，哪怕局部布局算法本身没错，最终也可能出现：
+     * - 内容超出物理屏边界
+     * - 遮罩裁切到有效显示区
+     * 所以这里是 ui_apply_config() 的第一道几何防线。 */
     uint16_t safe_w = ui_safe_zone_w_get();
     uint16_t safe_h = ui_safe_zone_h_get();
     int16_t max_offset_x = (int16_t)((PHYSICAL_W - safe_w) / 2);
@@ -61,6 +75,7 @@ void calc_layout_rect(int16_t *out_x, int16_t *out_y,
                            uint16_t *out_w, uint16_t *out_h,
                            int16_t anchor_offset_x, int16_t anchor_offset_y)
 {
+    /* 根据屏幕中心和锚点偏移，计算当前安全区矩形。 */
     int16_t center_x = (int16_t)(PHYSICAL_W / 2) + anchor_offset_x;
     int16_t center_y = (int16_t)(PHYSICAL_H / 2) + anchor_offset_y;
 
@@ -75,6 +90,7 @@ void calc_tech_layout(int16_t *out_lx, int16_t *out_ly,
                            int16_t *out_rx, int16_t *out_ry,
                            uint16_t *out_rw, uint16_t *out_rh)
 {
+    /* TECH 布局把屏幕分为左锚点和右内容区两部分。 */
     uint16_t gap = ui_panel_gap_px_get();
 
     if (ui_layout_order_get() == ORDER_NORMAL)
@@ -101,6 +117,7 @@ void calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
                               int16_t *out_bot_x, int16_t *out_bot_y,
                               uint16_t *out_bot_w, uint16_t *out_bot_h)
 {
+    /* CLASSIC 布局按上下区域堆叠，顶部高度由各功能块高度累加得到。 */
     uint16_t gap = ui_panel_gap_px_get();
     uint16_t top_h = 0;
 
@@ -147,6 +164,7 @@ void calc_widget_cell(uint16_t parent_w, uint16_t parent_h,
                            int16_t *out_x, int16_t *out_y,
                            uint16_t *out_w, uint16_t *out_h)
 {
+    /* 5F 网格按固定行列拆分，单元格大小由父容器尺寸和跨度计算。 */
     uint16_t unit_w = parent_w / COMP_GRID_COLS;
     uint16_t unit_h = parent_h / COMP_GRID_ROWS;
 
@@ -168,6 +186,7 @@ void calc_widget_cell(uint16_t parent_w, uint16_t parent_h,
 void calc_tissue_bars(uint16_t total_w, uint16_t bar_max_h,
                            int16_t out_x[16], uint16_t out_w[16])
 {
+    /* 组织柱图固定拆成 16 根条柱，每根条柱占等宽区域。 */
     uint16_t col_w = total_w / 16;
     for (uint8_t i = 0; i < 16; i++)
     {
@@ -183,6 +202,7 @@ void render_dynamic_menu(lv_obj_t *parent_card,
                               int start_y,
                               lv_obj_t **out_item_handles)
 {
+    /* 动态菜单按 item_cfg 逐项创建，标题、徽标和边框样式都来自配置表。 */
     if (!parent_card || !items || item_count == 0) return;
 
     int right_canvas_w = (int)ui_safe_zone_w_get() - LEFT_ANCHOR_W
@@ -211,6 +231,7 @@ void render_dynamic_menu(lv_obj_t *parent_card,
 
         if (item_cfg->title_text)
         {
+            /* 每个条目都可以带标题文本。 */
             lv_obj_t *title_lbl = lv_label_create(item);
             lv_label_set_text(title_lbl, item_cfg->title_text);
             lv_obj_set_style_text_font(title_lbl, get_font(item_cfg->title_font_id), 0);
@@ -222,6 +243,7 @@ void render_dynamic_menu(lv_obj_t *parent_card,
 
         if (item_cfg->value_badge)
         {
+            /* 徽标区用于显示当前值或状态摘要。 */
             lv_obj_t *badge_lbl = lv_label_create(item);
             lv_label_set_text(badge_lbl, item_cfg->value_badge);
             lv_obj_set_style_text_font(badge_lbl, get_font(item_cfg->value_font_id), 0);
@@ -243,6 +265,7 @@ void render_dynamic_menu(lv_obj_t *parent_card,
 
 void render_card_title(lv_obj_t *parent_card, const char *title_text)
 {
+    /* 卡片标题统一用同一套位置、尺寸和省略规则，避免各卡片样式漂移。 */
     uint16_t right_w = (uint16_t)((int)ui_safe_zone_w_get() - LEFT_ANCHOR_W
                        - (int)ui_panel_gap_px_get());
 
@@ -396,6 +419,9 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
 {
     if (!left_anchor) return;
 
+    /* 左锚点不是“固定写死的 7 个控件”，而是按 g_sys_config.left_widgets[]
+     * 动态渲染出来的 2x7 网格。
+     * 这意味着后续左侧布局如果变更，只需要改配置，不需要重写这里的绘制流程。 */
     g_left_anchor_obj = left_anchor;
     s_left_bat_lbl = NULL;
     s_left_prj_lbl = NULL;
@@ -426,6 +452,8 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
                             span_w, span_h, (font_id_t)255);
     }
 
+    /* 第 5 行预留为 BAT / PRJ 辅助温度槽位。
+     * 如果配置里没有显式放组件，就自动补默认辅助槽，保证左侧信息区不会出现空洞。 */
     if (left_find_widget_at_cell(0, 5) == NULL)
     {
         (void)create_left_aux_slot(left_anchor, 0, (int16_t)(5 * cell_h), "BAT", true);
@@ -437,12 +465,14 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
 
     for (uint8_t row = 1; row < LEFT_ROWS; row++)
     {
+        /* 分隔线不是每一行都整条画，而是只在“上下两行属于不同组件”的列段上画。
+         * 这样跨行大组件不会被横线切碎，视觉上更接近卡片式拼版。 */
         uint8_t seg_start = 0xFF;
 
         for (uint8_t col = 0; col < LEFT_COLS; col++)
         {
-            const grid_widget_t *top_cfg = left_find_widget_at_cell(col, (uint8_t)(row - 1));
-            const grid_widget_t *bottom_cfg = left_find_widget_at_cell(col, row);
+            grid_widget_t *top_cfg = left_find_widget_at_cell(col, (uint8_t)(row - 1));
+            grid_widget_t *bottom_cfg = left_find_widget_at_cell(col, row);
             bool draw_seg = (top_cfg != NULL && bottom_cfg != NULL && top_cfg != bottom_cfg);
 
             if (draw_seg)
@@ -500,6 +530,8 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
         count = MAX_5F_WIDGETS;
     }
 
+    /* 每次重建自定义卡都先 clean，再重画标题和所有 widget。
+     * 这是一种“整卡重绘”策略，简单直接，能避免局部布局变更后残留旧对象。 */
     lv_obj_clean(card_custom);
     render_card_title(card_custom, "CUSTOM WIDGETS");
 
@@ -527,6 +559,8 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
                               r, c, span_w, span_h,
                               &abs_x, &abs_y, &abs_w, &abs_h);
 
+        /* 真正的组件创建统一下沉到 comp_view 工厂，
+         * layout_view 只负责“算位置、给尺寸、按配置摆放”。 */
         render_widget_by_id(card_custom, w_id, abs_x, abs_y, abs_w, abs_h,
                             span_w, span_h, (font_id_t)255);
     }
@@ -534,6 +568,8 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
 
 void render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor, uint8_t custom_card_idx)
 {
+    /* 这里除了渲染当前卡片，还顺手把容器句柄登记到全局数组。
+     * 后续 comp_update / alarm_view 才能跨页面找到这些组件进行同步刷新或告警联动。 */
     g_left_anchor_obj = left_anchor;
     if (custom_card_idx < MAX_CUSTOM_CARDS)
     {
@@ -549,6 +585,7 @@ void render_5f_custom_grid(lv_obj_t *card_custom, lv_obj_t *left_anchor, uint8_t
 
 void grid_5f_rebuild_all(void)
 {
+    /* 自定义卡全部重建通常发生在布局参数、页面顺序或组件配置变化之后。 */
     for (uint8_t i = 0; i < g_card_custom_obj_count && i < MAX_CUSTOM_CARDS; i++)
     {
         if (g_card_custom_objs[i] != NULL)

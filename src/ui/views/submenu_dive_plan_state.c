@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/views/submenu_dive_plan_state.c
+ * 作用: 该文件属于视图表现模块，负责菜单、子菜单、模态框或特定视图状态的展示与交互联动。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "submenu_dive_plan_state.h"
 
 #include "../core/data.h"
@@ -6,10 +13,6 @@
 
 #include <stdio.h>
 #include <string.h>
-
-#ifdef PC_SIMULATOR
-#include "../../algo_sim/buhlmann_debug.h"
-#endif
 
 #define PLAN_ROWS_PER_PAGE 8U
 
@@ -37,6 +40,7 @@ static submenu_dive_plan_state_t s_state =
 
 static uint16_t plan_round_u16(float value)
 {
+    /* 浮点输入先按常规四舍五入成整数。 */
     if (value <= 0.0f)
     {
         return 0U;
@@ -50,6 +54,7 @@ static uint16_t plan_round_u16(float value)
 
 static float clamp_float(float value, float min_value, float max_value)
 {
+    /* 潜水计划的输入值需要限制在合理范围内。 */
     if (value < min_value)
     {
         return min_value;
@@ -63,6 +68,7 @@ static float clamp_float(float value, float min_value, float max_value)
 
 static uint8_t plan_gf_low(void)
 {
+    /* 当前低 GF 直接从 VM 读取，保证和全局配置一致。 */
     ui_vm_dive_context_t vm;
 
     ui_vm_dive_context_update(&vm);
@@ -71,6 +77,7 @@ static uint8_t plan_gf_low(void)
 
 static uint8_t plan_gf_high(void)
 {
+    /* 当前高 GF 直接从 VM 读取。 */
     ui_vm_dive_context_t vm;
 
     ui_vm_dive_context_update(&vm);
@@ -79,6 +86,7 @@ static uint8_t plan_gf_high(void)
 
 static uint8_t plan_last_deco_depth(void)
 {
+    /* 最后减压停留深度同样来自 VM 上下文。 */
     ui_vm_dive_context_t vm;
 
     ui_vm_dive_context_update(&vm);
@@ -87,6 +95,7 @@ static uint8_t plan_last_deco_depth(void)
 
 static void plan_ensure_defaults(void)
 {
+    /* 第一次进入计划页时先加载默认输入值。 */
     ui_vm_dive_plan_inputs_t vm;
 
     if (s_state.defaults_loaded)
@@ -103,6 +112,7 @@ static void plan_ensure_defaults(void)
 
 static uint8_t plan_result_total_pages(void)
 {
+    /* 结果页总页数根据结果有效性和条目数动态决定。 */
     if (s_state.result.valid == 0U)
     {
         return 1U;
@@ -114,68 +124,9 @@ static uint8_t plan_result_total_pages(void)
     return s_state.result.total_pages;
 }
 
-#ifdef PC_SIMULATOR
-static dive_plan_row_type_t plan_row_type_from_algo(buhlmann_debug_plan_row_type_t type)
-{
-    switch (type)
-    {
-    case BUHLMANN_DEBUG_PLAN_ROW_ASCENT:
-        return DIVE_PLAN_ROW_ASCENT;
-    case BUHLMANN_DEBUG_PLAN_ROW_DECO_STOP:
-        return DIVE_PLAN_ROW_DECO_STOP;
-    case BUHLMANN_DEBUG_PLAN_ROW_BOTTOM:
-    default:
-        return DIVE_PLAN_ROW_BOTTOM;
-    }
-}
-
-static bool plan_calculate_result(void)
-{
-    buhlmann_debug_plan_result_t algo_result;
-    dive_plan_result_snapshot_t snapshot;
-
-    if (!buhlmann_debug_plan_calculate(s_state.depth_m,
-                                       s_state.time_min,
-                                       s_state.rmv_lpm,
-                                       &algo_result))
-    {
-        submenu_dive_plan_set_result_snapshot(NULL);
-        return false;
-    }
-
-    (void)memset(&snapshot, 0, sizeof(snapshot));
-    snapshot.valid = 1U;
-    snapshot.page = 0U;
-    snapshot.entry_count = (algo_result.entry_count > 16U) ? 16U : algo_result.entry_count;
-    snapshot.total_pages = (uint8_t)((snapshot.entry_count + PLAN_ROWS_PER_PAGE - 1U) / PLAN_ROWS_PER_PAGE);
-    if (snapshot.total_pages == 0U)
-    {
-        snapshot.total_pages = 1U;
-    }
-    snapshot.total_runtime_min = algo_result.total_runtime_min;
-    snapshot.total_deco_min = algo_result.total_deco_min;
-    snapshot.total_gas_l = algo_result.total_gas_l;
-    snapshot.cns_pct = algo_result.cns_pct;
-    snapshot.otu = algo_result.otu;
-
-    for (uint8_t i = 0U; i < snapshot.entry_count; i++)
-    {
-        snapshot.rows[i].type = plan_row_type_from_algo(algo_result.entries[i].type);
-        snapshot.rows[i].depth_m = algo_result.entries[i].depth_m;
-        snapshot.rows[i].time_min = algo_result.entries[i].time_min;
-        snapshot.rows[i].run_min = algo_result.entries[i].run_min;
-        snapshot.rows[i].o2_pct = algo_result.entries[i].o2_pct;
-        snapshot.rows[i].he_pct = algo_result.entries[i].he_pct;
-        snapshot.rows[i].gas_l = algo_result.entries[i].gas_l;
-    }
-
-    submenu_dive_plan_set_result_snapshot(&snapshot);
-    return true;
-}
-#endif
-
 void submenu_dive_plan_set_result_snapshot(const dive_plan_result_snapshot_t *snapshot)
 {
+    /* 结果快照由算法/上层计算后统一写回这里。 */
     if (snapshot == NULL)
     {
         (void)memset(&s_state.result, 0, sizeof(s_state.result));
@@ -193,6 +144,7 @@ void submenu_dive_plan_set_result_snapshot(const dive_plan_result_snapshot_t *sn
 
 void submenu_dive_plan_get_snapshot(submenu_dive_plan_snapshot_t *out_snapshot)
 {
+    /* 向 view 层导出当前计划页的完整快照。 */
     ui_vm_dive_plan_inputs_t input_vm;
 
     if (out_snapshot == NULL)
@@ -244,6 +196,7 @@ void submenu_dive_plan_get_snapshot(submenu_dive_plan_snapshot_t *out_snapshot)
 
 void submenu_dive_plan_set_page(dive_plan_page_t page)
 {
+    /* 切换潜水计划页内部页码。 */
     s_state.page = page;
 }
 
@@ -264,6 +217,7 @@ uint8_t submenu_dive_plan_get_result_total_pages(void)
 
 void submenu_dive_plan_set_depth_m(float value)
 {
+    /* 深度输入会被归一化并带入 READY 页。 */
     plan_ensure_defaults();
     s_state.depth_m = (float)plan_round_u16(value);
     s_state.depth_m = clamp_float(s_state.depth_m, 3.0f, 120.0f);
@@ -272,6 +226,7 @@ void submenu_dive_plan_set_depth_m(float value)
 
 void submenu_dive_plan_set_time_min(float value)
 {
+    /* 时间输入同样做四舍五入和上下限约束。 */
     uint16_t rounded_value;
 
     plan_ensure_defaults();
@@ -290,6 +245,7 @@ void submenu_dive_plan_set_time_min(float value)
 
 void submenu_dive_plan_set_rmv_lpm(float value)
 {
+    /* RMV 输入会被限制在合理人体范围。 */
     plan_ensure_defaults();
     s_state.rmv_lpm = (float)plan_round_u16(value);
     s_state.rmv_lpm = clamp_float(s_state.rmv_lpm, 5.0f, 50.0f);
@@ -298,6 +254,7 @@ void submenu_dive_plan_set_rmv_lpm(float value)
 
 bool submenu_dive_plan_handle_rotate(int8_t dir)
 {
+    /* 旋钮在计划页里用于调整当前输入值。 */
     plan_ensure_defaults();
     switch (s_state.page)
     {
@@ -333,6 +290,7 @@ bool submenu_dive_plan_handle_action(menu_item_id_t item_id,
                                      bool *out_close_submenu,
                                      uint8_t *out_keep_index)
 {
+    /* 点击动作用于推进计划页的内部导航和结果页切换。 */
     if (out_close_submenu != NULL)
     {
         *out_close_submenu = false;
@@ -395,11 +353,7 @@ bool submenu_dive_plan_handle_action(menu_item_id_t item_id,
     {
         plan_ensure_defaults();
         s_state.result_page = 0U;
-#ifdef PC_SIMULATOR
-        s_state.page = plan_calculate_result() ? DIVE_PLAN_PAGE_RESULT : DIVE_PLAN_PAGE_ERROR;
-#else
         s_state.page = DIVE_PLAN_PAGE_ERROR;
-#endif
         if (out_keep_index != NULL)
         {
             *out_keep_index = 1U;

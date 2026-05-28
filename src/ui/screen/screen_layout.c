@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/screen/screen_layout.c
+ * 作用: 该文件属于屏幕或页面编排模块，负责整屏布局、分页切换、覆盖层、编辑态显示或页面注册管理。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "screen_layout.h"
 #include "../comp/comp_update.h"
 #include "../comp/comp_view.h"
@@ -16,11 +23,13 @@
 
 void clear_widget_arrays(void)
 {
+    /* 清空组件渲染状态缓存，确保布局重建后不会复用旧的对象记录。 */
     reset_widget_render_state();
 }
 
 void left_anchor_rebuild(uint8_t comp_count)
 {
+    /* 左锚点重建只关心容器尺寸和子组件重新渲染，不直接使用 comp_count。 */
     (void)comp_count;
     if (!s_left_anchor || !s_safe_zone) return;
     lv_obj_set_size(s_left_anchor, LEFT_ANCHOR_W, ui_safe_zone_h_get());
@@ -30,14 +39,17 @@ void left_anchor_rebuild(uint8_t comp_count)
 
 void left_anchor_create(void)
 {
+    /* 左锚点是整屏布局的固定参考物，负责承载 2x7 左侧信息网格。 */
     s_left_anchor = lv_obj_create(s_safe_zone);
     lv_obj_set_size(s_left_anchor, LEFT_ANCHOR_W, ui_safe_zone_h_get());
     if (ui_layout_order_get() == ORDER_NORMAL)
     {
+        /* 正常布局时左锚点固定贴左。 */
         lv_obj_set_pos(s_left_anchor, 0, 0);
     }
     else
     {
+        /* 翻转布局时左锚点移动到右侧。 */
         uint16_t panel_gap = ui_panel_gap_px_get();
         uint16_t right_w = ui_safe_zone_w_get() - LEFT_ANCHOR_W - panel_gap;
         lv_obj_set_pos(s_left_anchor, (lv_coord_t)(right_w + panel_gap), 0);
@@ -53,6 +65,7 @@ void left_anchor_create(void)
 
 void safe_zone_reposition(void)
 {
+    /* 安全区尺寸、偏移或布局顺序变化后，统一在这里重算整屏对象位置。 */
     if (!s_safe_zone) return;
     lv_obj_set_size(s_safe_zone, ui_safe_zone_w_get(), ui_safe_zone_h_get());
     lv_obj_align(s_safe_zone, LV_ALIGN_CENTER, ui_offset_x_get(), ui_offset_y_get());
@@ -62,11 +75,13 @@ void safe_zone_reposition(void)
 
     if (ui_layout_order_get() == ORDER_NORMAL)
     {
+        /* 正常模式：左锚点在左，右内容区在右。 */
         lv_obj_set_pos(s_left_anchor, 0, 0);
         lv_obj_set_pos(s_right_cont, (lv_coord_t)(LEFT_ANCHOR_W + panel_gap), 0);
     }
     else
     {
+        /* 翻转模式：右内容区在左，左锚点在右。 */
         lv_obj_set_pos(s_right_cont, 0, 0);
         lv_obj_set_pos(s_left_anchor, (lv_coord_t)right_w + panel_gap, 0);
     }
@@ -82,6 +97,7 @@ void safe_zone_reposition(void)
 
     if (s_dot_cont)
     {
+        /* 指示点的位置依赖布局顺序、点位模式和当前可见动态页数量。 */
         lv_coord_t dot_x, dot_y;
         uint16_t dot_cont_h = page_visible_dash_count() * 14;
         lv_obj_set_size(s_dot_cont, 10, (lv_coord_t)dot_cont_h);
@@ -135,7 +151,7 @@ void safe_zone_reposition(void)
             for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < ui_state_get_dash_page(); pos++)
             {
                 uint8_t page_id = page_id_at(pos);
-                if (page_id != PAGE_ID_UNUSED && page_id != PAGE_ID_BLANK)
+                if (page_id != PAGE_ID_UNUSED)
                 {
                     active_idx++;
                 }
@@ -147,6 +163,7 @@ void safe_zone_reposition(void)
 
 void right_panel_create(void)
 {
+    /* 右侧面板承载 tileview、页面卡片和滚动指示点。 */
     uint16_t panel_gap = ui_panel_gap_px_get();
     uint16_t right_w = ui_safe_zone_w_get() - LEFT_ANCHOR_W - panel_gap;
     s_cached_right_w = right_w;
@@ -180,6 +197,7 @@ void right_panel_create(void)
     uint8_t count = page_count();
     for (uint8_t i = 0; i < count; i++)
     {
+        /* 按 page_registry 提供的显示顺序逐页创建 tile。 */
         page_t *page = page_get(i);
         if (!page) continue;
         lv_obj_t *tile = lv_tileview_add_tile(s_tileview, 0, i, LV_DIR_TOP | LV_DIR_BOTTOM);
@@ -194,6 +212,7 @@ void right_panel_create(void)
         {
         case PAGE_ENGINE_GRID:
         {
+            /* GRID 类型页面通过自定义网格渲染器生成内容。 */
             uint8_t storage_pos = page_storage_pos(i);
             uint8_t custom_page_idx = ui_custom_card_slot_get(storage_pos);
             if (custom_page_idx < MAX_CUSTOM_CARDS)
@@ -205,6 +224,7 @@ void right_panel_create(void)
         case PAGE_ENGINE_MENU:
         case PAGE_ENGINE_CUSTOM:
         default:
+            /* 其余页面直接调用各自的 create 回调。 */
             if (page->create_cb) page->create_cb(tile);
             break;
         }
@@ -316,6 +336,8 @@ void screen_rebuild_layout(void)
 {
     printf("[REBUILD_LAYOUT] Enter: visible_dash=%u, dots_pos=%d, layout_order=%d\r\n",
            page_visible_dash_count(), ui_dots_position_get(), ui_layout_order_get());
+    /* 这个入口只重建“空间关系”和“组件挂载关系”，不重建 tileview 页面集合。
+     * 适用于安全区尺寸、左右翻转、dots 位置、左侧组件布局等几何类变化。 */
     lv_disp_t *disp = lv_disp_get_default();
     if (disp) lv_disp_enable_invalidation(disp, true);
     clear_widget_arrays();
@@ -323,13 +345,19 @@ void screen_rebuild_layout(void)
     if (s_left_anchor) left_anchor_rebuild(0);
     grid_5f_rebuild_all();
     safe_zone_reposition();
+    /* 重建后的新对象还没有数据，必须主动补一次全量同步。 */
     screen_refresh_all_widgets();
     restore_brightness_overlay_state();
+    /* 布局重建可能让温度/电量/POD 等辅助槽位引用失效，这里再补一轮常用脏位，
+     * 让后续 router 走正常刷新路径，把派生视图状态也一起拉齐。 */
     bus_requeue_dirty(DIRTY_DEPTH | DIRTY_BATT | DIRTY_TEMP | DIRTY_POD);
 }
 
 void screen_rebuild_tileview(void)
 {
+    /* 这个入口比 screen_rebuild_layout() 更重：
+     * 它会销毁并重建右侧整个 tileview、菜单层和弹层。
+     * 用于页面顺序、页面数量、页面类型发生变化的场景。 */
     lv_disp_t *disp = lv_disp_get_default();
     if (disp) lv_disp_enable_invalidation(disp, true);
     uint8_t count = page_count();
@@ -338,6 +366,8 @@ void screen_rebuild_tileview(void)
     uint8_t saved_menu_idx = (saved_state == UI_INFO) ? ui_state_get_menu_info_idx()
                              : (saved_state == UI_SETUP) ? ui_state_get_menu_setup_idx()
                              : 0;
+    /* 先保存“用户当时在哪一页、处于什么状态”，重建后尽量回到原上下文，
+     * 避免 APP 下发布局或设置变化后把用户强行踢回首页。 */
 
     memset(s_tile_objs, 0, sizeof(s_tile_objs));
     memset(g_card_custom_objs, 0, sizeof(g_card_custom_objs));
@@ -349,6 +379,8 @@ void screen_rebuild_tileview(void)
     }
     if (s_right_cont)
     {
+        /* 右侧容器一旦删除，里面所有 tile / submenu / modal 对象都全部失效。
+         * 所以必须先把全局缓存引用清掉，杜绝后续误用悬空指针。 */
         lv_obj_del(s_right_cont);
         s_right_cont = NULL;
         s_tileview   = NULL;
@@ -373,6 +405,7 @@ void screen_rebuild_tileview(void)
     restore_brightness_overlay_state();
     if (s_tileview && saved_dash_page < PAGE_COUNT && s_tile_objs[saved_dash_page])
     {
+        /* 尽量恢复重建前用户正在看的那一页。 */
         lv_obj_set_tile(s_tileview, s_tile_objs[saved_dash_page], LV_ANIM_OFF);
     }
     if (ENABLE_INFO_MENU && saved_dash_page == PAGE_POS_INFO)
@@ -387,6 +420,7 @@ void screen_rebuild_tileview(void)
     }
     else
     {
+        /* 如果旧页已经不合法（例如卡片数量变了），则回退到默认动态页。 */
         ui_state_set_state(UI_DASH);
         if (saved_dash_page < PAGE_POS_DYNAMIC_FIRST || saved_dash_page >= page_setup_display_pos())
         {
@@ -403,7 +437,7 @@ void screen_rebuild_tileview(void)
         for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < ui_state_get_dash_page(); pos++)
         {
             uint8_t page_id = page_id_at(pos);
-            if (page_id != PAGE_ID_UNUSED && page_id != PAGE_ID_BLANK)
+            if (page_id != PAGE_ID_UNUSED)
             {
                 active_idx++;
             }
@@ -414,6 +448,8 @@ void screen_rebuild_tileview(void)
 
 void screen_rebuild_full(void)
 {
+    /* Full rebuild = 先重建页面集合，再重建布局。
+     * 顺序不能反：因为 layout 依赖 tileview/右侧容器已经重新创建完成。 */
     screen_rebuild_tileview();
     screen_rebuild_layout();
 }

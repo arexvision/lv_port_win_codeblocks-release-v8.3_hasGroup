@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/screen/screen.c
+ * 作用: 该文件属于屏幕或页面编排模块，负责整屏布局、分页切换、覆盖层、编辑态显示或页面注册管理。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "screen.h"
 #include "screen_layout.h"
 #include "screen_dots.h"
@@ -33,7 +40,7 @@ lv_obj_t *s_tile_objs[PAGE_COUNT];
 
 /* 灯光控制状态（LIGHT CONTROL 子菜单全局共享） */
 /* 问题4修复：灯光硬件默认开启，UI 初始值必须匹配硬件状态 */
-bool g_light_power_state = false;
+bool g_light_power_state = true;
 
 /* Wall indicators */
 lv_obj_t *s_wall_top;
@@ -79,6 +86,7 @@ static bool       s_styles_inited = false;
 
 void reset_transient_ui_refs(void)
 {
+    /* 布局重建前先把所有“临时可失效引用”清空，防止旧对象残留。 */
     s_wall_top = NULL;
     s_wall_bottom = NULL;
     s_wall_text_top = NULL;
@@ -93,6 +101,7 @@ void reset_transient_ui_refs(void)
     s_edit_flash_val_lbl = NULL;
     edit_flash_stop();
 
+    /* 子菜单/编辑态相关状态也一起回到初始值，确保下一次进入页面时完全干净。 */
     ui_state_set_sub_history_depth(0U);
     ui_state_set_sub_item_count(0U);
     ui_state_set_sub_menu_idx(0U);
@@ -118,6 +127,7 @@ void restore_brightness_overlay_state(void)
 
 static void styles_init(void)
 {
+    /* 只初始化一次，避免重复创建样式对象。 */
     if (s_styles_inited) return;
     s_styles_inited = true;
 
@@ -198,6 +208,7 @@ static void styles_init(void)
  * ========================================================= */
 void screen_create(void)
 {
+    /* 先建样式，再建对象，最后一次性切屏，避免中间状态闪烁。 */
     styles_init();
 
     s_scr = lv_obj_create(NULL);
@@ -216,8 +227,11 @@ void screen_create(void)
     lv_obj_set_style_border_color(s_safe_zone, DARK, 0);
     lv_obj_set_style_border_width(s_safe_zone, DEBUG_BORDERS ? 1 : 0, 0);
 
+    /* 左锚点负责承载 10U 沙盒与左侧固定信息。 */
     left_anchor_create();
+    /* 右侧面板负责承载 tileview、菜单和弹层。 */
     right_panel_create();
+    /* 壁面提示用于边界菜单切换的“蓄力确认”反馈。 */
     wall_create();
     submenu_view_create(s_right_cont,
                              s_cached_right_w > 0 ? s_cached_right_w :
@@ -231,6 +245,7 @@ void screen_create(void)
                            ui_safe_zone_h_get());
     restore_brightness_overlay_state();
 
+    /* 所有对象准备完成后再加载屏幕，避免用户看到半成品布局。 */
     lv_scr_load(s_scr);
 }
 
@@ -242,6 +257,9 @@ void screen_scroll_to_page(uint8_t tile_pos)
     /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
 
+    /* tile_pos 代表显示顺序，不是底层 card_order 的原始索引。 */
+    /* screen 层所有翻页逻辑都基于“显示序号”运作，
+     * 真正的页面身份需要再通过 page_registry 做一层转换。 */
     if (tile_pos >= page_count())
     {
         return;
@@ -254,17 +272,21 @@ void screen_scroll_to_page(uint8_t tile_pos)
 
     if (tile_pos == 0)
     {
+        /* 首屏需要清掉残留动画，保证返回 INFO 页时位置绝对归零。 */
         lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
         lv_obj_set_y(s_tileview, 0);
     }
 
     lv_obj_set_tile(s_tileview, tile, TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
+    /* 到这里 tileview 只是切到了目标 tile，并不代表 tile 内所有内容都已经完成重排。
+     * 对于刚重建完或首次进入的页面，主动补 layout/invalidate 可以减少首帧残缺。 */
 
     /* 首屏/重建后首次进卡时，当前 tile 可能没有后续脏数据驱动刷新
      * 这里主动补一次当前可见页的布局和重绘，避免必须等用户旋钮交互后才完整显示。 */
     lv_obj_update_layout(tile);
     lv_obj_invalidate(tile);
 
+    /* 罗盘页进入时需要立刻补一次航向刷新，避免显示滞后。 */
     if (page_id_at(tile_pos) == PAGE_ID_COMPASS)
     {
         card_compass_refresh_heading(true);
@@ -273,6 +295,7 @@ void screen_scroll_to_page(uint8_t tile_pos)
     /* SETUP（最后一页）不显示 dots，只有 DASH 动态页面才更新 */
     if (tile_pos >= PAGE_POS_DYNAMIC_FIRST && tile_pos < page_setup_display_pos())
     {
+        /* 根据当前可见动态页数量重新计算小圆点高亮位置。 */
         /* 计算逻辑索引：从 DYNAMIC_FIRST 到 tile_pos 之间有多少个有效页面 */
         uint8_t active_idx = 0;
         for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
@@ -321,6 +344,8 @@ void screen_scroll_to_page(uint8_t tile_pos)
 void screen_refresh_all_widgets(void)
 {
     /* 1. 同步左侧固定区配置 */
+    /* 注意这里不直接保存每个组件的 label 句柄，而是按配置遍历 widget_id。
+     * 好处是布局变了、卡片顺序变了，刷新逻辑不用跟着大改。 */
     for (uint8_t i = 0; i < ui_left_widget_count_get(); i++)
     {
         const grid_widget_t *widget = ui_left_widget_get(i);
@@ -331,6 +356,7 @@ void screen_refresh_all_widgets(void)
     }
 
     /* 2. 同步右侧全部自定义卡片配置 */
+    /* 右侧 5F 卡片也是同样思路：刷新跟着“配置里有哪些组件”走，而不是跟着“某个页固定有哪些控件”走。 */
     for (uint8_t page_idx = 0;
             page_idx < ui_custom_card_count_get() && page_idx < MAX_CUSTOM_CARDS;
             page_idx++)
@@ -397,6 +423,9 @@ void screen_show_wall(wall_side_t side, uint8_t charge, const char *text)
     if (!s_tileview) return;
 
     if (charge > 3) charge = 3;
+    /* wall 是一种“边界蓄力反馈”：
+     * 用户继续朝边界方向旋转时，不立刻进菜单，而是先显示 1~3 格充能提示。
+     * 这样潜水中能显著降低误入菜单的概率。 */
 
     lv_obj_t *wall    = (side == WALL_TOP) ? s_wall_top    : s_wall_bottom;
     lv_obj_t *txt_lbl = (side == WALL_TOP) ? s_wall_text_top    : s_wall_text_bottom;
@@ -450,6 +479,8 @@ void screen_hide_walls_snap(void)
 void screen_set_info_selection(uint8_t idx)
 {
     if (!s_info_list) return;
+    /* 这里不依赖 LVGL 自带 list 焦点态，而是手工重绘选中样式。
+     * 这样可以保持项目自定义的字体、边框和颜色规则完全一致。 */
     uint32_t cnt = lv_obj_get_child_cnt(s_info_list);
     for (uint32_t i = 0; i < cnt; i++)
     {
@@ -491,6 +522,7 @@ uint8_t screen_info_item_count(void)
 void screen_set_setup_selection(uint8_t idx)
 {
     if (!s_setup_list) return;
+    /* SETUP 比 INFO 多一个 badge 列，所以选中态要同时处理主标题和右侧状态文本。 */
     uint32_t cnt = lv_obj_get_child_cnt(s_setup_list);
     for (uint32_t i = 0; i < cnt; i++)
     {

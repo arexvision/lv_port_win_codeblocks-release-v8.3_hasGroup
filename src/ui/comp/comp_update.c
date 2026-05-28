@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/comp/comp_update.c
+ * 作用: 该文件属于公共组件模块，负责复用样式、通用控件、局部刷新逻辑或组件级显示封装。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时应重点检查布局尺寸、刷新频率与复用接口是否一致，避免局部样式或坐标调整影响同类页面的对齐和更新节奏。
+ */
+
 #include "../core/data.h"
 #include "../core/vm/ui_vm_dashboard_types.h"
 #include "../core/vm/ui_vm_dashboard.h"
@@ -13,6 +20,7 @@
 
 static void comp_sync_text_from_vm(comp_id_t w_id, uint8_t pod_index)
 {
+    /* 文本类组件统一先走 VM，再落到具体 label，避免各处重复格式化。 */
     ui_vm_value_text_t value_vm;
 
     ui_vm_value_text_update(&value_vm, w_id, pod_index);
@@ -21,6 +29,9 @@ static void comp_sync_text_from_vm(comp_id_t w_id, uint8_t pod_index)
 
 void comp_set_value(comp_id_t id, float value)
 {
+    /* 数值型刷新会在左锚点和所有自定义卡片容器里遍历匹配组件。 */
+    /* 这套实现依赖 comp_view 创建组件时在对象/子对象的 user_data 里写入 comp_id_t。
+     * 因此刷新时不需要保存一堆全局 label 指针，而是靠“烙印”反向找到目标控件。 */
     uint8_t max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS)
                         ? g_card_custom_obj_count
                         : MAX_CUSTOM_CARDS;
@@ -40,6 +51,9 @@ void comp_set_value(comp_id_t id, float value)
 
             if (id == COMP_DEPTH_1612 && child_tag == (uintptr_t)id)
             {
+                /* 大深度组件把整数和小数拆成两个 label 分开更新。 */
+                /* 这样做不是为了炫技，而是为了做“大整数 + 小数点后一位”的异形排版，
+                 * 单 label 很难同时兼顾字号、对齐和视觉重心。 */
                 int di = (int)value;
                 float decimal_part = fabsf(value - di);
                 int dd = (int)(decimal_part * 10 + 0.5f);
@@ -60,6 +74,8 @@ void comp_set_value(comp_id_t id, float value)
 
             if (child_tag == (uintptr_t)id)
             {
+                /* 其余组件按 user_data 定位到对应子 label 并格式化输出。 */
+                /* 这里统一处理不同组件的小数位规则，避免格式化逻辑散落在各个页面里。 */
                 int16_t sub_cnt = lv_obj_get_child_cnt(child);
                 for (int16_t j = 0; j < sub_cnt; j++)
                 {
@@ -102,6 +118,11 @@ void comp_set_value(comp_id_t id, float value)
 
 void comp_set_text(comp_id_t id, const char *text)
 {
+    /* 纯文本刷新路径，适合 TIME/GAS/POD 等已经格式化完成的内容。 */
+    /* 与 comp_set_value() 的区别是：
+     * - comp_set_value() 负责“拿到数值后格式化”
+     * - comp_set_text() 负责“上游已经格式化好，直接写 label”
+     * 两者分开后，VM 可以更灵活地决定格式策略。 */
     if (!text) return;
 
     uint8_t max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS)
@@ -142,6 +163,8 @@ void comp_set_text(comp_id_t id, const char *text)
 
 static void comp_sync_pod_values(void)
 {
+    /* POD 组件比较特殊：同一个 comp_id_t 会在左右两个瓶压格里复用。
+     * 所以不能只靠 comp_id 判断，还要额外借助 POD1_TAG / POD2_TAG 区分实例。 */
     uint8_t max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS)
                         ? g_card_custom_obj_count
                         : MAX_CUSTOM_CARDS;
@@ -186,6 +209,10 @@ static void comp_sync_pod_values(void)
 
 void comp_sync_data(comp_id_t w_id)
 {
+    /* 这个分发器把组件 ID 映射到对应的刷新策略。 */
+    /* 它是组件层的最后一道适配层：
+     * 上游 screen 只知道“某个 widget 要刷新”，
+     * 具体是直接写数值、走 VM 文本、还是调用专用刷新函数，在这里统一决策。 */
     switch (w_id)
     {
     /* =========================================================

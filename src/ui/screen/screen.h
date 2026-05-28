@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/screen/screen.h
+ * 作用: 该文件属于屏幕或页面编排模块，负责整屏布局、分页切换、覆盖层、编辑态显示或页面注册管理。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #ifndef SCREEN_HDR
 #define SCREEN_HDR
 
@@ -40,6 +47,7 @@ typedef enum
 /* =========================================
    Safe Zone rebuild — called after config change
    ========================================= */
+/* 布局参数变更后，screen 层通过这组接口完成对象重排或整屏重建。 */
 void screen_rebuild_layout(void);
 void screen_rebuild_full(void);
 
@@ -49,11 +57,13 @@ lv_obj_t *get_safe_zone(void);
 /* =========================================
    Screen lifecycle
    ========================================= */
+/* 创建根屏、左右面板、tileview 和附属视图对象。 */
 void screen_create(void);
 
 /* =========================================
    Tileview / card navigation
    ========================================= */
+/* 这些接口负责右侧页面切换和 tileview 级别的重建。 */
 void screen_scroll_to_page(uint8_t idx);
 
 void screen_rebuild_tileview(void);
@@ -72,6 +82,7 @@ void screen_refresh_left_panel(void);
 /* =========================================
    Wall charge indicators
    ========================================= */
+/* “墙提示”用于在边界连续旋钮时给出进入/退出菜单的蓄力反馈。 */
 void screen_show_wall(wall_side_t side, uint8_t charge, const char *text);
 void screen_hide_walls(void);
 void screen_hide_walls_snap(void);
@@ -79,6 +90,7 @@ void screen_hide_walls_snap(void);
 /* =========================================
    Menu list selection helpers
    ========================================= */
+/* 统一控制 INFO/SETUP/子菜单列表的高亮项。 */
 void    screen_set_info_selection(uint8_t idx);
 uint8_t screen_info_item_count(void);
 
@@ -96,6 +108,7 @@ void screen_refresh_setup_menu(void);
 /* =========================================
    Sub-menu layer
    ========================================= */
+/* 子菜单层负责二级菜单、嵌套菜单和潜水计划类特殊视图。 */
 void screen_open_info_submenu(uint8_t item_idx);
 void screen_open_setup_submenu(uint8_t item_idx);
 void screen_handle_submenu_select(uint8_t item_idx);
@@ -118,6 +131,7 @@ void screen_begin_edit_value(uint8_t item_idx, const submenu_edit_spec_t *spec);
 /* =========================================
    Modal dialogs
    ========================================= */
+/* 模态框用于确认、动作提示和特定场景的弹窗交互。 */
 void screen_show_modal_gas(void);
 void screen_show_modal_compass(void);
 void screen_pulse_modal(void);
@@ -126,6 +140,7 @@ void screen_hide_modal(void);
 /* =========================================
    Inline value editor
    ========================================= */
+/* 行内编辑器用于修改亮度、阈值、日期时间等数值型设置。 */
 void screen_refresh_edit_value(void);
 void screen_commit_edit_value(void);
 void screen_cancel_edit_value(void);
@@ -133,6 +148,7 @@ void screen_cancel_edit_value(void);
 /* =========================================
    Compass
    ========================================= */
+/* 罗盘相关刷新目前主要集中在目标指示和航向显示同步。 */
 void screen_refresh_compass_target(void);
 
 /* =========================================

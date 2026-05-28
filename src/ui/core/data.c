@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/core/data.c
+ * 作用: 该文件属于 UI 核心模块，负责状态机、数据桥接、事件分发、更新调度或 UI 运行时公共定义。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "data.h"
 #include "../alarm/alarm.h"
 #include <math.h>
@@ -52,6 +59,7 @@ static uint16_t s_deco_stop_count;
 
 static void bus_apply_algo_gases(void)
 {
+    /* 仿真模式下把 UI 侧气体配置同步给减压算法，非仿真编译时不做任何事。 */
 #ifdef PC_SIMULATOR
     buhlmann_debug_apply_gases_from_ui();
 #endif
@@ -59,6 +67,7 @@ static void bus_apply_algo_gases(void)
 
 static void bus_apply_algo_gf(uint8_t gf_low, uint8_t gf_high)
 {
+    /* 让算法层始终读到与 UI 一致的 GF 设置。 */
 #ifdef PC_SIMULATOR
     buhlmann_debug_set_gf(gf_low, gf_high);
 #else
@@ -69,6 +78,7 @@ static void bus_apply_algo_gf(uint8_t gf_low, uint8_t gf_high)
 
 static void bus_apply_algo_salinity(uint8_t mode)
 {
+    /* 盐度模式只在仿真/调试侧需要显式同步。 */
 #ifdef PC_SIMULATOR
     buhlmann_debug_set_salinity_mode(mode);
 #else
@@ -78,6 +88,7 @@ static void bus_apply_algo_salinity(uint8_t mode)
 
 static void bus_apply_algo_last_deco(uint8_t depth_m)
 {
+    /* 最后停留深度属于算法输入，保持与菜单设置同步。 */
 #ifdef PC_SIMULATOR
     buhlmann_debug_set_final_stop_depth(depth_m);
 #else
@@ -87,6 +98,7 @@ static void bus_apply_algo_last_deco(uint8_t depth_m)
 
 static uint8_t conservatism_from_gf(uint8_t gf_low, uint8_t gf_high)
 {
+    /* 根据 GF 组合反推保守度档位，供菜单/界面统一显示。 */
     if (gf_low == 40U && gf_high == 95U) return 0U;
     if (gf_low == 40U && gf_high == 85U) return 1U;
     if (gf_low == 30U && gf_high == 70U) return 2U;
@@ -169,6 +181,7 @@ static void ascent_rate_reset(void)
 
 static float alarm_active_ppo2(void)
 {
+    /* 取当前激活气体对应的 PPO2，作为氧分压告警判断基准。 */
     uint8_t active_idx = g_sensor_data.gas_active_idx;
     if (g_sensor_data.gas_slot_count == 0U || active_idx >= GAS_COUNT)
     {
@@ -179,6 +192,7 @@ static float alarm_active_ppo2(void)
 
 static void alarm_eval_ppo2(void)
 {
+    /* PPO2 告警按“严重”和“偏高”两级分别判定。 */
     float active_ppo2 = alarm_active_ppo2();
     /* WARN.PO2_ELEVATED：优先使用系统设置的 PPO2 上限；未配置时按 1.4bar 默认安全线。 */
     float elevated_limit = (g_sys_config.mod_ppo2 > 0.1f) ? g_sys_config.mod_ppo2 : 1.4f;
@@ -191,6 +205,7 @@ static void alarm_eval_ppo2(void)
 
 static void alarm_eval_battery(void)
 {
+    /* 电量告警采用“低电”和“临界电量”两档。 */
     bool dead = (g_sensor_data.battery_pct < ALARM_BATTERY_DEAD_PCT);
     bool low = (!dead && g_sensor_data.battery_pct < ALARM_BATTERY_LOW_PCT);
 
@@ -200,6 +215,7 @@ static void alarm_eval_battery(void)
 
 static void alarm_eval_pod(void)
 {
+    /* 双瓶压力相关告警统一在这里做聚合判断。 */
     bool pod1_valid = (g_sensor_data.pod1_bar > 0.0f);
     bool pod2_valid = (g_sensor_data.pod2_bar > 0.0f);
     bool tank_empty = false;
@@ -231,6 +247,7 @@ static void alarm_eval_pod(void)
 
 static void alarm_eval_depth_limit(void)
 {
+    /* 深度限制只关心当前深度是否突破预设阈值。 */
     alarm_set_active(ALARM_ID_WARN_DEPTH_LIMIT,
                           g_sensor_data.depth >= ALARM_DEPTH_LIMIT_M);
 }
@@ -375,6 +392,8 @@ void bus_raise_alarm(alarm_level_t level,
 void bus_set_depth(float depth_m)
 {
     /* 深度数值显示继续保留轻量防抖，避免数字末位来回跳 */
+    /* 这里故意只对“显示值”和“派生统计/告警”负责，不计算上升率。
+     * 上升率由 bus_set_ascent_rate() 单独输入，避免不同采样周期下互相污染。 */
     if (fabsf(g_sensor_data.depth - depth_m) > DEPTH_DISPLAY_DEBOUNCE_M)
     {
         g_sensor_data.depth = depth_m;
@@ -405,6 +424,7 @@ void bus_set_ascent_rate(float rate_mpm)
 
     if (fabsf(rate_mpm) < ASCENT_RATE_UI_EPSILON)
     {
+        /* 很小的速度波动对用户没有意义，直接钳到 0，减少图标抖动。 */
         rate_mpm = 0.0f;
     }
 
@@ -413,6 +433,8 @@ void bus_set_ascent_rate(float rate_mpm)
     if ((fabsf(rate_mpm - prev_rate) >= ASCENT_RATE_UI_EPSILON) ||
             (current_is_moving != prev_is_moving))
     {
+        /* 只有跨过显示阈值或“静止/运动”状态切换时才刷新 UI，
+         * 这样能明显降低速率图标在临界值附近闪烁。 */
         g_sensor_data.ascent_rate = rate_mpm;
         g_sensor_data.dirty_mask |= DIRTY_ASCENT;
     }
@@ -431,6 +453,7 @@ void bus_set_ascent_rate(float rate_mpm)
 
     if (_ascent_alarm_over_limit_count >= ASCENT_ALARM_HOLD_SAMPLES)
     {
+        /* 连续超限才报警，避免单个采样尖峰造成误报。 */
         alarm_set_active(ALARM_ID_CRIT_ASCENT_RATE, true);
     }
     else if (rate_mpm < ASCENT_ALARM_RELEASE_MPM)
@@ -1016,6 +1039,9 @@ void bus_update_deco(int16_t ndl_min, stop_type_t stop_type,
     }
 
     /* 临界区保护：一次性更新所有字段 */
+    /* 这里做原子批量更新，是因为 stop_type / stop_depth / stop_time / in_stop_zone
+     * 在 UI 看来属于同一份“减压停留快照”。
+     * 如果拆成多次写入，UI 定时任务可能会读到半新半旧的组合状态。 */
     rt_base_t level = rt_hw_interrupt_disable();
 
     if (ndl_changed)
@@ -1042,6 +1068,8 @@ void bus_update_deco(int16_t ndl_min, stop_type_t stop_type,
     alarm_eval_safety_stop_info();
     if (prev_stop_type != STOP_NONE && prev_stop_time_left_s > 0U && time_s == 0U)
     {
+        /* 只有“之前确实在停留，且剩余时间从正数走到 0”才触发完成提示，
+         * 防止初始化或重复写 0 时误报 STOP DONE。 */
         alarm_set_active(ALARM_ID_INFO_STOP_DONE, true);
     }
 }
@@ -1111,6 +1139,14 @@ void bus_set_last_deco_stop(uint8_t depth_m)
         g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
     }
     bus_apply_algo_last_deco(depth_m);
+}
+
+void bus_set_brightness(uint8_t level)
+{
+    if (g_sys_config.brightness != level)
+    {
+        g_sys_config.brightness = level;
+    }
 }
 
 void bus_set_salinity_mode(uint8_t mode)

@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/core/vm/ui_vm_plan_chart.c
+ * 作用: 该文件属于 ViewModel 子模块，负责把底层运行数据整理为界面可直接消费的展示数据结构。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "ui_vm_plan_chart.h"
 
 #include "../data.h"
@@ -66,11 +73,7 @@ static float vm_plan_time_axis(float current_time_s, float predicted_t_sec)
         target_max_t_sec = 20.0f;
     }
 
-    if (target_max_t_sec > 3600.0f)
-    {
-        axis = ceilf(target_max_t_sec / 3600.0f) * 3600.0f;
-    }
-    else if (target_max_t_sec > 120.0f)
+    if (target_max_t_sec > 120.0f)
     {
         axis = ceilf(target_max_t_sec / 60.0f) * 60.0f;
     }
@@ -88,27 +91,6 @@ static uint16_t vm_plan_time_step(float max_t_axis_sec)
 
     if (max_t_axis_sec > 3600.0f)
     {
-        float max_t_axis_h = max_t_axis_sec / 3600.0f;
-
-        if (max_t_axis_h <= 6.0f)
-        {
-            x_step = 3600U;
-        }
-        else if (max_t_axis_h <= 12.0f)
-        {
-            x_step = 7200U;
-        }
-        else if (max_t_axis_h <= 24.0f)
-        {
-            x_step = 14400U;
-        }
-        else
-        {
-            x_step = 21600U;
-        }
-    }
-    else if (max_t_axis_sec > 2400.0f)
-    {
         x_step = 600U;
     }
     else if (max_t_axis_sec > 1200.0f)
@@ -119,9 +101,17 @@ static uint16_t vm_plan_time_step(float max_t_axis_sec)
     {
         x_step = 120U;
     }
-    else if (max_t_axis_sec > 60.0f)
+    else if (max_t_axis_sec > 300.0f)
     {
         x_step = 60U;
+    }
+    else if (max_t_axis_sec > 120.0f)
+    {
+        x_step = 30U;
+    }
+    else if (max_t_axis_sec > 60.0f)
+    {
+        x_step = 15U;
     }
     else
     {

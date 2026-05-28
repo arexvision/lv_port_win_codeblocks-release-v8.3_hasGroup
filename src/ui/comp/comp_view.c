@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/comp/comp_view.c
+ * 作用: 该文件属于公共组件模块，负责复用样式、通用控件、局部刷新逻辑或组件级显示封装。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时应重点检查布局尺寸、刷新频率与复用接口是否一致，避免局部样式或坐标调整影响同类页面的对齐和更新节奏。
+ */
+
 #include "../core/ui_engine.h"
 #include "../core/data.h"
 #include "../core/vm/ui_vm_dashboard.h"
@@ -93,6 +100,7 @@ static lv_obj_t *s_sys_cyl_lbl = NULL;      /* 气瓶数量文本 "x0" */
 
 static bool ui_obj_is_valid(lv_obj_t **obj_ref)
 {
+    /* 如果对象已经被 LVGL 销毁，就立刻把缓存指针清空。 */
     if (obj_ref == NULL || *obj_ref == NULL)
     {
         return false;
@@ -116,6 +124,7 @@ static bool ui_obj_is_valid(lv_obj_t **obj_ref)
  * ========================================================= */
 static uintptr_t get_pod_tag(void)
 {
+    /* 奇数次渲染视为 POD1，偶数次渲染视为 POD2。 */
     /* 次调count=1，奇 POD1_TAG
      * 次调count=2，偶 POD2_TAG */
     return (s_pod_render_count % 2 == 1) ? POD1_TAG : POD2_TAG;
@@ -126,6 +135,7 @@ static uintptr_t get_pod_tag(void)
  * ========================================================= */
 static uint8_t get_pod_index(void)
 {
+    /* 与 POD tag 同步，返回逻辑上的 1 号或 2 号气瓶。 */
     /* 次调count=1，奇 POD1
      * 次调count=2，偶 POD2 */
     return (s_pod_render_count % 2 == 1) ? 1 : 2;
@@ -137,6 +147,7 @@ static uint8_t get_pod_index(void)
  * ========================================================= */
 void reset_widget_render_state(void)
 {
+    /* 布局重建前必须把所有缓存句柄和轮转计数器清空。 */
     memset(s_img_ascent_rate, 0, sizeof(s_img_ascent_rate));
     s_ascent_icon_count = 0;
     memset(s_ndl_handles, 0, sizeof(s_ndl_handles));
@@ -160,6 +171,7 @@ void reset_widget_render_state(void)
  * ========================================================= */
 static void ndl_horiz_bar_draw_cb(lv_event_t * e)
 {
+    /* 这个回调负责按当前 VM 进度绘制 NDL/停留进度条。 */
     lv_obj_t * obj = lv_event_get_target(e);
     lv_draw_ctx_t * draw_ctx = lv_event_get_draw_ctx(e);
     lv_area_t * area = &obj->coords;
@@ -283,12 +295,22 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                               uint8_t span_w, uint8_t span_h,
                               font_id_t cfg_font_id)
 {
+    /* 这是组件工厂的统一入口：同一套 ID 可以同时服务左锚点和 5F 自定义网格。 */
+    /* 这个函数承担三层职责：
+     * 1. 根据 comp_id_t 找到样式字典
+     * 2. 创建 LVGL 对象并完成 user_data 烙印
+     * 3. 对复杂组件走专属装配，对普通组件走通用流水线
+     * 因此它是整个 UI 组件体系的“总装线”。 */
     /* ===== POD 单模具拦截：提前消耗计数器 ===== */
     bool is_pod_mold = (w_id == COMP_POD_0806);
     uint8_t pod_index = 0;        /* POD number 1 or 2 */
     uintptr_t pod_tag = 0;        /* POD tag 1033 or 2033 */
     if (is_pod_mold)
     {
+        /* POD 是单模具复用组件，所以先决定当前这次渲染扮演 POD1 还是 POD2。 */
+        /* 这套“轮转分配”依赖布局渲染顺序稳定。
+         * 所以前面 screen/layout 重建时必须先 reset_widget_render_state()，
+         * 否则 POD1/POD2 身份会错位。 */
         s_pod_render_count++;     /* Increment first, then get current value */
         pod_index = get_pod_index();
         pod_tag = get_pod_tag();
@@ -360,6 +382,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     if (w_id == COMP_DEPTH_1612 && is_2x2)
     {
         /* 样式参数来自 comp_style_t */
+        /* DEPTH 大组件单独分支的原因是它的排版过于特殊：
+         * 整数、小数、单位、速率图标都不是标准“标题+数值”模型能覆盖的。 */
         const style_depth_t *s = &style->spec.depth;
         ui_vm_depth_t depth_vm;
 
@@ -425,6 +449,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     else if (w_id == COMP_NDL_STOP_1606)
     {
         /* NDL 变形金刚：从 style->spec.ndl_stop 读取所有位置参*/
+        /* NDL/SAFE/DECO 三种状态共用同一个物理组件容器，
+         * 后续通过 comp_refresh_ndl_stop_vm() 动态切换文字、进度条和布局。 */
         if (s_ndl_handle_count >= MAX_NDL_ICONS) return obj;
         ndl_handle_t *h = &s_ndl_handles[s_ndl_handle_count++];
         ui_vm_ndl_stop_t *draw_vm = &s_ndl_draw_vm[s_ndl_handle_count - 1U];
@@ -473,6 +499,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     else if (w_id == COMP_SYS_1606)
     {
         /* ===== SYS 模块：电+ 温度横向排列 ===== */
+        /* SYS 组件走静态句柄缓存，是因为它刷新频率高、结构固定，
+         * 直接 O(1) 更新比每次遍历整棵对象树更省。 */
 
         /* 左侧：电Label */
         s_sys_batt_lbl = lv_label_create(obj);
@@ -517,6 +545,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     /* --- 零件 1：标--- */
     if ((style->elements & ELEM_TITLE) && style->title)
     {
+        /* 标题层只负责静态语义标签，真正的动态值统一放到 value 层。
+         * 这样 title 字体和 value 字体可以完全独立调。 */
         lv_obj_t *title_lbl = lv_label_create(obj);
         /* POD 单模具：根据 pod_index 动态决定标题文*/
         if (is_pod_mold)
@@ -539,6 +569,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     lv_obj_t *val_lbl = NULL;
     if (style->elements & ELEM_VALUE)
     {
+        /* 通用 value 初始化也统一走 VM 文本接口。
+         * 这样无论是深度、POD、温度还是 PPO2，创建时就能拿到一份符合 UI 规范的初始文本。 */
         val_lbl = lv_label_create(obj);
         lv_obj_set_style_text_font(val_lbl, get_font(val_font_id), 0);
         lv_obj_set_style_text_color(val_lbl, GREEN, 0);
@@ -667,6 +699,9 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)
     {
         return;
     }
+    /* NDL 组件不是“文本刷新”那么简单：
+     * 它既要更新主值，又要切换 STOP_NONE / SAFETY / DECO 三种版式，
+     * 还要重绘底部 10 格进度条，所以必须走专用刷新器。 */
 
     const comp_style_t *style = comp_get_style(COMP_NDL_STOP_1606);
     if (!style)
@@ -698,6 +733,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)
 
         if (vm->stop_type == STOP_NONE)
         {
+            /* 普通 NDL 态：主值显示剩余免减压时间，底部显示 NDL 标签。 */
             lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
@@ -710,6 +746,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)
         }
         else if (vm->stop_type == STOP_SAFETY)
         {
+            /* 安全停留态：顶部显示 SAFE 深度，主值改成倒计时，底部显示 IN STOP 或 NDL 参考。 */
             lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
@@ -734,6 +771,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)
         }
         else if (vm->stop_type == STOP_DECO)
         {
+            /* 减压停留态：逻辑上比 SAFETY 更强制，所以只保留 DECO 深度和剩余时间。 */
             lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
@@ -793,9 +831,14 @@ void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)
     int8_t current_direction = vm->direction;
 
     const void *target_img_src = &sudo_up_level0;
+    /* 速率图标的决策维度有三个：
+     * 1. 是否在运动
+     * 2. 方向是上升还是下降
+     * 3. 当前处于 level0/1/2 哪一档，并结合 flash_on 做闪烁 */
 
     if (!is_moving)
     {
+        /* 静止时仍保留上一次方向的 level0 图标，避免箭头方向来回丢失。 */
         target_img_src = (s_last_direction > 0) ? &sudo_up_level0 :
                          (s_last_direction < 0) ? &sudo_down_level0 : &sudo_up_level0;
     }
@@ -837,6 +880,7 @@ void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)
 
     for (int i = 0; i < s_ascent_icon_count; i++)
     {
+        /* 一次速率变化可能要同步多个 DEPTH/ASCENT 组件实例，所以这里广播到全部缓存图标。 */
         if (ui_obj_is_valid(&s_img_ascent_rate[i]))
         {
             lv_img_set_src(s_img_ascent_rate[i], target_img_src);

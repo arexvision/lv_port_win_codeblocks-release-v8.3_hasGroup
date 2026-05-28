@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/core/callbacks.c
+ * 作用: 该文件属于 UI 核心模块，负责状态机、数据桥接、事件分发、更新调度或 UI 运行时公共定义。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "callbacks.h"
 #include "data.h"
 #include <stdio.h>
@@ -8,6 +15,8 @@
 #define WEAK_CALLBACK
 #endif
 
+/* 这些 weak 回调是 UI 层的默认落地实现。
+ * 真机平台可以覆盖它们，把 UI 操作接到真实业务或硬件服务。 */
 WEAK_CALLBACK
 void bus_set_light_power(bool on)
 {
@@ -23,6 +32,7 @@ bool bus_get_light_power(void)
 WEAK_CALLBACK
 void bus_toggle_light_power(void)
 {
+    /* 默认实现仅维护 UI 侧电源状态并回调底层设置接口。 */
     g_light_power_state = !g_light_power_state;
     bus_set_light_power(g_light_power_state);
 }
@@ -36,12 +46,14 @@ void ui_on_light_color_set(const char *color, const char *level)
 WEAK_CALLBACK
 void set_brightness(uint8_t level)
 {
+    /* 默认亮度策略仍走软件遮罩路径，平台侧可覆盖成真实硬件亮度。 */
     apply_software_brightness(level);
 }
 
 WEAK_CALLBACK
 void ui_on_conservatism_set(uint8_t level)
 {
+    /* 保守度直接映射到 data bus。 */
     bus_set_conservatism(level);
 }
 
@@ -73,6 +85,7 @@ void ui_on_safety_stop_time_set(uint8_t minutes)
 WEAK_CALLBACK
 void ui_on_last_deco_stop_set(uint8_t depth_m)
 {
+    /* 最后减压停留深度由 data 层统一持有。 */
     bus_set_last_deco_stop(depth_m);
 }
 

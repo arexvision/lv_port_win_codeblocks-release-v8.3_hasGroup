@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/core/callbacks.h
+ * 作用: 该文件属于 UI 核心模块，负责状态机、数据桥接、事件分发、更新调度或 UI 运行时公共定义。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #ifndef CALLBACKS_H
 #define CALLBACKS_H
 
@@ -8,7 +15,7 @@
 extern "C" {
 #endif
 
-/* Business-layer callbacks used by setup/light-control UI. */
+/* 这一层把 UI 操作翻译成业务动作，供菜单和设置页面统一调用。 */
 extern bool g_light_power_state;
 void bus_set_light_power(bool on);
 bool bus_get_light_power(void);

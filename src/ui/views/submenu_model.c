@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/views/submenu_model.c
+ * 作用: 该文件属于视图表现模块，负责菜单、子菜单、模态框或特定视图状态的展示与交互联动。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "submenu_model.h"
 
 #include "../core/data.h"
@@ -22,6 +29,7 @@ static const char *s_info_titles[SUBMENU_INFO_COUNT] =
     "LAST DIVE", "DIVE PLAN", "TISSUE & TOX", "GAS & CALC", "SENSOR & DEVICE"
 };
 
+/* 这些静态缓存用于承接 VM 动态文本，保证返回给 view 层的是稳定字符串指针。 */
 static char s_info_str[SUBMENU_INFO_COUNT][6][32];
 static const char *s_info_dyn[SUBMENU_INFO_COUNT][7];
 static const char *s_plan_dyn[16];
@@ -40,11 +48,10 @@ static const setting_option_t s_conservatism_options[CONSERVATISM_COUNT] =
 
 static const brightness_option_t s_brightness_options[BRIGHTNESS_COUNT] =
 {
-    { BRIGHTNESS_ECO,  "ECO",  "ECO",  150 },
-    { BRIGHTNESS_MED,  "MED",  "MED",  185 },
-    { BRIGHTNESS_HIGH, "HIGH", "HIGH", 215 },
-    { BRIGHTNESS_MAX,  "MAX",  "MAX",  238 },
-    { BRIGHTNESS_SUN,  "SUN",  "SUN",  255 },
+    { BRIGHTNESS_LOW,  "LOW",  "LOW",  190 },
+    { BRIGHTNESS_MED,  "MED",  "MED",  212 },
+    { BRIGHTNESS_HIGH, "HIGH", "HIGH", 232 },
+    { BRIGHTNESS_MAX,  "MAX",  "MAX",  255 },
 };
 
 static const char *s_setup_sub[SUBMENU_SETUP_COUNT][7] =
@@ -134,6 +141,7 @@ enum
 
 static uint8_t count_items(const char **items, uint8_t max_count)
 {
+    /* 统计以 NULL 结尾的字符串数组长度。 */
     uint8_t count = 0;
     if (!items)
     {
@@ -148,6 +156,7 @@ static uint8_t count_items(const char **items, uint8_t max_count)
 
 static const char *strip_title_prefix(const char *title)
 {
+    /* 去掉标题里的装饰前缀，便于后续做关键字匹配。 */
     if (title && title[0] == '>' && title[1] == ' ')
     {
         return title + 2;
@@ -157,6 +166,7 @@ static const char *strip_title_prefix(const char *title)
 
 static void normalize_menu_key(const char *text, char *out, uint8_t out_size)
 {
+    /* 把菜单文本规整成可比较的 key，避免因为空格和箭头符号匹配失败。 */
     if (!out || out_size == 0)
     {
         return;
@@ -185,6 +195,7 @@ static void normalize_menu_key(const char *text, char *out, uint8_t out_size)
 
 static float gas_mod_for_o2(uint8_t o2_pct)
 {
+    /* 根据当前 PPO2 设定和氧浓度计算 MOD。 */
     ui_vm_edit_spec_t vm_edit;
 
     if (o2_pct == 0U)
@@ -198,6 +209,7 @@ static float gas_mod_for_o2(uint8_t o2_pct)
 
 static void format_gas_name(char *out, size_t out_size, uint8_t o2_pct, uint8_t he_pct)
 {
+    /* 统一气体名称格式，避免各个菜单分支各自拼字符串。 */
     if (!out || out_size == 0U)
     {
         return;
@@ -226,6 +238,7 @@ static void format_gas_name(char *out, size_t out_size, uint8_t o2_pct, uint8_t 
 
 static void plan_build_action_items(uint8_t *out_count)
 {
+    /* 潜水计划页底部动作行会随当前页面状态变化。 */
     uint8_t n = 0;
     submenu_dive_plan_snapshot_t snapshot;
 
@@ -707,11 +720,13 @@ static const char *compass_cal_status_text(void)
 
 uint8_t submenu_safety_stop_depth_m(uint8_t value)
 {
+    /* 安全停留深度只允许在两个固定档位之间切换。 */
     return value == 1 ? 6 : 3;
 }
 
 const char *submenu_info_title(uint8_t index)
 {
+    /* INFO 标题按索引直接读取。 */
     if (index >= SUBMENU_INFO_COUNT)
     {
         return NULL;
@@ -721,6 +736,7 @@ const char *submenu_info_title(uint8_t index)
 
 const char **submenu_build_info_items(uint8_t index, uint8_t *out_count)
 {
+    /* INFO 页条目由 VM 文本数组生成，这里只负责打包成可遍历列表。 */
     ui_vm_info_page_t vm;
 
     if (out_count)
@@ -796,6 +812,7 @@ const char **submenu_build_info_items(uint8_t index, uint8_t *out_count)
 
 const char *submenu_setup_title(uint8_t index)
 {
+    /* SETUP 标题同样按固定索引读取。 */
     if (index >= SUBMENU_SETUP_COUNT)
     {
         return NULL;
@@ -805,6 +822,7 @@ const char *submenu_setup_title(uint8_t index)
 
 const setting_option_t *submenu_conservatism_option(uint8_t index)
 {
+    /* 保守度选项表是静态枚举。 */
     return &s_conservatism_options[index];
 }
 
@@ -815,6 +833,7 @@ const char *submenu_conservatism_badge(uint8_t level)
 
 const brightness_option_t *submenu_brightness_option(uint8_t index)
 {
+    /* 亮度选项表也是静态枚举。 */
     return &s_brightness_options[index];
 }
 
@@ -848,6 +867,7 @@ int8_t submenu_setup_index_for_title(const char *title)
 
 const char **submenu_build_compass_cal_items(uint8_t *out_count)
 {
+    /* 罗盘校准菜单只显示当前状态和复位入口。 */
     lv_snprintf(s_compass_cal_status_str,
                 sizeof(s_compass_cal_status_str),
                 "AUTO CAL: %s",
@@ -1229,6 +1249,7 @@ bool submenu_setting_from_selection(const char *current_title,
                                          const char *item_text,
                                          submenu_setting_confirm_t *out_setting)
 {
+    /* 通过当前标题和条目文本，推导出需要确认的设置动作。 */
     const char *clean_title = strip_title_prefix(current_title);
     if (!clean_title || !item_text || !out_setting)
     {
@@ -1290,6 +1311,7 @@ bool submenu_direct_setting_from_selection(const char *current_title,
                                                 const char *item_text,
                                                 submenu_setting_confirm_t *out_setting)
 {
+    /* 直接生效设置不需要确认弹窗。 */
     const char *clean_title = strip_title_prefix(current_title);
     (void)item_text;
     if (!clean_title || !out_setting)
@@ -1411,6 +1433,7 @@ bool submenu_edit_spec_from_selection(const char *current_title,
                                            const char *item_text,
                                            submenu_edit_spec_t *out_spec)
 {
+    /* 行内编辑项在这里生成范围、步长和默认值。 */
     const char *clean_title = strip_title_prefix(current_title);
     ui_vm_edit_spec_t vm_edit;
     (void)item_text;
@@ -1611,6 +1634,7 @@ bool submenu_setting_from_ids(menu_id_t current_menu,
                               menu_item_id_t item_id,
                               submenu_setting_confirm_t *out_setting)
 {
+    /* 通过稳定 ID 做设置映射，避免依赖字符串文本。 */
     const char *title = submenu_title_for_menu_id(current_menu);
     uint8_t item_index = 0U;
     const char *item_text = "";
@@ -1648,6 +1672,7 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
                                      menu_item_id_t item_id,
                                      submenu_setting_confirm_t *out_setting)
 {
+    /* 直接生效项的 ID 映射入口。 */
     const char *title = submenu_title_for_menu_id(current_menu);
     uint8_t item_index = 0U;
 
@@ -1676,6 +1701,7 @@ bool submenu_edit_spec_from_ids(menu_id_t current_menu,
                                 menu_item_id_t item_id,
                                 submenu_edit_spec_t *out_spec)
 {
+    /* 通过 menu_id + item_id 生成编辑规格。 */
     const char *title = submenu_title_for_menu_id(current_menu);
     uint8_t item_index = 0U;
 
@@ -1727,6 +1753,7 @@ void submenu_prepare_oc_tech_child(menu_item_id_t item_id,
                                    char *out_title,
                                    uint8_t out_title_size)
 {
+    /* OC Tech 的子菜单标题需要带槽位编号。 */
     int8_t slot = oc_tech_slot_from_item_id(item_id);
 
     if (out_title != NULL && out_title_size > 0U)
@@ -1747,16 +1774,19 @@ void submenu_prepare_oc_tech_child(menu_item_id_t item_id,
 
 void submenu_apply_setting(submenu_setting_kind_t kind, uint8_t arg, uint16_t value)
 {
+    /* 所有设置结果最终统一写回业务层。 */
     submenu_commit_setting_value(kind, arg, value);
 }
 
 void submenu_apply_edit_value(submenu_setting_kind_t kind, uint8_t arg, float value)
 {
+    /* 编辑态提交的浮点值最终也走统一设置提交路径。 */
     submenu_commit_edit_value(kind, arg, value);
 }
 
 bool submenu_is_readonly_info_title(const char *title)
 {
+    /* 只读 INFO 页在菜单系统里不允许进入编辑。 */
     const char *clean_title = strip_title_prefix(title);
     if (!clean_title)
     {

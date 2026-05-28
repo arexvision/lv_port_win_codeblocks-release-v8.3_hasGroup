@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/comp/comp_style.c
+ * 作用: 该文件属于公共组件模块，负责复用样式、通用控件、局部刷新逻辑或组件级显示封装。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时应重点检查布局尺寸、刷新频率与复用接口是否一致，避免局部样式或坐标调整影响同类页面的对齐和更新节奏。
+ */
+
 #include "../core/ui_engine.h"
 #include "comp_style.h"
 
@@ -10,6 +17,7 @@ static const comp_style_t g_widget_styles[] =
      * 完全不需要改 APP，也不需要改 BLE 协议
      * ========================================================= */
     /* ========== 核心驻留组件 ========== */
+    /* 每个条目都描述一个组件的尺寸、字体、对齐和偏移。 */
     {
         .widget_id = COMP_DEPTH_1612,
         .span_w = 2, .span_h = 2,
@@ -473,6 +481,7 @@ static const comp_style_t g_widget_styles[] =
 
 const comp_style_t* comp_get_style(comp_id_t id)
 {
+    /* 通过组件 ID 在线性表中查找样式定义。 */
     for (int i = 0; i < STYLE_COUNT; i++)
     {
         if (g_widget_styles[i].widget_id == id)

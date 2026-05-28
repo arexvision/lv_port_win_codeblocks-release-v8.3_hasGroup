@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/core/ui_state.c
+ * 作用: 该文件属于 UI 核心模块，负责状态机、数据桥接、事件分发、更新调度或 UI 运行时公共定义。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "ui_state.h"
 #include "data.h"
 #include "ui_engine.h"
@@ -14,9 +21,14 @@ static ui_ctx_t s_ui;
 /* =========================================
    气体切换命令队列（单向数据流：UI → Algorithm）
    ========================================= */
+/* 这些命令变量不直接驱动 UI，而是作为 UI 层向算法层提交动作请求的“缓冲区”。
+ * 这样做的好处是可以把“界面触发”和“算法执行”解耦，避免在点击/旋转回调里直接做耗时计算。 */
 static gas_switch_cmd_t g_gas_switch_cmd = {false, 0};
+/* 罗盘校准命令：UI 只负责发起/撤销请求，真正的校准流程由底层状态机推进。 */
 static compass_cal_cmd_t g_compass_cal_cmd = {false, COMPASS_CAL_CMD_NONE};
+/* 校准界面的状态镜像，供 UI 决定是否显示校准中、等待确认或空闲提示。 */
 static compass_cal_ui_state_t g_compass_cal_ui_state = COMPASS_CAL_IDLE;
+/* 罗盘航向锁定相关状态：pending 表示待触发，active 表示已经进入锁定。 */
 static bool g_heading_lock_pending = false;
 static bool g_heading_lock_active = false;
 
@@ -25,10 +37,15 @@ static bool g_heading_lock_active = false;
    ========================================= */
 void ui_state_init(void)
 {
+    /* 先整体清零，确保历史残留状态不会影响新一轮 UI 生命周期。 */
     memset(&s_ui, 0, sizeof(s_ui));
+    /* 默认停留在仪表盘页，符合界面启动后的主流程。 */
     s_ui.state         = UI_DASH;
+    /* 仪表盘默认显示从第一个动态页开始的位置。 */
     s_ui.dash_page     = PAGE_POS_DYNAMIC_FIRST;
+    /* 菜单索引从 0 开始，便于后续统一做边界修正。 */
     s_ui.menu_info_idx = 0;
+    /* 边界充能计数归零，避免上一次进入菜单的“蓄力”残留。 */
     s_ui.wall_charge   = 0;
 }
 
@@ -37,9 +54,12 @@ void ui_state_init(void)
    ========================================= */
 void ui_refresh_all(void)
 {
+    /* 遍历所有注册页面，逐个触发更新回调。
+     * 这里不关心具体页面类型，只依赖 page_registry 提供的统一接口。 */
     for (uint8_t i = 0; i < page_count(); i++)
     {
         page_t *c = page_get(i);
+        /* 页面对象存在且具备刷新回调时才执行，避免空指针或空实现。 */
         if (c && c->update_cb) c->update_cb();
     }
 }
@@ -49,7 +69,9 @@ void ui_refresh_all(void)
    ========================================= */
 void ui_go_to_page(uint8_t tile_pos)
 {
+    /* 同步 UI 状态机中的当前页索引。 */
     s_ui.dash_page = tile_pos;
+    /* 真正的页面切换动作交给 screen 层完成。 */
     screen_scroll_to_page(tile_pos);
 }
 
@@ -58,23 +80,33 @@ void ui_go_to_page(uint8_t tile_pos)
    ========================================= */
 void ui_handle_rotate(int8_t dir)
 {
+    /* 旋钮方向统一由状态机解释，不同 UI 状态下含义不同。 */
+    /* 这是真正的 UI 状态机入口之一。
+     * 同一个物理输入，在 DASH/菜单/编辑态下会被翻译成完全不同的语义：
+     * - DASH: 翻页或边界蓄力
+     * - MENU: 上下移动光标
+     * - EDIT: 改数值
+     * - 特殊页面: 交给专用处理器 */
     switch (s_ui.state)
     {
 
     /* --- DASH: scroll between pages with wall-charge at edges --- */
     case UI_DASH:
     {
+        /* 仪表盘只允许在动态页范围内滑动；最后一页外侧保留为菜单入口。 */
         uint8_t dash_min = PAGE_POS_DYNAMIC_FIRST;
         uint8_t dash_max = page_setup_display_pos() - 1;
 
 #if ENABLE_INFO_MENU
         if (s_ui.dash_page == dash_min && dir == -1)
         {
+            /* 到达最左侧后继续向上旋转，进入信息菜单前需要“蓄力确认”。 */
             s_ui.wall_charge++;
             screen_show_wall(WALL_TOP, s_ui.wall_charge,
                                   ">>> ENTER INFO MENU >>>");
             if (s_ui.wall_charge >= 3)
             {
+                /* 三次确认后才真正切换到菜单态，降低误触概率。 */
                 s_ui.wall_charge = 0;
                 screen_hide_walls_snap();
                 s_ui.state = UI_INFO;
@@ -90,11 +122,12 @@ void ui_handle_rotate(int8_t dir)
                 s_ui.wall_charge++;
                 screen_show_wall(WALL_BOTTOM, s_ui.wall_charge,
                                       "<<< ENTER DIVE MENU <<<");
-                if (s_ui.wall_charge >= 3)
-                {
-                    s_ui.wall_charge = 0;
-                    screen_hide_walls_snap();
-                    s_ui.state = UI_SETUP;
+            if (s_ui.wall_charge >= 3)
+            {
+                /* 底部同样采用蓄力确认，避免误进设置菜单。 */
+                s_ui.wall_charge = 0;
+                screen_hide_walls_snap();
+                s_ui.state = UI_SETUP;
                     s_ui.menu_setup_idx = 0;
                     screen_set_setup_selection(0);
                     ui_go_to_page(page_setup_display_pos());
@@ -102,7 +135,9 @@ void ui_handle_rotate(int8_t dir)
             }
             else
             {
+                /* 边界外的反向旋转必须先清掉充能，否则最后一页附近轻微回拨会让用户感知成“方向反了”。 */
                 s_ui.wall_charge = 0;
+                /* 退出边界提示，恢复正常翻页。 */
                 screen_hide_walls();
                 int8_t next = (int8_t)s_ui.dash_page + dir;
                 if (next < (int8_t)dash_min) next = (int8_t)dash_min;
@@ -115,6 +150,7 @@ void ui_handle_rotate(int8_t dir)
     /* --- EDIT_GAS --- */
     case UI_EDIT_GAS:
     {
+        /* 气体编辑页面的游标数量来自气体槽总数，空表时不做任何处理。 */
         uint8_t gas_count = bus_get_gas_slot_count();
         if (gas_count == 0U)
         {
@@ -129,6 +165,7 @@ void ui_handle_rotate(int8_t dir)
     /* --- INFO menu --- */
     case UI_INFO:
     {
+        /* 信息菜单的最后一项向下旋转后，同样需要蓄力返回主界面。 */
         uint8_t len = screen_info_item_count();
         if (dir == 1 && s_ui.menu_info_idx == len - 1)
         {
@@ -137,6 +174,7 @@ void ui_handle_rotate(int8_t dir)
                                   "<<< RETURN TO DASH <<<");
             if (s_ui.wall_charge >= 3)
             {
+                /* 回到仪表盘后，默认重新定位到第一个动态页。 */
                 s_ui.wall_charge = 0;
                 screen_hide_walls_snap();
                 s_ui.state = UI_DASH;
@@ -146,6 +184,7 @@ void ui_handle_rotate(int8_t dir)
         }
         else
         {
+            /* 普通菜单项浏览：先清除墙提示，再做索引夹紧。 */
             s_ui.wall_charge = 0;
             screen_hide_walls();
             int8_t next = (int8_t)s_ui.menu_info_idx + dir;
@@ -160,6 +199,7 @@ void ui_handle_rotate(int8_t dir)
     /* --- SETUP menu --- */
     case UI_SETUP:
     {
+        /* 设置菜单的第一项向上旋转后，蓄力后返回仪表盘尾页。 */
         uint8_t len = screen_setup_item_count();
         if (dir == -1 && s_ui.menu_setup_idx == 0)
         {
@@ -168,6 +208,7 @@ void ui_handle_rotate(int8_t dir)
                                   ">>> RETURN TO DASH >>>");
             if (s_ui.wall_charge >= 3)
             {
+                /* 返回仪表盘时落到最后一个动态页前的位置，形成从菜单回主屏的视觉闭环。 */
                 s_ui.wall_charge = 0;
                 screen_hide_walls_snap();
                 s_ui.state = UI_DASH;
@@ -177,6 +218,7 @@ void ui_handle_rotate(int8_t dir)
         }
         else
         {
+            /* 其余情况下只移动菜单光标，不切换状态。 */
             s_ui.wall_charge = 0;
             screen_hide_walls();
             int8_t next = (int8_t)s_ui.menu_setup_idx + dir;
@@ -191,6 +233,9 @@ void ui_handle_rotate(int8_t dir)
     /* --- SUB_MENU --- */
     case UI_SUB_MENU:
     {
+        /* 子菜单内部可能把旋钮事件转交给更深层的潜水计划编辑页。 */
+        /* 先给 DIVE PLAN 这类“伪菜单真页面”的特殊逻辑一次拦截机会，
+         * 只有它不消费事件时，才退回普通列表选中逻辑。 */
         if (screen_handle_dive_plan_rotate(dir))
         {
             break;
@@ -206,6 +251,7 @@ void ui_handle_rotate(int8_t dir)
     /* --- EDIT_VALUE --- */
     case UI_EDIT_VALUE:
     {
+        /* 数值编辑态只允许在 min/max 范围内按 step 递增或递减。 */
         if (!s_ui.edit_ctx.active) break;
         float next = s_ui.edit_ctx.value + dir * s_ui.edit_ctx.step;
         if (next < s_ui.edit_ctx.min) next = s_ui.edit_ctx.min;
@@ -229,6 +275,7 @@ void ui_handle_click(void)
     /* 告警锁：触发后必须先 click/rotate 一次才可清除 */
     if (s_ui.alarm_pending_click)
     {
+        /* 先清除告警挂起标志，再通知告警模块允许释放锁定。 */
         extern bool alarm_mark_clear_requested(void);
         s_ui.alarm_pending_click = false;
         alarm_mark_clear_requested();
@@ -236,6 +283,8 @@ void ui_handle_click(void)
 
     switch (s_ui.state)
     {
+    /* click 更偏向“确认/进入/执行”：
+     * rotate 决定你看哪里，click 决定你对当前焦点做什么。 */
 
     case UI_DASH:
     {
@@ -244,6 +293,7 @@ void ui_handle_click(void)
 
         if (page_id == PAGE_ID_COMPASS)
         {
+            /* 罗盘页点击用于切换航向锁定状态，首次点击会锁定当前航向。 */
             if (!bus_is_heading_locked())
             {
                 g_heading_lock_pending = true;
@@ -259,6 +309,8 @@ void ui_handle_click(void)
         }
         else if (page_id == PAGE_ID_GAS)
         {
+            /* GAS 页点击不是立刻切气，而是先进入 EDIT_GAS 选择目标气体，
+             * 再通过 modal 二次确认，避免潜水中误切气。 */
             s_ui.state = UI_EDIT_GAS;
             s_ui.gas_cursor = bus_get_gas_active_idx();
             screen_refresh_gas_menu();
@@ -292,7 +344,8 @@ void ui_handle_click(void)
         }
         if (bus_get_depth() <= mod_m)
         {
-            /* 修复：不直接修改数据源，发送命令到队列 */
+            /* UI 层只发“切到哪一路气体”的请求，不直接改算法态。
+             * 真正的数据切换由算法/任务线程执行后，再反向更新 Data Bus。 */
             request_gas_switch(ci);
             screen_hide_modal();
             /* 注意：gas_name 和 gas_active_idx 由 buhlmann_task 更新 */
@@ -362,6 +415,8 @@ void ui_handle_click(void)
    ========================================= */
 void ui_handle_back(void)
 {
+    /* back 只负责“退出当前层级”，不做业务提交。
+     * 对编辑态来说是回滚，对 modal 来说是关闭，对子菜单来说是返回上层。 */
     switch (s_ui.state)
     {
     case UI_EDIT_GAS:

@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/views/menu_runtime.h
+ * 作用: 该文件属于视图表现模块，负责菜单、子菜单、模态框或特定视图状态的展示与交互联动。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #ifndef MENU_RUNTIME_H
 #define MENU_RUNTIME_H
 
@@ -15,6 +22,7 @@ extern "C" {
  *
  * 注意：title/rows 是给 view 渲染用的，不给业务层拿来 strcmp。
  */
+/* 这是菜单运行时的公共入口，负责维护当前打开页面和返回栈。 */
 void menu_runtime_reset(void);
 bool menu_runtime_open_info(uint8_t index);
 bool menu_runtime_open_setup(uint8_t index);
@@ -25,6 +33,7 @@ void menu_runtime_refresh(void);
 /* 当前菜单查询。
  * current_id 用于业务判断；current_title/current_rows 只用于画界面。
  */
+/* 这些查询接口只读，不改变菜单状态。 */
 menu_id_t menu_runtime_current_id(void);
 const char *menu_runtime_current_title(void);
 const menu_row_t *menu_runtime_current_rows(uint8_t *out_count);
@@ -33,6 +42,7 @@ const menu_row_t *menu_runtime_row_at(uint8_t index);
 /* DIVE PLAN 的交互比较特殊：它不是普通列表，而是一套输入/结果页。
  * runtime 暴露这些状态，让 submenu_view 用对应的绘制方式。
  */
+/* 潜水计划页会复用菜单运行时，但渲染方式和普通列表不同。 */
 bool menu_runtime_is_dive_plan(void);
 bool menu_runtime_is_dive_plan_result(void);
 bool menu_runtime_is_nested(void);

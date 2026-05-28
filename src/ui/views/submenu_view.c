@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/views/submenu_view.c
+ * 作用: 该文件属于视图表现模块，负责菜单、子菜单、模态框或特定视图状态的展示与交互联动。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "submenu_view.h"
 
 #include "../core/callbacks.h"
@@ -20,6 +27,7 @@ static uint16_t s_submenu_height = 0;
 
 static bool submenu_is_dive_plan_visible(void)
 {
+    /* 潜水计划页虽然复用子菜单层，但绘制方式和普通列表完全不同。 */
     return menu_runtime_is_dive_plan();
 }
 
@@ -40,6 +48,7 @@ static bool submenu_light_power_on(void)
 
 void submenu_view_reset(void)
 {
+    /* 布局重建后，旧的子菜单对象和菜单运行时都需要一起清空。 */
     s_submenu_layer = NULL;
     s_submenu_title = NULL;
     s_submenu_title_line = NULL;
@@ -58,6 +67,7 @@ lv_obj_t *submenu_view_get_list(void)
 
 void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 {
+    /* 子菜单层初始放在屏幕右侧外面，通过 slide_in 动画滑入可视区域。 */
     s_submenu_width = width;
     s_submenu_height = height;
 
@@ -100,6 +110,7 @@ void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
  * ========================================================= */
 static void submenu_slide_in(void)
 {
+    /* 打开子菜单时从右侧滑入。 */
     if (!s_submenu_layer) return;
     uint16_t slide_w = submenu_right_width();
 
@@ -115,6 +126,7 @@ static void submenu_slide_in(void)
 
 static void submenu_slide_out(void)
 {
+    /* 关闭子菜单时滑回右侧屏幕外。 */
     if (!s_submenu_layer) return;
     uint16_t slide_w = submenu_right_width();
 
@@ -138,6 +150,7 @@ static lv_obj_t *plan_make_label(lv_obj_t *parent,
                                  int h,
                                  lv_text_align_t align)
 {
+    /* 潜水计划页的文本控件都通过这个轻量工厂统一创建。 */
     lv_obj_t *lbl = lv_label_create(parent);
     lv_obj_remove_style_all(lbl);
     lv_obj_set_pos(lbl, x, y);
@@ -152,6 +165,7 @@ static lv_obj_t *plan_make_label(lv_obj_t *parent,
 
 static lv_obj_t *plan_make_button(lv_obj_t *parent, const char *text, int x, int y)
 {
+    /* 潜水计划页底部按钮的统一样式工厂。 */
     lv_obj_t *btn = lv_obj_create(parent);
     lv_obj_remove_style_all(btn);
     lv_obj_set_pos(btn, x, y);
@@ -178,6 +192,7 @@ static lv_obj_t *plan_make_button(lv_obj_t *parent, const char *text, int x, int
 
 static void plan_draw_header(lv_obj_t *parent, int w)
 {
+    /* 绘制潜水计划页顶部摘要区，展示输入参数和当前气体。 */
     ui_vm_dive_plan_view_t vm;
 
     ui_vm_dive_plan_view_update(&vm);
@@ -240,6 +255,7 @@ static void plan_draw_header(lv_obj_t *parent, int w)
 
 static void plan_draw_bottom_line(lv_obj_t *parent, int w)
 {
+    /* 底部分隔线用于把输入/结果区和动作按钮区分开。 */
     lv_obj_t *line = lv_obj_create(parent);
     lv_obj_remove_style_all(line);
     lv_obj_set_pos(line, 0, (int)s_submenu_height - 42);
@@ -250,6 +266,7 @@ static void plan_draw_bottom_line(lv_obj_t *parent, int w)
 
 static void plan_draw_input(lv_obj_t *parent, int w)
 {
+    /* 输入页根据当前 page 类型切换显示深度、时间或 RMV。 */
     ui_vm_dive_plan_view_t vm;
     char buf[48];
 
@@ -307,6 +324,7 @@ static void plan_draw_input(lv_obj_t *parent, int w)
 
 static void plan_draw_ready(lv_obj_t *parent, int w)
 {
+    /* READY 页用于展示“可以开始计算”的摘要状态。 */
     ui_vm_dive_plan_view_t vm;
 
     ui_vm_dive_plan_view_update(&vm);
@@ -424,6 +442,8 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
     bool is_dive_plan = menu_runtime_is_dive_plan();
     if (is_dive_plan)
     {
+        /* DIVE PLAN 不是普通“纵向菜单列表”，而是一个借用子菜单层承载的独立页面。
+         * 因此标题栏、列表尺寸和选中态逻辑都要切到专用分支。 */
         lv_label_set_text(s_submenu_title, "DIVE PLAN");
         lv_obj_add_flag(s_submenu_title, LV_OBJ_FLAG_HIDDEN);
         if (s_submenu_title_line)
@@ -487,6 +507,9 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
         /* LIGHT CONTROL 特殊布局: LIGHT 左侧，ON/OFF 右侧 */
         if (rows[i].type == MENU_ROW_LIGHT_POWER)
         {
+            /* 灯光总开关这一行是双列布局：
+             * 左边固定显示 "LIGHT"，右边动态显示 ON/OFF。
+             * 单独保留右侧 label 引用，便于点击后只更新状态文字。 */
             /* "LIGHT" 标签在左侧 */
             lv_obj_t *lbl_light = lv_label_create(item);
             lv_obj_set_style_text_color(lbl_light, GREEN, 0);
@@ -512,6 +535,8 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
         }
 
         /* 普通菜单项 */
+        /* 普通项只渲染标题文字，不在 view 层处理点击逻辑。
+         * 选中、进入子菜单、编辑数值等动作统一交给 menu_actions / ui_state。 */
         lv_obj_t *lbl = lv_label_create(item);
         lv_obj_set_style_text_color(lbl, GREEN, 0);
         lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
@@ -790,6 +815,10 @@ void screen_handle_submenu_select(uint8_t item_idx)
     {
         return;
     }
+    /* 这里是子菜单层的“动作分发口”：
+     * menu_runtime 决定当前有哪些行；
+     * menu_actions 决定选中某一行后应该产生什么动作；
+     * submenu_view 只负责把动作翻译成界面行为或状态切换。 */
 
     switch (action.type)
     {

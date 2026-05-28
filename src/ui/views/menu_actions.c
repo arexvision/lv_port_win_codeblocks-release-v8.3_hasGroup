@@ -1,3 +1,10 @@
+/*
+ * 文件: src/app_ui/ui/views/menu_actions.c
+ * 作用: 该文件属于视图表现模块，负责菜单、子菜单、模态框或特定视图状态的展示与交互联动。
+ * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
+ */
+
 #include "menu_actions.h"
 
 #include "../core/callbacks.h"
@@ -25,6 +32,9 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
     /* submenu_model 仍保存一部分旧设置状态。
      * apply_setting 更新模型内部值；这里负责通知真正业务回调。
      */
+    /* 这里是“菜单层 -> 业务层”的桥。
+     * 前面的 view/runtime/actions 只处理菜单语义，
+     * 到这里才真正调用 ui_on_* 回调，把修改落到系统配置、算法或外设控制。 */
     if (!setting)
     {
         return;
@@ -108,6 +118,7 @@ static bool direct_setting_for_row(uint8_t row_index,
                                    const menu_row_t *row,
                                    submenu_setting_confirm_t *out_setting)
 {
+    /* 优先按稳定 ID 查直达设置，兼容旧逻辑时再退回标题/文本匹配。 */
     if (row != NULL && submenu_direct_setting_from_ids(menu_runtime_current_id(),
                                                        row->id,
                                                        out_setting))
@@ -124,6 +135,7 @@ static bool confirm_setting_for_row(uint8_t row_index,
                                     const menu_row_t *row,
                                     submenu_setting_confirm_t *out_setting)
 {
+    /* 需要二次确认的设置在这里生成确认上下文。 */
     if (row != NULL && submenu_setting_from_ids(menu_runtime_current_id(),
                                                 row->id,
                                                 out_setting))
@@ -140,6 +152,7 @@ static bool edit_spec_for_row(uint8_t row_index,
                               const menu_row_t *row,
                               submenu_edit_spec_t *out_spec)
 {
+    /* 行内编辑类条目需要先拿到编辑规格，再交给 screen 层进入编辑态。 */
     if (row != NULL && submenu_edit_spec_from_ids(menu_runtime_current_id(),
                                                   row->id,
                                                   out_spec))
@@ -154,6 +167,7 @@ static bool edit_spec_for_row(uint8_t row_index,
 
 static bool handle_conservatism(menu_item_id_t id, menu_action_t *action)
 {
+    /* 保守度是直接生效型菜单，选中即落配置并关闭子菜单。 */
     uint8_t index;
     const setting_option_t *option;
 
@@ -173,16 +187,18 @@ static bool handle_conservatism(menu_item_id_t id, menu_action_t *action)
 
 static bool handle_brightness(menu_item_id_t id, menu_action_t *action)
 {
+    /* 亮度选择同样是一步生效，不需要额外确认页。 */
     uint8_t index;
     const brightness_option_t *option;
 
-    if (id < MENU_ITEM_BRIGHTNESS_ECO || id > MENU_ITEM_BRIGHTNESS_SUN)
+    if (id < MENU_ITEM_BRIGHTNESS_LOW || id > MENU_ITEM_BRIGHTNESS_MAX)
     {
         return false;
     }
 
-    index = (uint8_t)(id - MENU_ITEM_BRIGHTNESS_ECO);
+    index = (uint8_t)(id - MENU_ITEM_BRIGHTNESS_LOW);
     option = submenu_brightness_option(index);
+    bus_set_brightness(option->value);
     set_brightness(option->value);
     screen_update_setup_badge(2, option->badge_label);
     action->type = MENU_ACTION_CLOSE;
@@ -191,6 +207,7 @@ static bool handle_brightness(menu_item_id_t id, menu_action_t *action)
 
 static bool handle_gas_switch(menu_item_id_t id, menu_action_t *action)
 {
+    /* 气体切换先记录光标和来源上下文，再弹出确认模态框。 */
     if (id < MENU_ITEM_GAS_SLOT_0 || id > MENU_ITEM_GAS_SLOT_4)
     {
         return false;
@@ -203,6 +220,7 @@ static bool handle_gas_switch(menu_item_id_t id, menu_action_t *action)
 
 static bool handle_compass(menu_item_id_t id, menu_action_t *action)
 {
+    /* 罗盘校准菜单本质上是向传感器任务投递命令。 */
     if (id == MENU_ITEM_COMPASS_CAL_START)
     {
         request_compass_calibration_start();
@@ -224,6 +242,8 @@ static bool handle_compass(menu_item_id_t id, menu_action_t *action)
 
 static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t *action)
 {
+    /* 灯光菜单既支持总开关，也支持颜色/亮度类子项。 */
+    (void)row;
     if (id == MENU_ITEM_LIGHT_POWER)
     {
         bus_toggle_light_power();
@@ -234,7 +254,10 @@ static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t
     if (id >= MENU_ITEM_LIGHT_LEVEL_10 && id <= MENU_ITEM_LIGHT_LEVEL_100)
     {
         ui_on_light_color_set(menu_defs_light_color_name(menu_runtime_current_id()),
-                              row ? row->label : "");
+                              (id == MENU_ITEM_LIGHT_LEVEL_10)  ? "10%" :
+                              (id == MENU_ITEM_LIGHT_LEVEL_30)  ? "30%" :
+                              (id == MENU_ITEM_LIGHT_LEVEL_50)  ? "50%" :
+                              (id == MENU_ITEM_LIGHT_LEVEL_70)  ? "70%" : "100%");
         action->type = MENU_ACTION_CLOSE;
         return true;
     }
@@ -243,6 +266,9 @@ static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t
 
 static bool handle_dive_plan(uint8_t row_index, const menu_row_t *row, menu_action_t *action)
 {
+    /* 潜水计划是菜单系统里的特殊页，内部交互不完全遵循普通列表点击规则。 */
+    /* 它本质上更像“向导页面”，而不是简单菜单：
+     * 同一行在不同 page 阶段可能代表 NEXT / PLAN / MORE / EXIT。 */
     bool close_submenu = false;
     uint8_t keep_idx = row_index;
 
@@ -266,6 +292,11 @@ bool menu_actions_handle_select(uint8_t row_index,
                                 const menu_row_t *row,
                                 menu_action_t *out_action)
 {
+    /* 菜单点击入口：先判断是直接动作、确认动作还是需要下钻。 */
+    /* 整个动作分发优先级大致是：
+     * BACK -> 特殊页(DIVE PLAN) -> 只读拦截 -> 子菜单跳转 ->
+     * 新 ID 直达动作 -> 行内编辑 -> 直接生效设置 -> 二次确认设置 -> 默认文本弹窗
+     * 这个顺序体现了“先处理结构性导航，再处理业务动作”的原则。 */
     submenu_setting_confirm_t setting;
     menu_id_t child;
 
@@ -297,6 +328,7 @@ bool menu_actions_handle_select(uint8_t row_index,
         /* 行 ID 能映射到子菜单，就返回 OPEN_CHILD。
          * 真正创建/动画仍由 submenu_view.c 完成。
          */
+        /* 注意这里不直接切状态，保持 action 层只产生命令，不直接操作界面。 */
         out_action->type = MENU_ACTION_OPEN_CHILD;
         out_action->child_menu = child;
         return true;
@@ -349,12 +381,18 @@ bool menu_actions_handle_select(uint8_t row_index,
 
 void menu_actions_clear_pending(void)
 {
+    /* 清空待确认动作，避免跨页面残留。 */
+    /* pending setting 属于短生命周期上下文，一旦页面关闭或确认结束必须清掉，
+     * 否则确认框可能把上一页的设置错误地应用到当前页。 */
     memset(&s_pending_setting, 0, sizeof(s_pending_setting));
 }
 
 bool menu_actions_confirm_pending(bool *out_close_parent_too,
                                   bool *out_return_dash)
 {
+    /* 用户在确认弹窗里按下确认后，统一在这里落地。 */
+    /* 二次确认的意义在于把“用户当前高亮了哪个选项”和“真正提交哪个设置”
+     * 解耦开：先缓存，再由 modal 确认后一次性提交。 */
     if (out_close_parent_too)
     {
         *out_close_parent_too = false;
