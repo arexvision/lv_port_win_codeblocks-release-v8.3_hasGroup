@@ -44,6 +44,7 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
     {
     case SUBMENU_SETTING_DIVE_MODE:
         ui_on_dive_mode_set((uint8_t)setting->value);
+        screen_refresh_setup_menu();
         screen_refresh_gas_menu();
         screen_refresh_left_panel();
         break;
@@ -414,9 +415,7 @@ bool menu_actions_confirm_pending(bool *out_close_parent_too,
     }
     if (out_return_dash)
     {
-        *out_return_dash =
-            (s_pending_setting.kind == SUBMENU_SETTING_DIVE_MODE &&
-             s_pending_setting.value == 3);
+        *out_return_dash = false;
     }
 
     submenu_apply_setting(s_pending_setting.kind,

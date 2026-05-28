@@ -104,6 +104,7 @@ static uint8_t s_three_gas_o2_pct[3] = { 21, 32, 100 };
 static uint8_t s_three_gas_count = 3;
 static uint8_t s_oc_tech_o2_pct[5] = { 18, 21, 35, 50, 100 };
 static uint8_t s_oc_tech_he_pct[5] = { 45, 35, 25, 0, 0 };
+static uint8_t s_oc_tech_count = 5;
 static uint8_t s_oc_tech_draft_o2_pct[5] = { 18, 21, 35, 50, 100 };
 static uint8_t s_oc_tech_draft_he_pct[5] = { 45, 35, 25, 0, 0 };
 static uint8_t s_oc_tech_edit_slot = 0;
@@ -499,7 +500,7 @@ static void apply_oc_tech_mode_gases(void)
 
     submenu_gas_profile_reset(slots, GAS_COUNT);
 
-    for (uint8_t i = 0; i < 5U; i++)
+    for (uint8_t i = 0; i < s_oc_tech_count; i++)
     {
         uint8_t o2 = s_oc_tech_o2_pct[i];
         uint8_t he = s_oc_tech_he_pct[i];
@@ -577,6 +578,9 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         break;
     case SUBMENU_SETTING_3GAS_COUNT:
         s_three_gas_count = (value < 1 || value > 3) ? 3 : (uint8_t)value;
+        break;
+    case SUBMENU_SETTING_OC_TECH_COUNT:
+        s_oc_tech_count = (uint8_t)value;
         break;
     case SUBMENU_SETTING_OC_TECH_SAVE:
         save_oc_tech_slot(arg);
@@ -926,7 +930,7 @@ static const char **build_nested_oc_tech(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
-    ui_vm_oc_tech_menu_update(&vm, s_oc_tech_o2_pct, s_oc_tech_he_pct);
+    ui_vm_oc_tech_menu_update(&vm, s_oc_tech_o2_pct, s_oc_tech_he_pct, s_oc_tech_count);
     return copy_simple_menu_items(&vm, out_count);
 }
 
@@ -1285,12 +1289,12 @@ bool submenu_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if (strcmp(clean_title, "OC Tech") == 0 && item_index == 5)
+    if (strcmp(clean_title, "OC Tech") == 0 && item_index == 6)
     {
         out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
         out_setting->value = 3;
         lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DIVE MODE\nOC Tech ACTIVE");
+                    "DIVE MODE\nOC Tech / %u ACTIVE", (unsigned)s_oc_tech_count);
         return true;
     }
 
@@ -1415,6 +1419,13 @@ bool submenu_direct_setting_from_selection(const char *current_title,
     {
         out_setting->kind = SUBMENU_SETTING_3GAS_COUNT;
         out_setting->value = (s_three_gas_count >= 3U) ? 1U : (uint16_t)(s_three_gas_count + 1U);
+        return true;
+    }
+
+    if (strcmp(clean_title, "OC Tech") == 0 && item_index == 5)
+    {
+        out_setting->kind = SUBMENU_SETTING_OC_TECH_COUNT;
+        out_setting->value = (s_oc_tech_count >= 5U) ? 1U : (uint16_t)(s_oc_tech_count + 1U);
         return true;
     }
 
@@ -1654,7 +1665,7 @@ bool submenu_setting_from_ids(menu_id_t current_menu,
         item_text = "CONFIRM";
         break;
     case MENU_ITEM_OC_TECH_CONFIRM:
-        item_index = 5U;
+        item_index = 6U;
         item_text = "CONFIRM & ACTIVATE";
         break;
     case MENU_ITEM_DISPLAY_RESET:
@@ -1689,6 +1700,7 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
     case MENU_ITEM_DISPLAY_LOG_RATE: item_index = 2U; break;
     case MENU_ITEM_DISPLAY_BLUETOOTH:item_index = 3U; break;
     case MENU_ITEM_THREE_GAS_COUNT:  item_index = 3U; break;
+    case MENU_ITEM_OC_TECH_COUNT:    item_index = 5U; break;
     case MENU_ITEM_OC_TECH_EDIT_SAVE:item_index = 2U; break;
     default:
         return false;

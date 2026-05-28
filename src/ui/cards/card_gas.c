@@ -116,6 +116,12 @@ void card_gas_create(lv_obj_t *parent)
 
 void card_gas_update(void)
 {
+    ui_vm_gas_update(&s_gas_vm_cache,
+                     NULL,
+                     NULL,
+                     ui_state_get_state(),
+                     ui_state_get_gas_cursor());
+
     for (int i = 0; i < GAS_COUNT; i++)
     {
         if (!gas_obj_is_valid(&s_items[i]) ||

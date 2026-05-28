@@ -334,7 +334,9 @@ static void build_rows(void)
             MENU_ITEM_OC_TECH_SLOT_2,
             MENU_ITEM_OC_TECH_SLOT_3,
             MENU_ITEM_OC_TECH_SLOT_4,
+            MENU_ITEM_OC_TECH_COUNT,
             MENU_ITEM_OC_TECH_CONFIRM,
+            MENU_ITEM_BACK,
         };
         build_nested_by_title("OC Tech", ids, NULL);
         break;
