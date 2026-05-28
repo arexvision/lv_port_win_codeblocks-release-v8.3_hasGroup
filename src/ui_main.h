@@ -5,9 +5,6 @@
 extern "C" {
 #endif
 
-#include "hal_sim/input_pc.h"
-#define PC_SIMULATOR  /* 移植到硬件时关闭 */
-
 /**
  * @file ui_main.h
  * @brief UI entry point and simulation HAL
