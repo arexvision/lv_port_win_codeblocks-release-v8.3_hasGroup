@@ -130,7 +130,7 @@ static uint8_t card_deco_get_gf_high_pct(void)
     uint8_t gf_high = s_deco_vm_cache.gf_high;
     if (gf_high == 0U)
     {
-        gf_high = 70;
+        gf_high = 85;
     }
     if (gf_high > 100)
     {
@@ -345,16 +345,19 @@ void card_deco_create(lv_obj_t *parent)
 void card_deco_update(void)
 {
     char buf[16];
-    uint8_t gf_low = card_deco_get_gf_low_pct();
-    uint8_t gf_high = card_deco_get_gf_high_pct();
-    bool chart_active = card_deco_tissue_chart_active();
+    uint8_t gf_low;
+    uint8_t gf_high;
+    bool chart_active;
+
+    ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
+    gf_low = card_deco_get_gf_low_pct();
+    gf_high = card_deco_get_gf_high_pct();
+    chart_active = card_deco_tissue_chart_active();
 
     if (deco_obj_is_valid(&s_lbl_gf_setting))
     {
         lv_label_set_text_fmt(s_lbl_gf_setting, "%u / %u", gf_low, gf_high);
     }
-
-    ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
 
     snprintf(buf, sizeof(buf), "%s", s_deco_vm_cache.gf99);
     if (deco_obj_is_valid(&s_lbl_gf99))

@@ -79,7 +79,6 @@ static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NUL
 static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS", "OC Tech", NULL };
 static const uint8_t s_safety_stop_values[] = { 0, 3, 4, 5 };
 static const uint8_t s_last_deco_values[] = { 3, 6 };
-static const uint8_t s_log_rate_values[]    = { 2, 5, 10, 30 };
 
 static char s_compass_cal_status_str[24];
 static const char *s_compass_cal_items[] = { s_compass_cal_status_str, "RESET AUTO CAL", NULL };
@@ -112,7 +111,7 @@ static uint16_t s_depth_alarm_m = 40;
 static uint16_t s_time_alarm_min = 60;
 static const uint8_t s_ndl_alarm_min = 5;
 static uint8_t s_units_mode = 0;         /* 0=METRIC, 1=IMPERIAL */
-static uint8_t s_log_rate_s = 10;
+static uint8_t s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
 static uint8_t s_bluetooth_enabled = 0;  /* 0=OFF, 1=ON */
 static uint16_t s_datetime_year = 2026;
 static uint8_t s_datetime_month = 5;
@@ -246,6 +245,10 @@ static void plan_build_action_items(uint8_t *out_count)
     if (snapshot.page == DIVE_PLAN_PAGE_READY)
     {
         s_plan_dyn[n++] = "Plan >";
+    }
+    else if (snapshot.page == DIVE_PLAN_PAGE_CALCULATING)
+    {
+        s_plan_dyn[n++] = "Calculating...";
     }
     else if (snapshot.page == DIVE_PLAN_PAGE_RESULT)
     {
@@ -468,6 +471,8 @@ static void submenu_commit_gas_profile(const submenu_gas_profile_slot_t *slots, 
         bus_set_gas_mix(0U, 0U);
         bus_set_fio2(0.0f);
     }
+
+    ui_on_gas_profile_commit();
 }
 
 static void apply_air_mode_gases(void)
@@ -627,7 +632,7 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         break;
     case SUBMENU_SETTING_RESET_DEFAULTS:
         s_units_mode = 0;
-        s_log_rate_s = 10;
+        s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
         s_bluetooth_enabled = 0;
         break;
     default:
@@ -1397,18 +1402,9 @@ bool submenu_direct_setting_from_selection(const char *current_title,
 
     if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 2)
     {
-        uint8_t next_index = 0;
         s_log_rate_s = bus_get_log_rate();
-        for (uint8_t i = 0; i < (sizeof(s_log_rate_values) / sizeof(s_log_rate_values[0])); i++)
-        {
-            if (s_log_rate_values[i] == s_log_rate_s)
-            {
-                next_index = (uint8_t)((i + 1) % (sizeof(s_log_rate_values) / sizeof(s_log_rate_values[0])));
-                break;
-            }
-        }
         out_setting->kind = SUBMENU_SETTING_LOG_RATE;
-        out_setting->value = s_log_rate_values[next_index];
+        out_setting->value = ui_next_log_rate(s_log_rate_s);
         return true;
     }
 

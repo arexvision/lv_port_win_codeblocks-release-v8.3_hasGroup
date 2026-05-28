@@ -41,6 +41,7 @@ void ui_on_safety_stop_time_set(uint8_t minutes);
 void ui_on_last_deco_stop_set(uint8_t depth_m);
 void ui_on_altitude_range_set(uint8_t level);
 void ui_on_dive_mode_set(uint8_t mode);
+void ui_on_gas_profile_commit(void);
 void ui_on_ai_pair(uint8_t tank_index);
 void ui_on_ai_tank_state_set(uint8_t tank_index, uint8_t state);
 void ui_on_gtr_mode_set(bool enabled);

@@ -140,6 +140,13 @@ void ui_on_dive_mode_set(uint8_t mode)
 }
 
 WEAK_CALLBACK
+void ui_on_gas_profile_commit(void)
+{
+    /* 默认实现只保留 UI data.c 的显示态更新。
+     * 真机平台可覆盖此 hook，把 gas profile 同步到真实算法运行态。 */
+}
+
+WEAK_CALLBACK
 void ui_on_ai_pair(uint8_t tank_index)
 {
     printf("[SYSTEM_SETUP] Pair AI tank: T%u\n", (unsigned)(tank_index + 1));
@@ -238,7 +245,7 @@ void ui_on_bluetooth_set(bool enabled)
 WEAK_CALLBACK
 void ui_on_reset_defaults(void)
 {
-    bus_set_log_rate(10U);
+    bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     (void)config_save(&g_sys_config);
     printf("[DISPLAY_SETUP] Reset defaults\n");
 }

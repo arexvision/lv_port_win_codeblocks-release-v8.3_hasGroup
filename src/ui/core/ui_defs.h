@@ -9,6 +9,7 @@
 #define UI_DEFS_H
 
 #include "lvgl/lvgl.h"
+#include "ui_settings.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -48,7 +49,7 @@ extern "C" {
 
 #define RATE_LEVEL1_THRESHOLD  3.0f
 #define RATE_LEVEL2_THRESHOLD  9.0f
-#define RATE_STILL_THRESHOLD   3.0f
+#define RATE_STILL_THRESHOLD   UI_ASCENT_RATE_STILL_DEADBAND_MPM
 
 #define GAS_COUNT  5
 

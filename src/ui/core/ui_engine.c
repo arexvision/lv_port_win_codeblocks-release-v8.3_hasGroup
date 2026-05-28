@@ -18,6 +18,7 @@
 #include "../comp/comp_view.h"
 #include "update_router.h"
 #include "../alarm/alarm_view.h"
+#include "../views/submenu_dive_plan_state.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -287,7 +288,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->salinity_mode   = 0;    /* FRESH */
     cfg->last_deco_stop_m = 3;
     cfg->brightness     = BRIGHTNESS_MED;
-    cfg->log_rate_s     = 10;
+    cfg->log_rate_s     = UI_LOG_RATE_DEFAULT_S;
 }
 
 /* =========================================================
@@ -503,11 +504,16 @@ void ui_update_task(lv_timer_t *timer)
         if (current_flash_state != s_last_flash_state)
         {
             s_last_flash_state = current_flash_state;
-            if (fabsf(bus_get_ascent_rate()) >= RATE_STILL_THRESHOLD)
+            if (fabsf(bus_get_ascent_rate()) > RATE_STILL_THRESHOLD)
             {
                 bus_requeue_dirty(DIRTY_ASCENT);
             }
         }
+    }
+
+    if (submenu_dive_plan_poll_async())
+    {
+        screen_refresh_info_submenu_if_open();
     }
 
     uint32_t mask = bus_take_dirty();

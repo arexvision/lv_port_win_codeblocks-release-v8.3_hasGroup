@@ -13,12 +13,19 @@
 
 #ifdef PC_SIMULATOR
 #include "../../algo_sim/buhlmann_debug.h"
+#else
+#include "rtthread.h"
 #endif
 
 #include <stdio.h>
 #include <string.h>
 
 #define PLAN_ROWS_PER_PAGE 8U
+#ifndef PC_SIMULATOR
+#define PLAN_ASYNC_THREAD_STACK_SIZE 20480U
+#define PLAN_ASYNC_THREAD_PRIORITY   5U
+#define PLAN_ASYNC_THREAD_TICK       10U
+#endif
 
 typedef struct
 {
@@ -41,6 +48,24 @@ static submenu_dive_plan_state_t s_state =
     0U,
     { 0 }
 };
+
+#ifndef PC_SIMULATOR
+typedef struct
+{
+    uint32_t id;
+    float depth_m;
+    uint16_t time_min;
+    float rmv_lpm;
+} dive_plan_async_request_t;
+
+static volatile bool s_plan_async_running;
+static volatile bool s_plan_async_done;
+static volatile bool s_plan_async_success;
+static volatile uint32_t s_plan_async_generation;
+static volatile uint32_t s_plan_async_done_id;
+static dive_plan_async_request_t s_plan_async_request;
+static dive_plan_result_snapshot_t s_plan_async_result;
+#endif
 
 static uint16_t plan_round_u16(float value)
 {
@@ -228,6 +253,67 @@ static void plan_execute(void)
     s_state.page = DIVE_PLAN_PAGE_RESULT;
 }
 
+#ifndef PC_SIMULATOR
+static void plan_async_worker(void *parameter)
+{
+    (void)parameter;
+
+    dive_plan_async_request_t request = s_plan_async_request;
+    dive_plan_result_snapshot_t snapshot;
+    bool success = dive_plan_backend_calculate(request.depth_m,
+                                              request.time_min,
+                                              request.rmv_lpm,
+                                              &snapshot);
+
+    if (success)
+    {
+        s_plan_async_result = snapshot;
+    }
+    s_plan_async_success = success;
+    s_plan_async_done_id = request.id;
+    s_plan_async_done = true;
+    s_plan_async_running = false;
+}
+
+static bool plan_start_async(void)
+{
+    if (s_plan_async_running)
+    {
+        return false;
+    }
+
+    s_plan_async_generation++;
+    if (s_plan_async_generation == 0U)
+    {
+        s_plan_async_generation = 1U;
+    }
+
+    s_plan_async_request.id = s_plan_async_generation;
+    s_plan_async_request.depth_m = s_state.depth_m;
+    s_plan_async_request.time_min = s_state.time_min;
+    s_plan_async_request.rmv_lpm = s_state.rmv_lpm;
+    s_plan_async_done = false;
+    s_plan_async_success = false;
+    s_plan_async_done_id = 0U;
+    s_plan_async_running = true;
+
+    rt_thread_t thread = rt_thread_create("dplan",
+                                          plan_async_worker,
+                                          RT_NULL,
+                                          PLAN_ASYNC_THREAD_STACK_SIZE,
+                                          PLAN_ASYNC_THREAD_PRIORITY,
+                                          PLAN_ASYNC_THREAD_TICK);
+    if (thread == RT_NULL)
+    {
+        s_plan_async_running = false;
+        return false;
+    }
+
+    rt_thread_startup(thread);
+    return true;
+}
+#endif
+
 void submenu_dive_plan_set_result_snapshot(const dive_plan_result_snapshot_t *snapshot)
 {
     /* 结果快照由算法/上层计算后统一写回这里。 */
@@ -393,6 +479,36 @@ bool submenu_dive_plan_is_result_page(void)
     return s_state.page == DIVE_PLAN_PAGE_RESULT;
 }
 
+bool submenu_dive_plan_poll_async(void)
+{
+#ifdef PC_SIMULATOR
+    return false;
+#else
+    if (!s_plan_async_done)
+    {
+        return false;
+    }
+
+    s_plan_async_done = false;
+    if (s_plan_async_done_id != s_plan_async_generation)
+    {
+        return false;
+    }
+
+    if (s_plan_async_success)
+    {
+        submenu_dive_plan_set_result_snapshot(&s_plan_async_result);
+        s_state.page = DIVE_PLAN_PAGE_RESULT;
+    }
+    else
+    {
+        submenu_dive_plan_set_result_snapshot(NULL);
+        s_state.page = DIVE_PLAN_PAGE_ERROR;
+    }
+    return true;
+#endif
+}
+
 bool submenu_dive_plan_handle_action(menu_item_id_t item_id,
                                      bool *out_close_submenu,
                                      uint8_t *out_keep_index)
@@ -460,7 +576,16 @@ bool submenu_dive_plan_handle_action(menu_item_id_t item_id,
     {
         plan_ensure_defaults();
         s_state.result_page = 0U;
+#ifdef PC_SIMULATOR
         plan_execute();
+#else
+        submenu_dive_plan_set_result_snapshot(NULL);
+        s_state.page = DIVE_PLAN_PAGE_CALCULATING;
+        if (!plan_start_async())
+        {
+            s_state.page = DIVE_PLAN_PAGE_ERROR;
+        }
+#endif
         if (out_keep_index != NULL)
         {
             *out_keep_index = 1U;
@@ -473,6 +598,10 @@ bool submenu_dive_plan_handle_action(menu_item_id_t item_id,
 
 void submenu_dive_plan_reset(void)
 {
+#ifndef PC_SIMULATOR
+    s_plan_async_generation++;
+    s_plan_async_done = false;
+#endif
     s_state.page = DIVE_PLAN_PAGE_DEPTH;
     s_state.defaults_loaded = false;
     s_state.depth_m = 30.0f;

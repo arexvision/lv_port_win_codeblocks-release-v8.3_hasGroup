@@ -360,6 +360,12 @@ static void plan_draw_ready(lv_obj_t *parent, int w)
     plan_make_label(parent, vm.gas_summary, FONT_ID_SMALL, LIGHT, 96, 264, w - 192, 22, LV_TEXT_ALIGN_LEFT);
 }
 
+static void plan_draw_calculating(lv_obj_t *parent, int w)
+{
+    plan_make_label(parent, "Calculating Plan", FONT_ID_MEDIUM, LIGHT, 0, 126, w, 40, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Please wait...", FONT_ID_SMALL, LIGHT, 0, 188, w, 24, LV_TEXT_ALIGN_CENTER);
+}
+
 static void plan_draw_result_summary(lv_obj_t *parent, int w, const ui_vm_dive_plan_view_t *vm)
 {
     plan_make_label(parent, "SUMMARY", FONT_ID_SMALL, GREEN, 0, 76, w, 22, LV_TEXT_ALIGN_CENTER);
@@ -453,6 +459,9 @@ static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
     {
     case DIVE_PLAN_PAGE_READY:
         plan_draw_ready(s_submenu_list, w);
+        break;
+    case DIVE_PLAN_PAGE_CALCULATING:
+        plan_draw_calculating(s_submenu_list, w);
         break;
     case DIVE_PLAN_PAGE_RESULT:
         plan_draw_result(s_submenu_list, w);

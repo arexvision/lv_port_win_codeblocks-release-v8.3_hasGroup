@@ -30,7 +30,7 @@ static uint16_t s_deco_stop_count;
 
 /* 显示层数据写入只负责数值同步和脏标记；告警由 alarm 模块的显式接口触发。 */
 #define DEPTH_DISPLAY_DEBOUNCE_M      0.05f    /* 深度显示防抖：小于 0.05m 不刷新数字 */
-#define ASCENT_RATE_UI_EPSILON        0.2f     /* 速度图标变化阈值：低于该值认为无明显变化 */
+#define ASCENT_RATE_UI_EPSILON        UI_ASCENT_RATE_DISPLAY_EPSILON_MPM
 
 static void bus_apply_algo_gases(void)
 {
@@ -69,15 +69,6 @@ static void bus_apply_algo_last_deco(uint8_t depth_m)
 #else
     (void)depth_m;
 #endif
-}
-
-static uint8_t conservatism_from_gf(uint8_t gf_low, uint8_t gf_high)
-{
-    /* 根据 GF 组合反推保守度档位，供菜单/界面统一显示。 */
-    if (gf_low == 40U && gf_high == 95U) return 0U;
-    if (gf_low == 40U && gf_high == 85U) return 1U;
-    if (gf_low == 30U && gf_high == 70U) return 2U;
-    return 3U;
 }
 
 /* 深度统计累计值 */
@@ -176,6 +167,8 @@ static bool deco_plan_equals_current(const deco_stop_t *stops, uint8_t count)
 
 void data_init(void)
 {
+    uint8_t conservatism;
+
     memset(&g_sensor_data, 0, sizeof(g_sensor_data));
     _depth_sum = 0.0f;
     _depth_sample_count = 0;
@@ -212,6 +205,15 @@ void data_init(void)
     g_sensor_data.gas_slot_he_pct[4] = 0;
     g_sensor_data.gas_slot_mod_m[4] = 0.0f;
 
+    conservatism = g_sys_config.conservatism;
+    if (conservatism >= UI_CONSERVATISM_PROFILE_COUNT)
+    {
+        conservatism = UI_CONSERVATISM_DEFAULT_LEVEL;
+    }
+    (void)ui_gf_from_conservatism_level(conservatism,
+                                        &g_sensor_data.gf_low,
+                                        &g_sensor_data.gf_high);
+
     /* 减压站预测数据初始化（仅初始化节数，数据本身由减压引擎填充） */
     s_deco_stop_count = 0U;
 }
@@ -240,7 +242,7 @@ void bus_set_depth(float depth_m)
 void bus_set_ascent_rate(float rate_mpm)
 {
     float prev_rate = g_sensor_data.ascent_rate;
-    bool prev_is_moving = fabsf(prev_rate) >= RATE_STILL_THRESHOLD;
+    bool prev_is_moving = fabsf(prev_rate) > RATE_STILL_THRESHOLD;
     bool current_is_moving;
 
     if (fabsf(rate_mpm) < ASCENT_RATE_UI_EPSILON)
@@ -249,7 +251,7 @@ void bus_set_ascent_rate(float rate_mpm)
         rate_mpm = 0.0f;
     }
 
-    current_is_moving = fabsf(rate_mpm) >= RATE_STILL_THRESHOLD;
+    current_is_moving = fabsf(rate_mpm) > RATE_STILL_THRESHOLD;
 
     if ((fabsf(rate_mpm - prev_rate) >= ASCENT_RATE_UI_EPSILON) ||
             (current_is_moving != prev_is_moving))
@@ -537,6 +539,7 @@ void bus_set_deco_plan(const deco_stop_t *stops, uint8_t count)
     {
         (void)memcpy(s_deco_stops, stops, count * sizeof(deco_stop_t));
     }
+    g_sensor_data.dirty_mask |= DIRTY_TRAJECTORY;
     rt_hw_interrupt_enable(level);
 }
 
@@ -882,26 +885,17 @@ void bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high)
         g_sensor_data.gf_high = gf_high;
         g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
     }
-    g_sys_config.conservatism = conservatism_from_gf(gf_low, gf_high);
+    g_sys_config.conservatism = ui_conservatism_from_gf(gf_low, gf_high);
     bus_apply_algo_gf(gf_low, gf_high);
 }
 
 void bus_set_conservatism(uint8_t level)
 {
-    static const uint8_t gf_table[][2] =
-    {
-        { 40U, 95U },
-        { 40U, 85U },
-        { 30U, 70U },
-        { 50U, 70U },
-    };
+    uint8_t gf_low = 40U;
+    uint8_t gf_high = 85U;
 
-    if (level >= (sizeof(gf_table) / sizeof(gf_table[0])))
-    {
-        level = 0U;
-    }
-
-    bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
+    (void)ui_gf_from_conservatism_level(level, &gf_low, &gf_high);
+    bus_set_gf_setting(gf_low, gf_high);
 }
 
 void bus_set_mod_ppo2(float ppo2)
@@ -934,18 +928,13 @@ void bus_set_brightness(uint8_t level)
 
 void bus_set_log_rate(uint8_t seconds)
 {
-    static const uint8_t valid_rates[] = { 2U, 5U, 10U, 30U };
-
-    for (uint8_t i = 0U; i < (sizeof(valid_rates) / sizeof(valid_rates[0])); i++)
+    if (ui_log_rate_is_valid(seconds))
     {
-        if (seconds == valid_rates[i])
-        {
-            g_sys_config.log_rate_s = seconds;
-            return;
-        }
+        g_sys_config.log_rate_s = seconds;
+        return;
     }
 
-    g_sys_config.log_rate_s = 10U;
+    g_sys_config.log_rate_s = UI_LOG_RATE_DEFAULT_S;
 }
 
 void bus_set_salinity_mode(uint8_t mode)
@@ -1468,16 +1457,11 @@ uint8_t bus_get_brightness(void)
 
 uint8_t bus_get_log_rate(void)
 {
-    switch (g_sys_config.log_rate_s)
+    if (ui_log_rate_is_valid(g_sys_config.log_rate_s))
     {
-    case 2U:
-    case 5U:
-    case 10U:
-    case 30U:
         return g_sys_config.log_rate_s;
-    default:
-        return 10U;
     }
+    return UI_LOG_RATE_DEFAULT_S;
 }
 
 uint8_t bus_get_dive_log_count(void)

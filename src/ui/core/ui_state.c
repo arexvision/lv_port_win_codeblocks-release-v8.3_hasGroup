@@ -272,6 +272,15 @@ void ui_handle_rotate(int8_t dir)
    ========================================= */
 void ui_handle_click(void)
 {
+    {
+        extern bool alarm_mark_clear_requested(void);
+        if (alarm_mark_clear_requested())
+        {
+            s_ui.alarm_pending_click = false;
+            return;
+        }
+    }
+
     /* 告警锁：触发后必须先 click/rotate 一次才可清除 */
     if (s_ui.alarm_pending_click)
     {
@@ -415,6 +424,15 @@ void ui_handle_click(void)
    ========================================= */
 void ui_handle_back(void)
 {
+    {
+        extern bool alarm_mark_clear_requested(void);
+        if (alarm_mark_clear_requested())
+        {
+            s_ui.alarm_pending_click = false;
+            return;
+        }
+    }
+
     /* back 只负责“退出当前层级”，不做业务提交。
      * 对编辑态来说是回滚，对 modal 来说是关闭，对子菜单来说是返回上层。 */
     switch (s_ui.state)
