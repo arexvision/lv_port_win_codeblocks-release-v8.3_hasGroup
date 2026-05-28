@@ -417,8 +417,7 @@ void ui_vm_nitrox_menu_update(ui_vm_simple_menu_t *vm, uint8_t nitrox_o2_pct)
 }
 
 void ui_vm_three_gas_menu_update(ui_vm_simple_menu_t *vm,
-                                 const uint8_t three_gas_o2_pct[3],
-                                 uint8_t gas_count)
+                                 const uint8_t three_gas_o2_pct[3])
 {
     if (vm == NULL)
     {
@@ -435,15 +434,13 @@ void ui_vm_three_gas_menu_update(ui_vm_simple_menu_t *vm,
                        (unsigned)(i + 1U),
                        (unsigned)value);
     }
-    (void)snprintf(vm->items[3], sizeof(vm->items[3]), "ACTIVE GASES: %u", (unsigned)gas_count);
-    (void)snprintf(vm->items[4], sizeof(vm->items[4]), "%s", "CONFIRM");
-    vm->count = 5U;
+    (void)snprintf(vm->items[3], sizeof(vm->items[3]), "%s", "CONFIRM");
+    vm->count = 4U;
 }
 
 void ui_vm_oc_tech_menu_update(ui_vm_simple_menu_t *vm,
                                const uint8_t o2_pct[5],
-                               const uint8_t he_pct[5],
-                               uint8_t gas_count)
+                               const uint8_t he_pct[5])
 {
     if (vm == NULL)
     {
@@ -487,10 +484,9 @@ void ui_vm_oc_tech_menu_update(ui_vm_simple_menu_t *vm,
             (void)snprintf(vm->items[i], sizeof(vm->items[i]), "G%u: NX %u", (unsigned)(i + 1U), (unsigned)o2);
         }
     }
-    (void)snprintf(vm->items[5], sizeof(vm->items[5]), "ACTIVE GASES: %u", (unsigned)gas_count);
-    (void)snprintf(vm->items[6], sizeof(vm->items[6]), "%s", "CONFIRM & ACTIVATE");
-    (void)snprintf(vm->items[7], sizeof(vm->items[7]), "%s", "< BACK");
-    vm->count = 8U;
+    (void)snprintf(vm->items[5], sizeof(vm->items[5]), "%s", "CONFIRM & ACTIVATE");
+    (void)snprintf(vm->items[6], sizeof(vm->items[6]), "%s", "< BACK");
+    vm->count = 7U;
 }
 
 void ui_vm_edit_mod_ppo2_update(ui_vm_edit_spec_t *vm)

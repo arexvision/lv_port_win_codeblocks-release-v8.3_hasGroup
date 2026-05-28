@@ -101,10 +101,8 @@ static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1=SEA, 2=L1, 3=L2 */
 static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS, 3=OC Tech */
 static uint8_t s_nitrox_o2_pct = 32;
 static uint8_t s_three_gas_o2_pct[3] = { 21, 32, 100 };
-static uint8_t s_three_gas_count = 3;
 static uint8_t s_oc_tech_o2_pct[5] = { 18, 21, 35, 50, 100 };
 static uint8_t s_oc_tech_he_pct[5] = { 45, 35, 25, 0, 0 };
-static uint8_t s_oc_tech_count = 5;
 static uint8_t s_oc_tech_draft_o2_pct[5] = { 18, 21, 35, 50, 100 };
 static uint8_t s_oc_tech_draft_he_pct[5] = { 45, 35, 25, 0, 0 };
 static uint8_t s_oc_tech_edit_slot = 0;
@@ -420,10 +418,25 @@ static void submenu_gas_profile_set(submenu_gas_profile_slot_t *slots,
 static void submenu_commit_gas_profile(const submenu_gas_profile_slot_t *slots, uint8_t active_count)
 {
     uint8_t commit_count = active_count;
+    uint8_t active_idx = 0U;
 
     if (commit_count > GAS_COUNT)
     {
         commit_count = GAS_COUNT;
+    }
+
+    if ((slots != NULL) && (commit_count > 0U))
+    {
+        float max_mod_m = -1.0f;
+
+        for (uint8_t i = 0U; i < commit_count; i++)
+        {
+            if ((slots[i].valid != 0U) && (slots[i].mod_m > max_mod_m))
+            {
+                max_mod_m = slots[i].mod_m;
+                active_idx = i;
+            }
+        }
     }
 
     for (uint8_t i = 0U; i < GAS_COUNT; i++)
@@ -443,11 +456,11 @@ static void submenu_commit_gas_profile(const submenu_gas_profile_slot_t *slots, 
     }
 
     bus_set_gas_slot_count(commit_count);
-    if ((slots != NULL) && (commit_count > 0U) && (slots[0].valid != 0U))
+    if ((slots != NULL) && (commit_count > 0U) && (slots[active_idx].valid != 0U))
     {
-        bus_set_gas(0, slots[0].name);
-        bus_set_gas_mix(slots[0].o2_pct, slots[0].he_pct);
-        bus_set_fio2((float)slots[0].o2_pct);
+        bus_set_gas(active_idx, slots[active_idx].name);
+        bus_set_gas_mix(slots[active_idx].o2_pct, slots[active_idx].he_pct);
+        bus_set_fio2((float)slots[active_idx].o2_pct);
     }
     else
     {
@@ -478,19 +491,13 @@ static void apply_nitrox_mode_gases(void)
 static void apply_three_gas_mode_gases(void)
 {
     submenu_gas_profile_slot_t slots[GAS_COUNT];
-    uint8_t gas_count = s_three_gas_count;
-
-    if (gas_count == 0U || gas_count > 3U)
-    {
-        gas_count = 3U;
-    }
 
     submenu_gas_profile_reset(slots, GAS_COUNT);
-    for (uint8_t i = 0U; i < gas_count; i++)
+    for (uint8_t i = 0U; i < 3U; i++)
     {
         submenu_gas_profile_set(slots, GAS_COUNT, i, s_three_gas_o2_pct[i], 0U);
     }
-    submenu_commit_gas_profile(slots, gas_count);
+    submenu_commit_gas_profile(slots, 3U);
 }
 
 static void apply_oc_tech_mode_gases(void)
@@ -500,7 +507,7 @@ static void apply_oc_tech_mode_gases(void)
 
     submenu_gas_profile_reset(slots, GAS_COUNT);
 
-    for (uint8_t i = 0; i < s_oc_tech_count; i++)
+    for (uint8_t i = 0; i < 5U; i++)
     {
         uint8_t o2 = s_oc_tech_o2_pct[i];
         uint8_t he = s_oc_tech_he_pct[i];
@@ -575,12 +582,6 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
     {
     case SUBMENU_SETTING_DIVE_MODE:
         submenu_commit_dive_mode(value);
-        break;
-    case SUBMENU_SETTING_3GAS_COUNT:
-        s_three_gas_count = (value < 1 || value > 3) ? 3 : (uint8_t)value;
-        break;
-    case SUBMENU_SETTING_OC_TECH_COUNT:
-        s_oc_tech_count = (uint8_t)value;
         break;
     case SUBMENU_SETTING_OC_TECH_SAVE:
         save_oc_tech_slot(arg);
@@ -922,7 +923,7 @@ static const char **build_nested_three_gas(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
-    ui_vm_three_gas_menu_update(&vm, s_three_gas_o2_pct, s_three_gas_count);
+    ui_vm_three_gas_menu_update(&vm, s_three_gas_o2_pct);
     return copy_simple_menu_items(&vm, out_count);
 }
 
@@ -930,7 +931,7 @@ static const char **build_nested_oc_tech(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
-    ui_vm_oc_tech_menu_update(&vm, s_oc_tech_o2_pct, s_oc_tech_he_pct, s_oc_tech_count);
+    ui_vm_oc_tech_menu_update(&vm, s_oc_tech_o2_pct, s_oc_tech_he_pct);
     return copy_simple_menu_items(&vm, out_count);
 }
 
@@ -1280,21 +1281,21 @@ bool submenu_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if (strcmp(clean_title, "3 GAS") == 0 && item_index == 4)
+    if (strcmp(clean_title, "3 GAS") == 0 && item_index == 3)
     {
         out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
         out_setting->value = 2;
         lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DIVE MODE\n3 GAS / %u ACTIVE", (unsigned)s_three_gas_count);
+                    "DIVE MODE\n3 GAS");
         return true;
     }
 
-    if (strcmp(clean_title, "OC Tech") == 0 && item_index == 6)
+    if (strcmp(clean_title, "OC Tech") == 0 && item_index == 5)
     {
         out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
         out_setting->value = 3;
         lv_snprintf(out_setting->body, sizeof(out_setting->body),
-                    "DIVE MODE\nOC Tech / %u ACTIVE", (unsigned)s_oc_tech_count);
+                    "DIVE MODE\nOC Tech");
         return true;
     }
 
@@ -1412,20 +1413,6 @@ bool submenu_direct_setting_from_selection(const char *current_title,
     {
         out_setting->kind = SUBMENU_SETTING_BLUETOOTH;
         out_setting->value = s_bluetooth_enabled ? 0 : 1;
-        return true;
-    }
-
-    if (strcmp(clean_title, "3 GAS") == 0 && item_index == 3)
-    {
-        out_setting->kind = SUBMENU_SETTING_3GAS_COUNT;
-        out_setting->value = (s_three_gas_count >= 3U) ? 1U : (uint16_t)(s_three_gas_count + 1U);
-        return true;
-    }
-
-    if (strcmp(clean_title, "OC Tech") == 0 && item_index == 5)
-    {
-        out_setting->kind = SUBMENU_SETTING_OC_TECH_COUNT;
-        out_setting->value = (s_oc_tech_count >= 5U) ? 1U : (uint16_t)(s_oc_tech_count + 1U);
         return true;
     }
 
@@ -1661,11 +1648,11 @@ bool submenu_setting_from_ids(menu_id_t current_menu,
         item_text = "CONFIRM";
         break;
     case MENU_ITEM_THREE_GAS_CONFIRM:
-        item_index = 4U;
+        item_index = 3U;
         item_text = "CONFIRM";
         break;
     case MENU_ITEM_OC_TECH_CONFIRM:
-        item_index = 6U;
+        item_index = 5U;
         item_text = "CONFIRM & ACTIVATE";
         break;
     case MENU_ITEM_DISPLAY_RESET:
@@ -1699,8 +1686,6 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
     case MENU_ITEM_DISPLAY_UNITS:    item_index = 0U; break;
     case MENU_ITEM_DISPLAY_LOG_RATE: item_index = 2U; break;
     case MENU_ITEM_DISPLAY_BLUETOOTH:item_index = 3U; break;
-    case MENU_ITEM_THREE_GAS_COUNT:  item_index = 3U; break;
-    case MENU_ITEM_OC_TECH_COUNT:    item_index = 5U; break;
     case MENU_ITEM_OC_TECH_EDIT_SAVE:item_index = 2U; break;
     default:
         return false;
