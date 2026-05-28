@@ -41,6 +41,7 @@ lv_obj_t *s_tile_objs[PAGE_COUNT];
 /* 灯光控制状态（LIGHT CONTROL 子菜单全局共享） */
 /* 问题4修复：灯光硬件默认开启，UI 初始值必须匹配硬件状态 */
 bool g_light_power_state = true;
+light_mode_t g_light_mode_state = LIGHT_MODE_ALWAYS;
 
 /* Wall indicators */
 lv_obj_t *s_wall_top;

@@ -251,6 +251,12 @@ static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t
         action->type = MENU_ACTION_REFRESH;
         return true;
     }
+    if (id == MENU_ITEM_LIGHT_MODE)
+    {
+        bus_toggle_light_mode();
+        action->type = MENU_ACTION_REFRESH;
+        return true;
+    }
 
     if (id >= MENU_ITEM_LIGHT_LEVEL_10 && id <= MENU_ITEM_LIGHT_LEVEL_100)
     {

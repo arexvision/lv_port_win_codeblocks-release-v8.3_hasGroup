@@ -17,6 +17,7 @@ extern "C" {
 typedef struct
 {
     uint8_t light_power_on;
+    uint8_t light_mode;
 } ui_vm_submenu_view_t;
 
 typedef struct

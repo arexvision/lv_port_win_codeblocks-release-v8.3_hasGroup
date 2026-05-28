@@ -38,6 +38,27 @@ void bus_toggle_light_power(void)
 }
 
 WEAK_CALLBACK
+void bus_set_light_mode(light_mode_t mode)
+{
+    printf("[LIGHT] Mode: %s\n", mode == LIGHT_MODE_BREATH ? "BREATH" : "ALWAYS");
+}
+
+WEAK_CALLBACK
+light_mode_t bus_get_light_mode(void)
+{
+    return g_light_mode_state;
+}
+
+WEAK_CALLBACK
+void bus_toggle_light_mode(void)
+{
+    g_light_mode_state = (g_light_mode_state == LIGHT_MODE_BREATH)
+                         ? LIGHT_MODE_ALWAYS
+                         : LIGHT_MODE_BREATH;
+    bus_set_light_mode(g_light_mode_state);
+}
+
+WEAK_CALLBACK
 void ui_on_light_color_set(const char *color, const char *level)
 {
     printf("[LIGHT] Color: %s, Level: %s\n", color, level);

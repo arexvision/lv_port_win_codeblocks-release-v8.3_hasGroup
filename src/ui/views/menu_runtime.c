@@ -180,6 +180,7 @@ static void build_setup_light(void)
     static const menu_item_id_t ids[] =
     {
         MENU_ITEM_LIGHT_POWER,
+        MENU_ITEM_LIGHT_MODE,
         MENU_ITEM_LIGHT_RED,
         MENU_ITEM_LIGHT_GREEN,
         MENU_ITEM_LIGHT_BLUE,
@@ -188,6 +189,7 @@ static void build_setup_light(void)
     static const menu_row_type_t types[] =
     {
         MENU_ROW_LIGHT_POWER,
+        MENU_ROW_LIGHT_MODE,
         MENU_ROW_NORMAL,
         MENU_ROW_NORMAL,
         MENU_ROW_NORMAL,

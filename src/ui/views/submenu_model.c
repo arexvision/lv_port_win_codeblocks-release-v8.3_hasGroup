@@ -60,7 +60,7 @@ static const char *s_setup_sub[SUBMENU_SETUP_COUNT][7] =
     { NULL },
     { NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
-    { "LIGHT ON/OFF", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
+    { "LIGHT ON/OFF", "LIGHT MODE", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
     { "VERSION: " SYSTEM_VERSION, "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
 };
 
@@ -1162,6 +1162,7 @@ const char **submenu_child_items_for(const char *current_title,
     {
         static const char *light_child_titles[] =
         {
+            NULL,
             NULL,
             "RED",
             "GREEN",

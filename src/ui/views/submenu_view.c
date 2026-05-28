@@ -46,6 +46,30 @@ static bool submenu_light_power_on(void)
     return (vm.light_power_on != 0U);
 }
 
+static light_mode_t submenu_light_mode(void)
+{
+    ui_vm_submenu_view_t vm;
+
+    ui_vm_submenu_view_update(&vm);
+    return (vm.light_mode == (uint8_t)LIGHT_MODE_BREATH)
+           ? LIGHT_MODE_BREATH
+           : LIGHT_MODE_ALWAYS;
+}
+
+static const char *submenu_light_mode_text(void)
+{
+    return submenu_light_mode() == LIGHT_MODE_BREATH ? "BREATH" : "ALWAYS";
+}
+
+static lv_color_t submenu_light_status_color(const menu_row_t *row)
+{
+    if (row != NULL && row->type == MENU_ROW_LIGHT_POWER)
+    {
+        return submenu_light_power_on() ? GREEN : LIGHT;
+    }
+    return GREEN;
+}
+
 void submenu_view_reset(void)
 {
     /* 布局重建后，旧的子菜单对象和菜单运行时都需要一起清空。 */
@@ -516,32 +540,33 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
         lv_obj_set_style_pad_all(item, 0, LV_PART_MAIN);
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
 
-        /* LIGHT CONTROL 特殊布局: LIGHT 左侧，ON/OFF 右侧 */
-        if (rows[i].type == MENU_ROW_LIGHT_POWER)
+        /* LIGHT CONTROL 特殊布局: 左侧项目名，右侧当前状态 */
+        if (rows[i].type == MENU_ROW_LIGHT_POWER || rows[i].type == MENU_ROW_LIGHT_MODE)
         {
-            /* 灯光总开关这一行是双列布局：
-             * 左边固定显示 "LIGHT"，右边动态显示 ON/OFF。
-             * 单独保留右侧 label 引用，便于点击后只更新状态文字。 */
-            /* "LIGHT" 标签在左侧 */
+            const bool is_power = (rows[i].type == MENU_ROW_LIGHT_POWER);
+
             lv_obj_t *lbl_light = lv_label_create(item);
             lv_obj_set_style_text_color(lbl_light, GREEN, 0);
             lv_obj_set_style_text_font(lbl_light, get_font(FONT_ID_TITLE), 0);
             lv_obj_set_size(lbl_light, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(lbl_light, LV_ALIGN_LEFT_MID, 12, 0);
             lv_obj_set_style_text_align(lbl_light, LV_TEXT_ALIGN_LEFT, 0);
-            lv_label_set_text(lbl_light, "LIGHT");
+            lv_label_set_text(lbl_light, is_power ? "LIGHT" : "MODE");
 
-            /* "ON"/"OFF" 标签在右侧 */
             lv_obj_t *lbl_status = lv_label_create(item);
-            lv_obj_set_style_text_color(lbl_status, submenu_light_power_on() ? GREEN : LIGHT, 0);
+            lv_obj_set_style_text_color(lbl_status, submenu_light_status_color(&rows[i]), 0);
             lv_obj_set_style_text_font(lbl_status, get_font(FONT_ID_TITLE), 0);
             lv_obj_set_size(lbl_status, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(lbl_status, LV_ALIGN_RIGHT_MID, -12, 0);
             lv_obj_set_style_text_align(lbl_status, LV_TEXT_ALIGN_RIGHT, 0);
-            lv_label_set_text(lbl_status, submenu_light_power_on() ? "ON" : "OFF");
+            lv_label_set_text(lbl_status, is_power
+                              ? (submenu_light_power_on() ? "ON" : "OFF")
+                              : submenu_light_mode_text());
 
-            /* 保存状态标签引用，用于点击时更新 */
-            s_light_status_lbl = lbl_status;
+            if (is_power)
+            {
+                s_light_status_lbl = lbl_status;
+            }
             current_y += item_h + gap_y;
             continue;
         }
@@ -644,11 +669,12 @@ void screen_set_submenu_selection(uint8_t idx)
                 lv_obj_set_style_text_color(lbl, GREEN, 0);
                 lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
             }
-            /* LIGHT CONTROL 特殊处理：第二列（ON/OFF）恢复状态色 */
+            /* LIGHT CONTROL 特殊处理：第二列状态恢复为当前状态色 */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
-                lv_obj_set_style_text_color(lbl2, submenu_light_power_on() ? GREEN : LIGHT, 0);
+                const menu_row_t *row = menu_runtime_row_at((uint8_t)i);
+                lv_obj_set_style_text_color(lbl2, submenu_light_status_color(row), 0);
                 lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
             }
         }

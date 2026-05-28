@@ -15,11 +15,21 @@
 extern "C" {
 #endif
 
+typedef enum
+{
+    LIGHT_MODE_ALWAYS = 0,
+    LIGHT_MODE_BREATH,
+} light_mode_t;
+
 /* 这一层把 UI 操作翻译成业务动作，供菜单和设置页面统一调用。 */
 extern bool g_light_power_state;
+extern light_mode_t g_light_mode_state;
 void bus_set_light_power(bool on);
 bool bus_get_light_power(void);
 void bus_toggle_light_power(void);
+void bus_set_light_mode(light_mode_t mode);
+light_mode_t bus_get_light_mode(void);
+void bus_toggle_light_mode(void);
 void ui_on_light_color_set(const char *color, const char *level);
 void set_software_brightness_enabled(bool enabled);
 void apply_software_brightness(uint8_t level);
