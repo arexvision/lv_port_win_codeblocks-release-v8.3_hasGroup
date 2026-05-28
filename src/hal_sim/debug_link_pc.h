@@ -456,6 +456,7 @@ static void debug_send_help(void)
         "  last_deco <3|6> | final_stop <3|6>\r\n"
         "  cns <pct> | otu <value> | mod <m> | ceiling <m> | mix <o2> <he> | dens <g_l> | fio2 <pct>\r\n"
         "  gas_count <n> | gas <slot> [name] | gas_slot <slot> <o2> <he> <mod> [name]\r\n"
+        "  layout <default|current|gas>\r\n"
         "  alarm <info|warn|crit> <text>\r\n"
         "Slots are 0-based. TCP disables the auto depth script; the 1Hz clock keeps running.\r\n");
 }
@@ -480,6 +481,89 @@ static void debug_send_state(void)
         (unsigned)g_sensor_data.gf_low,
         (unsigned)g_sensor_data.gf_high,
         (unsigned)((g_sys_config.last_deco_stop_m == 6U) ? 6U : 3U));
+}
+
+static void debug_layout_fill_left(ble_ui_sync_payload_t *payload)
+{
+    static const uint8_t left_def[][3] =
+    {
+        { COMP_NDL_STOP_1606,  0, 0 },
+        { COMP_DEPTH_1612,     0, 1 },
+        { COMP_DIVE_TIME_1606, 0, 3 },
+        { COMP_GAS_1606,       0, 4 },
+        { COMP_EMPTY,          0, 5 },
+        { COMP_EMPTY,          1, 5 },
+        { COMP_SYS_1606,       0, 6 },
+    };
+
+    payload->left_count = (uint8_t)(sizeof(left_def) / sizeof(left_def[0]));
+    for (uint8_t i = 0U; i < payload->left_count; i++)
+    {
+        payload->left_widgets[i].widget_id = left_def[i][0];
+        payload->left_widgets[i].x = left_def[i][1];
+        payload->left_widgets[i].y = left_def[i][2];
+    }
+}
+
+static void debug_layout_fill_custom(ble_ui_sync_payload_t *payload, bool gas_layout)
+{
+    static const uint8_t custom_default[][3] =
+    {
+        { COMP_DEPTH_1612,     0, 0 },
+        { COMP_DEPTH_1612,     0, 2 },
+        { COMP_HEADING_0806,   0, 4 },
+        { COMP_EMPTY,          2, 0 },
+        { COMP_BATTERY_0806,   2, 2 },
+        { COMP_PPO2_0806,      2, 4 },
+        { COMP_NDL_STOP_1606,  3, 0 },
+        { COMP_TTS_0806,       3, 2 },
+        { COMP_CNS_0806,       3, 4 },
+        { COMP_DEPTH_1612,     4, 0 },
+        { COMP_DEPTH_1612,     4, 2 },
+    };
+    static const uint8_t custom_gas[][3] =
+    {
+        { COMP_GAS_1606,       0, 0 },
+        { COMP_PPO2_0806,      0, 2 },
+        { COMP_MOD_0806,       0, 3 },
+        { COMP_FIO2_0806,      0, 4 },
+        { COMP_GAS_MIX_1606,   1, 0 },
+        { COMP_GAS_DENS_0806,  1, 2 },
+    };
+    const uint8_t (*items)[3] = gas_layout ? custom_gas : custom_default;
+    uint8_t count = (uint8_t)(gas_layout ? (sizeof(custom_gas) / sizeof(custom_gas[0]))
+                                         : (sizeof(custom_default) / sizeof(custom_default[0])));
+
+    payload->custom_5f_count = count;
+    for (uint8_t i = 0U; i < count; i++)
+    {
+        payload->custom_5f_widgets[i].widget_id = items[i][0];
+        payload->custom_5f_widgets[i].r = items[i][1];
+        payload->custom_5f_widgets[i].c = items[i][2];
+    }
+}
+
+static void debug_apply_layout_profile(bool gas_layout)
+{
+    static ble_ui_sync_payload_t payload;
+    static const uint8_t card_order[8] =
+    {
+        PAGE_ID_COMPASS,
+        PAGE_ID_DECO,
+        PAGE_ID_PLAN,
+        PAGE_ID_GAS,
+        PAGE_ID_CUSTOM_GRID,
+        PAGE_ID_BLANK,
+        PAGE_ID_UNUSED,
+        PAGE_ID_UNUSED,
+    };
+
+    memset(&payload, 0, sizeof(payload));
+    payload.version = BLE_CFG_VERSION;
+    memcpy(payload.card_order, card_order, sizeof(payload.card_order));
+    debug_layout_fill_left(&payload);
+    debug_layout_fill_custom(&payload, gas_layout);
+    bus_set_ui_layout(&payload);
 }
 
 static void debug_exec_line(char *line)
@@ -521,6 +605,27 @@ static void debug_exec_line(char *line)
     if (debug_streq(cmd, "state"))
     {
         debug_send_state();
+        return;
+    }
+
+    if (debug_streq(cmd, "layout") || debug_streq(cmd, "ui_layout"))
+    {
+        char *profile = debug_next_token(&cursor);
+
+        if (debug_streq(profile, "default") || debug_streq(profile, "current"))
+        {
+            debug_apply_layout_profile(false);
+            debug_send_raw("OK layout default\r\n");
+            return;
+        }
+        if (debug_streq(profile, "gas"))
+        {
+            debug_apply_layout_profile(true);
+            debug_send_raw("OK layout gas\r\n");
+            return;
+        }
+
+        debug_send_raw("ERR usage: layout <default|current|gas>\r\n");
         return;
     }
 
