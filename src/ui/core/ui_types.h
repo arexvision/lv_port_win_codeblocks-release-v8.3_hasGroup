@@ -16,7 +16,7 @@
 extern "C" {
 #endif
 
-#define LEFT_MAX_WIDGETS 12
+#define LEFT_MAX_WIDGETS 14
 #define MAX_5F_WIDGETS   30
 #define MAX_CUSTOM_CARDS  MAX_DYNAMIC_SLOTS
 
