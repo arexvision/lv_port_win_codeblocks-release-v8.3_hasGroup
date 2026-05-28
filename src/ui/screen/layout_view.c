@@ -344,50 +344,6 @@ void refresh_left_aux_slots(void)
     }
 }
 
-static lv_obj_t *create_left_aux_slot(lv_obj_t *parent,
-                                           int16_t abs_x,
-                                           int16_t abs_y,
-                                           const char *title,
-                                           bool is_bat)
-{
-    lv_obj_t *obj = lv_obj_create(parent);
-    if (!obj) return NULL;
-
-    lv_obj_set_pos(obj, abs_x, abs_y);
-    lv_obj_set_size(obj, LEFT_CELL_W, LEFT_CELL_H);
-    lv_obj_set_style_bg_color(obj, BLACK, 0);
-    lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(obj, DARK, 0);
-    lv_obj_set_style_border_width(obj, DEBUG_BORDERS ? 1 : 0, 0);
-    lv_obj_set_style_radius(obj, 0, 0);
-    lv_obj_set_style_pad_all(obj, 2, 0);
-    lv_obj_clear_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_scrollbar_mode(obj, LV_SCROLLBAR_MODE_OFF);
-
-    lv_obj_t *title_lbl = lv_label_create(obj);
-    lv_label_set_text(title_lbl, title);
-    lv_obj_set_style_text_font(title_lbl, get_font(FONT_ID_SMALL), 0);
-    lv_obj_set_style_text_color(title_lbl, LIGHT, 0);
-    lv_obj_align(title_lbl, LV_ALIGN_TOP_LEFT, 4, 4);
-
-    lv_obj_t *val_lbl = lv_label_create(obj);
-    lv_obj_set_style_text_font(val_lbl, get_font(FONT_ID_MEDIUM), 0);
-    lv_obj_set_style_text_color(val_lbl, GREEN, 0);
-    lv_obj_align(val_lbl, LV_ALIGN_BOTTOM_RIGHT, -2, -4);
-
-    if (is_bat)
-    {
-        s_left_bat_lbl = val_lbl;
-    }
-    else
-    {
-        s_left_prj_lbl = val_lbl;
-    }
-
-    refresh_left_aux_slots();
-    return obj;
-}
-
 static const grid_widget_t *left_find_widget_at_cell(uint8_t col, uint8_t row)
 {
     for (uint8_t i = 0; i < ui_left_widget_count_get() && i < LEFT_MAX_WIDGETS; i++)
@@ -450,17 +406,6 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
         render_widget_by_id(left_anchor, cfg->widget_id,
                             abs_x, abs_y, abs_w, abs_h,
                             span_w, span_h, (font_id_t)255);
-    }
-
-    /* 第 5 行预留为 BAT / PRJ 辅助温度槽位。
-     * 如果配置里没有显式放组件，就自动补默认辅助槽，保证左侧信息区不会出现空洞。 */
-    if (left_find_widget_at_cell(0, 5) == NULL)
-    {
-        (void)create_left_aux_slot(left_anchor, 0, (int16_t)(5 * cell_h), "BAT", true);
-    }
-    if (left_find_widget_at_cell(1, 5) == NULL)
-    {
-        (void)create_left_aux_slot(left_anchor, (int16_t)cell_w, (int16_t)(5 * cell_h), "PRJ", false);
     }
 
     for (uint8_t row = 1; row < LEFT_ROWS; row++)
