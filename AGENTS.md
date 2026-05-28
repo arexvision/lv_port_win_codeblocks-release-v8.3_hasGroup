@@ -28,6 +28,8 @@ Do not introduce project-name prefixes in code identifiers or directory names. N
 
 Menu business logic must be driven by stable IDs (`menu_id_t`, `menu_item_id_t`) and row types. Display strings are only for LVGL labels; do not branch on menu titles or row text with `strcmp` in selection/action paths.
 
+Do not rewrite source files with PowerShell/default-system encoding. Many project files contain UTF-8 Chinese comments; reading them as the Windows ANSI code page and writing them back will corrupt text into mojibake. Prefer `apply_patch` for manual edits. If a scripted edit is truly necessary, read and write explicitly as UTF-8 without BOM, keep the change narrowly scoped, and verify nearby Chinese comments with `Get-Content -Encoding UTF8` plus `git diff` before continuing. Never use `Set-Content`/`Out-File`/`[IO.File]::WriteAllText` without an explicit UTF-8 encoding on files that may contain non-ASCII text.
+
 PC simulator-only modules (`src/hal_sim`, `src/algo_sim`, `input_pc`, `buhlmann_debug`, TCP/debug-link code, Windows-only headers) must not be included unguarded from shared UI/core code. If shared code needs a PC-only hook, wrap both the include and the call site with `#ifdef PC_SIMULATOR`, and provide a non-PC fallback path or backend interface that still compiles for the embedded target. `PC_SIMULATOR` is a build macro, not something a shared public header should define.
 
 DIVE PLAN is not PC-only. The UI should call the neutral `dive_plan_backend_calculate()` backend interface. PC simulator builds may implement that backend with `buhlmann_debug`; embedded builds should provide their real algorithm implementation instead of depending on `src/algo_sim`.
