@@ -20,6 +20,10 @@ void submenu_dive_plan_get_snapshot(submenu_dive_plan_snapshot_t *out_snapshot);
 void submenu_dive_plan_reset(void);
 /* 外部算法/结果页可以把计算结果快照塞回状态机。 */
 void submenu_dive_plan_set_result_snapshot(const dive_plan_result_snapshot_t *snapshot);
+bool dive_plan_backend_calculate(float depth_m,
+                                 uint16_t bottom_time_min,
+                                 float rmv_lpm,
+                                 dive_plan_result_snapshot_t *out_snapshot);
 /* 旋钮输入会在潜水计划页内部消耗掉，不再继续往外层菜单冒泡。 */
 bool submenu_dive_plan_handle_rotate(int8_t dir);
 /* 处理潜水计划页上的点击动作。 */

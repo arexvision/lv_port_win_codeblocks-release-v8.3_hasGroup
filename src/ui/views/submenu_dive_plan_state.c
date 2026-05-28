@@ -11,7 +11,7 @@
 #include "../core/vm/ui_vm_menu.h"
 #include "../core/vm/ui_vm_plan_view.h"
 
-#if defined(PC_SIMULATOR) && defined(_WIN32)
+#ifdef PC_SIMULATOR
 #include "../../algo_sim/buhlmann_debug.h"
 #endif
 
@@ -129,7 +129,7 @@ static uint8_t plan_result_total_pages(void)
     return s_state.result.total_pages;
 }
 
-#if defined(PC_SIMULATOR) && defined(_WIN32)
+#ifdef PC_SIMULATOR
 static dive_plan_row_type_t plan_row_type_from_algo(buhlmann_debug_plan_row_type_t type)
 {
     switch (type)
@@ -143,24 +143,27 @@ static dive_plan_row_type_t plan_row_type_from_algo(buhlmann_debug_plan_row_type
         return DIVE_PLAN_ROW_BOTTOM;
     }
 }
-#endif
 
-static void plan_execute(void)
+bool dive_plan_backend_calculate(float depth_m,
+                                 uint16_t bottom_time_min,
+                                 float rmv_lpm,
+                                 dive_plan_result_snapshot_t *out_snapshot)
 {
-#if defined(PC_SIMULATOR) && defined(_WIN32)
     buhlmann_debug_plan_result_t algo_result;
-    dive_plan_result_snapshot_t snapshot;
     uint8_t row_count;
 
-    (void)memset(&snapshot, 0, sizeof(snapshot));
-    if (!buhlmann_debug_plan_calculate(s_state.depth_m,
-                                       s_state.time_min,
-                                       s_state.rmv_lpm,
+    if (out_snapshot == NULL)
+    {
+        return false;
+    }
+
+    (void)memset(out_snapshot, 0, sizeof(*out_snapshot));
+    if (!buhlmann_debug_plan_calculate(depth_m,
+                                       bottom_time_min,
+                                       rmv_lpm,
                                        &algo_result))
     {
-        submenu_dive_plan_set_result_snapshot(NULL);
-        s_state.page = DIVE_PLAN_PAGE_ERROR;
-        return;
+        return false;
     }
 
     row_count = algo_result.entry_count;
@@ -169,38 +172,60 @@ static void plan_execute(void)
         row_count = DIVE_PLAN_RESULT_MAX_ROWS;
     }
 
-    snapshot.valid = 1U;
-    snapshot.page = 0U;
-    snapshot.entry_count = row_count;
-    snapshot.total_pages = (uint8_t)((row_count + PLAN_ROWS_PER_PAGE - 1U) / PLAN_ROWS_PER_PAGE);
-    if (snapshot.total_pages == 0U)
+    out_snapshot->valid = 1U;
+    out_snapshot->page = 0U;
+    out_snapshot->entry_count = row_count;
+    out_snapshot->total_pages = (uint8_t)((row_count + PLAN_ROWS_PER_PAGE - 1U) / PLAN_ROWS_PER_PAGE);
+    if (out_snapshot->total_pages == 0U)
     {
-        snapshot.total_pages = 1U;
+        out_snapshot->total_pages = 1U;
     }
-    snapshot.total_pages++;
-    snapshot.total_runtime_min = algo_result.total_runtime_min;
-    snapshot.total_deco_min = algo_result.total_deco_min;
-    snapshot.total_gas_l = algo_result.total_gas_l;
-    snapshot.cns_pct = algo_result.cns_pct;
-    snapshot.otu = algo_result.otu;
+    out_snapshot->total_pages++;
+    out_snapshot->total_runtime_min = algo_result.total_runtime_min;
+    out_snapshot->total_deco_min = algo_result.total_deco_min;
+    out_snapshot->total_gas_l = algo_result.total_gas_l;
+    out_snapshot->cns_pct = algo_result.cns_pct;
+    out_snapshot->otu = algo_result.otu;
 
     for (uint8_t i = 0U; i < row_count; i++)
     {
-        snapshot.rows[i].type = plan_row_type_from_algo(algo_result.entries[i].type);
-        snapshot.rows[i].depth_m = algo_result.entries[i].depth_m;
-        snapshot.rows[i].time_min = algo_result.entries[i].time_min;
-        snapshot.rows[i].run_min = algo_result.entries[i].run_min;
-        snapshot.rows[i].o2_pct = algo_result.entries[i].o2_pct;
-        snapshot.rows[i].he_pct = algo_result.entries[i].he_pct;
-        snapshot.rows[i].gas_l = algo_result.entries[i].gas_l;
+        out_snapshot->rows[i].type = plan_row_type_from_algo(algo_result.entries[i].type);
+        out_snapshot->rows[i].depth_m = algo_result.entries[i].depth_m;
+        out_snapshot->rows[i].time_min = algo_result.entries[i].time_min;
+        out_snapshot->rows[i].run_min = algo_result.entries[i].run_min;
+        out_snapshot->rows[i].o2_pct = algo_result.entries[i].o2_pct;
+        out_snapshot->rows[i].he_pct = algo_result.entries[i].he_pct;
+        out_snapshot->rows[i].gas_l = algo_result.entries[i].gas_l;
+    }
+    return true;
+}
+#else
+__attribute__((weak)) bool dive_plan_backend_calculate(float depth_m,
+                                                       uint16_t bottom_time_min,
+                                                       float rmv_lpm,
+                                                       dive_plan_result_snapshot_t *out_snapshot)
+{
+    (void)depth_m;
+    (void)bottom_time_min;
+    (void)rmv_lpm;
+    (void)out_snapshot;
+    return false;
+}
+#endif
+
+static void plan_execute(void)
+{
+    dive_plan_result_snapshot_t snapshot;
+
+    if (!dive_plan_backend_calculate(s_state.depth_m, s_state.time_min, s_state.rmv_lpm, &snapshot))
+    {
+        submenu_dive_plan_set_result_snapshot(NULL);
+        s_state.page = DIVE_PLAN_PAGE_ERROR;
+        return;
     }
 
     submenu_dive_plan_set_result_snapshot(&snapshot);
     s_state.page = DIVE_PLAN_PAGE_RESULT;
-#else
-    submenu_dive_plan_set_result_snapshot(NULL);
-    s_state.page = DIVE_PLAN_PAGE_ERROR;
-#endif
 }
 
 void submenu_dive_plan_set_result_snapshot(const dive_plan_result_snapshot_t *snapshot)

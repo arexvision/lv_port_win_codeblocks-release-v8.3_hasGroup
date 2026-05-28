@@ -41,6 +41,7 @@
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
+			<Add option="-DPC_SIMULATOR" />
 			<Add directory="." />
 			<Add directory="src" />
 			<Add directory="src/ui" />
