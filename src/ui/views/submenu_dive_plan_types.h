@@ -10,6 +10,8 @@
 
 #include <stdint.h>
 
+#define DIVE_PLAN_RESULT_MAX_ROWS 32U
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -53,7 +55,7 @@ typedef struct
     uint16_t total_gas_l;
     uint16_t cns_pct;
     uint16_t otu;
-    dive_plan_row_t rows[16];
+    dive_plan_row_t rows[DIVE_PLAN_RESULT_MAX_ROWS];
 } dive_plan_result_snapshot_t;
 
 typedef struct
@@ -75,7 +77,7 @@ typedef struct
     uint16_t total_gas_l;
     uint16_t cns_pct;
     uint16_t otu;
-    dive_plan_row_t rows[16];
+    dive_plan_row_t rows[DIVE_PLAN_RESULT_MAX_ROWS];
 } submenu_dive_plan_snapshot_t;
 
 #ifdef __cplusplus
