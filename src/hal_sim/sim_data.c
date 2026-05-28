@@ -327,7 +327,7 @@ static void sim_tick_cb(lv_timer_t *t)
 
             current_depth_m = g_sensor_data.depth;
             s_sim.depth_m = current_depth_m;
-            dive_log_append((float)s_sim.dive_time_s, current_depth_m);
+            dive_log_append_sampled((float)s_sim.dive_time_s, current_depth_m);
 
             if (s_sim.rate_sample_valid) {
                 bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
@@ -380,7 +380,7 @@ static void sim_tick_cb(lv_timer_t *t)
     sim_update_depth_script();
     sim_update_deco_state();
     current_depth_m = s_sim.depth_m;
-    dive_log_append((float)s_sim.dive_time_s, current_depth_m);
+    dive_log_append_sampled((float)s_sim.dive_time_s, current_depth_m);
     bus_set_depth(current_depth_m);
 
     if (s_sim.rate_sample_valid) {

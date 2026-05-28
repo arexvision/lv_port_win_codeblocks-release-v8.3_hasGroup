@@ -162,6 +162,7 @@ void bus_set_mod_ppo2(float ppo2);
 void bus_set_salinity_mode(uint8_t mode);
 void bus_set_last_deco_stop(uint8_t depth_m);
 void bus_set_brightness(uint8_t level);
+void bus_set_log_rate(uint8_t seconds);
 
 /* --- 技术潜水参数接口 --- */
 void bus_set_mod(float mod_m);
@@ -251,6 +252,7 @@ uint8_t bus_get_last_deco_stop(void);
 uint8_t bus_get_salinity_mode(void);
 uint8_t bus_get_conservatism(void);
 uint8_t bus_get_brightness(void);
+uint8_t bus_get_log_rate(void);
 bool bus_is_heading_locked(void);
 uint16_t bus_get_heading(void);
 uint16_t bus_get_heading_target(void);
@@ -265,6 +267,7 @@ bool bus_get_deco_stop(uint8_t index, deco_stop_t *out_stop);
 
 /* --- 历史轨迹推流 --- */
 void dive_log_append(float current_time_s, float current_depth_m);
+void dive_log_append_sampled(float current_time_s, float current_depth_m);
 void dive_log_reset(void);
 
 /* --- BLE 布局同步接口（由 BLE 任务调用） --- */

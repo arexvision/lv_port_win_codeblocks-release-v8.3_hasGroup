@@ -224,6 +224,8 @@ void ui_on_datetime_action(uint8_t action)
 WEAK_CALLBACK
 void ui_on_log_rate_set(uint8_t seconds)
 {
+    bus_set_log_rate(seconds);
+    (void)config_save(&g_sys_config);
     printf("[DISPLAY_SETUP] Log rate: %us\n", seconds);
 }
 
@@ -236,5 +238,7 @@ void ui_on_bluetooth_set(bool enabled)
 WEAK_CALLBACK
 void ui_on_reset_defaults(void)
 {
+    bus_set_log_rate(10U);
+    (void)config_save(&g_sys_config);
     printf("[DISPLAY_SETUP] Reset defaults\n");
 }

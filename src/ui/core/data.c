@@ -18,6 +18,8 @@
 
 static dive_pt_t s_dive_log[MAX_DIVE_LOG];
 static uint16_t s_dive_log_count;
+static bool s_dive_log_sample_valid;
+static float s_dive_log_last_sample_time_s;
 static deco_stop_t s_deco_stops[MAX_DECO_STOPS];
 static uint16_t s_deco_stop_count;
 
@@ -895,6 +897,22 @@ void bus_set_brightness(uint8_t level)
     }
 }
 
+void bus_set_log_rate(uint8_t seconds)
+{
+    static const uint8_t valid_rates[] = { 2U, 5U, 10U, 30U };
+
+    for (uint8_t i = 0U; i < (sizeof(valid_rates) / sizeof(valid_rates[0])); i++)
+    {
+        if (seconds == valid_rates[i])
+        {
+            g_sys_config.log_rate_s = seconds;
+            return;
+        }
+    }
+
+    g_sys_config.log_rate_s = 10U;
+}
+
 void bus_set_salinity_mode(uint8_t mode)
 {
     if (mode > 2U) mode = 0U;
@@ -1413,6 +1431,20 @@ uint8_t bus_get_brightness(void)
     return g_sys_config.brightness;
 }
 
+uint8_t bus_get_log_rate(void)
+{
+    switch (g_sys_config.log_rate_s)
+    {
+    case 2U:
+    case 5U:
+    case 10U:
+    case 30U:
+        return g_sys_config.log_rate_s;
+    default:
+        return 10U;
+    }
+}
+
 uint8_t bus_get_dive_log_count(void)
 {
     if (s_dive_log_count > MAX_DIVE_LOG)
@@ -1541,9 +1573,38 @@ void dive_log_append(float current_time_s, float current_depth_m)
     }
 }
 
+void dive_log_append_sampled(float current_time_s, float current_depth_m)
+{
+    float log_rate_s = (float)bus_get_log_rate();
+
+    if (current_time_s < 0.0f)
+    {
+        return;
+    }
+
+    if (s_dive_log_sample_valid)
+    {
+        if (current_time_s < s_dive_log_last_sample_time_s)
+        {
+            return;
+        }
+
+        if ((current_time_s - s_dive_log_last_sample_time_s) < log_rate_s)
+        {
+            return;
+        }
+    }
+
+    dive_log_append(current_time_s, current_depth_m);
+    s_dive_log_last_sample_time_s = current_time_s;
+    s_dive_log_sample_valid = true;
+}
+
 void dive_log_reset(void)
 {
     s_dive_log_count = 0U;
+    s_dive_log_sample_valid = false;
+    s_dive_log_last_sample_time_s = 0.0f;
     s_deco_stop_count = 0U;
 }
 

@@ -1056,6 +1056,7 @@ static const char **build_nested_display_sys(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
+    s_log_rate_s = bus_get_log_rate();
     ui_vm_display_menu_update(&vm, s_units_mode, s_log_rate_s, s_bluetooth_enabled);
     return copy_simple_menu_items(&vm, out_count);
 }
@@ -1397,6 +1398,7 @@ bool submenu_direct_setting_from_selection(const char *current_title,
     if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 2)
     {
         uint8_t next_index = 0;
+        s_log_rate_s = bus_get_log_rate();
         for (uint8_t i = 0; i < (sizeof(s_log_rate_values) / sizeof(s_log_rate_values[0])); i++)
         {
             if (s_log_rate_values[i] == s_log_rate_s)

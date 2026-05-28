@@ -73,6 +73,7 @@ typedef struct
     uint8_t salinity_mode;
     uint8_t last_deco_stop_m;
     uint8_t brightness;
+    uint8_t log_rate_s;
 } sys_config_t;
 #pragma pack(pop)
 

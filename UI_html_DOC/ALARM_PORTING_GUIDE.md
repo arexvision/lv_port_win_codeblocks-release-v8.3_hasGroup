@@ -245,56 +245,48 @@ If the text is temporary, debug-only, or highly variable, use custom alarm inste
 
 ## 9. Current LOG RATE status
 
-Current `LOG RATE` menu item is not functionally wired to real sampling or logging yet.
+Current `LOG RATE` menu item is wired to the UI config field and simulator trajectory sampling.
 
 Confirmed current chain:
 
 1. menu changes `s_log_rate_s` in `src/ui/views/submenu_model.c`
 2. action calls `ui_on_log_rate_set(seconds)` in `src/ui/views/menu_actions.c`
-3. default weak callback only prints:
+3. default weak callback writes `g_sys_config.log_rate_s` through `bus_set_log_rate(seconds)`
+4. simulator depth ticks call `dive_log_append_sampled()`
 
 ```c
-printf("[DISPLAY_SETUP] Log rate: %us\n", seconds);
+dive_log_append_sampled(time_s, depth_m);
 ```
 
-There is currently no confirmed connection from this setting to:
+Current scope:
 
-- dive log append cadence
-- TCP sample cadence
-- algorithm tick cadence
-- persistent config storage
-- real hardware logging task
+- simulator auto trajectory cadence: wired
+- TCP direct depth trajectory cadence: wired
+- TCP explicit `sample <time_s> <depth_m>` command: intentionally forces a sample
+- algorithm tick cadence: not controlled by LOG RATE
+- real hardware logging task: should call `dive_log_append_sampled()` or use `bus_get_log_rate()`
 
 So current status is:
 
 ```text
 UI value changes: yes
-actual runtime effect: no
+simulator trajectory sampling effect: yes
+real hardware logging task ownership: platform integration
 ```
 
-## 10. How LOG RATE should be wired later
+## 10. How LOG RATE should be wired on hardware
 
 Recommended ownership for `LOG RATE`:
 
-1. persist a real config field, for example `g_sys_config.log_rate_s`
-2. menu callback writes that config field
-3. real logging task uses that field to decide record cadence
+1. keep `g_sys_config.log_rate_s` as the UI-owned config field
+2. menu callback writes that config field through `bus_set_log_rate(seconds)`
+3. real logging task uses `bus_get_log_rate()` to decide record cadence
 4. UI only displays the value
 
-Recommended target behavior:
+Recommended logging task behavior:
 
 ```c
-void ui_on_log_rate_set(uint8_t seconds)
-{
-    g_sys_config.log_rate_s = seconds;
-    config_save(&g_sys_config);
-}
-```
-
-Then in the real log task:
-
-```c
-if (now_s - last_log_s >= g_sys_config.log_rate_s)
+if (now_s - last_log_s >= bus_get_log_rate())
 {
     append_log_sample();
     last_log_s = now_s;

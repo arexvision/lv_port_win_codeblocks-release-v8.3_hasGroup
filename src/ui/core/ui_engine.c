@@ -287,6 +287,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->salinity_mode   = 0;    /* FRESH */
     cfg->last_deco_stop_m = 3;
     cfg->brightness     = BRIGHTNESS_MED;
+    cfg->log_rate_s     = 10;
 }
 
 /* =========================================================
