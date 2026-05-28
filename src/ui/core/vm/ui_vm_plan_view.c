@@ -155,6 +155,7 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
     vm->result_page_index = snapshot.result_page_index;
     vm->result_total_pages = snapshot.result_total_pages;
     vm->result_entry_count = snapshot.result_entry_count;
+    vm->result_summary_page = snapshot.result_summary_page;
 
     (void)snprintf(vm->depth_value, sizeof(vm->depth_value), "%u", (unsigned)(snapshot.depth_m + 0.5f));
     (void)snprintf(vm->time_value, sizeof(vm->time_value), "%u", (unsigned)snapshot.time_min);
@@ -230,6 +231,11 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
     (void)snprintf(vm->input_min_text, sizeof(vm->input_min_text), "MIN: %u", (unsigned)input_min);
     (void)snprintf(vm->input_max_text, sizeof(vm->input_max_text), "MAX: %u", (unsigned)input_max);
     (void)input_value;
+
+    if (vm->result_summary_page != 0U)
+    {
+        return;
+    }
 
     for (uint8_t i = 0U; i < 8U; i++)
     {

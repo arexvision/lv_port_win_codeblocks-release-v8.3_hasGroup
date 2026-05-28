@@ -336,6 +336,16 @@ static void plan_draw_ready(lv_obj_t *parent, int w)
     plan_make_label(parent, vm.gas_summary, FONT_ID_SMALL, LIGHT, 96, 264, w - 192, 22, LV_TEXT_ALIGN_LEFT);
 }
 
+static void plan_draw_result_summary(lv_obj_t *parent, int w, const ui_vm_dive_plan_view_t *vm)
+{
+    plan_make_label(parent, "SUMMARY", FONT_ID_SMALL, GREEN, 0, 76, w, 22, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm->result_runtime_text, FONT_ID_SMALL, LIGHT, 92, 126, w - 184, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm->result_deco_text, FONT_ID_SMALL, LIGHT, 92, 164, w - 184, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm->result_gas_text, FONT_ID_SMALL, LIGHT, 92, 202, w - 184, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm->result_cns_text, FONT_ID_SMALL, LIGHT, 92, 240, w - 184, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm->result_otu_text, FONT_ID_SMALL, LIGHT, 92, 278, w - 184, 22, LV_TEXT_ALIGN_LEFT);
+}
+
 static void plan_draw_result(lv_obj_t *parent, int w)
 {
     ui_vm_dive_plan_view_t vm;
@@ -343,6 +353,13 @@ static void plan_draw_result(lv_obj_t *parent, int w)
     static const int col_w[] = { 64, 72, 72, 82, 72 };
 
     ui_vm_dive_plan_view_update(&vm);
+
+    if (vm.result_summary_page != 0U)
+    {
+        plan_draw_result_summary(parent, w, &vm);
+        plan_make_label(parent, vm.result_page_text, FONT_ID_SMALL, GREEN, 0, (int)s_submenu_height - 72, w, 18, LV_TEXT_ALIGN_CENTER);
+        return;
+    }
 
     plan_make_label(parent, "Stp", FONT_ID_SMALL, GREEN, col_x[0], 68, col_w[0], 18, LV_TEXT_ALIGN_CENTER);
     plan_make_label(parent, "Tme", FONT_ID_SMALL, GREEN, col_x[1], 68, col_w[1], 18, LV_TEXT_ALIGN_CENTER);
@@ -372,12 +389,7 @@ static void plan_draw_result(lv_obj_t *parent, int w)
         y += 26;
     }
 
-    plan_make_label(parent, vm.result_page_text, FONT_ID_SMALL, GREEN, 0, (int)s_submenu_height - 86, w, 18, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, vm.result_runtime_text, FONT_ID_SMALL, LIGHT, 16, (int)s_submenu_height - 66, 120, 18, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm.result_deco_text, FONT_ID_SMALL, LIGHT, 140, (int)s_submenu_height - 66, 120, 18, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm.result_gas_text, FONT_ID_SMALL, LIGHT, 264, (int)s_submenu_height - 66, 80, 18, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm.result_cns_text, FONT_ID_SMALL, LIGHT, 16, (int)s_submenu_height - 48, 80, 18, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm.result_otu_text, FONT_ID_SMALL, LIGHT, 100, (int)s_submenu_height - 48, 80, 18, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.result_page_text, FONT_ID_SMALL, GREEN, 0, (int)s_submenu_height - 72, w, 18, LV_TEXT_ALIGN_CENTER);
 }
 
 static void plan_draw_error(lv_obj_t *parent, int w)

@@ -72,6 +72,7 @@ typedef struct
     uint8_t result_page_index;
     uint8_t result_total_pages;
     uint8_t result_entry_count;
+    uint8_t result_summary_page;
     uint16_t total_runtime_min;
     uint16_t total_deco_min;
     uint16_t total_gas_l;

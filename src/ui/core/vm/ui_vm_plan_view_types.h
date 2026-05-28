@@ -43,6 +43,7 @@ typedef struct
     uint8_t result_page_index;
     uint8_t result_total_pages;
     uint8_t result_entry_count;
+    uint8_t result_summary_page;
     float depth_m;
     float rmv_lpm;
     uint16_t time_min;

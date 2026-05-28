@@ -120,7 +120,8 @@ static uint8_t plan_result_total_pages(void)
     }
     if (s_state.result.total_pages == 0U)
     {
-        return (uint8_t)((s_state.result.entry_count + PLAN_ROWS_PER_PAGE - 1U) / PLAN_ROWS_PER_PAGE);
+        uint8_t row_pages = (uint8_t)((s_state.result.entry_count + PLAN_ROWS_PER_PAGE - 1U) / PLAN_ROWS_PER_PAGE);
+        return (uint8_t)(row_pages + 1U);
     }
     return s_state.result.total_pages;
 }
@@ -170,6 +171,7 @@ static void plan_execute(void)
     {
         snapshot.total_pages = 1U;
     }
+    snapshot.total_pages++;
     snapshot.total_runtime_min = algo_result.total_runtime_min;
     snapshot.total_deco_min = algo_result.total_deco_min;
     snapshot.total_gas_l = algo_result.total_gas_l;
@@ -240,6 +242,9 @@ void submenu_dive_plan_get_snapshot(submenu_dive_plan_snapshot_t *out_snapshot)
     out_snapshot->result_page_index = s_state.result_page;
     out_snapshot->result_total_pages = plan_result_total_pages();
     out_snapshot->result_entry_count = (s_state.result.valid != 0U) ? s_state.result.entry_count : 0U;
+    out_snapshot->result_summary_page =
+        (s_state.result.valid != 0U &&
+         s_state.result_page * PLAN_ROWS_PER_PAGE >= s_state.result.entry_count) ? 1U : 0U;
     out_snapshot->total_runtime_min = (s_state.result.valid != 0U) ? s_state.result.total_runtime_min : 0U;
     out_snapshot->total_deco_min = (s_state.result.valid != 0U) ? s_state.result.total_deco_min : 0U;
     out_snapshot->total_gas_l = (s_state.result.valid != 0U) ? s_state.result.total_gas_l : 0U;
