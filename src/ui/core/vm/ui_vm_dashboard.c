@@ -98,6 +98,7 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
         vm->active_idx = bus_get_gas_active_idx();
         vm->cursor_idx = gas_cursor;
         vm->edit_mode = (state == UI_EDIT_GAS) ? 1U : 0U;
+        bool selection_mode = (state == UI_EDIT_GAS || state == UI_MODAL_GAS);
         vm->right_canvas_w = (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W -
                                         ui_panel_gap_px_get());
         vm->gap_y = (uint8_t)ui_menu_gap_px_get();
@@ -130,8 +131,8 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
             }
             (void)snprintf(vm->ppo2_text[i], sizeof(vm->ppo2_text[i]), "PO2 %.2f", (double)ppo2);
             vm->visible[i] = 1U;
-            vm->highlighted[i] = ((i == vm->cursor_idx) ||
-                                  ((i == vm->active_idx) && (vm->edit_mode == 0U))) ? 1U : 0U;
+            vm->highlighted[i] = ((selection_mode && i == vm->cursor_idx) ||
+                                  (!selection_mode && i == vm->active_idx)) ? 1U : 0U;
         }
 
         (void)snprintf(vm->hint,
@@ -146,6 +147,7 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
     vm->active_idx = vm_clamp_u8(sensor->gas_active_idx, (uint8_t)(GAS_COUNT - 1U));
     vm->cursor_idx = gas_cursor;
     vm->edit_mode = (state == UI_EDIT_GAS) ? 1U : 0U;
+    bool selection_mode = (state == UI_EDIT_GAS || state == UI_MODAL_GAS);
     vm->right_canvas_w = (uint16_t)(config->safe_zone_w - LEFT_ANCHOR_W -
                                     ((uint16_t)config->gap_u * BASE_U));
     vm->gap_y = (uint8_t)(config->gap_menu * BASE_U);
@@ -178,8 +180,8 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
         }
         (void)snprintf(vm->ppo2_text[i], sizeof(vm->ppo2_text[i]), "PO2 %.2f", (double)ppo2);
         vm->visible[i] = 1U;
-        vm->highlighted[i] = ((i == vm->cursor_idx) ||
-                              ((i == vm->active_idx) && (vm->edit_mode == 0U))) ? 1U : 0U;
+        vm->highlighted[i] = ((selection_mode && i == vm->cursor_idx) ||
+                              (!selection_mode && i == vm->active_idx)) ? 1U : 0U;
     }
 
     (void)snprintf(vm->hint,
