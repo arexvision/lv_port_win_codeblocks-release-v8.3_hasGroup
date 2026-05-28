@@ -416,8 +416,8 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
 
         for (uint8_t col = 0; col < LEFT_COLS; col++)
         {
-            grid_widget_t *top_cfg = left_find_widget_at_cell(col, (uint8_t)(row - 1));
-            grid_widget_t *bottom_cfg = left_find_widget_at_cell(col, row);
+            const grid_widget_t *top_cfg = left_find_widget_at_cell(col, (uint8_t)(row - 1));
+            const grid_widget_t *bottom_cfg = left_find_widget_at_cell(col, row);
             bool draw_seg = (top_cfg != NULL && bottom_cfg != NULL && top_cfg != bottom_cfg);
 
             if (draw_seg)
@@ -478,6 +478,10 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
     /* 每次重建自定义卡都先 clean，再重画标题和所有 widget。
      * 这是一种“整卡重绘”策略，简单直接，能避免局部布局变更后残留旧对象。 */
     lv_obj_clean(card_custom);
+    if (count == 0U)
+    {
+        return;
+    }
     render_card_title(card_custom, "CUSTOM WIDGETS");
 
     for (uint8_t i = 0; i < count; i++)

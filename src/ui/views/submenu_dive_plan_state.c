@@ -23,7 +23,7 @@
 #define PLAN_ROWS_PER_PAGE 8U
 #ifndef PC_SIMULATOR
 #define PLAN_ASYNC_THREAD_STACK_SIZE 20480U
-#define PLAN_ASYNC_THREAD_PRIORITY   5U
+#define PLAN_ASYNC_THREAD_PRIORITY   13U
 #define PLAN_ASYNC_THREAD_TICK       10U
 #endif
 
@@ -479,6 +479,15 @@ bool submenu_dive_plan_is_result_page(void)
     return s_state.page == DIVE_PLAN_PAGE_RESULT;
 }
 
+bool submenu_dive_plan_is_calculating(void)
+{
+#ifdef PC_SIMULATOR
+    return s_state.page == DIVE_PLAN_PAGE_CALCULATING;
+#else
+    return (s_state.page == DIVE_PLAN_PAGE_CALCULATING) || s_plan_async_running;
+#endif
+}
+
 bool submenu_dive_plan_poll_async(void)
 {
 #ifdef PC_SIMULATOR
@@ -579,6 +588,15 @@ bool submenu_dive_plan_handle_action(menu_item_id_t item_id,
 #ifdef PC_SIMULATOR
         plan_execute();
 #else
+        if (s_plan_async_running)
+        {
+            s_state.page = DIVE_PLAN_PAGE_CALCULATING;
+            if (out_keep_index != NULL)
+            {
+                *out_keep_index = 1U;
+            }
+            return true;
+        }
         submenu_dive_plan_set_result_snapshot(NULL);
         s_state.page = DIVE_PLAN_PAGE_CALCULATING;
         if (!plan_start_async())

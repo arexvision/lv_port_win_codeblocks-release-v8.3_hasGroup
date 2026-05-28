@@ -22,9 +22,9 @@ extern "C" {
 
 #define UI_ASCENT_RATE_DISPLAY_EPSILON_MPM  0.2f
 #define UI_ASCENT_RATE_SAMPLE_PERIOD_MS     2000UL
+#define UI_ASCENT_RATE_STALE_TIMEOUT_MS     3000UL
 #define UI_ASCENT_RATE_DEPTH_DEADBAND_M     0.10f
 #define UI_ASCENT_RATE_STILL_DEADBAND_MPM   3.0f
-#define UI_ASCENT_RATE_FILTER_ALPHA         0.35f
 
 static inline bool ui_gf_from_conservatism_level(uint8_t level,
                                                  uint8_t *gf_low,

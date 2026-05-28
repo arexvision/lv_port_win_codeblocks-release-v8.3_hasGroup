@@ -479,10 +479,22 @@ void screen_hide_walls_snap(void)
  * ========================================================= */
 void screen_set_info_selection(uint8_t idx)
 {
-    if (!s_info_list) return;
+    if (!s_info_list || !lv_obj_is_valid(s_info_list))
+    {
+        s_info_list = NULL;
+        return;
+    }
     /* 这里不依赖 LVGL 自带 list 焦点态，而是手工重绘选中样式。
      * 这样可以保持项目自定义的字体、边框和颜色规则完全一致。 */
     uint32_t cnt = lv_obj_get_child_cnt(s_info_list);
+    if (cnt == 0U)
+    {
+        return;
+    }
+    if (idx >= cnt)
+    {
+        idx = (uint8_t)(cnt - 1U);
+    }
     for (uint32_t i = 0; i < cnt; i++)
     {
         lv_obj_t *item = lv_obj_get_child(s_info_list, i);
@@ -516,15 +528,31 @@ void screen_set_info_selection(uint8_t idx)
 
 uint8_t screen_info_item_count(void)
 {
-    if (!s_info_list) return 0;
+    if (!s_info_list || !lv_obj_is_valid(s_info_list))
+    {
+        s_info_list = NULL;
+        return 0;
+    }
     return (uint8_t)lv_obj_get_child_cnt(s_info_list);
 }
 
 void screen_set_setup_selection(uint8_t idx)
 {
-    if (!s_setup_list) return;
+    if (!s_setup_list || !lv_obj_is_valid(s_setup_list))
+    {
+        s_setup_list = NULL;
+        return;
+    }
     /* SETUP 比 INFO 多一个 badge 列，所以选中态要同时处理主标题和右侧状态文本。 */
     uint32_t cnt = lv_obj_get_child_cnt(s_setup_list);
+    if (cnt == 0U)
+    {
+        return;
+    }
+    if (idx >= cnt)
+    {
+        idx = (uint8_t)(cnt - 1U);
+    }
     for (uint32_t i = 0; i < cnt; i++)
     {
         lv_obj_t *item  = lv_obj_get_child(s_setup_list, i);
@@ -569,7 +597,11 @@ void screen_set_setup_selection(uint8_t idx)
 
 uint8_t screen_setup_item_count(void)
 {
-    if (!s_setup_list) return 0;
+    if (!s_setup_list || !lv_obj_is_valid(s_setup_list))
+    {
+        s_setup_list = NULL;
+        return 0;
+    }
     return (uint8_t)lv_obj_get_child_cnt(s_setup_list);
 }
 
@@ -587,7 +619,11 @@ void screen_register_setup_list(lv_obj_t *list)
  * ========================================================= */
 void screen_update_setup_badge(uint8_t item_idx, const char *value)
 {
-    if (!s_setup_list) return;
+    if (!s_setup_list || !lv_obj_is_valid(s_setup_list))
+    {
+        s_setup_list = NULL;
+        return;
+    }
     lv_obj_t *item = lv_obj_get_child(s_setup_list, item_idx);
     if (!item) return;
     lv_obj_t *badge = lv_obj_get_child(item, 1);

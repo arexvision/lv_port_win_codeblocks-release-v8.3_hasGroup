@@ -447,7 +447,7 @@ static void debug_send_help(void)
 {
     debug_send_raw(
         "TCP debug commands:\r\n"
-        "  <number> writes depth directly and appends trajectory by LOG RATE\r\n"
+        "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back | manual on|off | auto on|off | speed <1..120>\r\n"
         "  depth <m> | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
@@ -707,7 +707,7 @@ static void debug_exec_line(char *line)
             return;
         }
         bus_set_dive_time((uint32_t)time_s);
-        dive_log_append((float)time_s, depth);
+        dive_log_append_sampled((float)time_s, depth);
         bus_set_depth(depth);
         if (s_debug_link.depth_rate_valid && (uint32_t)time_s > s_debug_link.sample_time_s)
         {

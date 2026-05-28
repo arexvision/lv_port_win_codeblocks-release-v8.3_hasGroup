@@ -205,7 +205,7 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
     if ((sensor == NULL) || (config == NULL))
     {
         vm->gf_low = (bus_get_gf_low() == 0U) ? 40U : bus_get_gf_low();
-        vm->gf_high = (bus_get_gf_high() == 0U) ? 85U : bus_get_gf_high();
+        vm->gf_high = (bus_get_gf_high() == 0U) ? 70U : bus_get_gf_high();
         (void)snprintf(vm->gf_setting, sizeof(vm->gf_setting), "%u / %u",
                        (unsigned)vm->gf_low,
                        (unsigned)vm->gf_high);
@@ -232,7 +232,7 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
     (void)snprintf(vm->surf_gf, sizeof(vm->surf_gf), "%.0f%%", (double)sensor->surf_gf);
     (void)snprintf(vm->cns, sizeof(vm->cns), "%u%%", (unsigned)sensor->cns_pct);
     (void)snprintf(vm->otu, sizeof(vm->otu), "%u", (unsigned)sensor->otu);
-    vm->gf_high = (sensor->gf_high == 0U) ? 85U : sensor->gf_high;
+    vm->gf_high = (sensor->gf_high == 0U) ? 70U : sensor->gf_high;
     vm->chart_active = ((sensor->depth > 0.3f) || (sensor->dive_time_s > 0U)) ? 1U : 0U;
     vm->surf_gf_alert = (sensor->surf_gf > 100.0f) ? 1U : 0U;
     vm->right_canvas_w = (uint16_t)(config->safe_zone_w - LEFT_ANCHOR_W -

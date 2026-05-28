@@ -168,10 +168,6 @@ void ui_update_router_dispatch(uint32_t mask)
     if (mask & (DIRTY_GF_SETTING | DIRTY_MOD | DIRTY_CEILING |
                 DIRTY_GAS_MIX | DIRTY_GAS_DENS | DIRTY_FIO2))
     {
-        if (mask & DIRTY_GF_SETTING)
-        {
-            card_deco_update();
-        }
         refresh_all_widgets = true;
     }
 

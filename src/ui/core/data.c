@@ -891,11 +891,20 @@ void bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high)
 
 void bus_set_conservatism(uint8_t level)
 {
-    uint8_t gf_low = 40U;
-    uint8_t gf_high = 85U;
+    static const uint8_t gf_table[][2] =
+    {
+        { 40U, 95U },
+        { 40U, 85U },
+        { 30U, 70U },
+        { 50U, 70U },
+    };
 
-    (void)ui_gf_from_conservatism_level(level, &gf_low, &gf_high);
-    bus_set_gf_setting(gf_low, gf_high);
+    if (level >= (sizeof(gf_table) / sizeof(gf_table[0])))
+    {
+        level = 0U;
+    }
+
+    bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
 }
 
 void bus_set_mod_ppo2(float ppo2)
