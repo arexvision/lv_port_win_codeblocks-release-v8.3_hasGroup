@@ -57,7 +57,9 @@ static bool s_sim_alert_safety_seen_zone;
 static bool s_sim_alert_ascent_sample_valid;
 static float s_sim_alert_ascent_last_depth_m;
 static uint32_t s_sim_alert_ascent_last_ms;
+static uint32_t s_sim_alert_ascent_last_wall_ms;
 static uint32_t s_sim_alert_ascent_overspeed_since_ms;
+static bool s_sim_alert_ascent_overspeed_tracking;
 static bool s_sim_alert_ascent_critical_active;
 static uint32_t s_sim_alert_ceiling_broken_since_ms;
 static bool s_sim_alert_algo_lock_active;
@@ -118,7 +120,9 @@ static void sim_alert_reset_runtime(void)
     s_sim_alert_ascent_sample_valid = false;
     s_sim_alert_ascent_last_depth_m = 0.0f;
     s_sim_alert_ascent_last_ms = 0U;
+    s_sim_alert_ascent_last_wall_ms = 0U;
     s_sim_alert_ascent_overspeed_since_ms = 0U;
+    s_sim_alert_ascent_overspeed_tracking = false;
     s_sim_alert_ascent_critical_active = false;
     s_sim_alert_ceiling_broken_since_ms = 0U;
     s_sim_alert_algo_lock_active = false;
@@ -223,12 +227,14 @@ static const char *sim_alert_alarm_id_name(alarm_id_t id)
 static bool sim_alert_update_ascent_critical(uint32_t now_ms)
 {
     const bool is_diving = g_sensor_data.depth > 0.8f || g_sensor_data.dive_time_s > 0U;
-    const uint32_t sample_ms = g_sensor_data.dive_time_s * 1000U;
+    uint32_t sample_ms = g_sensor_data.dive_time_s * 1000U;
+    float rate_mpm = g_sensor_data.ascent_rate;
 
-    if (!is_diving || !sim_alert_finite(g_sensor_data.depth))
+    if (!is_diving || !sim_alert_finite(g_sensor_data.depth) || !sim_alert_finite(rate_mpm))
     {
         s_sim_alert_ascent_sample_valid = false;
         s_sim_alert_ascent_overspeed_since_ms = 0U;
+        s_sim_alert_ascent_overspeed_tracking = false;
         s_sim_alert_ascent_critical_active = false;
         return false;
     }
@@ -238,31 +244,21 @@ static bool sim_alert_update_ascent_critical(uint32_t now_ms)
         s_sim_alert_ascent_sample_valid = true;
         s_sim_alert_ascent_last_depth_m = g_sensor_data.depth;
         s_sim_alert_ascent_last_ms = sample_ms;
+        s_sim_alert_ascent_last_wall_ms = now_ms;
         return false;
     }
 
-    if (sample_ms == s_sim_alert_ascent_last_ms)
+    if (sample_ms <= s_sim_alert_ascent_last_ms)
     {
-        return s_sim_alert_ascent_critical_active;
+        sample_ms = s_sim_alert_ascent_last_ms + (now_ms - s_sim_alert_ascent_last_wall_ms);
     }
-
-    const uint32_t previous_ms = s_sim_alert_ascent_last_ms;
-    const uint32_t delta_ms = sample_ms - previous_ms;
-    float rate_mpm = g_sensor_data.ascent_rate;
-    if (delta_ms > 0U)
-    {
-        const float delta_min = (float)delta_ms / 60000.0f;
-        rate_mpm = (s_sim_alert_ascent_last_depth_m - g_sensor_data.depth) / delta_min;
-    }
-
-    s_sim_alert_ascent_last_depth_m = g_sensor_data.depth;
-    s_sim_alert_ascent_last_ms = sample_ms;
 
     if (rate_mpm > s_sim_alert_config.ascent_rate_critical_mpm)
     {
-        if (s_sim_alert_ascent_overspeed_since_ms == 0U)
+        if (!s_sim_alert_ascent_overspeed_tracking)
         {
-            s_sim_alert_ascent_overspeed_since_ms = previous_ms;
+            s_sim_alert_ascent_overspeed_since_ms = s_sim_alert_ascent_last_ms;
+            s_sim_alert_ascent_overspeed_tracking = true;
         }
         s_sim_alert_ascent_critical_active =
             (sample_ms - s_sim_alert_ascent_overspeed_since_ms) >=
@@ -271,10 +267,14 @@ static bool sim_alert_update_ascent_critical(uint32_t now_ms)
     else
     {
         s_sim_alert_ascent_overspeed_since_ms = 0U;
+        s_sim_alert_ascent_overspeed_tracking = false;
         s_sim_alert_ascent_critical_active = false;
     }
 
-    (void)now_ms;
+    s_sim_alert_ascent_last_depth_m = g_sensor_data.depth;
+    s_sim_alert_ascent_last_ms = sample_ms;
+    s_sim_alert_ascent_last_wall_ms = now_ms;
+
     return s_sim_alert_ascent_critical_active;
 }
 

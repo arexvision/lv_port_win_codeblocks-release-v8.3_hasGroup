@@ -395,6 +395,7 @@ static void debug_apply_depth_sample(float depth)
 
     dive_log_append_sampled((float)sample_time_s, depth);
     bus_set_depth(depth);
+    sim_alert_tick();
 }
 
 static bool debug_try_packet_line_rx(const char *data, int len)
@@ -794,6 +795,7 @@ static void debug_exec_line(char *line)
         s_debug_link.depth_rate_valid = true;
         s_debug_link.depth_rate_last_m = depth;
         s_debug_link.depth_rate_last_tick_ms = lv_tick_get();
+        sim_alert_tick();
         debug_sendf("OK sample %d %.1f\r\n", time_s, (double)depth);
         return;
     }
@@ -807,6 +809,7 @@ static void debug_exec_line(char *line)
             return;
         }
         bus_set_ascent_rate(rate_mpm);
+        sim_alert_tick();
         debug_sendf("OK rate %+.1f\r\n", (double)g_sensor_data.ascent_rate);
         return;
     }
