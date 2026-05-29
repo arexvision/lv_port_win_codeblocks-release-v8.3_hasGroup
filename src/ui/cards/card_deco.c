@@ -154,12 +154,21 @@ static bool card_deco_tissue_chart_active(void)
     return s_deco_vm_cache.chart_active != 0U;
 }
 
-static void card_deco_update_mvalue_line(void)
+static void card_deco_update_mvalue_line(bool chart_active)
 {
     if (!deco_obj_is_valid(&s_mvalue_line) || !deco_obj_is_valid(&s_mvalue_label))
     {
         return;
     }
+
+    if (!chart_active)
+    {
+        lv_obj_add_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_obj_clear_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
 
     if (!deco_obj_is_valid(&s_bars[0]))
     {
@@ -345,6 +354,9 @@ void card_deco_create(lv_obj_t *parent)
 void card_deco_update(void)
 {
     char buf[16];
+
+    ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
+
     uint8_t gf_low = card_deco_get_gf_low_pct();
     uint8_t gf_high = card_deco_get_gf_high_pct();
     bool chart_active = card_deco_tissue_chart_active();
@@ -353,8 +365,6 @@ void card_deco_update(void)
     {
         lv_label_set_text_fmt(s_lbl_gf_setting, "%u / %u", gf_low, gf_high);
     }
-
-    ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
 
     snprintf(buf, sizeof(buf), "%s", s_deco_vm_cache.gf99);
     if (deco_obj_is_valid(&s_lbl_gf99))
@@ -381,7 +391,7 @@ void card_deco_update(void)
         lv_label_set_text(s_lbl_otu, buf);
     }
 
-    card_deco_update_mvalue_line();
+    card_deco_update_mvalue_line(chart_active);
 
     tissue_flash_ensure();
 
