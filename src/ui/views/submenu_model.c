@@ -77,7 +77,6 @@ static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NUL
 static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS", "OC Tech", NULL };
-static const uint8_t s_safety_stop_values[] = { 0, 3, 4, 5 };
 static const uint8_t s_last_deco_values[] = { 3, 6 };
 
 static char s_compass_cal_status_str[24];
@@ -94,7 +93,7 @@ static char s_oc_tech_edit_str[4][28];
 static const char *s_nested_oc_tech_edit[5];
 
 static uint8_t s_salinity_mode = 0;      /* 0=FRESH, 1=SALT, 2=EN13319 */
-static uint8_t s_safety_stop_mode = 1;   /* 0=OFF, 1=3min, 2=4min, 3=5min */
+static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
 static uint8_t s_last_deco_mode = 0;     /* 0=3m, 1=6m */
 static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1=SEA, 2=L1, 3=L2 */
 static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS, 3=OC Tech */
@@ -127,19 +126,7 @@ void submenu_sync_persisted_settings(void)
         return;
     }
 
-    {
-        uint8_t safety_stop_time = snapshot.safety_stop_time_min;
-        if (safety_stop_time == 0U) {
-            s_safety_stop_mode = 0U;
-        } else if (safety_stop_time == 4U) {
-            s_safety_stop_mode = 2U;
-        } else if (safety_stop_time == 5U) {
-            s_safety_stop_mode = 3U;
-        } else {
-            s_safety_stop_mode = 1U;
-        }
-    }
-
+    s_safety_stop_mode = snapshot.safety_stop_mode;
     s_salinity_mode = snapshot.salinity_mode;
     s_last_deco_mode = (snapshot.last_deco_stop_m >= 6U) ? 1U : 0U;
     s_altitude_level = snapshot.altitude_level;
@@ -632,7 +619,7 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         s_salinity_mode = (value > 2) ? 0 : (uint8_t)value;
         break;
     case SUBMENU_SETTING_SAFETY_STOP:
-        s_safety_stop_mode = (value > 3) ? 1 : (uint8_t)value;
+        s_safety_stop_mode = (uint8_t)value;
         break;
     case SUBMENU_SETTING_LAST_DECO:
         s_last_deco_mode = (value > 1) ? 0 : (uint8_t)value;
@@ -767,12 +754,6 @@ static const char *compass_cal_status_text(void)
     if (st == COMPASS_CAL_RUNNING) return "LEARN";
     if (st == COMPASS_CAL_READY) return "OK";
     return "AUTO";
-}
-
-uint8_t submenu_safety_stop_depth_m(uint8_t value)
-{
-    /* 安全停留深度只允许在两个固定档位之间切换。 */
-    return value == 1 ? 6 : 3;
 }
 
 const char *submenu_info_title(uint8_t index)
@@ -1393,7 +1374,7 @@ bool submenu_direct_setting_from_selection(const char *current_title,
     if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 2)
     {
         uint8_t next = (uint8_t)((s_safety_stop_mode + 1) %
-                       (sizeof(s_safety_stop_values) / sizeof(s_safety_stop_values[0])));
+                       UI_SAFETY_STOP_COUNT);
         out_setting->kind = SUBMENU_SETTING_SAFETY_STOP;
         out_setting->value = next;
         return true;

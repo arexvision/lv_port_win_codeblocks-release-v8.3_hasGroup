@@ -52,12 +52,7 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
         ui_on_salinity_set((uint8_t)setting->value);
         break;
     case SUBMENU_SETTING_SAFETY_STOP:
-        if (setting->value < 4)
-        {
-            static const uint8_t minutes[] = { 0, 3, 4, 5 };
-            ui_on_safety_stop_depth_set(submenu_safety_stop_depth_m((uint8_t)setting->value));
-            ui_on_safety_stop_time_set(minutes[setting->value]);
-        }
+        ui_on_safety_stop_mode_set((uint8_t)setting->value);
         break;
     case SUBMENU_SETTING_LAST_DECO:
         ui_on_last_deco_stop_set(setting->value == 1 ? 6 : 3);

@@ -85,24 +85,10 @@ void ui_on_salinity_set(uint8_t mode)
 }
 
 WEAK_CALLBACK
-void ui_on_safety_stop_depth_set(uint8_t depth_m)
+void ui_on_safety_stop_mode_set(uint8_t mode)
 {
-    bus_set_safety_stop_depth(depth_m);
-    printf("[DIVE_SETUP] Safety stop depth: %um\n", depth_m);
-}
-
-WEAK_CALLBACK
-void ui_on_safety_stop_time_set(uint8_t minutes)
-{
-    bus_set_safety_stop_time(minutes);
-    if (minutes == 0)
-    {
-        printf("[DIVE_SETUP] Safety stop: OFF\n");
-    }
-    else
-    {
-        printf("[DIVE_SETUP] Safety stop: %umin\n", minutes);
-    }
+    bus_set_safety_stop_mode(mode);
+    printf("[DIVE_SETUP] Safety stop: %s\n", ui_safety_stop_label(mode));
 }
 
 WEAK_CALLBACK
@@ -244,8 +230,7 @@ void ui_on_bluetooth_set(bool enabled)
 WEAK_CALLBACK
 void ui_on_reset_defaults(void)
 {
-    bus_set_safety_stop_depth(3U);
-    bus_set_safety_stop_time(3U);
+    bus_set_safety_stop_mode(UI_SAFETY_STOP_DEFAULT);
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     printf("[DISPLAY_SETUP] Reset defaults\n");
@@ -260,8 +245,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     }
 
     out_snapshot->salinity_mode = bus_get_salinity_mode();
-    out_snapshot->safety_stop_depth_m = bus_get_safety_stop_depth();
-    out_snapshot->safety_stop_time_min = bus_get_safety_stop_time();
+    out_snapshot->safety_stop_mode = bus_get_safety_stop_mode();
     out_snapshot->last_deco_stop_m = bus_get_last_deco_stop();
     out_snapshot->altitude_level = bus_get_altitude_level();
     out_snapshot->depth_alarm_m = 40U;

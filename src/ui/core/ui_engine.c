@@ -296,8 +296,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->last_deco_stop_m = 3;
     cfg->brightness     = BRIGHTNESS_MED;
     cfg->log_rate_s     = UI_LOG_RATE_DEFAULT_S;
-    cfg->safety_stop_depth_m = 3;
-    cfg->safety_stop_time_min = 3;
+    cfg->safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
     cfg->altitude_level = 0;
 }
 

@@ -70,7 +70,6 @@ void submenu_prepare_oc_tech_child(menu_item_id_t item_id,
 /* 应用设置结果时统一落到数据层或业务回调。 */
 void submenu_apply_setting(submenu_setting_kind_t kind, uint8_t arg, uint16_t value);
 void submenu_apply_edit_value(submenu_setting_kind_t kind, uint8_t arg, float value);
-uint8_t submenu_safety_stop_depth_m(uint8_t value);
 void submenu_sync_persisted_settings(void);
 #ifdef __cplusplus
 }

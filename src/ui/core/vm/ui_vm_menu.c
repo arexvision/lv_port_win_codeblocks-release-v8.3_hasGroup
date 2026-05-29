@@ -29,19 +29,7 @@ static const char *vm_salinity_label(uint8_t value)
 
 static const char *vm_safety_stop_label(uint8_t value)
 {
-    switch (value)
-    {
-    case 0U:
-        return "OFF";
-    case 1U:
-        return "3M";
-    case 2U:
-        return "5M";
-    case 3U:
-        return "6M";
-    default:
-        return "--";
-    }
+    return ui_safety_stop_label(value);
 }
 
 static const char *vm_last_deco_label(uint8_t value)

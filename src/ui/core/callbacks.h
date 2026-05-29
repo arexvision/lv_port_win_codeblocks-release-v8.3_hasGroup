@@ -24,8 +24,7 @@ typedef enum
 typedef struct
 {
     uint8_t salinity_mode;
-    uint8_t safety_stop_depth_m;
-    uint8_t safety_stop_time_min;
+    uint8_t safety_stop_mode;
     uint8_t last_deco_stop_m;
     uint8_t altitude_level;
     uint16_t depth_alarm_m;
@@ -56,8 +55,7 @@ void apply_software_brightness(uint8_t level);
 void set_brightness(uint8_t level);
 void ui_on_conservatism_set(uint8_t level);
 void ui_on_salinity_set(uint8_t mode);
-void ui_on_safety_stop_depth_set(uint8_t depth_m);
-void ui_on_safety_stop_time_set(uint8_t minutes);
+void ui_on_safety_stop_mode_set(uint8_t mode);
 void ui_on_last_deco_stop_set(uint8_t depth_m);
 void ui_on_altitude_range_set(uint8_t level);
 void ui_on_dive_mode_set(uint8_t mode);

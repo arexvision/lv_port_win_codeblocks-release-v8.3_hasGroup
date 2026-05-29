@@ -946,19 +946,12 @@ void bus_set_log_rate(uint8_t seconds)
     g_sys_config.log_rate_s = UI_LOG_RATE_DEFAULT_S;
 }
 
-void bus_set_safety_stop_depth(uint8_t depth_m)
+void bus_set_safety_stop_mode(uint8_t mode)
 {
-    if (g_sys_config.safety_stop_depth_m != depth_m)
+    if (g_sys_config.safety_stop_mode != mode)
     {
-        g_sys_config.safety_stop_depth_m = depth_m;
-    }
-}
-
-void bus_set_safety_stop_time(uint8_t minutes)
-{
-    if (g_sys_config.safety_stop_time_min != minutes)
-    {
-        g_sys_config.safety_stop_time_min = minutes;
+        g_sys_config.safety_stop_mode = mode;
+        g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
     }
 }
 
@@ -1498,14 +1491,9 @@ uint8_t bus_get_log_rate(void)
     return UI_LOG_RATE_DEFAULT_S;
 }
 
-uint8_t bus_get_safety_stop_depth(void)
+uint8_t bus_get_safety_stop_mode(void)
 {
-    return g_sys_config.safety_stop_depth_m;
-}
-
-uint8_t bus_get_safety_stop_time(void)
-{
-    return g_sys_config.safety_stop_time_min;
+    return g_sys_config.safety_stop_mode;
 }
 
 uint8_t bus_get_altitude_level(void)

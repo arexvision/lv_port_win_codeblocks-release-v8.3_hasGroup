@@ -163,8 +163,7 @@ void bus_set_salinity_mode(uint8_t mode);
 void bus_set_last_deco_stop(uint8_t depth_m);
 void bus_set_brightness(uint8_t level);
 void bus_set_log_rate(uint8_t seconds);
-void bus_set_safety_stop_depth(uint8_t depth_m);
-void bus_set_safety_stop_time(uint8_t minutes);
+void bus_set_safety_stop_mode(uint8_t mode);
 void bus_set_altitude_level(uint8_t level);
 
 /* --- 技术潜水参数接口 --- */
@@ -256,8 +255,7 @@ uint8_t bus_get_salinity_mode(void);
 uint8_t bus_get_conservatism(void);
 uint8_t bus_get_brightness(void);
 uint8_t bus_get_log_rate(void);
-uint8_t bus_get_safety_stop_depth(void);
-uint8_t bus_get_safety_stop_time(void);
+uint8_t bus_get_safety_stop_mode(void);
 uint8_t bus_get_altitude_level(void);
 bool bus_is_heading_locked(void);
 uint16_t bus_get_heading(void);
