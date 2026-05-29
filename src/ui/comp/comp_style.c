@@ -139,23 +139,23 @@ static const comp_style_t g_widget_styles[] =
     {
         .widget_id = COMP_ASCENT_0806,
         .span_w = 1, .span_h = 1,
-        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "m/m",
+        .unit = NULL,
         .title = "RATE",
-        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
-        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_ASCENT_0812,
         .span_w = 1, .span_h = 2,
-        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_BAR,
+        .elements = ELEM_BAR,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "m/m",
-        .title = "RATE",
-        .title_offset_x = 4, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_MID,
+        .unit = NULL,
+        .title = NULL,
+        .title_offset_x = 0, .title_offset_y = 0, .title_align = LV_ALIGN_TOP_MID,
         .spec.basic = { .value_offset_x = 4, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
