@@ -594,6 +594,22 @@ void ui_vm_edit_time_alarm_update(ui_vm_edit_spec_t *vm, uint16_t value)
     (void)snprintf(vm->label, sizeof(vm->label), "%s", "TIME:");
 }
 
+void ui_vm_edit_ndl_alarm_update(ui_vm_edit_spec_t *vm, uint16_t value)
+{
+    if (vm == NULL)
+    {
+        return;
+    }
+
+    (void)memset(vm, 0, sizeof(*vm));
+    vm->value = (float)value;
+    vm->min = 0.0f;
+    vm->max = 80.0f;
+    vm->step = 1.0f;
+    vm->decimals = 0U;
+    (void)snprintf(vm->label, sizeof(vm->label), "%s", "NDL:");
+}
+
 void ui_vm_edit_datetime_update(ui_vm_edit_spec_t *vm, uint8_t field, uint16_t value)
 {
     if (vm == NULL)

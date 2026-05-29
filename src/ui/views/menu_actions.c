@@ -373,11 +373,6 @@ bool menu_actions_handle_select(uint8_t row_index,
         return true;
     }
 
-    if (menu_runtime_current_id() == MENU_ALERTS_SETUP && row->id == MENU_ITEM_ALERT_NDL)
-    {
-        return true;
-    }
-
     out_action->type = MENU_ACTION_SHOW_TEXT_MODAL;
     out_action->modal_text = row->label;
     return true;

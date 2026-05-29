@@ -165,6 +165,7 @@ void bus_set_brightness(uint8_t level);
 void bus_set_log_rate(uint8_t seconds);
 void bus_set_safety_stop_mode(uint8_t mode);
 void bus_set_altitude_level(uint8_t level);
+void bus_set_ndl_alarm_min(uint16_t minutes);
 
 /* --- 技术潜水参数接口 --- */
 void bus_set_mod(float mod_m);
@@ -257,6 +258,7 @@ uint8_t bus_get_brightness(void);
 uint8_t bus_get_log_rate(void);
 uint8_t bus_get_safety_stop_mode(void);
 uint8_t bus_get_altitude_level(void);
+uint16_t bus_get_ndl_alarm_min(void);
 bool bus_is_heading_locked(void);
 uint16_t bus_get_heading(void);
 uint16_t bus_get_heading_target(void);

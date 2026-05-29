@@ -177,6 +177,7 @@ void ui_on_time_alarm_set(uint16_t minutes)
 WEAK_CALLBACK
 void ui_on_ndl_alarm_set(uint16_t minutes)
 {
+    bus_set_ndl_alarm_min(minutes);
     printf("[ALERT_SETUP] NDL alarm: %umin\n", minutes);
 }
 
@@ -233,6 +234,7 @@ void ui_on_reset_defaults(void)
     bus_set_safety_stop_mode(UI_SAFETY_STOP_DEFAULT);
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
+    bus_set_ndl_alarm_min(5U);
     printf("[DISPLAY_SETUP] Reset defaults\n");
 }
 
@@ -250,7 +252,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->altitude_level = bus_get_altitude_level();
     out_snapshot->depth_alarm_m = 40U;
     out_snapshot->time_alarm_min = 60U;
-    out_snapshot->ndl_alarm_min = 5U;
+    out_snapshot->ndl_alarm_min = bus_get_ndl_alarm_min();
     out_snapshot->units_mode = 0U;
     out_snapshot->log_rate_s = bus_get_log_rate();
     out_snapshot->bluetooth_enabled = 0U;

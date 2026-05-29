@@ -89,6 +89,7 @@ static void format_edit_committed_text(char *buf, size_t buf_size, submenu_setti
     case SUBMENU_SETTING_OC_TECH_GAS: snprintf(buf, buf_size, "%s PERCENT: %.0f%%", (arg % 2U) ? "HE" : "O2", (double)value); break;
     case SUBMENU_SETTING_DEPTH_ALARM: snprintf(buf, buf_size, "DEPTH ALARM: %.0fm", (double)value); break;
     case SUBMENU_SETTING_TIME_ALARM: snprintf(buf, buf_size, "TIME ALARM: %.0fmin", (double)value); break;
+    case SUBMENU_SETTING_NDL_ALARM: snprintf(buf, buf_size, "LOW NDL ALARM: %.0fmin", (double)value); break;
     case SUBMENU_SETTING_DATETIME_FIELD:
         switch (arg)
         {
@@ -113,6 +114,7 @@ static void dispatch_edit_setting_callback(submenu_setting_kind_t kind, uint8_t 
     case SUBMENU_SETTING_MOD_PPO2: ui_on_mod_ppo2_set(value); break;
     case SUBMENU_SETTING_DEPTH_ALARM: ui_on_depth_alarm_set((uint16_t)(value + 0.5f)); break;
     case SUBMENU_SETTING_TIME_ALARM: ui_on_time_alarm_set((uint16_t)(value + 0.5f)); break;
+    case SUBMENU_SETTING_NDL_ALARM: ui_on_ndl_alarm_set((uint16_t)(value + 0.5f)); break;
     case SUBMENU_SETTING_DATETIME_FIELD: ui_on_datetime_field_set(arg, (uint16_t)(value + 0.5f)); break;
     default: break;
     }

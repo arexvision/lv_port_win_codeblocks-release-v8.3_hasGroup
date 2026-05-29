@@ -975,6 +975,14 @@ void bus_set_altitude_level(uint8_t level)
     }
 }
 
+void bus_set_ndl_alarm_min(uint16_t minutes)
+{
+    if (g_sys_config.ndl_alarm_min != minutes)
+    {
+        g_sys_config.ndl_alarm_min = minutes;
+    }
+}
+
 void bus_set_salinity_mode(uint8_t mode)
 {
     if (mode > 2U) mode = 0U;
@@ -1510,6 +1518,11 @@ uint8_t bus_get_safety_stop_mode(void)
 uint8_t bus_get_altitude_level(void)
 {
     return g_sys_config.altitude_level;
+}
+
+uint16_t bus_get_ndl_alarm_min(void)
+{
+    return g_sys_config.ndl_alarm_min;
 }
 
 uint8_t bus_get_dive_log_count(void)

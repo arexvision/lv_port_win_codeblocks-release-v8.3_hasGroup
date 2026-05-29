@@ -76,6 +76,7 @@ typedef struct
     uint8_t log_rate_s;
     uint8_t safety_stop_mode;
     uint8_t altitude_level;
+    uint16_t ndl_alarm_min;
 } sys_config_t;
 #pragma pack(pop)
 

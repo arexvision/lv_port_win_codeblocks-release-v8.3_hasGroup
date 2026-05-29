@@ -1557,6 +1557,19 @@ bool submenu_edit_spec_from_selection(const char *current_title,
         return true;
     }
 
+    if (strcmp(clean_title, "ALERTS SETUP") == 0 && item_index == 2)
+    {
+        ui_vm_edit_ndl_alarm_update(&vm_edit, s_ndl_alarm_min);
+        out_spec->kind = SUBMENU_SETTING_NDL_ALARM;
+        out_spec->value = vm_edit.value;
+        out_spec->min = vm_edit.min;
+        out_spec->max = vm_edit.max;
+        out_spec->step = vm_edit.step;
+        out_spec->decimals = vm_edit.decimals;
+        lv_snprintf(out_spec->label, sizeof(out_spec->label), "%s", vm_edit.label);
+        return true;
+    }
+
     if (strcmp(clean_title, "DATE & CLOCK") == 0)
     {
         out_spec->kind = SUBMENU_SETTING_DATETIME_FIELD;
@@ -1754,6 +1767,9 @@ bool submenu_edit_spec_from_ids(menu_id_t current_menu,
         break;
     case MENU_ITEM_ALERT_TIME:
         item_index = 1U;
+        break;
+    case MENU_ITEM_ALERT_NDL:
+        item_index = 2U;
         break;
     default:
     {
