@@ -74,6 +74,9 @@ typedef struct
     uint8_t last_deco_stop_m;
     uint8_t brightness;
     uint8_t log_rate_s;
+    uint8_t safety_stop_depth_m;
+    uint8_t safety_stop_time_min;
+    uint8_t altitude_level;
 } sys_config_t;
 #pragma pack(pop)
 

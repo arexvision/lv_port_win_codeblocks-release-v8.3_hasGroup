@@ -946,6 +946,31 @@ void bus_set_log_rate(uint8_t seconds)
     g_sys_config.log_rate_s = UI_LOG_RATE_DEFAULT_S;
 }
 
+void bus_set_safety_stop_depth(uint8_t depth_m)
+{
+    if (g_sys_config.safety_stop_depth_m != depth_m)
+    {
+        g_sys_config.safety_stop_depth_m = depth_m;
+    }
+}
+
+void bus_set_safety_stop_time(uint8_t minutes)
+{
+    if (g_sys_config.safety_stop_time_min != minutes)
+    {
+        g_sys_config.safety_stop_time_min = minutes;
+    }
+}
+
+void bus_set_altitude_level(uint8_t level)
+{
+    if (g_sys_config.altitude_level != level)
+    {
+        g_sys_config.altitude_level = level;
+        g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
+    }
+}
+
 void bus_set_salinity_mode(uint8_t mode)
 {
     if (mode > 2U) mode = 0U;
@@ -1471,6 +1496,21 @@ uint8_t bus_get_log_rate(void)
         return g_sys_config.log_rate_s;
     }
     return UI_LOG_RATE_DEFAULT_S;
+}
+
+uint8_t bus_get_safety_stop_depth(void)
+{
+    return g_sys_config.safety_stop_depth_m;
+}
+
+uint8_t bus_get_safety_stop_time(void)
+{
+    return g_sys_config.safety_stop_time_min;
+}
+
+uint8_t bus_get_altitude_level(void)
+{
+    return g_sys_config.altitude_level;
 }
 
 uint8_t bus_get_dive_log_count(void)
