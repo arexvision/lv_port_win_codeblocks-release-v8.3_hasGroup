@@ -313,6 +313,7 @@ bool menu_actions_handle_select(uint8_t row_index,
     {
         return false;
     }
+    out_action->keep_index = row_index;
 
     if (row->id == MENU_ITEM_BACK)
     {
