@@ -354,10 +354,11 @@ Buhlmann::Buhlmann(float waterVapourPressureCorrection) {
 	
 	// GF99 颜色/阈值追踪（0=normal,1=yellow,2=red）
 	_safetyStopEnabled = true;
-	_safetyStopDepthMeters = 3.0f;
+	_safetyStopMode = BUHLMANN_SAFETY_STOP_3MIN;
+	_safetyStopDepthMeters = 5.0f;
 	_safetyStopDurationSeconds = 180;
 	_safetyStopArmDepthMeters = 10.0f;
-	_safetyStopZoneHalfWidthMeters = 1.5f;
+	_safetyStopZoneHalfWidthMeters = 2.5f;
 	_safetyStopSurfaceResetDepthMeters = 0.8f;
 	_safetyStopArmed = false;
 	_safetyStopCompleted = false;
@@ -868,7 +869,47 @@ void Buhlmann::setSafetyStopConfig(float depthMeters, int durationSeconds) {
 	}
 	_safetyStopDepthMeters = depthMeters;
 	_safetyStopDurationSeconds = durationSeconds;
+	_safetyStopMode = (durationSeconds > 0) ? BUHLMANN_SAFETY_STOP_3MIN : BUHLMANN_SAFETY_STOP_OFF;
 	_safetyStopEnabled = (durationSeconds > 0);
+	resetSafetyStopState(false);
+}
+
+void Buhlmann::setSafetyStopMode(BuhlmannSafetyStopMode mode) {
+	int durationSeconds = 180;
+	bool enabled = true;
+
+	switch (mode) {
+	case BUHLMANN_SAFETY_STOP_OFF:
+		durationSeconds = 0;
+		enabled = false;
+		break;
+	case BUHLMANN_SAFETY_STOP_3MIN:
+		durationSeconds = 180;
+		break;
+	case BUHLMANN_SAFETY_STOP_4MIN:
+		durationSeconds = 240;
+		break;
+	case BUHLMANN_SAFETY_STOP_5MIN:
+		durationSeconds = 300;
+		break;
+	case BUHLMANN_SAFETY_STOP_ADAPT:
+		durationSeconds = 180;
+		break;
+	case BUHLMANN_SAFETY_STOP_CNTUP:
+		durationSeconds = 0;
+		enabled = false;
+		break;
+	default:
+		mode = BUHLMANN_SAFETY_STOP_3MIN;
+		durationSeconds = 180;
+		break;
+	}
+
+	_safetyStopMode = mode;
+	_safetyStopDepthMeters = 5.0f;
+	_safetyStopDurationSeconds = durationSeconds;
+	_safetyStopEnabled = enabled;
+	_safetyStopZoneHalfWidthMeters = 2.5f;
 	resetSafetyStopState(false);
 }
 
@@ -1651,6 +1692,17 @@ void Buhlmann::updateSafetyStop(DiveInfo &diveInfo, unsigned int timeSpentInLeve
         return;
     }
 
+    if (_safetyStopMode == BUHLMANN_SAFETY_STOP_CNTUP) {
+        bool countZone = fabsf(_currentDepth - _safetyStopDepthMeters) <= _safetyStopZoneHalfWidthMeters;
+        if (_currentDepth > _safetyStopArmDepthMeters) {
+            _safetyStopArmed = true;
+            _safetyStopElapsedSeconds = 0;
+        } else if (_safetyStopArmed && countZone) {
+            _safetyStopElapsedSeconds += (int)timeSpentInLevel;
+        }
+        return;
+    }
+
     if (!_safetyStopEnabled || _safetyStopDurationSeconds <= 0 || _safetyStopCompleted) {
         return;
     }
@@ -1668,23 +1720,29 @@ void Buhlmann::updateSafetyStop(DiveInfo &diveInfo, unsigned int timeSpentInLeve
         return;
     }
 
+    int targetSeconds = _safetyStopDurationSeconds;
+    if (_safetyStopMode == BUHLMANN_SAFETY_STOP_ADAPT &&
+        (_maxDepth >= 30.0f || diveInfo.minutesToDeco < 5)) {
+        targetSeconds = 300;
+    }
+
     bool inZone = fabsf(_currentDepth - _safetyStopDepthMeters) <= _safetyStopZoneHalfWidthMeters;
     if (inZone) {
         _safetyStopElapsedSeconds += (int)timeSpentInLevel;
-        if (_safetyStopElapsedSeconds >= _safetyStopDurationSeconds) {
+        if (_safetyStopElapsedSeconds >= targetSeconds) {
             resetSafetyStopState(true);
             return;
         }
     }
 
-    int remainingSeconds = _safetyStopDurationSeconds - _safetyStopElapsedSeconds;
+    int remainingSeconds = targetSeconds - _safetyStopElapsedSeconds;
     if (remainingSeconds < 0) {
         remainingSeconds = 0;
     }
 
     diveInfo.stopType = BUHLMANN_STOP_SAFETY;
     diveInfo.stopDepthMeters = _safetyStopDepthMeters;
-    diveInfo.stopTimeTotalSeconds = _safetyStopDurationSeconds;
+    diveInfo.stopTimeTotalSeconds = targetSeconds;
     diveInfo.stopTimeRemainingSeconds = remainingSeconds;
     diveInfo.inStopZone = inZone;
     diveInfo.ttsSeconds += remainingSeconds;

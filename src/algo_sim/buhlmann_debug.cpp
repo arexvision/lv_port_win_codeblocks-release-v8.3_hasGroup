@@ -23,6 +23,7 @@ static bool s_diving = false;
 static uint8_t s_gf_low_pct = 40U;
 static uint8_t s_gf_high_pct = 85U;
 static uint8_t s_final_deco_stop_depth_m = (uint8_t)DECO_DEFAULT_FINAL_STOP_METERS;
+static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
 
 static WaterType water_type_from_salinity_mode(uint8_t mode)
 {
@@ -352,6 +353,7 @@ void buhlmann_debug_init(void)
     s_buhlmann.setActiveGas(0);
     s_buhlmann.setOxygenRateInGas(0.21f);
     s_buhlmann.setFinalStopDepth((float)s_final_deco_stop_depth_m);
+    s_buhlmann.setSafetyStopMode((BuhlmannSafetyStopMode)s_safety_stop_mode);
 
     DiveResult *initial_result = s_buhlmann.initializeCompartments();
     s_buhlmann.startDive(initial_result, 0U);
@@ -400,6 +402,18 @@ void buhlmann_debug_set_salinity_mode(uint8_t mode)
 
     s_buhlmann.setWaterType(water_type_from_salinity_mode(mode));
     rt_kprintf("[DIVE_SETUP] Salinity mode: %u\n", (unsigned)mode);
+}
+
+void buhlmann_debug_set_safety_stop_mode(uint8_t mode)
+{
+    s_safety_stop_mode = mode;
+
+    if (!s_initialized) {
+        buhlmann_debug_init();
+    }
+
+    s_buhlmann.setSafetyStopMode((BuhlmannSafetyStopMode)s_safety_stop_mode);
+    rt_kprintf("[DIVE_SETUP] Safety stop mode: %s\n", ui_safety_stop_label(mode));
 }
 
 void buhlmann_debug_apply_gases_from_ui(void)

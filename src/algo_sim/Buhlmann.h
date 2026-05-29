@@ -62,6 +62,16 @@ enum BuhlmannStopType
   BUHLMANN_STOP_DECO = 2,
 };
 
+enum BuhlmannSafetyStopMode
+{
+  BUHLMANN_SAFETY_STOP_OFF = 0,
+  BUHLMANN_SAFETY_STOP_3MIN = 1,
+  BUHLMANN_SAFETY_STOP_4MIN = 2,
+  BUHLMANN_SAFETY_STOP_5MIN = 3,
+  BUHLMANN_SAFETY_STOP_ADAPT = 4,
+  BUHLMANN_SAFETY_STOP_CNTUP = 5,
+};
+
 struct DiveResult {
   float compartmentPartialPressures[COMPARTMENT_COUNT];
   float maxDepthInMeters = 0;
@@ -210,6 +220,7 @@ public:
   void setDecoPPO2(float ppo2);
   float getDecoPPO2();
   void setSafetyStopConfig(float depthMeters, int durationSeconds);
+  void setSafetyStopMode(BuhlmannSafetyStopMode mode);
   float getSafetyStopDepth();
   int getSafetyStopDurationSeconds();
 
@@ -391,6 +402,7 @@ private:
   unsigned long _lastDynamicCalcMillis; 
 
   bool _safetyStopEnabled;
+  BuhlmannSafetyStopMode _safetyStopMode;
   float _safetyStopDepthMeters;
   int _safetyStopDurationSeconds;
   float _safetyStopArmDepthMeters;

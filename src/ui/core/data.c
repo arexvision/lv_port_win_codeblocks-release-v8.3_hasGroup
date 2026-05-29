@@ -71,6 +71,16 @@ static void bus_apply_algo_last_deco(uint8_t depth_m)
 #endif
 }
 
+static void bus_apply_algo_safety_stop(uint8_t mode)
+{
+    /* 安全停留模式属于算法输入，PC 仿真侧同步到 Buhlmann 调试驱动。 */
+#ifdef PC_SIMULATOR
+    buhlmann_debug_set_safety_stop_mode(mode);
+#else
+    (void)mode;
+#endif
+}
+
 /* 深度统计累计值 */
 static float    _depth_sum = 0.0f;       /* 深度累计和 */
 static uint32_t _depth_sample_count = 0;  /* 深度采样次数 */
@@ -953,6 +963,7 @@ void bus_set_safety_stop_mode(uint8_t mode)
         g_sys_config.safety_stop_mode = mode;
         g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
     }
+    bus_apply_algo_safety_stop(mode);
 }
 
 void bus_set_altitude_level(uint8_t level)
