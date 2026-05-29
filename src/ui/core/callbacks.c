@@ -165,12 +165,14 @@ void ui_on_mod_ppo2_set(float ppo2)
 WEAK_CALLBACK
 void ui_on_depth_alarm_set(uint16_t depth_m)
 {
+    bus_set_depth_alarm_m(depth_m);
     printf("[ALERT_SETUP] Depth alarm: %um\n", depth_m);
 }
 
 WEAK_CALLBACK
 void ui_on_time_alarm_set(uint16_t minutes)
 {
+    bus_set_time_alarm_min(minutes);
     printf("[ALERT_SETUP] Time alarm: %umin\n", minutes);
 }
 
@@ -234,6 +236,8 @@ void ui_on_reset_defaults(void)
     bus_set_safety_stop_mode(UI_SAFETY_STOP_DEFAULT);
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
+    bus_set_depth_alarm_m(40U);
+    bus_set_time_alarm_min(60U);
     bus_set_ndl_alarm_min(5U);
     printf("[DISPLAY_SETUP] Reset defaults\n");
 }
@@ -250,8 +254,8 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->safety_stop_mode = bus_get_safety_stop_mode();
     out_snapshot->last_deco_stop_m = bus_get_last_deco_stop();
     out_snapshot->altitude_level = bus_get_altitude_level();
-    out_snapshot->depth_alarm_m = 40U;
-    out_snapshot->time_alarm_min = 60U;
+    out_snapshot->depth_alarm_m = bus_get_depth_alarm_m();
+    out_snapshot->time_alarm_min = bus_get_time_alarm_min();
     out_snapshot->ndl_alarm_min = bus_get_ndl_alarm_min();
     out_snapshot->units_mode = 0U;
     out_snapshot->log_rate_s = bus_get_log_rate();

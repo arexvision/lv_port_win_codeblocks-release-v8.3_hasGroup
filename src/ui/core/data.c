@@ -975,6 +975,22 @@ void bus_set_altitude_level(uint8_t level)
     }
 }
 
+void bus_set_depth_alarm_m(uint16_t depth_m)
+{
+    if (g_sys_config.depth_alarm_m != depth_m)
+    {
+        g_sys_config.depth_alarm_m = depth_m;
+    }
+}
+
+void bus_set_time_alarm_min(uint16_t minutes)
+{
+    if (g_sys_config.time_alarm_min != minutes)
+    {
+        g_sys_config.time_alarm_min = minutes;
+    }
+}
+
 void bus_set_ndl_alarm_min(uint16_t minutes)
 {
     if (g_sys_config.ndl_alarm_min != minutes)
@@ -1518,6 +1534,16 @@ uint8_t bus_get_safety_stop_mode(void)
 uint8_t bus_get_altitude_level(void)
 {
     return g_sys_config.altitude_level;
+}
+
+uint16_t bus_get_depth_alarm_m(void)
+{
+    return g_sys_config.depth_alarm_m;
+}
+
+uint16_t bus_get_time_alarm_min(void)
+{
+    return g_sys_config.time_alarm_min;
 }
 
 uint16_t bus_get_ndl_alarm_min(void)

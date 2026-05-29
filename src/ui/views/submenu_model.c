@@ -658,6 +658,8 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         s_units_mode = 0;
         s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
         s_bluetooth_enabled = 0;
+        s_depth_alarm_m = 40U;
+        s_time_alarm_min = 60U;
         s_ndl_alarm_min = 5U;
         break;
     default:

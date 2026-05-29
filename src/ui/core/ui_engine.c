@@ -278,6 +278,8 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->log_rate_s     = UI_LOG_RATE_DEFAULT_S;
     cfg->safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
     cfg->altitude_level = 0;
+    cfg->depth_alarm_m = 40;
+    cfg->time_alarm_min = 60;
     cfg->ndl_alarm_min = 5;
 }
 

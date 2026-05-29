@@ -405,9 +405,9 @@ static void sim_alert_tick(void)
                          sim_alert_update_ascent_critical(now_ms));
     sim_alert_apply_auto(ALARM_ID_WARN_DEPTH_LIMIT,
                          sim_alert_finite(g_sensor_data.depth) &&
-                         g_sensor_data.depth >= (float)s_sim_alert_config.depth_alarm_m);
+                         g_sensor_data.depth >= (float)bus_get_depth_alarm_m());
     sim_alert_apply_auto(ALARM_ID_WARN_TIME_LIMIT,
-                         g_sensor_data.dive_time_s >= ((uint32_t)s_sim_alert_config.time_alarm_min * 60U));
+                         g_sensor_data.dive_time_s >= ((uint32_t)bus_get_time_alarm_min() * 60U));
     sim_alert_apply_auto(ALARM_ID_CRIT_PO2_MAX,
                          has_ppo2 && active_ppo2 >= s_sim_alert_config.ppo2_critical);
     sim_alert_apply_auto(ALARM_ID_WARN_PO2_ELEVATED,
