@@ -206,14 +206,17 @@ static void sync_core_data(const DiveInfo &dive_info, float depth_m)
     bus_set_gas_mix(o2_pct, he_pct);
 
     float surface_pressure = s_buhlmann.getSurfacePressure();
-    float n2_fraction = 1.0f - active_gas.oxygenFraction - active_gas.heliumFraction;
-    float gas_density = (active_gas.oxygenFraction * 1.429f +
+    float ambient_pressure_ata = current_pressure / surface_pressure;
+    float fio2 = active_gas.oxygenFraction;
+    float fihe = active_gas.heliumFraction;
+    float n2_fraction = 1.0f - fio2 - fihe;
+    float gas_density = (fio2 * 1.428f +
                          n2_fraction * 1.251f +
-                         active_gas.heliumFraction * 0.179f) *
-                        (current_pressure / surface_pressure);
+                         fihe * 0.179f) *
+                        ambient_pressure_ata;
     bus_set_gas_density(gas_density);
 
-    float fio2_pct = (active_gas.oxygenFraction * current_pressure / surface_pressure) * 100.0f;
+    float fio2_pct = fio2 * 100.0f;
     bus_set_fio2(fio2_pct);
 
     uint16_t tts_val = (uint16_t)(dive_info.ttsSeconds / 60);

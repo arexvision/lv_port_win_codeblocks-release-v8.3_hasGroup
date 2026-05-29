@@ -362,6 +362,18 @@ static void debug_format_gas_name(char *out, size_t out_size, int o2, int he)
 
 static void debug_exec_line(char *line);
 
+static void debug_update_gas_derived(void)
+{
+    float fio2 = (float)bus_get_gas_mix_o2() / 100.0f;
+    float fihe = (float)bus_get_gas_mix_he() / 100.0f;
+    float fin2 = 1.0f - fio2 - fihe;
+    float ambient_ata = 1.0f + g_sensor_data.depth / 10.0f;
+    float surface_density = fio2 * 1.428f + fihe * 0.179f + fin2 * 1.251f;
+
+    bus_set_fio2(fio2 * 100.0f);
+    bus_set_gas_density(surface_density * ambient_ata);
+}
+
 static void debug_apply_depth_sample(float depth)
 {
     uint32_t sample_time_s;
@@ -395,6 +407,7 @@ static void debug_apply_depth_sample(float depth)
 
     dive_log_append_sampled((float)sample_time_s, depth);
     bus_set_depth(depth);
+    debug_update_gas_derived();
     sim_alert_tick();
 }
 
@@ -1091,7 +1104,7 @@ static void debug_exec_line(char *line)
             return;
         }
         bus_set_gas_mix((uint8_t)o2, (uint8_t)he);
-        bus_set_fio2((float)o2);
+        debug_update_gas_derived();
         debug_sendf("OK mix %d/%d\r\n", o2, he);
         return;
     }
