@@ -159,56 +159,36 @@ void sys_config_defaults(sys_config_t *cfg)
      */
     /* 兼容新架：custom_cards[1] 是首屏空白自定义卡，custom_cards[0] 保留默认卡片内容。 */
     cfg->custom_card_count = 2;
-    cfg->custom_cards[0].widget_count = 12;
+    cfg->custom_cards[0].widget_count = 7;
     cfg->custom_cards[1].widget_count = 0;
     /* 下面这些 widget 配置决定右侧 5F 自定义卡片的格子内容和位置。 */
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
     {
-        COMP_DEPTH_1612,      0, 0
+        COMP_TISSUE_RAW_4012, 0, 0
     };
     cfg->custom_cards[0].widgets[1]  = (grid_widget_t)
     {
-        COMP_TEMP_0806,       2, 0
+        COMP_FIO2_0806,       4, 0
     };
     cfg->custom_cards[0].widgets[2]  = (grid_widget_t)
     {
-        COMP_HEADING_0806,   4, 0
+        COMP_CEILING_0806,    4, 1
     };
     cfg->custom_cards[0].widgets[3]  = (grid_widget_t)
     {
-        COMP_GF99_0806,     0, 2
+        COMP_TISSUE_GF_4012,  0, 2
     };
     cfg->custom_cards[0].widgets[4]  = (grid_widget_t)
     {
-        COMP_BATTERY_0806,   2, 2
+        COMP_ASCENT_0812,     4, 2
     };
     cfg->custom_cards[0].widgets[5]  = (grid_widget_t)
     {
-        COMP_PPO2_0806,       4, 2
+        COMP_GAS_MIX_1606,    0, 4
     };
     cfg->custom_cards[0].widgets[6]  = (grid_widget_t)
     {
-        COMP_NDL_STOP_1606,  0, 3
-    };
-    cfg->custom_cards[0].widgets[7]  = (grid_widget_t)
-    {
-        COMP_TTS_0806,       2, 3
-    };
-    cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
-    {
-        COMP_CNS_0806,       4, 3
-    };
-    cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
-    {
-        COMP_DEPTH_MAX_0806,  0, 4
-    };
-    cfg->custom_cards[0].widgets[10] = (grid_widget_t)
-    {
-        COMP_DEPTH_AVG_0806,  2, 4
-    };
-    cfg->custom_cards[0].widgets[11] = (grid_widget_t)
-    {
-        COMP_OTU_0806,        4, 4
+        COMP_ASCENT_0806,     2, 4
     };
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
