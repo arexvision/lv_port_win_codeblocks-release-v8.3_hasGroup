@@ -14,7 +14,7 @@
 #include <string.h>
 
 #ifndef TCP_ALGO_DEBUG
-#define TCP_ALGO_DEBUG 1
+#define TCP_ALGO_DEBUG 0
 #endif
 
 static lv_timer_t *s_sim_timer;
@@ -431,11 +431,22 @@ static void sim_tick_cb(lv_timer_t *t)
     }
 
     {
-        static const uint8_t s_tissue[16] = {
+        static const uint8_t s_tissue_raw[16] = {
             20, 30, 40, 50, 60, 65, 70, 72,
             74, 76, 78, 80, 82, 85, 88, 90
         };
-        bus_set_tissues(s_tissue);
+        uint8_t tissue_gf[16];
+        uint8_t gf_high = bus_get_gf_high();
+        if (gf_high == 0U)
+        {
+            gf_high = 85U;
+        }
+        for (uint8_t i = 0U; i < 16U; i++)
+        {
+            uint16_t gf_pct = (uint16_t)s_tissue_raw[i] * 100U / gf_high;
+            tissue_gf[i] = (gf_pct > 200U) ? 200U : (uint8_t)gf_pct;
+        }
+        bus_set_tissue_loads(s_tissue_raw, tissue_gf);
     }
 
     sim_alert_tick();

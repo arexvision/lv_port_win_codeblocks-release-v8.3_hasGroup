@@ -43,6 +43,7 @@ typedef struct
 {
     lv_obj_t *chart;
     lv_obj_t *placeholder;
+    comp_id_t widget_id;
     ui_vm_deco_t vm;
 } tissue_handle_t;
 
@@ -284,7 +285,8 @@ static void tissue_chart_draw_cb(lv_event_t *e)
     lv_obj_t *obj = lv_event_get_target(e);
     lv_draw_ctx_t *draw_ctx = lv_event_get_draw_ctx(e);
     lv_area_t *area = &obj->coords;
-    const ui_vm_deco_t *vm = (const ui_vm_deco_t *)lv_event_get_user_data(e);
+    const tissue_handle_t *h = (const tissue_handle_t *)lv_event_get_user_data(e);
+    const ui_vm_deco_t *vm = (h != NULL) ? &h->vm : NULL;
 
     if (vm == NULL)
     {
@@ -307,7 +309,9 @@ static void tissue_chart_draw_cb(lv_event_t *e)
 
     for (uint8_t i = 0U; i < 16U; i++)
     {
-        uint8_t pct = vm->tissue_pct[i];
+        uint8_t pct = (h->widget_id == COMP_TISSUE_RAW_4012) ?
+                      vm->tissue_raw_pct[i] :
+                      vm->tissue_gf_pct[i];
         if (pct > 100U)
         {
             pct = 100U;
@@ -727,12 +731,13 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             {
                 tissue_handle_t *h = &s_tissue_handles[s_tissue_handle_count++];
                 memset(h, 0, sizeof(*h));
+                h->widget_id = w_id;
 
                 h->chart = lv_obj_create(obj);
                 lv_obj_remove_style_all(h->chart);
                 lv_obj_set_size(h->chart, abs_w - 10U, abs_h - 42U);
                 lv_obj_align(h->chart, LV_ALIGN_BOTTOM_MID, 0, -8);
-                lv_obj_add_event_cb(h->chart, tissue_chart_draw_cb, LV_EVENT_DRAW_MAIN, &h->vm);
+                lv_obj_add_event_cb(h->chart, tissue_chart_draw_cb, LV_EVENT_DRAW_MAIN, h);
                 lv_obj_add_flag(h->chart, LV_OBJ_FLAG_HIDDEN);
 
                 h->placeholder = lv_label_create(obj);

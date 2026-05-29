@@ -54,13 +54,13 @@ static void vm_format_pressure(char *out, size_t out_size, const char *label, fl
     }
 }
 
-static uint8_t vm_max_tissue_pct(void)
+static uint8_t vm_max_tissue_gf_pct(void)
 {
     uint8_t max_pct = 0U;
 
     for (uint8_t i = 0U; i < 16U; i++)
     {
-        uint8_t tissue_pct = bus_get_tissue_pct(i);
+        uint8_t tissue_pct = bus_get_tissue_gf_pct(i);
         if (tissue_pct > max_pct)
         {
             max_pct = tissue_pct;
@@ -107,7 +107,7 @@ void ui_vm_info_page_update(ui_vm_info_page_t *vm, uint8_t page_index)
                        (unsigned)(gf_high != 0U ? gf_high : 70U));
         (void)snprintf(vm->lines[1], sizeof(vm->lines[1]), "GF99: %.0f%%", (double)bus_get_gf99());
         (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "SURF GF: %.0f%%", (double)bus_get_surf_gf());
-        (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "TISSUE: %u%%", (unsigned)vm_max_tissue_pct());
+        (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "TISSUE: %u%%", (unsigned)vm_max_tissue_gf_pct());
         (void)snprintf(vm->lines[4], sizeof(vm->lines[4]), "CNS: %u%%", (unsigned)bus_get_cns_pct());
         (void)snprintf(vm->lines[5], sizeof(vm->lines[5]), "OTU: %u", (unsigned)bus_get_otu());
         vm->count = 6U;

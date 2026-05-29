@@ -144,7 +144,8 @@ typedef struct
     float   fio2_pct;
     uint8_t gas_o2_pct;
     uint8_t gas_he_pct;
-    uint8_t  tissue_pct[16];
+    uint8_t  tissue_raw_pct[16];
+    uint8_t  tissue_gf_pct[16];
     uint8_t  cns_pct;
     uint16_t otu;
     bool    deco_violation;

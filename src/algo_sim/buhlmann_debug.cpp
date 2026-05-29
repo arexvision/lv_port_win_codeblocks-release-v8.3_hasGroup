@@ -159,27 +159,36 @@ static void format_gas_name(const Gas &gas, char *name_buf, size_t name_buf_size
 
 static void sync_core_data(const DiveInfo &dive_info, float depth_m)
 {
-    uint8_t tissue_load[16];
+    uint8_t tissue_raw_load[16];
+    uint8_t tissue_gf_load[16];
     float current_pressure = s_buhlmann.calculateHydrostaticPressureFromDepth(depth_m);
     float surface_pressure_bar = s_buhlmann.getSurfacePressure() / 1000.0f;
+    float gf_high = s_buhlmann.getGFHigh();
 
     for (int i = 0; i < 16; i++) {
-        /* Per-compartment SurfGF: reaches GF High when this tissue drives NDL to zero. */
         float tissue_pressure_bar = s_buhlmann.getCompartmentTotalInertLoad(i) / 1000.0f;
         float m_value_bar = s_buhlmann.getCompartmentCombinedA(i) +
                             surface_pressure_bar / s_buhlmann.getCompartmentCombinedB(i);
         float denominator = m_value_bar - surface_pressure_bar;
-        float load_percent = 0.0f;
+        float raw_percent = 0.0f;
+        float gf_percent = 0.0f;
 
         if (denominator > 0.0001f) {
-            load_percent = ((tissue_pressure_bar - surface_pressure_bar) / denominator) * 100.0f;
+            raw_percent = ((tissue_pressure_bar - surface_pressure_bar) / denominator) * 100.0f;
         }
-        if (load_percent > 200.0f) load_percent = 200.0f;
-        if (load_percent < 0.0f) load_percent = 0.0f;
-        tissue_load[i] = (uint8_t)(load_percent + 0.5f);
+        if (gf_high > 0.0001f) {
+            gf_percent = raw_percent / gf_high;
+        }
+
+        if (raw_percent > 200.0f) raw_percent = 200.0f;
+        if (raw_percent < 0.0f) raw_percent = 0.0f;
+        if (gf_percent > 200.0f) gf_percent = 200.0f;
+        if (gf_percent < 0.0f) gf_percent = 0.0f;
+        tissue_raw_load[i] = (uint8_t)(raw_percent + 0.5f);
+        tissue_gf_load[i] = (uint8_t)(gf_percent + 0.5f);
     }
 
-    bus_set_tissues(tissue_load);
+    bus_set_tissue_loads(tissue_raw_load, tissue_gf_load);
     bus_set_cns((uint8_t)dive_info.cns);
     bus_set_otu((uint16_t)dive_info.otu);
     bus_set_gf99(dive_info.gf99);

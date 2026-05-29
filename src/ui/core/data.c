@@ -516,11 +516,13 @@ void bus_set_surf_gf(float surf_gf)
  *   - 真机 RT-Thread: 触发底层 cpsr 关中断，耗时 < 0.1us
  * ========================================================= */
 
-/* 16 组织舱饱和度数组写入（16 字节，必须包临界区） */
-void bus_set_tissues(const uint8_t tissue_pct[16])
+/* 16 组织舱负荷数组写入（RAW/GF 各 16 字节，必须包临界区） */
+void bus_set_tissue_loads(const uint8_t tissue_raw_pct[16],
+                          const uint8_t tissue_gf_pct[16])
 {
     rt_base_t level = rt_hw_interrupt_disable();
-    memcpy(g_sensor_data.tissue_pct, tissue_pct, 16);
+    memcpy(g_sensor_data.tissue_raw_pct, tissue_raw_pct, 16);
+    memcpy(g_sensor_data.tissue_gf_pct, tissue_gf_pct, 16);
     g_sensor_data.dirty_mask |= DIRTY_TISSUES;
     rt_hw_interrupt_enable(level);
 }
@@ -1467,14 +1469,24 @@ uint16_t bus_get_otu(void)
     return g_sensor_data.otu;
 }
 
-uint8_t bus_get_tissue_pct(uint8_t index)
+uint8_t bus_get_tissue_raw_pct(uint8_t index)
 {
     if (index >= 16U)
     {
         return 0U;
     }
 
-    return g_sensor_data.tissue_pct[index];
+    return g_sensor_data.tissue_raw_pct[index];
+}
+
+uint8_t bus_get_tissue_gf_pct(uint8_t index)
+{
+    if (index >= 16U)
+    {
+        return 0U;
+    }
+
+    return g_sensor_data.tissue_gf_pct[index];
 }
 
 uint8_t bus_get_pod_count(void)

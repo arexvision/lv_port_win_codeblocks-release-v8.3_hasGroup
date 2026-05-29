@@ -67,7 +67,7 @@ static bool any_tissue_danger(void)
 {
     for (int i = 0; i < 16; i++)
     {
-        if (s_deco_vm_cache.tissue_pct[i] >= TISSUE_DANGER_PCT) return true;
+        if (s_deco_vm_cache.tissue_gf_pct[i] >= TISSUE_DANGER_PCT) return true;
     }
     return false;
 }
@@ -78,7 +78,7 @@ static void tissue_danger_flash_cb(lv_timer_t *t)
     s_tissue_flash_phase = !s_tissue_flash_phase;
     for (int i = 0; i < 16; i++)
     {
-        if (s_deco_vm_cache.tissue_pct[i] >= TISSUE_DANGER_PCT)
+        if (s_deco_vm_cache.tissue_gf_pct[i] >= TISSUE_DANGER_PCT)
         {
             // 危险时在 亮绿 和 暗绿空槽 之间闪烁
             lv_color_t c = s_tissue_flash_phase ? GREEN : DARK;
@@ -387,7 +387,7 @@ void card_deco_update(void)
 
     for (int i = 0; i < 16; i++)
     {
-        uint8_t pct = s_deco_vm_cache.tissue_pct[i];
+        uint8_t pct = s_deco_vm_cache.tissue_gf_pct[i];
         if (!deco_obj_is_valid(&s_bars[i]))
         {
             continue;
