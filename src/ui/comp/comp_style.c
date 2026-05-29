@@ -301,8 +301,8 @@ static const comp_style_t g_widget_styles[] =
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
         .title = "O2/He",
-        .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = 0, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_TISSUE_GF_4012,
