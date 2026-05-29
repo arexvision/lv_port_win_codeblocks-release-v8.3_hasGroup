@@ -2,6 +2,7 @@
 
 #include "../ui/core/data.h"
 #include "../algo_sim/buhlmann_debug.h"
+#include "sim_alert_policy.h"
 #ifndef PC_SIMULATOR
 #define PC_SIMULATOR
 #endif
@@ -116,6 +117,7 @@ static void sim_reset_for_tcp_debug(void)
     s_sim.temperature_c = 25.0f;
 
     data_init();
+    sim_alert_init();
     dive_log_reset();
     bus_set_depth(0.0f);
     bus_set_ascent_rate(0.0f);
@@ -350,6 +352,7 @@ static void sim_tick_cb(lv_timer_t *t)
             bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
 
             buhlmann_debug_tick(current_depth_m, s_sim.temperature_c, 1U);
+            sim_alert_tick();
         }
     }
     return;
@@ -434,6 +437,8 @@ static void sim_tick_cb(lv_timer_t *t)
         };
         bus_set_tissues(s_tissue);
     }
+
+    sim_alert_tick();
 }
 
 void sim_data_start(void)
@@ -444,8 +449,10 @@ void sim_data_start(void)
 
 #if TCP_ALGO_DEBUG
     debug_link_pc_start();
+    sim_alert_init();
 #else
     sim_seed_original_defaults();
+    sim_alert_init();
 #endif
 
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
