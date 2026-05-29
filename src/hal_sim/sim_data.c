@@ -14,7 +14,7 @@
 #include <string.h>
 
 #ifndef TCP_ALGO_DEBUG
-#define TCP_ALGO_DEBUG 0
+#define TCP_ALGO_DEBUG 1
 #endif
 
 static lv_timer_t *s_sim_timer;
