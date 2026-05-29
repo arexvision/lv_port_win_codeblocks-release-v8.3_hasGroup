@@ -255,10 +255,7 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
         lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
         lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(obj, alarm_color, 0);
-        lv_obj_set_style_border_width(obj, DEBUG_BORDERS ? 1 : 0, 0);
-        lv_obj_set_style_outline_color(obj, alarm_color, 0);
-        lv_obj_set_style_outline_width(obj, phase_on ? 3 : 1, 0);
-        lv_obj_set_style_outline_pad(obj, 0, 0);
+        lv_obj_set_style_border_width(obj, phase_on ? 2 : 1, 0);
         text_color = GREEN;
     }
 
@@ -275,8 +272,6 @@ static void alarm_view_restore_widget_style(lv_obj_t *obj)
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(obj, DARK, 0);
     lv_obj_set_style_border_width(obj, DEBUG_BORDERS ? 1 : 0, 0);
-    lv_obj_set_style_outline_width(obj, 0, 0);
-    lv_obj_set_style_outline_pad(obj, 0, 0);
     alarm_view_set_text_color_recursive(obj, GREEN);
 }
 
