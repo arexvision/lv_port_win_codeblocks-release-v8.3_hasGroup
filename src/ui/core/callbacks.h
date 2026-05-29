@@ -21,6 +21,26 @@ typedef enum
     LIGHT_MODE_BREATH,
 } light_mode_t;
 
+typedef struct
+{
+    uint8_t salinity_mode;
+    uint8_t safety_stop_depth_m;
+    uint8_t safety_stop_time_min;
+    uint8_t last_deco_stop_m;
+    uint8_t altitude_level;
+    uint16_t depth_alarm_m;
+    uint16_t time_alarm_min;
+    uint16_t ndl_alarm_min;
+    uint8_t units_mode;
+    uint8_t log_rate_s;
+    uint8_t bluetooth_enabled;
+    uint16_t datetime_year;
+    uint8_t datetime_month;
+    uint8_t datetime_day;
+    uint8_t datetime_hour;
+    uint8_t datetime_minute;
+} ui_persisted_settings_snapshot_t;
+
 /* 这一层把 UI 操作翻译成业务动作，供菜单和设置页面统一调用。 */
 extern bool g_light_power_state;
 extern light_mode_t g_light_mode_state;
@@ -56,6 +76,7 @@ void ui_on_datetime_action(uint8_t action);
 void ui_on_log_rate_set(uint8_t seconds);
 void ui_on_bluetooth_set(bool enabled);
 void ui_on_reset_defaults(void);
+bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_snapshot);
 
 #ifdef __cplusplus
 }

@@ -283,7 +283,9 @@ void bus_clear_all_dirty(void);
 // /* 重置潜水统计值（开始新潜水时调用） */
 // void bus_reset_stats(void);
 
-/* --- 配置持久化（weak 实现由具体平台覆盖） --- */
+/* --- Legacy 兼容占位接口 ---
+ * 最新架构下 UI core 不再负责配置持久化。
+ * 这两个接口仅保留给旧代码/模拟器兼容，真机主链不要再调用。 */
 bool config_load(sys_config_t *cfg);
 bool config_save(const sys_config_t *cfg);
 

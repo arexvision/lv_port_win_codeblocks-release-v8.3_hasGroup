@@ -63,6 +63,10 @@ void menu_info_create(lv_obj_t *parent)
     render_dynamic_menu(s_list, info_items, info_count, 0, NULL);
 
     screen_register_info_list(s_list);
+    if (ui_state_get_state() == UI_INFO)
+    {
+        screen_set_info_selection(ui_state_get_menu_info_idx());
+    }
 }
 
 void menu_info_update(void)

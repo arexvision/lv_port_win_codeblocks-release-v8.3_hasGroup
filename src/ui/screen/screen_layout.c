@@ -334,8 +334,6 @@ void wall_create(void)
 
 void screen_rebuild_layout(void)
 {
-    printf("[REBUILD_LAYOUT] Enter: visible_dash=%u, dots_pos=%d, layout_order=%d\r\n",
-           page_visible_dash_count(), ui_dots_position_get(), ui_layout_order_get());
     /* 这个入口只重建“空间关系”和“组件挂载关系”，不重建 tileview 页面集合。
      * 适用于安全区尺寸、左右翻转、dots 位置、左侧组件布局等几何类变化。 */
     lv_disp_t *disp = lv_disp_get_default();
@@ -363,8 +361,15 @@ void screen_rebuild_tileview(void)
     uint8_t count = page_count();
     uint8_t saved_dash_page = ui_state_get_dash_page();
     ui_state_t saved_state = ui_state_get_state();
-    uint8_t saved_menu_idx = (saved_state == UI_INFO) ? ui_state_get_menu_info_idx()
-                             : (saved_state == UI_SETUP) ? ui_state_get_menu_setup_idx()
+    ui_state_t saved_sub_parent = ui_state_get_sub_parent();
+    uint8_t saved_sub_idx = ui_state_get_sub_menu_idx();
+    uint8_t saved_sub_depth = ui_state_get_sub_history_depth();
+    uint8_t saved_info_idx = ui_state_get_menu_info_idx();
+    uint8_t saved_setup_idx = ui_state_get_menu_setup_idx();
+    uint8_t saved_menu_idx = (saved_state == UI_INFO) ? saved_info_idx
+                             : (saved_state == UI_SETUP) ? saved_setup_idx
+                             : (saved_sub_parent == UI_INFO) ? saved_info_idx
+                             : (saved_sub_parent == UI_SETUP) ? saved_setup_idx
                              : 0;
     /* 先保存“用户当时在哪一页、处于什么状态”，重建后尽量回到原上下文，
      * 避免 APP 下发布局或设置变化后把用户强行踢回首页。 */
@@ -403,31 +408,74 @@ void screen_rebuild_tileview(void)
                       (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W - ui_panel_gap_px_get()),
                       ui_safe_zone_h_get());
     restore_brightness_overlay_state();
-    if (s_tileview && saved_dash_page < PAGE_COUNT && s_tile_objs[saved_dash_page])
-    {
-        /* 尽量恢复重建前用户正在看的那一页。 */
-        lv_obj_set_tile(s_tileview, s_tile_objs[saved_dash_page], LV_ANIM_OFF);
-    }
-    if (ENABLE_INFO_MENU && saved_dash_page == PAGE_POS_INFO)
+    if (saved_state == UI_INFO)
     {
         ui_state_set_state(UI_INFO);
         ui_state_set_menu_info_idx(saved_menu_idx);
+        ui_state_set_dash_page(PAGE_POS_INFO);
+        ui_go_to_page(PAGE_POS_INFO);
+        screen_set_info_selection(saved_menu_idx);
     }
-    else if (saved_dash_page == page_setup_display_pos())
+    else if (saved_state == UI_SETUP)
     {
         ui_state_set_state(UI_SETUP);
         ui_state_set_menu_setup_idx(saved_menu_idx);
+        ui_state_set_dash_page(page_setup_display_pos());
+        ui_go_to_page(page_setup_display_pos());
+        screen_set_setup_selection(saved_menu_idx);
+    }
+    else if (saved_state == UI_SUB_MENU)
+    {
+        /* 子菜单重建时，先回到对应父页，再重新打开子菜单，避免只剩空壳。 */
+        if (saved_sub_parent == UI_INFO)
+        {
+            ui_state_set_state(UI_INFO);
+            ui_state_set_menu_info_idx(saved_info_idx);
+            ui_state_set_dash_page(PAGE_POS_INFO);
+            ui_go_to_page(PAGE_POS_INFO);
+            screen_set_info_selection(saved_info_idx);
+            if (saved_sub_depth == 0U)
+            {
+                screen_open_info_submenu(saved_info_idx);
+                screen_set_submenu_selection(saved_sub_idx);
+            }
+        }
+        else if (saved_sub_parent == UI_SETUP)
+        {
+            ui_state_set_state(UI_SETUP);
+            ui_state_set_menu_setup_idx(saved_setup_idx);
+            ui_state_set_dash_page(page_setup_display_pos());
+            ui_go_to_page(page_setup_display_pos());
+            screen_set_setup_selection(saved_setup_idx);
+            if (saved_sub_depth == 0U)
+            {
+                screen_open_setup_submenu(saved_setup_idx);
+                screen_set_submenu_selection(saved_sub_idx);
+            }
+        }
+        else
+        {
+            ui_state_set_state(UI_DASH);
+            if (saved_dash_page < PAGE_COUNT && s_tile_objs[saved_dash_page])
+            {
+                ui_go_to_page(saved_dash_page);
+            }
+        }
     }
     else
     {
         /* 如果旧页已经不合法（例如卡片数量变了），则回退到默认动态页。 */
         ui_state_set_state(UI_DASH);
+        if (saved_dash_page < PAGE_COUNT && s_tile_objs[saved_dash_page])
+        {
+            ui_go_to_page(saved_dash_page);
+        }
         if (saved_dash_page < PAGE_POS_DYNAMIC_FIRST || saved_dash_page >= page_setup_display_pos())
         {
             ui_state_set_dash_page(PAGE_POS_DYNAMIC_FIRST);
-            if (s_tileview && s_tile_objs[PAGE_POS_DYNAMIC_FIRST])
+            if (s_tile_objs[PAGE_POS_DYNAMIC_FIRST])
             {
-                lv_obj_set_tile(s_tileview, s_tile_objs[PAGE_POS_DYNAMIC_FIRST], LV_ANIM_OFF);
+                ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
             }
         }
     }

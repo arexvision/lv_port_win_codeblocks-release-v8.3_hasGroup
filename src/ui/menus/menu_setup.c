@@ -92,6 +92,10 @@ void menu_setup_create(lv_obj_t *parent)
     /* 首次创建后，立刻按当前系统配置刷新 badge。 */
     menu_setup_update();
     screen_register_setup_list(s_list);
+    if (ui_state_get_state() == UI_SETUP)
+    {
+        screen_set_setup_selection(ui_state_get_menu_setup_idx());
+    }
 }
 
 void menu_setup_update(void)

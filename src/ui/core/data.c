@@ -891,11 +891,20 @@ void bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high)
 
 void bus_set_conservatism(uint8_t level)
 {
-    uint8_t gf_low = 40U;
-    uint8_t gf_high = 85U;
+    static const uint8_t gf_table[][2] =
+    {
+        { 40U, 95U },
+        { 40U, 85U },
+        { 30U, 70U },
+        { 50U, 70U },
+    };
 
-    (void)ui_gf_from_conservatism_level(level, &gf_low, &gf_high);
-    bus_set_gf_setting(gf_low, gf_high);
+    if (level >= (sizeof(gf_table) / sizeof(gf_table[0])))
+    {
+        level = 0U;
+    }
+
+    bus_set_gf_setting(gf_table[level][0], gf_table[level][1]);
 }
 
 void bus_set_mod_ppo2(float ppo2)
@@ -1630,8 +1639,15 @@ void dive_log_reset(void)
 }
 
 /* =========================================================
- * 配置持久化接口
- * 由具体平台（PC 模拟器 / 真机）提供 weak 实现覆盖
+ * Legacy 配置接口兼容占位
+ *
+ * 最新架构下，UI 配置与用户参数持久化已经收口到：
+ * - system bootstrap
+ * - ui_layout_runtime_restore / ui_runtime_persistence
+ * - user_settings_service / alert_config_service
+ *
+ * 因此 UI core 不再负责直接读写配置。
+ * 这里保留空实现，仅避免历史模拟器/旧代码链接失败。
  * ========================================================= */
 #ifdef PC_SIMULATOR
 #else
@@ -1639,31 +1655,6 @@ __attribute__((weak))    //真机需打开，用于覆盖此默认实现
 #endif
 bool config_load(sys_config_t *cfg)
 {
-    /*
-     * ========== 真机实现模板（删除 #ifdef PC_SIMULATOR 后替换此处） ==========
-     * 说明：
-     *   - cfg 指向 g_sys_config 全局变量
-     *   - 成功返回 true（表示加载了有效配置，UI 不要用默认值）
-     *   - 失败返回 false（表示无配置或配置损坏，UI 用默认值）
-     *
-     * 伪代码结构：
-     *
-     * #define CFG_MAGIC   0xA5EC5F5A
-     * #define CFG_ADDR    (Flash分区起始地址 + 偏移量)
-     *
-     * config_block_t blk;
-     * fal_partition_read(PART_NAME, CFG_ADDR, &blk, sizeof(blk));
-     *
-     * // 验证魔法数
-     * if (blk.magic != CFG_MAGIC) {
-     *     return false;
-     * }
-     *
-     * // 复制主配置（包含 left_widgets 和 custom_5f_widgets）
-     * memcpy(cfg, &tmp, sizeof(sys_config_t));
-     *
-     * return true;
-     */
     (void)cfg;
     return false;
 }
@@ -1674,24 +1665,6 @@ __attribute__((weak))    //真机需打开，用于覆盖此默认实现
 #endif
 bool config_save(const sys_config_t *cfg)
 {
-    /*
-     * ========== 真机实现模板（删除 #ifdef PC_SIMULATOR 后替换此处） ==========
-     * 说明：
-     *   - cfg 指向当前配置（通常即 g_sys_config）
-     *   - 成功返回 true，失败返回 false
-     *
-     * 伪代码结构：
-     *
-     * #define CFG_ADDR    (Flash分区起始地址 + 偏移量)
-     *
-     * // 整块写入（包含 left_widgets 和 custom_5f_widgets）
-     * fal_partition_erase(PART_NAME, CFG_ADDR, sizeof(sys_config_t));
-     * if (fal_partition_write(PART_NAME, CFG_ADDR, cfg, sizeof(sys_config_t)) != sizeof(sys_config_t)) {
-     *     return false;
-     * }
-     *
-     * return true;
-     */
     (void)cfg;
     return false;
 }

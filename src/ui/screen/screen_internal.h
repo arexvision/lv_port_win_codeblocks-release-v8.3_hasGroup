@@ -27,6 +27,8 @@ extern lv_obj_t *s_wall_text_top;
 extern lv_obj_t *s_wall_blocks_top;
 extern lv_obj_t *s_wall_text_bottom;
 extern lv_obj_t *s_wall_blocks_bottom;
+extern lv_obj_t *s_info_list;
+extern lv_obj_t *s_setup_list;
 extern lv_obj_t *s_dot_cont;
 extern lv_obj_t *s_scroll_dots[DASH_PAGE_COUNT];
 extern lv_obj_t *s_brightness_overlay;

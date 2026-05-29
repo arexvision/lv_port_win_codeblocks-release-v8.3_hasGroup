@@ -157,9 +157,10 @@ void sys_config_defaults(sys_config_t *cfg)
      *
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h MCU 样式表自动推
      */
-    /* 兼容新架 使用 custom_cards[0] 存储单张卡片的配*/
-    cfg->custom_card_count = 1;
+    /* 兼容新架：custom_cards[1] 是首屏空白自定义卡，custom_cards[0] 保留默认卡片内容。 */
+    cfg->custom_card_count = 2;
     cfg->custom_cards[0].widget_count = 12;
+    cfg->custom_cards[1].widget_count = 0;
     /* 下面这些 widget 配置决定右侧 5F 自定义卡片的格子内容和位置。 */
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
     {
@@ -167,7 +168,7 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->custom_cards[0].widgets[1]  = (grid_widget_t)
     {
-        COMP_DEPTH_1612,      2, 0
+        COMP_TEMP_0806,       2, 0
     };
     cfg->custom_cards[0].widgets[2]  = (grid_widget_t)
     {
@@ -175,8 +176,8 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->custom_cards[0].widgets[3]  = (grid_widget_t)
     {
-        COMP_EMPTY,           0, 2
-    };  /* SAC 已移*/
+        COMP_GF99_0806,     0, 2
+    };
     cfg->custom_cards[0].widgets[4]  = (grid_widget_t)
     {
         COMP_BATTERY_0806,   2, 2
@@ -199,11 +200,15 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
     {
-        COMP_DEPTH_1612,       0, 4
+        COMP_DEPTH_MAX_0806,  0, 4
     };
     cfg->custom_cards[0].widgets[10] = (grid_widget_t)
     {
-        COMP_DEPTH_1612,       2, 4
+        COMP_DEPTH_AVG_0806,  2, 4
+    };
+    cfg->custom_cards[0].widgets[11] = (grid_widget_t)
+    {
+        COMP_OTU_0806,        4, 4
     };
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
@@ -266,11 +271,12 @@ void sys_config_defaults(sys_config_t *cfg)
      */
     memset(cfg->card_order, PAGE_ID_UNUSED, sizeof(cfg->card_order));
     cfg->card_order[PAGE_POS_INFO]   = PAGE_ID_INFO;//菜单，不算卡
-    cfg->card_order[PAGE_POS_1]      = PAGE_ID_COMPASS;
-    cfg->card_order[PAGE_POS_2]      = PAGE_ID_DECO;
-    cfg->card_order[PAGE_POS_3]      = PAGE_ID_PLAN;
-    cfg->card_order[PAGE_POS_4]      = PAGE_ID_GAS;
-    cfg->card_order[PAGE_POS_5]      = PAGE_ID_CUSTOM_GRID;
+    cfg->card_order[PAGE_POS_1]      = PAGE_ID_CUSTOM_GRID;
+    cfg->card_order[PAGE_POS_2]      = PAGE_ID_COMPASS;
+    cfg->card_order[PAGE_POS_3]      = PAGE_ID_DECO;
+    cfg->card_order[PAGE_POS_4]      = PAGE_ID_PLAN;
+    cfg->card_order[PAGE_POS_5]      = PAGE_ID_GAS;
+    cfg->card_order[PAGE_POS_6]      = PAGE_ID_CUSTOM_GRID;
     /* PAGE_POS_7 ~ PAGE_POS_12 淇濇寔 PAGE_ID_BLANK */
     cfg->card_order[PAGE_POS_SETUP]  = PAGE_ID_SETUP;//菜单，不算卡
 
@@ -280,7 +286,8 @@ void sys_config_defaults(sys_config_t *cfg)
      * ĬϣһCUSTOM_GRID Ƭӳcustom_cards[0]
      */
     memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
-    cfg->custom_card_slot[PAGE_POS_5] = 0;  /* CUSTOM_GRID 映射custom_cards[0] */
+    cfg->custom_card_slot[PAGE_POS_1] = 1;  /* 首屏 CUSTOM_GRID 映射空白 custom_cards[1] */
+    cfg->custom_card_slot[PAGE_POS_6] = 0;  /* 默认 CUSTOM_GRID 映射 custom_cards[0] */
 
     /* ========== [A] 用户设置默认========== */
     cfg->mod_ppo2       = 1.4f;
@@ -373,14 +380,15 @@ const lv_font_t *get_font(uint8_t font_id)
  * 初始化入(UI_main 调用)
  *
  * 启动流程
- *   1. KV 持久化读取配成功则直接使
- *   2. KV 无数读取失败 填入默认
- *   3. 传感器数据清零（sim_tick_cb / 外部 API 实时写入
+ *   1. 布局/参数恢复由 bootstrap + service 层先完成
+ *   2. UI core 只兜底默认值，不再直接参与配置持久化
+ *   3. 传感器数据清零（sim_tick_cb / 外部 API 实时写入）
  * ========================================================= */
 void ui_init(void)
 {
-    /* 1. 加载持久化配置，失败则用默认值保*/
-    if (!config_load(&g_sys_config))
+    /* 1. UI core 不再自行读取持久化配置。
+     * 持久化恢复已在 system bootstrap 阶段完成，这里只做“是否已有有效配置”的兜底判断。 */
+    if (g_sys_config.safe_zone_w == 0U || g_sys_config.safe_zone_h == 0U)
     {
         sys_config_defaults(&g_sys_config);
     }

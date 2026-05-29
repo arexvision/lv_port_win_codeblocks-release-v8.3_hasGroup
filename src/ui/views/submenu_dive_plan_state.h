@@ -33,6 +33,8 @@ bool submenu_dive_plan_handle_action(menu_item_id_t item_id,
                                      uint8_t *out_keep_index);
 /* UI 定时器轮询后台计划计算结果；返回 true 表示页面需要刷新。 */
 bool submenu_dive_plan_poll_async(void);
+/* 计算任务是否仍在后台运行。 */
+bool submenu_dive_plan_is_calculating(void);
 
 void submenu_dive_plan_set_page(dive_plan_page_t page);
 dive_plan_page_t submenu_dive_plan_get_page(void);

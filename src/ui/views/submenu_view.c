@@ -24,6 +24,15 @@ static lv_obj_t *s_submenu_list = NULL;
 static lv_obj_t *s_light_status_lbl = NULL;
 static uint16_t s_submenu_width = 0;
 static uint16_t s_submenu_height = 0;
+static ui_vm_dive_plan_view_t s_dive_plan_last_vm;
+static bool s_dive_plan_last_vm_valid = false;
+
+static void submenu_dive_plan_render_cache_reset(void)
+{
+    /* 潜水计划页会被频繁刷新，必须把上一次已渲染内容的缓存一起清掉。 */
+    (void)memset(&s_dive_plan_last_vm, 0, sizeof(s_dive_plan_last_vm));
+    s_dive_plan_last_vm_valid = false;
+}
 
 static bool submenu_is_dive_plan_visible(void)
 {
@@ -80,6 +89,7 @@ void submenu_view_reset(void)
     s_light_status_lbl = NULL;
     s_submenu_width = 0;
     s_submenu_height = 0;
+    submenu_dive_plan_render_cache_reset();
     menu_runtime_reset();
     menu_actions_clear_pending();
 }
@@ -440,8 +450,16 @@ static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
 
     ui_vm_dive_plan_view_update(&vm);
 
+    if (s_dive_plan_last_vm_valid && (memcmp(&s_dive_plan_last_vm, &vm, sizeof(vm)) == 0))
+    {
+        /* 页面内容没变化时直接复用现有对象，避免把 LCD 消息队列刷爆。 */
+        return;
+    }
+
     int w = (int)submenu_right_width();
 
+    s_dive_plan_last_vm = vm;
+    s_dive_plan_last_vm_valid = true;
     lv_obj_clean(s_submenu_list);
     s_light_status_lbl = NULL;
 
@@ -700,6 +718,7 @@ void screen_open_info_submenu(uint8_t item_idx)
     }
     if (menu_runtime_is_dive_plan())
     {
+        submenu_dive_plan_render_cache_reset();
         submenu_dive_plan_reset();
         menu_runtime_refresh();
     }
@@ -748,6 +767,11 @@ void screen_refresh_info_submenu_if_open(void)
         return;
     }
 
+    if (menu_runtime_is_dive_plan() && submenu_dive_plan_is_calculating())
+    {
+        return;
+    }
+
     refresh_info_submenu_page(ui_state_get_sub_menu_idx());
 }
 
@@ -756,6 +780,10 @@ bool screen_handle_dive_plan_rotate(int8_t dir)
     if ((ui_state_get_state() != UI_SUB_MENU) ||
         (ui_state_get_sub_parent() != UI_INFO) ||
         !submenu_is_dive_plan_visible())
+    {
+        return false;
+    }
+    if (submenu_dive_plan_is_calculating())
     {
         return false;
     }

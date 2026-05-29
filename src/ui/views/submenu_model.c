@@ -109,7 +109,7 @@ static uint8_t s_ai_tank_state[2] = { 0, 0 }; /* 0=UNPAIRED, 1=PAIRING, 2=PAIRED
 static uint8_t s_gtr_enabled = 1;        /* 0=OFF, 1=ON */
 static uint16_t s_depth_alarm_m = 40;
 static uint16_t s_time_alarm_min = 60;
-static const uint8_t s_ndl_alarm_min = 5;
+static uint8_t s_ndl_alarm_min = 5;
 static uint8_t s_units_mode = 0;         /* 0=METRIC, 1=IMPERIAL */
 static uint8_t s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
 static uint8_t s_bluetooth_enabled = 0;  /* 0=OFF, 1=ON */
@@ -118,6 +118,43 @@ static uint8_t s_datetime_month = 5;
 static uint8_t s_datetime_day = 20;
 static uint8_t s_datetime_hour = 12;
 static uint8_t s_datetime_minute = 0;
+
+void submenu_sync_persisted_settings(void)
+{
+    ui_persisted_settings_snapshot_t snapshot;
+
+    if (!ui_get_persisted_settings_snapshot(&snapshot)) {
+        return;
+    }
+
+    {
+        uint8_t safety_stop_time = snapshot.safety_stop_time_min;
+        if (safety_stop_time == 0U) {
+            s_safety_stop_mode = 0U;
+        } else if (safety_stop_time == 4U) {
+            s_safety_stop_mode = 2U;
+        } else if (safety_stop_time == 5U) {
+            s_safety_stop_mode = 3U;
+        } else {
+            s_safety_stop_mode = 1U;
+        }
+    }
+
+    s_salinity_mode = snapshot.salinity_mode;
+    s_last_deco_mode = (snapshot.last_deco_stop_m >= 6U) ? 1U : 0U;
+    s_altitude_level = snapshot.altitude_level;
+    s_depth_alarm_m = snapshot.depth_alarm_m;
+    s_time_alarm_min = snapshot.time_alarm_min;
+    s_ndl_alarm_min = (uint8_t)snapshot.ndl_alarm_min;
+    s_units_mode = snapshot.units_mode;
+    s_log_rate_s = snapshot.log_rate_s;
+    s_bluetooth_enabled = snapshot.bluetooth_enabled;
+    s_datetime_year = snapshot.datetime_year;
+    s_datetime_month = snapshot.datetime_month;
+    s_datetime_day = snapshot.datetime_day;
+    s_datetime_hour = snapshot.datetime_hour;
+    s_datetime_minute = snapshot.datetime_minute;
+}
 
 typedef struct
 {
@@ -634,6 +671,7 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         s_units_mode = 0;
         s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
         s_bluetooth_enabled = 0;
+        s_ndl_alarm_min = 5U;
         break;
     default:
         break;
@@ -711,6 +749,9 @@ static void submenu_commit_edit_value(submenu_setting_kind_t kind, uint8_t arg, 
         break;
     case SUBMENU_SETTING_TIME_ALARM:
         s_time_alarm_min = (uint16_t)(value + 0.5f);
+        break;
+    case SUBMENU_SETTING_NDL_ALARM:
+        s_ndl_alarm_min = (uint8_t)(value + 0.5f);
         break;
     case SUBMENU_SETTING_DATETIME_FIELD:
         submenu_commit_datetime_field(arg, (uint16_t)(value + 0.5f));
@@ -1033,6 +1074,7 @@ static const char **build_nested_dive_setup(uint8_t *out_count)
     ui_vm_dive_context_t ctx_vm;
     ui_vm_dive_setup_menu_t vm;
 
+    submenu_sync_persisted_settings();
     ui_vm_dive_context_update(&ctx_vm);
     ui_vm_dive_setup_menu_update(&vm,
                                  ctx_vm.salinity_mode,
@@ -1053,6 +1095,7 @@ static const char **build_nested_alerts_setup(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
+    submenu_sync_persisted_settings();
     ui_vm_alerts_menu_update(&vm, s_depth_alarm_m, s_time_alarm_min, s_ndl_alarm_min);
     return copy_simple_menu_items(&vm, out_count);
 }
@@ -1061,7 +1104,7 @@ static const char **build_nested_display_sys(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
-    s_log_rate_s = bus_get_log_rate();
+    submenu_sync_persisted_settings();
     ui_vm_display_menu_update(&vm, s_units_mode, s_log_rate_s, s_bluetooth_enabled);
     return copy_simple_menu_items(&vm, out_count);
 }
@@ -1070,6 +1113,7 @@ static const char **build_nested_datetime(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
+    submenu_sync_persisted_settings();
     ui_vm_datetime_menu_update(&vm,
                                s_datetime_year,
                                s_datetime_month,

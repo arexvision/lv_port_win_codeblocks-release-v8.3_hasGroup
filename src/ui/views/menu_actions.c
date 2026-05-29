@@ -55,6 +55,7 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
         if (setting->value < 4)
         {
             static const uint8_t minutes[] = { 0, 3, 4, 5 };
+            ui_on_safety_stop_depth_set(submenu_safety_stop_depth_m((uint8_t)setting->value));
             ui_on_safety_stop_time_set(minutes[setting->value]);
         }
         break;
