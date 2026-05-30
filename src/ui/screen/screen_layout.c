@@ -32,7 +32,7 @@ void left_anchor_rebuild(uint8_t comp_count)
     /* 左锚点重建只关心容器尺寸和子组件重新渲染，不直接使用 comp_count。 */
     (void)comp_count;
     if (!s_left_anchor || !s_safe_zone) return;
-    lv_obj_set_size(s_left_anchor, LEFT_ANCHOR_W, ui_safe_zone_h_get());
+    lv_obj_set_size(s_left_anchor, ui_anchor_w_get(), ui_anchor_h_get());
     lv_obj_clean(s_left_anchor);
     render_left_anchor_grid(s_left_anchor);
 }
@@ -40,19 +40,32 @@ void left_anchor_rebuild(uint8_t comp_count)
 void left_anchor_create(void)
 {
     /* 左锚点是整屏布局的固定参考物，负责承载 2x7 左侧信息网格。 */
+    uint16_t panel_gap = ui_panel_gap_px_get();
+    uint16_t content_w = ui_content_w_get();
+    uint16_t content_h = ui_content_h_get();
+
     s_left_anchor = lv_obj_create(s_safe_zone);
-    lv_obj_set_size(s_left_anchor, LEFT_ANCHOR_W, ui_safe_zone_h_get());
-    if (ui_layout_order_get() == ORDER_NORMAL)
+    lv_obj_set_size(s_left_anchor, ui_anchor_w_get(), ui_anchor_h_get());
+    if (ui_layout_is_vertical_split())
     {
-        /* 正常布局时左锚点固定贴左。 */
-        lv_obj_set_pos(s_left_anchor, 0, 0);
+        if (ui_layout_order_get() == ORDER_NORMAL)
+        {
+            /* 正常布局时左锚点固定贴左。 */
+            lv_obj_set_pos(s_left_anchor, 0, 0);
+        }
+        else
+        {
+            /* 翻转布局时左锚点移动到右侧。 */
+            lv_obj_set_pos(s_left_anchor, (lv_coord_t)(content_w + panel_gap), 0);
+        }
     }
     else
     {
-        /* 翻转布局时左锚点移动到右侧。 */
-        uint16_t panel_gap = ui_panel_gap_px_get();
-        uint16_t right_w = ui_safe_zone_w_get() - LEFT_ANCHOR_W - panel_gap;
-        lv_obj_set_pos(s_left_anchor, (lv_coord_t)(right_w + panel_gap), 0);
+        lv_obj_set_pos(s_left_anchor,
+                       0,
+                       (ui_layout_order_get() == ORDER_NORMAL)
+                       ? 0
+                       : (lv_coord_t)(content_h + panel_gap));
     }
     lv_obj_add_style(s_left_anchor, &s_style_anchor_bg, 0);
     lv_obj_set_style_pad_all(s_left_anchor, 0, 0);
@@ -71,19 +84,36 @@ void safe_zone_reposition(void)
     lv_obj_align(s_safe_zone, LV_ALIGN_CENTER, ui_offset_x_get(), ui_offset_y_get());
 
     uint16_t panel_gap = ui_panel_gap_px_get();
-    uint16_t right_w = ui_safe_zone_w_get() - LEFT_ANCHOR_W - panel_gap;
+    uint16_t content_w = ui_content_w_get();
+    uint16_t content_h = ui_content_h_get();
 
-    if (ui_layout_order_get() == ORDER_NORMAL)
+    if (ui_layout_is_vertical_split())
     {
-        /* 正常模式：左锚点在左，右内容区在右。 */
-        lv_obj_set_pos(s_left_anchor, 0, 0);
-        lv_obj_set_pos(s_right_cont, (lv_coord_t)(LEFT_ANCHOR_W + panel_gap), 0);
+        if (ui_layout_order_get() == ORDER_NORMAL)
+        {
+            /* 正常模式：左锚点在左，右内容区在右。 */
+            lv_obj_set_pos(s_left_anchor, 0, 0);
+            lv_obj_set_pos(s_right_cont, (lv_coord_t)(ui_anchor_w_get() + panel_gap), 0);
+        }
+        else
+        {
+            /* 翻转模式：右内容区在左，左锚点在右。 */
+            lv_obj_set_pos(s_right_cont, 0, 0);
+            lv_obj_set_pos(s_left_anchor, (lv_coord_t)content_w + panel_gap, 0);
+        }
     }
     else
     {
-        /* 翻转模式：右内容区在左，左锚点在右。 */
-        lv_obj_set_pos(s_right_cont, 0, 0);
-        lv_obj_set_pos(s_left_anchor, (lv_coord_t)right_w + panel_gap, 0);
+        if (ui_layout_order_get() == ORDER_NORMAL)
+        {
+            lv_obj_set_pos(s_left_anchor, 0, 0);
+            lv_obj_set_pos(s_right_cont, 0, (lv_coord_t)(ui_anchor_h_get() + panel_gap));
+        }
+        else
+        {
+            lv_obj_set_pos(s_right_cont, 0, 0);
+            lv_obj_set_pos(s_left_anchor, 0, (lv_coord_t)(content_h + panel_gap));
+        }
     }
 
     if (s_left_anchor)
@@ -92,8 +122,13 @@ void safe_zone_reposition(void)
         lv_obj_invalidate(s_left_anchor);
     }
 
-    lv_obj_set_size(s_right_cont, right_w, ui_safe_zone_h_get());
-    s_cached_right_w = right_w;
+    lv_obj_set_size(s_left_anchor, ui_anchor_w_get(), ui_anchor_h_get());
+    lv_obj_set_size(s_right_cont, content_w, content_h);
+    if (s_tileview)
+    {
+        lv_obj_set_size(s_tileview, content_w, content_h);
+    }
+    s_cached_right_w = content_w;
 
     if (s_dot_cont)
     {
@@ -105,19 +140,36 @@ void safe_zone_reposition(void)
         {
             lv_coord_t gap_center_x;
             lv_coord_t gap_center_y = (lv_coord_t)(ui_safe_zone_h_get() / 2U);
-            gap_center_x = (ui_layout_order_get() == ORDER_NORMAL)
-                           ? (lv_coord_t)(LEFT_ANCHOR_W + panel_gap / 2)
-                           : (lv_coord_t)(right_w + panel_gap / 2);
+            if (ui_layout_is_vertical_split())
+            {
+                gap_center_x = (ui_layout_order_get() == ORDER_NORMAL)
+                               ? (lv_coord_t)(ui_anchor_w_get() + panel_gap / 2)
+                               : (lv_coord_t)(content_w + panel_gap / 2);
+            }
+            else
+            {
+                gap_center_x = (lv_coord_t)(content_w - 18U);
+                gap_center_y = (lv_coord_t)((ui_layout_order_get() == ORDER_NORMAL)
+                               ? (ui_anchor_h_get() + panel_gap + content_h / 2U)
+                               : (content_h / 2U));
+            }
             dot_x = gap_center_x - 5;
             dot_y = gap_center_y - (lv_coord_t)(dot_cont_h / 2);
         }
         else if (ui_dots_position_get() == DOTS_RIGHT)
         {
-            lv_coord_t right_cont_x = (ui_layout_order_get() == ORDER_NORMAL)
-                                      ? (lv_coord_t)(LEFT_ANCHOR_W + panel_gap)
-                                      : 0;
-            dot_x = right_cont_x + (lv_coord_t)right_w - 18;
-            dot_y = (lv_coord_t)(ui_safe_zone_h_get() / 2U - (int)dot_cont_h / 2);
+            lv_coord_t content_x = 0;
+            lv_coord_t content_y = 0;
+            if (ui_layout_is_vertical_split() && ui_layout_order_get() == ORDER_NORMAL)
+            {
+                content_x = (lv_coord_t)(ui_anchor_w_get() + panel_gap);
+            }
+            if (!ui_layout_is_vertical_split() && ui_layout_order_get() == ORDER_NORMAL)
+            {
+                content_y = (lv_coord_t)(ui_anchor_h_get() + panel_gap);
+            }
+            dot_x = content_x + (lv_coord_t)content_w - 18;
+            dot_y = content_y + (lv_coord_t)(content_h / 2U - (int)dot_cont_h / 2);
         }
         else if (ui_dots_position_get() == DOTS_BOTTOM)
         {
@@ -165,18 +217,30 @@ void right_panel_create(void)
 {
     /* 右侧面板承载 tileview、页面卡片和滚动指示点。 */
     uint16_t panel_gap = ui_panel_gap_px_get();
-    uint16_t right_w = ui_safe_zone_w_get() - LEFT_ANCHOR_W - panel_gap;
-    s_cached_right_w = right_w;
+    uint16_t content_w = ui_content_w_get();
+    uint16_t content_h = ui_content_h_get();
+    s_cached_right_w = content_w;
 
     s_right_cont = lv_obj_create(s_safe_zone);
-    lv_obj_set_size(s_right_cont, right_w, ui_safe_zone_h_get());
-    if (ui_layout_order_get() == ORDER_NORMAL)
+    lv_obj_set_size(s_right_cont, content_w, content_h);
+    if (ui_layout_is_vertical_split())
     {
-        lv_obj_set_pos(s_right_cont, (lv_coord_t)(LEFT_ANCHOR_W + panel_gap), 0);
+        if (ui_layout_order_get() == ORDER_NORMAL)
+        {
+            lv_obj_set_pos(s_right_cont, (lv_coord_t)(ui_anchor_w_get() + panel_gap), 0);
+        }
+        else
+        {
+            lv_obj_set_pos(s_right_cont, 0, 0);
+        }
     }
     else
     {
-        lv_obj_set_pos(s_right_cont, 0, 0);
+        lv_obj_set_pos(s_right_cont,
+                       0,
+                       (ui_layout_order_get() == ORDER_NORMAL)
+                       ? (lv_coord_t)(ui_anchor_h_get() + panel_gap)
+                       : 0);
     }
     lv_obj_set_style_bg_color(s_right_cont, BLACK, 0);
     lv_obj_set_style_bg_opa(s_right_cont, LV_OPA_COVER, 0);
@@ -185,7 +249,7 @@ void right_panel_create(void)
     lv_obj_clear_flag(s_right_cont, LV_OBJ_FLAG_SCROLLABLE);
 
     s_tileview = lv_tileview_create(s_right_cont);
-    lv_obj_set_size(s_tileview, right_w, ui_safe_zone_h_get());
+    lv_obj_set_size(s_tileview, content_w, content_h);
     lv_obj_set_pos(s_tileview, 0, 0);
     lv_obj_set_style_bg_color(s_tileview, BLACK, 0);
     lv_obj_set_style_bg_opa(s_tileview, LV_OPA_COVER, 0);
@@ -243,17 +307,27 @@ void right_panel_create(void)
         lv_coord_t gap_center_x;
         lv_coord_t gap_center_y = (lv_coord_t)(ui_safe_zone_h_get() / 2U);
         gap_center_x = (ui_layout_order_get() == ORDER_NORMAL)
-                       ? (lv_coord_t)(LEFT_ANCHOR_W + panel_gap / 2)
-                       : (lv_coord_t)(right_w + panel_gap / 2);
+                       ? (lv_coord_t)(ui_anchor_w_get() + panel_gap / 2)
+                       : (lv_coord_t)(content_w + panel_gap / 2);
+        if (!ui_layout_is_vertical_split())
+        {
+            gap_center_x = (lv_coord_t)(content_w - 18U);
+            gap_center_y = (lv_coord_t)((ui_layout_order_get() == ORDER_NORMAL)
+                           ? (ui_anchor_h_get() + panel_gap + content_h / 2U)
+                           : (content_h / 2U));
+        }
         lv_obj_set_pos(s_dot_cont, gap_center_x - 5, gap_center_y - dot_cont_h / 2);
     }
     else if (ui_dots_position_get() == DOTS_RIGHT)
     {
-        lv_coord_t right_cont_x = (ui_layout_order_get() == ORDER_NORMAL)
-                                  ? (lv_coord_t)(LEFT_ANCHOR_W + panel_gap)
-                                  : 0;
-        lv_coord_t dots_x = right_cont_x + right_w - 18;
-        lv_coord_t dots_y = (lv_coord_t)(ui_safe_zone_h_get() / 2U - dot_cont_h / 2);
+        lv_coord_t content_x = (ui_layout_is_vertical_split() && ui_layout_order_get() == ORDER_NORMAL)
+                               ? (lv_coord_t)(ui_anchor_w_get() + panel_gap)
+                               : 0;
+        lv_coord_t content_y = (!ui_layout_is_vertical_split() && ui_layout_order_get() == ORDER_NORMAL)
+                               ? (lv_coord_t)(ui_anchor_h_get() + panel_gap)
+                               : 0;
+        lv_coord_t dots_x = content_x + content_w - 18;
+        lv_coord_t dots_y = content_y + (lv_coord_t)(content_h / 2U - dot_cont_h / 2);
         lv_obj_set_pos(s_dot_cont, dots_x, dots_y);
     }
     else if (ui_dots_position_get() == DOTS_BOTTOM)
@@ -288,7 +362,7 @@ lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 {
     lv_obj_t *w = lv_obj_create(parent);
     lv_coord_t wall_h = (lv_coord_t)ui_tissues_chart_h_px_get();
-    lv_coord_t wall_w = (s_cached_right_w > 0) ? s_cached_right_w : (lv_coord_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W);
+    lv_coord_t wall_w = (s_cached_right_w > 0) ? s_cached_right_w : (lv_coord_t)ui_content_w_get();
     lv_obj_set_size(w, wall_w, wall_h);
     lv_obj_set_pos(w, 0, y);
     lv_obj_set_style_bg_color(w, BLACK, 0);
@@ -321,9 +395,10 @@ lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
 void wall_create(void)
 {
     lv_coord_t wall_h = (lv_coord_t)ui_tissues_chart_h_px_get();
-    lv_coord_t wall_y_bottom = (ui_safe_zone_h_get() > (uint16_t)wall_h)
-                               ? (lv_coord_t)(ui_safe_zone_h_get() - (uint16_t)wall_h)
-                               : (lv_coord_t)ui_safe_zone_h_get();
+    lv_coord_t content_h = (lv_coord_t)ui_content_h_get();
+    lv_coord_t wall_y_bottom = (content_h > wall_h)
+                               ? (lv_coord_t)(content_h - wall_h)
+                               : content_h;
     s_wall_top    = make_wall(s_right_cont, 0);
     s_wall_bottom = make_wall(s_right_cont, wall_y_bottom);
     s_wall_text_top      = lv_obj_get_child(s_wall_top, 0);
@@ -341,8 +416,8 @@ void screen_rebuild_layout(void)
     clear_widget_arrays();
     if (s_left_anchor) lv_obj_clean(s_left_anchor);
     if (s_left_anchor) left_anchor_rebuild(0);
-    grid_5f_rebuild_all();
     safe_zone_reposition();
+    grid_5f_rebuild_all();
     /* 重建后的新对象还没有数据，必须主动补一次全量同步。 */
     screen_refresh_all_widgets();
     restore_brightness_overlay_state();
@@ -401,12 +476,12 @@ void screen_rebuild_tileview(void)
     wall_create();
     submenu_view_create(s_right_cont,
                         s_cached_right_w > 0 ? s_cached_right_w :
-                        (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W - ui_panel_gap_px_get()),
-                        ui_safe_zone_h_get());
+                        ui_content_w_get(),
+                        ui_content_h_get());
     modal_view_create(s_right_cont,
                       s_cached_right_w > 0 ? s_cached_right_w :
-                      (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W - ui_panel_gap_px_get()),
-                      ui_safe_zone_h_get());
+                      ui_content_w_get(),
+                      ui_content_h_get());
     restore_brightness_overlay_state();
     if (saved_state == UI_INFO)
     {

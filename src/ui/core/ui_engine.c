@@ -570,8 +570,24 @@ void ui_update_task(lv_timer_t *timer)
         ctx.max_custom_cards = MAX_CUSTOM_CARDS;
         ctx.layout_order = ui_layout_order_get();
         ctx.safe_zone_w = ui_safe_zone_w_get();
-        ctx.left_anchor_w = LEFT_ANCHOR_W;
+        ctx.left_anchor_w = ui_anchor_w_get();
         ctx.panel_gap_px = ui_panel_gap_px_get();
+        ctx.content_w = ui_content_w_get();
+        ctx.content_h = ui_content_h_get();
+        if (ui_layout_is_vertical_split())
+        {
+            ctx.content_x = (ui_layout_order_get() == ORDER_NORMAL)
+                            ? (uint16_t)(ui_anchor_w_get() + ui_panel_gap_px_get())
+                            : 0U;
+            ctx.content_y = 0U;
+        }
+        else
+        {
+            ctx.content_x = 0U;
+            ctx.content_y = (ui_layout_order_get() == ORDER_NORMAL)
+                            ? (uint16_t)(ui_anchor_h_get() + ui_panel_gap_px_get())
+                            : 0U;
+        }
         ctx.alarm_pending_click = ui_state_get_alarm_pending_click();
         alarm_view_tick(&ctx);
     }

@@ -267,30 +267,44 @@ void card_deco_create(lv_obj_t *parent)
 {
     render_card_title(parent, "TISSUES & DECO");
 
-    int right_canvas_w = (int)(ui_safe_zone_w_get() - 160 - (int)(ui_panel_gap_px_get()));
+    int right_canvas_w = (int)ui_content_w_get();
+    int content_h = (int)ui_content_h_get();
+    int row1_y = DECO_CONTENT_Y;
+    int row2_y = DECO_ROW2_Y;
+    int row3_y = DECO_ROW3_Y;
+    int chart_h = 120;
+    int chart_bottom = -15;
 
-    make_grid_row(parent, DECO_CONTENT_Y,
+    if (!ui_layout_is_vertical_split())
+    {
+        row1_y = CARD_TITLE_H + 8;
+        row2_y = CARD_TITLE_H + 45;
+        row3_y = CARD_TITLE_H + 82;
+        chart_h = (content_h > 250) ? 82 : 70;
+        chart_bottom = -8;
+    }
+
+    make_grid_row(parent, row1_y,
                   "ALGORITHM", "ZHL-16C", NULL,
                   "GF LOW / HIGH", "-- / --", &s_lbl_gf_setting,
                   true, right_canvas_w - 15);
 
-    make_grid_row(parent, DECO_ROW2_Y,
+    make_grid_row(parent, row2_y,
                   "GF99", "--", &s_lbl_gf99,
                   "SurfGF", "--", &s_lbl_surf_gf,
                   true, right_canvas_w - 15);
 
-    make_grid_row(parent, DECO_ROW3_Y,
+    make_grid_row(parent, row3_y,
                   "CNS O2", "--%", &s_lbl_cns,
                   "OTU", "--", &s_lbl_otu,
                   false, right_canvas_w - 15);
 
     int chart_w = right_canvas_w - 40;     /* 增加左右安全边距防截断 */
-    int chart_h = 120;                     /* 固定 120px */
 
     lv_obj_t *chart_container = lv_obj_create(parent);
     lv_obj_remove_style_all(chart_container);
     lv_obj_set_size(chart_container, chart_w, chart_h);
-    lv_obj_align(chart_container, LV_ALIGN_BOTTOM_MID, 0, -15);
+    lv_obj_align(chart_container, LV_ALIGN_BOTTOM_MID, 0, chart_bottom);
 
     /* 🚨 核心修复 1: 缩短标题，防止和右侧的 M-VALUE 撞车！ */
     lv_obj_t *sec_lbl = lv_label_create(parent);

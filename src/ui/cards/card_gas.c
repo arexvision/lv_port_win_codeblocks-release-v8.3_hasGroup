@@ -56,15 +56,30 @@ void card_gas_create(lv_obj_t *parent)
     int right_canvas_w = (int)s_gas_vm_cache.right_canvas_w;
     int row_w = right_canvas_w - 15;   /* 右侧 15px 呼吸间隙 */
     int gap_y = (int)s_gas_vm_cache.gap_y;
+    int row_h = GAS_ROW_H;
+    int content_h = (int)ui_content_h_get();
+    if (!ui_layout_is_vertical_split())
+    {
+        gap_y = 4;
+        row_h = (content_h - CARD_TITLE_H - 30 - (GAS_COUNT - 1) * gap_y) / GAS_COUNT;
+        if (row_h < 34)
+        {
+            row_h = 34;
+        }
+        if (row_h > GAS_ROW_H)
+        {
+            row_h = GAS_ROW_H;
+        }
+    }
 
     for (int i = 0; i < GAS_COUNT; i++)
     {
         /* 气体行：Y 起点紧贴标题区下方，内容区自适应 */
-        lv_coord_t row_y = CARD_TITLE_H + i * (GAS_ROW_H + gap_y);
+        lv_coord_t row_y = CARD_TITLE_H + i * (row_h + gap_y);
 
         lv_obj_t *row = lv_obj_create(parent);
         lv_obj_remove_style_all(row);
-        lv_obj_set_size(row, row_w, GAS_ROW_H);
+        lv_obj_set_size(row, row_w, row_h);
         lv_obj_set_pos(row, 0, row_y);
         lv_obj_set_style_bg_color(row, lv_color_make(0,0,0), 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);

@@ -236,14 +236,12 @@ void screen_create(void)
     wall_create();
     submenu_view_create(s_right_cont,
                              s_cached_right_w > 0 ? s_cached_right_w :
-                             (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W -
-                                        ui_panel_gap_px_get()),
-                             ui_safe_zone_h_get());
+                             ui_content_w_get(),
+                             ui_content_h_get());
     modal_view_create(s_right_cont,
                            s_cached_right_w > 0 ? s_cached_right_w :
-                           (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W -
-                                      ui_panel_gap_px_get()),
-                           ui_safe_zone_h_get());
+                           ui_content_w_get(),
+                           ui_content_h_get());
     restore_brightness_overlay_state();
 
     /* 所有对象准备完成后再加载屏幕，避免用户看到半成品布局。 */
@@ -658,8 +656,7 @@ void screen_refresh_setup_menu(void)
  * ========================================================= */
 lv_obj_t *screen_make_card_title(lv_obj_t *parent, const char *text)
 {
-    uint16_t right_w_fallback = ui_safe_zone_w_get() - LEFT_ANCHOR_W
-                                - ui_panel_gap_px_get();
+    uint16_t right_w_fallback = ui_content_w_get();
     uint16_t right_w = (s_cached_right_w > 0) ? s_cached_right_w : right_w_fallback;
 
     lv_obj_t *lbl = lv_label_create(parent);

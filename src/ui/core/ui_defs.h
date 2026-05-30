@@ -24,6 +24,7 @@ extern "C" {
 #define PHYSICAL_W    640
 #define PHYSICAL_H    480
 #define LEFT_ANCHOR_W  160
+#define TOP_ANCHOR_H   120
 #define CARD_TITLE_H  60
 #define DECO_REFRESH_MS  1000
 

@@ -471,7 +471,7 @@ static void debug_send_help(void)
         "  last_deco <3|6> | final_stop <3|6>\r\n"
         "  cns <pct> | otu <value> | mod <m> | ceiling <m> | mix <o2> <he> | dens <g_l> | fio2 <pct>\r\n"
         "  gas_count <n> | gas <slot> [name] | gas_slot <slot> <o2> <he> <mod> [name]\r\n"
-        "  layout <default|current|gas>\r\n"
+        "  layout <default|current|gas|side|top|bottom>\r\n"
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "  alert ids: asc po2 po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
@@ -581,6 +581,7 @@ static void debug_apply_layout_profile(bool gas_layout)
     debug_layout_fill_left(&payload);
     debug_layout_fill_custom(&payload, gas_layout);
     bus_set_ui_layout(&payload);
+    bus_set_layout_mode(THEME_TECH, ORDER_REVERSE);
 }
 
 static void debug_exec_line(char *line)
@@ -641,8 +642,26 @@ static void debug_exec_line(char *line)
             debug_send_raw("OK layout gas\r\n");
             return;
         }
+        if (debug_streq(profile, "side"))
+        {
+            bus_set_layout_mode(THEME_TECH, ORDER_REVERSE);
+            debug_send_raw("OK layout side\r\n");
+            return;
+        }
+        if (debug_streq(profile, "top"))
+        {
+            bus_set_layout_mode(THEME_CLASSIC, ORDER_NORMAL);
+            debug_send_raw("OK layout top\r\n");
+            return;
+        }
+        if (debug_streq(profile, "bottom"))
+        {
+            bus_set_layout_mode(THEME_CLASSIC, ORDER_REVERSE);
+            debug_send_raw("OK layout bottom\r\n");
+            return;
+        }
 
-        debug_send_raw("ERR usage: layout <default|current|gas>\r\n");
+        debug_send_raw("ERR usage: layout <default|current|gas|side|top|bottom>\r\n");
         return;
     }
 

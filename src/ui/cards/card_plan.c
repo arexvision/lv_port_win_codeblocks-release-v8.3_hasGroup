@@ -352,9 +352,8 @@ void card_plan_create(lv_obj_t *parent)
 {
     render_card_title(parent, "DIVE PLAN TRACK");
 
-    int right_w = (int)ui_safe_zone_w_get() - (int)LEFT_ANCHOR_W
-                  - (int)ui_panel_gap_px_get();
-    int tile_h = (int)ui_safe_zone_h_get();
+    int right_w = (int)ui_content_w_get();
+    int tile_h = (int)ui_content_h_get();
     int chart_x = CHART_PAD;
     int chart_y = CARD_TITLE_H;
     int chart_w = right_w - CHART_PAD * 2;

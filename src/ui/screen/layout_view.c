@@ -92,24 +92,46 @@ void calc_tech_layout(int16_t *out_lx, int16_t *out_ly,
 {
     /* TECH 布局把屏幕分为左锚点和右内容区两部分。 */
     uint16_t gap = ui_panel_gap_px_get();
+    uint16_t anchor_w = ui_anchor_w_get();
+    uint16_t anchor_h = ui_anchor_h_get();
+    uint16_t content_w = ui_content_w_get();
+    uint16_t content_h = ui_content_h_get();
 
-    if (ui_layout_order_get() == ORDER_NORMAL)
+    if (ui_layout_is_vertical_split())
     {
-        *out_lx = 0;
-        *out_rx = (int16_t)(LEFT_ANCHOR_W + gap);
+        if (ui_layout_order_get() == ORDER_NORMAL)
+        {
+            *out_lx = 0;
+            *out_rx = (int16_t)(anchor_w + gap);
+        }
+        else
+        {
+            *out_lx = (int16_t)(content_w + gap);
+            *out_rx = 0;
+        }
+        *out_ly = 0;
+        *out_ry = 0;
     }
     else
     {
-        *out_lx = (int16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W - gap);
+        *out_lx = 0;
         *out_rx = 0;
+        if (ui_layout_order_get() == ORDER_NORMAL)
+        {
+            *out_ly = 0;
+            *out_ry = (int16_t)(anchor_h + gap);
+        }
+        else
+        {
+            *out_ly = (int16_t)(content_h + gap);
+            *out_ry = 0;
+        }
     }
 
-    *out_ly = 0;
-    *out_ry = 0;
-    *out_lw = LEFT_ANCHOR_W;
-    *out_lh = ui_safe_zone_h_get();
-    *out_rw = ui_safe_zone_w_get() - LEFT_ANCHOR_W - gap;
-    *out_rh = ui_safe_zone_h_get();
+    *out_lw = anchor_w;
+    *out_lh = anchor_h;
+    *out_rw = content_w;
+    *out_rh = content_h;
 }
 
 void calc_classic_layout(int16_t *out_top_x, int16_t *out_top_y,
@@ -205,8 +227,7 @@ void render_dynamic_menu(lv_obj_t *parent_card,
     /* 动态菜单按 item_cfg 逐项创建，标题、徽标和边框样式都来自配置表。 */
     if (!parent_card || !items || item_count == 0) return;
 
-    int right_canvas_w = (int)ui_safe_zone_w_get() - LEFT_ANCHOR_W
-                         - (int)ui_panel_gap_px_get();
+    int right_canvas_w = (int)ui_content_w_get();
     int item_w = right_canvas_w - 15;
 
     int current_y = start_y;
@@ -266,8 +287,7 @@ void render_dynamic_menu(lv_obj_t *parent_card,
 void render_card_title(lv_obj_t *parent_card, const char *title_text)
 {
     /* 卡片标题统一用同一套位置、尺寸和省略规则，避免各卡片样式漂移。 */
-    uint16_t right_w = (uint16_t)((int)ui_safe_zone_w_get() - LEFT_ANCHOR_W
-                       - (int)ui_panel_gap_px_get());
+    uint16_t right_w = ui_content_w_get();
 
     lv_obj_t *lbl = lv_label_create(parent_card);
     lv_obj_remove_style_all(lbl);
@@ -361,8 +381,19 @@ static const grid_widget_t *left_find_widget_at_cell(uint8_t col, uint8_t row)
         const comp_style_t *style = comp_get_style(cfg->widget_id);
         uint8_t span_w = (style != NULL) ? style->span_w : 1;
         uint8_t span_h = (style != NULL) ? style->span_h : 1;
-        if (col >= cfg->x && col < (uint8_t)(cfg->x + span_w) &&
-                row >= cfg->y && row < (uint8_t)(cfg->y + span_h))
+        uint8_t origin_col = cfg->x;
+        uint8_t origin_row = cfg->y;
+
+        if (!ui_layout_is_vertical_split())
+        {
+            origin_col = cfg->y;
+            origin_row = cfg->x;
+            span_w = (style != NULL) ? style->span_h : 1;
+            span_h = (style != NULL) ? style->span_w : 1;
+        }
+
+        if (col >= origin_col && col < (uint8_t)(origin_col + span_w) &&
+                row >= origin_row && row < (uint8_t)(origin_row + span_h))
         {
             return cfg;
         }
@@ -382,8 +413,10 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
     s_left_bat_lbl = NULL;
     s_left_prj_lbl = NULL;
 
-    const uint16_t cell_w = LEFT_CELL_W;
-    const uint16_t cell_h = LEFT_CELL_H;
+    const uint8_t grid_cols = ui_layout_is_vertical_split() ? LEFT_COLS : LEFT_ROWS;
+    const uint8_t grid_rows = ui_layout_is_vertical_split() ? LEFT_ROWS : LEFT_COLS;
+    const uint16_t cell_w = (grid_cols > 0U) ? (uint16_t)(ui_anchor_w_get() / grid_cols) : LEFT_CELL_W;
+    const uint16_t cell_h = (grid_rows > 0U) ? (uint16_t)(ui_anchor_h_get() / grid_rows) : LEFT_CELL_H;
 
     for (uint8_t i = 0; i < ui_left_widget_count_get() && i < LEFT_MAX_WIDGETS; i++)
     {
@@ -397,9 +430,18 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
         const comp_style_t *style = comp_get_style(cfg->widget_id);
         uint8_t span_w = (style != NULL) ? style->span_w : 1;
         uint8_t span_h = (style != NULL) ? style->span_h : 1;
+        uint8_t origin_col = cfg->x;
+        uint8_t origin_row = cfg->y;
+        if (!ui_layout_is_vertical_split())
+        {
+            origin_col = cfg->y;
+            origin_row = cfg->x;
+            span_w = (style != NULL) ? style->span_h : 1;
+            span_h = (style != NULL) ? style->span_w : 1;
+        }
 
-        int16_t  abs_x = (int16_t)(cfg->x * cell_w);
-        int16_t  abs_y = (int16_t)(cfg->y * cell_h);
+        int16_t  abs_x = (int16_t)(origin_col * cell_w);
+        int16_t  abs_y = (int16_t)(origin_row * cell_h);
         uint16_t abs_w = span_w * cell_w;
         uint16_t abs_h = span_h * cell_h;
 
@@ -408,13 +450,13 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
                             span_w, span_h, (font_id_t)255);
     }
 
-    for (uint8_t row = 1; row < LEFT_ROWS; row++)
+    for (uint8_t row = 1; row < grid_rows; row++)
     {
         /* 分隔线不是每一行都整条画，而是只在“上下两行属于不同组件”的列段上画。
          * 这样跨行大组件不会被横线切碎，视觉上更接近卡片式拼版。 */
         uint8_t seg_start = 0xFF;
 
-        for (uint8_t col = 0; col < LEFT_COLS; col++)
+        for (uint8_t col = 0; col < grid_cols; col++)
         {
             const grid_widget_t *top_cfg = left_find_widget_at_cell(col, (uint8_t)(row - 1));
             const grid_widget_t *bottom_cfg = left_find_widget_at_cell(col, row);
@@ -430,9 +472,9 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
             else if (seg_start != 0xFF)
             {
                 add_left_anchor_sep_line(left_anchor,
-                                              (lv_coord_t)(seg_start * cell_w),
-                                              (lv_coord_t)(row * cell_h),
-                                              (lv_coord_t)((col - seg_start) * cell_w));
+                                          (lv_coord_t)(seg_start * cell_w),
+                                          (lv_coord_t)(row * cell_h),
+                                          (lv_coord_t)((col - seg_start) * cell_w));
                 seg_start = 0xFF;
             }
         }
@@ -442,7 +484,7 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
             add_left_anchor_sep_line(left_anchor,
                                           (lv_coord_t)(seg_start * cell_w),
                                           (lv_coord_t)(row * cell_h),
-                                          (lv_coord_t)((LEFT_COLS - seg_start) * cell_w));
+                                          (lv_coord_t)((grid_cols - seg_start) * cell_w));
         }
     }
 }
@@ -458,8 +500,7 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
     uint16_t parent_w = lv_obj_get_width(card_custom);
     uint16_t parent_h = lv_obj_get_height(card_custom);
     uint8_t count = ui_custom_card_widget_count_get(custom_card_idx);
-    uint16_t fallback_w = ui_safe_zone_w_get() - LEFT_ANCHOR_W
-                          - ui_panel_gap_px_get();
+    uint16_t fallback_w = ui_content_w_get();
 
     if (parent_w == 0 || parent_w > ui_safe_zone_w_get())
     {
@@ -467,7 +508,7 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
     }
     if (parent_h == 0 || parent_h > ui_safe_zone_h_get())
     {
-        parent_h = ui_safe_zone_h_get();
+        parent_h = ui_content_h_get();
     }
 
     if (count > MAX_5F_WIDGETS)

@@ -31,6 +31,26 @@ static uint8_t vm_clamp_battery(float pct)
     return (uint8_t)pct;
 }
 
+static uint16_t vm_content_w_from_config(const sys_config_t *config)
+{
+    uint16_t gap;
+
+    if (config == NULL)
+    {
+        return ui_content_w_get();
+    }
+
+    if (config->theme_mode == THEME_CLASSIC)
+    {
+        return config->safe_zone_w;
+    }
+
+    gap = (uint16_t)config->panel_gap_u * BASE_U;
+    return (config->safe_zone_w > LEFT_ANCHOR_W + gap)
+           ? (uint16_t)(config->safe_zone_w - LEFT_ANCHOR_W - gap)
+           : 0U;
+}
+
 static void vm_split_decimal_1(float value, int16_t *int_part, uint8_t *dec_part)
 {
     int16_t local_int;
@@ -66,8 +86,7 @@ void ui_vm_compass_update(ui_vm_compass_t *vm,
         vm->heading = bus_get_heading();
         vm->heading_target = bus_get_heading_target();
         vm->locked = bus_is_heading_locked() ? 1U : 0U;
-        vm->right_canvas_w = (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W -
-                                        ui_panel_gap_px_get());
+        vm->right_canvas_w = ui_content_w_get();
         vm->reserved = 0U;
         return;
     }
@@ -75,8 +94,7 @@ void ui_vm_compass_update(ui_vm_compass_t *vm,
     vm->heading = sensor->heading;
     vm->heading_target = sensor->heading_target;
     vm->locked = sensor->heading_locked ? 1U : 0U;
-    vm->right_canvas_w = (uint16_t)(config->safe_zone_w - LEFT_ANCHOR_W -
-                                    (config->gap_u * BASE_U));
+    vm->right_canvas_w = vm_content_w_from_config(config);
 }
 
 void ui_vm_gas_update(ui_vm_gas_t *vm,
@@ -99,8 +117,7 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
         vm->cursor_idx = gas_cursor;
         vm->edit_mode = (state == UI_EDIT_GAS) ? 1U : 0U;
         bool selection_mode = (state == UI_EDIT_GAS || state == UI_MODAL_GAS);
-        vm->right_canvas_w = (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W -
-                                        ui_panel_gap_px_get());
+        vm->right_canvas_w = ui_content_w_get();
         vm->gap_y = (uint8_t)ui_menu_gap_px_get();
 
         if (vm->gas_count == 0U)
@@ -148,8 +165,7 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
     vm->cursor_idx = gas_cursor;
     vm->edit_mode = (state == UI_EDIT_GAS) ? 1U : 0U;
     bool selection_mode = (state == UI_EDIT_GAS || state == UI_MODAL_GAS);
-    vm->right_canvas_w = (uint16_t)(config->safe_zone_w - LEFT_ANCHOR_W -
-                                    ((uint16_t)config->gap_u * BASE_U));
+    vm->right_canvas_w = vm_content_w_from_config(config);
     vm->gap_y = (uint8_t)(config->gap_menu * BASE_U);
 
     if (vm->gas_count == 0U)
@@ -215,8 +231,7 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
         (void)snprintf(vm->otu, sizeof(vm->otu), "%u", (unsigned)bus_get_otu());
         vm->chart_active = ((bus_get_depth() > 0.3f) || (bus_get_dive_time_s() > 0U)) ? 1U : 0U;
         vm->surf_gf_alert = (bus_get_surf_gf() > 100.0f) ? 1U : 0U;
-        vm->right_canvas_w = (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W -
-                                        ui_panel_gap_px_get());
+        vm->right_canvas_w = ui_content_w_get();
         for (uint8_t i = 0U; i < 16U; i++)
         {
             vm->tissue_raw_pct[i] = bus_get_tissue_raw_pct(i);
@@ -236,8 +251,7 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
     vm->gf_high = (sensor->gf_high == 0U) ? 70U : sensor->gf_high;
     vm->chart_active = ((sensor->depth > 0.3f) || (sensor->dive_time_s > 0U)) ? 1U : 0U;
     vm->surf_gf_alert = (sensor->surf_gf > 100.0f) ? 1U : 0U;
-    vm->right_canvas_w = (uint16_t)(config->safe_zone_w - LEFT_ANCHOR_W -
-                                    ((uint16_t)config->gap_u * BASE_U));
+    vm->right_canvas_w = vm_content_w_from_config(config);
     (void)memcpy(vm->tissue_raw_pct, sensor->tissue_raw_pct, sizeof(vm->tissue_raw_pct));
     (void)memcpy(vm->tissue_gf_pct, sensor->tissue_gf_pct, sizeof(vm->tissue_gf_pct));
 }
@@ -354,17 +368,31 @@ void ui_vm_menu_layout_update(ui_vm_menu_layout_t *vm,
 
     if (config == NULL)
     {
-        vm->right_canvas_w = (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W -
-                                        ui_panel_gap_px_get());
-        vm->item_h_px = ui_menu_item_h_px_get();
-        vm->gap_y_px = ui_menu_gap_px_get();
+        vm->right_canvas_w = ui_content_w_get();
+        if (!ui_layout_is_vertical_split())
+        {
+            vm->item_h_px = 38U;
+            vm->gap_y_px = 4U;
+        }
+        else
+        {
+            vm->item_h_px = ui_menu_item_h_px_get();
+            vm->gap_y_px = ui_menu_gap_px_get();
+        }
         return;
     }
 
-    vm->right_canvas_w = (uint16_t)(config->safe_zone_w - LEFT_ANCHOR_W -
-                                    ((uint16_t)config->gap_u * BASE_U));
-    vm->item_h_px = (uint16_t)config->h_menu_item * BASE_U;
-    vm->gap_y_px = (uint16_t)config->gap_menu * BASE_U;
+    vm->right_canvas_w = vm_content_w_from_config(config);
+    if (config->theme_mode == THEME_CLASSIC)
+    {
+        vm->item_h_px = 38U;
+        vm->gap_y_px = 4U;
+    }
+    else
+    {
+        vm->item_h_px = (uint16_t)config->h_menu_item * BASE_U;
+        vm->gap_y_px = (uint16_t)config->gap_menu * BASE_U;
+    }
 }
 
 void ui_vm_value_text_update(ui_vm_value_text_t *vm,

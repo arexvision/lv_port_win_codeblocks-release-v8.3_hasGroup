@@ -158,7 +158,7 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
 
     alarm_view_reset_banner_if_invalid(ctx->safe_zone);
 
-    int card_canvas_w = (int)ctx->safe_zone_w - (int)ctx->left_anchor_w - (int)ctx->panel_gap_px;
+    int card_canvas_w = (int)ctx->content_w;
     if (card_canvas_w < 0)
     {
         card_canvas_w = 0;
@@ -177,15 +177,7 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
     }
 
     lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
-    if (ctx->layout_order == ORDER_NORMAL)
-    {
-        lv_obj_align(s_alarm_banner, LV_ALIGN_TOP_RIGHT, 0, 0);
-    }
-    else
-    {
-        lv_obj_align(s_alarm_banner, LV_ALIGN_TOP_LEFT, 0, 0);
-    }
-    lv_obj_set_y(s_alarm_banner, 0);
+    lv_obj_set_pos(s_alarm_banner, (lv_coord_t)ctx->content_x, (lv_coord_t)ctx->content_y);
 
     lv_obj_move_foreground(s_alarm_banner);
     lv_obj_clear_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);

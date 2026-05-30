@@ -44,7 +44,7 @@ static uint16_t submenu_right_width(void)
 {
     return (s_submenu_width > 0U)
            ? s_submenu_width
-           : (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W - ui_panel_gap_px_get());
+           : ui_content_w_get();
 }
 
 static bool submenu_light_power_on(void)

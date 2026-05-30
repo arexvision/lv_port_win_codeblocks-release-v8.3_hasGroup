@@ -27,6 +27,10 @@ typedef struct
     uint16_t safe_zone_w;
     uint16_t left_anchor_w;
     uint16_t panel_gap_px;
+    uint16_t content_x;
+    uint16_t content_y;
+    uint16_t content_w;
+    uint16_t content_h;
     bool alarm_pending_click;
 } alarm_view_context_t;
 

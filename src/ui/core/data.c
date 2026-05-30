@@ -746,6 +746,36 @@ void bus_toggle_layout_order(void)
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 }
 
+void bus_set_layout_mode(theme_t theme, order_t order)
+{
+    bool changed = false;
+
+    if (theme != THEME_TECH && theme != THEME_CLASSIC)
+    {
+        theme = THEME_TECH;
+    }
+    if (order != ORDER_NORMAL && order != ORDER_REVERSE)
+    {
+        order = ORDER_NORMAL;
+    }
+
+    if (g_sys_config.theme_mode != (uint8_t)theme)
+    {
+        g_sys_config.theme_mode = (uint8_t)theme;
+        changed = true;
+    }
+    if (g_sys_config.layout_order != (uint8_t)order)
+    {
+        g_sys_config.layout_order = (uint8_t)order;
+        changed = true;
+    }
+
+    if (changed)
+    {
+        g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    }
+}
+
 void bus_toggle_theme(void)
 {
     g_sys_config.theme_mode = (g_sys_config.theme_mode == THEME_TECH)
@@ -1113,9 +1143,57 @@ uint16_t ui_tissues_chart_h_px_get(void)
     return (uint16_t)(g_sys_config.h_tissues_chart * BASE_U);
 }
 
+theme_t ui_theme_mode_get(void)
+{
+    return (g_sys_config.theme_mode == THEME_CLASSIC) ? THEME_CLASSIC : THEME_TECH;
+}
+
 order_t ui_layout_order_get(void)
 {
     return g_sys_config.layout_order;
+}
+
+bool ui_layout_is_vertical_split(void)
+{
+    return ui_theme_mode_get() == THEME_TECH;
+}
+
+uint16_t ui_anchor_w_get(void)
+{
+    return ui_layout_is_vertical_split() ? LEFT_ANCHOR_W : ui_safe_zone_w_get();
+}
+
+uint16_t ui_anchor_h_get(void)
+{
+    return ui_layout_is_vertical_split() ? ui_safe_zone_h_get() : TOP_ANCHOR_H;
+}
+
+uint16_t ui_content_w_get(void)
+{
+    uint16_t gap = ui_panel_gap_px_get();
+
+    if (ui_layout_is_vertical_split())
+    {
+        return (ui_safe_zone_w_get() > LEFT_ANCHOR_W + gap)
+               ? (uint16_t)(ui_safe_zone_w_get() - LEFT_ANCHOR_W - gap)
+               : 0U;
+    }
+
+    return ui_safe_zone_w_get();
+}
+
+uint16_t ui_content_h_get(void)
+{
+    uint16_t gap = ui_panel_gap_px_get();
+
+    if (ui_layout_is_vertical_split())
+    {
+        return ui_safe_zone_h_get();
+    }
+
+    return (ui_safe_zone_h_get() > TOP_ANCHOR_H + gap)
+           ? (uint16_t)(ui_safe_zone_h_get() - TOP_ANCHOR_H - gap)
+           : 0U;
 }
 
 uint8_t ui_dots_position_get(void)

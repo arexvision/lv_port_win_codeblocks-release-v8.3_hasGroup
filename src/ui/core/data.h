@@ -188,7 +188,13 @@ uint16_t ui_panel_gap_px_get(void);
 uint16_t ui_menu_gap_px_get(void);
 uint16_t ui_menu_item_h_px_get(void);
 uint16_t ui_tissues_chart_h_px_get(void);
+theme_t ui_theme_mode_get(void);
 order_t ui_layout_order_get(void);
+bool ui_layout_is_vertical_split(void);
+uint16_t ui_anchor_w_get(void);
+uint16_t ui_anchor_h_get(void);
+uint16_t ui_content_w_get(void);
+uint16_t ui_content_h_get(void);
 uint8_t ui_dots_position_get(void);
 uint8_t ui_depth_h_u_get(void);
 uint8_t ui_ndl_h_u_get(void);
@@ -284,6 +290,7 @@ void dive_log_reset(void);
 
 /* --- BLE 布局同步接口（由 BLE 任务调用） --- */
 void bus_set_ui_layout(const ble_ui_sync_payload_t *payload);
+void bus_set_layout_mode(theme_t theme, order_t order);
 
 /* 原子取走当前脏标记：UI 消费本帧 mask，新写入的 dirty 留给下一帧 */
 uint32_t bus_take_dirty(void);
