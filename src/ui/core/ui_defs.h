@@ -160,7 +160,8 @@ typedef enum
     COMP_DEPTH_MAX_0806   = 34,
     COMP_DEPTH_AVG_0806   = 35,
     COMP_TEMP_MIN_0806    = 36,
-    COMP_TEMP_AVG_0806    = 37
+    COMP_TEMP_AVG_0806    = 37,
+    COMP_GYRO_1606        = 38
 } comp_id_t;
 
 typedef enum

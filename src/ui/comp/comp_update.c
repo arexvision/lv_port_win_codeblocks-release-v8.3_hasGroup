@@ -337,6 +337,7 @@ void comp_sync_data(comp_id_t w_id)
      * ========================================================= */
     case COMP_HEADING_0806:
     case COMP_COMPASS_1612:
+    case COMP_GYRO_1606:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 

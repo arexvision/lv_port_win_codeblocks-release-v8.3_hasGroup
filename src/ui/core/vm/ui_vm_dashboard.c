@@ -420,6 +420,9 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     case COMP_HEADING_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%03u", (unsigned)bus_get_heading());
         break;
+    case COMP_GYRO_1606:
+        (void)snprintf(vm->text, sizeof(vm->text), "x:999 y:999 z:999");
+        break;
     case COMP_STOP_DEPTH_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_stop_depth_m());
         break;

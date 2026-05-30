@@ -99,6 +99,7 @@ void ui_update_router_dispatch(uint32_t mask)
     {
         ui_vm_compass_update(&compass_vm, NULL, NULL);
         card_compass_refresh_heading_vm(&compass_vm, false);
+        ui_router_refresh_text_widget(COMP_GYRO_1606, 0U);
     }
 
     if (mask & DIRTY_DIVE_TIME)

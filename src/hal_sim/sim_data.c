@@ -197,6 +197,7 @@ static void test_set_ui_layout(uint8_t phase)
             { COMP_CNS_0806,       3, 4 },
             { COMP_POD_0806,       4, 0 },
             { COMP_POD_0806,       4, 2 },
+            { COMP_GYRO_1606,      4, 3 },
             { COMP_EMPTY,          4, 4 },
         };
 
@@ -229,6 +230,7 @@ static void test_set_ui_layout(uint8_t phase)
             { COMP_BATTERY_0806,   2, 0 },
             { COMP_PPO2_0806,      2, 2 },
             { COMP_NDL_STOP_1606,  3, 0 },
+            { COMP_GYRO_1606,      4, 3 },
             { COMP_EMPTY,          4, 0 },
         };
 
