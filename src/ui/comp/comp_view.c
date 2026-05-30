@@ -28,6 +28,7 @@ LV_IMG_DECLARE(sudo_down_level2);
 
 #define MAX_ASCENT_ICONS  12
 #define MAX_NDL_ICONS     4
+#define MAX_TISSUE_WIDGETS 4
 
 typedef struct
 {
@@ -37,6 +38,14 @@ typedef struct
     lv_obj_t *title_top;
     lv_obj_t *sub_bot;
 } ndl_handle_t;
+
+typedef struct
+{
+    lv_obj_t *chart;
+    lv_obj_t *placeholder;
+    comp_id_t widget_id;
+    ui_vm_deco_t vm;
+} tissue_handle_t;
 
 /* ============================================================
  * 速率图标指针阵列（支持多DEPTH 模块同时存在
@@ -54,6 +63,8 @@ static uint8_t  s_ascent_icon_count = 0;
 static ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
 static uint8_t      s_ndl_handle_count = 0;
 static ui_vm_ndl_stop_t s_ndl_draw_vm[MAX_NDL_ICONS];
+static tissue_handle_t s_tissue_handles[MAX_TISSUE_WIDGETS];
+static uint8_t s_tissue_handle_count;
 
 static uint8_t ui_clamp_battery_pct(float pct)
 {
@@ -153,6 +164,8 @@ void reset_widget_render_state(void)
     memset(s_ndl_handles, 0, sizeof(s_ndl_handles));
     s_ndl_handle_count = 0;
     memset(s_ndl_draw_vm, 0, sizeof(s_ndl_draw_vm));
+    memset(s_tissue_handles, 0, sizeof(s_tissue_handles));
+    s_tissue_handle_count = 0;
 
     s_pod_render_count = 0;
 
@@ -263,6 +276,65 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
             rect_dsc.bg_color = DARK;
             rect_dsc.bg_opa = LV_OPA_COVER;
             lv_draw_rect(draw_ctx, &rect_dsc, &block_area);
+        }
+    }
+}
+
+static void tissue_chart_draw_cb(lv_event_t *e)
+{
+    lv_obj_t *obj = lv_event_get_target(e);
+    lv_draw_ctx_t *draw_ctx = lv_event_get_draw_ctx(e);
+    lv_area_t *area = &obj->coords;
+    const tissue_handle_t *h = (const tissue_handle_t *)lv_event_get_user_data(e);
+    const ui_vm_deco_t *vm = (h != NULL) ? &h->vm : NULL;
+
+    if (vm == NULL)
+    {
+        return;
+    }
+
+    int total_w = lv_area_get_width(area);
+    int total_h = lv_area_get_height(area);
+    int gap = 3;
+    int bar_w = (total_w - gap * 15) / 16;
+    if (bar_w < 2)
+    {
+        bar_w = 2;
+        gap = 2;
+    }
+
+    lv_draw_rect_dsc_t rect_dsc;
+    lv_draw_rect_dsc_init(&rect_dsc);
+    rect_dsc.radius = 0;
+
+    for (uint8_t i = 0U; i < 16U; i++)
+    {
+        uint8_t pct = (h->widget_id == COMP_TISSUE_RAW_4012) ?
+                      vm->tissue_raw_pct[i] :
+                      vm->tissue_gf_pct[i];
+        if (pct > 100U)
+        {
+            pct = 100U;
+        }
+
+        int x1 = area->x1 + (int)i * (bar_w + gap);
+        int x2 = x1 + bar_w - 1;
+        lv_area_t bg = { x1, area->y1, x2, area->y2 };
+
+        rect_dsc.bg_color = DARK;
+        rect_dsc.bg_opa = LV_OPA_COVER;
+        lv_draw_rect(draw_ctx, &rect_dsc, &bg);
+
+        if (pct > 0U)
+        {
+            int fill_h = (total_h * (int)pct) / 100;
+            if (fill_h < 1)
+            {
+                fill_h = 1;
+            }
+            lv_area_t fill = { x1, area->y2 - fill_h + 1, x2, area->y2 };
+            rect_dsc.bg_color = GREEN;
+            lv_draw_rect(draw_ctx, &rect_dsc, &fill);
         }
     }
 }
@@ -655,7 +727,25 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         else if (w_id == COMP_TISSUE_GF_4012 || w_id == COMP_TISSUE_RAW_4012)
         {
-            /* TISSUE (4x2)6 柱组织图，ELEM_BAR 标记spec.tissue 驱动 */
+            if (s_tissue_handle_count < MAX_TISSUE_WIDGETS)
+            {
+                tissue_handle_t *h = &s_tissue_handles[s_tissue_handle_count++];
+                memset(h, 0, sizeof(*h));
+                h->widget_id = w_id;
+
+                h->chart = lv_obj_create(obj);
+                lv_obj_remove_style_all(h->chart);
+                lv_obj_set_size(h->chart, abs_w - 10U, abs_h - 42U);
+                lv_obj_align(h->chart, LV_ALIGN_BOTTOM_MID, 0, -8);
+                lv_obj_add_event_cb(h->chart, tissue_chart_draw_cb, LV_EVENT_DRAW_MAIN, h);
+                lv_obj_add_flag(h->chart, LV_OBJ_FLAG_HIDDEN);
+
+                h->placeholder = lv_label_create(obj);
+                lv_obj_set_style_text_font(h->placeholder, get_font(FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_color(h->placeholder, GREEN, 0);
+                lv_label_set_text(h->placeholder, "--");
+                lv_obj_align(h->placeholder, LV_ALIGN_CENTER, 0, 6);
+            }
         }
         else if (w_id == COMP_SYS_1606)
         {
@@ -683,6 +773,39 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     }
 
     return obj;
+}
+
+void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, uint32_t dirty_mask)
+{
+    if (vm == NULL)
+    {
+        return;
+    }
+    if (s_tissue_handle_count == 0U)
+    {
+        return;
+    }
+    if ((dirty_mask & DIRTY_TISSUES) == 0U)
+    {
+        return;
+    }
+
+    for (uint8_t i = 0U; i < s_tissue_handle_count; i++)
+    {
+        tissue_handle_t *h = &s_tissue_handles[i];
+
+        if (!ui_obj_is_valid(&h->chart) ||
+                !ui_obj_is_valid(&h->placeholder))
+        {
+            memset(h, 0, sizeof(*h));
+            continue;
+        }
+
+        memcpy(&h->vm, vm, sizeof(h->vm));
+        lv_obj_add_flag(h->placeholder, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(h->chart, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_invalidate(h->chart);
+    }
 }
 
 void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)

@@ -29,19 +29,7 @@ static const char *vm_salinity_label(uint8_t value)
 
 static const char *vm_safety_stop_label(uint8_t value)
 {
-    switch (value)
-    {
-    case 0U:
-        return "OFF";
-    case 1U:
-        return "3M";
-    case 2U:
-        return "5M";
-    case 3U:
-        return "6M";
-    default:
-        return "--";
-    }
+    return ui_safety_stop_label(value);
 }
 
 static const char *vm_last_deco_label(uint8_t value)
@@ -604,6 +592,22 @@ void ui_vm_edit_time_alarm_update(ui_vm_edit_spec_t *vm, uint16_t value)
     vm->step = 10.0f;
     vm->decimals = 0U;
     (void)snprintf(vm->label, sizeof(vm->label), "%s", "TIME:");
+}
+
+void ui_vm_edit_ndl_alarm_update(ui_vm_edit_spec_t *vm, uint16_t value)
+{
+    if (vm == NULL)
+    {
+        return;
+    }
+
+    (void)memset(vm, 0, sizeof(*vm));
+    vm->value = (float)value;
+    vm->min = 0.0f;
+    vm->max = 80.0f;
+    vm->step = 1.0f;
+    vm->decimals = 0U;
+    (void)snprintf(vm->label, sizeof(vm->label), "%s", "NDL:");
 }
 
 void ui_vm_edit_datetime_update(ui_vm_edit_spec_t *vm, uint8_t field, uint16_t value)

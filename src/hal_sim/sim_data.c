@@ -2,6 +2,7 @@
 
 #include "../ui/core/data.h"
 #include "../algo_sim/buhlmann_debug.h"
+#include "sim_alert_policy.h"
 #ifndef PC_SIMULATOR
 #define PC_SIMULATOR
 #endif
@@ -69,6 +70,19 @@ static float sim_calc_ppo2(uint8_t o2_pct, float depth_m)
     return ((float)o2_pct / 100.0f) * ambient_bar;
 }
 
+static void sim_update_gas_derived(float depth_m)
+{
+    uint8_t active_idx = bus_get_gas_active_idx();
+    float fio2 = (float)bus_get_gas_slot_o2_pct(active_idx) / 100.0f;
+    float fihe = (float)bus_get_gas_slot_he_pct(active_idx) / 100.0f;
+    float fin2 = 1.0f - fio2 - fihe;
+    float ambient_ata = 1.0f + depth_m / 10.0f;
+    float surface_density = fio2 * 1.428f + fihe * 0.179f + fin2 * 1.251f;
+
+    bus_set_fio2(fio2 * 100.0f);
+    bus_set_gas_density(surface_density * ambient_ata);
+}
+
 static void sim_seed_original_defaults(void)
 {
     bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
@@ -84,8 +98,7 @@ static void sim_seed_original_defaults(void)
     bus_set_mod(33.0f);
     bus_set_ceiling(0.0f);
     bus_set_gas_mix(21, 0);
-    bus_set_gas_density(5.2f);
-    bus_set_fio2(21.0f);
+    sim_update_gas_derived(0.0f);
 }
 
 #if TCP_ALGO_DEBUG
@@ -104,8 +117,7 @@ static void sim_seed_tcp_algo_defaults(void)
     bus_set_mod(56.0f);
     bus_set_ceiling(0.0f);
     bus_set_gas_mix(21, 0);
-    bus_set_gas_density(1.2f);
-    bus_set_fio2(21.0f);
+    sim_update_gas_derived(0.0f);
     bus_update_deco(99, STOP_NONE, 0.0f, 0U, 0U, false);
 }
 
@@ -116,6 +128,7 @@ static void sim_reset_for_tcp_debug(void)
     s_sim.temperature_c = 25.0f;
 
     data_init();
+    sim_alert_init();
     dive_log_reset();
     bus_set_depth(0.0f);
     bus_set_ascent_rate(0.0f);
@@ -350,6 +363,7 @@ static void sim_tick_cb(lv_timer_t *t)
             bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
 
             buhlmann_debug_tick(current_depth_m, s_sim.temperature_c, 1U);
+            sim_alert_tick();
         }
     }
     return;
@@ -426,14 +440,28 @@ static void sim_tick_cb(lv_timer_t *t)
     for (uint8_t i = 0; i < GAS_COUNT; i++) {
         bus_set_ppo2(i, sim_calc_ppo2(g_sensor_data.gas_slot_o2_pct[i], current_depth_m));
     }
+    sim_update_gas_derived(current_depth_m);
 
     {
-        static const uint8_t s_tissue[16] = {
+        static const uint8_t s_tissue_raw[16] = {
             20, 30, 40, 50, 60, 65, 70, 72,
             74, 76, 78, 80, 82, 85, 88, 90
         };
-        bus_set_tissues(s_tissue);
+        uint8_t tissue_gf[16];
+        uint8_t gf_high = bus_get_gf_high();
+        if (gf_high == 0U)
+        {
+            gf_high = 85U;
+        }
+        for (uint8_t i = 0U; i < 16U; i++)
+        {
+            uint16_t gf_pct = (uint16_t)s_tissue_raw[i] * 100U / gf_high;
+            tissue_gf[i] = (gf_pct > 200U) ? 200U : (uint8_t)gf_pct;
+        }
+        bus_set_tissue_loads(s_tissue_raw, tissue_gf);
     }
+
+    sim_alert_tick();
 }
 
 void sim_data_start(void)
@@ -444,8 +472,10 @@ void sim_data_start(void)
 
 #if TCP_ALGO_DEBUG
     debug_link_pc_start();
+    sim_alert_init();
 #else
     sim_seed_original_defaults();
+    sim_alert_init();
 #endif
 
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);

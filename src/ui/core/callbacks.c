@@ -85,22 +85,10 @@ void ui_on_salinity_set(uint8_t mode)
 }
 
 WEAK_CALLBACK
-void ui_on_safety_stop_depth_set(uint8_t depth_m)
+void ui_on_safety_stop_mode_set(uint8_t mode)
 {
-    printf("[DIVE_SETUP] Safety stop depth: %um\n", depth_m);
-}
-
-WEAK_CALLBACK
-void ui_on_safety_stop_time_set(uint8_t minutes)
-{
-    if (minutes == 0)
-    {
-        printf("[DIVE_SETUP] Safety stop: OFF\n");
-    }
-    else
-    {
-        printf("[DIVE_SETUP] Safety stop: %umin\n", minutes);
-    }
+    bus_set_safety_stop_mode(mode);
+    printf("[DIVE_SETUP] Safety stop: %s\n", ui_safety_stop_label(mode));
 }
 
 WEAK_CALLBACK
@@ -121,11 +109,9 @@ void ui_on_altitude_range_set(uint8_t level)
         "1500-2400m",
         "2400-3700m",
     };
-    if (level >= (sizeof(labels) / sizeof(labels[0])))
-    {
-        level = 0;
-    }
-    printf("[DIVE_SETUP] Altitude: %s\n", labels[level]);
+    const char *label = (level < (sizeof(labels) / sizeof(labels[0]))) ? labels[level] : "UNKNOWN";
+    bus_set_altitude_level(level);
+    printf("[DIVE_SETUP] Altitude: %s\n", label);
 }
 
 WEAK_CALLBACK
@@ -179,18 +165,21 @@ void ui_on_mod_ppo2_set(float ppo2)
 WEAK_CALLBACK
 void ui_on_depth_alarm_set(uint16_t depth_m)
 {
+    bus_set_depth_alarm_m(depth_m);
     printf("[ALERT_SETUP] Depth alarm: %um\n", depth_m);
 }
 
 WEAK_CALLBACK
 void ui_on_time_alarm_set(uint16_t minutes)
 {
+    bus_set_time_alarm_min(minutes);
     printf("[ALERT_SETUP] Time alarm: %umin\n", minutes);
 }
 
 WEAK_CALLBACK
 void ui_on_ndl_alarm_set(uint16_t minutes)
 {
+    bus_set_ndl_alarm_min(minutes);
     printf("[ALERT_SETUP] NDL alarm: %umin\n", minutes);
 }
 
@@ -232,7 +221,6 @@ WEAK_CALLBACK
 void ui_on_log_rate_set(uint8_t seconds)
 {
     bus_set_log_rate(seconds);
-    (void)config_save(&g_sys_config);
     printf("[DISPLAY_SETUP] Log rate: %us\n", seconds);
 }
 
@@ -245,7 +233,37 @@ void ui_on_bluetooth_set(bool enabled)
 WEAK_CALLBACK
 void ui_on_reset_defaults(void)
 {
+    bus_set_safety_stop_mode(UI_SAFETY_STOP_DEFAULT);
+    bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
-    (void)config_save(&g_sys_config);
+    bus_set_depth_alarm_m(40U);
+    bus_set_time_alarm_min(60U);
+    bus_set_ndl_alarm_min(5U);
     printf("[DISPLAY_SETUP] Reset defaults\n");
+}
+
+WEAK_CALLBACK
+bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_snapshot)
+{
+    if (out_snapshot == NULL)
+    {
+        return false;
+    }
+
+    out_snapshot->salinity_mode = bus_get_salinity_mode();
+    out_snapshot->safety_stop_mode = bus_get_safety_stop_mode();
+    out_snapshot->last_deco_stop_m = bus_get_last_deco_stop();
+    out_snapshot->altitude_level = bus_get_altitude_level();
+    out_snapshot->depth_alarm_m = bus_get_depth_alarm_m();
+    out_snapshot->time_alarm_min = bus_get_time_alarm_min();
+    out_snapshot->ndl_alarm_min = bus_get_ndl_alarm_min();
+    out_snapshot->units_mode = 0U;
+    out_snapshot->log_rate_s = bus_get_log_rate();
+    out_snapshot->bluetooth_enabled = 0U;
+    out_snapshot->datetime_year = 2026U;
+    out_snapshot->datetime_month = 1U;
+    out_snapshot->datetime_day = 1U;
+    out_snapshot->datetime_hour = 0U;
+    out_snapshot->datetime_minute = 0U;
+    return true;
 }

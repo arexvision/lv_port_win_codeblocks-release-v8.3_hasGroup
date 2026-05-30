@@ -71,6 +71,16 @@ static void bus_apply_algo_last_deco(uint8_t depth_m)
 #endif
 }
 
+static void bus_apply_algo_safety_stop(uint8_t mode)
+{
+    /* 安全停留模式属于算法输入，PC 仿真侧同步到 Buhlmann 调试驱动。 */
+#ifdef PC_SIMULATOR
+    buhlmann_debug_set_safety_stop_mode(mode);
+#else
+    (void)mode;
+#endif
+}
+
 /* 深度统计累计值 */
 static float    _depth_sum = 0.0f;       /* 深度累计和 */
 static uint32_t _depth_sample_count = 0;  /* 深度采样次数 */
@@ -506,11 +516,13 @@ void bus_set_surf_gf(float surf_gf)
  *   - 真机 RT-Thread: 触发底层 cpsr 关中断，耗时 < 0.1us
  * ========================================================= */
 
-/* 16 组织舱饱和度数组写入（16 字节，必须包临界区） */
-void bus_set_tissues(const uint8_t tissue_pct[16])
+/* 16 组织舱负荷数组写入（RAW/GF 各 16 字节，必须包临界区） */
+void bus_set_tissue_loads(const uint8_t tissue_raw_pct[16],
+                          const uint8_t tissue_gf_pct[16])
 {
     rt_base_t level = rt_hw_interrupt_disable();
-    memcpy(g_sensor_data.tissue_pct, tissue_pct, 16);
+    memcpy(g_sensor_data.tissue_raw_pct, tissue_raw_pct, 16);
+    memcpy(g_sensor_data.tissue_gf_pct, tissue_gf_pct, 16);
     g_sensor_data.dirty_mask |= DIRTY_TISSUES;
     rt_hw_interrupt_enable(level);
 }
@@ -944,6 +956,49 @@ void bus_set_log_rate(uint8_t seconds)
     }
 
     g_sys_config.log_rate_s = UI_LOG_RATE_DEFAULT_S;
+}
+
+void bus_set_safety_stop_mode(uint8_t mode)
+{
+    if (g_sys_config.safety_stop_mode != mode)
+    {
+        g_sys_config.safety_stop_mode = mode;
+        g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
+    }
+    bus_apply_algo_safety_stop(mode);
+}
+
+void bus_set_altitude_level(uint8_t level)
+{
+    if (g_sys_config.altitude_level != level)
+    {
+        g_sys_config.altitude_level = level;
+        g_sensor_data.dirty_mask |= DIRTY_GF_SETTING;
+    }
+}
+
+void bus_set_depth_alarm_m(uint16_t depth_m)
+{
+    if (g_sys_config.depth_alarm_m != depth_m)
+    {
+        g_sys_config.depth_alarm_m = depth_m;
+    }
+}
+
+void bus_set_time_alarm_min(uint16_t minutes)
+{
+    if (g_sys_config.time_alarm_min != minutes)
+    {
+        g_sys_config.time_alarm_min = minutes;
+    }
+}
+
+void bus_set_ndl_alarm_min(uint16_t minutes)
+{
+    if (g_sys_config.ndl_alarm_min != minutes)
+    {
+        g_sys_config.ndl_alarm_min = minutes;
+    }
 }
 
 void bus_set_salinity_mode(uint8_t mode)
@@ -1414,14 +1469,24 @@ uint16_t bus_get_otu(void)
     return g_sensor_data.otu;
 }
 
-uint8_t bus_get_tissue_pct(uint8_t index)
+uint8_t bus_get_tissue_raw_pct(uint8_t index)
 {
     if (index >= 16U)
     {
         return 0U;
     }
 
-    return g_sensor_data.tissue_pct[index];
+    return g_sensor_data.tissue_raw_pct[index];
+}
+
+uint8_t bus_get_tissue_gf_pct(uint8_t index)
+{
+    if (index >= 16U)
+    {
+        return 0U;
+    }
+
+    return g_sensor_data.tissue_gf_pct[index];
 }
 
 uint8_t bus_get_pod_count(void)
@@ -1471,6 +1536,31 @@ uint8_t bus_get_log_rate(void)
         return g_sys_config.log_rate_s;
     }
     return UI_LOG_RATE_DEFAULT_S;
+}
+
+uint8_t bus_get_safety_stop_mode(void)
+{
+    return g_sys_config.safety_stop_mode;
+}
+
+uint8_t bus_get_altitude_level(void)
+{
+    return g_sys_config.altitude_level;
+}
+
+uint16_t bus_get_depth_alarm_m(void)
+{
+    return g_sys_config.depth_alarm_m;
+}
+
+uint16_t bus_get_time_alarm_min(void)
+{
+    return g_sys_config.time_alarm_min;
+}
+
+uint16_t bus_get_ndl_alarm_min(void)
+{
+    return g_sys_config.ndl_alarm_min;
 }
 
 uint8_t bus_get_dive_log_count(void)
@@ -1639,8 +1729,15 @@ void dive_log_reset(void)
 }
 
 /* =========================================================
- * 配置持久化接口
- * 由具体平台（PC 模拟器 / 真机）提供 weak 实现覆盖
+ * Legacy 配置接口兼容占位
+ *
+ * 最新架构下，UI 配置与用户参数持久化已经收口到：
+ * - system bootstrap
+ * - ui_layout_runtime_restore / ui_runtime_persistence
+ * - user_settings_service / alert_config_service
+ *
+ * 因此 UI core 不再负责直接读写配置。
+ * 这里保留空实现，仅避免历史模拟器/旧代码链接失败。
  * ========================================================= */
 #ifdef PC_SIMULATOR
 #else
@@ -1648,31 +1745,6 @@ __attribute__((weak))    //真机需打开，用于覆盖此默认实现
 #endif
 bool config_load(sys_config_t *cfg)
 {
-    /*
-     * ========== 真机实现模板（删除 #ifdef PC_SIMULATOR 后替换此处） ==========
-     * 说明：
-     *   - cfg 指向 g_sys_config 全局变量
-     *   - 成功返回 true（表示加载了有效配置，UI 不要用默认值）
-     *   - 失败返回 false（表示无配置或配置损坏，UI 用默认值）
-     *
-     * 伪代码结构：
-     *
-     * #define CFG_MAGIC   0xA5EC5F5A
-     * #define CFG_ADDR    (Flash分区起始地址 + 偏移量)
-     *
-     * config_block_t blk;
-     * fal_partition_read(PART_NAME, CFG_ADDR, &blk, sizeof(blk));
-     *
-     * // 验证魔法数
-     * if (blk.magic != CFG_MAGIC) {
-     *     return false;
-     * }
-     *
-     * // 复制主配置（包含 left_widgets 和 custom_5f_widgets）
-     * memcpy(cfg, &tmp, sizeof(sys_config_t));
-     *
-     * return true;
-     */
     (void)cfg;
     return false;
 }
@@ -1683,24 +1755,6 @@ __attribute__((weak))    //真机需打开，用于覆盖此默认实现
 #endif
 bool config_save(const sys_config_t *cfg)
 {
-    /*
-     * ========== 真机实现模板（删除 #ifdef PC_SIMULATOR 后替换此处） ==========
-     * 说明：
-     *   - cfg 指向当前配置（通常即 g_sys_config）
-     *   - 成功返回 true，失败返回 false
-     *
-     * 伪代码结构：
-     *
-     * #define CFG_ADDR    (Flash分区起始地址 + 偏移量)
-     *
-     * // 整块写入（包含 left_widgets 和 custom_5f_widgets）
-     * fal_partition_erase(PART_NAME, CFG_ADDR, sizeof(sys_config_t));
-     * if (fal_partition_write(PART_NAME, CFG_ADDR, cfg, sizeof(sys_config_t)) != sizeof(sys_config_t)) {
-     *     return false;
-     * }
-     *
-     * return true;
-     */
     (void)cfg;
     return false;
 }

@@ -20,6 +20,15 @@ extern "C" {
 #define UI_LOG_RATE_DEFAULT_S      2U
 #define UI_LOG_RATE_OPTION_COUNT   4U
 
+#define UI_SAFETY_STOP_OFF     0U
+#define UI_SAFETY_STOP_3MIN    1U
+#define UI_SAFETY_STOP_4MIN    2U
+#define UI_SAFETY_STOP_5MIN    3U
+#define UI_SAFETY_STOP_ADAPT   4U
+#define UI_SAFETY_STOP_CNTUP   5U
+#define UI_SAFETY_STOP_COUNT   6U
+#define UI_SAFETY_STOP_DEFAULT UI_SAFETY_STOP_3MIN
+
 #define UI_ASCENT_RATE_DISPLAY_EPSILON_MPM  0.2f
 #define UI_ASCENT_RATE_SAMPLE_PERIOD_MS     2000UL
 #define UI_ASCENT_RATE_STALE_TIMEOUT_MS     3000UL
@@ -97,6 +106,27 @@ static inline uint8_t ui_next_log_rate(uint8_t current_seconds)
         }
     }
     return ui_log_rate_option(0U);
+}
+
+static inline const char *ui_safety_stop_label(uint8_t mode)
+{
+    switch (mode)
+    {
+    case UI_SAFETY_STOP_OFF:
+        return "OFF";
+    case UI_SAFETY_STOP_3MIN:
+        return "3MIN";
+    case UI_SAFETY_STOP_4MIN:
+        return "4MIN";
+    case UI_SAFETY_STOP_5MIN:
+        return "5MIN";
+    case UI_SAFETY_STOP_ADAPT:
+        return "ADAPT";
+    case UI_SAFETY_STOP_CNTUP:
+        return "CNTUP";
+    default:
+        return "--";
+    }
 }
 
 #ifdef __cplusplus

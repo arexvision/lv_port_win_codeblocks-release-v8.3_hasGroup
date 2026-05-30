@@ -119,8 +119,9 @@ void bus_set_temperature(float temp_c);
 void bus_set_bat_temperature(float temp_c);
 void bus_set_prj_temperature(float temp_c);
 /* --- 临界区保护的数组写入接口 --- */
-/* 16 组织舱饱和度数组（>32bit，必须包临界区防止数据撕裂） */
-void bus_set_tissues(const uint8_t tissue_pct[16]);
+/* 16 组织舱负荷数组（>32bit，必须包临界区防止数据撕裂） */
+void bus_set_tissue_loads(const uint8_t tissue_raw_pct[16],
+                          const uint8_t tissue_gf_pct[16]);
 /* 完整减压站序列（>32bit，必须包临界区） */
 void bus_set_deco_plan(const deco_stop_t *stops, uint8_t count);
 
@@ -163,6 +164,11 @@ void bus_set_salinity_mode(uint8_t mode);
 void bus_set_last_deco_stop(uint8_t depth_m);
 void bus_set_brightness(uint8_t level);
 void bus_set_log_rate(uint8_t seconds);
+void bus_set_safety_stop_mode(uint8_t mode);
+void bus_set_altitude_level(uint8_t level);
+void bus_set_depth_alarm_m(uint16_t depth_m);
+void bus_set_time_alarm_min(uint16_t minutes);
+void bus_set_ndl_alarm_min(uint16_t minutes);
 
 /* --- 技术潜水参数接口 --- */
 void bus_set_mod(float mod_m);
@@ -243,7 +249,8 @@ float bus_get_gf99(void);
 float bus_get_surf_gf(void);
 uint8_t bus_get_cns_pct(void);
 uint16_t bus_get_otu(void);
-uint8_t bus_get_tissue_pct(uint8_t index);
+uint8_t bus_get_tissue_raw_pct(uint8_t index);
+uint8_t bus_get_tissue_gf_pct(uint8_t index);
 uint8_t bus_get_pod_count(void);
 float bus_get_pod_bar(uint8_t pod_idx);
 float bus_get_tts(void);
@@ -253,6 +260,11 @@ uint8_t bus_get_salinity_mode(void);
 uint8_t bus_get_conservatism(void);
 uint8_t bus_get_brightness(void);
 uint8_t bus_get_log_rate(void);
+uint8_t bus_get_safety_stop_mode(void);
+uint8_t bus_get_altitude_level(void);
+uint16_t bus_get_depth_alarm_m(void);
+uint16_t bus_get_time_alarm_min(void);
+uint16_t bus_get_ndl_alarm_min(void);
 bool bus_is_heading_locked(void);
 uint16_t bus_get_heading(void);
 uint16_t bus_get_heading_target(void);
@@ -283,7 +295,9 @@ void bus_clear_all_dirty(void);
 // /* 重置潜水统计值（开始新潜水时调用） */
 // void bus_reset_stats(void);
 
-/* --- 配置持久化（weak 实现由具体平台覆盖） --- */
+/* --- Legacy 兼容占位接口 ---
+ * 最新架构下 UI core 不再负责配置持久化。
+ * 这两个接口仅保留给旧代码/模拟器兼容，真机主链不要再调用。 */
 bool config_load(sys_config_t *cfg);
 bool config_save(const sys_config_t *cfg);
 

@@ -31,6 +31,7 @@ uint16_t debug_link_pc_time_scale(void);
 #include "../ui/core/data.h"
 #include "../ui/core/ui_engine.h"
 #include "../ui/core/ui_state.h"
+#include "sim_alert_policy.h"
 #include "lvgl/lvgl.h"
 
 #include <ctype.h>
@@ -361,6 +362,18 @@ static void debug_format_gas_name(char *out, size_t out_size, int o2, int he)
 
 static void debug_exec_line(char *line);
 
+static void debug_update_gas_derived(void)
+{
+    float fio2 = (float)bus_get_gas_mix_o2() / 100.0f;
+    float fihe = (float)bus_get_gas_mix_he() / 100.0f;
+    float fin2 = 1.0f - fio2 - fihe;
+    float ambient_ata = 1.0f + g_sensor_data.depth / 10.0f;
+    float surface_density = fio2 * 1.428f + fihe * 0.179f + fin2 * 1.251f;
+
+    bus_set_fio2(fio2 * 100.0f);
+    bus_set_gas_density(surface_density * ambient_ata);
+}
+
 static void debug_apply_depth_sample(float depth)
 {
     uint32_t sample_time_s;
@@ -394,6 +407,8 @@ static void debug_apply_depth_sample(float depth)
 
     dive_log_append_sampled((float)sample_time_s, depth);
     bus_set_depth(depth);
+    debug_update_gas_derived();
+    sim_alert_tick();
 }
 
 static bool debug_try_packet_line_rx(const char *data, int len)
@@ -457,7 +472,9 @@ static void debug_send_help(void)
         "  cns <pct> | otu <value> | mod <m> | ceiling <m> | mix <o2> <he> | dens <g_l> | fio2 <pct>\r\n"
         "  gas_count <n> | gas <slot> [name] | gas_slot <slot> <o2> <he> <mod> [name]\r\n"
         "  layout <default|current|gas>\r\n"
+        "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
+        "  alert ids: asc po2 po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
         "Slots are 0-based. TCP disables the auto depth script; the 1Hz clock keeps running.\r\n");
 }
 
@@ -629,6 +646,75 @@ static void debug_exec_line(char *line)
         return;
     }
 
+    if (debug_streq(cmd, "a") || debug_streq(cmd, "alert"))
+    {
+        char *sub = debug_next_token(&cursor);
+        alarm_id_t alarm_id = ALARM_ID_COUNT;
+
+        if (!sub || debug_streq(sub, "list"))
+        {
+            debug_send_raw("ALERT ids: asc po2 po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n");
+            return;
+        }
+
+        if (debug_streq(sub, "auto"))
+        {
+            bool enabled;
+            if (!debug_parse_bool(debug_next_token(&cursor), &enabled))
+            {
+                debug_send_raw("ERR usage: a auto on|off\r\n");
+                return;
+            }
+            s_sim_alert_auto_enabled = enabled;
+            if (!enabled)
+            {
+                sim_alert_clear_auto_active();
+            }
+            debug_sendf("OK a auto %s\r\n", enabled ? "on" : "off");
+            return;
+        }
+
+        if (debug_streq(sub, "clear") || debug_streq(sub, "clr"))
+        {
+            char *name = debug_next_token(&cursor);
+            if (!name || debug_streq(name, "all"))
+            {
+                sim_alert_clear_all();
+                debug_send_raw("OK a clear all\r\n");
+                return;
+            }
+            if (!sim_alert_alarm_id_from_text(name, &alarm_id))
+            {
+                debug_send_raw("ERR usage: a clear [id|all]\r\n");
+                return;
+            }
+            sim_alert_set_forced(alarm_id, false);
+            debug_sendf("OK a clear %s\r\n", sim_alert_alarm_id_name(alarm_id));
+            return;
+        }
+
+        if (!sim_alert_alarm_id_from_text(sub, &alarm_id))
+        {
+            debug_send_raw("ERR usage: a <id> | a clear [id|all] | a auto on|off | a list\r\n");
+            return;
+        }
+
+        {
+            char *state = debug_next_token(&cursor);
+            bool active = true;
+            if (state && !debug_parse_bool(state, &active))
+            {
+                debug_send_raw("ERR usage: a <id> [on|off]\r\n");
+                return;
+            }
+            sim_alert_set_forced(alarm_id, active);
+            debug_sendf("OK a %s %s\r\n",
+                        sim_alert_alarm_id_name(alarm_id),
+                        active ? "on" : "off");
+            return;
+        }
+    }
+
     if (debug_streq(cmd, "back") || debug_streq(cmd, "esc"))
     {
         ui_handle_back();
@@ -722,6 +808,7 @@ static void debug_exec_line(char *line)
         s_debug_link.depth_rate_valid = true;
         s_debug_link.depth_rate_last_m = depth;
         s_debug_link.depth_rate_last_tick_ms = lv_tick_get();
+        sim_alert_tick();
         debug_sendf("OK sample %d %.1f\r\n", time_s, (double)depth);
         return;
     }
@@ -735,6 +822,7 @@ static void debug_exec_line(char *line)
             return;
         }
         bus_set_ascent_rate(rate_mpm);
+        sim_alert_tick();
         debug_sendf("OK rate %+.1f\r\n", (double)g_sensor_data.ascent_rate);
         return;
     }
@@ -1016,7 +1104,7 @@ static void debug_exec_line(char *line)
             return;
         }
         bus_set_gas_mix((uint8_t)o2, (uint8_t)he);
-        bus_set_fio2((float)o2);
+        debug_update_gas_derived();
         debug_sendf("OK mix %d/%d\r\n", o2, he);
         return;
     }

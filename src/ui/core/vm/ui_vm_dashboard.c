@@ -219,7 +219,8 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
                                         ui_panel_gap_px_get());
         for (uint8_t i = 0U; i < 16U; i++)
         {
-            vm->tissue_pct[i] = bus_get_tissue_pct(i);
+            vm->tissue_raw_pct[i] = bus_get_tissue_raw_pct(i);
+            vm->tissue_gf_pct[i] = bus_get_tissue_gf_pct(i);
         }
         return;
     }
@@ -237,7 +238,8 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
     vm->surf_gf_alert = (sensor->surf_gf > 100.0f) ? 1U : 0U;
     vm->right_canvas_w = (uint16_t)(config->safe_zone_w - LEFT_ANCHOR_W -
                                     ((uint16_t)config->gap_u * BASE_U));
-    (void)memcpy(vm->tissue_pct, sensor->tissue_pct, sizeof(vm->tissue_pct));
+    (void)memcpy(vm->tissue_raw_pct, sensor->tissue_raw_pct, sizeof(vm->tissue_raw_pct));
+    (void)memcpy(vm->tissue_gf_pct, sensor->tissue_gf_pct, sizeof(vm->tissue_gf_pct));
 }
 
 void ui_vm_sys_update(ui_vm_sys_t *vm, const sensor_data_t *sensor)

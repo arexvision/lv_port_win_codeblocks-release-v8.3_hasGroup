@@ -77,7 +77,6 @@ static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NUL
 static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS", "OC Tech", NULL };
-static const uint8_t s_safety_stop_values[] = { 0, 3, 4, 5 };
 static const uint8_t s_last_deco_values[] = { 3, 6 };
 
 static char s_compass_cal_status_str[24];
@@ -94,7 +93,7 @@ static char s_oc_tech_edit_str[4][28];
 static const char *s_nested_oc_tech_edit[5];
 
 static uint8_t s_salinity_mode = 0;      /* 0=FRESH, 1=SALT, 2=EN13319 */
-static uint8_t s_safety_stop_mode = 1;   /* 0=OFF, 1=3min, 2=4min, 3=5min */
+static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
 static uint8_t s_last_deco_mode = 0;     /* 0=3m, 1=6m */
 static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1=SEA, 2=L1, 3=L2 */
 static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS, 3=OC Tech */
@@ -109,7 +108,7 @@ static uint8_t s_ai_tank_state[2] = { 0, 0 }; /* 0=UNPAIRED, 1=PAIRING, 2=PAIRED
 static uint8_t s_gtr_enabled = 1;        /* 0=OFF, 1=ON */
 static uint16_t s_depth_alarm_m = 40;
 static uint16_t s_time_alarm_min = 60;
-static const uint8_t s_ndl_alarm_min = 5;
+static uint8_t s_ndl_alarm_min = 5;
 static uint8_t s_units_mode = 0;         /* 0=METRIC, 1=IMPERIAL */
 static uint8_t s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
 static uint8_t s_bluetooth_enabled = 0;  /* 0=OFF, 1=ON */
@@ -118,6 +117,31 @@ static uint8_t s_datetime_month = 5;
 static uint8_t s_datetime_day = 20;
 static uint8_t s_datetime_hour = 12;
 static uint8_t s_datetime_minute = 0;
+
+void submenu_sync_persisted_settings(void)
+{
+    ui_persisted_settings_snapshot_t snapshot;
+
+    if (!ui_get_persisted_settings_snapshot(&snapshot)) {
+        return;
+    }
+
+    s_safety_stop_mode = snapshot.safety_stop_mode;
+    s_salinity_mode = snapshot.salinity_mode;
+    s_last_deco_mode = (snapshot.last_deco_stop_m >= 6U) ? 1U : 0U;
+    s_altitude_level = snapshot.altitude_level;
+    s_depth_alarm_m = snapshot.depth_alarm_m;
+    s_time_alarm_min = snapshot.time_alarm_min;
+    s_ndl_alarm_min = (uint8_t)snapshot.ndl_alarm_min;
+    s_units_mode = snapshot.units_mode;
+    s_log_rate_s = snapshot.log_rate_s;
+    s_bluetooth_enabled = snapshot.bluetooth_enabled;
+    s_datetime_year = snapshot.datetime_year;
+    s_datetime_month = snapshot.datetime_month;
+    s_datetime_day = snapshot.datetime_day;
+    s_datetime_hour = snapshot.datetime_hour;
+    s_datetime_minute = snapshot.datetime_minute;
+}
 
 typedef struct
 {
@@ -595,7 +619,7 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         s_salinity_mode = (value > 2) ? 0 : (uint8_t)value;
         break;
     case SUBMENU_SETTING_SAFETY_STOP:
-        s_safety_stop_mode = (value > 3) ? 1 : (uint8_t)value;
+        s_safety_stop_mode = (uint8_t)value;
         break;
     case SUBMENU_SETTING_LAST_DECO:
         s_last_deco_mode = (value > 1) ? 0 : (uint8_t)value;
@@ -634,6 +658,9 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         s_units_mode = 0;
         s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
         s_bluetooth_enabled = 0;
+        s_depth_alarm_m = 40U;
+        s_time_alarm_min = 60U;
+        s_ndl_alarm_min = 5U;
         break;
     default:
         break;
@@ -712,6 +739,9 @@ static void submenu_commit_edit_value(submenu_setting_kind_t kind, uint8_t arg, 
     case SUBMENU_SETTING_TIME_ALARM:
         s_time_alarm_min = (uint16_t)(value + 0.5f);
         break;
+    case SUBMENU_SETTING_NDL_ALARM:
+        s_ndl_alarm_min = (uint8_t)(value + 0.5f);
+        break;
     case SUBMENU_SETTING_DATETIME_FIELD:
         submenu_commit_datetime_field(arg, (uint16_t)(value + 0.5f));
         break;
@@ -726,12 +756,6 @@ static const char *compass_cal_status_text(void)
     if (st == COMPASS_CAL_RUNNING) return "LEARN";
     if (st == COMPASS_CAL_READY) return "OK";
     return "AUTO";
-}
-
-uint8_t submenu_safety_stop_depth_m(uint8_t value)
-{
-    /* 安全停留深度只允许在两个固定档位之间切换。 */
-    return value == 1 ? 6 : 3;
 }
 
 const char *submenu_info_title(uint8_t index)
@@ -1033,6 +1057,7 @@ static const char **build_nested_dive_setup(uint8_t *out_count)
     ui_vm_dive_context_t ctx_vm;
     ui_vm_dive_setup_menu_t vm;
 
+    submenu_sync_persisted_settings();
     ui_vm_dive_context_update(&ctx_vm);
     ui_vm_dive_setup_menu_update(&vm,
                                  ctx_vm.salinity_mode,
@@ -1053,6 +1078,7 @@ static const char **build_nested_alerts_setup(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
+    submenu_sync_persisted_settings();
     ui_vm_alerts_menu_update(&vm, s_depth_alarm_m, s_time_alarm_min, s_ndl_alarm_min);
     return copy_simple_menu_items(&vm, out_count);
 }
@@ -1061,7 +1087,7 @@ static const char **build_nested_display_sys(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
-    s_log_rate_s = bus_get_log_rate();
+    submenu_sync_persisted_settings();
     ui_vm_display_menu_update(&vm, s_units_mode, s_log_rate_s, s_bluetooth_enabled);
     return copy_simple_menu_items(&vm, out_count);
 }
@@ -1070,6 +1096,7 @@ static const char **build_nested_datetime(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
+    submenu_sync_persisted_settings();
     ui_vm_datetime_menu_update(&vm,
                                s_datetime_year,
                                s_datetime_month,
@@ -1349,7 +1376,7 @@ bool submenu_direct_setting_from_selection(const char *current_title,
     if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 2)
     {
         uint8_t next = (uint8_t)((s_safety_stop_mode + 1) %
-                       (sizeof(s_safety_stop_values) / sizeof(s_safety_stop_values[0])));
+                       UI_SAFETY_STOP_COUNT);
         out_setting->kind = SUBMENU_SETTING_SAFETY_STOP;
         out_setting->value = next;
         return true;
@@ -1523,6 +1550,19 @@ bool submenu_edit_spec_from_selection(const char *current_title,
     {
         ui_vm_edit_time_alarm_update(&vm_edit, s_time_alarm_min);
         out_spec->kind = SUBMENU_SETTING_TIME_ALARM;
+        out_spec->value = vm_edit.value;
+        out_spec->min = vm_edit.min;
+        out_spec->max = vm_edit.max;
+        out_spec->step = vm_edit.step;
+        out_spec->decimals = vm_edit.decimals;
+        lv_snprintf(out_spec->label, sizeof(out_spec->label), "%s", vm_edit.label);
+        return true;
+    }
+
+    if (strcmp(clean_title, "ALERTS SETUP") == 0 && item_index == 2)
+    {
+        ui_vm_edit_ndl_alarm_update(&vm_edit, s_ndl_alarm_min);
+        out_spec->kind = SUBMENU_SETTING_NDL_ALARM;
         out_spec->value = vm_edit.value;
         out_spec->min = vm_edit.min;
         out_spec->max = vm_edit.max;
@@ -1729,6 +1769,9 @@ bool submenu_edit_spec_from_ids(menu_id_t current_menu,
         break;
     case MENU_ITEM_ALERT_TIME:
         item_index = 1U;
+        break;
+    case MENU_ITEM_ALERT_NDL:
+        item_index = 2U;
         break;
     default:
     {

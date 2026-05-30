@@ -75,6 +75,7 @@ void ui_update_router_dispatch(uint32_t mask)
         {
             ui_vm_deco_update(&deco_vm, NULL, NULL);
             card_deco_update();
+            comp_refresh_tissue_widgets(&deco_vm, mask);
         }
         ui_vm_ascent_update(&ascent_vm, bus_get_ascent_rate());
         comp_refresh_ascent_icons(&ascent_vm);

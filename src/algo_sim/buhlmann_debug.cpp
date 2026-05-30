@@ -23,6 +23,7 @@ static bool s_diving = false;
 static uint8_t s_gf_low_pct = 40U;
 static uint8_t s_gf_high_pct = 85U;
 static uint8_t s_final_deco_stop_depth_m = (uint8_t)DECO_DEFAULT_FINAL_STOP_METERS;
+static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
 
 static WaterType water_type_from_salinity_mode(uint8_t mode)
 {
@@ -158,27 +159,36 @@ static void format_gas_name(const Gas &gas, char *name_buf, size_t name_buf_size
 
 static void sync_core_data(const DiveInfo &dive_info, float depth_m)
 {
-    uint8_t tissue_load[16];
+    uint8_t tissue_raw_load[16];
+    uint8_t tissue_gf_load[16];
     float current_pressure = s_buhlmann.calculateHydrostaticPressureFromDepth(depth_m);
     float surface_pressure_bar = s_buhlmann.getSurfacePressure() / 1000.0f;
+    float gf_high = s_buhlmann.getGFHigh();
 
     for (int i = 0; i < 16; i++) {
-        /* Per-compartment SurfGF: reaches GF High when this tissue drives NDL to zero. */
         float tissue_pressure_bar = s_buhlmann.getCompartmentTotalInertLoad(i) / 1000.0f;
         float m_value_bar = s_buhlmann.getCompartmentCombinedA(i) +
                             surface_pressure_bar / s_buhlmann.getCompartmentCombinedB(i);
         float denominator = m_value_bar - surface_pressure_bar;
-        float load_percent = 0.0f;
+        float raw_percent = 0.0f;
+        float gf_percent = 0.0f;
 
         if (denominator > 0.0001f) {
-            load_percent = ((tissue_pressure_bar - surface_pressure_bar) / denominator) * 100.0f;
+            raw_percent = ((tissue_pressure_bar - surface_pressure_bar) / denominator) * 100.0f;
         }
-        if (load_percent > 200.0f) load_percent = 200.0f;
-        if (load_percent < 0.0f) load_percent = 0.0f;
-        tissue_load[i] = (uint8_t)(load_percent + 0.5f);
+        if (gf_high > 0.0001f) {
+            gf_percent = raw_percent / gf_high;
+        }
+
+        if (raw_percent > 200.0f) raw_percent = 200.0f;
+        if (raw_percent < 0.0f) raw_percent = 0.0f;
+        if (gf_percent > 200.0f) gf_percent = 200.0f;
+        if (gf_percent < 0.0f) gf_percent = 0.0f;
+        tissue_raw_load[i] = (uint8_t)(raw_percent + 0.5f);
+        tissue_gf_load[i] = (uint8_t)(gf_percent + 0.5f);
     }
 
-    bus_set_tissues(tissue_load);
+    bus_set_tissue_loads(tissue_raw_load, tissue_gf_load);
     bus_set_cns((uint8_t)dive_info.cns);
     bus_set_otu((uint16_t)dive_info.otu);
     bus_set_gf99(dive_info.gf99);
@@ -196,14 +206,17 @@ static void sync_core_data(const DiveInfo &dive_info, float depth_m)
     bus_set_gas_mix(o2_pct, he_pct);
 
     float surface_pressure = s_buhlmann.getSurfacePressure();
-    float n2_fraction = 1.0f - active_gas.oxygenFraction - active_gas.heliumFraction;
-    float gas_density = (active_gas.oxygenFraction * 1.429f +
+    float ambient_pressure_ata = current_pressure / surface_pressure;
+    float fio2 = active_gas.oxygenFraction;
+    float fihe = active_gas.heliumFraction;
+    float n2_fraction = 1.0f - fio2 - fihe;
+    float gas_density = (fio2 * 1.428f +
                          n2_fraction * 1.251f +
-                         active_gas.heliumFraction * 0.179f) *
-                        (current_pressure / surface_pressure);
+                         fihe * 0.179f) *
+                        ambient_pressure_ata;
     bus_set_gas_density(gas_density);
 
-    float fio2_pct = (active_gas.oxygenFraction * current_pressure / surface_pressure) * 100.0f;
+    float fio2_pct = fio2 * 100.0f;
     bus_set_fio2(fio2_pct);
 
     uint16_t tts_val = (uint16_t)(dive_info.ttsSeconds / 60);
@@ -352,6 +365,7 @@ void buhlmann_debug_init(void)
     s_buhlmann.setActiveGas(0);
     s_buhlmann.setOxygenRateInGas(0.21f);
     s_buhlmann.setFinalStopDepth((float)s_final_deco_stop_depth_m);
+    s_buhlmann.setSafetyStopMode((BuhlmannSafetyStopMode)s_safety_stop_mode);
 
     DiveResult *initial_result = s_buhlmann.initializeCompartments();
     s_buhlmann.startDive(initial_result, 0U);
@@ -400,6 +414,18 @@ void buhlmann_debug_set_salinity_mode(uint8_t mode)
 
     s_buhlmann.setWaterType(water_type_from_salinity_mode(mode));
     rt_kprintf("[DIVE_SETUP] Salinity mode: %u\n", (unsigned)mode);
+}
+
+void buhlmann_debug_set_safety_stop_mode(uint8_t mode)
+{
+    s_safety_stop_mode = mode;
+
+    if (!s_initialized) {
+        buhlmann_debug_init();
+    }
+
+    s_buhlmann.setSafetyStopMode((BuhlmannSafetyStopMode)s_safety_stop_mode);
+    rt_kprintf("[DIVE_SETUP] Safety stop mode: %s\n", ui_safety_stop_label(mode));
 }
 
 void buhlmann_debug_apply_gases_from_ui(void)

@@ -74,6 +74,11 @@ typedef struct
     uint8_t last_deco_stop_m;
     uint8_t brightness;
     uint8_t log_rate_s;
+    uint8_t safety_stop_mode;
+    uint8_t altitude_level;
+    uint16_t depth_alarm_m;
+    uint16_t time_alarm_min;
+    uint16_t ndl_alarm_min;
 } sys_config_t;
 #pragma pack(pop)
 
@@ -139,7 +144,8 @@ typedef struct
     float   fio2_pct;
     uint8_t gas_o2_pct;
     uint8_t gas_he_pct;
-    uint8_t  tissue_pct[16];
+    uint8_t  tissue_raw_pct[16];
+    uint8_t  tissue_gf_pct[16];
     uint8_t  cns_pct;
     uint16_t otu;
     bool    deco_violation;

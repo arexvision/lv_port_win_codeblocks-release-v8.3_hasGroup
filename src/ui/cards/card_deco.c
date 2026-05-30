@@ -67,7 +67,7 @@ static bool any_tissue_danger(void)
 {
     for (int i = 0; i < 16; i++)
     {
-        if (s_deco_vm_cache.tissue_pct[i] >= TISSUE_DANGER_PCT) return true;
+        if (s_deco_vm_cache.tissue_raw_pct[i] >= TISSUE_DANGER_PCT) return true;
     }
     return false;
 }
@@ -78,7 +78,7 @@ static void tissue_danger_flash_cb(lv_timer_t *t)
     s_tissue_flash_phase = !s_tissue_flash_phase;
     for (int i = 0; i < 16; i++)
     {
-        if (s_deco_vm_cache.tissue_pct[i] >= TISSUE_DANGER_PCT)
+        if (s_deco_vm_cache.tissue_raw_pct[i] >= TISSUE_DANGER_PCT)
         {
             // 危险时在 亮绿 和 暗绿空槽 之间闪烁
             lv_color_t c = s_tissue_flash_phase ? GREEN : DARK;
@@ -154,12 +154,21 @@ static bool card_deco_tissue_chart_active(void)
     return s_deco_vm_cache.chart_active != 0U;
 }
 
-static void card_deco_update_mvalue_line(void)
+static void card_deco_update_mvalue_line(bool chart_active)
 {
     if (!deco_obj_is_valid(&s_mvalue_line) || !deco_obj_is_valid(&s_mvalue_label))
     {
         return;
     }
+
+    if (!chart_active)
+    {
+        lv_obj_add_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_obj_clear_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
 
     if (!deco_obj_is_valid(&s_bars[0]))
     {
@@ -345,6 +354,9 @@ void card_deco_create(lv_obj_t *parent)
 void card_deco_update(void)
 {
     char buf[16];
+
+    ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
+
     uint8_t gf_low = card_deco_get_gf_low_pct();
     uint8_t gf_high = card_deco_get_gf_high_pct();
     bool chart_active = card_deco_tissue_chart_active();
@@ -381,13 +393,13 @@ void card_deco_update(void)
         lv_label_set_text(s_lbl_otu, buf);
     }
 
-    card_deco_update_mvalue_line();
+    card_deco_update_mvalue_line(chart_active);
 
     tissue_flash_ensure();
 
     for (int i = 0; i < 16; i++)
     {
-        uint8_t pct = s_deco_vm_cache.tissue_pct[i];
+        uint8_t pct = s_deco_vm_cache.tissue_raw_pct[i];
         if (!deco_obj_is_valid(&s_bars[i]))
         {
             continue;

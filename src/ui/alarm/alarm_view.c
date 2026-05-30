@@ -39,7 +39,10 @@ static void alarm_view_banner_hide_ready(lv_anim_t *anim)
 {
     if (anim && anim->var)
     {
-        lv_obj_add_flag((lv_obj_t *)anim->var, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_t *banner = (lv_obj_t *)anim->var;
+        lv_obj_add_flag(banner, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_y(banner, 0);
+        lv_obj_set_style_opa(banner, LV_OPA_COVER, 0);
     }
 }
 
@@ -94,7 +97,7 @@ static void alarm_view_banner_animate_in(void)
 
     alarm_view_banner_cancel_anim();
 
-    lv_coord_t end_y = lv_obj_get_y(s_alarm_banner);
+    lv_coord_t end_y = 0;
     lv_obj_set_y(s_alarm_banner, end_y - ALARM_L1_SLIDE_PX);
     lv_obj_set_style_opa(s_alarm_banner, LV_OPA_TRANSP, 0);
 
@@ -117,7 +120,8 @@ static void alarm_view_banner_animate_out(void)
 
     alarm_view_banner_cancel_anim();
 
-    lv_coord_t start_y = lv_obj_get_y(s_alarm_banner);
+    lv_coord_t start_y = 0;
+    lv_obj_set_y(s_alarm_banner, start_y);
     alarm_view_banner_anim_y(start_y,
                              start_y - ALARM_L1_SLIDE_PX,
                              ALARM_L1_ANIM_MS);
@@ -181,6 +185,7 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
     {
         lv_obj_align(s_alarm_banner, LV_ALIGN_TOP_LEFT, 0, 0);
     }
+    lv_obj_set_y(s_alarm_banner, 0);
 
     lv_obj_move_foreground(s_alarm_banner);
     lv_obj_clear_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);
@@ -255,7 +260,7 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
         lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
         lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(obj, alarm_color, 0);
-        lv_obj_set_style_border_width(obj, phase_on ? 4 : 1, 0);
+        lv_obj_set_style_border_width(obj, phase_on ? 2 : 1, 0);
         text_color = GREEN;
     }
 

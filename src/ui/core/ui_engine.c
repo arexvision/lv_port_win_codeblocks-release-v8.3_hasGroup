@@ -159,56 +159,40 @@ void sys_config_defaults(sys_config_t *cfg)
      */
     /* 兼容新架：custom_cards[1] 是首屏空白自定义卡，custom_cards[0] 保留默认卡片内容。 */
     cfg->custom_card_count = 2;
-    cfg->custom_cards[0].widget_count = 12;
+    cfg->custom_cards[0].widget_count = 8;
     cfg->custom_cards[1].widget_count = 0;
     /* 下面这些 widget 配置决定右侧 5F 自定义卡片的格子内容和位置。 */
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
     {
-        COMP_DEPTH_1612,      0, 0
+        COMP_TISSUE_RAW_4012, 0, 0
     };
     cfg->custom_cards[0].widgets[1]  = (grid_widget_t)
     {
-        COMP_TEMP_0806,       2, 0
+        COMP_FIO2_0806,       4, 0
     };
     cfg->custom_cards[0].widgets[2]  = (grid_widget_t)
     {
-        COMP_HEADING_0806,   4, 0
+        COMP_CEILING_0806,    4, 1
     };
     cfg->custom_cards[0].widgets[3]  = (grid_widget_t)
     {
-        COMP_GF99_0806,     0, 2
+        COMP_TISSUE_GF_4012,  0, 2
     };
     cfg->custom_cards[0].widgets[4]  = (grid_widget_t)
     {
-        COMP_BATTERY_0806,   2, 2
+        COMP_ASCENT_0812,     4, 2
     };
     cfg->custom_cards[0].widgets[5]  = (grid_widget_t)
     {
-        COMP_PPO2_0806,       4, 2
+        COMP_GAS_MIX_1606,    0, 4
     };
     cfg->custom_cards[0].widgets[6]  = (grid_widget_t)
     {
-        COMP_NDL_STOP_1606,  0, 3
+        COMP_ASCENT_0806,     2, 4
     };
     cfg->custom_cards[0].widgets[7]  = (grid_widget_t)
     {
-        COMP_TTS_0806,       2, 3
-    };
-    cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
-    {
-        COMP_CNS_0806,       4, 3
-    };
-    cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
-    {
-        COMP_DEPTH_MAX_0806,  0, 4
-    };
-    cfg->custom_cards[0].widgets[10] = (grid_widget_t)
-    {
-        COMP_DEPTH_AVG_0806,  2, 4
-    };
-    cfg->custom_cards[0].widgets[11] = (grid_widget_t)
-    {
-        COMP_OTU_0806,        4, 4
+        COMP_GAS_DENS_0806,     2, 5
     };
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
@@ -296,6 +280,11 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->last_deco_stop_m = 3;
     cfg->brightness     = BRIGHTNESS_MED;
     cfg->log_rate_s     = UI_LOG_RATE_DEFAULT_S;
+    cfg->safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
+    cfg->altitude_level = 0;
+    cfg->depth_alarm_m = 40;
+    cfg->time_alarm_min = 60;
+    cfg->ndl_alarm_min = 5;
 }
 
 /* =========================================================
@@ -380,14 +369,15 @@ const lv_font_t *get_font(uint8_t font_id)
  * 初始化入(UI_main 调用)
  *
  * 启动流程
- *   1. KV 持久化读取配成功则直接使
- *   2. KV 无数读取失败 填入默认
- *   3. 传感器数据清零（sim_tick_cb / 外部 API 实时写入
+ *   1. 布局/参数恢复由 bootstrap + service 层先完成
+ *   2. UI core 只兜底默认值，不再直接参与配置持久化
+ *   3. 传感器数据清零（sim_tick_cb / 外部 API 实时写入）
  * ========================================================= */
 void ui_init(void)
 {
-    /* 1. 加载持久化配置，失败则用默认值保*/
-    if (!config_load(&g_sys_config))
+    /* 1. UI core 不再自行读取持久化配置。
+     * 持久化恢复已在 system bootstrap 阶段完成，这里只做“是否已有有效配置”的兜底判断。 */
+    if (g_sys_config.safe_zone_w == 0U || g_sys_config.safe_zone_h == 0U)
     {
         sys_config_defaults(&g_sys_config);
     }
