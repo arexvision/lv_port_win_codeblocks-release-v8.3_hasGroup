@@ -159,7 +159,7 @@ void sys_config_defaults(sys_config_t *cfg)
      */
     /* 兼容新架：custom_cards[1] 是首屏空白自定义卡，custom_cards[0] 保留默认卡片内容。 */
     cfg->custom_card_count = 2;
-    cfg->custom_cards[0].widget_count = 9;
+    cfg->custom_cards[0].widget_count = 10;
     cfg->custom_cards[1].widget_count = 0;
     /* 下面这些 widget 配置决定右侧 5F 自定义卡片的格子内容和位置。 */
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
@@ -194,11 +194,15 @@ void sys_config_defaults(sys_config_t *cfg)
     {
         COMP_GAS_DENS_0806,     2, 5
     };
-
     cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
+    {
+        COMP_TTS_0806,     0, 5
+    };
+    cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
     {
         COMP_GYRO_1606,    3, 4
     };
+
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
      * 160x420 区域 = 280px) x 760px)，由 render_left_anchor_grid() 渲染
      *
