@@ -28,6 +28,33 @@ static void ui_router_refresh_text_widget(comp_id_t widget_id, uint8_t pod_index
     comp_set_text(widget_id, value_vm.text);
 }
 
+static void ui_router_refresh_sensor_preview_widgets(void)
+{
+    static const comp_id_t widgets[] =
+    {
+        COMP_GYRO_1606,
+        COMP_BATT_V_0806,
+        COMP_BATT_TEMP_0806,
+        COMP_PRJ_TEMP_0806,
+        COMP_CHARGE_0806,
+        COMP_PRESSURE_0806,
+        COMP_NOFLY_0806,
+        COMP_ACCEL_1606,
+        COMP_MAG_1606,
+        COMP_TMAG_1606,
+        COMP_ATTITUDE_1606,
+        COMP_BLE_RSSI_0806,
+        COMP_CPU_0806,
+        COMP_FPS_0806,
+        COMP_SENSOR_STAT_0806,
+    };
+
+    for (uint8_t i = 0; i < (uint8_t)(sizeof(widgets) / sizeof(widgets[0])); i++)
+    {
+        ui_router_refresh_text_widget(widgets[i], 0U);
+    }
+}
+
 void ui_update_router_dispatch(uint32_t mask)
 {
     /* dirty mask 是 UI 更新路由的核心入口：按位决定本轮要刷新哪些数据和页面。 */
@@ -99,7 +126,7 @@ void ui_update_router_dispatch(uint32_t mask)
     {
         ui_vm_compass_update(&compass_vm, NULL, NULL);
         card_compass_refresh_heading_vm(&compass_vm, false);
-        ui_router_refresh_text_widget(COMP_GYRO_1606, 0U);
+        ui_router_refresh_sensor_preview_widgets();
     }
 
     if (mask & DIRTY_DIVE_TIME)

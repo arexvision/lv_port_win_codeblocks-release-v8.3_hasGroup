@@ -161,7 +161,21 @@ typedef enum
     COMP_DEPTH_AVG_0806   = 35,
     COMP_TEMP_MIN_0806    = 36,
     COMP_TEMP_AVG_0806    = 37,
-    COMP_GYRO_1606        = 38
+    COMP_GYRO_1606        = 38,
+    COMP_BATT_V_0806      = 39,
+    COMP_BATT_TEMP_0806   = 40,
+    COMP_PRJ_TEMP_0806    = 41,
+    COMP_CHARGE_0806      = 42,
+    COMP_PRESSURE_0806    = 43,
+    COMP_NOFLY_0806       = 44,
+    COMP_ACCEL_1606       = 45,
+    COMP_MAG_1606         = 46,
+    COMP_TMAG_1606        = 47,
+    COMP_ATTITUDE_1606    = 48,
+    COMP_BLE_RSSI_0806    = 49,
+    COMP_CPU_0806         = 50,
+    COMP_FPS_0806         = 51,
+    COMP_SENSOR_STAT_0806 = 52
 } comp_id_t;
 
 typedef enum

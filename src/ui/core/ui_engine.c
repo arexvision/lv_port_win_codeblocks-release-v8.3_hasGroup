@@ -158,9 +158,10 @@ void sys_config_defaults(sys_config_t *cfg)
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h MCU 样式表自动推
      */
     /* 兼容新架：custom_cards[1] 是首屏空白自定义卡，custom_cards[0] 保留默认卡片内容。 */
-    cfg->custom_card_count = 2;
+    cfg->custom_card_count = 3;
     cfg->custom_cards[0].widget_count = 10;
     cfg->custom_cards[1].widget_count = 0;
+    cfg->custom_cards[2].widget_count = 20;
     /* 下面这些 widget 配置决定右侧 5F 自定义卡片的格子内容和位置。 */
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
     {
@@ -201,6 +202,86 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
     {
         COMP_GYRO_1606,    3, 4
+    };
+    cfg->custom_cards[2].widgets[0] = (grid_widget_t)
+    {
+        COMP_BATT_V_0806,      0, 0
+    };
+    cfg->custom_cards[2].widgets[1] = (grid_widget_t)
+    {
+        COMP_BATT_TEMP_0806,   1, 0
+    };
+    cfg->custom_cards[2].widgets[2] = (grid_widget_t)
+    {
+        COMP_PRJ_TEMP_0806,    2, 0
+    };
+    cfg->custom_cards[2].widgets[3] = (grid_widget_t)
+    {
+        COMP_CHARGE_0806,      3, 0
+    };
+    cfg->custom_cards[2].widgets[4] = (grid_widget_t)
+    {
+        COMP_PRESSURE_0806,    4, 0
+    };
+    cfg->custom_cards[2].widgets[5] = (grid_widget_t)
+    {
+        COMP_NOFLY_0806,       0, 1
+    };
+    cfg->custom_cards[2].widgets[6] = (grid_widget_t)
+    {
+        COMP_BLE_RSSI_0806,    1, 1
+    };
+    cfg->custom_cards[2].widgets[7] = (grid_widget_t)
+    {
+        COMP_CPU_0806,         2, 1
+    };
+    cfg->custom_cards[2].widgets[8] = (grid_widget_t)
+    {
+        COMP_FPS_0806,         3, 1
+    };
+    cfg->custom_cards[2].widgets[9] = (grid_widget_t)
+    {
+        COMP_SENSOR_STAT_0806, 4, 1
+    };
+    cfg->custom_cards[2].widgets[10] = (grid_widget_t)
+    {
+        COMP_ACCEL_1606,       0, 2
+    };
+    cfg->custom_cards[2].widgets[11] = (grid_widget_t)
+    {
+        COMP_GYRO_1606,        2, 2
+    };
+    cfg->custom_cards[2].widgets[12] = (grid_widget_t)
+    {
+        COMP_HEADING_0806,     4, 2
+    };
+    cfg->custom_cards[2].widgets[13] = (grid_widget_t)
+    {
+        COMP_MAG_1606,         0, 3
+    };
+    cfg->custom_cards[2].widgets[14] = (grid_widget_t)
+    {
+        COMP_TMAG_1606,        2, 3
+    };
+    cfg->custom_cards[2].widgets[15] = (grid_widget_t)
+    {
+        COMP_CNS_0806,         4, 3
+    };
+    cfg->custom_cards[2].widgets[16] = (grid_widget_t)
+    {
+        COMP_ATTITUDE_1606,    0, 4
+    };
+    cfg->custom_cards[2].widgets[17] = (grid_widget_t)
+    {
+        COMP_SURF_GF_0806,     2, 4
+    };
+    cfg->custom_cards[2].widgets[18] = (grid_widget_t)
+    {
+        COMP_GF99_0806,        3, 4
+    };
+    cfg->custom_cards[2].widgets[19] = (grid_widget_t)
+    {
+        COMP_OTU_0806,         4, 4
     };
 
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
@@ -269,7 +350,8 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->card_order[PAGE_POS_4]      = PAGE_ID_PLAN;
     cfg->card_order[PAGE_POS_5]      = PAGE_ID_GAS;
     cfg->card_order[PAGE_POS_6]      = PAGE_ID_CUSTOM_GRID;
-    /* PAGE_POS_7 ~ PAGE_POS_12 淇濇寔 PAGE_ID_BLANK */
+    cfg->card_order[PAGE_POS_7]      = PAGE_ID_CUSTOM_GRID;
+    /* PAGE_POS_8 ~ PAGE_POS_12 淇濇寔 PAGE_ID_BLANK */
     cfg->card_order[PAGE_POS_SETUP]  = PAGE_ID_SETUP;//菜单，不算卡
 
     /* ========== [A] 卡片槽位映射 ==========
@@ -280,6 +362,7 @@ void sys_config_defaults(sys_config_t *cfg)
     memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
     cfg->custom_card_slot[PAGE_POS_1] = 1;  /* 首屏 CUSTOM_GRID 映射空白 custom_cards[1] */
     cfg->custom_card_slot[PAGE_POS_6] = 0;  /* 默认 CUSTOM_GRID 映射 custom_cards[0] */
+    cfg->custom_card_slot[PAGE_POS_7] = 2;  /* 传感器预览 CUSTOM_GRID 映射 custom_cards[2] */
 
     /* ========== [A] 用户设置默认========== */
     cfg->mod_ppo2       = 1.4f;
