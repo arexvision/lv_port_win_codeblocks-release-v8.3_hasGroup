@@ -284,7 +284,18 @@ static void sync_deco_plan_data(const DiveInfo &dive_info)
 
     if (seq.currentStopIdx < 0 || seq.stopCount <= 0)
     {
-        bus_set_deco_plan(NULL, 0U);
+        if (dive_info.stopType == BUHLMANN_STOP_SAFETY &&
+            dive_info.stopDepthMeters > 0.0f &&
+            dive_info.stopTimeRemainingSeconds > 0)
+        {
+            stops[0].depth_m = dive_info.stopDepthMeters;
+            stops[0].stay_min = (float)dive_info.stopTimeRemainingSeconds / 60.0f;
+            bus_set_deco_plan(stops, 1U);
+        }
+        else
+        {
+            bus_set_deco_plan(NULL, 0U);
+        }
         return;
     }
 

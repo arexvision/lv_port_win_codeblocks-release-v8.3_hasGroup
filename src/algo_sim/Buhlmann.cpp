@@ -1687,17 +1687,12 @@ void Buhlmann::updateSafetyStop(DiveInfo &diveInfo, unsigned int timeSpentInLeve
         return;
     }
 
-    if (decoActive) {
-        resetSafetyStopState(true);
-        return;
-    }
-
     if (_safetyStopMode == BUHLMANN_SAFETY_STOP_CNTUP) {
         bool countZone = fabsf(_currentDepth - _safetyStopDepthMeters) <= _safetyStopZoneHalfWidthMeters;
         if (_currentDepth > _safetyStopArmDepthMeters) {
             _safetyStopArmed = true;
             _safetyStopElapsedSeconds = 0;
-        } else if (_safetyStopArmed && countZone) {
+        } else if (_safetyStopArmed && countZone && !decoActive) {
             _safetyStopElapsedSeconds += (int)timeSpentInLevel;
         }
         return;
@@ -1727,6 +1722,14 @@ void Buhlmann::updateSafetyStop(DiveInfo &diveInfo, unsigned int timeSpentInLeve
     }
 
     bool inZone = fabsf(_currentDepth - _safetyStopDepthMeters) <= _safetyStopZoneHalfWidthMeters;
+    if (decoActive) {
+        int remainingSeconds = targetSeconds - _safetyStopElapsedSeconds;
+        if (remainingSeconds > 0) {
+            diveInfo.ttsSeconds += remainingSeconds;
+        }
+        return;
+    }
+
     if (inZone) {
         _safetyStopElapsedSeconds += (int)timeSpentInLevel;
         if (_safetyStopElapsedSeconds >= targetSeconds) {
@@ -1986,6 +1989,7 @@ DiveInfo Buhlmann::progressDive(float currentPressure, unsigned int duration) {
         // 无论当前decoNeeded状态，如果有有效的减压序列，就显示减压站信息
         hasValidDecoSequence = (_decoSequence.stopCount > 0 && _decoSequence.currentStopIdx >= 0);
         updateSafetyStop(diveInfo, timeSpentInLevel, hasValidDecoSequence || decoNeeded);
+        int pendingSafetyStopSeconds = diveInfo.ttsSeconds;
         if (hasValidDecoSequence) {
             DecoStop& currentStop = _decoSequence.stops[_decoSequence.currentStopIdx];
             diveInfo.minutesToDeco = 0;  // 有减压序列时NDL为0
@@ -2040,7 +2044,7 @@ DiveInfo Buhlmann::progressDive(float currentPressure, unsigned int duration) {
                 ttsSeconds += (int)(lastStopDepth * ASCENT_RATE_SECONDS_PER_METER);
             }
             
-            diveInfo.ttsSeconds = ttsSeconds;
+            diveInfo.ttsSeconds = ttsSeconds + pendingSafetyStopSeconds;
         }
 
         //Serial.println("");
