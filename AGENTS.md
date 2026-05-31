@@ -28,7 +28,19 @@ Do not introduce project-name prefixes in code identifiers or directory names. N
 
 Menu business logic must be driven by stable IDs (`menu_id_t`, `menu_item_id_t`) and row types. Display strings are only for LVGL labels; do not branch on menu titles or row text with `strcmp` in selection/action paths.
 
-本仓库允许并偏好把简单、短小、无复杂条件的函数调用压成一行，尤其是 `snprintf` 这类格式化语句；不要为了通用格式化习惯强行拆成多行。只有参数很长、表达式复杂、需要突出逻辑分组或一行明显影响阅读时，才拆成多行。
+本仓库明确偏好短调用单行风格。简单、短小、无复杂条件的函数调用必须写成一行，尤其是 `snprintf`、`lv_label_set_text_fmt`、`lv_label_set_text`、`memcpy`、`memset` 这类直接调用。不要把这种调用按“一个参数一行”的通用格式化习惯拆开。
+
+正确示例：
+`(void)snprintf(vm->gf_setting, sizeof(vm->gf_setting), "%u / %u", (unsigned)vm->gf_low, (unsigned)vm->gf_high);`
+
+错误示例：
+```c
+(void)snprintf(vm->gf_setting, sizeof(vm->gf_setting), "%u / %u",
+               (unsigned)vm->gf_low,
+               (unsigned)vm->gf_high);
+```
+
+只有在一行包含复杂条件表达式、嵌套函数调用过多、明显超过常规可读宽度，或拆行能表达清晰逻辑分组时，才允许拆成多行。否则保持单行。
 
 Do not rewrite source files with PowerShell/default-system encoding. Many project files contain UTF-8 Chinese comments; reading them as the Windows ANSI code page and writing them back will corrupt text into mojibake. Prefer `apply_patch` for manual edits. If a scripted edit is truly necessary, read and write explicitly as UTF-8 without BOM, keep the change narrowly scoped, and verify nearby Chinese comments with `Get-Content -Encoding UTF8` plus `git diff` before continuing. Never use `Set-Content`/`Out-File`/`[IO.File]::WriteAllText` without an explicit UTF-8 encoding on files that may contain non-ASCII text.
 

@@ -209,9 +209,7 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
     {
         vm->gf_low = bus_get_gf_low();
         vm->gf_high = bus_get_gf_high();
-        (void)snprintf(vm->gf_setting, sizeof(vm->gf_setting), "%u / %u",
-                       (unsigned)vm->gf_low,
-                       (unsigned)vm->gf_high);
+        (void)snprintf(vm->gf_setting, sizeof(vm->gf_setting), "%u / %u", (unsigned)vm->gf_low, (unsigned)vm->gf_high);
         (void)snprintf(vm->gf99, sizeof(vm->gf99), "%.0f%%", (double)bus_get_gf99());
         (void)snprintf(vm->surf_gf, sizeof(vm->surf_gf), "%.0f%%", (double)bus_get_surf_gf());
         (void)snprintf(vm->cns, sizeof(vm->cns), "%u%%", (unsigned)bus_get_cns_pct());
@@ -229,9 +227,7 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
 
     vm->gf_low = sensor->gf_low;
     vm->gf_high = sensor->gf_high;
-    (void)snprintf(vm->gf_setting, sizeof(vm->gf_setting), "%u / %u",
-                   (unsigned)vm->gf_low,
-                   (unsigned)vm->gf_high);
+    (void)snprintf(vm->gf_setting, sizeof(vm->gf_setting), "%u / %u", (unsigned)vm->gf_low, (unsigned)vm->gf_high);
     (void)snprintf(vm->gf99, sizeof(vm->gf99), "%.0f%%", (double)sensor->gf99);
     (void)snprintf(vm->surf_gf, sizeof(vm->surf_gf), "%.0f%%", (double)sensor->surf_gf);
     (void)snprintf(vm->cns, sizeof(vm->cns), "%u%%", (unsigned)sensor->cns_pct);
