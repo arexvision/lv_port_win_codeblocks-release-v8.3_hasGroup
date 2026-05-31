@@ -516,9 +516,9 @@ static const comp_style_t g_widget_styles[] =
     },
     {
         .widget_id = COMP_TMAG_1606,
-        .span_w = 2, .span_h = 1,
+        .span_w = 3, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
-        .font_id = FONT_ID_SMALL,
+        .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
         .title = "TMAG mT",
