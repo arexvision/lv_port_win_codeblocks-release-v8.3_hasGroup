@@ -301,7 +301,7 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->left_widgets[1] = (grid_widget_t)
     {
-        COMP_DEPTH_1612,      0, 1
+        COMP_DEPTH_1606,      0, 1
     };
     cfg->left_widgets[2] = (grid_widget_t)
     {
