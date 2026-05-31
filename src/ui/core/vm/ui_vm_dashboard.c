@@ -455,13 +455,13 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%.2f",(double)bus_get_gas_slot_ppo2(bus_get_gas_active_idx()));
         break;
     case COMP_SURF_GF_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.2f", (double)bus_get_surf_gf());
+        (void)snprintf(vm->text, sizeof(vm->text), "%.0f%%", (double)bus_get_surf_gf());
         break;
     case COMP_GF99_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.0f", (double)bus_get_gf99());
+        (void)snprintf(vm->text, sizeof(vm->text), "%.0f%%", (double)bus_get_gf99());
         break;
     case COMP_CNS_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%u", (unsigned)bus_get_cns_pct());
+        (void)snprintf(vm->text, sizeof(vm->text), "%u%%", (unsigned)bus_get_cns_pct());
         break;
     case COMP_OTU_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%u", (unsigned)bus_get_otu());

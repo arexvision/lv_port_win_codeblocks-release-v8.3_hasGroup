@@ -225,10 +225,10 @@ static const comp_style_t g_widget_styles[] =
     {
         .widget_id = COMP_GF99_0806,
         .span_w = 1, .span_h = 1,
-        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "%",
+        .unit = NULL,
         .title = "GF99",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
@@ -236,10 +236,10 @@ static const comp_style_t g_widget_styles[] =
     {
         .widget_id = COMP_CNS_0806,
         .span_w = 1, .span_h = 1,
-        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "%",
+        .unit = NULL,
         .title = "CNS",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
@@ -341,10 +341,10 @@ static const comp_style_t g_widget_styles[] =
     {
         .widget_id = COMP_FIO2_0806,
         .span_w = 1, .span_h = 1,
-        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "%",
+        .unit = NULL,
         .title = "FIO2",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
