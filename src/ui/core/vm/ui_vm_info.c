@@ -103,8 +103,8 @@ void ui_vm_info_page_update(ui_vm_info_page_t *vm, uint8_t page_index)
         (void)snprintf(vm->lines[0],
                        sizeof(vm->lines[0]),
                        "GF: %u/%u",
-                       (unsigned)(gf_low != 0U ? gf_low : 30U),
-                       (unsigned)(gf_high != 0U ? gf_high : 70U));
+                       (unsigned)gf_low,
+                       (unsigned)gf_high);
         (void)snprintf(vm->lines[1], sizeof(vm->lines[1]), "GF99: %.0f%%", (double)bus_get_gf99());
         (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "SURF GF: %.0f%%", (double)bus_get_surf_gf());
         (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "TISSUE: %u%%", (unsigned)vm_max_tissue_gf_pct());
