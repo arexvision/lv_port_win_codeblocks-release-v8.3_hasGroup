@@ -605,10 +605,8 @@ void bus_set_temperature(float temp_c)
 
 void bus_set_bat_temperature(float temp_c)
 {
-    if (!g_sensor_data.bat_temperature_valid ||
-            fabsf(g_sensor_data.bat_temperature_c - temp_c) > 0.1f)
+    if (fabsf(g_sensor_data.bat_temperature_c - temp_c) > 0.1f)
     {
-        g_sensor_data.bat_temperature_valid = true;
         g_sensor_data.bat_temperature_c = temp_c;
         g_sensor_data.dirty_mask |= DIRTY_TEMP;
     }
@@ -616,10 +614,8 @@ void bus_set_bat_temperature(float temp_c)
 
 void bus_set_prj_temperature(float temp_c)
 {
-    if (!g_sensor_data.prj_temperature_valid ||
-            fabsf(g_sensor_data.prj_temperature_c - temp_c) > 0.1f)
+    if (fabsf(g_sensor_data.prj_temperature_c - temp_c) > 0.1f)
     {
-        g_sensor_data.prj_temperature_valid = true;
         g_sensor_data.prj_temperature_c = temp_c;
         g_sensor_data.dirty_mask |= DIRTY_TEMP;
     }
@@ -1371,16 +1367,6 @@ float bus_get_avg_temp(void)
 float bus_get_max_temp(void)
 {
     return g_sensor_data.max_temp;
-}
-
-bool bus_get_bat_temperature_valid(void)
-{
-    return g_sensor_data.bat_temperature_valid;
-}
-
-bool bus_get_prj_temperature_valid(void)
-{
-    return g_sensor_data.prj_temperature_valid;
 }
 
 float bus_get_bat_temperature(void)

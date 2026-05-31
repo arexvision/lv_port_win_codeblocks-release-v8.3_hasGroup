@@ -108,8 +108,6 @@ typedef struct
     float   temperature_c;
     float   bat_temperature_c;
     float   prj_temperature_c;
-    bool    bat_temperature_valid;
-    bool    prj_temperature_valid;
     float   battery_pct;
     uint8_t sys_time_h;
     uint8_t sys_time_m;

@@ -168,32 +168,7 @@ void ui_vm_info_page_update(ui_vm_info_page_t *vm, uint8_t page_index)
         (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "BATTERY: %.0f%%", (double)battery_pct);
         (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "TEMP: %.1fC", (double)bus_get_temperature());
 
-        if (bus_get_bat_temperature_valid() && bus_get_prj_temperature_valid())
-        {
-            (void)snprintf(vm->lines[4],
-                           sizeof(vm->lines[4]),
-                           "BAT/PRJ: %.1f/%.1fC",
-                           (double)bus_get_bat_temperature(),
-                           (double)bus_get_prj_temperature());
-        }
-        else if (bus_get_bat_temperature_valid())
-        {
-            (void)snprintf(vm->lines[4],
-                           sizeof(vm->lines[4]),
-                           "BAT TEMP: %.1fC",
-                           (double)bus_get_bat_temperature());
-        }
-        else if (bus_get_prj_temperature_valid())
-        {
-            (void)snprintf(vm->lines[4],
-                           sizeof(vm->lines[4]),
-                           "PRJ TEMP: %.1fC",
-                           (double)bus_get_prj_temperature());
-        }
-        else
-        {
-            (void)snprintf(vm->lines[4], sizeof(vm->lines[4]), "%s", "BAT/PRJ: --/--C");
-        }
+        (void)snprintf(vm->lines[4], sizeof(vm->lines[4]), "BAT/PRJ: %.1f/%.1fC", (double)bus_get_bat_temperature(), (double)bus_get_prj_temperature());
         vm->count = 5U;
         break;
     }

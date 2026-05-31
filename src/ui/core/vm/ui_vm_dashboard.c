@@ -403,24 +403,10 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "4.20");
         break;
     case COMP_BATT_TEMP_0806:
-        if (bus_get_bat_temperature_valid())
-        {
-            (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_bat_temperature());
-        }
-        else
-        {
-            (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
-        }
+        (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_bat_temperature());
         break;
     case COMP_PRJ_TEMP_0806:
-        if (bus_get_prj_temperature_valid())
-        {
-            (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_prj_temperature());
-        }
-        else
-        {
-            (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
-        }
+        (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_prj_temperature());
         break;
     case COMP_CHARGE_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "FULL");

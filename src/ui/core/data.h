@@ -228,8 +228,6 @@ float bus_get_temperature(void);
 float bus_get_min_temp(void);
 float bus_get_avg_temp(void);
 float bus_get_max_temp(void);
-bool bus_get_bat_temperature_valid(void);
-bool bus_get_prj_temperature_valid(void);
 float bus_get_bat_temperature(void);
 float bus_get_prj_temperature(void);
 float bus_get_ascent_rate(void);

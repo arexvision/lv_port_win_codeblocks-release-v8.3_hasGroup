@@ -45,27 +45,6 @@ void ui_vm_left_aux_update(ui_vm_left_aux_t *vm)
 
     (void)memset(vm, 0, sizeof(*vm));
 
-    if (bus_get_bat_temperature_valid())
-    {
-        (void)snprintf(vm->battery_temp_text,
-                       sizeof(vm->battery_temp_text),
-                       "%.1fC",
-                       (double)bus_get_bat_temperature());
-    }
-    else
-    {
-        (void)snprintf(vm->battery_temp_text, sizeof(vm->battery_temp_text), "%s", "--");
-    }
-
-    if (bus_get_prj_temperature_valid())
-    {
-        (void)snprintf(vm->project_temp_text,
-                       sizeof(vm->project_temp_text),
-                       "%.1fC",
-                       (double)bus_get_prj_temperature());
-    }
-    else
-    {
-        (void)snprintf(vm->project_temp_text, sizeof(vm->project_temp_text), "%s", "--");
-    }
+    (void)snprintf(vm->battery_temp_text, sizeof(vm->battery_temp_text), "%.1fC", (double)bus_get_bat_temperature());
+    (void)snprintf(vm->project_temp_text, sizeof(vm->project_temp_text), "%.1fC", (double)bus_get_prj_temperature());
 }
