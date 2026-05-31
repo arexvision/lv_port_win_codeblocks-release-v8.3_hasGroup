@@ -161,7 +161,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->custom_card_count = 3;
     cfg->custom_cards[0].widget_count = 10;
     cfg->custom_cards[1].widget_count = 0;
-    cfg->custom_cards[2].widget_count = 20;
+    cfg->custom_cards[2].widget_count = 16;
     /* 下面这些 widget 配置决定右侧 5F 自定义卡片的格子内容和位置。 */
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
     {
@@ -264,10 +264,6 @@ void sys_config_defaults(sys_config_t *cfg)
         COMP_TMAG_1606,        2, 3
     };
     cfg->custom_cards[2].widgets[15] = (grid_widget_t)
-    {
-        COMP_CNS_0806,         4, 3
-    };
-    cfg->custom_cards[2].widgets[16] = (grid_widget_t)
     {
         COMP_ATTITUDE_1606,    0, 4
     };

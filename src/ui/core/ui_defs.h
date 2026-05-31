@@ -163,6 +163,8 @@ typedef enum
     COMP_DEPTH_AVG_0806   = 35,
     COMP_TEMP_MIN_0806    = 36,
     COMP_TEMP_AVG_0806    = 37,
+
+    //临时的测试组件，后续会根据实际需要调整增删
     COMP_GYRO_1606        = 38,
     COMP_BATT_V_0806      = 39,
     COMP_BATT_TEMP_0806   = 40,

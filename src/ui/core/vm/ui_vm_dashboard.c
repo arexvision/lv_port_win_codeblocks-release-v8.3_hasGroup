@@ -397,7 +397,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%03u", (unsigned)bus_get_heading());
         break;
     case COMP_GYRO_1606:
-        (void)snprintf(vm->text, sizeof(vm->text), "X999Y999Z999");
+        (void)snprintf(vm->text, sizeof(vm->text), "X:999Y:999Z:999");
         break;
     case COMP_BATT_V_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "4.20");
@@ -421,10 +421,10 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "X9.99Y9.99Z9.99");
         break;
     case COMP_MAG_1606:
-        (void)snprintf(vm->text, sizeof(vm->text), "X999Y999Z999");
+        (void)snprintf(vm->text, sizeof(vm->text), "X:999Y:999Z:999");
         break;
     case COMP_TMAG_1606:
-        (void)snprintf(vm->text, sizeof(vm->text), "X999Y999Z999");
+        (void)snprintf(vm->text, sizeof(vm->text), "X:999Y:999Z:999");
         break;
     case COMP_ATTITUDE_1606:
         (void)snprintf(vm->text, sizeof(vm->text), "P-180R-180H359");
