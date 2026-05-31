@@ -40,10 +40,10 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "m",
+        .unit = "",
         .title = "DEPTH",
-        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_CENTER,
-        .spec.basic = { .value_offset_x = -10, .value_offset_y = 4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_NDL_STOP_1606,
@@ -184,7 +184,7 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "m",
+        .unit = "",
         .title = "STOP",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
@@ -195,7 +195,7 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "min",
+        .unit = "",
         .title = "STIME",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
@@ -272,7 +272,7 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "m",
+        .unit = "",
         .title = "MOD",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
@@ -283,7 +283,7 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "m",
+        .unit = "",
         .title = "CEIL",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
@@ -333,7 +333,7 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "g/L",
+        .unit = "",
         .title = "DENS",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
@@ -377,7 +377,7 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "m",
+        .unit = "",
         .title = "MAX D",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
@@ -388,7 +388,7 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "m",
+        .unit = "",
         .title = "AVG D",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
@@ -399,7 +399,7 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "C",
+        .unit = "",
         .title = "MIN T",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
@@ -410,7 +410,7 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
-        .unit = "C",
+        .unit = "",
         .title = "AVG T",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
