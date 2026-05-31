@@ -68,15 +68,17 @@ flowchart LR
     Sensor --> Tick["ui_update_task"]
     Tick --> AlarmTick["alarm_view_tick<br/>告警视觉每帧推进"]
     Tick --> Router["ui_update_router_dispatch(mask)"]
-    Router --> VM["ui_vm_*_update<br/>构建显示模型"]
-    VM --> Widgets
-    VM --> Cards
-    Router --> Widgets["comp_update<br/>更新左侧与 5F 组件"]
-    Router --> Cards["card_*_update / menu_*_update<br/>更新右侧页面"]
+    Router --> VM["ui_vm_*_update<br/>本轮唯一显示模型"]
+    VM --> Widgets["comp_refresh_* / comp_sync_data<br/>左侧与 5F 组件"]
+    VM --> Cards["page_registry_update_*_vm / card_*_update_vm<br/>右侧页面"]
+    Widgets --> LVGL1["LVGL labels / bars / canvas"]
+    Cards --> LVGL2["LVGL labels / bars / canvas"]
     Router --> ScreenRebuild["screen_rebuild_*<br/>布局或卡片重建"]
 ```
 
 `UI_main()` 当前还会调用 `ui_bootstrap_force_first_paint()`，在传感器首帧到来前主动重建布局并补齐一轮初始数据刷新，避免空屏或必须等待模拟数据启动后才出现对象树。
+
+刷新链路的硬规则：同一条 dirty mask 消费链里，router 负责生成对应 VM，card/component 只消费 VM 或直接刷新对象。`card_deco_update()`、`card_gas_update()` 这类无参入口只作为页面注册表或初始化兼容入口；router 已经生成 VM 时必须走 `page_registry_update_*_vm()` 或 `card_*_update_vm()`，不能再让 card 内部重复调用同一个 `ui_vm_*_update()`。
 
 ## 屏幕拆分
 
@@ -116,6 +118,8 @@ flowchart TB
 ## VM 显示模型层
 
 VM 层位于 `src/ui/core/vm/`，负责把 `bus_get_*()`、`g_sys_config` 和 `ui_state` 转成视图刚好需要的数据结构。组件、卡片、菜单和弹窗应尽量消费 VM，而不是各自重复拼字符串或读取一堆全局状态。
+
+VM 不负责隐藏业务默认值。GF、气体、菜单档位等可信内部值应该从 Data Bus 或设置表原样进入 VM；只有外部输入、持久化数据、协议数据或渲染边界才做限制。渲染边界要写清楚意图，例如组织柱高度用 `draw_pct`，M-value 线位置用 `line_pct`，电量条绘制用 `ui_battery_draw_pct()`。
 
 ```mermaid
 flowchart LR

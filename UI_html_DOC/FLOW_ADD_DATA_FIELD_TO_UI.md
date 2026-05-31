@@ -94,9 +94,13 @@ if (mask & DIRTY_FOO)
 ```c
 if (mask & DIRTY_FOO)
 {
-    card_deco_update();
+    ui_vm_foo_t foo_vm;
+    ui_vm_foo_update(&foo_vm);
+    page_registry_update_foo_vm(&foo_vm);
 }
 ```
+
+如果 router 已经生成了 VM，就不要再调用无参 `card_*_update()` 让 card 内部重复读取 bus。无参 update 只作为初始化、页面注册表或旧入口兼容。
 
 如果它影响 INFO 子菜单，也要把 `DIRTY_FOO` 加到 `screen_refresh_info_submenu_if_open()` 那个 mask 组合里。
 
@@ -112,7 +116,7 @@ if (mask & DIRTY_FOO)
 
 文件：`src/ui/cards/card_xxx.c`
 
-在 update 函数中读取 `g_sensor_data.foo_value`。
+优先提供 `card_xxx_update_vm(const ui_vm_xxx_t *vm)`，在里面只消费 VM 并刷新 LVGL 对象。`card_xxx_update()` 可以保留为 wrapper：生成一次 VM 后调用 `card_xxx_update_vm()`。
 
 如果是 INFO 子菜单：
 

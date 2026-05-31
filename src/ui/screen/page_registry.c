@@ -23,8 +23,10 @@ void card_compass_create(lv_obj_t *parent);
 void card_compass_update(void);
 void card_deco_create(lv_obj_t *parent);
 void card_deco_update(void);
+void card_deco_update_vm(const ui_vm_deco_t *vm);
 void card_gas_create(lv_obj_t *parent);
 void card_gas_update(void);
+void card_gas_update_vm(const ui_vm_gas_t *vm);
 void card_plan_create(lv_obj_t *parent);
 void card_plan_update(const ui_vm_plan_chart_t *vm);
 void card_blank_create(lv_obj_t *parent);
@@ -39,6 +41,16 @@ static void page_plan_update_vm_bridge(const void *vm)
 {
     /* 计划页的 VM 数据需要先转回具体类型，再交给卡片更新函数。 */
     card_plan_update((const ui_vm_plan_chart_t *)vm);
+}
+
+static void page_deco_update_vm_bridge(const void *vm)
+{
+    card_deco_update_vm((const ui_vm_deco_t *)vm);
+}
+
+static void page_gas_update_vm_bridge(const void *vm)
+{
+    card_gas_update_vm((const ui_vm_gas_t *)vm);
 }
 
 static page_t g_pages[PAGE_ID_COUNT] =
@@ -72,6 +84,7 @@ static page_t g_pages[PAGE_ID_COUNT] =
         .create_cb   = card_deco_create,
         .update_cb   = card_deco_update,
         .on_enter_cb = NULL,
+        .update_vm_cb = page_deco_update_vm_bridge,
     },
     [PAGE_ID_GAS] = {
         .id          = PAGE_ID_GAS,
@@ -82,6 +95,7 @@ static page_t g_pages[PAGE_ID_COUNT] =
         .create_cb   = card_gas_create,
         .update_cb   = card_gas_update,
         .on_enter_cb = NULL,
+        .update_vm_cb = page_gas_update_vm_bridge,
     },
     [PAGE_ID_PLAN] = {
         .id          = PAGE_ID_PLAN,
@@ -205,6 +219,30 @@ void page_registry_update_plan_vm(const ui_vm_plan_chart_t *vm)
 {
     /* 仅当计划页存在且支持 VM 刷新时才转发数据。 */
     page_t *page = page_get_by_id(PAGE_ID_PLAN);
+
+    if (page == NULL || page->update_vm_cb == NULL)
+    {
+        return;
+    }
+
+    page->update_vm_cb(vm);
+}
+
+void page_registry_update_deco_vm(const ui_vm_deco_t *vm)
+{
+    page_t *page = page_get_by_id(PAGE_ID_DECO);
+
+    if (page == NULL || page->update_vm_cb == NULL)
+    {
+        return;
+    }
+
+    page->update_vm_cb(vm);
+}
+
+void page_registry_update_gas_vm(const ui_vm_gas_t *vm)
+{
+    page_t *page = page_get_by_id(PAGE_ID_GAS);
 
     if (page == NULL || page->update_vm_cb == NULL)
     {

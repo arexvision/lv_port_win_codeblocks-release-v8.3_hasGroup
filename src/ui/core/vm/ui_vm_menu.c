@@ -278,16 +278,7 @@ void ui_vm_dive_context_update(ui_vm_dive_context_t *vm)
     }
 
     vm->gf_low = bus_get_gf_low();
-    if (vm->gf_low == 0U)
-    {
-        vm->gf_low = 40U;
-    }
-
     vm->gf_high = bus_get_gf_high();
-    if (vm->gf_high == 0U)
-    {
-        vm->gf_high = 85U;
-    }
 
     vm->last_stop_depth_m = (bus_get_last_deco_stop() == 6U) ? 6U : 3U;
 }

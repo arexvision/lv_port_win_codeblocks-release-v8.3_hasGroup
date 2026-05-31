@@ -9,6 +9,7 @@
 #define PAGE_REGISTRY_H
 
 #include "page_registry_types.h"
+#include "../core/vm/ui_vm_dashboard_types.h"
 #include "lvgl/lvgl.h"
 #include <stdint.h>
 
@@ -101,10 +102,14 @@ typedef page_t card_t;
 void menu_info_update(void);
 void card_compass_update(void);
 void card_deco_update(void);
+void card_deco_update_vm(const ui_vm_deco_t *vm);
 void card_gas_update(void);
+void card_gas_update_vm(const ui_vm_gas_t *vm);
 void card_plan_update(const ui_vm_plan_chart_t *vm);
 void card_blank_update(void);
 void menu_setup_update(void);
+void page_registry_update_deco_vm(const ui_vm_deco_t *vm);
+void page_registry_update_gas_vm(const ui_vm_gas_t *vm);
 void page_registry_update_plan_vm(const ui_vm_plan_chart_t *vm);
 
 #ifdef __cplusplus

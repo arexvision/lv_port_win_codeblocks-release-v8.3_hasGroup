@@ -111,9 +111,9 @@ flowchart LR
     Timer --> Async["submenu_dive_plan_poll_async()<br/>计划计算轮询"]
     Timer --> Take["bus_take_dirty()"]
     Take --> Router["ui_update_router_dispatch(mask)"]
-    Router --> VM["ui_vm_*_update()<br/>把原始数据转成显示模型"]
+    Router --> VM["ui_vm_*_update()<br/>本轮唯一显示模型"]
     VM --> Comp["comp_refresh_* / comp_sync_data"]
-    VM --> Cards["card_*_update / page_registry_update_*"]
+    VM --> Cards["page_registry_update_*_vm / card_*_update_vm"]
     Comp --> LVGL["lv_label_set_text / lv_obj_invalidate"]
     Cards --> LVGL
 ```
@@ -129,6 +129,8 @@ flowchart LR
 | `DIRTY_TRAJECTORY` | PLAN 卡片轨迹和减压站图 |
 | `DIRTY_TISSUES` | 组织柱图和 DECO 卡 |
 | `DIRTY_UI_LAYOUT` | 全屏重建：tileview、左侧锚点、右侧卡片、子菜单/弹窗层 |
+
+同一轮 dirty mask 里，一个业务域只生成一次 VM。比如 DECO 域由 router 调一次 `ui_vm_deco_update()`，然后同一个 `deco_vm` 同时交给 `page_registry_update_deco_vm()` 和 `comp_refresh_tissue_widgets()`。无参 `card_*_update()` 是页面注册表、初始化或旧入口的兼容 wrapper，不是 router 已有 VM 时的首选路径。
 
 ## 6. VM 层是什么
 
@@ -153,6 +155,8 @@ VM 层的好处：
 | 同一个值在不同地方显示格式可能不一致 | `ui_vm_value_text_update()` 统一文本规则 |
 | Router 里塞满字符串拼接和 UI 细节 | Router 只决定刷新谁，VM 决定显示成什么 |
 | 菜单、弹窗、组件各自理解业务状态 | 复杂状态先汇总成 VM，再交给视图 |
+
+VM 不应该偷偷补业务默认值。GF 低/高、气体数量、菜单档位等可信内部数据应原样进入 VM；默认值属于初始化、设置表或外部输入解析层。确实为了绘制需要限制范围时，变量名必须说明它是绘制边界，例如 `draw_pct`、`line_pct`、`ui_battery_draw_pct()`。
 
 常见 VM 文件：
 
@@ -482,7 +486,8 @@ sequenceDiagram
     Bus-->>Timer: DIRTY_DEPTH
     Timer->>Router: ui_update_router_dispatch(DIRTY_DEPTH)
     Router->>VM: ui_vm_deco_update()
-    Router->>Card: card_deco_update()
+    Router->>Card: page_registry_update_deco_vm(deco_vm)
+    Router->>Comp: comp_refresh_tissue_widgets(deco_vm, mask)
     Router->>VM: ui_vm_ascent_update()
     Router->>Comp: comp_refresh_ascent_icons()
     Router->>VM: ui_vm_value_text_update(COMP_DEPTH_MAX_0806)
@@ -492,6 +497,12 @@ sequenceDiagram
 ```
 
 这条链路里没有任何模拟器代码直接碰 LVGL。数据写入和 UI 刷新通过 dirty mask 延迟解耦。
+
+同一个 `deco_vm` 会同时驱动右侧 DECO 卡和 5F/左侧里的组织组件。这样 GF、GF99、SurfGF、CNS、OTU、组织柱不会出现“卡片读了一次 bus，组件又读了一次 bus”的双链路问题。
+
+温度/电量这种简单文本走更短的链路：`DIRTY_TEMP` 或 `DIRTY_BATT` 到 router 后，只调用 `ui_vm_value_text_update()` 组装文本，再由 `comp_set_text()` 或 `comp_refresh_sys()` 更新 label。右下角系统栏的电量百分比会用 `ui_battery_draw_pct()` 限制在 0..100，只影响电池条/百分比绘制，不改变 bus 里的原始电量。
+
+GF 设置变化时，数据入口仍是 `bus_set_gf_setting(low, high)`。router 消费 `DIRTY_GF_SETTING` 后刷新所有相关 widget；DECO 卡显示的 `gf_setting` 由 VM 直接使用 bus 值格式化，不再把 0 偷偷改成 40/85。
 
 ## 16. 例子 2：用户在 GAS 卡切换气体
 
@@ -520,7 +531,8 @@ sequenceDiagram
     Algo->>State: has_pending_gas_switch()
     Algo->>Bus: bus_set_gas(new_idx, name)
     Bus->>Bus: dirty_mask |= DIRTY_GAS
-    Router->>Screen: screen_refresh_gas_menu()
+    Router->>VM: ui_vm_gas_update()
+    Router->>Screen: page_registry_update_gas_vm(gas_vm)
     Router->>Screen: screen_refresh_all_widgets()
 ```
 

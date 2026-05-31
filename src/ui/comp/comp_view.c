@@ -66,7 +66,7 @@ static ui_vm_ndl_stop_t s_ndl_draw_vm[MAX_NDL_ICONS];
 static tissue_handle_t s_tissue_handles[MAX_TISSUE_WIDGETS];
 static uint8_t s_tissue_handle_count;
 
-static uint8_t ui_clamp_battery_pct(float pct)
+static uint8_t ui_battery_draw_pct(float pct)
 {
     if (pct <= 0.0f)
     {
@@ -527,9 +527,6 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         ndl_handle_t *h = &s_ndl_handles[s_ndl_handle_count++];
         ui_vm_ndl_stop_t *draw_vm = &s_ndl_draw_vm[s_ndl_handle_count - 1U];
         h->comp = obj;
-
-        const style_ndl_stop_t *s = &style->spec.ndl_stop;
-
         /* 创建 10 宫格的底层透明画板 */
         h->horiz_bg = lv_obj_create(obj);
         lv_obj_remove_style_all(h->horiz_bg);
@@ -583,7 +580,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_label_set_text(s_sys_batt_lbl, "--%");
         else
         {
-            lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", (unsigned)ui_clamp_battery_pct(bus_get_battery_pct()));
+            lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", (unsigned)ui_battery_draw_pct(bus_get_battery_pct()));
         }
 
         /* 右侧：温Label */
@@ -755,7 +752,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_obj_set_style_border_color(bat_bg, GREEN, 0);
             lv_obj_set_style_radius(bat_bg, 2, 0);
 
-            uint8_t pct = ui_clamp_battery_pct(bus_get_battery_pct());
+            uint8_t pct = ui_battery_draw_pct(bus_get_battery_pct());
             bool battery_low = pct <= 40U;
             lv_obj_t *bat_fill = lv_obj_create(bat_bg);
             lv_obj_remove_style_all(bat_fill);
@@ -917,7 +914,7 @@ void comp_refresh_sys(uint32_t dirty_mask)
 {
     if ((dirty_mask & DIRTY_BATT) && ui_obj_is_valid(&s_sys_batt_lbl))
     {
-        lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", (unsigned)ui_clamp_battery_pct(bus_get_battery_pct()));
+        lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", (unsigned)ui_battery_draw_pct(bus_get_battery_pct()));
     }
     if ((dirty_mask & DIRTY_TEMP) && ui_obj_is_valid(&s_sys_temp_lbl))
     {

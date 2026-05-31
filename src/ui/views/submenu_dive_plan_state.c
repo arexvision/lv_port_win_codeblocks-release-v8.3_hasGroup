@@ -81,7 +81,7 @@ static uint16_t plan_round_u16(float value)
     return (uint16_t)(value + 0.5f);
 }
 
-static float clamp_float(float value, float min_value, float max_value)
+static float limit_plan_input_float(float value, float min_value, float max_value)
 {
     /* 潜水计划的输入值需要限制在合理范围内。 */
     if (value < min_value)
@@ -413,7 +413,7 @@ void submenu_dive_plan_set_depth_m(float value)
     /* 深度输入会被归一化并带入 READY 页。 */
     plan_ensure_defaults();
     s_state.depth_m = (float)plan_round_u16(value);
-    s_state.depth_m = clamp_float(s_state.depth_m, 3.0f, 120.0f);
+    s_state.depth_m = limit_plan_input_float(s_state.depth_m, 3.0f, 120.0f);
     s_state.page = DIVE_PLAN_PAGE_READY;
 }
 
@@ -441,7 +441,7 @@ void submenu_dive_plan_set_rmv_lpm(float value)
     /* RMV 输入会被限制在合理人体范围。 */
     plan_ensure_defaults();
     s_state.rmv_lpm = (float)plan_round_u16(value);
-    s_state.rmv_lpm = clamp_float(s_state.rmv_lpm, 5.0f, 50.0f);
+    s_state.rmv_lpm = limit_plan_input_float(s_state.rmv_lpm, 5.0f, 50.0f);
     s_state.page = DIVE_PLAN_PAGE_READY;
 }
 

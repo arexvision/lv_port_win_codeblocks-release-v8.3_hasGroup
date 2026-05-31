@@ -13,7 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static uint8_t vm_clamp_u8(uint8_t value, uint8_t max_value)
+static uint8_t vm_limit_array_u8(uint8_t value, uint8_t max_value)
 {
     return (value > max_value) ? max_value : value;
 }
@@ -147,8 +147,8 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
         return;
     }
 
-    vm->gas_count = vm_clamp_u8(sensor->gas_slot_count, GAS_COUNT);
-    vm->active_idx = vm_clamp_u8(sensor->gas_active_idx, (uint8_t)(GAS_COUNT - 1U));
+    vm->gas_count = vm_limit_array_u8(sensor->gas_slot_count, GAS_COUNT);
+    vm->active_idx = vm_limit_array_u8(sensor->gas_active_idx, (uint8_t)(GAS_COUNT - 1U));
     vm->cursor_idx = gas_cursor;
     vm->edit_mode = (state == UI_EDIT_GAS) ? 1U : 0U;
     bool selection_mode = (state == UI_EDIT_GAS || state == UI_MODAL_GAS);
@@ -447,7 +447,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "-100");
         break;
     case COMP_CPU_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "100%");
+        (void)snprintf(vm->text, sizeof(vm->text), "100%%");
         break;
     case COMP_FPS_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "120");

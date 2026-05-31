@@ -26,6 +26,8 @@ Do not introduce project-name prefixes in code identifiers or directory names. N
 
 不要为已经由菜单索引、枚举表、固定数组或状态机保证范围的设置值额外添加 `clamp`/兜底映射。此类防御会隐藏真实错误，并让简单配置修改变复杂。只有外部输入、协议数据、文件持久化数据或其他不可信边界进入系统时，才做范围校验。
 
+UI 刷新链路必须保持单向、单次生成：`bus_set_*()` 只写数据和 dirty bit，`ui_update_router_dispatch()` 按 dirty bit 生成本轮唯一 VM，card/component 只消费这个 VM 或刷新 LVGL 对象。同一条 dirty 刷新链路里不要让 card/component 再次调用同一个 `ui_vm_*_update()`。必要的渲染边界限制必须用 `draw_pct`、`line_pct`、`*_for_array` 这类名字表达“只限制绘制/数组访问”，不要伪装成业务数据兜底。
+
 Menu business logic must be driven by stable IDs (`menu_id_t`, `menu_item_id_t`) and row types. Display strings are only for LVGL labels; do not branch on menu titles or row text with `strcmp` in selection/action paths.
 
 本仓库明确偏好短调用单行风格。简单、短小、无复杂条件的函数调用必须写成一行，尤其是 `snprintf`、`lv_label_set_text_fmt`、`lv_label_set_text`、`memcpy`、`memset` 这类直接调用。不要把这种调用按“一个参数一行”的通用格式化习惯拆开。

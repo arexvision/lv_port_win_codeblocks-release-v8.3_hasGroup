@@ -43,6 +43,7 @@ static bool gas_obj_is_valid(lv_obj_t **obj_ref)
 }
 
 void card_gas_update(void); /* forward declaration */
+void card_gas_update_vm(const ui_vm_gas_t *vm);
 
 void card_gas_create(lv_obj_t *parent)
 {
@@ -126,16 +127,25 @@ void card_gas_create(lv_obj_t *parent)
     lv_label_set_text(s_hint, "[ PRESS TO SWITCH GAS ]");
     lv_obj_align(s_hint, LV_ALIGN_BOTTOM_MID, 0, -20);
 
-    card_gas_update();
+    card_gas_update_vm(&s_gas_vm_cache);
 }
 
 void card_gas_update(void)
 {
-    ui_vm_gas_update(&s_gas_vm_cache,
-                     NULL,
-                     NULL,
-                     ui_state_get_state(),
-                     ui_state_get_gas_cursor());
+    ui_vm_gas_t vm;
+
+    ui_vm_gas_update(&vm, NULL, NULL, ui_state_get_state(), ui_state_get_gas_cursor());
+    card_gas_update_vm(&vm);
+}
+
+void card_gas_update_vm(const ui_vm_gas_t *vm)
+{
+    if (vm == NULL)
+    {
+        return;
+    }
+
+    s_gas_vm_cache = *vm;
 
     for (int i = 0; i < GAS_COUNT; i++)
     {

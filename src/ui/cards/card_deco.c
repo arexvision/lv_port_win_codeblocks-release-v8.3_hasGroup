@@ -46,6 +46,7 @@ static bool        s_tissue_flash_phase;
 static ui_vm_deco_t s_deco_vm_cache;
 
 void card_deco_update(void);
+void card_deco_update_vm(const ui_vm_deco_t *vm);
 
 static bool deco_obj_is_valid(lv_obj_t **obj_ref)
 {
@@ -125,14 +126,14 @@ static lv_color_t tissue_fill_color(uint8_t pct, uint8_t gf_high)
     return GREEN;
 }
 
-static uint8_t card_deco_get_gf_high_pct(void)
+static uint8_t card_deco_mvalue_line_pct(void)
 {
-    uint8_t gf_high = s_deco_vm_cache.gf_high;
-    if (gf_high > 100)
+    uint8_t line_pct = s_deco_vm_cache.gf_high;
+    if (line_pct > 100U)
     {
-        gf_high = 100;
+        line_pct = 100U;
     }
-    return gf_high;
+    return line_pct;
 }
 
 static bool card_deco_tissue_chart_active(void)
@@ -163,9 +164,9 @@ static void card_deco_update_mvalue_line(bool chart_active)
 
     int bar_max_h = (int)lv_obj_get_height(s_bars[0]);
     int line_y = bar_max_h;
-    uint8_t gf_high = card_deco_get_gf_high_pct();
+    uint8_t line_pct = card_deco_mvalue_line_pct();
 
-    line_y -= ((int)gf_high * bar_max_h) / 100;
+    line_y -= ((int)line_pct * bar_max_h) / 100;
     if (line_y < 0)
     {
         line_y = 0;
@@ -176,7 +177,7 @@ static void card_deco_update_mvalue_line(bool chart_active)
     }
 
     lv_obj_set_y(s_mvalue_line, line_y);
-    lv_label_set_text_fmt(s_mvalue_label, "M-VALUE %u%%", gf_high);
+    lv_label_set_text_fmt(s_mvalue_label, "M-VALUE %u%%", line_pct);
     lv_obj_align_to(s_mvalue_label, s_mvalue_line, LV_ALIGN_OUT_TOP_RIGHT, -4, -2);
 }
 
@@ -347,15 +348,27 @@ void card_deco_create(lv_obj_t *parent)
     lv_obj_set_style_bg_opa(s_mvalue_label, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(s_mvalue_label, BLACK, 0);
 
-    ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
     card_deco_update();
 }
 
 void card_deco_update(void)
 {
-    ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
+    ui_vm_deco_t vm;
 
-    uint8_t gf_high = card_deco_get_gf_high_pct();
+    ui_vm_deco_update(&vm, NULL, NULL);
+    card_deco_update_vm(&vm);
+}
+
+void card_deco_update_vm(const ui_vm_deco_t *vm)
+{
+    if (vm == NULL)
+    {
+        return;
+    }
+
+    s_deco_vm_cache = *vm;
+
+    uint8_t line_pct = card_deco_mvalue_line_pct();
     bool chart_active = card_deco_tissue_chart_active();
 
     if (deco_obj_is_valid(&s_lbl_gf_setting))
@@ -401,20 +414,20 @@ void card_deco_update(void)
         {
             int bar_max_h = (int)lv_obj_get_height(s_bars[i]);
             int fill_h = 0;
-            int fill_pct = (int)pct;
+            uint8_t draw_pct = pct;
 
             if (!chart_active)
             {
-                fill_pct = 0;
+                draw_pct = 0U;
             }
-            if (fill_pct > 100)
+            if (draw_pct > 100U)
             {
-                fill_pct = 100;
+                draw_pct = 100U;
             }
 
-            if (fill_pct > 0)
+            if (draw_pct > 0U)
             {
-                fill_h = (fill_pct * bar_max_h) / 100;
+                fill_h = ((int)draw_pct * bar_max_h) / 100;
                 if (fill_h < 2)
                 {
                     fill_h = 2;
@@ -427,7 +440,7 @@ void card_deco_update(void)
 
             lv_obj_set_size(bar_fill, LV_PCT(100), fill_h);
             lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
-            lv_obj_set_style_bg_color(bar_fill, tissue_fill_color(pct, gf_high), 0);
+            lv_obj_set_style_bg_color(bar_fill, tissue_fill_color(pct, line_pct), 0);
         }
     }
 }

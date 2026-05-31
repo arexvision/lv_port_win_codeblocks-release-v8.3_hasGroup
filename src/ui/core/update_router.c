@@ -68,6 +68,7 @@ void ui_update_router_dispatch(uint32_t mask)
     ui_vm_ndl_stop_t ndl_stop_vm;
     ui_vm_ascent_t ascent_vm;
     ui_vm_plan_chart_t plan_chart_vm;
+    bool deco_vm_ready = false;
     bool refresh_all_widgets = false;
 
     if (mask & DIRTY_UI_LAYOUT)
@@ -91,6 +92,13 @@ void ui_update_router_dispatch(uint32_t mask)
         return;
     }
 
+    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES | DIRTY_CNS | DIRTY_OTU))
+    {
+        ui_vm_deco_update(&deco_vm, NULL, NULL);
+        deco_vm_ready = true;
+        page_registry_update_deco_vm(&deco_vm);
+    }
+
     if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES | DIRTY_ASCENT))
     {
         /* 深度、NDL、TTS、组织和上升率通常联动刷新，所以归并为一组处理。 */
@@ -99,9 +107,10 @@ void ui_update_router_dispatch(uint32_t mask)
         refresh_all_widgets = true;
         if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES))
         {
-            ui_vm_deco_update(&deco_vm, NULL, NULL);
-            card_deco_update();
-            comp_refresh_tissue_widgets(&deco_vm, mask);
+            if (deco_vm_ready)
+            {
+                comp_refresh_tissue_widgets(&deco_vm, mask);
+            }
         }
         ui_vm_ascent_update(&ascent_vm, bus_get_ascent_rate());
         comp_refresh_ascent_icons(&ascent_vm);
@@ -151,7 +160,7 @@ void ui_update_router_dispatch(uint32_t mask)
                          NULL,
                          ui_state_get_state(),
                          ui_state_get_gas_cursor());
-        screen_refresh_gas_menu();
+        page_registry_update_gas_vm(&gas_vm);
         refresh_all_widgets = true;
     }
 
@@ -163,15 +172,11 @@ void ui_update_router_dispatch(uint32_t mask)
 
     if (mask & DIRTY_CNS)
     {
-        ui_vm_deco_update(&deco_vm, NULL, NULL);
-        card_deco_update();
         refresh_all_widgets = true;
     }
 
     if (mask & DIRTY_OTU)
     {
-        ui_vm_deco_update(&deco_vm, NULL, NULL);
-        card_deco_update();
         refresh_all_widgets = true;
     }
 
