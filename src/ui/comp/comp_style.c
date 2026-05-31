@@ -43,12 +43,7 @@ static const comp_style_t g_widget_styles[] =
         .unit = "m",
         .title = "DEPTH",
         .title_offset_x = 0, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_CENTER,
-        .spec.depth = {
-            .int_offset_x = 0, .int_offset_y = 4, .int_align = LV_ALIGN_BOTTOM_MID,
-            .dec_offset_x = 2,  .dec_offset_y = 3,
-            .unit_offset_x = 0, .unit_offset_y = 1,
-            .icon_offset_x = -6, .icon_offset_y = 0, .icon_align = LV_ALIGN_RIGHT_MID
-        }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = 4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_NDL_STOP_1606,
