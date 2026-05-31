@@ -128,25 +128,11 @@ static lv_color_t tissue_fill_color(uint8_t pct, uint8_t gf_high)
 static uint8_t card_deco_get_gf_high_pct(void)
 {
     uint8_t gf_high = s_deco_vm_cache.gf_high;
-    if (gf_high == 0U)
-    {
-        gf_high = 70;
-    }
     if (gf_high > 100)
     {
         gf_high = 100;
     }
     return gf_high;
-}
-
-static uint8_t card_deco_get_gf_low_pct(void)
-{
-    uint8_t gf_low = s_deco_vm_cache.gf_low;
-    if (gf_low > 100)
-    {
-        gf_low = 100;
-    }
-    return gf_low;
 }
 
 static bool card_deco_tissue_chart_active(void)
@@ -367,44 +353,35 @@ void card_deco_create(lv_obj_t *parent)
 
 void card_deco_update(void)
 {
-    char buf[16];
-
     ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
 
-    uint8_t gf_low = card_deco_get_gf_low_pct();
     uint8_t gf_high = card_deco_get_gf_high_pct();
     bool chart_active = card_deco_tissue_chart_active();
 
     if (deco_obj_is_valid(&s_lbl_gf_setting))
     {
-        lv_label_set_text_fmt(s_lbl_gf_setting, "%u / %u", gf_low, gf_high);
+        lv_label_set_text(s_lbl_gf_setting, s_deco_vm_cache.gf_setting);
     }
 
-    ui_vm_deco_update(&s_deco_vm_cache, NULL, NULL);
-
-    snprintf(buf, sizeof(buf), "%s", s_deco_vm_cache.gf99);
     if (deco_obj_is_valid(&s_lbl_gf99))
     {
-        lv_label_set_text(s_lbl_gf99, buf);
+        lv_label_set_text(s_lbl_gf99, s_deco_vm_cache.gf99);
     }
 
-    snprintf(buf, sizeof(buf), "%s", s_deco_vm_cache.surf_gf);
     if (deco_obj_is_valid(&s_lbl_surf_gf))
     {
-        lv_label_set_text(s_lbl_surf_gf, buf);
+        lv_label_set_text(s_lbl_surf_gf, s_deco_vm_cache.surf_gf);
     }
     surf_gf_apply_style();
 
-    snprintf(buf, sizeof(buf), "%s", s_deco_vm_cache.cns);
     if (deco_obj_is_valid(&s_lbl_cns))
     {
-        lv_label_set_text(s_lbl_cns, buf);
+        lv_label_set_text(s_lbl_cns, s_deco_vm_cache.cns);
     }
 
-    snprintf(buf, sizeof(buf), "%s", s_deco_vm_cache.otu);
     if (deco_obj_is_valid(&s_lbl_otu))
     {
-        lv_label_set_text(s_lbl_otu, buf);
+        lv_label_set_text(s_lbl_otu, s_deco_vm_cache.otu);
     }
 
     card_deco_update_mvalue_line(chart_active);
@@ -427,10 +404,6 @@ void card_deco_update(void)
             int fill_pct = (int)pct;
 
             if (!chart_active)
-            {
-                fill_pct = 0;
-            }
-            else if (fill_pct < 0)
             {
                 fill_pct = 0;
             }
