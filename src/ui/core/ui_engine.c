@@ -158,11 +158,10 @@ void sys_config_defaults(sys_config_t *cfg)
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h MCU 样式表自动推
      */
     /* 兼容新架：custom_cards[1] 是首屏空白自定义卡，custom_cards[0] 保留默认卡片内容。 */
-    cfg->custom_card_count = 4;
+    cfg->custom_card_count = 3;
     cfg->custom_cards[0].widget_count = 10;
     cfg->custom_cards[1].widget_count = 0;
     cfg->custom_cards[2].widget_count = 20;
-    cfg->custom_cards[3].widget_count = 13;
     /* 下面这些 widget 配置决定右侧 5F 自定义卡片的格子内容和位置。 */
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
     {
@@ -284,59 +283,6 @@ void sys_config_defaults(sys_config_t *cfg)
     {
         COMP_OTU_0806,         4, 4
     };
-    cfg->custom_cards[3].widgets[0] = (grid_widget_t)
-    {
-        COMP_DEPTH_1612,       0, 0
-    };
-    cfg->custom_cards[3].widgets[1] = (grid_widget_t)
-    {
-        COMP_STOP_DEPTH_0806,  2, 0
-    };
-    cfg->custom_cards[3].widgets[2] = (grid_widget_t)
-    {
-        COMP_MOD_0806,         3, 0
-    };
-    cfg->custom_cards[3].widgets[3] = (grid_widget_t)
-    {
-        COMP_CEILING_0806,     4, 0
-    };
-    cfg->custom_cards[3].widgets[4] = (grid_widget_t)
-    {
-        COMP_DEPTH_MAX_0806,   2, 1
-    };
-    cfg->custom_cards[3].widgets[5] = (grid_widget_t)
-    {
-        COMP_DEPTH_AVG_0806,   3, 1
-    };
-    cfg->custom_cards[3].widgets[6] = (grid_widget_t)
-    {
-        COMP_GAS_DENS_0806,    4, 1
-    };
-    cfg->custom_cards[3].widgets[7] = (grid_widget_t)
-    {
-        COMP_NDL_STOP_1606,    0, 2
-    };
-    cfg->custom_cards[3].widgets[8] = (grid_widget_t)
-    {
-        COMP_STOP_TIME_1606,   2, 2
-    };
-    cfg->custom_cards[3].widgets[9] = (grid_widget_t)
-    {
-        COMP_TEMP_MIN_0806,    4, 2
-    };
-    cfg->custom_cards[3].widgets[10] = (grid_widget_t)
-    {
-        COMP_DEPTH_1606,       0, 3
-    };
-    cfg->custom_cards[3].widgets[11] = (grid_widget_t)
-    {
-        COMP_TEMP_AVG_0806,    2, 3
-    };
-    cfg->custom_cards[3].widgets[12] = (grid_widget_t)
-    {
-        COMP_TEMP_0806,        3, 3
-    };
-
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
      * 160x420 区域 = 280px) x 760px)，由 render_left_anchor_grid() 渲染
      *
@@ -404,8 +350,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->card_order[PAGE_POS_5]      = PAGE_ID_GAS;
     cfg->card_order[PAGE_POS_6]      = PAGE_ID_CUSTOM_GRID;
     cfg->card_order[PAGE_POS_7]      = PAGE_ID_CUSTOM_GRID;
-    cfg->card_order[PAGE_POS_8]      = PAGE_ID_CUSTOM_GRID;
-    /* PAGE_POS_9 ~ PAGE_POS_12 淇濇寔 PAGE_ID_BLANK */
+    /* PAGE_POS_8 ~ PAGE_POS_12 淇濇寔 PAGE_ID_BLANK */
     cfg->card_order[PAGE_POS_SETUP]  = PAGE_ID_SETUP;//菜单，不算卡
 
     /* ========== [A] 卡片槽位映射 ==========
@@ -417,7 +362,6 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->custom_card_slot[PAGE_POS_1] = 1;  /* 首屏 CUSTOM_GRID 映射空白 custom_cards[1] */
     cfg->custom_card_slot[PAGE_POS_6] = 0;  /* 默认 CUSTOM_GRID 映射 custom_cards[0] */
     cfg->custom_card_slot[PAGE_POS_7] = 2;  /* 传感器预览 CUSTOM_GRID 映射 custom_cards[2] */
-    cfg->custom_card_slot[PAGE_POS_8] = 3;  /* 单位组件预览 CUSTOM_GRID 映射 custom_cards[3] */
 
     /* ========== [A] 用户设置默认========== */
     cfg->mod_ppo2       = 1.4f;
