@@ -695,17 +695,18 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     }
 
     /* --- 零件 3：单--- */
-    if ((style->elements & ELEM_UNIT) && style->unit)
+    if ((style->elements & ELEM_UNIT) && style->unit && (style->unit[0] != '\0'))
     {
         lv_obj_t *unit_lbl = lv_label_create(obj);
         lv_label_set_text(unit_lbl, style->unit);
         lv_obj_set_style_text_font(unit_lbl, get_font(FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(unit_lbl, LIGHT, 0);
-        /* 单位位于数值右侧（对于 2x1 等窄组件*/
         if ((style->elements & ELEM_VALUE) && (val_lbl != NULL))
         {
-            /* 挂在数label 右侧 */
-            lv_obj_align_to(unit_lbl, val_lbl, LV_ALIGN_OUT_RIGHT_MID, 4, 0);
+            /* 单位贴在组件内部右侧，数值再贴到单位左侧，避免单位被右边框裁掉。 */
+            lv_obj_align(unit_lbl, (lv_align_t)style->spec.basic.value_align,
+                         style->spec.basic.value_offset_x, style->spec.basic.value_offset_y);
+            lv_obj_align_to(val_lbl, unit_lbl, LV_ALIGN_OUT_LEFT_MID, -2, 0);
         }
         else
         {
