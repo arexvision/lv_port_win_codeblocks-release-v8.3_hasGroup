@@ -26,7 +26,6 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
 void ui_vm_deco_update(ui_vm_deco_t *vm,
                        const sensor_data_t *sensor,
                        const sys_config_t *config);
-void ui_vm_sys_update(ui_vm_sys_t *vm, const sensor_data_t *sensor);
 void ui_vm_depth_update(ui_vm_depth_t *vm, const sensor_data_t *sensor);
 void ui_vm_ndl_stop_update(ui_vm_ndl_stop_t *vm, const sensor_data_t *sensor);
 void ui_vm_ascent_update(ui_vm_ascent_t *vm, float rate);

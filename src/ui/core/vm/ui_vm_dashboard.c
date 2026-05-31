@@ -18,19 +18,6 @@ static uint8_t vm_clamp_u8(uint8_t value, uint8_t max_value)
     return (value > max_value) ? max_value : value;
 }
 
-static uint8_t vm_clamp_battery(float pct)
-{
-    if (pct <= 0.0f)
-    {
-        return 0U;
-    }
-    if (pct >= 100.0f)
-    {
-        return 100U;
-    }
-    return (uint8_t)pct;
-}
-
 static uint16_t vm_content_w_from_config(const sys_config_t *config)
 {
     uint16_t gap;
@@ -256,30 +243,6 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
     (void)memcpy(vm->tissue_gf_pct, sensor->tissue_gf_pct, sizeof(vm->tissue_gf_pct));
 }
 
-void ui_vm_sys_update(ui_vm_sys_t *vm, const sensor_data_t *sensor)
-{
-    if (vm == NULL)
-    {
-        return;
-    }
-
-    if (sensor == NULL)
-    {
-        vm->battery_pct = vm_clamp_battery(bus_get_battery_pct());
-        vm->temp_int = (int16_t)bus_get_temperature();
-        vm->temp_dec = (uint8_t)(fabsf(bus_get_temperature() - (float)vm->temp_int) * 10.0f);
-        vm->battery_critical = (vm->battery_pct <= 20U) ? 1U : 0U;
-        vm->battery_low = (vm->battery_pct <= 40U) ? 1U : 0U;
-        return;
-    }
-
-    vm->battery_pct = vm_clamp_battery(sensor->battery_pct);
-    vm->temp_int = (int16_t)sensor->temperature_c;
-    vm->temp_dec = (uint8_t)(fabsf(sensor->temperature_c - (float)vm->temp_int) * 10.0f);
-    vm->battery_critical = (vm->battery_pct <= 20U) ? 1U : 0U;
-    vm->battery_low = (vm->battery_pct <= 40U) ? 1U : 0U;
-}
-
 void ui_vm_depth_update(ui_vm_depth_t *vm, const sensor_data_t *sensor)
 {
     float depth;
@@ -417,25 +380,14 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         break;
     }
     case COMP_DIVE_TIME_1606:
-        (void)snprintf(vm->text,
-                       sizeof(vm->text),
-                       "%02u:%02u",
-                       (unsigned)(bus_get_dive_time_s() / 60U),
-                       (unsigned)(bus_get_dive_time_s() % 60U));
+        (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)(bus_get_dive_time_s() / 60U),(unsigned)(bus_get_dive_time_s() % 60U));
         break;
     case COMP_GAS_1606:
-        (void)snprintf(vm->text,
-                       sizeof(vm->text),
-                       "%s",
-                       bus_get_gas_slot_name(bus_get_gas_active_idx()));
+        (void)snprintf(vm->text,sizeof(vm->text),"%s",bus_get_gas_slot_name(bus_get_gas_active_idx()));
         break;
     case COMP_SYS_1606:
     case COMP_TIME_1606:
-        (void)snprintf(vm->text,
-                       sizeof(vm->text),
-                       "%02u:%02u",
-                       (unsigned)bus_get_sys_time_h(),
-                       (unsigned)bus_get_sys_time_m());
+        (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)bus_get_sys_time_h(),(unsigned)bus_get_sys_time_m());
         break;
     case COMP_TTS_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%d", (int)bus_get_tts());
@@ -455,10 +407,24 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "4.20");
         break;
     case COMP_BATT_TEMP_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "99.9");
+        if (bus_get_bat_temperature_valid())
+        {
+            (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_bat_temperature());
+        }
+        else
+        {
+            (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        }
         break;
     case COMP_PRJ_TEMP_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "99.9");
+        if (bus_get_prj_temperature_valid())
+        {
+            (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_prj_temperature());
+        }
+        else
+        {
+            (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        }
         break;
     case COMP_CHARGE_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "FULL");
@@ -500,18 +466,11 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     {
         ui_vm_ndl_stop_t ndl_vm;
         ui_vm_ndl_stop_update(&ndl_vm, NULL);
-        (void)snprintf(vm->text,
-                       sizeof(vm->text),
-                       "%02u:%02u",
-                       (unsigned)(ndl_vm.stop_time_left_s / 60U),
-                       (unsigned)(ndl_vm.stop_time_left_s % 60U));
+        (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)(ndl_vm.stop_time_left_s / 60U),(unsigned)(ndl_vm.stop_time_left_s % 60U));
         break;
     }
     case COMP_PPO2_0806:
-        (void)snprintf(vm->text,
-                       sizeof(vm->text),
-                       "%.2f",
-                       (double)bus_get_gas_slot_ppo2(bus_get_gas_active_idx()));
+        (void)snprintf(vm->text,sizeof(vm->text),"%.2f",(double)bus_get_gas_slot_ppo2(bus_get_gas_active_idx()));
         break;
     case COMP_SURF_GF_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.2f", (double)bus_get_surf_gf());
@@ -526,11 +485,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%u", (unsigned)bus_get_otu());
         break;
     case COMP_GF_0806:
-        (void)snprintf(vm->text,
-                       sizeof(vm->text),
-                       "%u/%u",
-                       (unsigned)bus_get_gf_low(),
-                       (unsigned)bus_get_gf_high());
+        (void)snprintf(vm->text,sizeof(vm->text),"%u/%u",(unsigned)bus_get_gf_low(),(unsigned)bus_get_gf_high());
         break;
     case COMP_MOD_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_mod_m());
@@ -539,11 +494,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_ceiling_m());
         break;
     case COMP_GAS_MIX_1606:
-        (void)snprintf(vm->text,
-                       sizeof(vm->text),
-                       "%u/%u",
-                       (unsigned)bus_get_gas_mix_o2(),
-                       (unsigned)bus_get_gas_mix_he());
+        (void)snprintf(vm->text,sizeof(vm->text),"%u/%u",(unsigned)bus_get_gas_mix_o2(),(unsigned)bus_get_gas_mix_he());
         break;
     case COMP_GAS_DENS_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.2f", (double)bus_get_gas_density());
@@ -552,10 +503,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%.0f%%", (double)bus_get_fio2_pct());
         break;
     case COMP_POD_0806:
-        (void)snprintf(vm->text,
-                       sizeof(vm->text),
-                       "%.0f",
-                       (double)bus_get_pod_bar((pod_index > 1U) ? 1U : 0U));
+        (void)snprintf(vm->text,sizeof(vm->text),"%.0f",(double)bus_get_pod_bar((pod_index > 1U) ? 1U : 0U));
         break;
     case COMP_DEPTH_MAX_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_max_depth());
@@ -564,23 +512,13 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_avg_depth());
         break;
     case COMP_TEMP_0806:
-    {
-        ui_vm_sys_t sys_vm;
-        ui_vm_sys_update(&sys_vm, NULL);
-        (void)snprintf(vm->text,
-                       sizeof(vm->text),
-                       "%d.%u",
-                       (int)sys_vm.temp_int,
-                       (unsigned)sys_vm.temp_dec);
+        (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_temperature());
         break;
-    }
+
     case COMP_BATTERY_0806:
-    {
-        ui_vm_sys_t sys_vm;
-        ui_vm_sys_update(&sys_vm, NULL);
-        (void)snprintf(vm->text, sizeof(vm->text), "%u%%", (unsigned)sys_vm.battery_pct);
+        (void)snprintf(vm->text,sizeof(vm->text),"%.0f%%",(double)bus_get_battery_pct());
         break;
-    }
+
     case COMP_TEMP_MIN_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_min_temp());
         break;

@@ -25,8 +25,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                               uint8_t span_w, uint8_t span_h,
                               font_id_t cfg_font_id);
 
-/* 下列刷新接口只负责把 VM 数据灌进现有组件，不负责重新创建布局。 */
-void comp_refresh_sys_vm(const ui_vm_sys_t *vm, uint32_t dirty_mask);
+/* 下列刷新接口只负责把数据灌进现有组件，不负责重新创建布局。 */
 void comp_refresh_sys(uint32_t dirty_mask);
 void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask);
 void comp_refresh_ndl_stop(uint32_t dirty_mask);

@@ -65,7 +65,6 @@ void ui_update_router_dispatch(uint32_t mask)
     ui_vm_compass_t compass_vm;
     ui_vm_deco_t deco_vm;
     ui_vm_gas_t gas_vm;
-    ui_vm_sys_t sys_vm;
     ui_vm_ndl_stop_t ndl_stop_vm;
     ui_vm_ascent_t ascent_vm;
     ui_vm_plan_chart_t plan_chart_vm;
@@ -202,8 +201,7 @@ void ui_update_router_dispatch(uint32_t mask)
 
     if (mask & (DIRTY_BATT | DIRTY_TEMP))
     {
-        ui_vm_sys_update(&sys_vm, NULL);
-        comp_refresh_sys_vm(&sys_vm, mask);
+        comp_refresh_sys(mask);
     }
 
     if (mask & DIRTY_ALARM)

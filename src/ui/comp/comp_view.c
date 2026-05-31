@@ -583,9 +583,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_label_set_text(s_sys_batt_lbl, "--%");
         else
         {
-            ui_vm_sys_t sys_vm;
-            ui_vm_sys_update(&sys_vm, NULL);
-            lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", sys_vm.battery_pct);
+            lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", (unsigned)ui_clamp_battery_pct(bus_get_battery_pct()));
         }
 
         /* 右侧：温Label */
@@ -597,11 +595,10 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_label_set_text(s_sys_temp_lbl, "-- C");
         else
         {
-            ui_vm_sys_t sys_vm;
-            ui_vm_sys_update(&sys_vm, NULL);
-            lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%d C",
-                                  (int)sys_vm.temp_int,
-                                  (int)sys_vm.temp_dec);
+            float temp_c = bus_get_temperature();
+            int16_t temp_int = (int16_t)temp_c;
+            uint8_t temp_dec = (uint8_t)(fabsf(temp_c - (float)temp_int) * 10.0f);
+            lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%u C", (int)temp_int, (unsigned)temp_dec);
         }
 
         return obj;
@@ -758,14 +755,13 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             lv_obj_set_style_border_color(bat_bg, GREEN, 0);
             lv_obj_set_style_radius(bat_bg, 2, 0);
 
-            ui_vm_sys_t vm_sys;
-            ui_vm_sys_update(&vm_sys, NULL);
-            uint8_t pct = vm_sys.battery_pct;
+            uint8_t pct = ui_clamp_battery_pct(bus_get_battery_pct());
+            bool battery_low = pct <= 40U;
             lv_obj_t *bat_fill = lv_obj_create(bat_bg);
             lv_obj_remove_style_all(bat_fill);
-            lv_obj_set_size(bat_fill, LV_PCT(vm_sys.battery_low ? pct : 100U), LV_PCT(100));
+            lv_obj_set_size(bat_fill, LV_PCT(battery_low ? pct : 100U), LV_PCT(100));
             lv_obj_align(bat_fill, LV_ALIGN_LEFT_MID, 0, 0);
-            lv_obj_set_style_bg_color(bat_fill, vm_sys.battery_low ? LIGHT : GREEN, 0);
+            lv_obj_set_style_bg_color(bat_fill, battery_low ? LIGHT : GREEN, 0);
             lv_obj_set_style_bg_opa(bat_fill, LV_OPA_COVER, 0);
             lv_obj_set_style_radius(bat_fill, 1, 0);
             (void)bat_fill;
@@ -917,27 +913,19 @@ void comp_refresh_ndl_stop(uint32_t dirty_mask)
     comp_refresh_ndl_stop_vm(&vm, dirty_mask);
 }
 
-void comp_refresh_sys_vm(const ui_vm_sys_t *vm, uint32_t dirty_mask)
+void comp_refresh_sys(uint32_t dirty_mask)
 {
-    if (vm == NULL)
-    {
-        return;
-    }
     if ((dirty_mask & DIRTY_BATT) && ui_obj_is_valid(&s_sys_batt_lbl))
     {
-        lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", vm->battery_pct);
+        lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", (unsigned)ui_clamp_battery_pct(bus_get_battery_pct()));
     }
     if ((dirty_mask & DIRTY_TEMP) && ui_obj_is_valid(&s_sys_temp_lbl))
     {
-        lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%d C", (int)vm->temp_int, (int)vm->temp_dec);
+        float temp_c = bus_get_temperature();
+        int16_t temp_int = (int16_t)temp_c;
+        uint8_t temp_dec = (uint8_t)(fabsf(temp_c - (float)temp_int) * 10.0f);
+        lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%u C", (int)temp_int, (unsigned)temp_dec);
     }
-}
-
-void comp_refresh_sys(uint32_t dirty_mask)
-{
-    ui_vm_sys_t vm;
-    ui_vm_sys_update(&vm, NULL);
-    comp_refresh_sys_vm(&vm, dirty_mask);
 }
 
 void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)

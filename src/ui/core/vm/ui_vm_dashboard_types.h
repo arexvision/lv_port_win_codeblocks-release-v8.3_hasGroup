@@ -61,15 +61,6 @@ typedef struct
 
 typedef struct
 {
-    uint8_t battery_pct;
-    int16_t temp_int;
-    uint8_t temp_dec;
-    uint8_t battery_critical;
-    uint8_t battery_low;
-} ui_vm_sys_t;
-
-typedef struct
-{
     int16_t int_part;
     uint8_t dec_part;
     char text[16];
