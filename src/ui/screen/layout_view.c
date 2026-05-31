@@ -347,6 +347,36 @@ static void add_left_anchor_sep_line(lv_obj_t *parent, lv_coord_t x, lv_coord_t 
     lv_obj_clear_flag(line, LV_OBJ_FLAG_SCROLLABLE);
 }
 
+static void add_left_anchor_sep_boundary(uint16_t boundaries[LEFT_MAX_WIDGETS * 2],
+                                         uint8_t *count,
+                                         uint16_t y,
+                                         uint16_t anchor_h)
+{
+    if (count == NULL)
+    {
+        return;
+    }
+
+    if (y == 0U || y >= anchor_h)
+    {
+        return;
+    }
+
+    for (uint8_t i = 0U; i < *count; i++)
+    {
+        if (boundaries[i] == y)
+        {
+            return;
+        }
+    }
+
+    if (*count < (LEFT_MAX_WIDGETS * 2U))
+    {
+        boundaries[*count] = y;
+        (*count)++;
+    }
+}
+
 void refresh_left_aux_slots(void)
 {
     ui_vm_left_aux_t vm;
@@ -364,44 +394,6 @@ void refresh_left_aux_slots(void)
     }
 }
 
-static const grid_widget_t *left_find_widget_at_cell(uint8_t col, uint8_t row)
-{
-    for (uint8_t i = 0; i < ui_left_widget_count_get() && i < LEFT_MAX_WIDGETS; i++)
-    {
-        const grid_widget_t *cfg = ui_left_widget_get(i);
-        if (cfg == NULL)
-        {
-            continue;
-        }
-        if (cfg->widget_id == COMP_EMPTY)
-        {
-            continue;
-        }
-
-        const comp_style_t *style = comp_get_style(cfg->widget_id);
-        uint8_t span_w = (style != NULL) ? style->span_w : 1;
-        uint8_t span_h = (style != NULL) ? style->span_h : 1;
-        uint8_t origin_col = cfg->x;
-        uint8_t origin_row = cfg->y;
-
-        if (!ui_layout_is_vertical_split())
-        {
-            origin_col = cfg->y;
-            origin_row = cfg->x;
-            span_w = (style != NULL) ? style->span_h : 1;
-            span_h = (style != NULL) ? style->span_w : 1;
-        }
-
-        if (col >= origin_col && col < (uint8_t)(origin_col + span_w) &&
-                row >= origin_row && row < (uint8_t)(origin_row + span_h))
-        {
-            return cfg;
-        }
-    }
-
-    return NULL;
-}
-
 void render_left_anchor_grid(lv_obj_t *left_anchor)
 {
     if (!left_anchor) return;
@@ -413,10 +405,14 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
     s_left_bat_lbl = NULL;
     s_left_prj_lbl = NULL;
 
+    uint16_t sep_boundaries[LEFT_MAX_WIDGETS * 2];
+    uint8_t sep_boundary_count = 0U;
+    const uint16_t anchor_w = ui_anchor_w_get();
+    const uint16_t anchor_h = ui_anchor_h_get();
     const uint8_t grid_cols = ui_layout_is_vertical_split() ? LEFT_COLS : LEFT_ROWS;
     const uint8_t grid_rows = ui_layout_is_vertical_split() ? LEFT_ROWS : LEFT_COLS;
-    const uint16_t cell_w = (grid_cols > 0U) ? (uint16_t)(ui_anchor_w_get() / grid_cols) : LEFT_CELL_W;
-    const uint16_t cell_h = (grid_rows > 0U) ? (uint16_t)(ui_anchor_h_get() / grid_rows) : LEFT_CELL_H;
+    const uint16_t cell_w = (grid_cols > 0U) ? (uint16_t)(anchor_w / grid_cols) : LEFT_CELL_W;
+    const uint16_t cell_h = (grid_rows > 0U) ? (uint16_t)(anchor_h / grid_rows) : LEFT_CELL_H;
 
     for (uint8_t i = 0; i < ui_left_widget_count_get() && i < LEFT_MAX_WIDGETS; i++)
     {
@@ -445,47 +441,23 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
         uint16_t abs_w = span_w * cell_w;
         uint16_t abs_h = span_h * cell_h;
 
+        add_left_anchor_sep_boundary(sep_boundaries,
+                                     &sep_boundary_count,
+                                     (uint16_t)(origin_row * cell_h),
+                                     anchor_h);
+        add_left_anchor_sep_boundary(sep_boundaries,
+                                     &sep_boundary_count,
+                                     (uint16_t)((origin_row + span_h) * cell_h),
+                                     anchor_h);
+
         render_widget_by_id(left_anchor, cfg->widget_id,
                             abs_x, abs_y, abs_w, abs_h,
                             span_w, span_h, (font_id_t)255);
     }
 
-    for (uint8_t row = 1; row < grid_rows; row++)
+    for (uint8_t i = 0U; i < sep_boundary_count; i++)
     {
-        /* 分隔线不是每一行都整条画，而是只在“上下两行属于不同组件”的列段上画。
-         * 这样跨行大组件不会被横线切碎，视觉上更接近卡片式拼版。 */
-        uint8_t seg_start = 0xFF;
-
-        for (uint8_t col = 0; col < grid_cols; col++)
-        {
-            const grid_widget_t *top_cfg = left_find_widget_at_cell(col, (uint8_t)(row - 1));
-            const grid_widget_t *bottom_cfg = left_find_widget_at_cell(col, row);
-            bool draw_seg = (top_cfg != NULL && bottom_cfg != NULL && top_cfg != bottom_cfg);
-
-            if (draw_seg)
-            {
-                if (seg_start == 0xFF)
-                {
-                    seg_start = col;
-                }
-            }
-            else if (seg_start != 0xFF)
-            {
-                add_left_anchor_sep_line(left_anchor,
-                                          (lv_coord_t)(seg_start * cell_w),
-                                          (lv_coord_t)(row * cell_h),
-                                          (lv_coord_t)((col - seg_start) * cell_w));
-                seg_start = 0xFF;
-            }
-        }
-
-        if (seg_start != 0xFF)
-        {
-            add_left_anchor_sep_line(left_anchor,
-                                          (lv_coord_t)(seg_start * cell_w),
-                                          (lv_coord_t)(row * cell_h),
-                                          (lv_coord_t)((grid_cols - seg_start) * cell_w));
-        }
+        add_left_anchor_sep_line(left_anchor, 0, (lv_coord_t)sep_boundaries[i], (lv_coord_t)anchor_w);
     }
 }
 
