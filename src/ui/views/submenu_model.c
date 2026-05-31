@@ -770,8 +770,8 @@ const char *submenu_info_title(uint8_t index)
 
 const char **submenu_build_info_items(uint8_t index, uint8_t *out_count)
 {
-    /* INFO 页条目由 VM 文本数组生成，这里只负责打包成可遍历列表。 */
-    ui_vm_info_page_t vm;
+    /* INFO 信息组条目由 VM 文本数组生成，这里只负责打包成可遍历列表。 */
+    ui_vm_info_lines_t vm;
 
     if (out_count)
     {
@@ -787,7 +787,7 @@ const char **submenu_build_info_items(uint8_t index, uint8_t *out_count)
     {
     case 0:
     {
-        ui_vm_info_page_update(&vm, index);
+        ui_vm_info_lines_update(&vm, index);
         for (uint8_t i = 0U; i < vm.count; i++)
         {
             snprintf(s_info_str[0][i], sizeof(s_info_str[0][i]), "%s", vm.lines[i]);
@@ -804,7 +804,7 @@ const char **submenu_build_info_items(uint8_t index, uint8_t *out_count)
         return s_plan_dyn;
     case 2:
     {
-        ui_vm_info_page_update(&vm, index);
+        ui_vm_info_lines_update(&vm, index);
         for (uint8_t i = 0U; i < vm.count; i++)
         {
             snprintf(s_info_str[2][i], sizeof(s_info_str[2][i]), "%s", vm.lines[i]);
@@ -814,7 +814,7 @@ const char **submenu_build_info_items(uint8_t index, uint8_t *out_count)
     }
     case 3:
     {
-        ui_vm_info_page_update(&vm, index);
+        ui_vm_info_lines_update(&vm, index);
         for (uint8_t i = 0U; i < vm.count; i++)
         {
             snprintf(s_info_str[3][i], sizeof(s_info_str[3][i]), "%s", vm.lines[i]);
@@ -824,7 +824,7 @@ const char **submenu_build_info_items(uint8_t index, uint8_t *out_count)
     }
     case 4:
     {
-        ui_vm_info_page_update(&vm, index);
+        ui_vm_info_lines_update(&vm, index);
         for (uint8_t i = 0U; i < vm.count; i++)
         {
             snprintf(s_info_str[4][i], sizeof(s_info_str[4][i]), "%s", vm.lines[i]);
@@ -1825,7 +1825,7 @@ void submenu_apply_edit_value(submenu_setting_kind_t kind, uint8_t arg, float va
 
 bool submenu_is_readonly_info_title(const char *title)
 {
-    /* 只读 INFO 页在菜单系统里不允许进入编辑。 */
+    /* 只读 INFO 信息项在菜单系统里不允许进入编辑。 */
     const char *clean_title = strip_title_prefix(title);
     if (!clean_title)
     {

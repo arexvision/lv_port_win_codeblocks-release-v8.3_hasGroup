@@ -18,7 +18,7 @@ typedef struct
 {
     uint8_t count;
     char lines[6][32];
-} ui_vm_info_page_t;
+} ui_vm_info_lines_t;
 
 #ifdef __cplusplus
 }

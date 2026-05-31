@@ -44,7 +44,7 @@ void ui_vm_menu_layout_update(ui_vm_menu_layout_t *vm,
                               const sys_config_t *config);
 void ui_vm_setup_menu_update(ui_vm_setup_menu_t *vm);
 void ui_vm_modal_gas_update(ui_vm_modal_gas_t *vm, uint8_t gas_cursor);
-void ui_vm_info_page_update(ui_vm_info_page_t *vm, uint8_t page_index);
+void ui_vm_info_lines_update(ui_vm_info_lines_t *vm, uint8_t info_group_index);
 void ui_vm_gas_switch_menu_update(ui_vm_gas_switch_menu_t *vm);
 void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
                                   uint8_t salinity_mode,

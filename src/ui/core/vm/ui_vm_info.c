@@ -70,7 +70,7 @@ static uint8_t vm_max_tissue_gf_pct(void)
     return max_pct;
 }
 
-void ui_vm_info_page_update(ui_vm_info_page_t *vm, uint8_t page_index)
+void ui_vm_info_lines_update(ui_vm_info_lines_t *vm, uint8_t info_group_index)
 {
     if (vm == NULL)
     {
@@ -79,7 +79,7 @@ void ui_vm_info_page_update(ui_vm_info_page_t *vm, uint8_t page_index)
 
     (void)memset(vm, 0, sizeof(*vm));
 
-    switch (page_index)
+    switch (info_group_index)
     {
     case 0U:
     {
