@@ -79,6 +79,25 @@ static uint8_t ui_battery_draw_pct(float pct)
     return (uint8_t)pct;
 }
 
+static int16_t comp_title_edge_offset_x(lv_align_t align, int16_t offset_x)
+{
+    switch (align)
+    {
+    case LV_ALIGN_TOP_LEFT:
+    case LV_ALIGN_LEFT_MID:
+    case LV_ALIGN_BOTTOM_LEFT:
+        return (int16_t)(offset_x - COMP_TITLE_EDGE_NUDGE_PX);
+
+    case LV_ALIGN_TOP_RIGHT:
+    case LV_ALIGN_RIGHT_MID:
+    case LV_ALIGN_BOTTOM_RIGHT:
+        return (int16_t)(offset_x + COMP_TITLE_EDGE_NUDGE_PX);
+
+    default:
+        return offset_x;
+    }
+}
+
 /* =========================================================
  * POD 单模具轮转分配状态机
  *
@@ -627,7 +646,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_text_color(title_lbl, LIGHT, 0);
         lv_obj_set_size(title_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_align(title_lbl, (lv_align_t)style->title_align,
-                     style->title_offset_x, style->title_offset_y);
+                     comp_title_edge_offset_x((lv_align_t)style->title_align, style->title_offset_x),
+                     style->title_offset_y);
         lv_label_set_long_mode(title_lbl, LV_LABEL_LONG_DOT);
     }
 
@@ -867,7 +887,8 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)
             lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
             lv_label_set_text_fmt(h->title_top, "SAFE %dm", (int)vm->stop_depth_m);
-            lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 8, 2);
+            lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
+                         comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
 
             if (vm->in_stop_zone != 0U)
             {
@@ -892,7 +913,8 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)
             lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
             lv_label_set_text_fmt(h->title_top, "DECO %dm", (int)vm->stop_depth_m);
-            lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 8, 2);
+            lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
+                         comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
 
             int m = vm->stop_time_left_s / 60;
             int s = vm->stop_time_left_s % 60;

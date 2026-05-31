@@ -37,6 +37,7 @@ extern "C" {
 #define DEBUG_BORDERS   0
 #define CARD_DEBUG_BORDERS  1
 #define INNER_BORDER_W  2
+#define COMP_TITLE_EDGE_NUDGE_PX  2
 #define GAS_BORDER_W    2
 #define GRID_BORDER_W   0
 
