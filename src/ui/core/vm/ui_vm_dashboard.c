@@ -397,10 +397,10 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%03u", (unsigned)bus_get_heading());
         break;
     case COMP_GYRO_2406:
-        (void)snprintf(vm->text, sizeof(vm->text), "-2000 +2000 -2000");
+        (void)snprintf(vm->text, sizeof(vm->text), "%+.0f %+.0f %+.0f", (double)bus_get_gyro_x_dps(), (double)bus_get_gyro_y_dps(), (double)bus_get_gyro_z_dps());
         break;
     case COMP_BATT_V_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "4.20");
+        (void)snprintf(vm->text, sizeof(vm->text), "%.2f", (double)bus_get_battery_voltage());
         break;
     case COMP_BATT_TEMP_0806:
         (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_bat_temperature());
@@ -409,37 +409,37 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_prj_temperature());
         break;
     case COMP_CHARGE_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "OFF");
+        (void)snprintf(vm->text, sizeof(vm->text), "%s", bus_get_charge_state() == 1U ? "CHG" : bus_get_charge_state() == 2U ? "FULL" : "OFF");
         break;
     case COMP_PRESSURE_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "30000");
+        (void)snprintf(vm->text, sizeof(vm->text), "%.0f", (double)bus_get_ambient_pressure());
         break;
     case COMP_NOFLY_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "48:59");
+        (void)snprintf(vm->text, sizeof(vm->text), "%02u:%02u", (unsigned)(bus_get_nofly_time_min() / 60U), (unsigned)(bus_get_nofly_time_min() % 60U));
         break;
     case COMP_ACCEL_2406:
-        (void)snprintf(vm->text, sizeof(vm->text), "X9.99Y9.99Z9.99");
+        (void)snprintf(vm->text, sizeof(vm->text), "%+.2f %+.2f %+.2f", (double)bus_get_accel_x_g(), (double)bus_get_accel_y_g(), (double)bus_get_accel_z_g());
         break;
     case COMP_MAG_2406:
-        (void)snprintf(vm->text, sizeof(vm->text), "-999 +999 -999");
+        (void)snprintf(vm->text, sizeof(vm->text), "%+.0f %+.0f %+.0f", (double)bus_get_mag_x_ut(), (double)bus_get_mag_y_ut(), (double)bus_get_mag_z_ut());
         break;
     case COMP_TMAG_2406:
-        (void)snprintf(vm->text, sizeof(vm->text), "-80.0 +80.0 -80.0");
+        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_tmag_ut());
         break;
     case COMP_ATTITUDE_2406:
-        (void)snprintf(vm->text, sizeof(vm->text), "-180 -180 359");
+        (void)snprintf(vm->text, sizeof(vm->text), "P%d R%d H%u", (int)bus_get_pitch_deg(), (int)bus_get_roll_deg(), (unsigned)bus_get_attitude_heading_deg());
         break;
     case COMP_BLE_RSSI_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "-100");
+        (void)snprintf(vm->text, sizeof(vm->text), "%d", (int)bus_get_ble_rssi_dbm());
         break;
     case COMP_CPU_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "100%%");
+        (void)snprintf(vm->text, sizeof(vm->text), "%u%%", (unsigned)bus_get_cpu_load_pct());
         break;
     case COMP_FPS_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "120");
+        (void)snprintf(vm->text, sizeof(vm->text), "%u", (unsigned)bus_get_fps());
         break;
     case COMP_SENSOR_STAT_1606:
-        (void)snprintf(vm->text, sizeof(vm->text), "BMM150 WARN");
+        (void)snprintf(vm->text, sizeof(vm->text), "%s", bus_get_sensor_status());
         break;
     case COMP_STOP_DEPTH_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_stop_depth_m());

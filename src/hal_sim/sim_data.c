@@ -38,6 +38,7 @@ typedef struct
     uint8_t layout_phase;
     uint16_t phase_tick;
     uint8_t depth_phase;
+    uint16_t sensor_tick;
     float rate_sample_depth_m;
     bool rate_sample_valid;
 } sim_state_t;
@@ -57,6 +58,7 @@ static sim_state_t s_sim = {
     .layout_phase = 0,
     .phase_tick = 0,
     .depth_phase = 0,
+    .sensor_tick = 0,
     .rate_sample_depth_m = 0.0f,
     .rate_sample_valid = false,
 };
@@ -83,6 +85,32 @@ static void sim_update_gas_derived(float depth_m)
     bus_set_gas_density(surface_density * ambient_ata);
 }
 
+static void sim_update_sensor_preview(float depth_m)
+{
+    uint16_t t = s_sim.sensor_tick++;
+    int16_t pitch_deg = (int16_t)((int16_t)(t % 41U) - 20);
+    int16_t roll_deg = (int16_t)((int16_t)((t * 3U) % 61U) - 30);
+    uint16_t attitude_heading = (uint16_t)((s_sim.heading_deg + 5U) % 360U);
+    float accel_z = 1.0f + ((float)(t % 5U) - 2.0f) * 0.01f;
+    float mag_x = 28.0f + (float)(t % 9U);
+    float mag_y = -12.0f + (float)((t * 2U) % 7U);
+    float mag_z = 42.0f - (float)(t % 6U);
+
+    bus_set_battery_voltage(3.65f + (bus_get_battery_pct() * 0.006f));
+    bus_set_charge_state((bus_get_battery_pct() > 96.0f) ? 2U : ((t % 20U) < 4U) ? 1U : 0U);
+    bus_set_ambient_pressure(1013.0f + depth_m * 100.0f);
+    bus_set_nofly_time((depth_m > 1.0f || bus_get_dive_time_s() > 0U) ? (uint16_t)(720U + (bus_get_dive_time_s() % 720U)) : 0U);
+    bus_set_gyro((float)((int16_t)((t * 17U) % 401U) - 200), (float)((int16_t)((t * 11U) % 301U) - 150), (float)((int16_t)((t * 7U) % 241U) - 120));
+    bus_set_accel(((float)(t % 7U) - 3.0f) * 0.03f, ((float)((t * 2U) % 7U) - 3.0f) * 0.03f, accel_z);
+    bus_set_mag(mag_x, mag_y, mag_z);
+    bus_set_tmag(50.0f + (float)(t % 8U));
+    bus_set_attitude(pitch_deg, roll_deg, attitude_heading);
+    bus_set_ble_rssi((int16_t)(-45 - (int16_t)(t % 35U)));
+    bus_set_cpu_load((uint8_t)(22U + ((t * 7U) % 54U)));
+    bus_set_fps((uint16_t)(55U + (t % 7U)));
+    bus_set_sensor_status(((t % 23U) == 0U) ? "IMU WARN" : "OK");
+}
+
 static void sim_seed_original_defaults(void)
 {
     bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
@@ -99,6 +127,7 @@ static void sim_seed_original_defaults(void)
     bus_set_ceiling(0.0f);
     bus_set_gas_mix(21, 0);
     sim_update_gas_derived(0.0f);
+    sim_update_sensor_preview(0.0f);
 }
 
 #if TCP_ALGO_DEBUG
@@ -118,6 +147,7 @@ static void sim_seed_tcp_algo_defaults(void)
     bus_set_ceiling(0.0f);
     bus_set_gas_mix(21, 0);
     sim_update_gas_derived(0.0f);
+    sim_update_sensor_preview(0.0f);
     bus_update_deco(99, STOP_NONE, 0.0f, 0U, 0U, false);
 }
 
@@ -363,6 +393,7 @@ static void sim_tick_cb(lv_timer_t *t)
             bus_set_temperature(s_sim.temperature_c);
             bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
             bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+            sim_update_sensor_preview(current_depth_m);
 
             buhlmann_debug_tick(current_depth_m, s_sim.temperature_c, 1U);
             sim_alert_tick();
@@ -418,6 +449,7 @@ static void sim_tick_cb(lv_timer_t *t)
     bus_set_temperature(s_sim.temperature_c);
     bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
     bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+    sim_update_sensor_preview(current_depth_m);
 
     if (current_depth_m > 12.0f) {
         deco_stop_t sim_stops[] = {

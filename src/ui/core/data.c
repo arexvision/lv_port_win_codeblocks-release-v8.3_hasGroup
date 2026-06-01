@@ -214,6 +214,12 @@ void data_init(void)
     g_sensor_data.gas_slot_o2_pct[4] = 0;
     g_sensor_data.gas_slot_he_pct[4] = 0;
     g_sensor_data.gas_slot_mod_m[4] = 0.0f;
+    g_sensor_data.battery_voltage_v = 4.0f;
+    g_sensor_data.charge_state = 0U;
+    g_sensor_data.ambient_pressure_mbar = 1013.0f;
+    g_sensor_data.nofly_time_min = 0U;
+    g_sensor_data.fps = 0U;
+    strncpy(g_sensor_data.sensor_status, "OK", sizeof(g_sensor_data.sensor_status) - 1);
 
     conservatism = g_sys_config.conservatism;
     if (conservatism >= UI_CONSERVATISM_PROFILE_COUNT)
@@ -618,6 +624,149 @@ void bus_set_prj_temperature(float temp_c)
     {
         g_sensor_data.prj_temperature_c = temp_c;
         g_sensor_data.dirty_mask |= DIRTY_SYSTEM;
+    }
+}
+
+void bus_set_battery_voltage(float voltage_v)
+{
+    if (fabsf(g_sensor_data.battery_voltage_v - voltage_v) > 0.01f)
+    {
+        g_sensor_data.battery_voltage_v = voltage_v;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_charge_state(uint8_t state)
+{
+    if (state > 2U)
+    {
+        state = 0U;
+    }
+    if (g_sensor_data.charge_state != state)
+    {
+        g_sensor_data.charge_state = state;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_ambient_pressure(float pressure_mbar)
+{
+    if (fabsf(g_sensor_data.ambient_pressure_mbar - pressure_mbar) > 0.5f)
+    {
+        g_sensor_data.ambient_pressure_mbar = pressure_mbar;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_nofly_time(uint16_t minutes)
+{
+    if (g_sensor_data.nofly_time_min != minutes)
+    {
+        g_sensor_data.nofly_time_min = minutes;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_gyro(float x_dps, float y_dps, float z_dps)
+{
+    if (fabsf(g_sensor_data.gyro_x_dps - x_dps) > 0.1f ||
+            fabsf(g_sensor_data.gyro_y_dps - y_dps) > 0.1f ||
+            fabsf(g_sensor_data.gyro_z_dps - z_dps) > 0.1f)
+    {
+        g_sensor_data.gyro_x_dps = x_dps;
+        g_sensor_data.gyro_y_dps = y_dps;
+        g_sensor_data.gyro_z_dps = z_dps;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_accel(float x_g, float y_g, float z_g)
+{
+    if (fabsf(g_sensor_data.accel_x_g - x_g) > 0.01f ||
+            fabsf(g_sensor_data.accel_y_g - y_g) > 0.01f ||
+            fabsf(g_sensor_data.accel_z_g - z_g) > 0.01f)
+    {
+        g_sensor_data.accel_x_g = x_g;
+        g_sensor_data.accel_y_g = y_g;
+        g_sensor_data.accel_z_g = z_g;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_mag(float x_ut, float y_ut, float z_ut)
+{
+    if (fabsf(g_sensor_data.mag_x_ut - x_ut) > 0.1f ||
+            fabsf(g_sensor_data.mag_y_ut - y_ut) > 0.1f ||
+            fabsf(g_sensor_data.mag_z_ut - z_ut) > 0.1f)
+    {
+        g_sensor_data.mag_x_ut = x_ut;
+        g_sensor_data.mag_y_ut = y_ut;
+        g_sensor_data.mag_z_ut = z_ut;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_tmag(float total_ut)
+{
+    if (fabsf(g_sensor_data.tmag_ut - total_ut) > 0.1f)
+    {
+        g_sensor_data.tmag_ut = total_ut;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_attitude(int16_t pitch_deg, int16_t roll_deg, uint16_t heading_deg)
+{
+    heading_deg %= 360U;
+    if (g_sensor_data.pitch_deg != pitch_deg ||
+            g_sensor_data.roll_deg != roll_deg ||
+            g_sensor_data.attitude_heading_deg != heading_deg)
+    {
+        g_sensor_data.pitch_deg = pitch_deg;
+        g_sensor_data.roll_deg = roll_deg;
+        g_sensor_data.attitude_heading_deg = heading_deg;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_ble_rssi(int16_t rssi_dbm)
+{
+    if (g_sensor_data.ble_rssi_dbm != rssi_dbm)
+    {
+        g_sensor_data.ble_rssi_dbm = rssi_dbm;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_cpu_load(uint8_t pct)
+{
+    if (pct > 100U)
+    {
+        pct = 100U;
+    }
+    if (g_sensor_data.cpu_load_pct != pct)
+    {
+        g_sensor_data.cpu_load_pct = pct;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_fps(uint16_t fps)
+{
+    if (g_sensor_data.fps != fps)
+    {
+        g_sensor_data.fps = fps;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
+void bus_set_sensor_status(const char *status)
+{
+    const char *text = (status != NULL) ? status : "--";
+    if (strncmp(g_sensor_data.sensor_status, text, sizeof(g_sensor_data.sensor_status) - 1U) != 0)
+    {
+        (void)snprintf(g_sensor_data.sensor_status, sizeof(g_sensor_data.sensor_status), "%s", text);
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
     }
 }
 
@@ -1377,6 +1526,111 @@ float bus_get_bat_temperature(void)
 float bus_get_prj_temperature(void)
 {
     return g_sensor_data.prj_temperature_c;
+}
+
+float bus_get_battery_voltage(void)
+{
+    return g_sensor_data.battery_voltage_v;
+}
+
+uint8_t bus_get_charge_state(void)
+{
+    return g_sensor_data.charge_state;
+}
+
+float bus_get_ambient_pressure(void)
+{
+    return g_sensor_data.ambient_pressure_mbar;
+}
+
+uint16_t bus_get_nofly_time_min(void)
+{
+    return g_sensor_data.nofly_time_min;
+}
+
+float bus_get_gyro_x_dps(void)
+{
+    return g_sensor_data.gyro_x_dps;
+}
+
+float bus_get_gyro_y_dps(void)
+{
+    return g_sensor_data.gyro_y_dps;
+}
+
+float bus_get_gyro_z_dps(void)
+{
+    return g_sensor_data.gyro_z_dps;
+}
+
+float bus_get_accel_x_g(void)
+{
+    return g_sensor_data.accel_x_g;
+}
+
+float bus_get_accel_y_g(void)
+{
+    return g_sensor_data.accel_y_g;
+}
+
+float bus_get_accel_z_g(void)
+{
+    return g_sensor_data.accel_z_g;
+}
+
+float bus_get_mag_x_ut(void)
+{
+    return g_sensor_data.mag_x_ut;
+}
+
+float bus_get_mag_y_ut(void)
+{
+    return g_sensor_data.mag_y_ut;
+}
+
+float bus_get_mag_z_ut(void)
+{
+    return g_sensor_data.mag_z_ut;
+}
+
+float bus_get_tmag_ut(void)
+{
+    return g_sensor_data.tmag_ut;
+}
+
+int16_t bus_get_pitch_deg(void)
+{
+    return g_sensor_data.pitch_deg;
+}
+
+int16_t bus_get_roll_deg(void)
+{
+    return g_sensor_data.roll_deg;
+}
+
+uint16_t bus_get_attitude_heading_deg(void)
+{
+    return g_sensor_data.attitude_heading_deg;
+}
+
+int16_t bus_get_ble_rssi_dbm(void)
+{
+    return g_sensor_data.ble_rssi_dbm;
+}
+
+uint8_t bus_get_cpu_load_pct(void)
+{
+    return g_sensor_data.cpu_load_pct;
+}
+
+uint16_t bus_get_fps(void)
+{
+    return g_sensor_data.fps;
+}
+
+const char *bus_get_sensor_status(void)
+{
+    return g_sensor_data.sensor_status[0] ? g_sensor_data.sensor_status : "--";
 }
 
 float bus_get_ascent_rate(void)
