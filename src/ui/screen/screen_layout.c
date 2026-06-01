@@ -967,6 +967,19 @@ void screen_rebuild_full(void)
 {
     /* Full rebuild = 先重建页面集合，再重建布局。
      * 顺序不能反：因为 layout 依赖 tileview/右侧容器已经重新创建完成。 */
+    bool force_card_home = s_enter_card_home_after_layout_rebuild;
     screen_rebuild_tileview();
     screen_rebuild_layout();
+
+    /*
+     * 物理意义：
+     * tileview 和 layout 是两段独立的重建流程。前者负责页面树，后者负责几何和组件挂载。
+     * 0x45 属于“结构级布局替换”，如果只在 tileview 阶段钳位首页，layout 阶段的补刷
+     * 仍可能把最终可见态拉回旧 dash_page。
+     * 所以这里再补一次最终钳位，保证整次重建事务结束时，状态机和可见页都停在新布局首页。
+     */
+    if (force_card_home)
+    {
+        screen_force_card_home_after_layout_rebuild();
+    }
 }
