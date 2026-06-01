@@ -397,7 +397,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%03u", (unsigned)bus_get_heading());
         break;
     case COMP_GYRO_2406:
-        (void)snprintf(vm->text, sizeof(vm->text), "X:999Y:999Z:999");
+        (void)snprintf(vm->text, sizeof(vm->text), "-2000 +2000 -2000");
         break;
     case COMP_BATT_V_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "4.20");
@@ -409,25 +409,25 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_prj_temperature());
         break;
     case COMP_CHARGE_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "FULL");
+        (void)snprintf(vm->text, sizeof(vm->text), "OFF");
         break;
     case COMP_PRESSURE_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "30000");
         break;
     case COMP_NOFLY_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "99:59");
+        (void)snprintf(vm->text, sizeof(vm->text), "48:59");
         break;
     case COMP_ACCEL_1606:
         (void)snprintf(vm->text, sizeof(vm->text), "X9.99Y9.99Z9.99");
         break;
     case COMP_MAG_2406:
-        (void)snprintf(vm->text, sizeof(vm->text), "X:999Y:999Z:999");
+        (void)snprintf(vm->text, sizeof(vm->text), "-999 +999 -999");
         break;
     case COMP_TMAG_2406:
-        (void)snprintf(vm->text, sizeof(vm->text), "X:999Y:999Z:999");
+        (void)snprintf(vm->text, sizeof(vm->text), "-80.0 +80.0 -80.0");
         break;
     case COMP_ATTITUDE_2406:
-        (void)snprintf(vm->text, sizeof(vm->text), "P-180R-180H359");
+        (void)snprintf(vm->text, sizeof(vm->text), "-180 -180 359");
         break;
     case COMP_BLE_RSSI_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "-100");
@@ -439,7 +439,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "120");
         break;
     case COMP_SENSOR_STAT_1606:
-        (void)snprintf(vm->text, sizeof(vm->text), "WARN");
+        (void)snprintf(vm->text, sizeof(vm->text), "BMM150 WARN");
         break;
     case COMP_STOP_DEPTH_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_stop_depth_m());

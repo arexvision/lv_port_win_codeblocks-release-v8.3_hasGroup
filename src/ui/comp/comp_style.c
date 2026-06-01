@@ -264,7 +264,7 @@ static const comp_style_t g_widget_styles[] =
         .unit = NULL,
         .title = "GF",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+        .spec.basic = { .value_offset_x = -5, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_MOD_0806,
@@ -307,9 +307,9 @@ static const comp_style_t g_widget_styles[] =
         .title_font_id = FONT_ID_MEDIUM,
         .unit = NULL,
         .title = "TISSUE(GF)",
-        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .title_offset_x = 10, .title_offset_y = 0, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.tissue = {
-            .chart_offset_x = 0, .chart_offset_y = 20, .chart_align = LV_ALIGN_BOTTOM_RIGHT,
+            .chart_offset_x = 0, .chart_offset_y = 10, .chart_align = LV_ALIGN_BOTTOM_RIGHT,
             .bar_count = 16, .bar_spacing = 2
         }
     },
@@ -321,7 +321,7 @@ static const comp_style_t g_widget_styles[] =
         .title_font_id = FONT_ID_MEDIUM,
         .unit = NULL,
         .title = "TISSUE(RAW)",
-        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .title_offset_x = 10, .title_offset_y = 0, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.tissue = {
             .chart_offset_x = 0, .chart_offset_y = 20, .chart_align = LV_ALIGN_BOTTOM_RIGHT,
             .bar_count = 16, .bar_spacing = 2
@@ -490,7 +490,7 @@ static const comp_style_t g_widget_styles[] =
         .unit = NULL,
         .title = "NOFLY",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+        .spec.basic = { .value_offset_x = -5, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_ACCEL_1606,
@@ -518,10 +518,10 @@ static const comp_style_t g_widget_styles[] =
         .widget_id = COMP_TMAG_2406,
         .span_w = 3, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
-        .font_id = FONT_ID_MEDIUM,
+        .font_id = FONT_ID_SMALL,
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
-        .title = "TMAG mT",
+        .title = "TMAG mT ",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },

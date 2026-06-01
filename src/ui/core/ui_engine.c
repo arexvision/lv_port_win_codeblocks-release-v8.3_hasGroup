@@ -199,10 +199,8 @@ void sys_config_defaults(sys_config_t *cfg)
     {
         COMP_TTS_0806,     0, 5
     };
-    cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
-    {
-        COMP_GYRO_2406,    3, 4
-    };
+
+    
     cfg->custom_cards[2].widgets[0] = (grid_widget_t)
     {
         COMP_BATT_V_0806,      0, 0
@@ -297,7 +295,7 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->left_widgets[1] = (grid_widget_t)
     {
-        COMP_DEPTH_1606,      0, 1
+        COMP_DEPTH_1612,      0, 1
     };
     cfg->left_widgets[2] = (grid_widget_t)
     {
