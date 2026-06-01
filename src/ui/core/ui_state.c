@@ -75,6 +75,15 @@ void ui_go_to_page(uint8_t tile_pos)
     screen_scroll_to_page(tile_pos);
 }
 
+static void ui_return_to_card_home(void)
+{
+    s_ui.wall_charge = 0;
+    screen_hide_walls_snap();
+    s_ui.state = UI_DASH;
+    s_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
+    ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
+}
+
 /* =========================================
    Rotate handler (+1 = down, -1 = up)
    ========================================= */
@@ -437,6 +446,10 @@ void ui_handle_back(void)
      * 对编辑态来说是回滚，对 modal 来说是关闭，对子菜单来说是返回上层。 */
     switch (s_ui.state)
     {
+    case UI_DASH:
+        ui_return_to_card_home();
+        break;
+
     case UI_EDIT_GAS:
         s_ui.state = UI_DASH;
         screen_refresh_gas_menu();
@@ -485,21 +498,11 @@ void ui_handle_back(void)
         break;
 
     case UI_INFO:
-#if ENABLE_INFO_MENU
-        s_ui.state = UI_DASH;
-        s_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
-        ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
-#else
-        s_ui.state = UI_DASH;
-        s_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
-        ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
-#endif
+        ui_return_to_card_home();
         break;
 
     case UI_SETUP:
-        s_ui.state = UI_DASH;
-        s_ui.dash_page = page_setup_display_pos() - 1;
-        ui_go_to_page(page_setup_display_pos() - 1);
+        ui_return_to_card_home();
         break;
 
     default:
