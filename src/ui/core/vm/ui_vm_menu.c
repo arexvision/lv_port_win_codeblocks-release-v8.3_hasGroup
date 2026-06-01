@@ -22,6 +22,8 @@ static const char *vm_salinity_label(uint8_t value)
         return "FRESH";
     case 1U:
         return "SALT";
+    case 2U:
+        return "EN13319";
     default:
         return "--";
     }
