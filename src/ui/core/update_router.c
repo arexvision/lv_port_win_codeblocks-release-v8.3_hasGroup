@@ -55,6 +55,158 @@ static void ui_router_refresh_sensor_preview_widgets(void)
     }
 }
 
+static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
+{
+    switch (widget_id)
+    {
+    case COMP_NDL_STOP_1606:
+        return DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS;
+    case COMP_DEPTH_1612:
+    case COMP_DEPTH_1606:
+    case COMP_DIVE_TIME_1606:
+    case COMP_ASCENT_0806:
+    case COMP_ASCENT_0812:
+    case COMP_DEPTH_MAX_0806:
+    case COMP_DEPTH_AVG_0806:
+        return DIRTY_DIVE_PROFILE;
+    case COMP_TTS_0806:
+    case COMP_STOP_DEPTH_0806:
+    case COMP_STOP_TIME_1606:
+    case COMP_CEILING_0806:
+        return DIRTY_DECO_STATUS;
+    case COMP_GAS_1606:
+    case COMP_PPO2_0806:
+    case COMP_MOD_0806:
+    case COMP_GAS_MIX_1606:
+    case COMP_GAS_DENS_0806:
+    case COMP_FIO2_0806:
+    case COMP_POD_0806:
+        return DIRTY_GAS_SUPPLY;
+    case COMP_SYS_1606:
+    case COMP_TEMP_0806:
+    case COMP_TIME_1606:
+    case COMP_BATTERY_0806:
+    case COMP_BATT_TEMP_0806:
+    case COMP_PRJ_TEMP_0806:
+    case COMP_TEMP_MIN_0806:
+    case COMP_TEMP_AVG_0806:
+        return DIRTY_SYSTEM;
+    case COMP_COMPASS_1612:
+    case COMP_HEADING_0806:
+        return DIRTY_COMPASS;
+    case COMP_TISSUE_GF_4012:
+    case COMP_TISSUE_RAW_4012:
+    case COMP_SURF_GF_0806:
+    case COMP_GF99_0806:
+    case COMP_CNS_0806:
+    case COMP_OTU_0806:
+        return DIRTY_TISSUE_TOX;
+    case COMP_GF_0806:
+        return DIRTY_DIVE_CONFIG;
+    case COMP_GYRO_2406:
+    case COMP_BATT_V_0806:
+    case COMP_CHARGE_0806:
+    case COMP_PRESSURE_0806:
+    case COMP_NOFLY_0806:
+    case COMP_ACCEL_2406:
+    case COMP_MAG_2406:
+    case COMP_TMAG_2406:
+    case COMP_ATTITUDE_2406:
+    case COMP_BLE_RSSI_0806:
+    case COMP_CPU_0806:
+    case COMP_FPS_0806:
+    case COMP_SENSOR_STAT_1606:
+        return DIRTY_SENSOR;
+    default:
+        return DIRTY_NONE;
+    }
+}
+
+static dirty_mask_t ui_router_custom_card_subscription_mask(uint8_t custom_card_idx)
+{
+    dirty_mask_t mask = DIRTY_NONE;
+
+    if (custom_card_idx >= ui_custom_card_count_get() || custom_card_idx >= MAX_CUSTOM_CARDS)
+    {
+        return DIRTY_NONE;
+    }
+
+    for (uint8_t i = 0; i < ui_custom_card_widget_count_get(custom_card_idx); i++)
+    {
+        const grid_widget_t *widget = ui_custom_card_widget_get(custom_card_idx, i);
+        if (widget && widget->widget_id != COMP_EMPTY)
+        {
+            mask |= ui_router_widget_dirty_mask(widget->widget_id);
+        }
+    }
+
+    return mask;
+}
+
+static dirty_mask_t ui_router_layout_subscription_mask(void)
+{
+    dirty_mask_t mask = DIRTY_NONE;
+
+    for (uint8_t i = 0; i < ui_left_widget_count_get(); i++)
+    {
+        const grid_widget_t *widget = ui_left_widget_get(i);
+        if (widget && widget->widget_id != COMP_EMPTY)
+        {
+            mask |= ui_router_widget_dirty_mask(widget->widget_id);
+        }
+    }
+
+    for (uint8_t storage_pos = PAGE_POS_DYNAMIC_FIRST; storage_pos < PAGE_POS_SETUP; storage_pos++)
+    {
+        uint8_t page_id = g_sys_page_order(storage_pos);
+
+        switch (page_id)
+        {
+        case PAGE_ID_COMPASS:
+            mask |= DIRTY_COMPASS;
+            break;
+        case PAGE_ID_DECO:
+            mask |= DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX | DIRTY_DIVE_CONFIG;
+            break;
+        case PAGE_ID_GAS:
+            mask |= DIRTY_GAS_SUPPLY;
+            break;
+        case PAGE_ID_PLAN:
+            mask |= DIRTY_PLAN;
+            break;
+        case PAGE_ID_CUSTOM_GRID:
+        {
+            uint8_t custom_card_idx = ui_custom_card_slot_get(storage_pos);
+            mask |= ui_router_custom_card_subscription_mask(custom_card_idx);
+            break;
+        }
+        default:
+            break;
+        }
+    }
+
+    return mask;
+}
+
+static dirty_mask_t ui_router_state_subscription_mask(void)
+{
+    ui_state_t state = ui_state_get_state();
+
+    if (state == UI_INFO || (state == UI_SUB_MENU && ui_state_get_sub_parent() == UI_INFO))
+    {
+        return DIRTY_INFO_REFRESH_MASK;
+    }
+
+    return DIRTY_NONE;
+}
+
+static dirty_mask_t ui_router_subscription_mask(void)
+{
+    return DIRTY_UI_LAYOUT | DIRTY_ALARM |
+           ui_router_layout_subscription_mask() |
+           ui_router_state_subscription_mask();
+}
+
 void ui_update_router_dispatch(dirty_mask_t mask)
 {
     /* dirty mask 是 UI 更新路由的核心入口：按刷新域决定本轮要刷新哪些数据和页面。 */
@@ -89,6 +241,12 @@ void ui_update_router_dispatch(dirty_mask_t mask)
             lv_disp_enable_invalidation(disp, true);
         }
         bus_requeue_dirty(mask & ~DIRTY_UI_LAYOUT);
+        return;
+    }
+
+    mask &= ui_router_subscription_mask();
+    if (mask == DIRTY_NONE)
+    {
         return;
     }
 
