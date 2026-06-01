@@ -169,7 +169,7 @@ typedef enum
     COMP_GYRO_2406        = 38,  /* 陀螺仪角速度 */
     COMP_BATT_V_0806      = 39,  /* 电池电压 */
     COMP_BATT_TEMP_0806   = 40,  /* 电池温度 */
-    COMP_PRJ_TEMP_0806    = 41,  /* 主板/项目温度 */
+    COMP_PRJ_TEMP_0806    = 41,  /* 光机温度 */
     COMP_CHARGE_0806      = 42,  /* 充电状态 */
     COMP_PRESSURE_0806    = 43,  /* 环境压力 */
     COMP_NOFLY_0806       = 44,  /* 禁飞时间 */
