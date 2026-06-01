@@ -173,7 +173,7 @@ typedef enum
     COMP_CHARGE_0806      = 42,  /* 充电状态 */
     COMP_PRESSURE_0806    = 43,  /* 环境压力 */
     COMP_NOFLY_0806       = 44,  /* 禁飞时间 */
-    COMP_ACCEL_1606       = 45,  /* 加速度计 */
+    COMP_ACCEL_2406       = 45,  /* 加速度计 */
     COMP_MAG_2406         = 46,  /* 磁力计xyz数据 */
     COMP_TMAG_2406        = 47,  /* 总磁场xyz强度 */
     COMP_ATTITUDE_2406    = 48,  /* 姿态角数据 */

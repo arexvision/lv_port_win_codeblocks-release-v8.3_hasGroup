@@ -22,13 +22,7 @@ static void ui_bootstrap_force_first_paint(void)
     bus_requeue_dirty(DIRTY_UI_LAYOUT);
     ui_update_task(NULL);
 
-    bus_requeue_dirty(DIRTY_DEPTH | DIRTY_NDL | DIRTY_NDL_STOP | DIRTY_TTS |
-                      DIRTY_DIVE_TIME | DIRTY_GAS | DIRTY_TEMP | DIRTY_BATT |
-                      DIRTY_ASCENT | DIRTY_HEADING | DIRTY_PPO2 | DIRTY_POD |
-                      DIRTY_DEPTH_STATS | DIRTY_TEMP_STATS | DIRTY_SURF_GF |
-                      DIRTY_GF99 | DIRTY_GF_SETTING | DIRTY_MOD | DIRTY_CEILING |
-                      DIRTY_GAS_MIX | DIRTY_GAS_DENS | DIRTY_FIO2 |
-                      DIRTY_TISSUES | DIRTY_TRAJECTORY | DIRTY_CNS | DIRTY_OTU);
+    bus_requeue_dirty(DIRTY_DATA_ALL);
     ui_update_task(NULL);
 }
 

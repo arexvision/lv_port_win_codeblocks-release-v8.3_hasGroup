@@ -149,7 +149,7 @@ typedef struct
     bool    deco_violation;
     bool    strobe_on;
     bool    flashlight_on;
-    uint32_t dirty_mask;
+    dirty_mask_t dirty_mask;
 } sensor_data_t;
 
 extern sys_config_t  g_sys_config;

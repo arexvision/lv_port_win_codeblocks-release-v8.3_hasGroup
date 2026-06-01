@@ -141,7 +141,7 @@ static void sim_reset_for_tcp_debug(void)
     sim_seed_tcp_algo_defaults();
     buhlmann_debug_reset();
 
-    bus_requeue_dirty(0xFFFFFFFFU & ~DIRTY_UI_LAYOUT);
+    bus_requeue_dirty(DIRTY_DATA_ALL);
 }
 #endif
 

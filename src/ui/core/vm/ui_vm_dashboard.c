@@ -417,7 +417,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     case COMP_NOFLY_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "48:59");
         break;
-    case COMP_ACCEL_1606:
+    case COMP_ACCEL_2406:
         (void)snprintf(vm->text, sizeof(vm->text), "X9.99Y9.99Z9.99");
         break;
     case COMP_MAG_2406:

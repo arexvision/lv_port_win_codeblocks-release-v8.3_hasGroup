@@ -225,7 +225,7 @@ void comp_sync_data(comp_id_t w_id)
         break;
 
     case COMP_SYS_1606:
-        comp_refresh_sys(DIRTY_BATT | DIRTY_TEMP);
+        comp_refresh_sys(DIRTY_SYSTEM);
         break;
 
     /* =========================================================
@@ -344,7 +344,7 @@ void comp_sync_data(comp_id_t w_id)
     case COMP_CHARGE_0806:
     case COMP_PRESSURE_0806:
     case COMP_NOFLY_0806:
-    case COMP_ACCEL_1606:
+    case COMP_ACCEL_2406:
     case COMP_MAG_2406:
     case COMP_TMAG_2406:
     case COMP_ATTITUDE_2406:

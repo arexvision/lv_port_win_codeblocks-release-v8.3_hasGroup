@@ -243,7 +243,7 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->custom_cards[2].widgets[10] = (grid_widget_t)
     {
-        COMP_ACCEL_1606,       0, 2
+        COMP_ACCEL_2406,       0, 2
     };
     cfg->custom_cards[2].widgets[11] = (grid_widget_t)
     {
@@ -516,7 +516,7 @@ uint8_t   g_card_custom_obj_count;
  *
  * 使用场景
  *   - screen_refresh_all_widgets() 遍历全量 widget 调用此函数
- *   - update 任务在收到 DIRTY_ALL 时调用全量刷新
+ *   - update 任务在收到 DIRTY_WIDGET_REFRESH_MASK 时调用全量刷新
  *   - 任何需要单独刷新某个组件数据的场景
  *
  * 注意：复杂状态机组件（NDL_STOP/SYS/COMPASS/TISSUE）已在 update_task
@@ -603,7 +603,7 @@ void ui_update_task(lv_timer_t *timer)
             s_last_flash_state = current_flash_state;
             if (fabsf(bus_get_ascent_rate()) > RATE_STILL_THRESHOLD)
             {
-                bus_requeue_dirty(DIRTY_ASCENT);
+                bus_requeue_dirty(DIRTY_DIVE_PROFILE);
             }
         }
     }
@@ -613,7 +613,7 @@ void ui_update_task(lv_timer_t *timer)
         screen_refresh_info_submenu_if_open();
     }
 
-    uint32_t mask = bus_take_dirty();
+    dirty_mask_t mask = bus_take_dirty();
     if (mask == DIRTY_NONE)
     {
         return;

@@ -811,7 +811,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     return obj;
 }
 
-void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, uint32_t dirty_mask)
+void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, dirty_mask_t dirty_mask)
 {
     if (vm == NULL)
     {
@@ -821,7 +821,7 @@ void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, uint32_t dirty_mask)
     {
         return;
     }
-    if ((dirty_mask & DIRTY_TISSUES) == 0U)
+    if ((dirty_mask & DIRTY_TISSUE_TOX) == 0U)
     {
         return;
     }
@@ -844,7 +844,7 @@ void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, uint32_t dirty_mask)
     }
 }
 
-void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)
+void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mask)
 {
     if (vm == NULL)
     {
@@ -854,7 +854,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)
     {
         return;
     }
-    if ((dirty_mask & (DIRTY_NDL_STOP | DIRTY_DEPTH | DIRTY_NDL)) == 0)
+    if ((dirty_mask & (DIRTY_DECO_STATUS | DIRTY_DIVE_PROFILE)) == 0U)
     {
         return;
     }
@@ -948,20 +948,20 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, uint32_t dirty_mask)
     }
 }
 
-void comp_refresh_ndl_stop(uint32_t dirty_mask)
+void comp_refresh_ndl_stop(dirty_mask_t dirty_mask)
 {
     ui_vm_ndl_stop_t vm;
     ui_vm_ndl_stop_update(&vm, NULL);
     comp_refresh_ndl_stop_vm(&vm, dirty_mask);
 }
 
-void comp_refresh_sys(uint32_t dirty_mask)
+void comp_refresh_sys(dirty_mask_t dirty_mask)
 {
-    if ((dirty_mask & DIRTY_BATT) && ui_obj_is_valid(&s_sys_batt_lbl))
+    if ((dirty_mask & DIRTY_SYSTEM) && ui_obj_is_valid(&s_sys_batt_lbl))
     {
         lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", (unsigned)ui_battery_draw_pct(bus_get_battery_pct()));
     }
-    if ((dirty_mask & DIRTY_TEMP) && ui_obj_is_valid(&s_sys_temp_lbl))
+    if ((dirty_mask & DIRTY_SYSTEM) && ui_obj_is_valid(&s_sys_temp_lbl))
     {
         float temp_c = bus_get_temperature();
         int16_t temp_int = (int16_t)temp_c;

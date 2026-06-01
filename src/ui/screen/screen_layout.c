@@ -720,7 +720,7 @@ void screen_rebuild_layout(void)
     restore_brightness_overlay_state();
     /* 布局重建可能让温度/电量/POD 等辅助槽位引用失效，这里再补一轮常用脏位，
      * 让后续 router 走正常刷新路径，把派生视图状态也一起拉齐。 */
-    bus_requeue_dirty(DIRTY_DEPTH | DIRTY_BATT | DIRTY_TEMP | DIRTY_POD);
+    bus_requeue_dirty(DIRTY_DIVE_PROFILE | DIRTY_SYSTEM | DIRTY_GAS_SUPPLY);
 }
 
 void screen_rebuild_tileview(void)

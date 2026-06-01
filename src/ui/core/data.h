@@ -291,8 +291,8 @@ void bus_set_ui_layout(const ble_ui_sync_payload_t *payload);
 void bus_set_layout_mode(theme_t theme, order_t order);
 
 /* 原子取走当前脏标记：UI 消费本帧 mask，新写入的 dirty 留给下一帧 */
-uint32_t bus_take_dirty(void);
-void bus_requeue_dirty(uint32_t mask);
+dirty_mask_t bus_take_dirty(void);
+void bus_requeue_dirty(dirty_mask_t mask);
 
 /* 清除所有脏标记 */
 void bus_clear_all_dirty(void);

@@ -211,7 +211,7 @@ static uint8_t alarm_collect_level(alarm_level_t level, int16_t *items, uint8_t 
 static uint32_t alarm_level_first_tick(alarm_level_t level)
 {
     /* 同等级多告警轮播时，first_tick 用来决定轮播起点和时间基准。 */
-    uint32_t first = 0xFFFFFFFFU;
+    uint32_t first = UINT32_MAX;
 
     for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
     {
@@ -230,7 +230,7 @@ static uint32_t alarm_level_first_tick(alarm_level_t level)
         first = s_custom_alarm.first_tick;
     }
 
-    return (first == 0xFFFFFFFFU) ? alarm_now() : first;
+    return (first == UINT32_MAX) ? alarm_now() : first;
 }
 
 static void alarm_update_display(uint32_t now_ms)

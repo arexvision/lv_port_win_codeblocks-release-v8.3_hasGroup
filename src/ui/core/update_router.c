@@ -39,7 +39,7 @@ static void ui_router_refresh_sensor_preview_widgets(void)
         COMP_CHARGE_0806,
         COMP_PRESSURE_0806,
         COMP_NOFLY_0806,
-        COMP_ACCEL_1606,
+        COMP_ACCEL_2406,
         COMP_MAG_2406,
         COMP_TMAG_2406,
         COMP_ATTITUDE_2406,
@@ -55,9 +55,9 @@ static void ui_router_refresh_sensor_preview_widgets(void)
     }
 }
 
-void ui_update_router_dispatch(uint32_t mask)
+void ui_update_router_dispatch(dirty_mask_t mask)
 {
-    /* dirty mask 是 UI 更新路由的核心入口：按位决定本轮要刷新哪些数据和页面。 */
+    /* dirty mask 是 UI 更新路由的核心入口：按刷新域决定本轮要刷新哪些数据和页面。 */
     /* 这里刻意把“数据变更”与“UI 如何刷新”隔离开：
      * 上游 Data Bus 只负责打脏位，不关心页面细节；
      * router 负责把脏位翻译成 VM 更新、组件刷新或页面重建。
@@ -92,26 +92,27 @@ void ui_update_router_dispatch(uint32_t mask)
         return;
     }
 
-    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES | DIRTY_CNS | DIRTY_OTU))
+    if (mask & (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX | DIRTY_DIVE_CONFIG))
     {
         ui_vm_deco_update(&deco_vm, NULL, NULL);
         deco_vm_ready = true;
         page_registry_update_deco_vm(&deco_vm);
     }
 
-    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES | DIRTY_ASCENT))
+    if (mask & (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX))
     {
-        /* 深度、NDL、TTS、组织和上升率通常联动刷新，所以归并为一组处理。 */
-        /* 这一组数据本质上都属于“减压态势”：
-         * 任意一个变化，往往都要求左侧主卡、DECO 卡和上升率图标同步更新。 */
-        refresh_all_widgets = true;
-        if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_TTS | DIRTY_TISSUES))
+        /* 减压态势相关域共享 deco VM，但组织柱只在组织/毒性域变化时重绘。 */
+        if (mask & DIRTY_TISSUE_TOX)
         {
             if (deco_vm_ready)
             {
                 comp_refresh_tissue_widgets(&deco_vm, mask);
             }
         }
+    }
+
+    if (mask & DIRTY_DIVE_PROFILE)
+    {
         ui_vm_ascent_update(&ascent_vm, bus_get_ascent_rate());
         comp_refresh_ascent_icons(&ascent_vm);
     }
@@ -119,38 +120,32 @@ void ui_update_router_dispatch(uint32_t mask)
     ui_vm_ndl_stop_update(&ndl_stop_vm, NULL);
     comp_refresh_ndl_stop_vm(&ndl_stop_vm, mask);
 
-    if (mask & DIRTY_POD)
+    if (mask & DIRTY_SYSTEM)
     {
-        refresh_all_widgets = true;
-    }
-
-    if (mask & DIRTY_BATT)
-    {
-        /* 电量刷新只影响部分文本组件，不必触发整页重绘。 */
+        /* 系统域统一覆盖电量、主温和板级温度，SYS 复合组件一次刷新两格。 */
         ui_router_refresh_text_widget(COMP_BATTERY_0806, 0U);
+        ui_router_refresh_text_widget(COMP_TEMP_0806, 0U);
+        ui_router_refresh_text_widget(COMP_TEMP_MIN_0806, 0U);
+        ui_router_refresh_text_widget(COMP_TEMP_AVG_0806, 0U);
+        refresh_left_aux_slots();
+        comp_refresh_sys(mask);
     }
 
-    if (mask & DIRTY_HEADING)
+    if (mask & DIRTY_COMPASS)
     {
         ui_vm_compass_update(&compass_vm, NULL, NULL);
         card_compass_refresh_heading_vm(&compass_vm, false);
+    }
+
+    if (mask & DIRTY_SENSOR)
+    {
         ui_router_refresh_sensor_preview_widgets();
     }
 
-    if (mask & DIRTY_DIVE_TIME)
+    if (mask & DIRTY_GAS_SUPPLY)
     {
-        refresh_all_widgets = true;
-    }
-
-    if (mask & DIRTY_PPO2)
-    {
-        refresh_all_widgets = true;
-    }
-
-    if (mask & DIRTY_GAS)
-    {
-        /* 气体变化既影响菜单也影响左侧显示，因此要同时刷新两条路径。 */
-        /* 一次切气会同时波及：
+        /* 气体供应域既影响菜单也影响左侧显示，因此要同时刷新两条路径。 */
+        /* 一次切气或气体参数变化会同时波及：
          * - 当前气体名称/高亮
          * - PPO2/MOD 等派生数据显示
          * - GAS 菜单页自身的选中态
@@ -161,52 +156,18 @@ void ui_update_router_dispatch(uint32_t mask)
                          ui_state_get_state(),
                          ui_state_get_gas_cursor());
         page_registry_update_gas_vm(&gas_vm);
-        refresh_all_widgets = true;
     }
 
-    if (mask & DIRTY_TRAJECTORY)
+    if (mask & DIRTY_PLAN)
     {
         ui_vm_plan_chart_update(&plan_chart_vm);
         page_registry_update_plan_vm(&plan_chart_vm);
     }
 
-    if (mask & DIRTY_CNS)
-    {
-        refresh_all_widgets = true;
-    }
-
-    if (mask & DIRTY_OTU)
-    {
-        refresh_all_widgets = true;
-    }
-
-    if (mask & DIRTY_TEMP)
-    {
-        ui_router_refresh_text_widget(COMP_TEMP_0806, 0U);
-        refresh_left_aux_slots();
-    }
-
-    if (mask & DIRTY_DEPTH)
+    if (mask & DIRTY_DIVE_PROFILE)
     {
         ui_router_refresh_text_widget(COMP_DEPTH_MAX_0806, 0U);
         ui_router_refresh_text_widget(COMP_DEPTH_AVG_0806, 0U);
-    }
-
-    if (mask & DIRTY_TEMP)
-    {
-        ui_router_refresh_text_widget(COMP_TEMP_MIN_0806, 0U);
-        ui_router_refresh_text_widget(COMP_TEMP_AVG_0806, 0U);
-    }
-
-    if (mask & (DIRTY_GF_SETTING | DIRTY_MOD | DIRTY_CEILING |
-                DIRTY_GAS_MIX | DIRTY_GAS_DENS | DIRTY_FIO2))
-    {
-        refresh_all_widgets = true;
-    }
-
-    if (mask & (DIRTY_BATT | DIRTY_TEMP))
-    {
-        comp_refresh_sys(mask);
     }
 
     if (mask & DIRTY_ALARM)
@@ -214,14 +175,14 @@ void ui_update_router_dispatch(uint32_t mask)
         /* 告警动画与样式节拍在 ui_update_task() 统一推进，router 只负责消费脏标记。 */
     }
 
-    if (mask & (DIRTY_DEPTH | DIRTY_NDL | DIRTY_NDL_STOP | DIRTY_TTS |
-                DIRTY_DIVE_TIME | DIRTY_GAS | DIRTY_TEMP | DIRTY_BATT |
-                DIRTY_POD | DIRTY_PPO2 | DIRTY_CNS | DIRTY_OTU |
-                DIRTY_TISSUES | DIRTY_ASCENT | DIRTY_GF_SETTING | DIRTY_MOD |
-                DIRTY_CEILING | DIRTY_GAS_MIX | DIRTY_GAS_DENS |
-                DIRTY_FIO2))
+    if (mask & DIRTY_INFO_REFRESH_MASK)
     {
         screen_refresh_info_submenu_if_open();
+    }
+
+    if (mask & DIRTY_WIDGET_REFRESH_MASK)
+    {
+        refresh_all_widgets = true;
     }
 
     if (refresh_all_widgets)

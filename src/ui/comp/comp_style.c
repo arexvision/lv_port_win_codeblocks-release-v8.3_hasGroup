@@ -493,8 +493,8 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -5, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
-        .widget_id = COMP_ACCEL_1606,
-        .span_w = 2, .span_h = 1,
+        .widget_id = COMP_ACCEL_2406,
+        .span_w = 3, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = FONT_ID_SMALL,
         .title_font_id = FONT_ID_SMALL,

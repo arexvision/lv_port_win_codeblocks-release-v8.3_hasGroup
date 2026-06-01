@@ -359,7 +359,7 @@ void alarm_view_tick(const alarm_view_context_t *ctx)
 {
     static comp_id_t s_prev_targets[ALARM_TARGET_MAX];
     static uint8_t s_prev_target_count;
-    static uint32_t s_last_revision = 0xFFFFFFFFU;
+    static uint32_t s_last_revision = UINT32_MAX;
     static alarm_level_t s_last_level = ALARM_NONE;
     static bool s_last_phase;
     static bool s_last_visible;
