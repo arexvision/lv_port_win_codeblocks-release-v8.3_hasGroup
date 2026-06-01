@@ -474,12 +474,12 @@ static const comp_style_t g_widget_styles[] =
         .widget_id = COMP_PRESSURE_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
-        .font_id = FONT_ID_SMALL,
+        .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
         .title = "P mbar",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+        .spec.basic = { .value_offset_x = -5, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_NOFLY_0806,
@@ -518,7 +518,7 @@ static const comp_style_t g_widget_styles[] =
         .widget_id = COMP_TMAG_2406,
         .span_w = 3, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
-        .font_id = FONT_ID_SMALL,
+        .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
         .title = "TMAG uT",
