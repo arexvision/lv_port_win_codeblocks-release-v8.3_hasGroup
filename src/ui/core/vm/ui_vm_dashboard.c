@@ -482,7 +482,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%.2f", (double)bus_get_gas_density());
         break;
     case COMP_FIO2_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.0f%%", (double)bus_get_fio2_pct());
+        (void)snprintf(vm->text, sizeof(vm->text), "%u%%", (unsigned)bus_get_gas_slot_o2_pct(bus_get_gas_active_idx()));
         break;
     case COMP_POD_0806:
         (void)snprintf(vm->text,sizeof(vm->text),"%.0f",(double)bus_get_pod_bar((pod_index > 1U) ? 1U : 0U));
