@@ -337,7 +337,7 @@ void comp_sync_data(comp_id_t w_id)
      * ========================================================= */
     case COMP_HEADING_0806:
     case COMP_COMPASS_1612:
-    case COMP_GYRO_1606:
+    case COMP_GYRO_2406:
     case COMP_BATT_V_0806:
     case COMP_BATT_TEMP_0806:
     case COMP_PRJ_TEMP_0806:
@@ -345,13 +345,13 @@ void comp_sync_data(comp_id_t w_id)
     case COMP_PRESSURE_0806:
     case COMP_NOFLY_0806:
     case COMP_ACCEL_1606:
-    case COMP_MAG_1606:
-    case COMP_TMAG_1606:
-    case COMP_ATTITUDE_1606:
+    case COMP_MAG_2406:
+    case COMP_TMAG_2406:
+    case COMP_ATTITUDE_2406:
     case COMP_BLE_RSSI_0806:
     case COMP_CPU_0806:
     case COMP_FPS_0806:
-    case COMP_SENSOR_STAT_0806:
+    case COMP_SENSOR_STAT_1606:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 

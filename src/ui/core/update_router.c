@@ -32,7 +32,7 @@ static void ui_router_refresh_sensor_preview_widgets(void)
 {
     static const comp_id_t widgets[] =
     {
-        COMP_GYRO_1606,
+        COMP_GYRO_2406,
         COMP_BATT_V_0806,
         COMP_BATT_TEMP_0806,
         COMP_PRJ_TEMP_0806,
@@ -40,13 +40,13 @@ static void ui_router_refresh_sensor_preview_widgets(void)
         COMP_PRESSURE_0806,
         COMP_NOFLY_0806,
         COMP_ACCEL_1606,
-        COMP_MAG_1606,
-        COMP_TMAG_1606,
-        COMP_ATTITUDE_1606,
+        COMP_MAG_2406,
+        COMP_TMAG_2406,
+        COMP_ATTITUDE_2406,
         COMP_BLE_RSSI_0806,
         COMP_CPU_0806,
         COMP_FPS_0806,
-        COMP_SENSOR_STAT_0806,
+        COMP_SENSOR_STAT_1606,
     };
 
     for (uint8_t i = 0; i < (uint8_t)(sizeof(widgets) / sizeof(widgets[0])); i++)

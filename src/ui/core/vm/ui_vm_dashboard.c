@@ -396,7 +396,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     case COMP_HEADING_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%03u", (unsigned)bus_get_heading());
         break;
-    case COMP_GYRO_1606:
+    case COMP_GYRO_2406:
         (void)snprintf(vm->text, sizeof(vm->text), "X:999Y:999Z:999");
         break;
     case COMP_BATT_V_0806:
@@ -420,13 +420,13 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     case COMP_ACCEL_1606:
         (void)snprintf(vm->text, sizeof(vm->text), "X9.99Y9.99Z9.99");
         break;
-    case COMP_MAG_1606:
+    case COMP_MAG_2406:
         (void)snprintf(vm->text, sizeof(vm->text), "X:999Y:999Z:999");
         break;
-    case COMP_TMAG_1606:
+    case COMP_TMAG_2406:
         (void)snprintf(vm->text, sizeof(vm->text), "X:999Y:999Z:999");
         break;
-    case COMP_ATTITUDE_1606:
+    case COMP_ATTITUDE_2406:
         (void)snprintf(vm->text, sizeof(vm->text), "P-180R-180H359");
         break;
     case COMP_BLE_RSSI_0806:
@@ -438,7 +438,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     case COMP_FPS_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "120");
         break;
-    case COMP_SENSOR_STAT_0806:
+    case COMP_SENSOR_STAT_1606:
         (void)snprintf(vm->text, sizeof(vm->text), "WARN");
         break;
     case COMP_STOP_DEPTH_0806:

@@ -166,21 +166,21 @@ typedef enum
     COMP_TEMP_AVG_0806    = 37,
 
     //临时的测试组件，后续会根据实际需要调整增删
-    COMP_GYRO_1606        = 38,
-    COMP_BATT_V_0806      = 39,
-    COMP_BATT_TEMP_0806   = 40,
-    COMP_PRJ_TEMP_0806    = 41,
-    COMP_CHARGE_0806      = 42,
-    COMP_PRESSURE_0806    = 43,
-    COMP_NOFLY_0806       = 44,
-    COMP_ACCEL_1606       = 45,
-    COMP_MAG_1606         = 46,
-    COMP_TMAG_1606        = 47,
-    COMP_ATTITUDE_1606    = 48,
-    COMP_BLE_RSSI_0806    = 49,
-    COMP_CPU_0806         = 50,
-    COMP_FPS_0806         = 51,
-    COMP_SENSOR_STAT_0806 = 52
+    COMP_GYRO_2406        = 38,  /* 陀螺仪角速度 */
+    COMP_BATT_V_0806      = 39,  /* 电池电压 */
+    COMP_BATT_TEMP_0806   = 40,  /* 电池温度 */
+    COMP_PRJ_TEMP_0806    = 41,  /* 主板/项目温度 */
+    COMP_CHARGE_0806      = 42,  /* 充电状态 */
+    COMP_PRESSURE_0806    = 43,  /* 环境压力 */
+    COMP_NOFLY_0806       = 44,  /* 禁飞时间 */
+    COMP_ACCEL_1606       = 45,  /* 加速度计 */
+    COMP_MAG_2406         = 46,  /* 磁力计xyz数据 */
+    COMP_TMAG_2406        = 47,  /* 总磁场xyz强度 */
+    COMP_ATTITUDE_2406    = 48,  /* 姿态角数据 */
+    COMP_BLE_RSSI_0806    = 49,  /* BLE 信号强度 */
+    COMP_CPU_0806         = 50,  /* CPU 占用/负载 */
+    COMP_FPS_0806         = 51,  /* UI 帧率 */
+    COMP_SENSOR_STAT_1606 = 52   /* 传感器状态 */
 } comp_id_t;
 
 typedef enum
