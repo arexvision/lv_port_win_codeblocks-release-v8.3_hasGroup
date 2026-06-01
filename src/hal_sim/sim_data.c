@@ -95,6 +95,9 @@ static void sim_update_sensor_preview(float depth_m)
     float mag_x = 28.0f + (float)(t % 9U);
     float mag_y = -12.0f + (float)((t * 2U) % 7U);
     float mag_z = 42.0f - (float)(t % 6U);
+    float tmag_x = mag_x + 1.5f;
+    float tmag_y = mag_y - 0.8f;
+    float tmag_z = mag_z + 2.2f;
 
     bus_set_battery_voltage(3.65f + (bus_get_battery_pct() * 0.006f));
     bus_set_charge_state((bus_get_battery_pct() > 96.0f) ? 2U : ((t % 20U) < 4U) ? 1U : 0U);
@@ -103,7 +106,7 @@ static void sim_update_sensor_preview(float depth_m)
     bus_set_gyro((float)((int16_t)((t * 17U) % 401U) - 200), (float)((int16_t)((t * 11U) % 301U) - 150), (float)((int16_t)((t * 7U) % 241U) - 120));
     bus_set_accel(((float)(t % 7U) - 3.0f) * 0.03f, ((float)((t * 2U) % 7U) - 3.0f) * 0.03f, accel_z);
     bus_set_mag(mag_x, mag_y, mag_z);
-    bus_set_tmag(50.0f + (float)(t % 8U));
+    bus_set_tmag(tmag_x, tmag_y, tmag_z);
     bus_set_attitude(pitch_deg, roll_deg, attitude_heading);
     bus_set_ble_rssi((int16_t)(-45 - (int16_t)(t % 35U)));
     bus_set_cpu_load((uint8_t)(22U + ((t * 7U) % 54U)));
@@ -353,6 +356,9 @@ static void sim_tick_cb(lv_timer_t *t)
     if (!debug_link_pc_manual_mode()) {
         return;
     }
+
+    s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
+    bus_set_heading(s_sim.heading_deg);
 
     {
         uint16_t time_scale = debug_link_pc_time_scale();

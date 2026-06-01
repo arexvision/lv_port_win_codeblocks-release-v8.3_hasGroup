@@ -521,7 +521,7 @@ static const comp_style_t g_widget_styles[] =
         .font_id = FONT_ID_SMALL,
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
-        .title = "TMAG mT ",
+        .title = "TMAG uT",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },

@@ -706,10 +706,16 @@ void bus_set_mag(float x_ut, float y_ut, float z_ut)
     }
 }
 
-void bus_set_tmag(float total_ut)
+void bus_set_tmag(float x_ut, float y_ut, float z_ut)
 {
-    if (fabsf(g_sensor_data.tmag_ut - total_ut) > 0.1f)
+    float total_ut = sqrtf(x_ut * x_ut + y_ut * y_ut + z_ut * z_ut);
+    if (fabsf(g_sensor_data.tmag_x_ut - x_ut) > 0.1f ||
+            fabsf(g_sensor_data.tmag_y_ut - y_ut) > 0.1f ||
+            fabsf(g_sensor_data.tmag_z_ut - z_ut) > 0.1f)
     {
+        g_sensor_data.tmag_x_ut = x_ut;
+        g_sensor_data.tmag_y_ut = y_ut;
+        g_sensor_data.tmag_z_ut = z_ut;
         g_sensor_data.tmag_ut = total_ut;
         g_sensor_data.dirty_mask |= DIRTY_SENSOR;
     }
@@ -1591,6 +1597,21 @@ float bus_get_mag_y_ut(void)
 float bus_get_mag_z_ut(void)
 {
     return g_sensor_data.mag_z_ut;
+}
+
+float bus_get_tmag_x_ut(void)
+{
+    return g_sensor_data.tmag_x_ut;
+}
+
+float bus_get_tmag_y_ut(void)
+{
+    return g_sensor_data.tmag_y_ut;
+}
+
+float bus_get_tmag_z_ut(void)
+{
+    return g_sensor_data.tmag_z_ut;
 }
 
 float bus_get_tmag_ut(void)

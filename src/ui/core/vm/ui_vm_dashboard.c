@@ -424,7 +424,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%+.0f %+.0f %+.0f", (double)bus_get_mag_x_ut(), (double)bus_get_mag_y_ut(), (double)bus_get_mag_z_ut());
         break;
     case COMP_TMAG_2406:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_tmag_ut());
+        (void)snprintf(vm->text, sizeof(vm->text), "%+.0f %+.0f %+.0f", (double)bus_get_tmag_x_ut(), (double)bus_get_tmag_y_ut(), (double)bus_get_tmag_z_ut());
         break;
     case COMP_ATTITUDE_2406:
         (void)snprintf(vm->text, sizeof(vm->text), "P%d R%d H%u", (int)bus_get_pitch_deg(), (int)bus_get_roll_deg(), (unsigned)bus_get_attitude_heading_deg());

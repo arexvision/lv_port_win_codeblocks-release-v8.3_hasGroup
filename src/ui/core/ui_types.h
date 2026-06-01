@@ -121,6 +121,9 @@ typedef struct
     float   mag_x_ut;
     float   mag_y_ut;
     float   mag_z_ut;
+    float   tmag_x_ut;
+    float   tmag_y_ut;
+    float   tmag_z_ut;
     float   tmag_ut;
     int16_t pitch_deg;
     int16_t roll_deg;
