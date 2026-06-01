@@ -516,7 +516,7 @@ uint8_t   g_card_custom_obj_count;
  *
  * 使用场景
  *   - screen_refresh_all_widgets() 遍历全量 widget 调用此函数
- *   - update 任务在收到 DIRTY_WIDGET_REFRESH_MASK 时调用全量刷新
+ *   - update router 在收到 DIRTY_WIDGET_REFRESH_MASK 时按订阅 dirty 刷新当前布局组件
  *   - 任何需要单独刷新某个组件数据的场景
  *
  * 注意：复杂状态机组件（NDL_STOP/SYS/COMPASS/TISSUE）已在 update_task

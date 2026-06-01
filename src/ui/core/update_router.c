@@ -28,33 +28,6 @@ static void ui_router_refresh_text_widget(comp_id_t widget_id, uint8_t pod_index
     comp_set_text(widget_id, value_vm.text);
 }
 
-static void ui_router_refresh_sensor_preview_widgets(void)
-{
-    static const comp_id_t widgets[] =
-    {
-        COMP_GYRO_2406,
-        COMP_BATT_V_0806,
-        COMP_BATT_TEMP_0806,
-        COMP_PRJ_TEMP_0806,
-        COMP_CHARGE_0806,
-        COMP_PRESSURE_0806,
-        COMP_NOFLY_0806,
-        COMP_ACCEL_2406,
-        COMP_MAG_2406,
-        COMP_TMAG_2406,
-        COMP_ATTITUDE_2406,
-        COMP_BLE_RSSI_0806,
-        COMP_CPU_0806,
-        COMP_FPS_0806,
-        COMP_SENSOR_STAT_1606,
-    };
-
-    for (uint8_t i = 0; i < (uint8_t)(sizeof(widgets) / sizeof(widgets[0])); i++)
-    {
-        ui_router_refresh_text_widget(widgets[i], 0U);
-    }
-}
-
 static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
 {
     switch (widget_id)
@@ -119,6 +92,35 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
         return DIRTY_SENSOR;
     default:
         return DIRTY_NONE;
+    }
+}
+
+static void ui_router_refresh_widget_if_dirty(const grid_widget_t *widget, dirty_mask_t mask)
+{
+    if (widget == NULL || widget->widget_id == COMP_EMPTY)
+    {
+        return;
+    }
+
+    if (ui_router_widget_dirty_mask(widget->widget_id) & mask)
+    {
+        comp_sync_data(widget->widget_id);
+    }
+}
+
+static void ui_router_refresh_layout_widgets(dirty_mask_t mask)
+{
+    for (uint8_t i = 0; i < ui_left_widget_count_get(); i++)
+    {
+        ui_router_refresh_widget_if_dirty(ui_left_widget_get(i), mask);
+    }
+
+    for (uint8_t page_idx = 0; page_idx < ui_custom_card_count_get() && page_idx < MAX_CUSTOM_CARDS; page_idx++)
+    {
+        for (uint8_t i = 0; i < ui_custom_card_widget_count_get(page_idx); i++)
+        {
+            ui_router_refresh_widget_if_dirty(ui_custom_card_widget_get(page_idx, i), mask);
+        }
     }
 }
 
@@ -221,7 +223,6 @@ void ui_update_router_dispatch(dirty_mask_t mask)
     ui_vm_ascent_t ascent_vm;
     ui_vm_plan_chart_t plan_chart_vm;
     bool deco_vm_ready = false;
-    bool refresh_all_widgets = false;
 
     if (mask & DIRTY_UI_LAYOUT)
     {
@@ -295,11 +296,6 @@ void ui_update_router_dispatch(dirty_mask_t mask)
         card_compass_refresh_heading_vm(&compass_vm, false);
     }
 
-    if (mask & DIRTY_SENSOR)
-    {
-        ui_router_refresh_sensor_preview_widgets();
-    }
-
     if (mask & DIRTY_GAS_SUPPLY)
     {
         /* 气体供应域既影响菜单也影响左侧显示，因此要同时刷新两条路径。 */
@@ -340,14 +336,7 @@ void ui_update_router_dispatch(dirty_mask_t mask)
 
     if (mask & DIRTY_WIDGET_REFRESH_MASK)
     {
-        refresh_all_widgets = true;
-    }
-
-    if (refresh_all_widgets)
-    {
-        /* 需要整组刷新时，统一下发到 screen 层，由它再分发到各 widget。 */
-        /* 这里故意不在 router 内部逐个处理所有 widget，
-         * 因为 screen 层掌握当前布局配置，知道左侧和 5F 卡片到底摆了哪些组件。 */
-        screen_refresh_all_widgets();
+        /* 只刷新当前布局里订阅本轮 dirty 的组件，避免新模块再维护临时组件清单。 */
+        ui_router_refresh_layout_widgets(mask & DIRTY_WIDGET_REFRESH_MASK);
     }
 }

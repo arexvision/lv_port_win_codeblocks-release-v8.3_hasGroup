@@ -42,7 +42,8 @@ typedef enum
 
 #define DIRTY_WIDGET_REFRESH_MASK  (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | \
                                     DIRTY_TISSUE_TOX | DIRTY_GAS_SUPPLY | \
-                                    DIRTY_SYSTEM | DIRTY_DIVE_CONFIG)
+                                    DIRTY_SYSTEM | DIRTY_COMPASS | \
+                                    DIRTY_SENSOR | DIRTY_DIVE_CONFIG)
 
 #ifdef __cplusplus
 }
