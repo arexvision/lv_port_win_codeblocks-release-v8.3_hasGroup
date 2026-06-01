@@ -374,6 +374,10 @@ static bool oc_tech_slot_from_title(const char *title, uint8_t *out_slot)
     return true;
 }
 
+static void apply_oc_tech_mode_gases(void);
+static void apply_nitrox_mode_gases(void);
+static void apply_three_gas_mode_gases(void);
+
 static void begin_oc_tech_slot_edit(uint8_t slot)
 {
     if (slot >= 5U)
@@ -408,6 +412,11 @@ static void save_oc_tech_slot(uint8_t slot)
     if ((uint16_t)s_oc_tech_o2_pct[slot] + (uint16_t)s_oc_tech_he_pct[slot] > 100U)
     {
         s_oc_tech_he_pct[slot] = (uint8_t)(100U - s_oc_tech_o2_pct[slot]);
+    }
+
+    if (s_dive_mode == 3U)
+    {
+        apply_oc_tech_mode_gases();
     }
 }
 
@@ -685,11 +694,19 @@ static void submenu_commit_edit_value(submenu_setting_kind_t kind, uint8_t arg, 
         break;
     case SUBMENU_SETTING_NITROX_O2:
         s_nitrox_o2_pct = (uint8_t)(value + 0.5f);
+        if (s_dive_mode == 1U)
+        {
+            apply_nitrox_mode_gases();
+        }
         break;
     case SUBMENU_SETTING_3GAS_O2:
         if (arg < 3U)
         {
             s_three_gas_o2_pct[arg] = (uint8_t)(value + 0.5f);
+            if (s_dive_mode == 2U)
+            {
+                apply_three_gas_mode_gases();
+            }
         }
         break;
     case SUBMENU_SETTING_OC_TECH_GAS:
