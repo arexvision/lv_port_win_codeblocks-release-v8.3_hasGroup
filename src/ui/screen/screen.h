@@ -67,6 +67,7 @@ void screen_create(void);
 void screen_scroll_to_page(uint8_t idx);
 
 void screen_rebuild_tileview(void);
+void screen_request_enter_card_home_after_layout_rebuild(void);
 
 /* =========================================
    Left panel refresh (仅更新文字)

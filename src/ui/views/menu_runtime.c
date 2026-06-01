@@ -559,6 +559,12 @@ bool menu_runtime_is_nested(void)
     return s_stack_depth > 0U;
 }
 
+uint8_t menu_runtime_stack_depth(void)
+{
+    /* 对外暴露真实返回栈深度，供 UI 状态机在重建/返回时恢复层级语义。 */
+    return s_stack_depth;
+}
+
 uint8_t menu_runtime_default_selection(void)
 {
     /* 潜水计划页默认选中第 1 行，其余菜单默认选中第 0 行。 */

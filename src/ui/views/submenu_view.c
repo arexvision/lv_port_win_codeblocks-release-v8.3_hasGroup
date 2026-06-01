@@ -905,6 +905,10 @@ void screen_handle_submenu_select(uint8_t item_idx)
         if (menu_runtime_open_child(action.child_menu, row->id))
         {
             submenu_populate_current();
+            /* 子菜单再次进入子级后，UI 状态侧也必须同步真实层级深度。
+             * 否则布局重建时会把“当前在子菜单里”误判成顶层菜单，出现旋钮输入还在、
+             * 但可见菜单上下文已经丢失的假死现象。 */
+            ui_state_set_sub_history_depth(menu_runtime_stack_depth());
             ui_state_set_sub_menu_idx(0U);
             screen_set_submenu_selection(ui_state_get_sub_menu_idx());
         }
@@ -958,6 +962,7 @@ void screen_close_submenu(void)
             }
             screen_set_submenu_selection(ui_state_get_sub_menu_idx());
         }
+        ui_state_set_sub_history_depth(menu_runtime_stack_depth());
         ui_state_set_state(UI_SUB_MENU);
         return;
     }

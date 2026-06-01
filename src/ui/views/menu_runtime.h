@@ -46,6 +46,7 @@ const menu_row_t *menu_runtime_row_at(uint8_t index);
 bool menu_runtime_is_dive_plan(void);
 bool menu_runtime_is_dive_plan_result(void);
 bool menu_runtime_is_nested(void);
+uint8_t menu_runtime_stack_depth(void);
 uint8_t menu_runtime_default_selection(void);
 
 #ifdef __cplusplus
