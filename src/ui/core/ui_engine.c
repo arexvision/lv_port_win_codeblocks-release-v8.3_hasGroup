@@ -241,7 +241,7 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->custom_cards[2].widgets[9] = (grid_widget_t)
     {
-        COMP_SENSOR_STAT_1606, 4, 1
+        COMP_SENSOR_STAT_1606, 3, 5
     };
     cfg->custom_cards[2].widgets[10] = (grid_widget_t)
     {
@@ -253,7 +253,7 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->custom_cards[2].widgets[12] = (grid_widget_t)
     {
-        COMP_HEADING_0806,     4, 2
+        COMP_EMPTY,            4, 2
     };
     cfg->custom_cards[2].widgets[13] = (grid_widget_t)
     {
@@ -261,11 +261,11 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->custom_cards[2].widgets[14] = (grid_widget_t)
     {
-        COMP_TMAG_2406,        2, 3
+        COMP_TMAG_2406,        0, 4
     };
     cfg->custom_cards[2].widgets[15] = (grid_widget_t)
     {
-        COMP_ATTITUDE_2406,    0, 4
+        COMP_ATTITUDE_2406,    0, 5
     };
     cfg->custom_cards[2].widgets[17] = (grid_widget_t)
     {
