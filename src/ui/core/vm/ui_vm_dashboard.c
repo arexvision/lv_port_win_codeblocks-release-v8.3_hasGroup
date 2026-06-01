@@ -409,7 +409,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_prj_temperature());
         break;
     case COMP_CHARGE_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%s", bus_get_charge_state() == 1U ? "CHG" : bus_get_charge_state() == 2U ? "FULL" : "OFF");
+        (void)snprintf(vm->text, sizeof(vm->text), "%s", bus_get_charge_state() == 1U ? "CHG" : bus_get_charge_state() == 2U ? "ON" : "OFF");
         break;
     case COMP_PRESSURE_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.0f", (double)bus_get_ambient_pressure());
