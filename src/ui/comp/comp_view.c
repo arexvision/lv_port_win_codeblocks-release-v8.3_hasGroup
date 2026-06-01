@@ -98,6 +98,26 @@ static int16_t comp_title_edge_offset_x(lv_align_t align, int16_t offset_x)
     }
 }
 
+static int16_t comp_value_edge_offset_x(lv_align_t align, int16_t offset_x)
+{
+    switch (align)
+    {
+    case LV_ALIGN_TOP_LEFT:
+    case LV_ALIGN_LEFT_MID:
+    case LV_ALIGN_BOTTOM_LEFT:
+    case LV_ALIGN_TOP_MID:
+    case LV_ALIGN_CENTER:
+    case LV_ALIGN_BOTTOM_MID:
+    case LV_ALIGN_TOP_RIGHT:
+    case LV_ALIGN_RIGHT_MID:
+    case LV_ALIGN_BOTTOM_RIGHT:
+        return (int16_t)(offset_x + COMP_VALUE_EDGE_NUDGE_PX);
+
+    default:
+        return offset_x;
+    }
+}
+
 /* =========================================================
  * POD 单模具轮转分配状态机
  *
@@ -690,7 +710,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         /* 所有使ELEM_VALUE widget 都使spec.basic.value_align */
         lv_obj_align(val_lbl, (lv_align_t)style->spec.basic.value_align,
-                     style->spec.basic.value_offset_x, style->spec.basic.value_offset_y);
+                     comp_value_edge_offset_x((lv_align_t)style->spec.basic.value_align, style->spec.basic.value_offset_x),
+                     style->spec.basic.value_offset_y);
         lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
     }
 
@@ -705,7 +726,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         {
             /* 单位贴在组件内部右侧，数值再贴到单位左侧，避免单位被右边框裁掉。 */
             lv_obj_align(unit_lbl, (lv_align_t)style->spec.basic.value_align,
-                         style->spec.basic.value_offset_x, style->spec.basic.value_offset_y);
+                         comp_value_edge_offset_x((lv_align_t)style->spec.basic.value_align, style->spec.basic.value_offset_x),
+                         style->spec.basic.value_offset_y);
             lv_obj_align_to(val_lbl, unit_lbl, LV_ALIGN_OUT_LEFT_MID, -2, 0);
         }
         else
