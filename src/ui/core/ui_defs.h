@@ -180,7 +180,8 @@ typedef enum
     COMP_BLE_RSSI_0806    = 49,  /* BLE 信号强度 */
     COMP_CPU_0806         = 50,  /* CPU 占用/负载 */
     COMP_FPS_0806         = 51,  /* UI 帧率 */
-    COMP_SENSOR_STAT_1606 = 52   /* 传感器状态 */
+    COMP_SENSOR_STAT_1606 = 52,  /* 传感器状态 */
+    COMP_MLX_2406         = 53   /* MLX磁场强度 */
 } comp_id_t;
 
 typedef enum

@@ -124,6 +124,9 @@ typedef struct
     float   mag_x_ut;
     float   mag_y_ut;
     float   mag_z_ut;
+    float   mlx_x_ut;
+    float   mlx_y_ut;
+    float   mlx_z_ut;
     float   tmag_x_ut;
     float   tmag_y_ut;
     float   tmag_z_ut;

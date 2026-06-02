@@ -491,11 +491,12 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
     /* 每次重建自定义卡都先 clean，再重画标题和所有 widget。
      * 这是一种“整卡重绘”策略，简单直接，能避免局部布局变更后残留旧对象。 */
     lv_obj_clean(card_custom);
+    render_card_title(card_custom, ui_custom_card_title_get(custom_card_idx));
+
     if (count == 0U)
     {
         return;
     }
-    render_card_title(card_custom, ui_custom_card_title_get(custom_card_idx));
 
     for (uint8_t i = 0; i < count; i++)
     {

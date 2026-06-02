@@ -158,14 +158,12 @@ void sys_config_defaults(sys_config_t *cfg)
      *
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h MCU 样式表自动推
      */
-    /* 兼容新架：custom_cards[1] 是首屏空白自定义卡，custom_cards[0] 保留默认卡片内容。 */
-    cfg->custom_card_count = 3;
+    /* custom_cards[0] 保留默认自定义卡片内容，custom_cards[1] 是传感器预览。 */
+    cfg->custom_card_count = 2;
     cfg->custom_cards[0].widget_count = 10;
-    cfg->custom_cards[1].widget_count = 0;
-    cfg->custom_cards[2].widget_count = 16;
+    cfg->custom_cards[1].widget_count = 16;
     (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "CUSTOM WIDGETS");
-    (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "CUSTOM WIDGETS");
-    (void)snprintf(cfg->custom_cards[2].title, sizeof(cfg->custom_cards[2].title), "%s", "SENSOR PREVIEW");
+    (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "SENSOR PREVIEW");
     /* 下面这些 widget 配置决定右侧 5F 自定义卡片的格子内容和位置。 */
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
     {
@@ -209,81 +207,69 @@ void sys_config_defaults(sys_config_t *cfg)
     };
 
     
-    cfg->custom_cards[2].widgets[0] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[0] = (grid_widget_t)
     {
-        COMP_BATT_V_0806,      0, 0
+        COMP_ACCEL_2406,       0, 0
     };
-    cfg->custom_cards[2].widgets[1] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[1] = (grid_widget_t)
     {
-        COMP_BATT_TEMP_0806,   1, 0
+        COMP_BATT_V_0806,      3, 0
     };
-    cfg->custom_cards[2].widgets[2] = (grid_widget_t)
-    {
-        COMP_PRJ_TEMP_0806,    2, 0
-    };
-    cfg->custom_cards[2].widgets[3] = (grid_widget_t)
-    {
-        COMP_CHARGE_0806,      3, 0
-    };
-    cfg->custom_cards[2].widgets[4] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[2] = (grid_widget_t)
     {
         COMP_PRESSURE_0806,    4, 0
     };
-    cfg->custom_cards[2].widgets[5] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[3] = (grid_widget_t)
     {
-        COMP_NOFLY_0806,       0, 1
+        COMP_GYRO_2406,        0, 1
     };
-    cfg->custom_cards[2].widgets[6] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[4] = (grid_widget_t)
     {
-        COMP_BLE_RSSI_0806,    1, 1
+        COMP_CPU_0806,         3, 1
     };
-    cfg->custom_cards[2].widgets[7] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[5] = (grid_widget_t)
     {
-        COMP_CPU_0806,         2, 1
+        COMP_FPS_0806,         4, 1
     };
-    cfg->custom_cards[2].widgets[8] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[6] = (grid_widget_t)
     {
-        COMP_FPS_0806,         3, 1
+        COMP_MAG_2406,         0, 2
     };
-    cfg->custom_cards[2].widgets[9] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[7] = (grid_widget_t)
     {
-        COMP_SENSOR_STAT_1606, 3, 5
+        COMP_BLE_RSSI_0806,    3, 2
     };
-    // cfg->custom_cards[2].widgets[10] = (grid_widget_t)
-    // {
-    //     COMP_ACCEL_2406,       0, 2
-    // };
-    cfg->custom_cards[2].widgets[11] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[8] = (grid_widget_t)
     {
-        COMP_GYRO_2406,        2, 2
+        COMP_CHARGE_0806,      4, 2
     };
-    cfg->custom_cards[2].widgets[12] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[9] = (grid_widget_t)
     {
-        COMP_EMPTY,            4, 2
+        COMP_MLX_2406,         0, 3
     };
-    cfg->custom_cards[2].widgets[13] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[10] = (grid_widget_t)
     {
-        COMP_MAG_2406,         0, 3
+        COMP_BATT_TEMP_0806,   3, 3
     };
-    cfg->custom_cards[2].widgets[14] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[11] = (grid_widget_t)
+    {
+        COMP_PRJ_TEMP_0806,    4, 3
+    };
+    cfg->custom_cards[1].widgets[12] = (grid_widget_t)
     {
         COMP_TMAG_2406,        0, 4
     };
-    cfg->custom_cards[2].widgets[15] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[13] = (grid_widget_t)
+    {
+        COMP_NOFLY_0806,       3, 4
+    };
+    cfg->custom_cards[1].widgets[14] = (grid_widget_t)
     {
         COMP_ATTITUDE_2406,    0, 5
     };
-    cfg->custom_cards[2].widgets[17] = (grid_widget_t)
+    cfg->custom_cards[1].widgets[15] = (grid_widget_t)
     {
-        COMP_SURF_GF_0806,     2, 4
-    };
-    cfg->custom_cards[2].widgets[18] = (grid_widget_t)
-    {
-        COMP_GF99_0806,        3, 4
-    };
-    cfg->custom_cards[2].widgets[19] = (grid_widget_t)
-    {
-        COMP_OTU_0806,         4, 4
+        COMP_SENSOR_STAT_1606, 3, 5
     };
     /* ========== [A] 左侧 2x7 固定网格 (160x420) ==========
      * 160x420 区域 = 280px) x 760px)，由 render_left_anchor_grid() 渲染
@@ -362,7 +348,7 @@ void sys_config_defaults(sys_config_t *cfg)
      */
     memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
     cfg->custom_card_slot[PAGE_POS_6] = 0;  /* 默认 CUSTOM_GRID 映射 custom_cards[0] */
-    cfg->custom_card_slot[PAGE_POS_7] = 2;  /* 传感器预览 CUSTOM_GRID 映射 custom_cards[2] */
+    cfg->custom_card_slot[PAGE_POS_7] = 1;  /* 传感器预览 CUSTOM_GRID 映射 custom_cards[1] */
 
     /* ========== [A] 用户设置默认========== */
     cfg->mod_ppo2       = 1.4f;

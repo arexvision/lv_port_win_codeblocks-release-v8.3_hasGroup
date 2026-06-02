@@ -471,7 +471,7 @@ static void debug_send_help(void)
         "  last_deco <3|6> | final_stop <3|6>\r\n"
         "  cns <pct> | otu <value> | mod <m> | ceiling <m> | mix <o2> <he> | dens <g_l> | fio2 <pct>\r\n"
         "  gas_count <n> | gas <slot> [name] | gas_slot <slot> <o2> <he> <mod> [name]\r\n"
-        "  layout <default|current|gas|side|top|bottom>\r\n"
+        "  layout <default|current|gas|empty|side|top|bottom>\r\n"
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "  alert ids: asc po2 po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
@@ -584,6 +584,30 @@ static void debug_apply_layout_profile(bool gas_layout)
     bus_set_layout_mode(THEME_TECH, ORDER_REVERSE);
 }
 
+static void debug_apply_empty_custom_layout_profile(void)
+{
+    static ble_ui_sync_payload_t payload;
+    static const uint8_t card_order[8] =
+    {
+        PAGE_ID_COMPASS,
+        PAGE_ID_CUSTOM_GRID,
+        PAGE_ID_BLANK,
+        PAGE_ID_DECO,
+        PAGE_ID_PLAN,
+        PAGE_ID_GAS,
+        PAGE_ID_UNUSED,
+        PAGE_ID_UNUSED,
+    };
+
+    memset(&payload, 0, sizeof(payload));
+    payload.version = BLE_CFG_VERSION;
+    memcpy(payload.card_order, card_order, sizeof(payload.card_order));
+    debug_layout_fill_left(&payload);
+    payload.custom_5f_count = 0U;
+    bus_set_ui_layout(&payload);
+    bus_set_layout_mode(THEME_TECH, ORDER_REVERSE);
+}
+
 static void debug_exec_line(char *line)
 {
     char *cursor;
@@ -642,6 +666,12 @@ static void debug_exec_line(char *line)
             debug_send_raw("OK layout gas\r\n");
             return;
         }
+        if (debug_streq(profile, "empty"))
+        {
+            debug_apply_empty_custom_layout_profile();
+            debug_send_raw("OK layout empty\r\n");
+            return;
+        }
         if (debug_streq(profile, "side"))
         {
             bus_set_layout_mode(THEME_TECH, ORDER_REVERSE);
@@ -661,7 +691,7 @@ static void debug_exec_line(char *line)
             return;
         }
 
-        debug_send_raw("ERR usage: layout <default|current|gas|side|top|bottom>\r\n");
+        debug_send_raw("ERR usage: layout <default|current|gas|empty|side|top|bottom>\r\n");
         return;
     }
 

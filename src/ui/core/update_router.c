@@ -83,6 +83,7 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_NOFLY_0806:
     case COMP_ACCEL_2406:
     case COMP_MAG_2406:
+    case COMP_MLX_2406:
     case COMP_TMAG_2406:
     case COMP_ATTITUDE_2406:
     case COMP_BLE_RSSI_0806:

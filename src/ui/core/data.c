@@ -706,6 +706,19 @@ void bus_set_mag(float x_ut, float y_ut, float z_ut)
     }
 }
 
+void bus_set_mlx(float x_ut, float y_ut, float z_ut)
+{
+    if (fabsf(g_sensor_data.mlx_x_ut - x_ut) > 0.1f ||
+            fabsf(g_sensor_data.mlx_y_ut - y_ut) > 0.1f ||
+            fabsf(g_sensor_data.mlx_z_ut - z_ut) > 0.1f)
+    {
+        g_sensor_data.mlx_x_ut = x_ut;
+        g_sensor_data.mlx_y_ut = y_ut;
+        g_sensor_data.mlx_z_ut = z_ut;
+        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+    }
+}
+
 void bus_set_tmag(float x_ut, float y_ut, float z_ut)
 {
     float total_ut = sqrtf(x_ut * x_ut + y_ut * y_ut + z_ut * z_ut);
@@ -833,10 +846,12 @@ void bus_set_ui_layout(const ble_ui_sync_payload_t *payload)
     memset(g_sys_config.custom_card_slot, 0xFF, sizeof(g_sys_config.custom_card_slot));
     g_sys_config.custom_card_count = 0;
 
-    if (payload->custom_5f_count > 0)
     {
         uint8_t custom_idx = 0;
-        /* 在 card_order 中查找 CUSTOM_GRID 卡片的位置，设置正确的 slot 映射 */
+
+        /* 在 card_order 中查找 CUSTOM_GRID 卡片的位置，设置正确的 slot 映射。
+         * 即使 custom_5f_count 为 0，也要保留自定义卡本身，让空自定义卡显示标题；
+         * 真正不显示任何内容的页面由 PAGE_ID_BLANK 表达。 */
         for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < PAGE_POS_SETUP; pos++)
         {
             if (g_sys_config.card_order[pos] == PAGE_ID_CUSTOM_GRID)
@@ -849,7 +864,12 @@ void bus_set_ui_layout(const ble_ui_sync_payload_t *payload)
                 }
             }
         }
-        g_sys_config.custom_card_count = (custom_idx > 0U) ? custom_idx : 1U;
+
+        g_sys_config.custom_card_count = custom_idx;
+    }
+
+    if (g_sys_config.custom_card_count > 0U)
+    {
         g_sys_config.custom_cards[0].widget_count = (payload->custom_5f_count > MAX_5F_WIDGETS)
             ? MAX_5F_WIDGETS
             : payload->custom_5f_count;
@@ -1614,6 +1634,21 @@ float bus_get_mag_y_ut(void)
 float bus_get_mag_z_ut(void)
 {
     return g_sensor_data.mag_z_ut;
+}
+
+float bus_get_mlx_x_ut(void)
+{
+    return g_sensor_data.mlx_x_ut;
+}
+
+float bus_get_mlx_y_ut(void)
+{
+    return g_sensor_data.mlx_y_ut;
+}
+
+float bus_get_mlx_z_ut(void)
+{
+    return g_sensor_data.mlx_z_ut;
 }
 
 float bus_get_tmag_x_ut(void)

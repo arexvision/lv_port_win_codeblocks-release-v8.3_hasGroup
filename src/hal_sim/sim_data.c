@@ -19,7 +19,7 @@
 
 static lv_timer_t *s_sim_timer;
 
-#define SIM_LAYOUT_PHASE_COUNT 3U
+#define SIM_LAYOUT_PHASE_COUNT 4U
 #define SIM_LAYOUT_SWITCH_TICKS 5U
 
 typedef struct
@@ -81,6 +81,15 @@ static void sim_update_gas_derived(float depth_m)
 
     bus_set_fio2(fio2 * 100.0f);
     bus_set_gas_density(surface_density * ambient_ata);
+}
+
+static void sim_update_mlx_diagnostics(uint32_t tick_s)
+{
+    float phase = (float)(tick_s % 240U);
+
+    bus_set_mlx(120.0f + phase,
+                -80.0f + (phase * 0.5f),
+                35.0f - (phase * 0.25f));
 }
 
 static void sim_seed_original_defaults(void)
@@ -175,7 +184,25 @@ static void test_set_ui_layout(uint8_t phase)
            (phase == 2U) ? s_multi_custom_card_order : s_default_card_order,
            sizeof(s_payload.card_order));
 
-    if (phase == 0U || phase == 2U) {
+    if (phase == 3U) {
+        uint8_t left_empty[][3] = {
+            { COMP_NDL_STOP_1606,  0, 0 },
+            { COMP_DEPTH_1612,     0, 1 },
+            { COMP_DIVE_TIME_1606, 0, 3 },
+            { COMP_GAS_1606,       0, 4 },
+            { COMP_POD_0806,       0, 5 },
+            { COMP_POD_0806,       1, 5 },
+            { COMP_SYS_1606,       0, 6 },
+        };
+
+        s_payload.left_count = sizeof(left_empty) / sizeof(left_empty[0]);
+        for (uint8_t i = 0; i < s_payload.left_count; i++) {
+            s_payload.left_widgets[i].widget_id = left_empty[i][0];
+            s_payload.left_widgets[i].x = left_empty[i][1];
+            s_payload.left_widgets[i].y = left_empty[i][2];
+        }
+        s_payload.custom_5f_count = 0U;
+    } else if (phase == 0U || phase == 2U) {
         uint8_t left_def[][3] = {
             { COMP_NDL_STOP_1606,  0, 0 },
             { COMP_DEPTH_1612,     0, 1 },
@@ -363,6 +390,7 @@ static void sim_tick_cb(lv_timer_t *t)
             bus_set_temperature(s_sim.temperature_c);
             bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
             bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+            sim_update_mlx_diagnostics(s_sim.dive_time_s);
 
             buhlmann_debug_tick(current_depth_m, s_sim.temperature_c, 1U);
             sim_alert_tick();
@@ -418,6 +446,7 @@ static void sim_tick_cb(lv_timer_t *t)
     bus_set_temperature(s_sim.temperature_c);
     bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
     bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+    sim_update_mlx_diagnostics(s_sim.dive_time_s);
 
     if (current_depth_m > 12.0f) {
         deco_stop_t sim_stops[] = {

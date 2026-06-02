@@ -423,6 +423,9 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     case COMP_MAG_2406:
         (void)snprintf(vm->text, sizeof(vm->text), "%+.0f %+.0f %+.0f", (double)bus_get_mag_x_ut(), (double)bus_get_mag_y_ut(), (double)bus_get_mag_z_ut());
         break;
+    case COMP_MLX_2406:
+        (void)snprintf(vm->text, sizeof(vm->text), "%+.0f %+.0f %+.0f", (double)bus_get_mlx_x_ut(), (double)bus_get_mlx_y_ut(), (double)bus_get_mlx_z_ut());
+        break;
     case COMP_TMAG_2406:
         (void)snprintf(vm->text, sizeof(vm->text), "%+.0f %+.0f %+.0f", (double)bus_get_tmag_x_ut(), (double)bus_get_tmag_y_ut(), (double)bus_get_tmag_z_ut());
         break;
