@@ -300,7 +300,7 @@ void screen_scroll_to_page(uint8_t tile_pos)
         for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
         {
             uint8_t page_id = page_id_at(pos);
-            if (page_id != PAGE_ID_UNUSED && page_id != PAGE_ID_BLANK)
+            if (page_id != PAGE_ID_UNUSED)
             {
                 active_idx++;
             }

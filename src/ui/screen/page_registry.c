@@ -147,7 +147,7 @@ uint8_t page_visible_dash_count(void)
     for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < PAGE_POS_SETUP; ++pos)
     {
         uint8_t id = g_sys_page_order(pos);
-        if (id != PAGE_ID_UNUSED && id != PAGE_ID_BLANK)
+        if (id != PAGE_ID_UNUSED)
         {
             count++;
         }
@@ -173,7 +173,7 @@ uint8_t page_storage_pos(uint8_t display_pos)
      * 1. storage_pos: 配置数组 card_order[] 里的原始槽位
      * 2. display_pos: tileview 当前真正显示出来的连续页序号
      *
-     * 因为 PAGE_ID_UNUSED / PAGE_ID_BLANK 会在显示时被折叠或跳过，
+     * 因为 PAGE_ID_UNUSED 会在显示时被折叠或跳过，
      * 所以 display_pos 不能直接拿来索引 card_order[]。 */
     uint8_t setup_pos = page_setup_display_pos();
 
@@ -184,7 +184,8 @@ uint8_t page_storage_pos(uint8_t display_pos)
     if (display_pos >= PAGE_POS_DYNAMIC_FIRST && display_pos < setup_pos)
     {
         /* 动态页区间需要做一次“可见页压缩”：
-         * 遍历存储槽位时跳过 UNUSED/BLANK，直到找到第 N 个可见页。 */
+         * 遍历存储槽位时跳过 UNUSED，直到找到第 N 个可见页。
+         * BLANK 是显式空白卡片，需要保留一个可滑到的空页面。 */
         uint8_t visible_pos = PAGE_POS_DYNAMIC_FIRST;
 
         for (uint8_t storage_pos = PAGE_POS_DYNAMIC_FIRST;
@@ -193,7 +194,7 @@ uint8_t page_storage_pos(uint8_t display_pos)
         {
             uint8_t id = g_sys_page_order(storage_pos);
 
-            if (id == PAGE_ID_UNUSED || id == PAGE_ID_BLANK)
+            if (id == PAGE_ID_UNUSED)
             {
                 continue;
             }
