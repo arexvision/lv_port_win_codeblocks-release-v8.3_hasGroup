@@ -249,10 +249,10 @@ void sys_config_defaults(sys_config_t *cfg)
     {
         COMP_SENSOR_STAT_1606, 3, 5
     };
-    cfg->custom_cards[2].widgets[10] = (grid_widget_t)
-    {
-        COMP_ACCEL_2406,       0, 2
-    };
+    // cfg->custom_cards[2].widgets[10] = (grid_widget_t)
+    // {
+    //     COMP_ACCEL_2406,       0, 2
+    // };
     cfg->custom_cards[2].widgets[11] = (grid_widget_t)
     {
         COMP_GYRO_2406,        2, 2
