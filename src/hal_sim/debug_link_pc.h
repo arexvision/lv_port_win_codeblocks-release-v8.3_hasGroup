@@ -565,12 +565,12 @@ static void debug_apply_layout_profile(bool gas_layout)
     static ble_ui_sync_payload_t payload;
     static const uint8_t card_order[8] =
     {
+        PAGE_ID_BLANK,
         PAGE_ID_COMPASS,
         PAGE_ID_DECO,
         PAGE_ID_PLAN,
         PAGE_ID_GAS,
         PAGE_ID_CUSTOM_GRID,
-        PAGE_ID_BLANK,
         PAGE_ID_UNUSED,
         PAGE_ID_UNUSED,
     };

@@ -149,12 +149,12 @@ static void test_set_ui_layout(uint8_t phase)
 {
     static ble_ui_sync_payload_t s_payload;
     static const uint8_t s_default_card_order[8] = {
+        PAGE_ID_BLANK,
         PAGE_ID_COMPASS,
         PAGE_ID_DECO,
         PAGE_ID_PLAN,
         PAGE_ID_GAS,
         PAGE_ID_CUSTOM_GRID,
-        PAGE_ID_BLANK,
         PAGE_ID_UNUSED,
         PAGE_ID_UNUSED,
     };

@@ -341,18 +341,18 @@ void sys_config_defaults(sys_config_t *cfg)
      * card_order[pos] = page_id
      * INFO(0) 固定，SETUP(13) 固定，中12 张可APP 重排
      * 必须初始化所14 个位置！
-     * PAGE_ID_UNUSED(0xFF)=δռòλʾdot, PAGE_ID_BLANK=հ׿ҲЧƬӦʾdot
+     * PAGE_ID_UNUSED(0xFF)=不显示且不占 dot，PAGE_ID_BLANK=空白有效卡片且显示 dot
      */
     memset(cfg->card_order, PAGE_ID_UNUSED, sizeof(cfg->card_order));
     cfg->card_order[PAGE_POS_INFO]   = PAGE_ID_INFO;//菜单，不算卡
-    cfg->card_order[PAGE_POS_1]      = PAGE_ID_CUSTOM_GRID;
+    cfg->card_order[PAGE_POS_1]      = PAGE_ID_BLANK;
     cfg->card_order[PAGE_POS_2]      = PAGE_ID_COMPASS;
     cfg->card_order[PAGE_POS_3]      = PAGE_ID_DECO;
     cfg->card_order[PAGE_POS_4]      = PAGE_ID_PLAN;
     cfg->card_order[PAGE_POS_5]      = PAGE_ID_GAS;
     cfg->card_order[PAGE_POS_6]      = PAGE_ID_CUSTOM_GRID;
     cfg->card_order[PAGE_POS_7]      = PAGE_ID_CUSTOM_GRID;
-    /* PAGE_POS_8 ~ PAGE_POS_12 淇濇寔 PAGE_ID_BLANK */
+    /* PAGE_POS_8 ~ PAGE_POS_12 保持 PAGE_ID_UNUSED */
     cfg->card_order[PAGE_POS_SETUP]  = PAGE_ID_SETUP;//菜单，不算卡
 
     /* ========== [A] 卡片槽位映射 ==========
@@ -361,7 +361,6 @@ void sys_config_defaults(sys_config_t *cfg)
      * ĬϣһCUSTOM_GRID Ƭӳcustom_cards[0]
      */
     memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
-    cfg->custom_card_slot[PAGE_POS_1] = 1;  /* 首屏 CUSTOM_GRID 映射空白 custom_cards[1] */
     cfg->custom_card_slot[PAGE_POS_6] = 0;  /* 默认 CUSTOM_GRID 映射 custom_cards[0] */
     cfg->custom_card_slot[PAGE_POS_7] = 2;  /* 传感器预览 CUSTOM_GRID 映射 custom_cards[2] */
 
