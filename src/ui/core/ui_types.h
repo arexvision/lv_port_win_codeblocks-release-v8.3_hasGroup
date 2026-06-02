@@ -19,6 +19,8 @@ extern "C" {
 #define LEFT_MAX_WIDGETS 14
 #define MAX_5F_WIDGETS   30
 #define MAX_CUSTOM_CARDS  MAX_DYNAMIC_SLOTS
+#define UI_CUSTOM_CARD_TITLE_MAX_LEN 16U
+#define UI_CUSTOM_CARD_TITLE_BUF_SIZE (UI_CUSTOM_CARD_TITLE_MAX_LEN + 1U)
 
 typedef struct
 {
@@ -30,6 +32,7 @@ typedef struct
 typedef struct
 {
     uint8_t            widget_count;
+    char title[UI_CUSTOM_CARD_TITLE_BUF_SIZE];
     grid_widget_t widgets[MAX_5F_WIDGETS];
 } custom_card_cfg_t;
 

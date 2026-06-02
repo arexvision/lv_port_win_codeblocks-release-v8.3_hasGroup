@@ -586,7 +586,7 @@ void Buhlmann::setNitrogenRateInGas(float nitrogenRateInGas) {
 
 // 设置混合气体中的氧气比例，自动计算氮气比例
 void Buhlmann::setOxygenRateInGas(float oxygenRateInGas) {
-	if (oxygenRateInGas < 0.21f) oxygenRateInGas = 0.21f;  // 最低 21%（空气）
+	if (oxygenRateInGas < 0.08f) oxygenRateInGas = 0.08f;  // OC Tech 低氧 Trimix 下限 8%
 	if (oxygenRateInGas > 1.0f) oxygenRateInGas = 1.0f;    // 最高 100%（纯氧）
 	_oxygenRateInGas = oxygenRateInGas;
 	_nitrogenRateInGas = 1.0f - oxygenRateInGas;  // 氮气 = 1 - 氧气（忽略其他气体）
@@ -693,7 +693,7 @@ float Buhlmann::getDepthPerBar() {
 /**
  * @brief 设置指定槽位的气体配置（支持 Trimix）
  * @param gasIndex 气体槽位（0-2）
- * @param oxygenFraction 氧气比例（0.21-1.0）
+ * @param oxygenFraction 氧气比例（0.08-1.0）
  * @param heliumFraction 氦气比例（0-0.8），0=Nitrox，>0=Trimix
  * @param enabled 是否启用
  * @param modPPO2 用于计算 MOD 的 PPO2 限制
@@ -702,7 +702,7 @@ void Buhlmann::setGas(int gasIndex, float oxygenFraction, float heliumFraction, 
 	if (gasIndex < 0 || gasIndex >= MAX_GASES) return;
 	
 	// 限制氧气比例范围
-	if (oxygenFraction < 0.21f) oxygenFraction = 0.21f;
+	if (oxygenFraction < 0.08f) oxygenFraction = 0.08f;
 	if (oxygenFraction > 1.0f) oxygenFraction = 1.0f;
 	
 	// 限制氦气比例范围

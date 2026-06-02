@@ -495,7 +495,7 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
     {
         return;
     }
-    render_card_title(card_custom, "CUSTOM WIDGETS");
+    render_card_title(card_custom, ui_custom_card_title_get(custom_card_idx));
 
     for (uint8_t i = 0; i < count; i++)
     {

@@ -7,6 +7,7 @@
 
 #include "submenu_dive_plan_state.h"
 
+#include "../core/callbacks.h"
 #include "../core/data.h"
 #include "../core/vm/ui_vm_menu.h"
 #include "../core/vm/ui_vm_plan_view.h"
@@ -15,6 +16,9 @@
 #include "../../algo_sim/buhlmann_debug.h"
 #else
 #include "rtthread.h"
+#ifdef RT_USING_PM
+#include "drivers/pm.h"
+#endif
 #endif
 
 #include <stdio.h>
@@ -23,7 +27,8 @@
 #define PLAN_ROWS_PER_PAGE 8U
 #ifndef PC_SIMULATOR
 #define PLAN_ASYNC_THREAD_STACK_SIZE 20480U
-#define PLAN_ASYNC_THREAD_PRIORITY   13U
+#define PLAN_ASYNC_THREAD_PRIORITY_ACTIVE 13U
+#define PLAN_ASYNC_THREAD_PRIORITY_IDLE   15U
 #define PLAN_ASYNC_THREAD_TICK       10U
 #endif
 
@@ -52,10 +57,19 @@ static submenu_dive_plan_state_t s_state =
 #ifndef PC_SIMULATOR
 typedef struct
 {
+    uint16_t depth_dm;
+    uint16_t time_min;
+    uint16_t rmv_dlpm;
+    uint32_t config_signature;
+} dive_plan_input_signature_t;
+
+typedef struct
+{
     uint32_t id;
     float depth_m;
     uint16_t time_min;
     float rmv_lpm;
+    dive_plan_input_signature_t signature;
 } dive_plan_async_request_t;
 
 static volatile bool s_plan_async_running;
@@ -65,6 +79,12 @@ static volatile uint32_t s_plan_async_generation;
 static volatile uint32_t s_plan_async_done_id;
 static dive_plan_async_request_t s_plan_async_request;
 static dive_plan_result_snapshot_t s_plan_async_result;
+static rt_thread_t s_plan_async_thread;
+static rt_sem_t s_plan_async_sem;
+static rt_mutex_t s_plan_async_mutex;
+static bool s_plan_cache_valid;
+static dive_plan_input_signature_t s_plan_cache_signature;
+static dive_plan_result_snapshot_t s_plan_cache_result;
 #endif
 
 static uint16_t plan_round_u16(float value)
@@ -94,6 +114,98 @@ static float limit_plan_input_float(float value, float min_value, float max_valu
     }
     return value;
 }
+
+#ifndef PC_SIMULATOR
+static uint16_t plan_round_tenths_u16(float value)
+{
+    return plan_round_u16(value * 10.0f);
+}
+
+static dive_plan_input_signature_t plan_make_input_signature(void)
+{
+    dive_plan_input_signature_t signature = { 0 };
+
+    signature.depth_dm = plan_round_tenths_u16(s_state.depth_m);
+    signature.time_min = s_state.time_min;
+    signature.rmv_dlpm = plan_round_tenths_u16(s_state.rmv_lpm);
+    signature.config_signature = ui_get_dive_plan_config_signature();
+    return signature;
+}
+
+static bool plan_input_signature_cacheable(const dive_plan_input_signature_t *signature)
+{
+    return (signature != NULL) && (signature->config_signature != 0U);
+}
+
+static bool plan_input_signature_equal(const dive_plan_input_signature_t *a,
+                                       const dive_plan_input_signature_t *b)
+{
+    return (a != NULL) && (b != NULL) &&
+           (a->depth_dm == b->depth_dm) &&
+           (a->time_min == b->time_min) &&
+           (a->rmv_dlpm == b->rmv_dlpm) &&
+           (a->config_signature == b->config_signature);
+}
+
+static bool plan_apply_cached_result_if_current(void)
+{
+    dive_plan_input_signature_t signature = plan_make_input_signature();
+
+    if (!s_plan_cache_valid ||
+        !plan_input_signature_cacheable(&signature) ||
+        !plan_input_signature_equal(&s_plan_cache_signature, &signature))
+    {
+        return false;
+    }
+
+    submenu_dive_plan_set_result_snapshot(&s_plan_cache_result);
+    s_state.page = DIVE_PLAN_PAGE_RESULT;
+    rt_kprintf("[dplan] cache hit depth=%.0fm time=%umin rmv=%.0f cfg=0x%08x\n",
+               s_state.depth_m,
+               (unsigned)s_state.time_min,
+               s_state.rmv_lpm,
+               (unsigned)signature.config_signature);
+    return true;
+}
+
+static void plan_store_cached_result(const dive_plan_input_signature_t *signature,
+                                     const dive_plan_result_snapshot_t *snapshot)
+{
+    if (!plan_input_signature_cacheable(signature) || snapshot == NULL || snapshot->valid == 0U)
+    {
+        return;
+    }
+
+    s_plan_cache_signature = *signature;
+    s_plan_cache_result = *snapshot;
+    s_plan_cache_valid = true;
+}
+
+static bool plan_async_lock(void)
+{
+    return (s_plan_async_mutex != RT_NULL) &&
+           (rt_mutex_take(s_plan_async_mutex, rt_tick_from_millisecond(50U)) == RT_EOK);
+}
+
+static bool plan_async_lock_wait(void)
+{
+    return (s_plan_async_mutex != RT_NULL) &&
+           (rt_mutex_take(s_plan_async_mutex, RT_WAITING_FOREVER) == RT_EOK);
+}
+
+static void plan_async_unlock(void)
+{
+    if (s_plan_async_mutex != RT_NULL)
+    {
+        rt_mutex_release(s_plan_async_mutex);
+    }
+}
+
+static bool plan_async_is_running_locked(void)
+{
+    return s_plan_async_running;
+}
+#endif
 
 static uint8_t plan_gf_low(void)
 {
@@ -254,31 +366,177 @@ static void plan_execute(void)
 }
 
 #ifndef PC_SIMULATOR
+static uint32_t plan_async_now_ms(void)
+{
+    return rt_tick_get_millisecond();
+}
+
+static void plan_async_pm_hold(void)
+{
+#ifdef RT_USING_PM
+    /*
+     * DivePlan 是 CPU 密集型后台计算，不能通过提高线程优先级来提速：
+     * LCD/LVGL/DMA 消费链路必须始终优先于它。这里仅阻止计算期间进入
+     * idle 低功耗，让大计算稳定跑完，同时不破坏 RTOS 调度优先级。
+     */
+    rt_pm_request(PM_SLEEP_MODE_IDLE);
+#endif
+}
+
+static void plan_async_pm_release(void)
+{
+#ifdef RT_USING_PM
+    rt_pm_release(PM_SLEEP_MODE_IDLE);
+#endif
+}
+
 static void plan_async_worker(void *parameter)
 {
     (void)parameter;
 
-    dive_plan_async_request_t request = s_plan_async_request;
-    dive_plan_result_snapshot_t snapshot;
-    bool success = dive_plan_backend_calculate(request.depth_m,
-                                              request.time_min,
-                                              request.rmv_lpm,
-                                              &snapshot);
+    rt_thread_t self = rt_thread_self();
+    rt_uint8_t active_priority = PLAN_ASYNC_THREAD_PRIORITY_ACTIVE;
+    rt_uint8_t idle_priority = PLAN_ASYNC_THREAD_PRIORITY_IDLE;
 
-    if (success)
+    while (1)
     {
-        s_plan_async_result = snapshot;
+        if (s_plan_async_sem == RT_NULL ||
+            rt_sem_take(s_plan_async_sem, RT_WAITING_FOREVER) != RT_EOK)
+        {
+            continue;
+        }
+
+        dive_plan_async_request_t request;
+        dive_plan_result_snapshot_t snapshot;
+        uint32_t start_ms = plan_async_now_ms();
+        bool success;
+
+        if (!plan_async_lock_wait())
+        {
+            continue;
+        }
+        request = s_plan_async_request;
+        plan_async_unlock();
+
+        if (self != RT_NULL)
+        {
+            (void)rt_thread_control(self, RT_THREAD_CTRL_CHANGE_PRIORITY, &active_priority);
+        }
+
+        plan_async_pm_hold();
+        success = dive_plan_backend_calculate(request.depth_m,
+                                             request.time_min,
+                                             request.rmv_lpm,
+                                             &snapshot);
+        plan_async_pm_release();
+
+        if (self != RT_NULL)
+        {
+            (void)rt_thread_control(self, RT_THREAD_CTRL_CHANGE_PRIORITY, &idle_priority);
+        }
+
+        if (plan_async_lock_wait())
+        {
+            uint32_t current_generation = s_plan_async_generation;
+
+            if (success)
+            {
+                s_plan_async_result = snapshot;
+                plan_store_cached_result(&request.signature, &snapshot);
+            }
+            s_plan_async_success = success;
+            s_plan_async_done_id = request.id;
+            s_plan_async_done = true;
+            s_plan_async_running = false;
+            plan_async_unlock();
+
+            rt_kprintf("[dplan] id=%u depth=%.0fm time=%umin rmv=%.0f success=%u obsolete=%u elapsed=%ums prio=%u cfg=0x%08x\n",
+                       (unsigned)request.id,
+                       request.depth_m,
+                       (unsigned)request.time_min,
+                       request.rmv_lpm,
+                       success ? 1U : 0U,
+                       (request.id == current_generation) ? 0U : 1U,
+                       (unsigned)(plan_async_now_ms() - start_ms),
+                       (unsigned)active_priority,
+                       (unsigned)request.signature.config_signature);
+        }
+        else
+        {
+            s_plan_async_running = false;
+
+            rt_kprintf("[dplan] id=%u depth=%.0fm time=%umin rmv=%.0f success=%u obsolete=1 elapsed=%ums prio=%u cfg=0x%08x lock_fail=1\n",
+                       (unsigned)request.id,
+                       request.depth_m,
+                       (unsigned)request.time_min,
+                       request.rmv_lpm,
+                       success ? 1U : 0U,
+                       (unsigned)(plan_async_now_ms() - start_ms),
+                       (unsigned)active_priority,
+                       (unsigned)request.signature.config_signature);
+        }
     }
-    s_plan_async_success = success;
-    s_plan_async_done_id = request.id;
-    s_plan_async_done = true;
-    s_plan_async_running = false;
+}
+
+static bool plan_async_ensure_worker(void)
+{
+    if (s_plan_async_mutex == RT_NULL)
+    {
+        s_plan_async_mutex = rt_mutex_create("dplanM", RT_IPC_FLAG_FIFO);
+        if (s_plan_async_mutex == RT_NULL)
+        {
+            return false;
+        }
+    }
+
+    if (s_plan_async_sem == RT_NULL)
+    {
+        s_plan_async_sem = rt_sem_create("dplanS", 0U, RT_IPC_FLAG_FIFO);
+        if (s_plan_async_sem == RT_NULL)
+        {
+            return false;
+        }
+    }
+
+    if (s_plan_async_thread != RT_NULL)
+    {
+        return true;
+    }
+
+    s_plan_async_thread = rt_thread_create("dplan",
+                                           plan_async_worker,
+                                           RT_NULL,
+                                           PLAN_ASYNC_THREAD_STACK_SIZE,
+                                           PLAN_ASYNC_THREAD_PRIORITY_IDLE,
+                                           PLAN_ASYNC_THREAD_TICK);
+    if (s_plan_async_thread == RT_NULL)
+    {
+        return false;
+    }
+
+    rt_thread_startup(s_plan_async_thread);
+    return true;
 }
 
 static bool plan_start_async(void)
 {
     if (s_plan_async_running)
     {
+        return false;
+    }
+    if (!plan_async_ensure_worker())
+    {
+        return false;
+    }
+
+    if (!plan_async_lock())
+    {
+        return false;
+    }
+
+    if (s_plan_async_running)
+    {
+        plan_async_unlock();
         return false;
     }
 
@@ -292,24 +550,22 @@ static bool plan_start_async(void)
     s_plan_async_request.depth_m = s_state.depth_m;
     s_plan_async_request.time_min = s_state.time_min;
     s_plan_async_request.rmv_lpm = s_state.rmv_lpm;
+    s_plan_async_request.signature = plan_make_input_signature();
     s_plan_async_done = false;
     s_plan_async_success = false;
     s_plan_async_done_id = 0U;
     s_plan_async_running = true;
+    plan_async_unlock();
 
-    rt_thread_t thread = rt_thread_create("dplan",
-                                          plan_async_worker,
-                                          RT_NULL,
-                                          PLAN_ASYNC_THREAD_STACK_SIZE,
-                                          PLAN_ASYNC_THREAD_PRIORITY,
-                                          PLAN_ASYNC_THREAD_TICK);
-    if (thread == RT_NULL)
+    if (rt_sem_release(s_plan_async_sem) != RT_EOK)
     {
-        s_plan_async_running = false;
+        if (plan_async_lock())
+        {
+            s_plan_async_running = false;
+            plan_async_unlock();
+        }
         return false;
     }
-
-    rt_thread_startup(thread);
     return true;
 }
 #endif
@@ -484,7 +740,14 @@ bool submenu_dive_plan_is_calculating(void)
 #ifdef PC_SIMULATOR
     return s_state.page == DIVE_PLAN_PAGE_CALCULATING;
 #else
-    return (s_state.page == DIVE_PLAN_PAGE_CALCULATING) || s_plan_async_running;
+    bool running = false;
+
+    if (s_plan_async_mutex != RT_NULL && plan_async_lock())
+    {
+        running = s_plan_async_running;
+        plan_async_unlock();
+    }
+    return (s_state.page == DIVE_PLAN_PAGE_CALCULATING) || running;
 #endif
 }
 
@@ -493,20 +756,40 @@ bool submenu_dive_plan_poll_async(void)
 #ifdef PC_SIMULATOR
     return false;
 #else
+    bool success = false;
+    uint32_t done_id = 0U;
+    uint32_t generation = 0U;
+    dive_plan_result_snapshot_t result;
+
+    if (!plan_async_lock())
+    {
+        return false;
+    }
+
     if (!s_plan_async_done)
     {
+        plan_async_unlock();
         return false;
     }
 
+    success = s_plan_async_success;
+    done_id = s_plan_async_done_id;
+    generation = s_plan_async_generation;
+    if (success)
+    {
+        result = s_plan_async_result;
+    }
     s_plan_async_done = false;
-    if (s_plan_async_done_id != s_plan_async_generation)
+    plan_async_unlock();
+
+    if (done_id != generation)
     {
         return false;
     }
 
-    if (s_plan_async_success)
+    if (success)
     {
-        submenu_dive_plan_set_result_snapshot(&s_plan_async_result);
+        submenu_dive_plan_set_result_snapshot(&result);
         s_state.page = DIVE_PLAN_PAGE_RESULT;
     }
     else
@@ -588,8 +871,34 @@ bool submenu_dive_plan_handle_action(menu_item_id_t item_id,
 #ifdef PC_SIMULATOR
         plan_execute();
 #else
-        if (s_plan_async_running)
+        if (plan_apply_cached_result_if_current())
         {
+            if (out_keep_index != NULL)
+            {
+                *out_keep_index = 1U;
+            }
+            return true;
+        }
+        if (s_plan_async_mutex != RT_NULL && plan_async_lock())
+        {
+            bool running = plan_async_is_running_locked();
+            plan_async_unlock();
+            if (running)
+            {
+                s_state.page = DIVE_PLAN_PAGE_CALCULATING;
+                if (out_keep_index != NULL)
+                {
+                    *out_keep_index = 1U;
+                }
+                return true;
+            }
+        }
+        else if (s_plan_async_running)
+        {
+            /*
+             * 这里是 worker 尚未初始化或锁暂不可得时的保守退化：
+             * 若看到运行标志，宁可保持 calculating，也不要重复提交大计算。
+             */
             s_state.page = DIVE_PLAN_PAGE_CALCULATING;
             if (out_keep_index != NULL)
             {
@@ -617,8 +926,16 @@ bool submenu_dive_plan_handle_action(menu_item_id_t item_id,
 void submenu_dive_plan_reset(void)
 {
 #ifndef PC_SIMULATOR
-    s_plan_async_generation++;
-    s_plan_async_done = false;
+    if (s_plan_async_mutex != RT_NULL && plan_async_lock())
+    {
+        s_plan_async_generation++;
+        s_plan_async_done = false;
+        plan_async_unlock();
+    }
+    else
+    {
+        /* worker 正在持锁收口结果时，不无锁改共享标志，避免撕裂完成态。 */
+    }
 #endif
     s_state.page = DIVE_PLAN_PAGE_DEPTH;
     s_state.defaults_loaded = false;

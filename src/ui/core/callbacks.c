@@ -267,3 +267,9 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->datetime_minute = 0U;
     return true;
 }
+
+WEAK_CALLBACK
+uint32_t ui_get_dive_plan_config_signature(void)
+{
+    return 0U;
+}

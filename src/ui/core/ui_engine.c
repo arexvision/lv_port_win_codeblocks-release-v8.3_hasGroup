@@ -18,6 +18,7 @@
 #include "../comp/comp_view.h"
 #include "update_router.h"
 #include "../alarm/alarm_view.h"
+#include <stdio.h>
 #include "../views/submenu_dive_plan_state.h"
 #include <math.h>
 #include <stdio.h>
@@ -162,6 +163,9 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->custom_cards[0].widget_count = 10;
     cfg->custom_cards[1].widget_count = 0;
     cfg->custom_cards[2].widget_count = 16;
+    (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "CUSTOM WIDGETS");
+    (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "CUSTOM WIDGETS");
+    (void)snprintf(cfg->custom_cards[2].title, sizeof(cfg->custom_cards[2].title), "%s", "SENSOR PREVIEW");
     /* 下面这些 widget 配置决定右侧 5F 自定义卡片的格子内容和位置。 */
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
     {
@@ -198,6 +202,10 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
     {
         COMP_TTS_0806,     0, 5
+    };
+    cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
+    {
+        COMP_MOD_0806,     1, 5
     };
 
     

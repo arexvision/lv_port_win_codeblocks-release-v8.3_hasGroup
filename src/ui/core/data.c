@@ -853,6 +853,10 @@ void bus_set_ui_layout(const ble_ui_sync_payload_t *payload)
         g_sys_config.custom_cards[0].widget_count = (payload->custom_5f_count > MAX_5F_WIDGETS)
             ? MAX_5F_WIDGETS
             : payload->custom_5f_count;
+        (void)snprintf(g_sys_config.custom_cards[0].title,
+                       sizeof(g_sys_config.custom_cards[0].title),
+                       "%s",
+                       "CUSTOM WIDGETS");
     }
     for (int i = 0; i < g_sys_config.custom_cards[0].widget_count; i++)
     {
@@ -1395,6 +1399,19 @@ const grid_widget_t *ui_left_widget_get(uint8_t index)
 uint8_t ui_custom_card_count_get(void)
 {
     return g_sys_config.custom_card_count;
+}
+
+const char *ui_custom_card_title_get(uint8_t custom_card_idx)
+{
+    if (custom_card_idx >= MAX_CUSTOM_CARDS) {
+        return "CUSTOM WIDGETS";
+    }
+
+    if (g_sys_config.custom_cards[custom_card_idx].title[0] == '\0') {
+        return "CUSTOM WIDGETS";
+    }
+
+    return g_sys_config.custom_cards[custom_card_idx].title;
 }
 
 uint8_t ui_custom_card_widget_count_get(uint8_t custom_card_idx)

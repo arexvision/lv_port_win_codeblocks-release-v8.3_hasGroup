@@ -218,6 +218,7 @@ uint8_t ui_time_h_u_get(void);
 uint8_t ui_left_widget_count_get(void);
 const grid_widget_t *ui_left_widget_get(uint8_t index);
 uint8_t ui_custom_card_count_get(void);
+const char *ui_custom_card_title_get(uint8_t custom_card_idx);
 uint8_t ui_custom_card_widget_count_get(uint8_t custom_card_idx);
 const grid_widget_t *ui_custom_card_widget_get(uint8_t custom_card_idx, uint8_t widget_idx);
 uint8_t ui_custom_card_slot_get(uint8_t storage_pos);
