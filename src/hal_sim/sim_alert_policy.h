@@ -279,13 +279,17 @@ static bool sim_alert_update_stop_done(uint32_t now_ms)
 {
     const bool stop_active = g_sensor_data.stop_type != STOP_NONE &&
                              g_sensor_data.stop_time_left_s > 0U;
-    const bool stop_changed =
+    const bool stop_finished =
+        s_sim_alert_stop_was_active &&
+        !stop_active;
+    const bool deco_station_done =
         s_sim_alert_stop_was_active &&
         stop_active &&
-        (g_sensor_data.stop_type != s_sim_alert_last_stop_type ||
-         fabsf(g_sensor_data.stop_depth_m - s_sim_alert_last_stop_depth_m) > 0.1f);
+        s_sim_alert_last_stop_type == STOP_DECO &&
+        g_sensor_data.stop_type == STOP_DECO &&
+        g_sensor_data.stop_depth_m < (s_sim_alert_last_stop_depth_m - 0.1f);
 
-    if (s_sim_alert_stop_was_active && (!stop_active || stop_changed))
+    if (stop_finished || deco_station_done)
     {
         s_sim_alert_stop_done_until_ms = now_ms + s_sim_alert_config.info_event_display_ms;
     }
