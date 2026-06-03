@@ -4,6 +4,8 @@
 
 更完整的架构讲解、Mermaid 时序图和具体例子见 `UI_html_DOC/CURRENT_ARCHITECTURE_DEEP_DIVE.md`。
 
+如果要检查“输入、状态迁移、弹窗/子菜单、dirty 输出响应”的完整交互逻辑，见 `UI_html_DOC/UI_STATE_LOGIC.md`。
+
 ## 目录分层
 
 ```text
