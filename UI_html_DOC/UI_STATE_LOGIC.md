@@ -25,6 +25,7 @@ flowchart TB
     GasModal["气体切换确认\nUI_MODAL_GAS"]
     CompassModal["清除罗盘目标确认\nUI_MODAL_COMPASS"]
     SetupModal["设置确认弹窗\nUI_MODAL_SETUP_CONFIRM"]
+    Parent["上一层菜单或顶层入口"]
 
     Dash -->|"最前动态卡片继续向上 3 次"| Info
     Dash -->|"最后动态卡片继续向下 3 次"| Setup
@@ -42,14 +43,17 @@ flowchart TB
     Edit -->|"确认提交 / BACK 取消"| Sub
     GasPick -->|"确认"| GasModal
     GasPick -->|"BACK"| Dash
-    GasModal -->|"确认成功"| Dash
+    GasModal -->|"来自 GAS 卡片，确认成功"| Dash
+    GasModal -->|"来自 GAS SWITCH，确认成功"| Setup
     CompassModal -->|"确认清除 / BACK 取消"| Dash
-    SetupModal -->|"确认执行 / BACK 取消"| Sub
+    SetupModal -->|"确认执行"| Parent
+    SetupModal -->|"BACK 取消"| Sub
 
     Info -->|"BACK"| Dash
     Setup -->|"BACK"| Dash
-    Sub -->|"BACK"| Info
-    Sub -->|"BACK"| Setup
+    Sub -->|"BACK，仍有父菜单"| Parent
+    Sub -->|"BACK，已经是 INFO 第一层"| Info
+    Sub -->|"BACK，已经是 DIVE MENU 第一层"| Setup
 ```
 
 ## 3. 主界面 DASH
@@ -89,6 +93,7 @@ mindmap
   root((INFO MENU))
     LAST DIVE
       只读详情
+      当前 Data Bus 统计
       MAX DEPTH
       AVG DEPTH
       DIVE TIME
@@ -125,7 +130,7 @@ INFO MENU 操作：
 
 | 位置 | 旋钮 | 确认键 | BACK |
 |---|---|---|---|
-| INFO MENU 顶层 | 移动选中项；最后一项继续向下 3 次回 DASH | 打开选中项 | 回到第一张动态卡片 |
+| INFO MENU 顶层 | 移动选中项；最后一项继续向下 3 次回第一张动态卡片 | 打开选中项 | 回到第一张动态卡片 |
 | LAST DIVE / TISSUE & TOX / GAS & CALC / SENSOR & DEVICE | 移动详情行高亮 | 只读，无业务动作 | 回到 INFO MENU |
 | DIVE PLAN | 在输入页调整当前值；在结果页按列表规则移动 | NEXT / PLAN / MORE / EXIT | 回到 INFO MENU |
 
@@ -178,7 +183,7 @@ DIVE MENU 操作：
 
 | 位置 | 旋钮 | 确认键 | BACK |
 |---|---|---|---|
-| DIVE MENU 顶层 | 移动选中项；第一项继续向上 3 次回 DASH | 打开选中项 | 回到第一张动态卡片 |
+| DIVE MENU 顶层 | 移动选中项；第一项继续向上 3 次回最后一张动态卡片 | 打开选中项 | 回到第一张动态卡片 |
 | 普通子菜单 | 移动选中项 | 按当前行类型执行 | 返回上一层；第一层返回 DIVE MENU |
 | 行内数值编辑 | 调整当前数值 | 提交 | 取消并恢复原值 |
 | 设置确认弹窗 | 无业务动作 | 确认执行 | 取消 |
@@ -212,16 +217,40 @@ mindmap
         CONFIRM
           确认弹窗后切换为 3 GAS
       OC Tech
-        G1 / G2 / G3
-          进入 Gx TRIMIX
+        G1
+          进入 G1 TRIMIX
           O2 PERCENT
             按确认编辑 O2
           HE PERCENT
             按确认编辑 He
           SAVE
-            保存当前槽位
+            保存 G1 并回到 OC Tech
+          BACK
+            回到 OC Tech
+        G2
+          进入 G2 TRIMIX
+          O2 PERCENT
+            按确认编辑 O2
+          HE PERCENT
+            按确认编辑 He
+          SAVE
+            保存 G2 并回到 OC Tech
+          BACK
+            回到 OC Tech
+        G3
+          进入 G3 TRIMIX
+          O2 PERCENT
+            按确认编辑 O2
+          HE PERCENT
+            按确认编辑 He
+          SAVE
+            保存 G3 并回到 OC Tech
+          BACK
+            回到 OC Tech
         CONFIRM & ACTIVATE
           确认弹窗后切换为 OC Tech
+        BACK
+          回到 MODE SETUP
     DIVE SETUP
       SALINITY
         原地点击切换 FRESH / SALT / EN13319
@@ -229,11 +258,11 @@ mindmap
         按确认进入数值编辑
         旋钮调整 1.0 - 1.6
       SAFETY STOP
-        原地点击切换 OFF / 3 MIN / 4 MIN / 5 MIN
+        原地点击切换 OFF / 3MIN / 4MIN / 5MIN / ADAPT / CNTUP
       LAST DECO
-        原地点击切换 3m / 6m
+        原地点击切换 3M / 6M
       ALTITUDE
-        原地点击切换 AUTO / SEA / L1 / L2
+        原地点击切换 SEA / ALT1 / ALT2 / ALT3
     AI SETUP
       T1 MAIN
         原地点击切换 UNPAIRED / PAIRING / PAIRED
@@ -263,7 +292,7 @@ mindmap
         MINUTE
           数值编辑
       LOG RATE
-        原地点击切换采样周期
+        原地点击切换 2s / 5s / 10s / 30s
       BLUETOOTH
         原地点击切换 ON / OFF
       RESET DEFAULTS
@@ -296,9 +325,11 @@ flowchart TB
     Entry["GAS 卡片或 GAS SWITCH"] --> Pick["旋钮选择目标气体"]
     Pick --> Modal["确认键打开切换确认框"]
     Modal --> Check{"当前深度 <= 目标气体 MOD?"}
-    Check -->|"是"| Request["发出 request_gas_switch"]
+    Check -->|"是，来自 GAS 卡片"| RequestDash["发出 request_gas_switch，并回 DASH"]
+    Check -->|"是，来自 GAS SWITCH"| RequestSetup["发出 request_gas_switch，并回 DIVE MENU"]
     Check -->|"否"| Pulse["弹窗抖动，保持原气体"]
-    Request --> Refresh["等待算法/任务更新 Data Bus 后刷新 GAS 显示"]
+    RequestDash --> Refresh["等待算法/任务更新 Data Bus 后刷新 GAS 显示"]
+    RequestSetup --> Refresh
 ```
 
 ## 9. 罗盘
@@ -323,7 +354,7 @@ flowchart TB
 | DIVE MENU 子菜单 | 回到上一层；没有上一层则回 DIVE MENU |
 | DIVE PLAN | 退出计划页，回到 INFO MENU |
 | GAS 选气 | 取消选气，回到 DASH |
-| 气体确认弹窗 | 如果来自 GAS 卡片，回到选气状态；如果来自 GAS SWITCH，关闭子菜单 |
+| 气体确认弹窗 | BACK 时：如果来自 GAS 卡片，回到选气状态；如果来自 GAS SWITCH，关闭 GAS SWITCH 子菜单 |
 | 罗盘确认弹窗 | 关闭弹窗，保留锁定状态 |
 | 设置确认弹窗 | 取消待确认设置，回到子菜单 |
 | 数值编辑 | 取消编辑，恢复进入编辑前的值 |
