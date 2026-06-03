@@ -148,19 +148,20 @@ void sys_config_defaults(sys_config_t *cfg)
 
     /* ========== [A] 5F 自定义网格 (5列 x 6行) ==========
      *
-     *  5列布局示意（10格，6行）
+     *  默认 CUSTOM WIDGETS 布局示意（5列 x 6行）
      *  col:  0  1  2  3  4
-     *  row0: [DEPTH 2x2 大块     ] [TEMP  ] [HEADING 2x1]
-     *  row2: [空槽      ]          [BATT   ] [PPO2 1x1]
-     *  row3: [NDL 2x1           ] [TTS 2x1 ] [CNS  1x1 ]
-     *  row4: [POD1              ] [POD2    ] [绌烘Ы   ]
-     *  row5: [绌烘Ы               ] [绌烘Ы    ] [绌烘Ы   ]
+     *  row0: [TISSUE RAW 4012                    ]
+     *  row1: [TISSUE RAW 4012                    ]
+     *  row2: [TISSUE GF  4012                    ]
+     *  row3: [TISSUE GF  4012                    ]
+     *  row4: [O2/He 1606] [RATE] [FIO2] [CEIL]
+     *  row5: [TTS] [MOD] [DENS] [empty] [empty]
      *
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h MCU 样式表自动推
      */
     /* custom_cards[0] 保留默认自定义卡片内容，custom_cards[1] 是传感器预览。 */
     cfg->custom_card_count = 2;
-    cfg->custom_cards[0].widget_count = 10;
+    cfg->custom_cards[0].widget_count = 9;
     cfg->custom_cards[1].widget_count = 16;
     (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "CUSTOM WIDGETS");
     (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "SENSOR PREVIEW");
@@ -171,39 +172,35 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->custom_cards[0].widgets[1]  = (grid_widget_t)
     {
-        COMP_FIO2_0806,       4, 0
+        COMP_TISSUE_GF_4012,  0, 2
     };
     cfg->custom_cards[0].widgets[2]  = (grid_widget_t)
     {
-        COMP_CEILING_0806,    4, 1
+        COMP_GAS_MIX_1606,    0, 4
     };
     cfg->custom_cards[0].widgets[3]  = (grid_widget_t)
     {
-        COMP_TISSUE_GF_4012,  0, 2
+        COMP_ASCENT_0806,     2, 4
     };
     cfg->custom_cards[0].widgets[4]  = (grid_widget_t)
     {
-        COMP_ASCENT_0812,     4, 2
+        COMP_FIO2_0806,       3, 4
     };
     cfg->custom_cards[0].widgets[5]  = (grid_widget_t)
     {
-        COMP_GAS_MIX_1606,    0, 4
+        COMP_CEILING_0806,    4, 4
     };
     cfg->custom_cards[0].widgets[6]  = (grid_widget_t)
     {
-        COMP_ASCENT_0806,     2, 4
+        COMP_TTS_0806,        0, 5
     };
     cfg->custom_cards[0].widgets[7]  = (grid_widget_t)
     {
-        COMP_GAS_DENS_0806,     2, 5
+        COMP_MOD_0806,        1, 5
     };
     cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
     {
-        COMP_TTS_0806,     0, 5
-    };
-    cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
-    {
-        COMP_MOD_0806,     1, 5
+        COMP_GAS_DENS_0806,   2, 5
     };
 
     
