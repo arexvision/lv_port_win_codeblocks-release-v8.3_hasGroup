@@ -22,10 +22,10 @@
 #define DECO_ROW3_Y     (CARD_TITLE_H + 114)
 #define GRID_X              16
 
-/* Tissue bars use per-compartment GF against the raw M-value:
+/* Tissue bars use ambient-relative per-compartment load against the raw M-value:
  * - 0..100 maps directly to bar height
  * - GF High is drawn as the stop/reference line
- * - >=100 means the raw M-value line is reached
+ * - >=100 means the current-depth raw M-value line is reached
  */
 #define TISSUE_DANGER_PCT   100
 

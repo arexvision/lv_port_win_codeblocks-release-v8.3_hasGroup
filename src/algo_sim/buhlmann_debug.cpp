@@ -162,19 +162,19 @@ static void sync_core_data(const DiveInfo &dive_info, float depth_m)
     uint8_t tissue_raw_load[16];
     uint8_t tissue_gf_load[16];
     float current_pressure = s_buhlmann.calculateHydrostaticPressureFromDepth(depth_m);
-    float surface_pressure_bar = s_buhlmann.getSurfacePressure() / 1000.0f;
+    float ambient_pressure_bar = current_pressure / 1000.0f;
     float gf_high = s_buhlmann.getGFHigh();
 
     for (int i = 0; i < 16; i++) {
         float tissue_pressure_bar = s_buhlmann.getCompartmentTotalInertLoad(i) / 1000.0f;
         float m_value_bar = s_buhlmann.getCompartmentCombinedA(i) +
-                            surface_pressure_bar / s_buhlmann.getCompartmentCombinedB(i);
-        float denominator = m_value_bar - surface_pressure_bar;
+                            ambient_pressure_bar / s_buhlmann.getCompartmentCombinedB(i);
+        float denominator = m_value_bar - ambient_pressure_bar;
         float raw_percent = 0.0f;
         float gf_percent = 0.0f;
 
         if (denominator > 0.0001f) {
-            raw_percent = ((tissue_pressure_bar - surface_pressure_bar) / denominator) * 100.0f;
+            raw_percent = ((tissue_pressure_bar - ambient_pressure_bar) / denominator) * 100.0f;
         }
         if (gf_high > 0.0001f) {
             gf_percent = raw_percent / gf_high;
