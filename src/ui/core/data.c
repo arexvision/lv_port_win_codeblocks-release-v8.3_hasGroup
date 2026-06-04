@@ -81,10 +81,6 @@ static void bus_apply_algo_safety_stop(uint8_t mode)
 #endif
 }
 
-/* 深度统计累计值 */
-static float    _depth_sum = 0.0f;       /* 深度累计和 */
-static uint32_t _depth_sample_count = 0;  /* 深度采样次数 */
-
 /* 温度统计累计值 */
 static float    _temp_sum = 0.0f;        /* 温度累计和 */
 static uint32_t _temp_sample_count = 0;  /* 温度采样次数 */
@@ -180,8 +176,6 @@ void data_init(void)
     uint8_t conservatism;
 
     memset(&g_sensor_data, 0, sizeof(g_sensor_data));
-    _depth_sum = 0.0f;
-    _depth_sample_count = 0;
     _temp_sum = 0.0f;
     _temp_sample_count = 0;
 
@@ -237,21 +231,48 @@ void data_init(void)
 void bus_set_depth(float depth_m)
 {
     /* 深度数值显示继续保留轻量防抖，避免数字末位来回跳 */
-    /* 这里故意只对“显示值”和“派生统计”负责，不计算上升率。
-     * 上升率由 bus_set_ascent_rate() 单独输入，避免不同采样周期下互相污染。 */
+    /* 架构约束：
+     * 1. 这里仅负责“当前深度显示值”；
+     * 2. 潜次统计（MAX/AVG DEPTH）必须由上游业务层统一计算后回灌；
+     * 3. 不能再把显示防抖后的深度变化误当成统计采样，否则串口直打 10m
+     *    会被大量表面/噪声样本稀释，最终出现 AVG DEPTH=0.2m 这类假值。
+     * 上升率仍由 bus_set_ascent_rate() 单独输入，避免不同采样周期下互相污染。 */
     if (fabsf(g_sensor_data.depth - depth_m) > DEPTH_DISPLAY_DEBOUNCE_M)
     {
         g_sensor_data.depth = depth_m;
         g_sensor_data.dirty_mask |= DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS;
+    }
+}
 
-        /* 统计计算：最大深度 + 平均深度 */
-        if (depth_m > g_sensor_data.max_depth)
-        {
-            g_sensor_data.max_depth = depth_m;
-        }
-        _depth_sum += depth_m;
-        _depth_sample_count++;
-        g_sensor_data.avg_depth = (_depth_sample_count > 0) ? (_depth_sum / _depth_sample_count) : 0.0f;
+void bus_set_dive_profile_stats(float max_depth_m, float avg_depth_m)
+{
+    bool changed = false;
+
+    if (max_depth_m < 0.0f)
+    {
+        max_depth_m = 0.0f;
+    }
+    if (avg_depth_m < 0.0f)
+    {
+        avg_depth_m = 0.0f;
+    }
+
+    /* 这份 summary 是“平均深度小组件”和 “InfoMenu -> LAST DIVE” 的共享真值，
+     * 与某个 widget 是否存在、是否被删除无关。 */
+    if (fabsf(g_sensor_data.max_depth - max_depth_m) > 0.001f)
+    {
+        g_sensor_data.max_depth = max_depth_m;
+        changed = true;
+    }
+    if (fabsf(g_sensor_data.avg_depth - avg_depth_m) > 0.001f)
+    {
+        g_sensor_data.avg_depth = avg_depth_m;
+        changed = true;
+    }
+
+    if (changed)
+    {
+        g_sensor_data.dirty_mask |= DIRTY_DIVE_PROFILE;
     }
 }
 
@@ -329,6 +350,22 @@ void bus_set_battery(float pct)
     {
         s_battery_initialized = true;
         g_sensor_data.battery_pct = pct;
+        g_sensor_data.dirty_mask |= DIRTY_SYSTEM;
+    }
+}
+
+void bus_set_sys_time(uint8_t hour, uint8_t minute, uint8_t second)
+{
+    hour = (hour > 23U) ? 0U : hour;
+    minute = (minute > 59U) ? 0U : minute;
+    second = (second > 59U) ? 0U : second;
+
+    if ((g_sensor_data.sys_time_h != hour) ||
+        (g_sensor_data.sys_time_m != minute) ||
+        (g_sensor_data.sys_time_s != second)) {
+        g_sensor_data.sys_time_h = hour;
+        g_sensor_data.sys_time_m = minute;
+        g_sensor_data.sys_time_s = second;
         g_sensor_data.dirty_mask |= DIRTY_SYSTEM;
     }
 }
@@ -1719,6 +1756,11 @@ uint16_t bus_get_sys_time_h(void)
 uint16_t bus_get_sys_time_m(void)
 {
     return g_sensor_data.sys_time_m;
+}
+
+uint16_t bus_get_sys_time_s(void)
+{
+    return g_sensor_data.sys_time_s;
 }
 
 uint8_t bus_get_gas_slot_count(void)

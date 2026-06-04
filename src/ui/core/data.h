@@ -98,10 +98,12 @@ void data_init(void);
 
 /* --- 传感器数据写入接口 --- */
 void bus_set_depth(float depth_m);               /* 防抖阈值 0.05m */
+void bus_set_dive_profile_stats(float max_depth_m, float avg_depth_m);
 void bus_set_ascent_rate(float rate_mpm);        /* 正=上升，负=下潜，0=停止 */
 void bus_set_tts(uint16_t tts_min);
 void bus_set_pod(uint8_t pod_idx, float bar);   /* pod_idx: 0=pod1, 1=pod2 */
 void bus_set_battery(float pct);
+void bus_set_sys_time(uint8_t hour, uint8_t minute, uint8_t second);
 void bus_set_heading(uint16_t heading_deg);
 void bus_set_dive_time(uint32_t dive_s);
 void bus_set_surface_time(uint32_t surface_s);
@@ -275,6 +277,7 @@ const char *bus_get_sensor_status(void);
 float bus_get_ascent_rate(void);
 uint16_t bus_get_sys_time_h(void);
 uint16_t bus_get_sys_time_m(void);
+uint16_t bus_get_sys_time_s(void);
 uint8_t bus_get_gas_slot_count(void);
 uint8_t bus_get_gas_active_idx(void);
 const char *bus_get_gas_slot_name(uint8_t gas_idx);

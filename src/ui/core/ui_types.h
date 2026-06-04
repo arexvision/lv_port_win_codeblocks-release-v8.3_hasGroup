@@ -141,6 +141,7 @@ typedef struct
     float   battery_pct;
     uint8_t sys_time_h;
     uint8_t sys_time_m;
+    uint8_t sys_time_s;
     float   ascent_rate;
     uint16_t heading;
     bool    heading_locked;

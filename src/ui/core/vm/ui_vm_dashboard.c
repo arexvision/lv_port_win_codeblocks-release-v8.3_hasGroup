@@ -8,7 +8,6 @@
 #include "ui_vm_dashboard.h"
 
 #include "../data.h"
-
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -382,8 +381,10 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%s",bus_get_gas_slot_name(bus_get_gas_active_idx()));
         break;
     case COMP_SYS_1606:
-    case COMP_TIME_1606:
         (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)bus_get_sys_time_h(),(unsigned)bus_get_sys_time_m());
+        break;
+    case COMP_TIME_1606:
+        (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)bus_get_sys_time_m(),(unsigned)bus_get_sys_time_s());
         break;
     case COMP_TTS_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%d", (int)bus_get_tts());
