@@ -23,6 +23,211 @@ static float s_dive_log_last_sample_time_s;
 static deco_stop_t s_deco_stops[MAX_DECO_STOPS];
 static uint16_t s_deco_stop_count;
 
+typedef enum
+{
+    LAYOUT_ARCHIVE_SIDE = 0,
+    LAYOUT_ARCHIVE_TOP,
+    LAYOUT_ARCHIVE_BOTTOM,
+    LAYOUT_ARCHIVE_COUNT
+} layout_archive_id_t;
+
+static sys_config_t s_layout_archives[LAYOUT_ARCHIVE_COUNT];
+static bool s_layout_archive_valid[LAYOUT_ARCHIVE_COUNT];
+
+static layout_archive_id_t layout_archive_id_for(theme_t theme, order_t order)
+{
+    if (theme == THEME_CLASSIC)
+    {
+        return (order == ORDER_NORMAL) ? LAYOUT_ARCHIVE_TOP : LAYOUT_ARCHIVE_BOTTOM;
+    }
+    return LAYOUT_ARCHIVE_SIDE;
+}
+
+static void layout_copy_fields(sys_config_t *dst, const sys_config_t *src)
+{
+    if (dst == NULL || src == NULL) return;
+
+    dst->safe_zone_w = src->safe_zone_w;
+    dst->safe_zone_h = src->safe_zone_h;
+    dst->offset_x = src->offset_x;
+    dst->offset_y = src->offset_y;
+    dst->theme_mode = src->theme_mode;
+    dst->layout_order = src->layout_order;
+    dst->dots_position = src->dots_position;
+    dst->compass_style = src->compass_style;
+    dst->flash_speed = src->flash_speed;
+    dst->mask_enabled = src->mask_enabled;
+    dst->split_outward = src->split_outward;
+    dst->sep_style = src->sep_style;
+    dst->sep_thick = src->sep_thick;
+    dst->sep_alpha = src->sep_alpha;
+    dst->h_depth = src->h_depth;
+    dst->h_ndl = src->h_ndl;
+    dst->h_pod = src->h_pod;
+    dst->h_batt = src->h_batt;
+    dst->h_gas = src->h_gas;
+    dst->h_time = src->h_time;
+    dst->gap_u = src->gap_u;
+    dst->panel_gap_u = src->panel_gap_u;
+    dst->title_h_u = src->title_h_u;
+    dst->h_menu_item = src->h_menu_item;
+    dst->gap_menu = src->gap_menu;
+    dst->h_tissues_chart = src->h_tissues_chart;
+    dst->left_widget_count = src->left_widget_count;
+    (void)memcpy(dst->left_widgets, src->left_widgets, sizeof(dst->left_widgets));
+    dst->custom_card_count = src->custom_card_count;
+    (void)memcpy(dst->custom_cards, src->custom_cards, sizeof(dst->custom_cards));
+    (void)memcpy(dst->custom_card_slot, src->custom_card_slot, sizeof(dst->custom_card_slot));
+    (void)memcpy(dst->card_order, src->card_order, sizeof(dst->card_order));
+}
+
+static void layout_archive_save_current(void)
+{
+    layout_archive_id_t id = layout_archive_id_for(ui_theme_mode_get(), ui_layout_order_get());
+    layout_copy_fields(&s_layout_archives[id], &g_sys_config);
+    s_layout_archive_valid[id] = true;
+}
+
+static void layout_set_default_card_order(sys_config_t *cfg)
+{
+    (void)memset(cfg->card_order, PAGE_ID_UNUSED, sizeof(cfg->card_order));
+    cfg->card_order[PAGE_POS_INFO] = PAGE_ID_INFO;
+    cfg->card_order[PAGE_POS_1] = PAGE_ID_BLANK;
+    cfg->card_order[PAGE_POS_2] = PAGE_ID_COMPASS;
+    cfg->card_order[PAGE_POS_3] = PAGE_ID_DECO;
+    cfg->card_order[PAGE_POS_4] = PAGE_ID_PLAN;
+    cfg->card_order[PAGE_POS_5] = PAGE_ID_GAS;
+    cfg->card_order[PAGE_POS_6] = PAGE_ID_CUSTOM_GRID;
+    cfg->card_order[PAGE_POS_7] = PAGE_ID_CUSTOM_GRID;
+    cfg->card_order[PAGE_POS_SETUP] = PAGE_ID_SETUP;
+    (void)memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
+    cfg->custom_card_slot[PAGE_POS_6] = 0U;
+    cfg->custom_card_slot[PAGE_POS_7] = 1U;
+}
+
+static void layout_set_default_fixed_widgets(sys_config_t *cfg, bool horizontal)
+{
+    static const grid_widget_t side_widgets[] =
+    {
+        { COMP_NDL_STOP_1606, 0, 0 },
+        { COMP_DEPTH_1612, 0, 1 },
+        { COMP_DIVE_TIME_1606, 0, 3 },
+        { COMP_GAS_1606, 0, 4 },
+        { COMP_EMPTY, 0, 5 },
+        { COMP_EMPTY, 1, 5 },
+        { COMP_SYS_1606, 0, 6 },
+    };
+    static const grid_widget_t top_widgets[] =
+    {
+        { COMP_NDL_STOP_1606, 0, 0 },
+        { COMP_DEPTH_1612, 2, 0 },
+        { COMP_DIVE_TIME_1606, 4, 0 },
+        { COMP_GAS_1606, 4, 1 },
+        { COMP_TEMP_0806, 6, 0 },
+        { COMP_BATTERY_0806, 6, 1 },
+    };
+    const grid_widget_t *items = horizontal ? top_widgets : side_widgets;
+    uint8_t count = horizontal ? (uint8_t)(sizeof(top_widgets) / sizeof(top_widgets[0])) : (uint8_t)(sizeof(side_widgets) / sizeof(side_widgets[0]));
+
+    (void)memset(cfg->left_widgets, 0, sizeof(cfg->left_widgets));
+    cfg->left_widget_count = count;
+    for (uint8_t i = 0U; i < count; i++)
+    {
+        cfg->left_widgets[i] = items[i];
+    }
+}
+
+static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
+{
+    static const grid_widget_t side_custom[] =
+    {
+        { COMP_TISSUE_RAW_4012, 0, 0 },
+        { COMP_TISSUE_GF_4012, 0, 2 },
+        { COMP_GAS_MIX_1606, 0, 4 },
+        { COMP_ASCENT_0806, 2, 4 },
+        { COMP_FIO2_0806, 3, 4 },
+        { COMP_CEILING_0806, 4, 4 },
+        { COMP_TTS_0806, 0, 5 },
+        { COMP_MOD_0806, 1, 5 },
+        { COMP_GAS_DENS_0806, 2, 5 },
+    };
+    static const grid_widget_t side_sensor[] =
+    {
+        { COMP_ACCEL_2406, 0, 0 },
+        { COMP_BATT_V_0806, 3, 0 },
+        { COMP_PRESSURE_0806, 4, 0 },
+        { COMP_GYRO_2406, 0, 1 },
+        { COMP_CPU_0806, 3, 1 },
+        { COMP_FPS_0806, 4, 1 },
+        { COMP_MAG_2406, 0, 2 },
+        { COMP_BLE_RSSI_0806, 3, 2 },
+        { COMP_CHARGE_0806, 4, 2 },
+        { COMP_MLX_2406, 0, 3 },
+        { COMP_BATT_TEMP_0806, 3, 3 },
+        { COMP_PRJ_TEMP_0806, 4, 3 },
+        { COMP_TMAG_2406, 0, 4 },
+        { COMP_NOFLY_0806, 3, 4 },
+        { COMP_ATTITUDE_2406, 0, 5 },
+        { COMP_SENSOR_STAT_1606, 3, 5 },
+    };
+    static const grid_widget_t top_custom[] =
+    {
+        { COMP_TISSUE_RAW_4012, 0, 0 },
+        { COMP_TISSUE_GF_4012, 0, 2 },
+        { COMP_GAS_MIX_1606, 4, 0 },
+        { COMP_CEILING_0806, 4, 1 },
+        { COMP_ASCENT_0806, 6, 0 },
+        { COMP_FIO2_0806, 6, 1 },
+        { COMP_TTS_0806, 4, 2 },
+        { COMP_MOD_0806, 5, 2 },
+        { COMP_GAS_DENS_0806, 6, 2 },
+    };
+    static const grid_widget_t top_sensor[] =
+    {
+        { COMP_ACCEL_2406, 0, 0 },
+        { COMP_BATT_V_0806, 3, 0 },
+        { COMP_PRESSURE_0806, 4, 0 },
+        { COMP_GYRO_2406, 0, 1 },
+        { COMP_CPU_0806, 3, 1 },
+        { COMP_FPS_0806, 4, 1 },
+        { COMP_MAG_2406, 0, 2 },
+        { COMP_BLE_RSSI_0806, 3, 2 },
+        { COMP_CHARGE_0806, 4, 2 },
+        { COMP_TMAG_2406, 0, 3 },
+        { COMP_BATT_TEMP_0806, 3, 3 },
+        { COMP_PRJ_TEMP_0806, 4, 3 },
+    };
+    const grid_widget_t *custom = horizontal ? top_custom : side_custom;
+    const grid_widget_t *sensor = horizontal ? top_sensor : side_sensor;
+    uint8_t custom_count = horizontal ? (uint8_t)(sizeof(top_custom) / sizeof(top_custom[0])) : (uint8_t)(sizeof(side_custom) / sizeof(side_custom[0]));
+    uint8_t sensor_count = horizontal ? (uint8_t)(sizeof(top_sensor) / sizeof(top_sensor[0])) : (uint8_t)(sizeof(side_sensor) / sizeof(side_sensor[0]));
+
+    (void)memset(cfg->custom_cards, 0, sizeof(cfg->custom_cards));
+    cfg->custom_card_count = 2U;
+    cfg->custom_cards[0].widget_count = custom_count;
+    cfg->custom_cards[1].widget_count = sensor_count;
+    (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "CUSTOM WIDGETS");
+    (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "SENSOR PREVIEW");
+    for (uint8_t i = 0U; i < custom_count; i++) cfg->custom_cards[0].widgets[i] = custom[i];
+    for (uint8_t i = 0U; i < sensor_count; i++) cfg->custom_cards[1].widgets[i] = sensor[i];
+}
+
+static void layout_apply_direction_defaults(theme_t theme, order_t order)
+{
+    bool horizontal = (theme == THEME_CLASSIC);
+
+    g_sys_config.safe_zone_w = horizontal ? 560U : 580U;
+    g_sys_config.safe_zone_h = 420U;
+    g_sys_config.offset_x = 0;
+    g_sys_config.offset_y = -10;
+    g_sys_config.theme_mode = (uint8_t)theme;
+    g_sys_config.layout_order = (uint8_t)order;
+    g_sys_config.panel_gap_u = 2U;
+    layout_set_default_card_order(&g_sys_config);
+    layout_set_default_fixed_widgets(&g_sys_config, horizontal);
+    layout_set_default_custom_cards(&g_sys_config, horizontal);
+}
+
 /* =========================================================
  * Data Bus Setter 实现 — 硬件/模拟层专用
  * 铁律：仅更新数值 + 打脏标记，绝不碰 LVGL！
@@ -892,6 +1097,7 @@ void bus_set_ui_layout(const ble_ui_sync_payload_t *payload)
     }
 
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    layout_archive_save_current();
     printf("[BUS] DIRTY_UI_LAYOUT set, dirty_mask=0x%08X\r\n", g_sensor_data.dirty_mask);
 
 #ifdef PC_SIMULATOR
@@ -949,6 +1155,35 @@ void bus_set_layout_mode(theme_t theme, order_t order)
     {
         g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
     }
+}
+
+void bus_switch_layout_profile(theme_t theme, order_t order)
+{
+    layout_archive_id_t target_id;
+
+    if (theme != THEME_TECH && theme != THEME_CLASSIC)
+    {
+        theme = THEME_TECH;
+    }
+    if (order != ORDER_NORMAL && order != ORDER_REVERSE)
+    {
+        order = ORDER_NORMAL;
+    }
+
+    layout_archive_save_current();
+    target_id = layout_archive_id_for(theme, order);
+    if (s_layout_archive_valid[target_id])
+    {
+        layout_copy_fields(&g_sys_config, &s_layout_archives[target_id]);
+        g_sys_config.theme_mode = (uint8_t)theme;
+        g_sys_config.layout_order = (uint8_t)order;
+    }
+    else
+    {
+        layout_apply_direction_defaults(theme, order);
+        layout_archive_save_current();
+    }
+    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
 }
 
 void bus_toggle_theme(void)
@@ -1331,6 +1566,26 @@ order_t ui_layout_order_get(void)
 bool ui_layout_is_vertical_split(void)
 {
     return ui_theme_mode_get() == THEME_TECH;
+}
+
+uint8_t ui_fixed_grid_cols_get(void)
+{
+    return ui_layout_is_vertical_split() ? FIXED_SIDE_COLS : FIXED_TOP_COLS;
+}
+
+uint8_t ui_fixed_grid_rows_get(void)
+{
+    return ui_layout_is_vertical_split() ? FIXED_SIDE_ROWS : FIXED_TOP_ROWS;
+}
+
+uint8_t ui_custom_grid_cols_get(void)
+{
+    return ui_layout_is_vertical_split() ? CUSTOM_SIDE_COLS : CUSTOM_TOP_COLS;
+}
+
+uint8_t ui_custom_grid_rows_get(void)
+{
+    return ui_layout_is_vertical_split() ? CUSTOM_SIDE_ROWS : CUSTOM_TOP_ROWS;
 }
 
 uint16_t ui_anchor_w_get(void)

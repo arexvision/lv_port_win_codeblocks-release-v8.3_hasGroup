@@ -95,10 +95,10 @@ flowchart TB
     Screen --> Edit["screen_edit<br/>数值编辑态"]
     Screen --> Brightness["screen_overlay<br/>软件亮度遮罩"]
 
-    ScreenLayout --> Left["左侧固定锚点"]
-    ScreenLayout --> Right["右侧 TileView 容器"]
+    ScreenLayout --> Left["固定栏<br/>side=2x7 / top-bottom=7x2"]
+    ScreenLayout --> Right["内容区 TileView 容器"]
 
-    Left --> LayoutGrid["layout_view<br/>2x7 / 5F 网格定位"]
+    Left --> LayoutGrid["layout_view<br/>固定栏 / 自定义卡实际坐标定位"]
     LayoutGrid --> WidgetFactory["comp_view<br/>组件创建"]
     WidgetFactory --> WidgetStyle["comp_style<br/>样式应用"]
 
@@ -116,6 +116,8 @@ flowchart TB
 ```
 
 `screen_rebuild_layout()` 只重建几何关系和组件挂载，适合 safe zone、左右翻转、左侧 widget 或 5F 网格位置变化。`screen_rebuild_tileview()` 会销毁并重建右侧 tileview、子菜单和弹窗，适合页面顺序、页面数量或页面类型变化。`screen_rebuild_full()` 先重建 tileview，再重建布局。
+
+布局坐标规则：BLE `0x02` 下 APP 发送当前方向实际坐标。side 固定栏为 `2x7`、自定义卡为 `5x6`；top/bottom 固定栏为 `7x2`、自定义卡为 `7x4`。TCP `layout side/top/bottom` 会保存当前方向布局存档并恢复目标方向存档。
 
 ## VM 显示模型层
 
@@ -225,13 +227,13 @@ flowchart TD
 |---|---|
 | `screen/screen.h` | 屏幕层公开门面，供状态机、卡片、告警、组件刷新调用。 |
 | `screen/screen.c` | 根屏、safe zone、样式、页面导航、wall、菜单选中态、公共刷新入口。 |
-| `screen/screen_layout.h/c` | 左锚点、右侧容器、tileview、页面 tile 创建，以及 layout/tileview/full rebuild。 |
+| `screen/screen_layout.h/c` | 固定栏、内容区容器、tileview、页面 tile 创建，以及 layout/tileview/full rebuild。 |
 | `screen/screen_dots.h/c` | 右侧滚动点容器、高亮态和隐藏/显示控制。 |
 | `screen/screen_edit.h/c` | 数值编辑态的显示、刷新、提交、取消。 |
 | `screen/screen_overlay.h/c` | 软件亮度遮罩、亮度开关和 safe zone 对象查询。 |
 | `screen/screen_internal.h` | screen 子模块共享的内部对象、样式和 helper 声明。 |
 | `screen/layout_view.h` | 布局计算与网格渲染函数声明。 |
-| `screen/layout_view.c` | safe zone 计算、左右布局计算、2x7 固定区、5F 自定义网格定位与渲染调度。 |
+| `screen/layout_view.c` | safe zone 计算、固定栏实际坐标、自定义卡实际坐标定位与渲染调度。 |
 | `comp/comp_view.h` | 组件工厂与组件运行态句柄声明。 |
 | `comp/comp_view.c` | `render_widget_by_id()`，创建 DEPTH、NDL、POD、SYS、GAS 等可复用 widget。 |
 | `comp/comp_update.h` | widget 数据刷新 API 声明。 |
@@ -319,7 +321,7 @@ flowchart LR
 | 新增传感器字段或数据写入 | `core/ui_runtime.h`、`core/data.c/h`、必要时 `core/ui_dirty.h` |
 | 新增 dirty 刷新策略 | `core/update_router.c` |
 | 新增或调整显示格式/显示模型 | `core/vm/ui_vm_*.c/h` |
-| 新增固定区或 5F 组件 | `comp/comp_view.c`、`comp/comp_update.c`、`screen/layout_view.c` |
+| 新增固定栏或自定义卡组件 | `comp/comp_view.c`、`comp/comp_update.c`、`screen/layout_view.c` |
 | 调整组件外观 | `comp/comp_style.c`、`comp/comp_style_types.h` |
 | 新增右侧业务页面 | `cards/card_*.c`、`screen/page_registry.c/h` |
 | 新增右侧顶层菜单页 | `menus/menu_*.c`、`screen/page_registry.c/h` |

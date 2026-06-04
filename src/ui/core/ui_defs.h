@@ -43,8 +43,14 @@ extern "C" {
 #define GRID_BORDER_W   0
 
 #define MAX_WIDGETS    30
-#define COMP_GRID_COLS    5
-#define COMP_GRID_ROWS    6
+#define FIXED_SIDE_COLS   2
+#define FIXED_SIDE_ROWS   7
+#define FIXED_TOP_COLS    7
+#define FIXED_TOP_ROWS    2
+#define CUSTOM_SIDE_COLS  5
+#define CUSTOM_SIDE_ROWS  6
+#define CUSTOM_TOP_COLS   7
+#define CUSTOM_TOP_ROWS   4
 #define MAX_LEFT_ROWS    8
 
 #define ANCHOR_SEP_THICK  3
