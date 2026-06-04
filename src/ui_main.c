@@ -16,12 +16,13 @@ static void ui_bootstrap_force_first_paint(void)
 {
     /*
      * UI 基础可用性不能依赖传感器首帧。
-     * 这里用旧 UI 总线的默认值主动完成首刷：硬件没起来时只影响数值真实性，
-     * 不能影响对象树、页面切换、左侧 widget 和当前页的可见性。
+     * 启动期布局已经在 UI_main() 之前恢复完毕，screen_create() 会直接按当前
+     * g_sys_config 建树；这里不能再人为补一个 DIRTY_UI_LAYOUT，否则刚建好的
+     * 对象树会立即再走一次整屏重建，放大半初始化窗口的重入风险。
+     *
+     * 首刷只补数据域，让左侧 widget、当前页文本和基础状态在没有传感器首帧时
+     * 也先显示出来。
      */
-    bus_requeue_dirty(DIRTY_UI_LAYOUT);
-    ui_update_task(NULL);
-
     bus_requeue_dirty(DIRTY_DATA_ALL);
     ui_update_task(NULL);
 }
