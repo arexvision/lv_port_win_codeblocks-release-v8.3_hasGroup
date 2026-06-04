@@ -71,15 +71,18 @@ void menu_setup_create(lv_obj_t *parent)
     uint16_t gap_y_px  = s_menu_layout_vm.gap_y_px;
     uint16_t list_h = setup_count * item_h_px
                       + (setup_count - 1) * gap_y_px;
+    uint16_t visible_h = ui_content_h_get() > CARD_TITLE_H ? (uint16_t)(ui_content_h_get() - CARD_TITLE_H) : list_h;
 
     s_list = lv_obj_create(parent);
     lv_obj_remove_style_all(s_list);
-    lv_obj_set_size(s_list, right_canvas_w, list_h);
+    lv_obj_set_size(s_list, right_canvas_w, visible_h);
     lv_obj_set_pos(s_list, 0, CARD_TITLE_H);
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_pad_all(s_list, 0, 0);
-    lv_obj_clear_flag(s_list, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(s_list, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(s_list, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(s_list, LV_SCROLLBAR_MODE_OFF);
 
     /* 顶层菜单也走同一套菜单行渲染，减少重复维护。 */
     render_dynamic_menu(s_list, setup_items, setup_count, 0, s_setup_item_objs);

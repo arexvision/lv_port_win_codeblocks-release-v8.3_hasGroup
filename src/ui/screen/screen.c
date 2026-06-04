@@ -478,38 +478,15 @@ void screen_hide_walls_snap(void)
  * ========================================================= */
 static void menu_list_ensure_visible(lv_obj_t *list, uint8_t idx)
 {
-    lv_obj_t *parent;
     lv_obj_t *item;
-    lv_coord_t visible_h;
-    lv_coord_t list_h;
-    lv_coord_t row_y;
-    lv_coord_t row_bottom;
-    lv_coord_t scroll_y;
-    lv_coord_t max_scroll_y;
 
     if (!list || !lv_obj_is_valid(list)) return;
 
     item = lv_obj_get_child(list, idx);
     if (!item) return;
 
-    parent = lv_obj_get_parent(list);
-    visible_h = (parent && lv_obj_is_valid(parent)) ? (lv_obj_get_height(parent) - CARD_TITLE_H) : 0;
-    if (visible_h <= 0) visible_h = (lv_coord_t)ui_content_h_get() - CARD_TITLE_H;
-    if (visible_h <= 0) return;
-
-    list_h = lv_obj_get_height(list);
-    row_y = lv_obj_get_y(item);
-    row_bottom = row_y + lv_obj_get_height(item);
-    max_scroll_y = (list_h > visible_h) ? (list_h - visible_h) : 0;
-    scroll_y = CARD_TITLE_H - lv_obj_get_y(list);
-    if (scroll_y < 0) scroll_y = 0;
-
-    if (row_y < scroll_y) scroll_y = row_y;
-    else if (row_bottom > scroll_y + visible_h) scroll_y = row_bottom - visible_h;
-    if (scroll_y > max_scroll_y) scroll_y = max_scroll_y;
-    if (scroll_y < 0) scroll_y = 0;
-
-    lv_obj_set_y(list, CARD_TITLE_H - scroll_y);
+    lv_obj_update_layout(list);
+    lv_obj_scroll_to_view(item, LV_ANIM_OFF);
 }
 
 void screen_set_info_selection(uint8_t idx)

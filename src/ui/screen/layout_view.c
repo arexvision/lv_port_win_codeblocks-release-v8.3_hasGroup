@@ -470,18 +470,15 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
         uint16_t abs_w = span_w * cell_w;
         uint16_t abs_h = span_h * cell_h;
 
-        add_left_anchor_sep_boundary(sep_boundaries,
-                                     &sep_boundary_count,
-                                     (uint16_t)(origin_row * cell_h),
-                                     anchor_h);
-        add_left_anchor_sep_boundary(sep_boundaries,
-                                     &sep_boundary_count,
-                                     (uint16_t)((origin_row + span_h) * cell_h),
-                                     anchor_h);
         if (horizontal_anchor)
         {
             add_left_anchor_sep_boundary(sep_x_boundaries, &sep_x_boundary_count, (uint16_t)(origin_col * cell_w), anchor_w);
             add_left_anchor_sep_boundary(sep_x_boundaries, &sep_x_boundary_count, (uint16_t)((origin_col + span_w) * cell_w), anchor_w);
+        }
+        else
+        {
+            add_left_anchor_sep_boundary(sep_boundaries, &sep_boundary_count, (uint16_t)(origin_row * cell_h), anchor_h);
+            add_left_anchor_sep_boundary(sep_boundaries, &sep_boundary_count, (uint16_t)((origin_row + span_h) * cell_h), anchor_h);
         }
 
         render_widget_by_id(left_anchor, cfg->widget_id,
