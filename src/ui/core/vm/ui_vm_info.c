@@ -83,16 +83,26 @@ void ui_vm_info_lines_update(ui_vm_info_lines_t *vm, uint8_t info_group_index)
     {
     case 0U:
     {
-        char dive_time[12];
         char surface_time[12];
+        char dive_time[12];
+        logbook_entry_t last_dive;
 
-        vm_format_duration(dive_time, sizeof(dive_time), bus_get_dive_time_s());
         vm_format_duration(surface_time, sizeof(surface_time), bus_get_surface_time_s());
-        (void)snprintf(vm->lines[0], sizeof(vm->lines[0]), "MAX DEPTH: %.1fm", (double)bus_get_max_depth());
-        (void)snprintf(vm->lines[1], sizeof(vm->lines[1]), "AVG DEPTH: %.1fm", (double)bus_get_avg_depth());
-        (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "DIVE TIME: %s", dive_time);
-        (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "SURFACE: %s", surface_time);
-        vm->count = 4U;
+        if (!bus_get_last_dive_snapshot(&last_dive))
+        {
+            (void)snprintf(vm->lines[0], sizeof(vm->lines[0]), "NO LAST DIVE");
+            (void)snprintf(vm->lines[1], sizeof(vm->lines[1]), "SURFACE: %s", surface_time);
+            vm->count = 2U;
+            break;
+        }
+
+        vm_format_duration(dive_time, sizeof(dive_time), last_dive.dive_time_s);
+        (void)snprintf(vm->lines[0], sizeof(vm->lines[0]), "LOG #%04u  %02u-%02u-%04u", (unsigned)last_dive.meta.log_no, (unsigned)last_dive.meta.day, (unsigned)last_dive.meta.month, (unsigned)last_dive.meta.year);
+        (void)snprintf(vm->lines[1], sizeof(vm->lines[1]), "MAX DEPTH: %.1fm", (double)last_dive.max_depth_m);
+        (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "AVG DEPTH: %.1fm", (double)last_dive.avg_depth_m);
+        (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "DIVE TIME: %s", dive_time);
+        (void)snprintf(vm->lines[4], sizeof(vm->lines[4]), "SURFACE: %s", surface_time);
+        vm->count = 5U;
         break;
     }
     case 2U:

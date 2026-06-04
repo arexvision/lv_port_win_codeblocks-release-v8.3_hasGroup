@@ -113,6 +113,13 @@ static void build_info_rows(uint8_t index)
     }
 }
 
+static void build_logbook_rows(void)
+{
+    rows_clear();
+    row_add(MENU_ITEM_LOGBOOK_BACK, MENU_ROW_DIVE_PLAN, "Back");
+    row_add(MENU_ITEM_LOGBOOK_MORE, MENU_ROW_DIVE_PLAN, "More");
+}
+
 static void build_setup_gas_switch(void)
 {
     /* 气体切换页直接把气体槽列表映射为可点击菜单行。 */
@@ -273,6 +280,9 @@ static void build_rows(void)
         break;
     case MENU_INFO_SENSOR_DEVICE:
         build_info_rows(4);
+        break;
+    case MENU_INFO_DIVE_LOG:
+        build_logbook_rows();
         break;
     case MENU_SETUP_GAS_SWITCH:
         build_setup_gas_switch();
@@ -545,6 +555,11 @@ bool menu_runtime_is_dive_plan(void)
 {
     /* INFO/DIVE PLAN 是特殊计划页，后续要走专用绘制逻辑。 */
     return s_current_menu == MENU_INFO_DIVE_PLAN;
+}
+
+bool menu_runtime_is_logbook(void)
+{
+    return s_current_menu == MENU_INFO_DIVE_LOG;
 }
 
 bool menu_runtime_is_dive_plan_result(void)

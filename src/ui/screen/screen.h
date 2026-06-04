@@ -116,6 +116,8 @@ void screen_handle_submenu_select(uint8_t item_idx);
 void screen_close_submenu(void);
 void screen_refresh_info_submenu_if_open(void);
 bool screen_handle_dive_plan_rotate(int8_t dir);
+bool screen_handle_logbook_rotate(int8_t dir);
+bool screen_handle_logbook_back(void);
 void screen_refresh_compass_cal_submenu_if_open(void);
 
 void screen_open_nested_submenu(const char *title, const char **items, uint8_t count);

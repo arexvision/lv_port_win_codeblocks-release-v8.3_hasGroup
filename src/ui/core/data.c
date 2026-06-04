@@ -22,6 +22,11 @@ static bool s_dive_log_sample_valid;
 static float s_dive_log_last_sample_time_s;
 static deco_stop_t s_deco_stops[MAX_DECO_STOPS];
 static uint16_t s_deco_stop_count;
+static logbook_entry_t s_logbook_entries[MAX_LOGBOOK_ENTRIES];
+static dive_pt_t s_logbook_samples[MAX_LOGBOOK_ENTRIES][MAX_DIVE_LOG];
+static uint16_t s_logbook_sample_counts[MAX_LOGBOOK_ENTRIES];
+static uint8_t s_logbook_count;
+static logbook_entry_t s_last_dive_snapshot;
 
 /* =========================================================
  * Data Bus Setter 实现 — 硬件/模拟层专用
@@ -2159,6 +2164,149 @@ void dive_log_reset(void)
     s_dive_log_sample_valid = false;
     s_dive_log_last_sample_time_s = 0.0f;
     s_deco_stop_count = 0U;
+}
+
+uint8_t logbook_backend_count(void)
+{
+    return s_logbook_count;
+}
+
+bool logbook_backend_get_summary(uint8_t index, logbook_entry_t *out_entry)
+{
+    if ((out_entry == NULL) || (index >= s_logbook_count))
+    {
+        return false;
+    }
+
+    *out_entry = s_logbook_entries[index];
+    return out_entry->valid;
+}
+
+bool logbook_backend_get_detail(uint8_t index, logbook_entry_t *out_entry)
+{
+    return logbook_backend_get_summary(index, out_entry);
+}
+
+bool logbook_backend_get_samples(uint8_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count)
+{
+    uint16_t count;
+
+    if (out_count)
+    {
+        *out_count = 0U;
+    }
+    if (index >= s_logbook_count)
+    {
+        return false;
+    }
+
+    count = s_logbook_sample_counts[index];
+    if (count > max_points)
+    {
+        count = max_points;
+    }
+    if ((out_points != NULL) && (count > 0U))
+    {
+        (void)memcpy(out_points, s_logbook_samples[index], count * sizeof(out_points[0]));
+    }
+    if (out_count)
+    {
+        *out_count = count;
+    }
+    return true;
+}
+
+bool logbook_backend_update_meta(uint8_t index, const logbook_meta_t *meta)
+{
+    if ((meta == NULL) || (index >= s_logbook_count))
+    {
+        return false;
+    }
+
+    s_logbook_entries[index].meta = *meta;
+    if (s_last_dive_snapshot.valid && (index + 1U == s_logbook_count))
+    {
+        s_last_dive_snapshot.meta = *meta;
+    }
+    g_sensor_data.dirty_mask |= DIRTY_LOGBOOK;
+    return true;
+}
+
+bool logbook_backend_delete(uint8_t index)
+{
+    if (index >= s_logbook_count)
+    {
+        return false;
+    }
+
+    if (index + 1U < s_logbook_count)
+    {
+        uint8_t tail_count = (uint8_t)(s_logbook_count - index - 1U);
+        (void)memmove(&s_logbook_entries[index], &s_logbook_entries[index + 1U], tail_count * sizeof(s_logbook_entries[0]));
+        (void)memmove(&s_logbook_sample_counts[index], &s_logbook_sample_counts[index + 1U], tail_count * sizeof(s_logbook_sample_counts[0]));
+        (void)memmove(&s_logbook_samples[index], &s_logbook_samples[index + 1U], tail_count * sizeof(s_logbook_samples[0]));
+    }
+    s_logbook_count--;
+
+    if (s_logbook_count > 0U)
+    {
+        s_last_dive_snapshot = s_logbook_entries[s_logbook_count - 1U];
+    }
+    else
+    {
+        (void)memset(&s_last_dive_snapshot, 0, sizeof(s_last_dive_snapshot));
+    }
+    g_sensor_data.dirty_mask |= DIRTY_LOGBOOK;
+    return true;
+}
+
+bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const dive_pt_t *points, uint16_t point_count)
+{
+    uint8_t index;
+
+    if (entry == NULL)
+    {
+        return false;
+    }
+
+    if (s_logbook_count >= MAX_LOGBOOK_ENTRIES)
+    {
+        (void)logbook_backend_delete(0U);
+    }
+
+    if (s_logbook_count >= MAX_LOGBOOK_ENTRIES)
+    {
+        return false;
+    }
+
+    index = s_logbook_count++;
+    s_logbook_entries[index] = *entry;
+    s_logbook_entries[index].valid = true;
+
+    if (point_count > MAX_DIVE_LOG)
+    {
+        point_count = MAX_DIVE_LOG;
+    }
+    s_logbook_sample_counts[index] = point_count;
+    if ((points != NULL) && (point_count > 0U))
+    {
+        (void)memcpy(s_logbook_samples[index], points, point_count * sizeof(points[0]));
+    }
+
+    s_last_dive_snapshot = s_logbook_entries[index];
+    g_sensor_data.dirty_mask |= DIRTY_LOGBOOK;
+    return true;
+}
+
+bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry)
+{
+    if ((out_entry == NULL) || !s_last_dive_snapshot.valid)
+    {
+        return false;
+    }
+
+    *out_entry = s_last_dive_snapshot;
+    return true;
 }
 
 /* =========================================================

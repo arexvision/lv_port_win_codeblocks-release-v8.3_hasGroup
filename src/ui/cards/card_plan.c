@@ -2,6 +2,7 @@
 #include "../core/data.h"
 #include "../core/ui_engine.h"
 #include "../core/vm/ui_vm_plan_chart_types.h"
+#include "../comp/depth_chart_renderer.h"
 #include "../screen/layout_view.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/fonts.h"
@@ -236,23 +237,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
     line_dsc.dash_gap = 0;
 
     lv_point_t last_p;
-    if (vm->dive_log_count > 0U)
-    {
-        last_p.x = MAP_X(vm->dive_log[0].time_s);
-        last_p.y = MAP_Y(vm->dive_log[0].depth_m);
-
-        for (uint8_t i = 1U; i < vm->dive_log_count; i++)
-        {
-            lv_point_t next_p =
-            {
-                MAP_X(vm->dive_log[i].time_s),
-                MAP_Y(vm->dive_log[i].depth_m)
-            };
-            lv_draw_line(draw_ctx, &line_dsc, &last_p, &next_p);
-            last_p = next_p;
-        }
-    }
-    else
+    if (!depth_chart_draw_profile(draw_ctx, vm->dive_log, vm->dive_log_count, (lv_coord_t)x_axis_left, (lv_coord_t)((float)area->y1 + pad_y_top), (lv_coord_t)w, (lv_coord_t)h, max_t_axis_sec, max_d_axis, line_dsc.color, line_dsc.width, line_dsc.opa, &last_p))
     {
         last_p.x = MAP_X(0.0f);
         last_p.y = MAP_Y(0.0f);

@@ -29,16 +29,18 @@ typedef enum
     DIRTY_PLAN         = (1U << 7),
     DIRTY_DIVE_CONFIG  = (1U << 8),
     DIRTY_ALARM        = (1U << 9),
-    DIRTY_UI_LAYOUT    = (1U << 10),
+    DIRTY_LOGBOOK      = (1U << 10),
+    DIRTY_UI_LAYOUT    = (1U << 11),
 } dirty_bit_t;
 
 #define DIRTY_DATA_ALL  (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX | \
                          DIRTY_GAS_SUPPLY | DIRTY_SYSTEM | DIRTY_COMPASS | \
-                         DIRTY_SENSOR | DIRTY_PLAN | DIRTY_DIVE_CONFIG | DIRTY_ALARM)
+                         DIRTY_SENSOR | DIRTY_PLAN | DIRTY_DIVE_CONFIG | \
+                         DIRTY_LOGBOOK | DIRTY_ALARM)
 
 #define DIRTY_INFO_REFRESH_MASK  (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX | \
                                   DIRTY_GAS_SUPPLY | DIRTY_SYSTEM | DIRTY_COMPASS | \
-                                  DIRTY_SENSOR | DIRTY_PLAN | DIRTY_DIVE_CONFIG)
+                                  DIRTY_SENSOR | DIRTY_PLAN | DIRTY_DIVE_CONFIG | DIRTY_LOGBOOK)
 
 #define DIRTY_WIDGET_REFRESH_MASK  (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | \
                                     DIRTY_TISSUE_TOX | DIRTY_GAS_SUPPLY | \

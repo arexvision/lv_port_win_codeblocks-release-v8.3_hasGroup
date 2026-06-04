@@ -15,6 +15,7 @@ const menu_item_cfg_t g_menu_info_items[SUBMENU_INFO_COUNT] =
     { "TISSUE & TOX",    NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "GAS & CALC",      NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "SENSOR & DEVICE", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "DIVE LOG",        NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 
 const menu_item_cfg_t g_menu_setup_items[SUBMENU_SETUP_COUNT] =
@@ -58,6 +59,7 @@ menu_id_t menu_defs_info_menu_for_index(uint8_t index)
         MENU_INFO_TISSUE_TOX,
         MENU_INFO_GAS_CALC,
         MENU_INFO_SENSOR_DEVICE,
+        MENU_INFO_DIVE_LOG,
     };
     return (index < (sizeof(map) / sizeof(map[0]))) ? map[index] : MENU_NONE;
 }
@@ -87,6 +89,7 @@ const char *menu_defs_title(menu_id_t id)
     case MENU_INFO_TISSUE_TOX:     return "TISSUE & TOX";
     case MENU_INFO_GAS_CALC:       return "GAS & CALC";
     case MENU_INFO_SENSOR_DEVICE:  return "SENSOR & DEVICE";
+    case MENU_INFO_DIVE_LOG:       return "DIVE LOG";
     case MENU_SETUP_GAS_SWITCH:    return "GAS SWITCH";
     case MENU_SETUP_CONSERVATISM:  return "CONSERVATISM";
     case MENU_SETUP_BRIGHTNESS:    return "BRIGHTNESS";
@@ -151,7 +154,8 @@ bool menu_defs_is_info_menu(menu_id_t id)
            id == MENU_INFO_DIVE_PLAN ||
            id == MENU_INFO_TISSUE_TOX ||
            id == MENU_INFO_GAS_CALC ||
-           id == MENU_INFO_SENSOR_DEVICE;
+           id == MENU_INFO_SENSOR_DEVICE ||
+           id == MENU_INFO_DIVE_LOG;
 }
 
 bool menu_defs_is_readonly_menu(menu_id_t id)

@@ -1,6 +1,7 @@
 #include "sim_data.h"
 
 #include "../ui/core/data.h"
+#include "../ui/core/ui_dirty.h"
 #include "../algo_sim/buhlmann_debug.h"
 #include "sim_alert_policy.h"
 #ifndef PC_SIMULATOR
@@ -11,6 +12,7 @@
 #include "lvgl/lvgl.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
 #ifndef TCP_ALGO_DEBUG
@@ -19,17 +21,33 @@
 
 static lv_timer_t *s_sim_timer;
 
+static void sim_fill_logbook_tanks(logbook_entry_t *entry);
+
 #define SIM_LAYOUT_PHASE_COUNT 4U
 #define SIM_LAYOUT_SWITCH_TICKS 5U
+#define SIM_DIVE_ENTRY_DEPTH_M 1.2f
+#define SIM_SURFACE_DEPTH_M 0.8f
+#ifndef SIM_SURFACE_CONFIRM_S
+#define SIM_SURFACE_CONFIRM_S 5U
+#endif
 
 typedef struct
 {
     uint16_t heading_deg;
     uint32_t dive_time_s;
     uint32_t surface_time_s;
+    uint32_t surface_pending_s;
+    uint32_t last_surface_interval_s;
     float depth_m;
+    float max_depth_m;
+    float depth_sum_m;
     uint16_t tts_min;
+    uint16_t next_log_no;
+    uint32_t depth_sample_count;
     uint8_t cns_pct;
+    uint8_t start_h;
+    uint8_t start_m;
+    uint8_t start_cns_pct;
     uint16_t otu;
     float battery_pct;
     float temperature_c;
@@ -40,15 +58,26 @@ typedef struct
     uint8_t depth_phase;
     float rate_sample_depth_m;
     bool rate_sample_valid;
+    bool in_dive;
+    bool surfacing_pending;
 } sim_state_t;
 
 static sim_state_t s_sim = {
     .heading_deg = 0,
     .dive_time_s = 0,
     .surface_time_s = 0,
+    .surface_pending_s = 0,
+    .last_surface_interval_s = 0,
     .depth_m = 0.0f,
+    .max_depth_m = 0.0f,
+    .depth_sum_m = 0.0f,
     .tts_min = 0,
+    .next_log_no = 1,
+    .depth_sample_count = 0,
     .cns_pct = 0,
+    .start_h = 10,
+    .start_m = 55,
+    .start_cns_pct = 0,
     .otu = 0,
     .battery_pct = 85.0f,
     .temperature_c = 25.0f,
@@ -59,6 +88,8 @@ static sim_state_t s_sim = {
     .depth_phase = 0,
     .rate_sample_depth_m = 0.0f,
     .rate_sample_valid = false,
+    .in_dive = false,
+    .surfacing_pending = false,
 };
 
 static float sim_calc_ppo2(uint8_t o2_pct, float depth_m)
@@ -110,6 +141,52 @@ static void sim_seed_original_defaults(void)
     sim_update_gas_derived(0.0f);
 }
 
+static void sim_seed_logbook_demo_if_empty(void)
+{
+    logbook_entry_t entry;
+    static const dive_pt_t points[] =
+    {
+        {0.0f, 0.0f},
+        {60.0f, 8.0f},
+        {180.0f, 18.0f},
+        {420.0f, 24.0f},
+        {900.0f, 22.0f},
+        {1500.0f, 14.0f},
+        {2100.0f, 6.0f},
+        {2400.0f, 0.0f},
+    };
+
+    if (logbook_backend_count() > 0U)
+    {
+        return;
+    }
+
+    (void)memset(&entry, 0, sizeof(entry));
+    entry.valid = true;
+    entry.meta.log_no = 1U;
+    entry.meta.year = 2025U;
+    entry.meta.month = 12U;
+    entry.meta.day = 31U;
+    entry.meta.start_h = 10U;
+    entry.meta.start_m = 55U;
+    entry.meta.end_h = 11U;
+    entry.meta.end_m = 35U;
+    entry.dive_time_s = 2400U;
+    entry.surface_interval_s = 42U * 3600U + 24U * 60U;
+    entry.max_depth_m = 24.0f;
+    entry.avg_depth_m = 15.6f;
+    entry.surface_mbar = 1013.0f;
+    entry.start_cns_pct = 0U;
+    entry.end_cns_pct = 8U;
+    entry.avg_sac_l_min = 12.4f;
+    (void)snprintf(entry.mode, sizeof(entry.mode), "Air");
+    (void)snprintf(entry.deco_model, sizeof(entry.deco_model), "GF 30/70");
+    sim_fill_logbook_tanks(&entry);
+    (void)snprintf(entry.tank_start[0], sizeof(entry.tank_start[0]), "200");
+    (void)snprintf(entry.tank_end[0], sizeof(entry.tank_end[0]), "82");
+    (void)logbook_backend_append_finalized_dive(&entry, points, (uint16_t)(sizeof(points) / sizeof(points[0])));
+}
+
 #if TCP_ALGO_DEBUG
 static void sim_seed_tcp_algo_defaults(void)
 {
@@ -135,6 +212,9 @@ static void sim_reset_for_tcp_debug(void)
     memset(&s_sim, 0, sizeof(s_sim));
     s_sim.battery_pct = 86.0f;
     s_sim.temperature_c = 25.0f;
+    s_sim.next_log_no = 1U;
+    s_sim.start_h = 10U;
+    s_sim.start_m = 55U;
 
     data_init();
     sim_alert_init();
@@ -148,9 +228,10 @@ static void sim_reset_for_tcp_debug(void)
     bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
     bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
     sim_seed_tcp_algo_defaults();
+    sim_seed_logbook_demo_if_empty();
     buhlmann_debug_reset();
 
-    bus_requeue_dirty(0xFFFFFFFFU & ~DIRTY_UI_LAYOUT);
+    bus_requeue_dirty(DIRTY_DATA_ALL);
 }
 #endif
 
@@ -336,6 +417,137 @@ static void sim_update_deco_state(void)
     bus_update_deco(0, STOP_DECO, 6.0f, 300, 120, false);
 }
 
+static void sim_start_dive(float depth_m)
+{
+    uint16_t h = bus_get_sys_time_h();
+    uint16_t m = bus_get_sys_time_m();
+
+    s_sim.in_dive = true;
+    s_sim.surfacing_pending = false;
+    s_sim.surface_pending_s = 0U;
+    s_sim.last_surface_interval_s = s_sim.surface_time_s;
+    s_sim.dive_time_s = 0U;
+    s_sim.surface_time_s = 0U;
+    s_sim.max_depth_m = depth_m;
+    s_sim.depth_sum_m = 0.0f;
+    s_sim.depth_sample_count = 0U;
+    s_sim.start_h = (h <= 23U) ? (uint8_t)h : 10U;
+    s_sim.start_m = (m <= 59U) ? (uint8_t)m : 55U;
+    s_sim.start_cns_pct = bus_get_cns_pct();
+    dive_log_reset();
+    dive_log_append(0.0f, 0.0f);
+    bus_set_dive_time(0U);
+    bus_set_surface_time(0U);
+}
+
+static void sim_fill_logbook_tanks(logbook_entry_t *entry)
+{
+    for (uint8_t i = 0U; i < LOGBOOK_TANK_COUNT; i++)
+    {
+        (void)snprintf(entry->tank_start[i], sizeof(entry->tank_start[i]), "N/A");
+        (void)snprintf(entry->tank_end[i], sizeof(entry->tank_end[i]), "N/A");
+    }
+}
+
+static void sim_finalize_dive(void)
+{
+    logbook_entry_t entry;
+    dive_pt_t points[MAX_DIVE_LOG];
+    uint8_t count = bus_get_dive_log_count();
+    uint8_t active_gas = bus_get_gas_active_idx();
+    uint8_t active_o2 = bus_get_gas_slot_o2_pct(active_gas);
+    uint8_t active_he = bus_get_gas_slot_he_pct(active_gas);
+    const char *mode = active_he > 0U ? "Trimix" : ((active_o2 == 21U) ? "Air" : "Nitrox");
+    uint32_t start_min;
+    uint32_t end_min;
+
+    (void)memset(&entry, 0, sizeof(entry));
+    for (uint8_t i = 0U; i < count; i++)
+    {
+        (void)bus_get_dive_log_point(i, &points[i]);
+    }
+
+    entry.valid = true;
+    entry.meta.log_no = s_sim.next_log_no++;
+    entry.meta.year = 2025U;
+    entry.meta.month = 12U;
+    entry.meta.day = 31U;
+    entry.meta.start_h = s_sim.start_h;
+    entry.meta.start_m = s_sim.start_m;
+    start_min = ((uint32_t)entry.meta.start_h * 60U) + entry.meta.start_m;
+    end_min = (start_min + ((s_sim.dive_time_s + 59U) / 60U)) % 1440U;
+    entry.meta.end_h = (uint8_t)(end_min / 60U);
+    entry.meta.end_m = (uint8_t)(end_min % 60U);
+    entry.dive_time_s = s_sim.dive_time_s;
+    entry.surface_interval_s = s_sim.last_surface_interval_s;
+    entry.max_depth_m = s_sim.max_depth_m;
+    entry.avg_depth_m = (s_sim.depth_sample_count > 0U) ? (s_sim.depth_sum_m / (float)s_sim.depth_sample_count) : 0.0f;
+    entry.surface_mbar = bus_get_ambient_pressure();
+    entry.start_cns_pct = s_sim.start_cns_pct;
+    entry.end_cns_pct = bus_get_cns_pct();
+    entry.avg_sac_l_min = bus_get_sac_rate();
+    (void)snprintf(entry.mode, sizeof(entry.mode), "%s", mode);
+    (void)snprintf(entry.deco_model, sizeof(entry.deco_model), "GF %u/%u", (unsigned)bus_get_gf_low(), (unsigned)bus_get_gf_high());
+    sim_fill_logbook_tanks(&entry);
+    (void)logbook_backend_append_finalized_dive(&entry, points, count);
+
+    s_sim.in_dive = false;
+    s_sim.surfacing_pending = false;
+    s_sim.surface_pending_s = 0U;
+    s_sim.dive_time_s = 0U;
+    s_sim.surface_time_s = 0U;
+    s_sim.max_depth_m = 0.0f;
+    s_sim.depth_sum_m = 0.0f;
+    s_sim.depth_sample_count = 0U;
+    dive_log_reset();
+    bus_set_dive_time(0U);
+    bus_set_surface_time(0U);
+}
+
+static void sim_lifecycle_tick(float depth_m)
+{
+    if (!s_sim.in_dive)
+    {
+        if (depth_m >= SIM_DIVE_ENTRY_DEPTH_M)
+        {
+            sim_start_dive(depth_m);
+        }
+        else
+        {
+            s_sim.surface_time_s++;
+            bus_set_surface_time(s_sim.surface_time_s);
+            bus_set_dive_time(0U);
+            return;
+        }
+    }
+
+    s_sim.dive_time_s++;
+    bus_set_dive_time(s_sim.dive_time_s);
+    if (depth_m > s_sim.max_depth_m)
+    {
+        s_sim.max_depth_m = depth_m;
+    }
+    s_sim.depth_sum_m += depth_m;
+    s_sim.depth_sample_count++;
+    bus_set_dive_profile_stats(s_sim.max_depth_m, s_sim.depth_sum_m / (float)s_sim.depth_sample_count);
+    dive_log_append_sampled((float)s_sim.dive_time_s, depth_m);
+
+    if (depth_m <= SIM_SURFACE_DEPTH_M)
+    {
+        s_sim.surfacing_pending = true;
+        s_sim.surface_pending_s++;
+        if (s_sim.surface_pending_s >= SIM_SURFACE_CONFIRM_S)
+        {
+            sim_finalize_dive();
+        }
+    }
+    else
+    {
+        s_sim.surfacing_pending = false;
+        s_sim.surface_pending_s = 0U;
+    }
+}
+
 static void sim_tick_cb(lv_timer_t *t)
 {
     float current_depth_m;
@@ -354,22 +566,9 @@ static void sim_tick_cb(lv_timer_t *t)
     {
         uint16_t time_scale = debug_link_pc_time_scale();
         for (uint16_t tick = 0; tick < time_scale; tick++) {
-            if (s_sim.dive_time_s < g_sensor_data.dive_time_s) {
-                s_sim.dive_time_s = g_sensor_data.dive_time_s;
-            }
-            if (s_sim.surface_time_s < g_sensor_data.surface_time_s) {
-                s_sim.surface_time_s = g_sensor_data.surface_time_s;
-            }
-
-            s_sim.dive_time_s++;
-            bus_set_dive_time(s_sim.dive_time_s);
-
-            s_sim.surface_time_s++;
-            bus_set_surface_time(s_sim.surface_time_s);
-
             current_depth_m = g_sensor_data.depth;
             s_sim.depth_m = current_depth_m;
-            dive_log_append_sampled((float)s_sim.dive_time_s, current_depth_m);
+            sim_lifecycle_tick(current_depth_m);
 
             if (s_sim.rate_sample_valid) {
                 bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
@@ -408,24 +607,11 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
     bus_set_heading(s_sim.heading_deg);
 
-    if (s_sim.dive_time_s < g_sensor_data.dive_time_s) {
-        s_sim.dive_time_s = g_sensor_data.dive_time_s;
-    }
-    if (s_sim.surface_time_s < g_sensor_data.surface_time_s) {
-        s_sim.surface_time_s = g_sensor_data.surface_time_s;
-    }
-
-    s_sim.dive_time_s++;
-    bus_set_dive_time(s_sim.dive_time_s);
-
-    s_sim.surface_time_s++;
-    bus_set_surface_time(s_sim.surface_time_s);
-
     sim_update_depth_script();
     sim_update_deco_state();
     current_depth_m = s_sim.depth_m;
-    dive_log_append_sampled((float)s_sim.dive_time_s, current_depth_m);
     bus_set_depth(current_depth_m);
+    sim_lifecycle_tick(current_depth_m);
 
     if (s_sim.rate_sample_valid) {
         bus_set_ascent_rate((s_sim.rate_sample_depth_m - current_depth_m) * 60.0f);
@@ -504,8 +690,10 @@ void sim_data_start(void)
 #if TCP_ALGO_DEBUG
     debug_link_pc_start();
     sim_alert_init();
+    sim_seed_logbook_demo_if_empty();
 #else
     sim_seed_original_defaults();
+    sim_seed_logbook_demo_if_empty();
     sim_alert_init();
 #endif
 

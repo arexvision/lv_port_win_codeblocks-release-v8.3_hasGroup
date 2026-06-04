@@ -326,6 +326,16 @@ bool bus_get_dive_log_point(uint8_t index, dive_pt_t *out_point);
 uint8_t bus_get_deco_stop_count(void);
 bool bus_get_deco_stop(uint8_t index, deco_stop_t *out_stop);
 
+/* --- Logbook / Last Dive backend --- */
+uint8_t logbook_backend_count(void);
+bool logbook_backend_get_summary(uint8_t index, logbook_entry_t *out_entry);
+bool logbook_backend_get_detail(uint8_t index, logbook_entry_t *out_entry);
+bool logbook_backend_get_samples(uint8_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count);
+bool logbook_backend_update_meta(uint8_t index, const logbook_meta_t *meta);
+bool logbook_backend_delete(uint8_t index);
+bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const dive_pt_t *points, uint16_t point_count);
+bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry);
+
 /* --- 历史轨迹推流 --- */
 void dive_log_append(float current_time_s, float current_depth_m);
 void dive_log_append_sampled(float current_time_s, float current_depth_m);

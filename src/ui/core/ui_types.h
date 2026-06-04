@@ -192,6 +192,39 @@ typedef struct
     float depth_m;
 } dive_pt_t;
 
+#define MAX_LOGBOOK_ENTRIES 16U
+#define LOGBOOK_TANK_COUNT  4U
+
+typedef struct
+{
+    uint16_t log_no;
+    uint16_t year;
+    uint8_t month;
+    uint8_t day;
+    uint8_t start_h;
+    uint8_t start_m;
+    uint8_t end_h;
+    uint8_t end_m;
+} logbook_meta_t;
+
+typedef struct
+{
+    bool valid;
+    logbook_meta_t meta;
+    uint32_t dive_time_s;
+    uint32_t surface_interval_s;
+    float max_depth_m;
+    float avg_depth_m;
+    float surface_mbar;
+    uint8_t start_cns_pct;
+    uint8_t end_cns_pct;
+    float avg_sac_l_min;
+    char mode[12];
+    char deco_model[16];
+    char tank_start[LOGBOOK_TANK_COUNT][8];
+    char tank_end[LOGBOOK_TANK_COUNT][8];
+} logbook_entry_t;
+
 typedef struct
 {
     float depth_m;

@@ -14,7 +14,7 @@
 extern "C" {
 #endif
 
-#define SUBMENU_INFO_COUNT   5
+#define SUBMENU_INFO_COUNT   6
 #define SUBMENU_SETUP_COUNT  6
 
 typedef enum

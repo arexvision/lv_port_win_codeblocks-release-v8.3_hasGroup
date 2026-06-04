@@ -249,6 +249,10 @@ void ui_handle_rotate(int8_t dir)
         {
             break;
         }
+        if (screen_handle_logbook_rotate(dir))
+        {
+            break;
+        }
         int8_t next = (int8_t)s_ui.sub_menu_idx + dir;
         if (next < 0) next = 0;
         if (next >= (int8_t)s_ui.sub_item_count) next = s_ui.sub_item_count - 1;
@@ -494,6 +498,10 @@ void ui_handle_back(void)
         break;
 
     case UI_SUB_MENU:
+        if (screen_handle_logbook_back())
+        {
+            break;
+        }
         screen_close_submenu();
         break;
 

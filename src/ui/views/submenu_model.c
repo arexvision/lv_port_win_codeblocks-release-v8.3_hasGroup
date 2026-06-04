@@ -26,7 +26,7 @@
 
 static const char *s_info_titles[SUBMENU_INFO_COUNT] =
 {
-    "LAST DIVE", "DIVE PLAN", "TISSUE & TOX", "GAS & CALC", "SENSOR & DEVICE"
+    "LAST DIVE", "DIVE PLAN", "TISSUE & TOX", "GAS & CALC", "SENSOR & DEVICE", "DIVE LOG"
 };
 
 /* 这些静态缓存用于承接 VM 动态文本，保证返回给 view 层的是稳定字符串指针。 */
