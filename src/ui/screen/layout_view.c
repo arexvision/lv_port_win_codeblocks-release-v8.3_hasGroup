@@ -351,6 +351,21 @@ static void add_left_anchor_sep_line(lv_obj_t *parent, lv_coord_t x, lv_coord_t 
     lv_obj_clear_flag(line, LV_OBJ_FLAG_SCROLLABLE);
 }
 
+static void add_left_anchor_sep_vline(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t h)
+{
+    lv_obj_t *line;
+
+    if (!parent) return;
+
+    line = lv_obj_create(parent);
+    lv_obj_remove_style_all(line);
+    lv_obj_set_size(line, 1, h);
+    lv_obj_set_pos(line, x, y);
+    lv_obj_set_style_bg_color(line, GREEN, 0);
+    lv_obj_set_style_bg_opa(line, 140, 0);
+    lv_obj_clear_flag(line, LV_OBJ_FLAG_SCROLLABLE);
+}
+
 static void add_left_anchor_sep_boundary(uint16_t boundaries[LEFT_MAX_WIDGETS * 2],
                                          uint8_t *count,
                                          uint16_t y,
@@ -409,13 +424,16 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
     s_left_prj_lbl = NULL;
 
     uint16_t sep_boundaries[LEFT_MAX_WIDGETS * 2];
+    uint16_t sep_x_boundaries[LEFT_MAX_WIDGETS * 2];
     uint8_t sep_boundary_count = 0U;
+    uint8_t sep_x_boundary_count = 0U;
     const uint16_t anchor_w = ui_anchor_w_get();
     const uint16_t anchor_h = ui_anchor_h_get();
     const uint8_t grid_cols = ui_fixed_grid_cols_get();
     const uint8_t grid_rows = ui_fixed_grid_rows_get();
     const uint16_t cell_w = (grid_cols > 0U) ? (uint16_t)(anchor_w / grid_cols) : LEFT_CELL_W;
     const uint16_t cell_h = (grid_rows > 0U) ? (uint16_t)(anchor_h / grid_rows) : LEFT_CELL_H;
+    const bool horizontal_anchor = !ui_layout_is_vertical_split();
 
     for (uint8_t i = 0; i < ui_left_widget_count_get() && i < LEFT_MAX_WIDGETS; i++)
     {
@@ -460,6 +478,11 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
                                      &sep_boundary_count,
                                      (uint16_t)((origin_row + span_h) * cell_h),
                                      anchor_h);
+        if (horizontal_anchor)
+        {
+            add_left_anchor_sep_boundary(sep_x_boundaries, &sep_x_boundary_count, (uint16_t)(origin_col * cell_w), anchor_w);
+            add_left_anchor_sep_boundary(sep_x_boundaries, &sep_x_boundary_count, (uint16_t)((origin_col + span_w) * cell_w), anchor_w);
+        }
 
         render_widget_by_id(left_anchor, cfg->widget_id,
                             abs_x, abs_y, abs_w, abs_h,
@@ -469,6 +492,10 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
     for (uint8_t i = 0U; i < sep_boundary_count; i++)
     {
         add_left_anchor_sep_line(left_anchor, 0, (lv_coord_t)sep_boundaries[i], (lv_coord_t)anchor_w);
+    }
+    for (uint8_t i = 0U; i < sep_x_boundary_count; i++)
+    {
+        add_left_anchor_sep_vline(left_anchor, (lv_coord_t)sep_x_boundaries[i], 0, (lv_coord_t)anchor_h);
     }
 }
 

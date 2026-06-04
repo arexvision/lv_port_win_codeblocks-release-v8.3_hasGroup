@@ -174,13 +174,13 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
     {
         { COMP_TISSUE_RAW_4012, 0, 0 },
         { COMP_TISSUE_GF_4012, 0, 2 },
-        { COMP_GAS_MIX_1606, 4, 0 },
-        { COMP_CEILING_0806, 4, 1 },
-        { COMP_ASCENT_0806, 6, 0 },
+        { COMP_GAS_MIX_1606, 5, 0 },
+        { COMP_ASCENT_0806, 5, 1 },
         { COMP_FIO2_0806, 6, 1 },
-        { COMP_TTS_0806, 4, 2 },
-        { COMP_MOD_0806, 5, 2 },
-        { COMP_GAS_DENS_0806, 6, 2 },
+        { COMP_CEILING_0806, 5, 2 },
+        { COMP_TTS_0806, 6, 2 },
+        { COMP_MOD_0806, 5, 3 },
+        { COMP_GAS_DENS_0806, 6, 3 },
     };
     static const grid_widget_t top_sensor[] =
     {
