@@ -144,7 +144,7 @@ void sys_config_defaults(sys_config_t *cfg)
 
     /* ========== [A] 面板间距 ========== */
     cfg->gap_u       = 0;   /* 组件块内部间距预留 */
-    cfg->panel_gap_u = 1;   /* 固定栏与内容区内部 GAP: 2U=20px */
+    cfg->panel_gap_u = 2;   /* 固定栏与内容区内部 GAP: 2U=20px */
 
     /* ========== [A] 自定义网格：side=5列 x 6行，top/bottom=7列 x 4行 ==========
      *
