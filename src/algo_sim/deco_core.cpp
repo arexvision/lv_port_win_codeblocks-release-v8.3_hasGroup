@@ -18,6 +18,8 @@ extern "C" {
 #define GAS_DENSITY_O2_G_L 1.428f
 #define GAS_DENSITY_N2_G_L 1.251f
 #define GAS_DENSITY_HE_G_L 0.179f
+#define DECO_SCHEDULE_DEBUG_PRINT_MS 1000U
+#define DECO_SCHEDULE_DEBUG_MAX_STOPS 6U
 
 static ArexDecoDiveState s_state;
 static ArexDecoRuntimeMetrics s_metrics;
@@ -27,6 +29,7 @@ static uint8_t s_gf_high_pct = 85U;
 static uint8_t s_final_deco_stop_depth_m = 3U;
 static uint8_t s_salinity_mode;
 static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
+static uint32_t s_schedule_debug_last_print_ms;
 
 typedef struct
 {
@@ -102,6 +105,43 @@ static uint16_t sync_stop_progress_total(stop_type_t type, float depth_m, uint16
 
     s_stop_progress.was_in_stop_zone = in_stop_zone;
     return s_stop_progress.total_s;
+}
+
+static void debug_print_schedule(const ArexDecoSchedule *schedule)
+{
+    uint32_t now_ms = rt_tick_get();
+    uint8_t print_count;
+
+    if (schedule == NULL)
+    {
+        return;
+    }
+    if ((uint32_t)(now_ms - s_schedule_debug_last_print_ms) < DECO_SCHEDULE_DEBUG_PRINT_MS)
+    {
+        return;
+    }
+
+    s_schedule_debug_last_print_ms = now_ms;
+    print_count = schedule->stop_count;
+    if (print_count > DECO_SCHEDULE_DEBUG_MAX_STOPS) print_count = DECO_SCHEDULE_DEBUG_MAX_STOPS;
+
+    rt_kprintf("[AREX_PLAN] depth=%.1fm ceiling=%.2fm tts=%lus stops=%u",
+               (double)s_state.current_depth_m,
+               (double)s_metrics.ceiling_depth_m,
+               (unsigned long)schedule->tts_seconds,
+               (unsigned)schedule->stop_count);
+    for (uint8_t i = 0U; i < print_count; i++)
+    {
+        const ArexDecoStop *stop = &schedule->stops[i];
+        rt_kprintf(" | #%u %.2fm %lus gas=%d gf=%.2f",
+                   (unsigned)(i + 1U),
+                   (double)stop->depth_m,
+                   (unsigned long)stop->duration_seconds,
+                   (int)stop->gas_index,
+                   (double)stop->target_gf);
+    }
+    if (schedule->stop_count > print_count) rt_kprintf(" | ...");
+    rt_kprintf("\n");
 }
 
 static float pressure_bar_at_depth(const ArexDecoConfig *config, float depth_m)
@@ -466,6 +506,10 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     ArexDecoSchedule schedule;
     (void)memset(&schedule, 0, sizeof(schedule));
     ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
+    if (plan_status == AREX_DECO_STATUS_OK)
+    {
+        debug_print_schedule(&schedule);
+    }
     sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
 }
 
