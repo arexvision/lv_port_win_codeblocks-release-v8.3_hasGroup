@@ -618,6 +618,9 @@ static void sim_tick_cb(lv_timer_t *t)
         uint16_t time_scale = debug_link_pc_time_scale();
         for (uint16_t tick = 0; tick < time_scale; tick++) {
             current_depth_m = g_sensor_data.depth;
+            if (debug_link_pc_depth_goto_step(current_depth_m, &current_depth_m)) {
+                bus_set_depth(current_depth_m);
+            }
             s_sim.depth_m = current_depth_m;
             sim_lifecycle_tick(current_depth_m);
 

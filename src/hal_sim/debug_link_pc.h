@@ -12,6 +12,7 @@ void debug_link_pc_start(void);
 bool debug_link_pc_manual_mode(void);
 bool debug_link_pc_consume_connect_event(void);
 uint16_t debug_link_pc_time_scale(void);
+bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m);
 
 #ifdef __cplusplus
 }
@@ -44,6 +45,9 @@ uint16_t debug_link_pc_time_scale(void);
 #define DEBUG_TCP_PORT 7623U
 #define DEBUG_RX_BUF_SIZE 512U
 #define DEBUG_TX_BUF_SIZE 768U
+#define DEBUG_DEPTH_GOTO_DESCENT_MPM 18.0f
+#define DEBUG_DEPTH_GOTO_ASCENT_MPM 10.0f
+#define DEBUG_DEPTH_GOTO_EPSILON_M 0.01f
 
 typedef int (WSAAPI *wsa_startup_fn)(WORD, LPWSADATA);
 typedef int (WSAAPI *wsa_cleanup_fn)(void);
@@ -74,6 +78,8 @@ typedef struct
     bool depth_rate_valid;
     float depth_rate_last_m;
     uint32_t depth_rate_last_tick_ms;
+    bool depth_goto_active;
+    float depth_goto_target_m;
 
     wsa_startup_fn WSAStartup_;
     wsa_cleanup_fn WSACleanup_;
@@ -374,6 +380,31 @@ static void debug_update_gas_derived(void)
     bus_set_gas_density(surface_density * ambient_ata);
 }
 
+static void debug_depth_goto_cancel(void)
+{
+    s_debug_link.depth_goto_active = false;
+    s_debug_link.depth_goto_target_m = 0.0f;
+}
+
+static bool debug_depth_goto_start(float target_depth_m)
+{
+    if (target_depth_m < 0.0f)
+    {
+        target_depth_m = 0.0f;
+    }
+
+    if (debug_link_pc_time_scale() != 1U)
+    {
+        debug_send_raw("ERR goto requires speed 1\r\n");
+        return false;
+    }
+
+    s_debug_link.depth_goto_active = true;
+    s_debug_link.depth_goto_target_m = target_depth_m;
+    s_debug_link.depth_rate_valid = false;
+    return true;
+}
+
 static void debug_apply_depth_sample(float depth)
 {
     uint32_t sample_time_s;
@@ -383,6 +414,8 @@ static void debug_apply_depth_sample(float depth)
     {
         depth = 0.0f;
     }
+
+    debug_depth_goto_cancel();
 
     sample_time_s = g_sensor_data.dive_time_s;
     s_debug_link.sample_time_s = sample_time_s;
@@ -464,7 +497,7 @@ static void debug_send_help(void)
         "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back | manual on|off | auto on|off | speed <1..120>\r\n"
-        "  depth <m> | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
+        "  depth <m> | goto <m>|stop | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
         "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
         "  heading <deg> | ppo2 <slot> <bar> | gf <low> <high> | gf99 <pct> | surf_gf <pct>\r\n"
@@ -475,17 +508,19 @@ static void debug_send_help(void)
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "  alert ids: asc po2 po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
-        "Slots are 0-based. TCP disables the auto depth script; the 1Hz clock keeps running.\r\n");
+        "Slots are 0-based. TCP disables the auto depth script; goto requires speed 1 and moves at 18m/min down, 10m/min up.\r\n");
 }
 
 static void debug_send_state(void)
 {
     debug_sendf(
-        "STATE tcp=%u depth_manual=%u manual=%u speed=%u depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
+        "STATE tcp=%u depth_manual=%u manual=%u speed=%u goto=%u target=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
         (unsigned)debug_link_pc_time_scale(),
+        s_debug_link.depth_goto_active ? 1U : 0U,
+        (double)s_debug_link.depth_goto_target_m,
         (double)g_sensor_data.depth,
         (double)g_sensor_data.ascent_rate,
         (unsigned long)g_sensor_data.dive_time_s,
@@ -806,6 +841,29 @@ static void debug_exec_line(char *line)
         return;
     }
 
+    if (debug_streq(cmd, "goto") || debug_streq(cmd, "go"))
+    {
+        float target_depth_m;
+        arg = debug_next_token(&cursor);
+        if (debug_streq(arg, "stop") || debug_streq(arg, "cancel") || debug_streq(arg, "off"))
+        {
+            debug_depth_goto_cancel();
+            debug_send_raw("OK goto off\r\n");
+            return;
+        }
+        if (!debug_parse_float(arg, &target_depth_m))
+        {
+            debug_send_raw("ERR usage: goto <depth_m>|stop\r\n");
+            return;
+        }
+        if (!debug_depth_goto_start(target_depth_m))
+        {
+            return;
+        }
+        debug_sendf("OK goto %.1f\r\n", (double)s_debug_link.depth_goto_target_m);
+        return;
+    }
+
     if (debug_streq(cmd, "speed") || debug_streq(cmd, "scale"))
     {
         int speed;
@@ -816,6 +874,10 @@ static void debug_exec_line(char *line)
             return;
         }
         s_debug_link.time_scale = (uint16_t)speed;
+        if (s_debug_link.time_scale != 1U)
+        {
+            debug_depth_goto_cancel();
+        }
         debug_sendf("OK speed %u\r\n", (unsigned)s_debug_link.time_scale);
         return;
     }
@@ -834,6 +896,10 @@ static void debug_exec_line(char *line)
         {
             bus_set_ascent_rate(0.0f);
         }
+        else
+        {
+            debug_depth_goto_cancel();
+        }
         debug_sendf("OK manual %s\r\n", enabled ? "on" : "off");
         return;
     }
@@ -848,6 +914,10 @@ static void debug_exec_line(char *line)
             return;
         }
         s_debug_link.manual_mode = !enabled;
+        if (enabled)
+        {
+            debug_depth_goto_cancel();
+        }
         debug_sendf("OK auto %s\r\n", enabled ? "on" : "off");
         return;
     }
@@ -876,6 +946,7 @@ static void debug_exec_line(char *line)
             debug_send_raw("ERR usage: sample <time_s> <depth_m>\r\n");
             return;
         }
+        debug_depth_goto_cancel();
         bus_set_dive_time((uint32_t)time_s);
         dive_log_append_sampled((float)time_s, depth);
         bus_set_depth(depth);
@@ -1328,6 +1399,7 @@ static void debug_process_rx_bytes(const char *data, int len)
 
 static void debug_disconnect_client(void)
 {
+    debug_depth_goto_cancel();
     debug_close_socket(&s_debug_link.client);
     s_debug_link.rx_len = 0;
     printf("[DBG] TCP debug client disconnected\r\n");
@@ -1352,6 +1424,7 @@ static void debug_poll_cb(lv_timer_t *timer)
             s_debug_link.rx_len = 0;
             s_debug_link.connect_event = true;
             s_debug_link.time_scale = 1;
+            debug_depth_goto_cancel();
             s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
             s_debug_link.depth_rate_valid = false;
             s_debug_link.depth_rate_last_m = g_sensor_data.depth;
@@ -1464,6 +1537,50 @@ bool debug_link_pc_manual_mode(void)
     return s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET;
 }
 
+bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m)
+{
+    float target_depth_m;
+    float delta_m;
+    float step_m;
+    float next_depth_m;
+
+    if (!s_debug_link.depth_goto_active || !out_depth_m)
+    {
+        return false;
+    }
+
+    if (debug_link_pc_time_scale() != 1U)
+    {
+        debug_depth_goto_cancel();
+        return false;
+    }
+
+    target_depth_m = s_debug_link.depth_goto_target_m;
+    delta_m = target_depth_m - current_depth_m;
+    if (delta_m > -DEBUG_DEPTH_GOTO_EPSILON_M && delta_m < DEBUG_DEPTH_GOTO_EPSILON_M)
+    {
+        *out_depth_m = target_depth_m;
+        debug_depth_goto_cancel();
+        return true;
+    }
+
+    step_m = (delta_m > 0.0f) ? (DEBUG_DEPTH_GOTO_DESCENT_MPM / 60.0f) : -(DEBUG_DEPTH_GOTO_ASCENT_MPM / 60.0f);
+    next_depth_m = current_depth_m + step_m;
+    if ((step_m > 0.0f && next_depth_m >= target_depth_m) ||
+            (step_m < 0.0f && next_depth_m <= target_depth_m))
+    {
+        next_depth_m = target_depth_m;
+        debug_depth_goto_cancel();
+    }
+    if (next_depth_m < 0.0f)
+    {
+        next_depth_m = 0.0f;
+    }
+
+    *out_depth_m = next_depth_m;
+    return true;
+}
+
 bool debug_link_pc_consume_connect_event(void)
 {
     bool event = s_debug_link.connect_event;
@@ -1495,6 +1612,13 @@ bool debug_link_pc_consume_connect_event(void)
 uint16_t debug_link_pc_time_scale(void)
 {
     return 1U;
+}
+
+bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m)
+{
+    (void)current_depth_m;
+    (void)out_depth_m;
+    return false;
 }
 
 #endif /* PC_SIMULATOR && _WIN32 */
