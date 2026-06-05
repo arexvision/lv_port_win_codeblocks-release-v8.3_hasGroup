@@ -186,9 +186,11 @@ void calc_widget_cell(uint16_t parent_w, uint16_t parent_h,
                            int16_t *out_x, int16_t *out_y,
                            uint16_t *out_w, uint16_t *out_h)
 {
-    /* 5F 网格按固定行列拆分，单元格大小由父容器尺寸和跨度计算。 */
-    uint16_t unit_w = parent_w / COMP_GRID_COLS;
-    uint16_t unit_h = parent_h / COMP_GRID_ROWS;
+    /* 自定义网格按当前布局方向拆分：side=5x6，top/bottom=7x4。 */
+    uint8_t grid_cols = ui_custom_grid_cols_get();
+    uint8_t grid_rows = ui_custom_grid_rows_get();
+    uint16_t unit_w = (grid_cols > 0U) ? (uint16_t)(parent_w / grid_cols) : parent_w;
+    uint16_t unit_h = (grid_rows > 0U) ? (uint16_t)(parent_h / grid_rows) : parent_h;
 
     *out_x = (int16_t)(col * unit_w);
     *out_y = (int16_t)(row * unit_h);
@@ -312,9 +314,11 @@ void calc_widget_grid(uint16_t parent_w, uint16_t parent_h,
                            int16_t *out_x, int16_t *out_y,
                            uint16_t *out_w, uint16_t *out_h)
 {
-    uint16_t cell_w = parent_w / 5;
-    uint16_t cell_h = (parent_h > CARD_TITLE_H)
-                      ? ((parent_h - CARD_TITLE_H) / COMP_GRID_ROWS)
+    uint8_t grid_cols = ui_custom_grid_cols_get();
+    uint8_t grid_rows = ui_custom_grid_rows_get();
+    uint16_t cell_w = (grid_cols > 0U) ? (uint16_t)(parent_w / grid_cols) : parent_w;
+    uint16_t cell_h = (parent_h > CARD_TITLE_H && grid_rows > 0U)
+                      ? ((parent_h - CARD_TITLE_H) / grid_rows)
                       : 60;
 
     *out_x = (int16_t)(col * cell_w + COMP_GAP);
@@ -341,6 +345,21 @@ static void add_left_anchor_sep_line(lv_obj_t *parent, lv_coord_t x, lv_coord_t 
     line = lv_obj_create(parent);
     lv_obj_remove_style_all(line);
     lv_obj_set_size(line, w, 1);
+    lv_obj_set_pos(line, x, y);
+    lv_obj_set_style_bg_color(line, GREEN, 0);
+    lv_obj_set_style_bg_opa(line, 140, 0);
+    lv_obj_clear_flag(line, LV_OBJ_FLAG_SCROLLABLE);
+}
+
+static void add_left_anchor_sep_vline(lv_obj_t *parent, lv_coord_t x, lv_coord_t y, lv_coord_t h)
+{
+    lv_obj_t *line;
+
+    if (!parent) return;
+
+    line = lv_obj_create(parent);
+    lv_obj_remove_style_all(line);
+    lv_obj_set_size(line, 1, h);
     lv_obj_set_pos(line, x, y);
     lv_obj_set_style_bg_color(line, GREEN, 0);
     lv_obj_set_style_bg_opa(line, 140, 0);
@@ -398,21 +417,23 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
 {
     if (!left_anchor) return;
 
-    /* 左锚点不是“固定写死的 7 个控件”，而是按 g_sys_config.left_widgets[]
-     * 动态渲染出来的 2x7 网格。
-     * 这意味着后续左侧布局如果变更，只需要改配置，不需要重写这里的绘制流程。 */
+    /* 固定栏按 g_sys_config.left_widgets[] 动态渲染。
+     * 0x02 协议下 APP 直接发送当前方向实际坐标：side=2x7，top/bottom=7x2。 */
     g_left_anchor_obj = left_anchor;
     s_left_bat_lbl = NULL;
     s_left_prj_lbl = NULL;
 
     uint16_t sep_boundaries[LEFT_MAX_WIDGETS * 2];
+    uint16_t sep_x_boundaries[LEFT_MAX_WIDGETS * 2];
     uint8_t sep_boundary_count = 0U;
+    uint8_t sep_x_boundary_count = 0U;
     const uint16_t anchor_w = ui_anchor_w_get();
     const uint16_t anchor_h = ui_anchor_h_get();
-    const uint8_t grid_cols = ui_layout_is_vertical_split() ? LEFT_COLS : LEFT_ROWS;
-    const uint8_t grid_rows = ui_layout_is_vertical_split() ? LEFT_ROWS : LEFT_COLS;
+    const uint8_t grid_cols = ui_fixed_grid_cols_get();
+    const uint8_t grid_rows = ui_fixed_grid_rows_get();
     const uint16_t cell_w = (grid_cols > 0U) ? (uint16_t)(anchor_w / grid_cols) : LEFT_CELL_W;
     const uint16_t cell_h = (grid_rows > 0U) ? (uint16_t)(anchor_h / grid_rows) : LEFT_CELL_H;
+    const bool horizontal_anchor = !ui_layout_is_vertical_split();
 
     for (uint8_t i = 0; i < ui_left_widget_count_get() && i < LEFT_MAX_WIDGETS; i++)
     {
@@ -428,12 +449,20 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
         uint8_t span_h = (style != NULL) ? style->span_h : 1;
         uint8_t origin_col = cfg->x;
         uint8_t origin_row = cfg->y;
-        if (!ui_layout_is_vertical_split())
+
+        if (origin_col >= grid_cols || origin_row >= grid_rows ||
+            (uint16_t)origin_col + span_w > grid_cols ||
+            (uint16_t)origin_row + span_h > grid_rows)
         {
-            origin_col = cfg->y;
-            origin_row = cfg->x;
-            span_w = (style != NULL) ? style->span_h : 1;
-            span_h = (style != NULL) ? style->span_w : 1;
+            printf("[LAYOUT] skip fixed widget id=%u pos=%u,%u span=%u,%u grid=%u,%u\r\n",
+                   (unsigned)cfg->widget_id,
+                   (unsigned)origin_col,
+                   (unsigned)origin_row,
+                   (unsigned)span_w,
+                   (unsigned)span_h,
+                   (unsigned)grid_cols,
+                   (unsigned)grid_rows);
+            continue;
         }
 
         int16_t  abs_x = (int16_t)(origin_col * cell_w);
@@ -441,14 +470,16 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
         uint16_t abs_w = span_w * cell_w;
         uint16_t abs_h = span_h * cell_h;
 
-        add_left_anchor_sep_boundary(sep_boundaries,
-                                     &sep_boundary_count,
-                                     (uint16_t)(origin_row * cell_h),
-                                     anchor_h);
-        add_left_anchor_sep_boundary(sep_boundaries,
-                                     &sep_boundary_count,
-                                     (uint16_t)((origin_row + span_h) * cell_h),
-                                     anchor_h);
+        if (horizontal_anchor)
+        {
+            add_left_anchor_sep_boundary(sep_x_boundaries, &sep_x_boundary_count, (uint16_t)(origin_col * cell_w), anchor_w);
+            add_left_anchor_sep_boundary(sep_x_boundaries, &sep_x_boundary_count, (uint16_t)((origin_col + span_w) * cell_w), anchor_w);
+        }
+        else
+        {
+            add_left_anchor_sep_boundary(sep_boundaries, &sep_boundary_count, (uint16_t)(origin_row * cell_h), anchor_h);
+            add_left_anchor_sep_boundary(sep_boundaries, &sep_boundary_count, (uint16_t)((origin_row + span_h) * cell_h), anchor_h);
+        }
 
         render_widget_by_id(left_anchor, cfg->widget_id,
                             abs_x, abs_y, abs_w, abs_h,
@@ -458,6 +489,10 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
     for (uint8_t i = 0U; i < sep_boundary_count; i++)
     {
         add_left_anchor_sep_line(left_anchor, 0, (lv_coord_t)sep_boundaries[i], (lv_coord_t)anchor_w);
+    }
+    for (uint8_t i = 0U; i < sep_x_boundary_count; i++)
+    {
+        add_left_anchor_sep_vline(left_anchor, (lv_coord_t)sep_x_boundaries[i], 0, (lv_coord_t)anchor_h);
     }
 }
 
@@ -473,6 +508,8 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
     uint16_t parent_h = lv_obj_get_height(card_custom);
     uint8_t count = ui_custom_card_widget_count_get(custom_card_idx);
     uint16_t fallback_w = ui_content_w_get();
+    uint8_t grid_cols = ui_custom_grid_cols_get();
+    uint8_t grid_rows = ui_custom_grid_rows_get();
 
     if (parent_w == 0 || parent_w > ui_safe_zone_w_get())
     {
@@ -510,11 +547,25 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
         uint8_t r = widget->y;
 
         if (w_id == COMP_EMPTY) continue;
-        if (r >= COMP_GRID_ROWS || c >= COMP_GRID_COLS) continue;
 
         const comp_style_t *style = comp_get_style(w_id);
         uint8_t span_w = (style != NULL) ? style->span_w : 1;
         uint8_t span_h = (style != NULL) ? style->span_h : 1;
+
+        if (c >= grid_cols || r >= grid_rows ||
+            (uint16_t)c + span_w > grid_cols ||
+            (uint16_t)r + span_h > grid_rows)
+        {
+            printf("[LAYOUT] skip custom widget id=%u pos=%u,%u span=%u,%u grid=%u,%u\r\n",
+                   (unsigned)w_id,
+                   (unsigned)c,
+                   (unsigned)r,
+                   (unsigned)span_w,
+                   (unsigned)span_h,
+                   (unsigned)grid_cols,
+                   (unsigned)grid_rows);
+            continue;
+        }
 
         int16_t abs_x, abs_y;
         uint16_t abs_w, abs_h;

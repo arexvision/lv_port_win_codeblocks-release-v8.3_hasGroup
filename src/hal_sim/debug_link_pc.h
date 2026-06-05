@@ -502,7 +502,7 @@ static void debug_send_state(void)
 
 static void debug_layout_fill_left(ble_ui_sync_payload_t *payload)
 {
-    static const uint8_t left_def[][3] =
+    static const uint8_t side_def[][3] =
     {
         { COMP_NDL_STOP_1606,  0, 0 },
         { COMP_DEPTH_1612,     0, 1 },
@@ -512,19 +512,31 @@ static void debug_layout_fill_left(ble_ui_sync_payload_t *payload)
         { COMP_EMPTY,          1, 5 },
         { COMP_SYS_1606,       0, 6 },
     };
+    static const uint8_t top_def[][3] =
+    {
+        { COMP_NDL_STOP_1606,  0, 0 },
+        { COMP_DEPTH_1612,     2, 0 },
+        { COMP_DIVE_TIME_1606, 4, 0 },
+        { COMP_GAS_1606,       4, 1 },
+        { COMP_TEMP_0806,      6, 0 },
+        { COMP_BATTERY_0806,   6, 1 },
+    };
+    const uint8_t (*items)[3] = ui_layout_is_vertical_split() ? side_def : top_def;
+    uint8_t count = (uint8_t)(ui_layout_is_vertical_split() ? (sizeof(side_def) / sizeof(side_def[0]))
+                                                            : (sizeof(top_def) / sizeof(top_def[0])));
 
-    payload->left_count = (uint8_t)(sizeof(left_def) / sizeof(left_def[0]));
+    payload->left_count = count;
     for (uint8_t i = 0U; i < payload->left_count; i++)
     {
-        payload->left_widgets[i].widget_id = left_def[i][0];
-        payload->left_widgets[i].x = left_def[i][1];
-        payload->left_widgets[i].y = left_def[i][2];
+        payload->left_widgets[i].widget_id = items[i][0];
+        payload->left_widgets[i].x = items[i][1];
+        payload->left_widgets[i].y = items[i][2];
     }
 }
 
 static void debug_layout_fill_custom(ble_ui_sync_payload_t *payload, bool gas_layout)
 {
-    static const uint8_t custom_default[][3] =
+    static const uint8_t side_default[][3] =
     {
         { COMP_DEPTH_1612,     0, 0 },
         { COMP_DEPTH_1612,     0, 2 },
@@ -538,7 +550,7 @@ static void debug_layout_fill_custom(ble_ui_sync_payload_t *payload, bool gas_la
         { COMP_DEPTH_1612,     4, 0 },
         { COMP_DEPTH_1612,     4, 2 },
     };
-    static const uint8_t custom_gas[][3] =
+    static const uint8_t side_gas[][3] =
     {
         { COMP_GAS_1606,       0, 0 },
         { COMP_PPO2_0806,      0, 2 },
@@ -547,9 +559,34 @@ static void debug_layout_fill_custom(ble_ui_sync_payload_t *payload, bool gas_la
         { COMP_GAS_MIX_1606,   1, 0 },
         { COMP_GAS_DENS_0806,  1, 2 },
     };
-    const uint8_t (*items)[3] = gas_layout ? custom_gas : custom_default;
-    uint8_t count = (uint8_t)(gas_layout ? (sizeof(custom_gas) / sizeof(custom_gas[0]))
-                                         : (sizeof(custom_default) / sizeof(custom_default[0])));
+    static const uint8_t top_default[][3] =
+    {
+        { COMP_DEPTH_1612,     0, 0 },
+        { COMP_DEPTH_1612,     2, 0 },
+        { COMP_HEADING_0806,   4, 0 },
+        { COMP_BATTERY_0806,   5, 0 },
+        { COMP_PPO2_0806,      6, 0 },
+        { COMP_NDL_STOP_1606,  0, 2 },
+        { COMP_TTS_0806,       2, 2 },
+        { COMP_CNS_0806,       3, 2 },
+        { COMP_DEPTH_1606,     4, 2 },
+        { COMP_MOD_0806,       6, 2 },
+    };
+    static const uint8_t top_gas[][3] =
+    {
+        { COMP_GAS_1606,       0, 0 },
+        { COMP_PPO2_0806,      2, 0 },
+        { COMP_MOD_0806,       3, 0 },
+        { COMP_FIO2_0806,      4, 0 },
+        { COMP_GAS_MIX_1606,   0, 1 },
+        { COMP_GAS_DENS_0806,  2, 1 },
+    };
+    const bool horizontal = !ui_layout_is_vertical_split();
+    const uint8_t (*items)[3] = horizontal ? (gas_layout ? top_gas : top_default)
+                                           : (gas_layout ? side_gas : side_default);
+    uint8_t count = (uint8_t)(horizontal
+        ? (gas_layout ? (sizeof(top_gas) / sizeof(top_gas[0])) : (sizeof(top_default) / sizeof(top_default[0])))
+        : (gas_layout ? (sizeof(side_gas) / sizeof(side_gas[0])) : (sizeof(side_default) / sizeof(side_default[0]))));
 
     payload->custom_5f_count = count;
     for (uint8_t i = 0U; i < count; i++)
@@ -581,7 +618,6 @@ static void debug_apply_layout_profile(bool gas_layout)
     debug_layout_fill_left(&payload);
     debug_layout_fill_custom(&payload, gas_layout);
     bus_set_ui_layout(&payload);
-    bus_set_layout_mode(THEME_TECH, ORDER_REVERSE);
 }
 
 static void debug_apply_empty_custom_layout_profile(void)
@@ -605,7 +641,6 @@ static void debug_apply_empty_custom_layout_profile(void)
     debug_layout_fill_left(&payload);
     payload.custom_5f_count = 0U;
     bus_set_ui_layout(&payload);
-    bus_set_layout_mode(THEME_TECH, ORDER_REVERSE);
 }
 
 static void debug_exec_line(char *line)
@@ -674,19 +709,19 @@ static void debug_exec_line(char *line)
         }
         if (debug_streq(profile, "side"))
         {
-            bus_set_layout_mode(THEME_TECH, ORDER_REVERSE);
+            bus_switch_layout_profile(THEME_TECH, ORDER_REVERSE);
             debug_send_raw("OK layout side\r\n");
             return;
         }
         if (debug_streq(profile, "top"))
         {
-            bus_set_layout_mode(THEME_CLASSIC, ORDER_NORMAL);
+            bus_switch_layout_profile(THEME_CLASSIC, ORDER_NORMAL);
             debug_send_raw("OK layout top\r\n");
             return;
         }
         if (debug_streq(profile, "bottom"))
         {
-            bus_set_layout_mode(THEME_CLASSIC, ORDER_REVERSE);
+            bus_switch_layout_profile(THEME_CLASSIC, ORDER_REVERSE);
             debug_send_raw("OK layout bottom\r\n");
             return;
         }

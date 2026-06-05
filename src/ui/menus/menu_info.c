@@ -49,18 +49,23 @@ void menu_info_create(lv_obj_t *parent)
     uint16_t gap_y_px  = s_menu_layout_vm.gap_y_px;
     uint16_t list_h = info_count * item_h_px
                       + (info_count - 1) * gap_y_px;
+    uint16_t list_y = (CARD_TITLE_H > MENU_LIST_TOP_NUDGE_PX) ? (uint16_t)(CARD_TITLE_H - MENU_LIST_TOP_NUDGE_PX) : CARD_TITLE_H;
+    uint16_t visible_h = ui_content_h_get() > list_y ? (uint16_t)(ui_content_h_get() - list_y) : list_h;
 
     s_list = lv_obj_create(parent);
     lv_obj_remove_style_all(s_list);
-    lv_obj_set_size(s_list, right_canvas_w, list_h);
-    lv_obj_set_pos(s_list, 0, CARD_TITLE_H);
+    lv_obj_set_size(s_list, right_canvas_w, visible_h);
+    lv_obj_set_pos(s_list, 0, list_y);
     lv_obj_set_style_bg_opa(s_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_pad_all(s_list, 0, 0);
-    lv_obj_clear_flag(s_list, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_bottom(s_list, MENU_LIST_EDGE_PAD_PX, 0);
+    lv_obj_add_flag(s_list, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(s_list, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(s_list, LV_SCROLLBAR_MODE_OFF);
 
     /* 顶层菜单也走同一套菜单行渲染，减少重复维护。 */
-    render_dynamic_menu(s_list, info_items, info_count, 0, NULL);
+    render_dynamic_menu(s_list, info_items, info_count, MENU_LIST_EDGE_PAD_PX, NULL);
 
     screen_register_info_list(s_list);
     if (ui_state_get_state() == UI_INFO)

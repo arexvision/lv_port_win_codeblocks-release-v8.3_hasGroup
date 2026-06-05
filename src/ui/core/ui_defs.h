@@ -37,14 +37,22 @@ extern "C" {
 #define DEBUG_BORDERS   0
 #define CARD_DEBUG_BORDERS  1
 #define INNER_BORDER_W  2
+#define MENU_LIST_TOP_NUDGE_PX  8
+#define MENU_LIST_EDGE_PAD_PX   2
 #define COMP_TITLE_EDGE_NUDGE_PX  3
 #define COMP_VALUE_EDGE_NUDGE_PX  3
 #define GAS_BORDER_W    2
 #define GRID_BORDER_W   0
 
 #define MAX_WIDGETS    30
-#define COMP_GRID_COLS    5
-#define COMP_GRID_ROWS    6
+#define FIXED_SIDE_COLS   2
+#define FIXED_SIDE_ROWS   7
+#define FIXED_TOP_COLS    7
+#define FIXED_TOP_ROWS    2
+#define CUSTOM_SIDE_COLS  5
+#define CUSTOM_SIDE_ROWS  6
+#define CUSTOM_TOP_COLS   7
+#define CUSTOM_TOP_ROWS   4
 #define MAX_LEFT_ROWS    8
 
 #define ANCHOR_SEP_THICK  3

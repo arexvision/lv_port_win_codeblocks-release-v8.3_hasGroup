@@ -68,6 +68,7 @@ void wall_create(void);
 void reset_transient_ui_refs(void);
 void edit_flash_stop(void);
 void restore_brightness_overlay_state(void);
+static void menu_list_ensure_visible(lv_obj_t *list, uint8_t idx);
 
 /* =========================================================
  * 样式 (静态初始化一次)
@@ -475,6 +476,19 @@ void screen_hide_walls_snap(void)
 /* =========================================================
  * Info / Setup list
  * ========================================================= */
+static void menu_list_ensure_visible(lv_obj_t *list, uint8_t idx)
+{
+    lv_obj_t *item;
+
+    if (!list || !lv_obj_is_valid(list)) return;
+
+    item = lv_obj_get_child(list, idx);
+    if (!item) return;
+
+    lv_obj_update_layout(list);
+    lv_obj_scroll_to_view(item, LV_ANIM_OFF);
+}
+
 void screen_set_info_selection(uint8_t idx)
 {
     if (!s_info_list || !lv_obj_is_valid(s_info_list))
@@ -522,6 +536,7 @@ void screen_set_info_selection(uint8_t idx)
             }
         }
     }
+    menu_list_ensure_visible(s_info_list, idx);
 }
 
 uint8_t screen_info_item_count(void)
@@ -591,6 +606,7 @@ void screen_set_setup_selection(uint8_t idx)
             }
         }
     }
+    menu_list_ensure_visible(s_setup_list, idx);
 }
 
 uint8_t screen_setup_item_count(void)

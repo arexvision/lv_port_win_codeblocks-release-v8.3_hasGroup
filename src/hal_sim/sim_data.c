@@ -266,7 +266,7 @@ static void test_set_ui_layout(uint8_t phase)
            sizeof(s_payload.card_order));
 
     if (phase == 3U) {
-        uint8_t left_empty[][3] = {
+        uint8_t side_empty[][3] = {
             { COMP_NDL_STOP_1606,  0, 0 },
             { COMP_DEPTH_1612,     0, 1 },
             { COMP_DIVE_TIME_1606, 0, 3 },
@@ -275,16 +275,25 @@ static void test_set_ui_layout(uint8_t phase)
             { COMP_POD_0806,       1, 5 },
             { COMP_SYS_1606,       0, 6 },
         };
+        uint8_t top_empty[][3] = {
+            { COMP_NDL_STOP_1606,  0, 0 },
+            { COMP_DEPTH_1612,     2, 0 },
+            { COMP_DIVE_TIME_1606, 4, 0 },
+            { COMP_GAS_1606,       4, 1 },
+            { COMP_TEMP_0806,      6, 0 },
+            { COMP_BATTERY_0806,   6, 1 },
+        };
+        const uint8_t (*fixed)[3] = ui_layout_is_vertical_split() ? side_empty : top_empty;
 
-        s_payload.left_count = sizeof(left_empty) / sizeof(left_empty[0]);
+        s_payload.left_count = (uint8_t)(ui_layout_is_vertical_split() ? (sizeof(side_empty) / sizeof(side_empty[0])) : (sizeof(top_empty) / sizeof(top_empty[0])));
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
-            s_payload.left_widgets[i].widget_id = left_empty[i][0];
-            s_payload.left_widgets[i].x = left_empty[i][1];
-            s_payload.left_widgets[i].y = left_empty[i][2];
+            s_payload.left_widgets[i].widget_id = fixed[i][0];
+            s_payload.left_widgets[i].x = fixed[i][1];
+            s_payload.left_widgets[i].y = fixed[i][2];
         }
         s_payload.custom_5f_count = 0U;
     } else if (phase == 0U || phase == 2U) {
-        uint8_t left_def[][3] = {
+        uint8_t side_def[][3] = {
             { COMP_NDL_STOP_1606,  0, 0 },
             { COMP_DEPTH_1612,     0, 1 },
             { COMP_DIVE_TIME_1606, 0, 3 },
@@ -293,7 +302,15 @@ static void test_set_ui_layout(uint8_t phase)
             { COMP_POD_0806,       1, 5 },
             { COMP_SYS_1606,       0, 6 },
         };
-        uint8_t custom_5f[][3] = {
+        uint8_t top_def[][3] = {
+            { COMP_NDL_STOP_1606,  0, 0 },
+            { COMP_DEPTH_1612,     2, 0 },
+            { COMP_DIVE_TIME_1606, 4, 0 },
+            { COMP_GAS_1606,       4, 1 },
+            { COMP_TEMP_0806,      6, 0 },
+            { COMP_BATTERY_0806,   6, 1 },
+        };
+        uint8_t side_custom[][3] = {
             { COMP_TEMP_0806,      0, 0 },
             { COMP_TEMP_0806,      0, 2 },
             { COMP_HEADING_0806,   0, 3 },
@@ -308,22 +325,37 @@ static void test_set_ui_layout(uint8_t phase)
             { COMP_GYRO_2406,      4, 3 },
             { COMP_EMPTY,          4, 4 },
         };
+        uint8_t top_custom[][3] = {
+            { COMP_TEMP_0806,      0, 0 },
+            { COMP_TEMP_0806,      2, 0 },
+            { COMP_HEADING_0806,   4, 0 },
+            { COMP_BATTERY_0806,   5, 0 },
+            { COMP_PPO2_0806,      6, 0 },
+            { COMP_NDL_STOP_1606,  0, 2 },
+            { COMP_TTS_0806,       2, 2 },
+            { COMP_CNS_0806,       3, 2 },
+            { COMP_DEPTH_1606,     4, 2 },
+            { COMP_MOD_0806,       6, 2 },
+        };
+        const bool horizontal = !ui_layout_is_vertical_split();
+        const uint8_t (*fixed)[3] = horizontal ? top_def : side_def;
+        const uint8_t (*custom)[3] = horizontal ? top_custom : side_custom;
 
-        s_payload.left_count = sizeof(left_def) / sizeof(left_def[0]);
+        s_payload.left_count = (uint8_t)(horizontal ? (sizeof(top_def) / sizeof(top_def[0])) : (sizeof(side_def) / sizeof(side_def[0])));
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
-            s_payload.left_widgets[i].widget_id = left_def[i][0];
-            s_payload.left_widgets[i].x = left_def[i][1];
-            s_payload.left_widgets[i].y = left_def[i][2];
+            s_payload.left_widgets[i].widget_id = fixed[i][0];
+            s_payload.left_widgets[i].x = fixed[i][1];
+            s_payload.left_widgets[i].y = fixed[i][2];
         }
 
-        s_payload.custom_5f_count = sizeof(custom_5f) / sizeof(custom_5f[0]);
+        s_payload.custom_5f_count = (uint8_t)(horizontal ? (sizeof(top_custom) / sizeof(top_custom[0])) : (sizeof(side_custom) / sizeof(side_custom[0])));
         for (uint8_t i = 0; i < s_payload.custom_5f_count; i++) {
-            s_payload.custom_5f_widgets[i].widget_id = custom_5f[i][0];
-            s_payload.custom_5f_widgets[i].r = custom_5f[i][1];
-            s_payload.custom_5f_widgets[i].c = custom_5f[i][2];
+            s_payload.custom_5f_widgets[i].widget_id = custom[i][0];
+            s_payload.custom_5f_widgets[i].r = custom[i][1];
+            s_payload.custom_5f_widgets[i].c = custom[i][2];
         }
     } else {
-        uint8_t left_min[][3] = {
+        uint8_t side_min[][3] = {
             { COMP_NDL_STOP_1606,  0, 0 },
             { COMP_DEPTH_1612,     0, 1 },
             { COMP_DIVE_TIME_1606, 0, 3 },
@@ -332,7 +364,15 @@ static void test_set_ui_layout(uint8_t phase)
             { COMP_POD_0806,       1, 5 },
             { COMP_SYS_1606,       0, 6 },
         };
-        uint8_t custom_min[][3] = {
+        uint8_t top_min[][3] = {
+            { COMP_NDL_STOP_1606,  0, 0 },
+            { COMP_DEPTH_1612,     2, 0 },
+            { COMP_DIVE_TIME_1606, 4, 0 },
+            { COMP_GAS_1606,       4, 1 },
+            { COMP_TEMP_0806,      6, 0 },
+            { COMP_BATTERY_0806,   6, 1 },
+        };
+        uint8_t side_custom_min[][3] = {
             { COMP_TEMP_0806,      0, 0 },
             { COMP_TEMP_0806,      0, 2 },
             { COMP_BATTERY_0806,   2, 0 },
@@ -341,19 +381,30 @@ static void test_set_ui_layout(uint8_t phase)
             { COMP_GYRO_2406,      4, 3 },
             { COMP_EMPTY,          4, 0 },
         };
+        uint8_t top_custom_min[][3] = {
+            { COMP_TEMP_0806,      0, 0 },
+            { COMP_TEMP_0806,      2, 0 },
+            { COMP_BATTERY_0806,   4, 0 },
+            { COMP_PPO2_0806,      5, 0 },
+            { COMP_NDL_STOP_1606,  0, 2 },
+            { COMP_GYRO_2406,      3, 2 },
+        };
+        const bool horizontal = !ui_layout_is_vertical_split();
+        const uint8_t (*fixed)[3] = horizontal ? top_min : side_min;
+        const uint8_t (*custom)[3] = horizontal ? top_custom_min : side_custom_min;
 
-        s_payload.left_count = sizeof(left_min) / sizeof(left_min[0]);
+        s_payload.left_count = (uint8_t)(horizontal ? (sizeof(top_min) / sizeof(top_min[0])) : (sizeof(side_min) / sizeof(side_min[0])));
         for (uint8_t i = 0; i < s_payload.left_count; i++) {
-            s_payload.left_widgets[i].widget_id = left_min[i][0];
-            s_payload.left_widgets[i].x = left_min[i][1];
-            s_payload.left_widgets[i].y = left_min[i][2];
+            s_payload.left_widgets[i].widget_id = fixed[i][0];
+            s_payload.left_widgets[i].x = fixed[i][1];
+            s_payload.left_widgets[i].y = fixed[i][2];
         }
 
-        s_payload.custom_5f_count = sizeof(custom_min) / sizeof(custom_min[0]);
+        s_payload.custom_5f_count = (uint8_t)(horizontal ? (sizeof(top_custom_min) / sizeof(top_custom_min[0])) : (sizeof(side_custom_min) / sizeof(side_custom_min[0])));
         for (uint8_t i = 0; i < s_payload.custom_5f_count; i++) {
-            s_payload.custom_5f_widgets[i].widget_id = custom_min[i][0];
-            s_payload.custom_5f_widgets[i].r = custom_min[i][1];
-            s_payload.custom_5f_widgets[i].c = custom_min[i][2];
+            s_payload.custom_5f_widgets[i].widget_id = custom[i][0];
+            s_payload.custom_5f_widgets[i].r = custom[i][1];
+            s_payload.custom_5f_widgets[i].c = custom[i][2];
         }
     }
 
