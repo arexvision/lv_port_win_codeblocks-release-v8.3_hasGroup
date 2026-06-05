@@ -393,12 +393,6 @@ static bool debug_depth_goto_start(float target_depth_m)
         target_depth_m = 0.0f;
     }
 
-    if (debug_link_pc_time_scale() != 1U)
-    {
-        debug_send_raw("ERR goto requires speed 1\r\n");
-        return false;
-    }
-
     s_debug_link.depth_goto_active = true;
     s_debug_link.depth_goto_target_m = target_depth_m;
     s_debug_link.depth_rate_valid = false;
@@ -508,7 +502,7 @@ static void debug_send_help(void)
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "  alert ids: asc po2 po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
-        "Slots are 0-based. TCP disables the auto depth script; goto requires speed 1 and moves at 18m/min down, 10m/min up.\r\n");
+        "Slots are 0-based. TCP disables the auto depth script; goto moves at 18m/min down, 10m/min up in simulated time.\r\n");
 }
 
 static void debug_send_state(void)
@@ -874,10 +868,6 @@ static void debug_exec_line(char *line)
             return;
         }
         s_debug_link.time_scale = (uint16_t)speed;
-        if (s_debug_link.time_scale != 1U)
-        {
-            debug_depth_goto_cancel();
-        }
         debug_sendf("OK speed %u\r\n", (unsigned)s_debug_link.time_scale);
         return;
     }
@@ -1546,12 +1536,6 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m)
 
     if (!s_debug_link.depth_goto_active || !out_depth_m)
     {
-        return false;
-    }
-
-    if (debug_link_pc_time_scale() != 1U)
-    {
-        debug_depth_goto_cancel();
         return false;
     }
 

@@ -28,6 +28,17 @@ static uint8_t s_final_deco_stop_depth_m = 3U;
 static uint8_t s_salinity_mode;
 static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
 
+typedef struct
+{
+    bool active;
+    stop_type_t type;
+    float depth_m;
+    bool was_in_stop_zone;
+    uint16_t total_s;
+} stop_progress_t;
+
+static stop_progress_t s_stop_progress;
+
 static uint16_t round_up_minutes(uint32_t seconds)
 {
     if (seconds == 0U) return 0U;
@@ -47,6 +58,50 @@ static uint8_t round_u8_pct(float value)
     if (value <= 0.0f) return 0U;
     if (value >= 255.0f) return 255U;
     return (uint8_t)(value + 0.5f);
+}
+
+static void reset_stop_progress(void)
+{
+    (void)memset(&s_stop_progress, 0, sizeof(s_stop_progress));
+}
+
+static uint16_t sync_stop_progress_total(stop_type_t type, float depth_m, uint16_t left_s, bool in_stop_zone)
+{
+    bool stop_changed;
+
+    if (type == STOP_NONE || left_s == 0U)
+    {
+        reset_stop_progress();
+        return 0U;
+    }
+
+    stop_changed = !s_stop_progress.active ||
+                   s_stop_progress.type != type ||
+                   fabsf(s_stop_progress.depth_m - depth_m) > 0.05f;
+    if (stop_changed)
+    {
+        s_stop_progress.active = true;
+        s_stop_progress.type = type;
+        s_stop_progress.depth_m = depth_m;
+        s_stop_progress.was_in_stop_zone = false;
+        s_stop_progress.total_s = left_s;
+    }
+
+    if (in_stop_zone && !s_stop_progress.was_in_stop_zone)
+    {
+        s_stop_progress.total_s = left_s;
+    }
+    else if (in_stop_zone && left_s > s_stop_progress.total_s)
+    {
+        s_stop_progress.total_s = left_s;
+    }
+    else if (!in_stop_zone)
+    {
+        s_stop_progress.total_s = left_s;
+    }
+
+    s_stop_progress.was_in_stop_zone = in_stop_zone;
+    return s_stop_progress.total_s;
 }
 
 static float pressure_bar_at_depth(const ArexDecoConfig *config, float depth_m)
@@ -268,6 +323,7 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
     int16_t ndl_min = 0;
     stop_type_t stop_type = STOP_NONE;
     float stop_depth_m = 0.0f;
+    uint16_t stop_total_s = 0U;
     uint16_t stop_left_s = 0U;
     bool in_stop_zone = false;
 
@@ -287,7 +343,8 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
         if (stop_type == STOP_DECO) ndl_min = 0;
     }
 
-    bus_update_deco(ndl_min, stop_type, stop_depth_m, stop_left_s, stop_left_s, in_stop_zone);
+    stop_total_s = sync_stop_progress_total(stop_type, stop_depth_m, stop_left_s, in_stop_zone);
+    bus_update_deco(ndl_min, stop_type, stop_depth_m, stop_total_s, stop_left_s, in_stop_zone);
     if (stop_type == STOP_NONE)
     {
         uint8_t bar = (ndl_min <= 0) ? 0U : (uint8_t)((ndl_min > 99 ? 99 : ndl_min) * 100 / 99);
@@ -339,6 +396,7 @@ void deco_core_init(void)
 void deco_core_reset(void)
 {
     s_initialized = false;
+    reset_stop_progress();
     (void)ensure_initialized();
 }
 
