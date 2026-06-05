@@ -1,0 +1,523 @@
+#include "deco_core.h"
+
+#include "arex_deco/arex_deco.h"
+#include "rtthread.h"
+
+extern "C" {
+#include "../ui/core/data.h"
+#include "../ui/core/ui_settings.h"
+#include "../ui/core/ui_state.h"
+}
+
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+
+#define PLAN_MAX_ROWS DIVE_PLAN_RESULT_MAX_ROWS
+#define PLAN_DESCENT_RATE_MPM 18.0f
+#define GAS_DENSITY_O2_G_L 1.428f
+#define GAS_DENSITY_N2_G_L 1.251f
+#define GAS_DENSITY_HE_G_L 0.179f
+
+static ArexDecoDiveState s_state;
+static ArexDecoRuntimeMetrics s_metrics;
+static bool s_initialized;
+static uint8_t s_gf_low_pct = 40U;
+static uint8_t s_gf_high_pct = 85U;
+static uint8_t s_final_deco_stop_depth_m = 3U;
+static uint8_t s_salinity_mode;
+static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
+
+static uint16_t round_up_minutes(uint32_t seconds)
+{
+    if (seconds == 0U) return 0U;
+    if (seconds >= 3932100U) return 65535U;
+    return (uint16_t)((seconds + 59U) / 60U);
+}
+
+static uint16_t round_u16_float(float value)
+{
+    if (value <= 0.0f) return 0U;
+    if (value >= 65535.0f) return 65535U;
+    return (uint16_t)(value + 0.5f);
+}
+
+static uint8_t round_u8_pct(float value)
+{
+    if (value <= 0.0f) return 0U;
+    if (value >= 255.0f) return 255U;
+    return (uint8_t)(value + 0.5f);
+}
+
+static float pressure_bar_at_depth(const ArexDecoConfig *config, float depth_m)
+{
+    if (depth_m < 0.0f) depth_m = 0.0f;
+    return config->surface_pressure_bar + depth_m / config->water_meters_per_bar;
+}
+
+static float mod_depth_for_gas(const ArexDecoConfig *config, float o2_fraction, float max_ppo2)
+{
+    if (o2_fraction <= 0.0001f) return 0.0f;
+    float depth_m = (max_ppo2 / o2_fraction - config->surface_pressure_bar) * config->water_meters_per_bar;
+    return (depth_m > 0.0f) ? depth_m : 0.0f;
+}
+
+static void format_gas_name(const ArexDecoGas *gas, char *name_buf, size_t name_buf_size)
+{
+    uint8_t o2_pct = round_u8_pct(gas->oxygen_fraction * 100.0f);
+    uint8_t he_pct = round_u8_pct(gas->helium_fraction * 100.0f);
+
+    if (he_pct > 0U) {
+        (void)snprintf(name_buf, name_buf_size, "TX %u/%u", (unsigned)o2_pct, (unsigned)he_pct);
+    } else if (o2_pct == 21U) {
+        (void)snprintf(name_buf, name_buf_size, "AIR");
+    } else if (o2_pct == 100U) {
+        (void)snprintf(name_buf, name_buf_size, "O2 100%%");
+    } else {
+        (void)snprintf(name_buf, name_buf_size, "NX %u", (unsigned)o2_pct);
+    }
+}
+
+static uint32_t safety_stop_seconds_from_mode(uint8_t mode, uint8_t *enabled)
+{
+    *enabled = (mode == UI_SAFETY_STOP_OFF) ? 0U : 1U;
+    switch (mode)
+    {
+    case UI_SAFETY_STOP_OFF:
+        return 0U;
+    case UI_SAFETY_STOP_4MIN:
+        return 240U;
+    case UI_SAFETY_STOP_5MIN:
+        return 300U;
+    case UI_SAFETY_STOP_3MIN:
+    case UI_SAFETY_STOP_ADAPT:
+    case UI_SAFETY_STOP_CNTUP:
+    default:
+        return 180U;
+    }
+}
+
+static ArexDecoWaterType water_type_from_salinity(uint8_t mode)
+{
+    if (mode == 0U) return AREX_DECO_WATER_FRESH;
+    return AREX_DECO_WATER_SALT;
+}
+
+static void fill_config_from_ui(ArexDecoConfig *config)
+{
+    uint8_t safety_enabled;
+
+    (void)arex_deco_make_default_config(config);
+    config->gf_low = (float)s_gf_low_pct / 100.0f;
+    config->gf_high = (float)s_gf_high_pct / 100.0f;
+    config->last_stop_m = (float)s_final_deco_stop_depth_m;
+    config->deco_step_m = 3.0f;
+    config->water_type = water_type_from_salinity(s_salinity_mode);
+    config->water_meters_per_bar = (config->water_type == AREX_DECO_WATER_FRESH) ? AREX_DECO_DEFAULT_FRESH_WATER_METERS_PER_BAR : AREX_DECO_DEFAULT_SALT_WATER_METERS_PER_BAR;
+    config->safety_stop_seconds = safety_stop_seconds_from_mode(s_safety_stop_mode, &safety_enabled);
+    config->safety_stop_enabled = safety_enabled;
+}
+
+static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan *gas_plan)
+{
+    uint8_t source_count = bus_get_gas_slot_count();
+    uint8_t valid_count = 0U;
+    int8_t active_idx = 0;
+
+    (void)memset(gas_plan, 0, sizeof(*gas_plan));
+    gas_plan->api_version = arex_deco_get_api_version();
+    if (source_count > GAS_COUNT) source_count = GAS_COUNT;
+
+    for (uint8_t i = 0U; i < source_count && valid_count < AREX_DECO_MAX_GAS_COUNT; i++)
+    {
+        uint8_t o2 = bus_get_gas_slot_o2_pct(i);
+        uint8_t he = bus_get_gas_slot_he_pct(i);
+        if (o2 == 0U || o2 > 100U || he > 100U || (uint16_t)o2 + (uint16_t)he > 100U)
+        {
+            continue;
+        }
+
+        ArexDecoGas *gas = &gas_plan->gases[valid_count];
+        float ppo2 = (valid_count == 0U) ? AREX_DECO_DEFAULT_BOTTOM_PPO2_BAR : AREX_DECO_DEFAULT_DECO_PPO2_BAR;
+        gas->oxygen_fraction = (float)o2 / 100.0f;
+        gas->helium_fraction = (float)he / 100.0f;
+        gas->nitrogen_fraction = 1.0f - gas->oxygen_fraction - gas->helium_fraction;
+        gas->min_depth_m = 0.0f;
+        gas->max_ppo2_bar = ppo2;
+        gas->max_depth_m = mod_depth_for_gas(config, gas->oxygen_fraction, ppo2);
+        gas->enabled = 1U;
+        gas->role = (valid_count == 0U) ? AREX_DECO_GAS_ROLE_BOTTOM : AREX_DECO_GAS_ROLE_DECO;
+
+        if (i == bus_get_gas_active_idx())
+        {
+            active_idx = (int8_t)valid_count;
+        }
+        valid_count++;
+    }
+
+    if (valid_count == 0U)
+    {
+        if (arex_deco_make_default_gas_plan(config, gas_plan) != AREX_DECO_STATUS_OK) return false;
+        gas_plan->active_gas_index = 0;
+        return true;
+    }
+
+    gas_plan->gas_count = valid_count;
+    gas_plan->active_gas_index = (active_idx >= 0 && active_idx < (int8_t)valid_count) ? active_idx : 0;
+    return true;
+}
+
+static void apply_current_ui_config(void)
+{
+    ArexDecoConfig config;
+    ArexDecoGasPlan gas_plan;
+
+    fill_config_from_ui(&config);
+    if (!fill_gas_plan_from_ui(&config, &gas_plan))
+    {
+        return;
+    }
+    s_state.config = config;
+    s_state.gas_plan = gas_plan;
+}
+
+static bool ensure_initialized(void)
+{
+    if (s_initialized) return true;
+
+    if (arex_deco_make_initial_dive_state(&s_state) != AREX_DECO_STATUS_OK) return false;
+    (void)memset(&s_metrics, 0, sizeof(s_metrics));
+    apply_current_ui_config();
+    (void)arex_deco_reset_tissue_to_surface(&s_state.config, &s_state.gas_plan.gases[s_state.gas_plan.active_gas_index], &s_state.tissue);
+    s_initialized = true;
+    rt_kprintf("Arex deco core initialized (GF: %u/%u)\n", (unsigned)s_gf_low_pct, (unsigned)s_gf_high_pct);
+    return true;
+}
+
+static void sync_tissue_data(void)
+{
+    ArexDecoTissueMarginMetrics raw_metrics;
+    ArexDecoTissueMarginMetrics gf_metrics;
+    uint8_t tissue_raw[AREX_DECO_COMPARTMENT_COUNT];
+    uint8_t tissue_gf[AREX_DECO_COMPARTMENT_COUNT];
+
+    if (arex_deco_calculate_tissue_margin(&s_state, s_state.current_depth_m, 1.0f, &raw_metrics) != AREX_DECO_STATUS_OK) return;
+    if (arex_deco_calculate_tissue_margin(&s_state, s_state.current_depth_m, s_state.config.gf_high, &gf_metrics) != AREX_DECO_STATUS_OK) return;
+
+    for (uint8_t i = 0U; i < AREX_DECO_COMPARTMENT_COUNT; i++)
+    {
+        tissue_raw[i] = round_u8_pct(raw_metrics.reference_limit_ratio[i] * 100.0f);
+        tissue_gf[i] = round_u8_pct(gf_metrics.reference_limit_ratio[i] * 100.0f);
+        if (tissue_raw[i] > 200U) tissue_raw[i] = 200U;
+        if (tissue_gf[i] > 200U) tissue_gf[i] = 200U;
+    }
+
+    bus_set_tissue_loads(tissue_raw, tissue_gf);
+}
+
+static void sync_gas_data(void)
+{
+    float pressure_bar = pressure_bar_at_depth(&s_state.config, s_state.current_depth_m);
+    int8_t active_idx = s_state.gas_plan.active_gas_index;
+    if (active_idx < 0 || active_idx >= (int8_t)s_state.gas_plan.gas_count) active_idx = 0;
+
+    ArexDecoGas *active_gas = &s_state.gas_plan.gases[active_idx];
+    char gas_name[16];
+    format_gas_name(active_gas, gas_name, sizeof(gas_name));
+    bus_set_gas((uint8_t)active_idx, gas_name);
+    bus_set_gas_mix(round_u8_pct(active_gas->oxygen_fraction * 100.0f), round_u8_pct(active_gas->helium_fraction * 100.0f));
+    bus_set_fio2(active_gas->oxygen_fraction * 100.0f);
+    bus_set_mod(mod_depth_for_gas(&s_state.config, active_gas->oxygen_fraction, bus_get_mod_ppo2()));
+
+    float n2_fraction = active_gas->nitrogen_fraction;
+    float gas_density = (active_gas->oxygen_fraction * GAS_DENSITY_O2_G_L + n2_fraction * GAS_DENSITY_N2_G_L + active_gas->helium_fraction * GAS_DENSITY_HE_G_L) * pressure_bar / s_state.config.surface_pressure_bar;
+    bus_set_gas_density(gas_density);
+
+    for (uint8_t i = 0U; i < s_state.gas_plan.gas_count && i < GAS_COUNT; i++)
+    {
+        bus_set_ppo2(i, s_state.gas_plan.gases[i].oxygen_fraction * pressure_bar);
+    }
+}
+
+static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
+{
+    deco_stop_t stops[MAX_DECO_STOPS];
+    uint8_t count = 0U;
+
+    if (schedule == NULL || schedule->stop_count == 0U)
+    {
+        bus_set_deco_plan(NULL, 0U);
+        return;
+    }
+
+    for (uint8_t i = 0U; i < schedule->stop_count && count < MAX_DECO_STOPS; i++)
+    {
+        if (schedule->stops[i].depth_m <= 0.0f || schedule->stops[i].duration_seconds == 0U)
+        {
+            continue;
+        }
+        stops[count].depth_m = schedule->stops[i].depth_m;
+        stops[count].stay_min = (float)schedule->stops[i].duration_seconds / 60.0f;
+        count++;
+    }
+    bus_set_deco_plan((count > 0U) ? stops : NULL, count);
+}
+
+static void sync_stop_data(const ArexDecoSchedule *schedule)
+{
+    int16_t ndl_min = 0;
+    stop_type_t stop_type = STOP_NONE;
+    float stop_depth_m = 0.0f;
+    uint16_t stop_left_s = 0U;
+    bool in_stop_zone = false;
+
+    if (s_metrics.ndl_seconds > 0)
+    {
+        uint16_t ndl_calc = round_up_minutes((uint32_t)s_metrics.ndl_seconds);
+        ndl_min = (ndl_calc > 99U) ? 99 : (int16_t)ndl_calc;
+    }
+
+    if (schedule != NULL && schedule->stop_count > 0U)
+    {
+        const ArexDecoStop *stop = &schedule->stops[0];
+        stop_depth_m = stop->depth_m;
+        stop_left_s = (stop->duration_seconds > 65535U) ? 65535U : (uint16_t)stop->duration_seconds;
+        stop_type = (s_metrics.ceiling_depth_m > 0.01f) ? STOP_DECO : STOP_SAFETY;
+        in_stop_zone = fabsf(s_state.current_depth_m - stop_depth_m) <= 0.8f;
+        if (stop_type == STOP_DECO) ndl_min = 0;
+    }
+
+    bus_update_deco(ndl_min, stop_type, stop_depth_m, stop_left_s, stop_left_s, in_stop_zone);
+    if (stop_type == STOP_NONE)
+    {
+        uint8_t bar = (ndl_min <= 0) ? 0U : (uint8_t)((ndl_min > 99 ? 99 : ndl_min) * 100 / 99);
+        bus_set_ndl_bar_pct(bar);
+    }
+}
+
+static void sync_core_data(const ArexDecoSchedule *schedule)
+{
+    uint32_t nofly_seconds = 0U;
+
+    sync_tissue_data();
+    bus_set_cns(round_u8_pct(s_state.oxygen_exposure.cns_percent));
+    bus_set_otu(round_u16_float(s_state.oxygen_exposure.otu));
+    bus_set_gf99(s_metrics.gf99_percent);
+    bus_set_surf_gf(s_metrics.surface_gf_percent);
+    bus_set_ceiling(s_metrics.ceiling_depth_m);
+    bus_set_tts(schedule != NULL ? round_up_minutes(schedule->tts_seconds) : 0U);
+    if (arex_deco_nofly(&s_state, &nofly_seconds) == AREX_DECO_STATUS_OK)
+    {
+        bus_set_nofly_time(round_up_minutes(nofly_seconds));
+    }
+    sync_gas_data();
+    sync_stop_data(schedule);
+    sync_deco_plan_data(schedule);
+}
+
+static void handle_pending_gas_switch(float depth_m)
+{
+    uint8_t target_gas_idx = 0U;
+    if (!has_pending_gas_switch(&target_gas_idx)) return;
+
+    if (target_gas_idx < s_state.gas_plan.gas_count)
+    {
+        ArexDecoGas *gas = &s_state.gas_plan.gases[target_gas_idx];
+        if (gas->enabled != 0U && depth_m <= gas->max_depth_m + 0.1f)
+        {
+            s_state.gas_plan.active_gas_index = (int8_t)target_gas_idx;
+        }
+    }
+    clear_gas_switch_cmd();
+}
+
+void deco_core_init(void)
+{
+    (void)ensure_initialized();
+}
+
+void deco_core_reset(void)
+{
+    s_initialized = false;
+    (void)ensure_initialized();
+}
+
+void deco_core_set_final_stop_depth(uint8_t depth_m)
+{
+    s_final_deco_stop_depth_m = (depth_m == 6U) ? 6U : 3U;
+    if (ensure_initialized()) apply_current_ui_config();
+    rt_kprintf("[DIVE_SETUP] Last deco stop: %um\n", (unsigned)s_final_deco_stop_depth_m);
+}
+
+void deco_core_set_gf(uint8_t gf_low_pct, uint8_t gf_high_pct)
+{
+    if (gf_low_pct > 100U) gf_low_pct = 100U;
+    if (gf_high_pct > 100U) gf_high_pct = 100U;
+    s_gf_low_pct = gf_low_pct;
+    s_gf_high_pct = gf_high_pct;
+    if (ensure_initialized()) apply_current_ui_config();
+    rt_kprintf("[DIVE_SETUP] GF: %u/%u\n", (unsigned)s_gf_low_pct, (unsigned)s_gf_high_pct);
+}
+
+void deco_core_set_salinity_mode(uint8_t mode)
+{
+    s_salinity_mode = mode;
+    if (ensure_initialized()) apply_current_ui_config();
+    rt_kprintf("[DIVE_SETUP] Salinity mode: %u\n", (unsigned)mode);
+}
+
+void deco_core_set_safety_stop_mode(uint8_t mode)
+{
+    s_safety_stop_mode = mode;
+    if (ensure_initialized()) apply_current_ui_config();
+    rt_kprintf("[DIVE_SETUP] Safety stop mode: %s\n", ui_safety_stop_label(mode));
+}
+
+void deco_core_apply_gases_from_ui(void)
+{
+    if (ensure_initialized()) apply_current_ui_config();
+}
+
+void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
+{
+    (void)temperature_c;
+    if (!ensure_initialized()) return;
+    if (delta_time_s == 0U) delta_time_s = 1U;
+    if (depth_m < 0.0f) depth_m = 0.0f;
+
+    handle_pending_gas_switch(depth_m);
+
+    ArexDecoStepInput input;
+    ArexDecoDiveState next_state;
+    (void)memset(&input, 0, sizeof(input));
+    input.api_version = arex_deco_get_api_version();
+    input.start_depth_m = s_state.current_depth_m;
+    input.end_depth_m = depth_m;
+    input.duration_seconds = delta_time_s;
+    input.gas_index = s_state.gas_plan.active_gas_index;
+
+    if (arex_deco_step(&s_state, &input, &next_state, &s_metrics) != AREX_DECO_STATUS_OK)
+    {
+        rt_kprintf("[DECO] step failed, resetting core\n");
+        deco_core_reset();
+        return;
+    }
+
+    s_state = next_state;
+
+    ArexDecoSchedule schedule;
+    (void)memset(&schedule, 0, sizeof(schedule));
+    ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
+    sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
+}
+
+static uint16_t gas_qty_l(float depth_m, uint32_t seconds, float rmv_lpm, const ArexDecoConfig *config)
+{
+    float minutes = (float)seconds / 60.0f;
+    float pressure = pressure_bar_at_depth(config, depth_m) / config->surface_pressure_bar;
+    return round_u16_float(rmv_lpm * pressure * minutes);
+}
+
+static uint8_t append_plan_row(dive_plan_result_snapshot_t *snapshot, dive_plan_row_type_t type,
+                               int16_t depth_m, uint16_t time_min, uint16_t run_min,
+                               const ArexDecoGas *gas, uint16_t gas_l)
+{
+    if (snapshot->entry_count >= PLAN_MAX_ROWS)
+    {
+        return 0U;
+    }
+    dive_plan_row_t *row = &snapshot->rows[snapshot->entry_count++];
+    row->type = type;
+    row->depth_m = depth_m;
+    row->time_min = time_min;
+    row->run_min = run_min;
+    row->o2_pct = round_u8_pct(gas->oxygen_fraction * 100.0f);
+    row->he_pct = round_u8_pct(gas->helium_fraction * 100.0f);
+    row->gas_l = gas_l;
+    return 1U;
+}
+
+bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv_lpm, dive_plan_result_snapshot_t *out_snapshot)
+{
+    ArexDecoDiveState plan_state;
+    ArexDecoDiveState next_state;
+    ArexDecoRuntimeMetrics metrics;
+    ArexDecoSchedule schedule;
+
+    if (out_snapshot == NULL) return false;
+    (void)memset(out_snapshot, 0, sizeof(*out_snapshot));
+    if (!ensure_initialized()) return false;
+    if (depth_m < 3.0f) depth_m = 3.0f;
+    if (depth_m > 120.0f) depth_m = 120.0f;
+    if (bottom_time_min < 1U) bottom_time_min = 1U;
+    if (bottom_time_min > 300U) bottom_time_min = 300U;
+    if (rmv_lpm < 5.0f) rmv_lpm = 5.0f;
+    if (rmv_lpm > 50.0f) rmv_lpm = 50.0f;
+
+    if (arex_deco_make_initial_dive_state(&plan_state) != AREX_DECO_STATUS_OK) return false;
+    plan_state.config = s_state.config;
+    plan_state.gas_plan = s_state.gas_plan;
+    (void)arex_deco_reset_tissue_to_surface(&plan_state.config, &plan_state.gas_plan.gases[plan_state.gas_plan.active_gas_index], &plan_state.tissue);
+
+    uint32_t descent_s = (uint32_t)((depth_m / PLAN_DESCENT_RATE_MPM) * 60.0f + 0.5f);
+    ArexDecoStepInput input;
+    (void)memset(&input, 0, sizeof(input));
+    input.api_version = arex_deco_get_api_version();
+    input.start_depth_m = 0.0f;
+    input.end_depth_m = depth_m;
+    input.duration_seconds = descent_s;
+    input.gas_index = plan_state.gas_plan.active_gas_index;
+    if (arex_deco_step(&plan_state, &input, &next_state, &metrics) != AREX_DECO_STATUS_OK) return false;
+    plan_state = next_state;
+
+    input.start_depth_m = depth_m;
+    input.end_depth_m = depth_m;
+    input.duration_seconds = (uint32_t)bottom_time_min * 60U;
+    if (arex_deco_step(&plan_state, &input, &next_state, &metrics) != AREX_DECO_STATUS_OK) return false;
+    plan_state = next_state;
+
+    (void)memset(&schedule, 0, sizeof(schedule));
+    if (arex_deco_plan(&plan_state, &schedule, NULL) != AREX_DECO_STATUS_OK) return false;
+
+    uint32_t run_s = descent_s + (uint32_t)bottom_time_min * 60U;
+    uint16_t total_deco_l = 0U;
+    const ArexDecoGas *bottom_gas = &plan_state.gas_plan.gases[plan_state.gas_plan.active_gas_index];
+    uint16_t bottom_gas_l = gas_qty_l(depth_m, input.duration_seconds, rmv_lpm, &plan_state.config);
+    (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_BOTTOM, (int16_t)(depth_m + 0.5f), bottom_time_min, round_up_minutes(run_s), bottom_gas, bottom_gas_l);
+
+    for (uint8_t i = 0U; i < schedule.stop_count && out_snapshot->entry_count < PLAN_MAX_ROWS; i++)
+    {
+        const ArexDecoStop *stop = &schedule.stops[i];
+        int8_t gas_idx = stop->gas_index;
+        if (gas_idx < 0 || gas_idx >= (int8_t)plan_state.gas_plan.gas_count) gas_idx = plan_state.gas_plan.active_gas_index;
+        const ArexDecoGas *gas = &plan_state.gas_plan.gases[gas_idx];
+        uint16_t stop_gas_l = gas_qty_l(stop->depth_m, stop->duration_seconds, rmv_lpm, &plan_state.config);
+        run_s += stop->duration_seconds;
+        total_deco_l = (uint16_t)(total_deco_l + stop_gas_l);
+        (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_DECO_STOP, (int16_t)(stop->depth_m + 0.5f), round_up_minutes(stop->duration_seconds), round_up_minutes(run_s), gas, stop_gas_l);
+    }
+
+    uint32_t total_runtime_s = descent_s + (uint32_t)bottom_time_min * 60U + schedule.tts_seconds;
+    uint32_t ascent_s = schedule.tts_seconds;
+    if (schedule.stop_count > 0U)
+    {
+        uint32_t stop_s = 0U;
+        for (uint8_t i = 0U; i < schedule.stop_count; i++) stop_s += schedule.stops[i].duration_seconds;
+        ascent_s = (schedule.tts_seconds > stop_s) ? (schedule.tts_seconds - stop_s) : 0U;
+    }
+    uint16_t ascent_gas_l = gas_qty_l(depth_m * 0.5f, ascent_s, rmv_lpm, &plan_state.config);
+    (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_ASCENT, 0, round_up_minutes(ascent_s), round_up_minutes(total_runtime_s), bottom_gas, ascent_gas_l);
+
+    out_snapshot->valid = 1U;
+    out_snapshot->page = 0U;
+    out_snapshot->total_runtime_min = round_up_minutes(total_runtime_s);
+    out_snapshot->total_deco_min = 0U;
+    for (uint8_t i = 0U; i < schedule.stop_count; i++) out_snapshot->total_deco_min = (uint16_t)(out_snapshot->total_deco_min + round_up_minutes(schedule.stops[i].duration_seconds));
+    out_snapshot->total_gas_l = (uint16_t)(bottom_gas_l + total_deco_l + ascent_gas_l);
+    out_snapshot->cns_pct = round_u16_float(schedule.end_of_dive_exposure.cns_percent);
+    out_snapshot->otu = round_u16_float(schedule.end_of_dive_exposure.otu);
+    out_snapshot->total_pages = (uint8_t)((out_snapshot->entry_count + 7U) / 8U);
+    if (out_snapshot->total_pages == 0U) out_snapshot->total_pages = 1U;
+    out_snapshot->total_pages++;
+    return true;
+}

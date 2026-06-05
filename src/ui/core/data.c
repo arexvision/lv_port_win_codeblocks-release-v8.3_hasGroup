@@ -13,7 +13,7 @@
 
 #ifdef PC_SIMULATOR
 #include "lvgl.h"
-#include "../../algo_sim/buhlmann_debug.h"
+#include "../../algo_sim/deco_core.h"
 #endif
 
 static dive_pt_t s_dive_log[MAX_DIVE_LOG];
@@ -246,7 +246,7 @@ static void bus_apply_algo_gases(void)
 {
     /* 仿真模式下把 UI 侧气体配置同步给减压算法，非仿真编译时不做任何事。 */
 #ifdef PC_SIMULATOR
-    buhlmann_debug_apply_gases_from_ui();
+    deco_core_apply_gases_from_ui();
 #endif
 }
 
@@ -254,7 +254,7 @@ static void bus_apply_algo_gf(uint8_t gf_low, uint8_t gf_high)
 {
     /* 让算法层始终读到与 UI 一致的 GF 设置。 */
 #ifdef PC_SIMULATOR
-    buhlmann_debug_set_gf(gf_low, gf_high);
+    deco_core_set_gf(gf_low, gf_high);
 #else
     (void)gf_low;
     (void)gf_high;
@@ -265,7 +265,7 @@ static void bus_apply_algo_salinity(uint8_t mode)
 {
     /* 盐度模式只在仿真/调试侧需要显式同步。 */
 #ifdef PC_SIMULATOR
-    buhlmann_debug_set_salinity_mode(mode);
+    deco_core_set_salinity_mode(mode);
 #else
     (void)mode;
 #endif
@@ -275,7 +275,7 @@ static void bus_apply_algo_last_deco(uint8_t depth_m)
 {
     /* 最后停留深度属于算法输入，保持与菜单设置同步。 */
 #ifdef PC_SIMULATOR
-    buhlmann_debug_set_final_stop_depth(depth_m);
+    deco_core_set_final_stop_depth(depth_m);
 #else
     (void)depth_m;
 #endif
@@ -283,9 +283,9 @@ static void bus_apply_algo_last_deco(uint8_t depth_m)
 
 static void bus_apply_algo_safety_stop(uint8_t mode)
 {
-    /* 安全停留模式属于算法输入，PC 仿真侧同步到 Buhlmann 调试驱动。 */
+    /* 安全停留模式属于算法输入，PC 仿真侧同步到减压算法适配层。 */
 #ifdef PC_SIMULATOR
-    buhlmann_debug_set_safety_stop_mode(mode);
+    deco_core_set_safety_stop_mode(mode);
 #else
     (void)mode;
 #endif

@@ -21,6 +21,7 @@
 				</Compiler>
 				<Linker>
 					<Add option="-mwindows -mconsole" />
+					<Add library="src/algo_core/lib/libarex_deco_core.a" />
 					<Add library="mingw32" />
 				</Linker>
 			</Target>
@@ -35,6 +36,7 @@
 				<Linker>
 					<Add option="-s" />
 					<Add option="-mwindows -mconsole" />
+					<Add library="src/algo_core/lib/libarex_deco_core.a" />
 					<Add library="mingw32" />
 				</Linker>
 			</Target>
@@ -47,6 +49,7 @@
 			<Add directory="src/ui" />
 			<Add directory="src/hal_sim" />
 			<Add directory="src/algo_sim" />
+			<Add directory="src/algo_core/include" />
 			<Add directory="lvgl" />
 		</Compiler>
 		<Unit filename="lv_100ask_demo_course_3_1_1.c">
@@ -1794,11 +1797,9 @@
 		<Unit filename="my_.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/algo_sim/Buhlmann.cpp" />
-		<Unit filename="src/algo_sim/Buhlmann.h" />
+		<Unit filename="src/algo_sim/deco_core.cpp" />
+		<Unit filename="src/algo_sim/deco_core.h" />
 		<Unit filename="src/algo_sim/README.md" />
-		<Unit filename="src/algo_sim/buhlmann_debug.cpp" />
-		<Unit filename="src/algo_sim/buhlmann_debug.h" />
 		<Unit filename="src/algo_sim/rtdevice.h" />
 		<Unit filename="src/algo_sim/rtthread.h" />
 		<Unit filename="src/hal_sim/README.md" />

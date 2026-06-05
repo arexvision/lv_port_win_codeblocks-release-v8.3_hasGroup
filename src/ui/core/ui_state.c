@@ -370,7 +370,7 @@ void ui_handle_click(void)
              * 真正的数据切换由算法/任务线程执行后，再反向更新 Data Bus。 */
             request_gas_switch(ci);
             screen_hide_modal();
-            /* 注意：gas_name 和 gas_active_idx 由 buhlmann_task 更新 */
+            /* 注意：gas_name 和 gas_active_idx 由算法适配层更新 */
             screen_refresh_gas_menu();
             screen_refresh_left_panel();
             // HOTFIX: Route GAS modal exit based on context.

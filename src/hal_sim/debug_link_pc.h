@@ -1359,7 +1359,7 @@ static void debug_poll_cb(lv_timer_t *timer)
             bus_set_ascent_rate(0.0f);
             printf("[DBG] TCP debug client connected\r\n");
             debug_send_raw("Debug TCP ready on 127.0.0.1:7623\r\n");
-            debug_send_raw("TCP connected: debug data will reset, auto depth is disabled, Buhlmann debug algorithm is active.\r\n");
+            debug_send_raw("TCP connected: debug data will reset, auto depth is disabled, Arex deco core is active.\r\n");
             debug_send_raw("Type help for commands.\r\n");
         }
         else if (!debug_is_would_block(debug_last_error()))

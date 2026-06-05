@@ -2,7 +2,7 @@
 
 #include "../ui/core/data.h"
 #include "../ui/core/ui_dirty.h"
-#include "../algo_sim/buhlmann_debug.h"
+#include "../algo_sim/deco_core.h"
 #include "sim_alert_policy.h"
 #ifndef PC_SIMULATOR
 #define PC_SIMULATOR
@@ -229,7 +229,7 @@ static void sim_reset_for_tcp_debug(void)
     bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
     sim_seed_tcp_algo_defaults();
     sim_seed_logbook_demo_if_empty();
-    buhlmann_debug_reset();
+    deco_core_reset();
 
     bus_requeue_dirty(DIRTY_DATA_ALL);
 }
@@ -642,7 +642,7 @@ static void sim_tick_cb(lv_timer_t *t)
             bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
             sim_update_mlx_diagnostics(s_sim.dive_time_s);
 
-            buhlmann_debug_tick(current_depth_m, s_sim.temperature_c, 1U);
+            deco_core_tick(current_depth_m, s_sim.temperature_c, 1U);
             sim_alert_tick();
         }
     }

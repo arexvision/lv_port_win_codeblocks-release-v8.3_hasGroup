@@ -210,10 +210,10 @@ void ui_go_to_page(uint8_t idx);
 /* 请求气体切换（不直接修改数据源，发送命令到队列） */
 void request_gas_switch(uint8_t gas_idx);
 
-/* 检查是否有待处理的气体切换命令（buhlmann_task 调用） */
+/* 检查是否有待处理的气体切换命令（算法适配层调用） */
 bool has_pending_gas_switch(uint8_t *out_gas_idx);
 
-/* 清除气体切换命令（buhlmann_task 处理后调用） */
+/* 清除气体切换命令（算法适配层处理后调用） */
 void clear_gas_switch_cmd(void);
 
 /* 罗盘校准命令（UI -> 传感器任务） */
