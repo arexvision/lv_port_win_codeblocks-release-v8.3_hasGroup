@@ -327,30 +327,14 @@ void ui_vm_menu_layout_update(ui_vm_menu_layout_t *vm,
     if (config == NULL)
     {
         vm->right_canvas_w = ui_content_w_get();
-        if (!ui_layout_is_vertical_split())
-        {
-            vm->item_h_px = 38U;
-            vm->gap_y_px = 4U;
-        }
-        else
-        {
-            vm->item_h_px = ui_menu_item_h_px_get();
-            vm->gap_y_px = ui_menu_gap_px_get();
-        }
+        vm->item_h_px = ui_menu_item_h_px_get();
+        vm->gap_y_px = ui_menu_gap_px_get();
         return;
     }
 
     vm->right_canvas_w = vm_content_w_from_config(config);
-    if (config->theme_mode == THEME_CLASSIC)
-    {
-        vm->item_h_px = 38U;
-        vm->gap_y_px = 4U;
-    }
-    else
-    {
-        vm->item_h_px = (uint16_t)config->h_menu_item * BASE_U;
-        vm->gap_y_px = (uint16_t)config->gap_menu * BASE_U;
-    }
+    vm->item_h_px = (uint16_t)config->h_menu_item * BASE_U;
+    vm->gap_y_px = (uint16_t)config->gap_menu * BASE_U;
 }
 
 void ui_vm_value_text_update(ui_vm_value_text_t *vm,
