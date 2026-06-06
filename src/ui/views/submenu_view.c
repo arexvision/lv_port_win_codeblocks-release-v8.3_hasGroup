@@ -14,6 +14,7 @@
 #include "menu_runtime.h"
 #include "../core/vm/ui_vm_plan_view.h"
 #include "../core/vm/ui_vm_system_view.h"
+#include "../core/vm/ui_vm_menu_types.h"
 #include "../core/ui_state.h"
 #include "../comp/depth_chart_renderer.h"
 #include "../fonts/fonts.h"
@@ -723,7 +724,7 @@ lv_obj_t *submenu_view_get_list(void)
 static void submenu_list_set_normal_geometry(void)
 {
     uint16_t list_y = (CARD_TITLE_H > MENU_LIST_TOP_NUDGE_PX) ? (uint16_t)(CARD_TITLE_H - MENU_LIST_TOP_NUDGE_PX) : CARD_TITLE_H;
-    uint16_t list_h = (s_submenu_height > (uint16_t)(list_y + 10U)) ? (uint16_t)(s_submenu_height - list_y - 10U) : s_submenu_height;
+    uint16_t list_h = (s_submenu_height > list_y) ? (uint16_t)(s_submenu_height - list_y) : s_submenu_height;
 
     lv_obj_set_size(s_submenu_list, s_submenu_width - 15, list_h);
     lv_obj_set_pos(s_submenu_list, 0, list_y);
@@ -1225,11 +1226,13 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
     s_light_status_lbl = NULL;  /* 重置 LIGHT 状态标签 */
 
     /* right_w 从缓存读取，fallback = safe_zone_w - left_anchor_w - panel_gap */
+    ui_vm_menu_layout_t menu_layout_vm;
+    ui_vm_menu_layout_update(&menu_layout_vm, NULL);
     uint16_t right_w = submenu_right_width();
     uint16_t sub_w = right_w;
-    int item_h = (int)ui_menu_item_h_px_get();
+    int item_h = (int)menu_layout_vm.item_h_px;
     int item_w = (int)sub_w - 15;
-    int gap_y  = (int)ui_menu_gap_px_get();
+    int gap_y  = (int)menu_layout_vm.gap_y_px;
     int current_y = MENU_LIST_EDGE_PAD_PX;
     bool compact_plan = menu_runtime_is_dive_plan_result();
     if (compact_plan)
