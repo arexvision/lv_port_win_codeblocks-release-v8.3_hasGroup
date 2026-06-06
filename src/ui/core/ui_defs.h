@@ -38,7 +38,7 @@ extern "C" {
 #define CARD_DEBUG_BORDERS        1       /* 卡片内部调试边框开关 */
 #define INNER_BORDER_W            2       /* 通用内部边框宽度 */
 #define MENU_LIST_TOP_NUDGE_PX    0       /* 菜单列表向标题方向上移量 */
-#define MENU_LIST_EDGE_PAD_PX     10      /* 菜单滚动容器边缘缓冲 */
+#define MENU_LIST_EDGE_PAD_PX     5       /* 菜单滚动容器边缘缓冲 */
 #define MENU_LIST_SCROLL_ANIM_ENABLED  1  /* 菜单选中项滚动动画开关 */
 #define COMP_TITLE_EDGE_NUDGE_PX  3       /* 组件标题贴边微调 */
 #define COMP_VALUE_EDGE_NUDGE_PX  3       /* 组件数值贴边微调 */
