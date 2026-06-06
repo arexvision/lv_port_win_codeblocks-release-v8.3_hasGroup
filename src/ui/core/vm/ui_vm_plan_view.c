@@ -155,6 +155,7 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
     vm->result_page_index = snapshot.result_page_index;
     vm->result_total_pages = snapshot.result_total_pages;
     vm->result_entry_count = snapshot.result_entry_count;
+    vm->result_rows_per_page = submenu_dive_plan_get_result_rows_per_page();
     vm->result_summary_page = snapshot.result_summary_page;
 
     (void)snprintf(vm->depth_value, sizeof(vm->depth_value), "%u", (unsigned)(snapshot.depth_m + 0.5f));
@@ -237,9 +238,9 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
         return;
     }
 
-    for (uint8_t i = 0U; i < 8U; i++)
+    for (uint8_t i = 0U; i < vm->result_rows_per_page && i < 8U; i++)
     {
-        const uint8_t row_index = (uint8_t)(vm->result_page_index * 8U + i);
+        const uint8_t row_index = (uint8_t)(vm->result_page_index * vm->result_rows_per_page + i);
         dive_plan_row_t row;
         char time_text[8];
 

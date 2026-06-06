@@ -209,6 +209,21 @@ static uint16_t logbook_panel_width(uint16_t w)
     return (w > 36U) ? (uint16_t)(w - 36U) : w;
 }
 
+static bool logbook_compact_layout(void)
+{
+    return !ui_layout_is_vertical_split() && s_submenu_height <= 320U;
+}
+
+static int16_t logbook_button_y(uint16_t h)
+{
+    return logbook_compact_layout() ? (int16_t)(h - 36U) : (int16_t)(h - 48U);
+}
+
+static uint16_t logbook_button_h(void)
+{
+    return logbook_compact_layout() ? 30U : 34U;
+}
+
 static lv_obj_t *logbook_label(lv_obj_t *parent, const char *text, font_id_t font_id, lv_color_t color,
                                int16_t x, int16_t y, uint16_t w, uint16_t h, lv_text_align_t align)
 {
@@ -238,7 +253,7 @@ static lv_obj_t *logbook_button(lv_obj_t *parent, const char *text, uint8_t focu
     lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
 
     lbl = lv_label_create(btn);
-    lv_obj_set_style_text_font(lbl, get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_font(lbl, get_font(h <= 30U ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
     lv_obj_set_style_text_color(lbl, (s_logbook_focus == focus_id) ? BLACK : GREEN, 0);
     lv_label_set_text(lbl, text ? text : "");
     lv_obj_center(lbl);
@@ -295,6 +310,7 @@ static void logbook_draw_row(lv_obj_t *parent, const char *left, const char *rig
                              int16_t x, int16_t y, uint16_t w, uint16_t h)
 {
     bool focused = (s_logbook_focus == focus_id);
+    font_id_t row_font = (h <= 32U) ? FONT_ID_SMALL : FONT_ID_TITLE;
     lv_obj_t *row = lv_obj_create(parent);
     lv_obj_remove_style_all(row);
     lv_obj_set_pos(row, x, y);
@@ -305,10 +321,10 @@ static void logbook_draw_row(lv_obj_t *parent, const char *left, const char *rig
     lv_obj_set_style_border_width(row, focused ? 2 : 1, 0);
     lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
 
-    logbook_label(row, left, FONT_ID_TITLE, focused ? LIGHT : GREEN, 12, 4, (uint16_t)(w / 2U), (uint16_t)(h - 8U), LV_TEXT_ALIGN_LEFT);
+    logbook_label(row, left, row_font, focused ? LIGHT : GREEN, 12, 4, (uint16_t)(w / 2U), (uint16_t)(h - 8U), LV_TEXT_ALIGN_LEFT);
     if (right != NULL)
     {
-        logbook_label(row, right, FONT_ID_TITLE, focused ? LIGHT : GREEN, (int16_t)(w / 2U), 4, (uint16_t)(w / 2U - 12U), (uint16_t)(h - 8U), LV_TEXT_ALIGN_RIGHT);
+        logbook_label(row, right, row_font, focused ? LIGHT : GREEN, (int16_t)(w / 2U), 4, (uint16_t)(w / 2U - 12U), (uint16_t)(h - 8U), LV_TEXT_ALIGN_RIGHT);
     }
 }
 
@@ -452,6 +468,13 @@ static void logbook_draw_summary(lv_obj_t *parent, uint16_t w, uint16_t h)
     char date[20];
     char buf[48];
     char dive_time[16];
+    bool compact = logbook_compact_layout();
+    uint16_t chart_h = compact ? 120U : 160U;
+    int16_t axis_y = compact ? 156 : 190;
+    int16_t stats_y1 = compact ? 188 : 230;
+    int16_t stats_y2 = compact ? 222 : 272;
+    font_id_t stats_font = compact ? FONT_ID_TITLE : FONT_ID_MEDIUM;
+    uint16_t stats_h = compact ? 30U : 42U;
 
     logbook_format_date(date, sizeof(date), &s_logbook_entry.meta);
     logbook_format_duration(dive_time, sizeof(dive_time), s_logbook_entry.dive_time_s);
@@ -462,38 +485,44 @@ static void logbook_draw_summary(lv_obj_t *parent, uint16_t w, uint16_t h)
     lv_obj_t *chart = lv_obj_create(parent);
     lv_obj_remove_style_all(chart);
     lv_obj_set_pos(chart, 50, 48);
-    lv_obj_set_size(chart, (uint16_t)(w - 70U), 160);
+    lv_obj_set_size(chart, (uint16_t)(w - 70U), chart_h);
     lv_obj_add_event_cb(chart, logbook_chart_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
     (void)snprintf(buf, sizeof(buf), "%.0fm", (double)s_logbook_entry.max_depth_m);
-    logbook_label(parent, buf, FONT_ID_TITLE, LIGHT, 8, 190, 56, 24, LV_TEXT_ALIGN_LEFT);
-    logbook_label(parent, dive_time, FONT_ID_TITLE, LIGHT, (int16_t)(w - 110), 190, 100, 24, LV_TEXT_ALIGN_RIGHT);
+    logbook_label(parent, buf, FONT_ID_TITLE, LIGHT, 8, axis_y, 56, 24, LV_TEXT_ALIGN_LEFT);
+    logbook_label(parent, dive_time, FONT_ID_TITLE, LIGHT, (int16_t)(w - 110), axis_y, 100, 24, LV_TEXT_ALIGN_RIGHT);
 
     (void)snprintf(buf, sizeof(buf), "MAX %.1fm", (double)s_logbook_entry.max_depth_m);
-    logbook_label(parent, buf, FONT_ID_MEDIUM, LIGHT, 20, 230, 180, 42, LV_TEXT_ALIGN_LEFT);
+    logbook_label(parent, buf, stats_font, LIGHT, 20, stats_y1, 180, stats_h, LV_TEXT_ALIGN_LEFT);
     (void)snprintf(buf, sizeof(buf), "AVG %.1fm", (double)s_logbook_entry.avg_depth_m);
-    logbook_label(parent, buf, FONT_ID_MEDIUM, LIGHT, 20, 272, 180, 42, LV_TEXT_ALIGN_LEFT);
+    logbook_label(parent, buf, stats_font, LIGHT, 20, stats_y2, 180, stats_h, LV_TEXT_ALIGN_LEFT);
     (void)snprintf(buf, sizeof(buf), "START %02u:%02u", (unsigned)s_logbook_entry.meta.start_h, (unsigned)s_logbook_entry.meta.start_m);
-    logbook_label(parent, buf, FONT_ID_MEDIUM, LIGHT, 230, 230, 200, 42, LV_TEXT_ALIGN_LEFT);
+    logbook_label(parent, buf, stats_font, LIGHT, 230, stats_y1, 200, stats_h, LV_TEXT_ALIGN_LEFT);
     (void)snprintf(buf, sizeof(buf), "END %02u:%02u", (unsigned)s_logbook_entry.meta.end_h, (unsigned)s_logbook_entry.meta.end_m);
-    logbook_label(parent, buf, FONT_ID_MEDIUM, LIGHT, 230, 272, 200, 42, LV_TEXT_ALIGN_LEFT);
+    logbook_label(parent, buf, stats_font, LIGHT, 230, stats_y2, 200, stats_h, LV_TEXT_ALIGN_LEFT);
 
-    logbook_button(parent, "Back", 0U, 12, (int16_t)(h - 48), 110, 34);
-    logbook_button(parent, "More", 1U, (int16_t)(w - 128), (int16_t)(h - 48), 110, 34);
+    logbook_button(parent, "Back", 0U, 12, logbook_button_y(h), 110, logbook_button_h());
+    logbook_button(parent, "More", 1U, (int16_t)(w - 128), logbook_button_y(h), 110, logbook_button_h());
 }
 
 static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
 {
     uint8_t count = logbook_backend_count();
     uint8_t selected = (s_logbook_focus > 0U) ? (uint8_t)(s_logbook_focus - 1U) : 0U;
-    uint8_t max_visible = 8U;
+    bool compact = logbook_compact_layout();
+    uint8_t max_visible = compact ? 5U : 8U;
     uint8_t first = 0U;
     uint16_t panel_w = logbook_panel_width(w);
+    int16_t title_y = compact ? 8 : 16;
+    int16_t count_y = compact ? 14 : 22;
+    int16_t row_start_y = compact ? 54 : 62;
+    int16_t row_gap = compact ? 36 : 42;
+    uint16_t row_h = compact ? 32U : 36U;
     char left[32];
     char right[24];
 
-    logbook_label(parent, "DIVE LOG", FONT_ID_TITLE, GREEN, 18, 16, panel_w, 32, LV_TEXT_ALIGN_LEFT);
+    logbook_label(parent, "DIVE LOG", FONT_ID_TITLE, GREEN, 18, title_y, panel_w, 32, LV_TEXT_ALIGN_LEFT);
     (void)snprintf(right, sizeof(right), "%u LOGS", (unsigned)count);
-    logbook_label(parent, right, FONT_ID_SMALL, GREEN, (int16_t)(18 + panel_w - 110), 22, 100, 24, LV_TEXT_ALIGN_RIGHT);
+    logbook_label(parent, right, FONT_ID_SMALL, GREEN, (int16_t)(18 + panel_w - 110), count_y, 100, 24, LV_TEXT_ALIGN_RIGHT);
 
     if (count > max_visible)
     {
@@ -523,10 +552,10 @@ static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
         logbook_format_date(date, sizeof(date), &entry.meta);
         (void)snprintf(left, sizeof(left), "DIVE#%u", (unsigned)entry.meta.log_no);
         (void)snprintf(right, sizeof(right), "%s", date);
-        logbook_draw_row(parent, left, right, (uint8_t)(index + 1U), 18, (int16_t)(62 + row * 42), panel_w, 36);
+        logbook_draw_row(parent, left, right, (uint8_t)(index + 1U), 18, (int16_t)(row_start_y + row * row_gap), panel_w, row_h);
     }
 
-    logbook_button(parent, "Back", 0U, 12, (int16_t)(h - 48), 110, 34);
+    logbook_button(parent, "Back", 0U, 12, logbook_button_y(h), 110, logbook_button_h());
 }
 
 static void logbook_draw_detail_1(lv_obj_t *parent, uint16_t w, uint16_t h)
@@ -534,6 +563,10 @@ static void logbook_draw_detail_1(lv_obj_t *parent, uint16_t w, uint16_t h)
     char date[20];
     char buf[56];
     char surf[16];
+    bool compact = logbook_compact_layout();
+    int16_t row_start_y = compact ? 50 : 62;
+    int16_t row_gap = compact ? 35 : 40;
+    uint16_t row_h = compact ? 32U : 34U;
 
     logbook_format_date(date, sizeof(date), &s_logbook_entry.meta);
     (void)snprintf(buf, sizeof(buf), "DIVE#%u     %s", (unsigned)s_logbook_entry.meta.log_no, date);
@@ -557,37 +590,45 @@ static void logbook_draw_detail_1(lv_obj_t *parent, uint16_t w, uint16_t h)
 
     for (uint8_t i = 0U; i < 6U; i++)
     {
-        int16_t y = (int16_t)(62 + i * 40);
-        logbook_draw_row(parent, labels[i], values[i], 255U, 18, y, logbook_panel_width(w), 34);
+        int16_t y = (int16_t)(row_start_y + i * row_gap);
+        logbook_draw_row(parent, labels[i], values[i], 255U, 18, y, logbook_panel_width(w), row_h);
     }
 
-    logbook_button(parent, "Back", 0U, 12, (int16_t)(h - 48), 110, 34);
-    logbook_button(parent, "More", 1U, (int16_t)(w - 128), (int16_t)(h - 48), 110, 34);
+    logbook_button(parent, "Back", 0U, 12, logbook_button_y(h), 110, logbook_button_h());
+    logbook_button(parent, "More", 1U, (int16_t)(w - 128), logbook_button_y(h), 110, logbook_button_h());
 }
 
 static void logbook_draw_detail_2(lv_obj_t *parent, uint16_t w, uint16_t h)
 {
     char date[20];
     char buf[56];
+    bool compact = logbook_compact_layout();
+    font_id_t table_font = compact ? FONT_ID_SMALL : FONT_ID_MEDIUM;
+    int16_t header_y = compact ? 48 : 58;
+    int16_t row_start_y = compact ? 86 : 104;
+    int16_t row_gap = compact ? 34 : 42;
+    uint16_t row_h = compact ? 28U : 36U;
+    int16_t avg_y = compact ? 230 : 290;
+    uint16_t avg_h = compact ? 28U : 40U;
 
     logbook_format_date(date, sizeof(date), &s_logbook_entry.meta);
     (void)snprintf(buf, sizeof(buf), "DIVE#%u     %s", (unsigned)s_logbook_entry.meta.log_no, date);
     logbook_label(parent, buf, FONT_ID_TITLE, LIGHT, 8, 10, (uint16_t)(w - 16U), 30, LV_TEXT_ALIGN_LEFT);
-    logbook_label(parent, "Start     End", FONT_ID_MEDIUM, LIGHT, 150, 58, 250, 40, LV_TEXT_ALIGN_LEFT);
+    logbook_label(parent, "Start     End", table_font, LIGHT, 150, header_y, 250, row_h, LV_TEXT_ALIGN_LEFT);
 
     static const char *names[] = {"D1", "T2", "T3", "T4"};
     for (uint8_t i = 0U; i < LOGBOOK_TANK_COUNT; i++)
     {
-        int16_t y = (int16_t)(104 + i * 42);
-        logbook_label(parent, names[i], FONT_ID_MEDIUM, LIGHT, 60, y, 70, 36, LV_TEXT_ALIGN_LEFT);
-        logbook_label(parent, s_logbook_entry.tank_start[i], FONT_ID_MEDIUM, LIGHT, 155, y, 100, 36, LV_TEXT_ALIGN_LEFT);
-        logbook_label(parent, s_logbook_entry.tank_end[i], FONT_ID_MEDIUM, LIGHT, 310, y, 100, 36, LV_TEXT_ALIGN_LEFT);
+        int16_t y = (int16_t)(row_start_y + i * row_gap);
+        logbook_label(parent, names[i], table_font, LIGHT, 60, y, 70, row_h, LV_TEXT_ALIGN_LEFT);
+        logbook_label(parent, s_logbook_entry.tank_start[i], table_font, LIGHT, 155, y, 100, row_h, LV_TEXT_ALIGN_LEFT);
+        logbook_label(parent, s_logbook_entry.tank_end[i], table_font, LIGHT, 310, y, 100, row_h, LV_TEXT_ALIGN_LEFT);
     }
 
     (void)snprintf(buf, sizeof(buf), "Avg SAC D1 %.1f", (double)s_logbook_entry.avg_sac_l_min);
-    logbook_label(parent, buf, FONT_ID_MEDIUM, LIGHT, 60, 290, 300, 40, LV_TEXT_ALIGN_LEFT);
-    logbook_button(parent, "Back", 0U, 12, (int16_t)(h - 48), 110, 34);
-    logbook_button(parent, "Edit", 1U, (int16_t)(w - 128), (int16_t)(h - 48), 110, 34);
+    logbook_label(parent, buf, table_font, LIGHT, 60, avg_y, 300, avg_h, LV_TEXT_ALIGN_LEFT);
+    logbook_button(parent, "Back", 0U, 12, logbook_button_y(h), 110, logbook_button_h());
+    logbook_button(parent, "Edit", 1U, (int16_t)(w - 128), logbook_button_y(h), 110, logbook_button_h());
 }
 
 static void logbook_draw_edit(lv_obj_t *parent, uint16_t w, uint16_t h)
@@ -596,26 +637,31 @@ static void logbook_draw_edit(lv_obj_t *parent, uint16_t w, uint16_t h)
     char buf[56];
     uint16_t panel_w = logbook_panel_width(w);
     char log_no[12];
+    bool compact = logbook_compact_layout();
+    int16_t line_y = compact ? 48 : 62;
+    int16_t row_start_y = compact ? 58 : 82;
+    int16_t row_gap = compact ? 46 : 56;
+    uint16_t row_h = compact ? 40U : 48U;
 
-    logbook_label(parent, "EDIT LOG", FONT_ID_TITLE, GREEN, 18, 18, panel_w, 34, LV_TEXT_ALIGN_LEFT);
+    logbook_label(parent, "EDIT LOG", FONT_ID_TITLE, GREEN, 18, compact ? 10 : 18, panel_w, 34, LV_TEXT_ALIGN_LEFT);
     lv_obj_t *line = lv_obj_create(parent);
     lv_obj_remove_style_all(line);
-    lv_obj_set_pos(line, 18, 62);
+    lv_obj_set_pos(line, 18, line_y);
     lv_obj_set_size(line, panel_w, 1);
     lv_obj_set_style_bg_color(line, DARK, 0);
     lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
 
     logbook_format_date(date, sizeof(date), &s_logbook_entry.meta);
     (void)snprintf(log_no, sizeof(log_no), "%04u", (unsigned)s_logbook_entry.meta.log_no);
-    logbook_draw_edit_row(parent, "Log #", log_no, 0U, 18, 82, panel_w, 48);
-    logbook_draw_time_edit_row(parent, 18, 138, panel_w, 48);
-    logbook_draw_edit_row(parent, "Date", date, 2U, 18, 194, panel_w, 48);
-    logbook_draw_edit_row(parent, "Delete", NULL, 3U, 18, 250, panel_w, 48);
+    logbook_draw_edit_row(parent, "Log #", log_no, 0U, 18, row_start_y, panel_w, row_h);
+    logbook_draw_time_edit_row(parent, 18, (int16_t)(row_start_y + row_gap), panel_w, row_h);
+    logbook_draw_edit_row(parent, "Date", date, 2U, 18, (int16_t)(row_start_y + row_gap * 2), panel_w, row_h);
+    logbook_draw_edit_row(parent, "Delete", NULL, 3U, 18, (int16_t)(row_start_y + row_gap * 3), panel_w, row_h);
 
     if (s_logbook_editing && s_logbook_focus == 1U && s_logbook_time_digit < 3U) (void)snprintf(buf, sizeof(buf), "Next");
     else (void)snprintf(buf, sizeof(buf), "%s", s_logbook_editing ? "Done" : "Select");
-    logbook_softkey(parent, buf, 12, (int16_t)(h - 48), 110, 34, logbook_soft_select_event_cb);
-    lv_obj_t *back_btn = logbook_button(parent, "Back", 4U, (int16_t)(w - 128), (int16_t)(h - 48), 110, 34);
+    logbook_softkey(parent, buf, 12, logbook_button_y(h), 110, logbook_button_h(), logbook_soft_select_event_cb);
+    lv_obj_t *back_btn = logbook_button(parent, "Back", 4U, (int16_t)(w - 128), logbook_button_y(h), 110, logbook_button_h());
     lv_obj_add_flag(back_btn, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(back_btn, logbook_soft_back_event_cb, LV_EVENT_CLICKED, NULL);
 }
@@ -628,8 +674,8 @@ static void submenu_populate_logbook(void)
     lv_obj_clean(s_submenu_list);
     if (!s_logbook_valid)
     {
-        logbook_label(s_submenu_list, "NO LOGS", FONT_ID_MEDIUM, LIGHT, 0, 160, w, 48, LV_TEXT_ALIGN_CENTER);
-        logbook_button(s_submenu_list, "Back", 0U, 12, (int16_t)(h - 48), 110, 34);
+        logbook_label(s_submenu_list, "NO LOGS", FONT_ID_MEDIUM, LIGHT, 0, logbook_compact_layout() ? 116 : 160, w, 48, LV_TEXT_ALIGN_CENTER);
+        logbook_button(s_submenu_list, "Back", 0U, 12, logbook_button_y(h), 110, logbook_button_h());
         ui_state_set_sub_item_count(1U);
         ui_state_set_sub_menu_idx(0U);
         return;
@@ -899,6 +945,11 @@ static bool plan_compact_layout(void)
     return !ui_layout_is_vertical_split() && s_submenu_height <= 320U;
 }
 
+static uint8_t plan_result_rows_per_page_for_layout(void)
+{
+    return plan_compact_layout() ? 6U : 8U;
+}
+
 static void plan_draw_header(lv_obj_t *parent, int w)
 {
     /* 绘制潜水计划页顶部摘要区，展示输入参数和当前气体。 */
@@ -1119,7 +1170,7 @@ static void plan_draw_result(lv_obj_t *parent, int w)
     lv_obj_set_style_bg_color(line, GREEN, 0);
     lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
 
-    for (uint8_t i = 0U; i < 8U; i++)
+    for (uint8_t i = 0U; i < vm.result_rows_per_page && i < 8U; i++)
     {
         if (vm.rows[i].valid == 0U)
         {
@@ -1152,6 +1203,7 @@ static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
 
     if (!s_submenu_list) return;
 
+    submenu_dive_plan_set_result_rows_per_page(plan_result_rows_per_page_for_layout());
     ui_vm_dive_plan_view_update(&vm);
 
     if (s_dive_plan_last_vm_valid && (memcmp(&s_dive_plan_last_vm, &vm, sizeof(vm)) == 0))

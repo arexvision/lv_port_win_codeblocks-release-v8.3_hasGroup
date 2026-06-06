@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PLAN_ROWS_PER_PAGE 8U
+#define PLAN_DEFAULT_ROWS_PER_PAGE 8U
 #ifndef PC_SIMULATOR
 #define PLAN_ASYNC_THREAD_STACK_SIZE 20480U
 #define PLAN_ASYNC_THREAD_PRIORITY_ACTIVE 13U
@@ -53,6 +53,7 @@ static submenu_dive_plan_state_t s_state =
     0U,
     { 0 }
 };
+static uint8_t s_result_rows_per_page = PLAN_DEFAULT_ROWS_PER_PAGE;
 
 #ifndef PC_SIMULATOR
 typedef struct
@@ -251,19 +252,21 @@ static void plan_ensure_defaults(void)
     s_state.defaults_loaded = true;
 }
 
+static uint8_t plan_result_rows_per_page(void)
+{
+    return (s_result_rows_per_page == 0U) ? PLAN_DEFAULT_ROWS_PER_PAGE : s_result_rows_per_page;
+}
+
 static uint8_t plan_result_total_pages(void)
 {
     /* 结果页总页数根据结果有效性和条目数动态决定。 */
+    uint8_t rows_per_page = plan_result_rows_per_page();
+
     if (s_state.result.valid == 0U)
     {
         return 1U;
     }
-    if (s_state.result.total_pages == 0U)
-    {
-        uint8_t row_pages = (uint8_t)((s_state.result.entry_count + PLAN_ROWS_PER_PAGE - 1U) / PLAN_ROWS_PER_PAGE);
-        return (uint8_t)(row_pages + 1U);
-    }
-    return s_state.result.total_pages;
+    return (uint8_t)(((s_state.result.entry_count + rows_per_page - 1U) / rows_per_page) + 1U);
 }
 
 #ifdef PC_SIMULATOR
@@ -559,7 +562,7 @@ void submenu_dive_plan_get_snapshot(submenu_dive_plan_snapshot_t *out_snapshot)
     out_snapshot->result_entry_count = (s_state.result.valid != 0U) ? s_state.result.entry_count : 0U;
     out_snapshot->result_summary_page =
         (s_state.result.valid != 0U &&
-         s_state.result_page * PLAN_ROWS_PER_PAGE >= s_state.result.entry_count) ? 1U : 0U;
+         s_state.result_page * plan_result_rows_per_page() >= s_state.result.entry_count) ? 1U : 0U;
     out_snapshot->total_runtime_min = (s_state.result.valid != 0U) ? s_state.result.total_runtime_min : 0U;
     out_snapshot->total_deco_min = (s_state.result.valid != 0U) ? s_state.result.total_deco_min : 0U;
     out_snapshot->total_gas_l = (s_state.result.valid != 0U) ? s_state.result.total_gas_l : 0U;
@@ -600,6 +603,33 @@ uint8_t submenu_dive_plan_get_result_page_index(void)
 uint8_t submenu_dive_plan_get_result_total_pages(void)
 {
     return plan_result_total_pages();
+}
+
+uint8_t submenu_dive_plan_get_result_rows_per_page(void)
+{
+    return plan_result_rows_per_page();
+}
+
+void submenu_dive_plan_set_result_rows_per_page(uint8_t rows_per_page)
+{
+    if (rows_per_page == 0U)
+    {
+        rows_per_page = 1U;
+    }
+    if (rows_per_page > PLAN_DEFAULT_ROWS_PER_PAGE)
+    {
+        rows_per_page = PLAN_DEFAULT_ROWS_PER_PAGE;
+    }
+    if (s_result_rows_per_page == rows_per_page)
+    {
+        return;
+    }
+
+    s_result_rows_per_page = rows_per_page;
+    if (s_state.result_page >= plan_result_total_pages())
+    {
+        s_state.result_page = (uint8_t)(plan_result_total_pages() - 1U);
+    }
 }
 
 void submenu_dive_plan_set_depth_m(float value)

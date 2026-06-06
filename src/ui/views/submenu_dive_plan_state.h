@@ -40,6 +40,8 @@ void submenu_dive_plan_set_page(dive_plan_page_t page);
 dive_plan_page_t submenu_dive_plan_get_page(void);
 uint8_t submenu_dive_plan_get_result_page_index(void);
 uint8_t submenu_dive_plan_get_result_total_pages(void);
+uint8_t submenu_dive_plan_get_result_rows_per_page(void);
+void submenu_dive_plan_set_result_rows_per_page(uint8_t rows_per_page);
 void submenu_dive_plan_set_depth_m(float value);
 void submenu_dive_plan_set_time_min(float value);
 void submenu_dive_plan_set_rmv_lpm(float value);
