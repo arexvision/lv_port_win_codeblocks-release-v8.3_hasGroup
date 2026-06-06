@@ -747,6 +747,30 @@ static lv_anim_enable_t submenu_selection_scroll_anim(void)
     return (MENU_LIST_SCROLL_ANIM_ENABLED && !s_submenu_selection_scroll_silent) ? LV_ANIM_ON : LV_ANIM_OFF;
 }
 
+static void submenu_list_scroll_item_to_view(lv_obj_t *item)
+{
+    lv_coord_t visible_h;
+    lv_coord_t item_y;
+    lv_coord_t item_h;
+    lv_coord_t scroll_y;
+    lv_coord_t target_y;
+    lv_coord_t margin = MENU_LIST_EDGE_PAD_PX;
+
+    lv_obj_update_layout(s_submenu_list);
+    visible_h = lv_obj_get_height(s_submenu_list);
+    item_y = lv_obj_get_y(item);
+    item_h = lv_obj_get_height(item);
+    scroll_y = lv_obj_get_scroll_y(s_submenu_list);
+    target_y = scroll_y;
+    if (visible_h <= item_h + margin * 2) margin = 0;
+
+    if (item_y - margin < scroll_y) target_y = item_y - margin;
+    else if (item_y + item_h + margin > scroll_y + visible_h) target_y = item_y + item_h + margin - visible_h;
+    if (target_y < 0) target_y = 0;
+
+    lv_obj_scroll_to_y(s_submenu_list, target_y, submenu_selection_scroll_anim());
+}
+
 void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 {
     /* 子菜单层初始放在屏幕右侧外面，通过 slide_in 动画滑入可视区域。 */
@@ -1384,8 +1408,7 @@ void screen_set_submenu_selection(uint8_t idx)
     lv_obj_t *selected_item = lv_obj_get_child(s_submenu_list, idx);
     if (selected_item)
     {
-        lv_obj_update_layout(s_submenu_list);
-        lv_obj_scroll_to_view(selected_item, submenu_selection_scroll_anim());
+        submenu_list_scroll_item_to_view(selected_item);
     }
 }
 

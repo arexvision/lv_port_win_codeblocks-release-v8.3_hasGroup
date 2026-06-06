@@ -476,6 +476,30 @@ void screen_hide_walls_snap(void)
 /* =========================================================
  * Info / Setup list
  * ========================================================= */
+static void menu_list_scroll_item_to_view(lv_obj_t *list, lv_obj_t *item, lv_anim_enable_t anim)
+{
+    lv_coord_t visible_h;
+    lv_coord_t item_y;
+    lv_coord_t item_h;
+    lv_coord_t scroll_y;
+    lv_coord_t target_y;
+    lv_coord_t margin = MENU_LIST_EDGE_PAD_PX;
+
+    lv_obj_update_layout(list);
+    visible_h = lv_obj_get_height(list);
+    item_y = lv_obj_get_y(item);
+    item_h = lv_obj_get_height(item);
+    scroll_y = lv_obj_get_scroll_y(list);
+    target_y = scroll_y;
+    if (visible_h <= item_h + margin * 2) margin = 0;
+
+    if (item_y - margin < scroll_y) target_y = item_y - margin;
+    else if (item_y + item_h + margin > scroll_y + visible_h) target_y = item_y + item_h + margin - visible_h;
+    if (target_y < 0) target_y = 0;
+
+    lv_obj_scroll_to_y(list, target_y, anim);
+}
+
 static void menu_list_ensure_visible(lv_obj_t *list, uint8_t idx)
 {
     lv_obj_t *item;
@@ -485,8 +509,7 @@ static void menu_list_ensure_visible(lv_obj_t *list, uint8_t idx)
     item = lv_obj_get_child(list, idx);
     if (!item) return;
 
-    lv_obj_update_layout(list);
-    lv_obj_scroll_to_view(item, MENU_LIST_SCROLL_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
+    menu_list_scroll_item_to_view(list, item, MENU_LIST_SCROLL_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
 }
 
 void screen_set_info_selection(uint8_t idx)
