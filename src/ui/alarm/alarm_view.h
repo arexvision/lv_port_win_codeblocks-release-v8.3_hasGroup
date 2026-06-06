@@ -27,7 +27,6 @@ typedef struct
     bool vertical_split;
     uint16_t safe_zone_w;
     uint16_t left_anchor_w;
-    uint16_t anchor_h;
     uint16_t panel_gap_px;
     uint16_t content_x;
     uint16_t content_y;

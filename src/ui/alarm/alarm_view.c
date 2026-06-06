@@ -162,9 +162,7 @@ static void alarm_view_banner_rect(const alarm_view_context_t *ctx,
     {
         *out_x = 0;
         *out_w = (lv_coord_t)ctx->safe_zone_w;
-        *out_y = (ctx->layout_order == ORDER_NORMAL)
-                 ? (lv_coord_t)ctx->anchor_h
-                 : (lv_coord_t)((ctx->content_h > CARD_TITLE_H) ? (ctx->content_h - CARD_TITLE_H) : 0U);
+        *out_y = (lv_coord_t)ctx->content_y;
     }
 }
 
