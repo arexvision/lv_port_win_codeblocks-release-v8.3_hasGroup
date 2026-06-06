@@ -44,6 +44,8 @@ Menu business logic must be driven by stable IDs (`menu_id_t`, `menu_item_id_t`)
 
 只有在一行包含复杂条件表达式、嵌套函数调用过多、明显超过常规可读宽度，或拆行能表达清晰逻辑分组时，才允许拆成多行。否则保持单行。
 
+宏定义注释使用同行尾注释风格，不要在每个宏上方单独写一段注释。尤其是 `ui_defs.h` 这种集中配置文件，应保持 `#define XXX  value  /* 简短说明 */`，说明要短、直接、可扫读。
+
 Do not rewrite source files with PowerShell/default-system encoding. Many project files contain UTF-8 Chinese comments; reading them as the Windows ANSI code page and writing them back will corrupt text into mojibake. Prefer `apply_patch` for manual edits. If a scripted edit is truly necessary, read and write explicitly as UTF-8 without BOM, keep the change narrowly scoped, and verify nearby Chinese comments with `Get-Content -Encoding UTF8` plus `git diff` before continuing. Never use `Set-Content`/`Out-File`/`[IO.File]::WriteAllText` without an explicit UTF-8 encoding on files that may contain non-ASCII text.
 
 PC simulator-only modules (`src/hal_sim`, `src/algo_sim`, `input_pc`, `buhlmann_debug`, TCP/debug-link code, Windows-only headers) must not be included unguarded from shared UI/core code. If shared code needs a PC-only hook, wrap both the include and the call site with `#ifdef PC_SIMULATOR`, and provide a non-PC fallback path or backend interface that still compiles for the embedded target. `PC_SIMULATOR` is a build macro, not something a shared public header should define.
