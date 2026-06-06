@@ -894,6 +894,11 @@ static lv_obj_t *plan_make_button(lv_obj_t *parent, const char *text, int x, int
     return btn;
 }
 
+static bool plan_compact_layout(void)
+{
+    return !ui_layout_is_vertical_split() && s_submenu_height <= 320U;
+}
+
 static void plan_draw_header(lv_obj_t *parent, int w)
 {
     /* 绘制潜水计划页顶部摘要区，展示输入参数和当前气体。 */
@@ -973,37 +978,45 @@ static void plan_draw_input(lv_obj_t *parent, int w)
     /* 输入页根据当前 page 类型切换显示深度、时间或 RMV。 */
     ui_vm_dive_plan_view_t vm;
     char buf[48];
+    bool compact = plan_compact_layout();
+    int value_y = compact ? 74 : 98;
+    int underline_y = compact ? 116 : 132;
+    int prompt_y = compact ? 136 : 166;
+    int unit_y = compact ? 160 : 190;
+    int min_y = compact ? 188 : 224;
+    int max_y = compact ? 210 : 246;
+    int spin_y = compact ? 232 : 276;
 
     ui_vm_dive_plan_view_update(&vm);
 
     if (vm.page == (uint8_t)DIVE_PLAN_PAGE_TIME)
     {
-        plan_make_label(parent, vm.time_value, FONT_ID_MEDIUM, LIGHT, 0, 98, w, 42, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.time_value, FONT_ID_MEDIUM, LIGHT, 0, value_y, w, 42, LV_TEXT_ALIGN_CENTER);
     }
     else if (vm.page == (uint8_t)DIVE_PLAN_PAGE_RMV)
     {
-        plan_make_label(parent, vm.rmv_value, FONT_ID_MEDIUM, LIGHT, 0, 98, w, 42, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.rmv_value, FONT_ID_MEDIUM, LIGHT, 0, value_y, w, 42, LV_TEXT_ALIGN_CENTER);
     }
     else
     {
-        plan_make_label(parent, vm.depth_value, FONT_ID_MEDIUM, LIGHT, 0, 98, w, 42, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.depth_value, FONT_ID_MEDIUM, LIGHT, 0, value_y, w, 42, LV_TEXT_ALIGN_CENTER);
     }
 
     lv_obj_t *underline = lv_obj_create(parent);
     lv_obj_remove_style_all(underline);
-    lv_obj_set_pos(underline, (w - 38) / 2, 132);
+    lv_obj_set_pos(underline, (w - 38) / 2, underline_y);
     lv_obj_set_size(underline, 38, 4);
     lv_obj_set_style_bg_color(underline, lv_color_make(255, 255, 0), 0);
     lv_obj_set_style_bg_opa(underline, LV_OPA_COVER, 0);
 
-    plan_make_label(parent, vm.input_prompt, FONT_ID_SMALL, LIGHT, 0, 166, w, 22, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, vm.input_unit, FONT_ID_SMALL, LIGHT, 0, 190, w, 22, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, vm.input_min_text, FONT_ID_SMALL, LIGHT, 0, 224, w, 18, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, vm.input_max_text, FONT_ID_SMALL, LIGHT, 0, 246, w, 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.input_prompt, FONT_ID_SMALL, LIGHT, 0, prompt_y, w, 22, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.input_unit, FONT_ID_SMALL, LIGHT, 0, unit_y, w, 22, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.input_min_text, FONT_ID_SMALL, LIGHT, 0, min_y, w, 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.input_max_text, FONT_ID_SMALL, LIGHT, 0, max_y, w, 18, LV_TEXT_ALIGN_CENTER);
 
     lv_obj_t *spin = lv_obj_create(parent);
     lv_obj_remove_style_all(spin);
-    lv_obj_set_pos(spin, (w - 100) / 2, 276);
+    lv_obj_set_pos(spin, (w - 100) / 2, spin_y);
     lv_obj_set_size(spin, 100, 25);
     lv_obj_set_style_bg_color(spin, LIGHT, 0);
     lv_obj_set_style_bg_opa(spin, LV_OPA_COVER, 0);
@@ -1030,30 +1043,46 @@ static void plan_draw_ready(lv_obj_t *parent, int w)
 {
     /* READY 页用于展示“可以开始计算”的摘要状态。 */
     ui_vm_dive_plan_view_t vm;
+    bool compact = plan_compact_layout();
+    int title_y = compact ? 76 : 106;
+    int line_x = compact ? 126 : 96;
+    int line_w = compact ? w - 252 : w - 192;
+    int gf_y = compact ? 130 : 168;
+    int stop_y = compact ? 160 : 200;
+    int cns_y = compact ? 190 : 232;
+    int gas_y = compact ? 220 : 264;
 
     ui_vm_dive_plan_view_update(&vm);
 
-    plan_make_label(parent, "Ready to Plan Dive", FONT_ID_SMALL, LIGHT, 0, 106, w, 24, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, vm.ready_gf_text, FONT_ID_SMALL, LIGHT, 96, 168, w - 192, 22, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm.ready_last_stop_text, FONT_ID_SMALL, LIGHT, 96, 200, w - 192, 22, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm.ready_start_cns_text, FONT_ID_SMALL, LIGHT, 96, 232, w - 192, 22, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm.gas_summary, FONT_ID_SMALL, LIGHT, 96, 264, w - 192, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, "Ready to Plan Dive", FONT_ID_SMALL, LIGHT, 0, title_y, w, 24, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.ready_gf_text, FONT_ID_SMALL, LIGHT, line_x, gf_y, line_w, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.ready_last_stop_text, FONT_ID_SMALL, LIGHT, line_x, stop_y, line_w, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.ready_start_cns_text, FONT_ID_SMALL, LIGHT, line_x, cns_y, line_w, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm.gas_summary, FONT_ID_SMALL, LIGHT, line_x, gas_y, line_w, 22, LV_TEXT_ALIGN_LEFT);
 }
 
 static void plan_draw_calculating(lv_obj_t *parent, int w)
 {
-    plan_make_label(parent, "Calculating Plan", FONT_ID_MEDIUM, LIGHT, 0, 126, w, 40, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, "Please wait...", FONT_ID_SMALL, LIGHT, 0, 188, w, 24, LV_TEXT_ALIGN_CENTER);
+    bool compact = plan_compact_layout();
+    plan_make_label(parent, "Calculating Plan", FONT_ID_MEDIUM, LIGHT, 0, compact ? 104 : 126, w, 40, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Please wait...", FONT_ID_SMALL, LIGHT, 0, compact ? 164 : 188, w, 24, LV_TEXT_ALIGN_CENTER);
 }
 
 static void plan_draw_result_summary(lv_obj_t *parent, int w, const ui_vm_dive_plan_view_t *vm)
 {
-    plan_make_label(parent, "SUMMARY", FONT_ID_SMALL, GREEN, 0, 76, w, 22, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, vm->result_runtime_text, FONT_ID_SMALL, LIGHT, 92, 126, w - 184, 22, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm->result_deco_text, FONT_ID_SMALL, LIGHT, 92, 164, w - 184, 22, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm->result_gas_text, FONT_ID_SMALL, LIGHT, 92, 202, w - 184, 22, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm->result_cns_text, FONT_ID_SMALL, LIGHT, 92, 240, w - 184, 22, LV_TEXT_ALIGN_LEFT);
-    plan_make_label(parent, vm->result_otu_text, FONT_ID_SMALL, LIGHT, 92, 278, w - 184, 22, LV_TEXT_ALIGN_LEFT);
+    bool compact = plan_compact_layout();
+    int title_y = compact ? 72 : 76;
+    int line_x = compact ? 126 : 92;
+    int line_w = compact ? w - 252 : w - 184;
+    int row_y = compact ? 108 : 126;
+    int row_gap = compact ? 27 : 38;
+
+    plan_make_label(parent, "SUMMARY", FONT_ID_SMALL, GREEN, 0, title_y, w, 22, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm->result_runtime_text, FONT_ID_SMALL, LIGHT, line_x, row_y + row_gap * 0, line_w, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm->result_deco_text, FONT_ID_SMALL, LIGHT, line_x, row_y + row_gap * 1, line_w, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm->result_gas_text, FONT_ID_SMALL, LIGHT, line_x, row_y + row_gap * 2, line_w, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm->result_cns_text, FONT_ID_SMALL, LIGHT, line_x, row_y + row_gap * 3, line_w, 22, LV_TEXT_ALIGN_LEFT);
+    plan_make_label(parent, vm->result_otu_text, FONT_ID_SMALL, LIGHT, line_x, row_y + row_gap * 4, line_w, 22, LV_TEXT_ALIGN_LEFT);
 }
 
 static void plan_draw_result(lv_obj_t *parent, int w)
@@ -1061,45 +1090,50 @@ static void plan_draw_result(lv_obj_t *parent, int w)
     ui_vm_dive_plan_view_t vm;
     static const int col_x[] = { 20, 88, 166, 244, 334 };
     static const int col_w[] = { 64, 72, 72, 82, 72 };
+    bool compact = plan_compact_layout();
+    int head_y = compact ? 58 : 68;
+    int line_y = compact ? 80 : 88;
+    int row_y = compact ? 92 : 100;
+    int row_gap = compact ? 22 : 26;
+    int page_y = compact ? (int)s_submenu_height - 60 : (int)s_submenu_height - 72;
 
     ui_vm_dive_plan_view_update(&vm);
 
     if (vm.result_summary_page != 0U)
     {
         plan_draw_result_summary(parent, w, &vm);
-        plan_make_label(parent, vm.result_page_text, FONT_ID_SMALL, GREEN, 0, (int)s_submenu_height - 72, w, 18, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.result_page_text, FONT_ID_SMALL, GREEN, 0, page_y, w, 18, LV_TEXT_ALIGN_CENTER);
         return;
     }
 
-    plan_make_label(parent, "Stp", FONT_ID_SMALL, GREEN, col_x[0], 68, col_w[0], 18, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, "Tme", FONT_ID_SMALL, GREEN, col_x[1], 68, col_w[1], 18, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, "Run", FONT_ID_SMALL, GREEN, col_x[2], 68, col_w[2], 18, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, "Gas", FONT_ID_SMALL, GREEN, col_x[3], 68, col_w[3], 18, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(parent, "Qty", FONT_ID_SMALL, GREEN, col_x[4], 68, col_w[4], 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Stp", FONT_ID_SMALL, GREEN, col_x[0], head_y, col_w[0], 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Tme", FONT_ID_SMALL, GREEN, col_x[1], head_y, col_w[1], 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Run", FONT_ID_SMALL, GREEN, col_x[2], head_y, col_w[2], 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Gas", FONT_ID_SMALL, GREEN, col_x[3], head_y, col_w[3], 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, "Qty", FONT_ID_SMALL, GREEN, col_x[4], head_y, col_w[4], 18, LV_TEXT_ALIGN_CENTER);
 
     lv_obj_t *line = lv_obj_create(parent);
     lv_obj_remove_style_all(line);
-    lv_obj_set_pos(line, 16, 88);
+    lv_obj_set_pos(line, 16, line_y);
     lv_obj_set_size(line, w - 32, 1);
     lv_obj_set_style_bg_color(line, GREEN, 0);
     lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
 
-    int y = 100;
     for (uint8_t i = 0U; i < 8U; i++)
     {
         if (vm.rows[i].valid == 0U)
         {
             continue;
         }
-        plan_make_label(parent, vm.rows[i].depth_text, FONT_ID_SMALL, LIGHT, col_x[0], y, col_w[0], 18, LV_TEXT_ALIGN_CENTER);
-        plan_make_label(parent, vm.rows[i].time_text, FONT_ID_SMALL, LIGHT, col_x[1], y, col_w[1], 18, LV_TEXT_ALIGN_CENTER);
-        plan_make_label(parent, vm.rows[i].run_text, FONT_ID_SMALL, LIGHT, col_x[2], y, col_w[2], 18, LV_TEXT_ALIGN_CENTER);
-        plan_make_label(parent, vm.rows[i].gas_text, FONT_ID_SMALL, LIGHT, col_x[3], y, col_w[3], 18, LV_TEXT_ALIGN_CENTER);
-        plan_make_label(parent, vm.rows[i].qty_text, FONT_ID_SMALL, LIGHT, col_x[4], y, col_w[4], 18, LV_TEXT_ALIGN_RIGHT);
-        y += 26;
+        plan_make_label(parent, vm.rows[i].depth_text, FONT_ID_SMALL, LIGHT, col_x[0], row_y, col_w[0], 18, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.rows[i].time_text, FONT_ID_SMALL, LIGHT, col_x[1], row_y, col_w[1], 18, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.rows[i].run_text, FONT_ID_SMALL, LIGHT, col_x[2], row_y, col_w[2], 18, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.rows[i].gas_text, FONT_ID_SMALL, LIGHT, col_x[3], row_y, col_w[3], 18, LV_TEXT_ALIGN_CENTER);
+        plan_make_label(parent, vm.rows[i].qty_text, FONT_ID_SMALL, LIGHT, col_x[4], row_y, col_w[4], 18, LV_TEXT_ALIGN_RIGHT);
+        row_y += row_gap;
     }
 
-    plan_make_label(parent, vm.result_page_text, FONT_ID_SMALL, GREEN, 0, (int)s_submenu_height - 72, w, 18, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(parent, vm.result_page_text, FONT_ID_SMALL, GREEN, 0, page_y, w, 18, LV_TEXT_ALIGN_CENTER);
 }
 
 static void plan_draw_error(lv_obj_t *parent, int w)
