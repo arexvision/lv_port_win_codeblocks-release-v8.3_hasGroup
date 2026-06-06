@@ -31,6 +31,7 @@ static uint16_t s_submenu_width = 0;
 static uint16_t s_submenu_height = 0;
 static ui_vm_dive_plan_view_t s_dive_plan_last_vm;
 static bool s_dive_plan_last_vm_valid = false;
+static bool s_submenu_selection_scroll_silent = false;
 
 typedef enum
 {
@@ -741,6 +742,11 @@ static void submenu_list_set_page_geometry(void)
     lv_obj_clear_flag(s_submenu_list, LV_OBJ_FLAG_SCROLLABLE);
 }
 
+static lv_anim_enable_t submenu_selection_scroll_anim(void)
+{
+    return (MENU_LIST_SCROLL_ANIM_ENABLED && !s_submenu_selection_scroll_silent) ? LV_ANIM_ON : LV_ANIM_OFF;
+}
+
 void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 {
     /* 子菜单层初始放在屏幕右侧外面，通过 slide_in 动画滑入可视区域。 */
@@ -1379,7 +1385,7 @@ void screen_set_submenu_selection(uint8_t idx)
     if (selected_item)
     {
         lv_obj_update_layout(s_submenu_list);
-        lv_obj_scroll_to_view(selected_item, MENU_LIST_SCROLL_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
+        lv_obj_scroll_to_view(selected_item, submenu_selection_scroll_anim());
     }
 }
 
@@ -1420,6 +1426,7 @@ void screen_open_info_submenu(uint8_t item_idx)
 static void refresh_info_submenu_page(uint8_t keep_idx)
 {
     uint8_t count = 0;
+    bool prev_silent = s_submenu_selection_scroll_silent;
     menu_runtime_refresh();
     (void)menu_runtime_current_rows(&count);
     if (count == 0)
@@ -1427,6 +1434,7 @@ static void refresh_info_submenu_page(uint8_t keep_idx)
         return;
     }
 
+    s_submenu_selection_scroll_silent = true;
     submenu_populate_current();
     ui_state_set_sub_item_count(count);
     if (keep_idx >= count)
@@ -1435,6 +1443,7 @@ static void refresh_info_submenu_page(uint8_t keep_idx)
     }
     ui_state_set_sub_menu_idx(keep_idx);
     screen_set_submenu_selection(keep_idx);
+    s_submenu_selection_scroll_silent = prev_silent;
 }
 
 void screen_refresh_info_submenu_if_open(void)
@@ -1671,6 +1680,7 @@ static void screen_handle_logbook_select(void)
 static bool refresh_compass_cal_submenu(void)
 {
     uint8_t count = 0;
+    bool prev_silent = s_submenu_selection_scroll_silent;
     if (!s_submenu_list || !s_submenu_title)
     {
         return false;
@@ -1687,6 +1697,7 @@ static bool refresh_compass_cal_submenu(void)
     {
         return false;
     }
+    s_submenu_selection_scroll_silent = true;
     submenu_populate_current();
     ui_state_set_sub_item_count(count);
     if (ui_state_get_sub_menu_idx() >= count)
@@ -1694,6 +1705,7 @@ static bool refresh_compass_cal_submenu(void)
         ui_state_set_sub_menu_idx((uint8_t)(count - 1U));
     }
     screen_set_submenu_selection(ui_state_get_sub_menu_idx());
+    s_submenu_selection_scroll_silent = prev_silent;
     return true;
 }
 
@@ -1735,6 +1747,7 @@ void screen_open_nested_submenu(const char *title, const char **items, uint8_t c
 static void refresh_current_submenu_page(uint8_t keep_idx)
 {
     uint8_t count = 0;
+    bool prev_silent = s_submenu_selection_scroll_silent;
     menu_runtime_refresh();
     (void)menu_runtime_current_rows(&count);
     if (count == 0)
@@ -1742,6 +1755,7 @@ static void refresh_current_submenu_page(uint8_t keep_idx)
         return;
     }
 
+    s_submenu_selection_scroll_silent = true;
     submenu_populate_current();
     ui_state_set_sub_item_count(count);
     if (keep_idx >= count)
@@ -1750,6 +1764,7 @@ static void refresh_current_submenu_page(uint8_t keep_idx)
     }
     ui_state_set_sub_menu_idx(keep_idx);
     screen_set_submenu_selection(keep_idx);
+    s_submenu_selection_scroll_silent = prev_silent;
 }
 
 void screen_handle_submenu_select(uint8_t item_idx)
