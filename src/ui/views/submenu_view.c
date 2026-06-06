@@ -719,6 +719,28 @@ lv_obj_t *submenu_view_get_list(void)
     return s_submenu_list;
 }
 
+static void submenu_list_set_normal_geometry(void)
+{
+    uint16_t list_y = (CARD_TITLE_H > MENU_LIST_TOP_NUDGE_PX) ? (uint16_t)(CARD_TITLE_H - MENU_LIST_TOP_NUDGE_PX) : CARD_TITLE_H;
+    uint16_t list_h = (s_submenu_height > (uint16_t)(list_y + 10U)) ? (uint16_t)(s_submenu_height - list_y - 10U) : s_submenu_height;
+
+    lv_obj_set_size(s_submenu_list, s_submenu_width - 15, list_h);
+    lv_obj_set_pos(s_submenu_list, 0, list_y);
+    lv_obj_set_style_pad_all(s_submenu_list, 0, 0);
+    lv_obj_set_style_pad_bottom(s_submenu_list, MENU_LIST_EDGE_PAD_PX, 0);
+    lv_obj_add_flag(s_submenu_list, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(s_submenu_list, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(s_submenu_list, LV_SCROLLBAR_MODE_OFF);
+}
+
+static void submenu_list_set_page_geometry(void)
+{
+    lv_obj_set_pos(s_submenu_list, 0, 0);
+    lv_obj_set_size(s_submenu_list, s_submenu_width, s_submenu_height);
+    lv_obj_set_style_pad_all(s_submenu_list, 0, 0);
+    lv_obj_clear_flag(s_submenu_list, LV_OBJ_FLAG_SCROLLABLE);
+}
+
 void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
 {
     /* 子菜单层初始放在屏幕右侧外面，通过 slide_in 动画滑入可视区域。 */
@@ -751,12 +773,9 @@ void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
     lv_obj_set_style_bg_opa(s_submenu_title_line, LV_OPA_COVER, 0);
 
     s_submenu_list = lv_obj_create(s_submenu_layer);
-    lv_obj_set_size(s_submenu_list, s_submenu_width - 15, s_submenu_height - CARD_TITLE_H - 10);
-    lv_obj_set_pos(s_submenu_list, 0, CARD_TITLE_H);
     lv_obj_set_style_bg_opa(s_submenu_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_submenu_list, 0, 0);
-    lv_obj_set_style_pad_all(s_submenu_list, 0, 0);
-    lv_obj_clear_flag(s_submenu_list, LV_OBJ_FLAG_SCROLLABLE);
+    submenu_list_set_normal_geometry();
 }
 
 /* =========================================================
@@ -1133,8 +1152,7 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
         {
             lv_obj_add_flag(s_submenu_title_line, LV_OBJ_FLAG_HIDDEN);
         }
-        lv_obj_set_pos(s_submenu_list, 0, 0);
-        lv_obj_set_size(s_submenu_list, s_submenu_width, s_submenu_height);
+        submenu_list_set_page_geometry();
         submenu_populate_dive_plan(rows, count);
         return;
     }
@@ -1147,8 +1165,7 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
         {
             lv_obj_add_flag(s_submenu_title_line, LV_OBJ_FLAG_HIDDEN);
         }
-        lv_obj_set_pos(s_submenu_list, 0, 0);
-        lv_obj_set_size(s_submenu_list, s_submenu_width, s_submenu_height);
+        submenu_list_set_page_geometry();
         if (!s_logbook_editing)
         {
             logbook_load_current();
@@ -1162,8 +1179,7 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
     {
         lv_obj_clear_flag(s_submenu_title_line, LV_OBJ_FLAG_HIDDEN);
     }
-    lv_obj_set_size(s_submenu_list, s_submenu_width - 15, s_submenu_height - CARD_TITLE_H - 10);
-    lv_obj_set_pos(s_submenu_list, 0, CARD_TITLE_H);
+    submenu_list_set_normal_geometry();
 
     if (menu_runtime_is_nested())
     {
@@ -1184,7 +1200,7 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
     int item_h = (int)ui_menu_item_h_px_get();
     int item_w = (int)sub_w - 15;
     int gap_y  = (int)ui_menu_gap_px_get();
-    int current_y = 0;
+    int current_y = MENU_LIST_EDGE_PAD_PX;
     bool compact_plan = menu_runtime_is_dive_plan_result();
     if (compact_plan)
     {
@@ -1302,6 +1318,14 @@ void screen_set_submenu_selection(uint8_t idx)
 
     bool compact_plan = menu_runtime_is_dive_plan_result();
     uint32_t cnt = lv_obj_get_child_cnt(s_submenu_list);
+    if (cnt == 0U)
+    {
+        return;
+    }
+    if (idx >= cnt)
+    {
+        idx = (uint8_t)(cnt - 1U);
+    }
     for (uint32_t i = 0; i < cnt; i++)
     {
         lv_obj_t *item = lv_obj_get_child(s_submenu_list, i);
@@ -1350,6 +1374,12 @@ void screen_set_submenu_selection(uint8_t idx)
                 lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
             }
         }
+    }
+    lv_obj_t *selected_item = lv_obj_get_child(s_submenu_list, idx);
+    if (selected_item)
+    {
+        lv_obj_update_layout(s_submenu_list);
+        lv_obj_scroll_to_view(selected_item, LV_ANIM_ON);
     }
 }
 
