@@ -17,51 +17,104 @@
 extern "C" {
 #endif
 
+/* 初始化显示开关：1=组件刚创建时显示占位值，0=等真实数据刷新后再显示。 */
 #define SHOW_PLACEHOLDER_ON_INIT  1
-#define BASE_U             10
+
+/* 基础布局单位：1U=10px。safe zone、gap、菜单高度等配置会按这个单位换算。 */
+#define BASE_U  10
+
+/* 横向固定栏模式的最小顶部区域高度保护，低于这个值时布局容易挤压。 */
 #define MIN_CLASSIC_TOP_H  200
-#define MASK_EDGE_GUARD    80
-#define PHYSICAL_W    640
-#define PHYSICAL_H    480
+
+/* 安全区越界保护距离，用于判断 mask/offset 是否把内容推得太靠近屏幕边缘。 */
+#define MASK_EDGE_GUARD  80
+
+/* 物理屏幕尺寸：PC 仿真器当前是 640x480，嵌入式移植时也按这个显示坐标系设计。 */
+#define PHYSICAL_W  640
+#define PHYSICAL_H  480
+
+/* 固定栏基准尺寸：侧边固定栏宽 160px；上/下固定栏高 120px。 */
 #define LEFT_ANCHOR_W  160
 #define TOP_ANCHOR_H   120
+
+/* 卡片/菜单标题区高度。菜单列表默认从标题区下方开始，再由 MENU_LIST_TOP_NUDGE_PX 微调。 */
 #define CARD_TITLE_H  60
+
+/* DECO 卡片的低频刷新周期，单位 ms；避免组织/减压区域每帧都重算重绘。 */
 #define DECO_REFRESH_MS  1000
 
-#define GREEN   lv_color_make(0x00, 0xFF, 0x00)
-#define LIGHT   lv_color_make(0x55, 0xFF, 0x55)
-#define DARK    lv_color_make(0x00, 0x33, 0x00)
-#define BLACK   lv_color_make(0x00, 0x00, 0x00)
-#define BG      lv_color_make(0x05, 0x05, 0x05)
+/* UI 主色板：GREEN=主荧光绿，LIGHT=高亮文字，DARK=暗边框，BLACK=底色，BG=全局背景。 */
+#define GREEN  lv_color_make(0x00, 0xFF, 0x00)
+#define LIGHT  lv_color_make(0x55, 0xFF, 0x55)
+#define DARK   lv_color_make(0x00, 0x33, 0x00)
+#define BLACK  lv_color_make(0x00, 0x00, 0x00)
+#define BG     lv_color_make(0x05, 0x05, 0x05)
 
-#define DEBUG_BORDERS   0
+/* 全局布局调试边框：1=打开页面/容器辅助边框，0=关闭。 */
+#define DEBUG_BORDERS  0
+
+/* 卡片内控件调试边框：1=显示菜单行/组件等内部边框，方便对齐；正式视觉可按需关闭。 */
 #define CARD_DEBUG_BORDERS  1
-#define INNER_BORDER_W  2
-#define MENU_LIST_TOP_NUDGE_PX  8
-#define MENU_LIST_EDGE_PAD_PX   2
-#define COMP_TITLE_EDGE_NUDGE_PX  3
-#define COMP_VALUE_EDGE_NUDGE_PX  3
-#define GAS_BORDER_W    2
-#define GRID_BORDER_W   0
 
-#define MAX_WIDGETS    30
-#define FIXED_SIDE_COLS   2
-#define FIXED_SIDE_ROWS   7
-#define FIXED_TOP_COLS    7
-#define FIXED_TOP_ROWS    2
+/* 通用内部边框宽度，主要用于菜单项、卡片内框等绿色线条。 */
+#define INNER_BORDER_W  2
+
+/* 菜单列表上移量：数值越大，INFO/DIVE MENU 的选项越靠近标题。 */
+#define MENU_LIST_TOP_NUDGE_PX  8
+
+/* 菜单滚动容器边缘缓冲：防止第一项/最后一项选中边框被 LVGL 裁掉。 */
+#define MENU_LIST_EDGE_PAD_PX  2
+
+/* 组件标题贴边微调：左对齐标题向左挪、右对齐标题向右挪，用来抵消容器 padding 和字形留白。 */
+#define COMP_TITLE_EDGE_NUDGE_PX  3
+
+/* 组件数值贴边微调：左/右对齐的大数值向边缘贴近，正值表示贴边更强。 */
+#define COMP_VALUE_EDGE_NUDGE_PX  3
+
+/* GAS 卡片专用边框宽度。 */
+#define GAS_BORDER_W  2
+
+/* 自定义网格辅助边框宽度：0=不显示网格边框，调试布局时可临时调大。 */
+#define GRID_BORDER_W  0
+
+/* 单帧 BLE/TCP 布局最多携带的自定义组件数量。 */
+#define MAX_WIDGETS  30
+
+/* 侧边固定栏网格：左/右布局使用 2列 x 7行。 */
+#define FIXED_SIDE_COLS  2
+#define FIXED_SIDE_ROWS  7
+
+/* 横向固定栏网格：上/下布局使用 7列 x 2行。 */
+#define FIXED_TOP_COLS  7
+#define FIXED_TOP_ROWS  2
+
+/* 侧边布局下的自定义卡网格：5列 x 6行。 */
 #define CUSTOM_SIDE_COLS  5
 #define CUSTOM_SIDE_ROWS  6
-#define CUSTOM_TOP_COLS   7
-#define CUSTOM_TOP_ROWS   4
-#define MAX_LEFT_ROWS    8
 
+/* 上/下布局下的自定义卡网格：7列 x 4行。 */
+#define CUSTOM_TOP_COLS  7
+#define CUSTOM_TOP_ROWS  4
+
+/* 固定栏最大行数兼容值，主要给旧逻辑/数组容量保护用，不代表当前实际网格一定有 8 行。 */
+#define MAX_LEFT_ROWS  8
+
+/* 固定栏和内容区之间分隔条的厚度。 */
 #define ANCHOR_SEP_THICK  3
+
+/* 固定栏和内容区之间分隔条样式，当前使用实线。 */
 #define ANCHOR_SEP_STYLE  SEP_SOLID
 
+/* 上升速率一级警告阈值，单位 m/min。 */
 #define RATE_LEVEL1_THRESHOLD  3.0f
-#define RATE_LEVEL2_THRESHOLD  9.0f
-#define RATE_STILL_THRESHOLD   UI_ASCENT_RATE_STILL_DEADBAND_MPM
 
+/* 上升速率二级警告阈值，单位 m/min。 */
+#define RATE_LEVEL2_THRESHOLD  9.0f
+
+/* 上升速率静止判定阈值，沿用 ui_settings.h 里的可配置死区。 */
+#define RATE_STILL_THRESHOLD  UI_ASCENT_RATE_STILL_DEADBAND_MPM
+
+/* 气体槽数量上限：gas slot、PPO2、MOD 等数组按这个容量组织。 */
 #define GAS_COUNT  5
 
 typedef enum
@@ -200,6 +253,7 @@ typedef enum
     ALARM_CRIT  = 3,
 } alarm_level_t;
 
+/* 报警文本是否显示级别前缀：1=显示 WARN/CRIT 等前缀，0=只显示报警正文。 */
 #define ALARM_SHOW_PREFIX  0
 
 extern const char *GAS_NAMES[GAS_COUNT];
