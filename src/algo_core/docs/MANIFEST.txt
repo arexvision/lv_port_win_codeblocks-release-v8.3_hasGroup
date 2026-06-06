@@ -1,6 +1,6 @@
-arex-deco-core PC simulator bundle
-API version: 0.0.12
-Source commit: 0c886ccb381b3bd1837065a906f964f9a130428c
+arex-deco-core MinGW64 bundle
+API version: 0.0.13
+Source commit: 6ff808ad87aa628059d11c7bd349d9b87884e007
 Build host: Linux 6.17.0-22-generic x86_64
-Toolchain: MinGW GCC, x86_64 PE/COFF static library
-Built at: 2026-06-04T14:21:45Z
+Toolchain: x86_64-w64-mingw32-g++, Windows x86_64 COFF static archive
+Built at: 2026-06-05T16:54:47Z
