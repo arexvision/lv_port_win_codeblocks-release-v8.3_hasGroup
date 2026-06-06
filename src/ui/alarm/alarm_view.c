@@ -15,6 +15,7 @@
 
 static lv_obj_t *s_alarm_banner;
 static lv_obj_t *s_alarm_banner_lbl;
+static lv_coord_t s_alarm_banner_target_y;
 
 static lv_color_t alarm_view_level_color(alarm_level_t level)
 {
@@ -97,7 +98,7 @@ static void alarm_view_banner_animate_in(void)
 
     alarm_view_banner_cancel_anim();
 
-    lv_coord_t end_y = 0;
+    lv_coord_t end_y = s_alarm_banner_target_y;
     lv_obj_set_y(s_alarm_banner, end_y - ALARM_L1_SLIDE_PX);
     lv_obj_set_style_opa(s_alarm_banner, LV_OPA_TRANSP, 0);
 
@@ -120,7 +121,7 @@ static void alarm_view_banner_animate_out(void)
 
     alarm_view_banner_cancel_anim();
 
-    lv_coord_t start_y = 0;
+    lv_coord_t start_y = s_alarm_banner_target_y;
     lv_obj_set_y(s_alarm_banner, start_y);
     alarm_view_banner_anim_y(start_y,
                              start_y - ALARM_L1_SLIDE_PX,
@@ -146,6 +147,27 @@ static void alarm_view_reset_banner_if_invalid(lv_obj_t *safe_zone)
     }
 }
 
+static void alarm_view_banner_rect(const alarm_view_context_t *ctx,
+                                   lv_coord_t *out_x,
+                                   lv_coord_t *out_y,
+                                   lv_coord_t *out_w,
+                                   lv_coord_t *out_h)
+{
+    *out_x = (lv_coord_t)ctx->content_x;
+    *out_y = (lv_coord_t)ctx->content_y;
+    *out_w = (lv_coord_t)ctx->content_w;
+    *out_h = CARD_TITLE_H;
+
+    if (!ctx->vertical_split)
+    {
+        *out_x = 0;
+        *out_w = (lv_coord_t)ctx->safe_zone_w;
+        *out_y = (ctx->layout_order == ORDER_NORMAL)
+                 ? (lv_coord_t)ctx->anchor_h
+                 : (lv_coord_t)((ctx->content_h > CARD_TITLE_H) ? (ctx->content_h - CARD_TITLE_H) : 0U);
+    }
+}
+
 static void alarm_view_show_banner(const alarm_view_context_t *ctx,
                                    alarm_level_t level,
                                    const char *text)
@@ -158,26 +180,27 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
 
     alarm_view_reset_banner_if_invalid(ctx->safe_zone);
 
-    int card_canvas_w = (int)ctx->content_w;
-    if (card_canvas_w < 0)
-    {
-        card_canvas_w = 0;
-    }
+    lv_coord_t banner_x;
+    lv_coord_t banner_y;
+    lv_coord_t banner_w;
+    lv_coord_t banner_h;
+    alarm_view_banner_rect(ctx, &banner_x, &banner_y, &banner_w, &banner_h);
+    s_alarm_banner_target_y = banner_y;
 
     if (!s_alarm_banner)
     {
         /* 首次创建时只搭骨架，后续复用对象减少频繁销毁创建。 */
         s_alarm_banner = lv_obj_create(ctx->safe_zone);
         lv_obj_remove_style_all(s_alarm_banner);
-        lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
+        lv_obj_set_size(s_alarm_banner, banner_w, banner_h);
 
         s_alarm_banner_lbl = lv_label_create(s_alarm_banner);
         lv_obj_set_style_text_font(s_alarm_banner_lbl, get_font(FONT_ID_MEDIUM), 0);
         lv_obj_align(s_alarm_banner_lbl, LV_ALIGN_LEFT_MID, 20, 0);
     }
 
-    lv_obj_set_size(s_alarm_banner, card_canvas_w, 60);
-    lv_obj_set_pos(s_alarm_banner, (lv_coord_t)ctx->content_x, (lv_coord_t)ctx->content_y);
+    lv_obj_set_size(s_alarm_banner, banner_w, banner_h);
+    lv_obj_set_pos(s_alarm_banner, banner_x, banner_y);
 
     lv_obj_move_foreground(s_alarm_banner);
     lv_obj_clear_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);

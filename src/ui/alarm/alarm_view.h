@@ -24,8 +24,10 @@ typedef struct
     uint8_t custom_card_count;
     uint8_t max_custom_cards;
     uint8_t layout_order;
+    bool vertical_split;
     uint16_t safe_zone_w;
     uint16_t left_anchor_w;
+    uint16_t anchor_h;
     uint16_t panel_gap_px;
     uint16_t content_x;
     uint16_t content_y;

@@ -552,8 +552,10 @@ void ui_update_task(lv_timer_t *timer)
         ctx.custom_card_count = g_card_custom_obj_count;
         ctx.max_custom_cards = MAX_CUSTOM_CARDS;
         ctx.layout_order = ui_layout_order_get();
+        ctx.vertical_split = ui_layout_is_vertical_split();
         ctx.safe_zone_w = ui_safe_zone_w_get();
         ctx.left_anchor_w = ui_anchor_w_get();
+        ctx.anchor_h = ui_anchor_h_get();
         ctx.panel_gap_px = ui_panel_gap_px_get();
         ctx.content_w = ui_content_w_get();
         ctx.content_h = ui_content_h_get();
