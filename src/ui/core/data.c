@@ -1656,15 +1656,13 @@ uint16_t ui_content_w_get(void)
 
 uint16_t ui_content_h_get(void)
 {
-    uint16_t gap = ui_panel_gap_px_get();
-
     if (ui_layout_is_vertical_split())
     {
         return ui_safe_zone_h_get();
     }
 
-    return (ui_safe_zone_h_get() > TOP_ANCHOR_H + gap)
-           ? (uint16_t)(ui_safe_zone_h_get() - TOP_ANCHOR_H - gap)
+    return (ui_safe_zone_h_get() > TOP_ANCHOR_H)
+           ? (uint16_t)(ui_safe_zone_h_get() - TOP_ANCHOR_H)
            : 0U;
 }
 

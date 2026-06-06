@@ -119,11 +119,11 @@ void calc_tech_layout(int16_t *out_lx, int16_t *out_ly,
         if (ui_layout_order_get() == ORDER_NORMAL)
         {
             *out_ly = 0;
-            *out_ry = (int16_t)(anchor_h + gap);
+            *out_ry = (int16_t)anchor_h;
         }
         else
         {
-            *out_ly = (int16_t)(content_h + gap);
+            *out_ly = (int16_t)content_h;
             *out_ry = 0;
         }
     }

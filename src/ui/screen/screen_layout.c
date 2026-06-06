@@ -362,7 +362,7 @@ void left_anchor_create(void)
                        0,
                        (ui_layout_order_get() == ORDER_NORMAL)
                        ? 0
-                       : (lv_coord_t)(content_h + panel_gap));
+                       : (lv_coord_t)content_h);
     }
     lv_obj_add_style(s_left_anchor, &s_style_anchor_bg, 0);
     lv_obj_set_style_pad_all(s_left_anchor, 0, 0);
@@ -404,12 +404,12 @@ void safe_zone_reposition(void)
         if (ui_layout_order_get() == ORDER_NORMAL)
         {
             lv_obj_set_pos(s_left_anchor, 0, 0);
-            lv_obj_set_pos(s_right_cont, 0, (lv_coord_t)(ui_anchor_h_get() + panel_gap));
+            lv_obj_set_pos(s_right_cont, 0, (lv_coord_t)ui_anchor_h_get());
         }
         else
         {
             lv_obj_set_pos(s_right_cont, 0, 0);
-            lv_obj_set_pos(s_left_anchor, 0, (lv_coord_t)(content_h + panel_gap));
+            lv_obj_set_pos(s_left_anchor, 0, (lv_coord_t)content_h);
         }
     }
 
@@ -447,7 +447,7 @@ void safe_zone_reposition(void)
             {
                 gap_center_x = (lv_coord_t)(content_w - 18U);
                 gap_center_y = (lv_coord_t)((ui_layout_order_get() == ORDER_NORMAL)
-                               ? (ui_anchor_h_get() + panel_gap + content_h / 2U)
+                               ? (ui_anchor_h_get() + content_h / 2U)
                                : (content_h / 2U));
             }
             dot_x = gap_center_x - 5;
@@ -463,7 +463,7 @@ void safe_zone_reposition(void)
             }
             if (!ui_layout_is_vertical_split() && ui_layout_order_get() == ORDER_NORMAL)
             {
-                content_y = (lv_coord_t)(ui_anchor_h_get() + panel_gap);
+                content_y = (lv_coord_t)ui_anchor_h_get();
             }
             dot_x = content_x + (lv_coord_t)content_w - 18;
             dot_y = content_y + (lv_coord_t)(content_h / 2U - (int)dot_cont_h / 2);
@@ -536,7 +536,7 @@ void right_panel_create(void)
         lv_obj_set_pos(s_right_cont,
                        0,
                        (ui_layout_order_get() == ORDER_NORMAL)
-                       ? (lv_coord_t)(ui_anchor_h_get() + panel_gap)
+                       ? (lv_coord_t)ui_anchor_h_get()
                        : 0);
     }
     lv_obj_set_style_bg_color(s_right_cont, BLACK, 0);
@@ -610,7 +610,7 @@ void right_panel_create(void)
         {
             gap_center_x = (lv_coord_t)(content_w - 18U);
             gap_center_y = (lv_coord_t)((ui_layout_order_get() == ORDER_NORMAL)
-                           ? (ui_anchor_h_get() + panel_gap + content_h / 2U)
+                           ? (ui_anchor_h_get() + content_h / 2U)
                            : (content_h / 2U));
         }
         lv_obj_set_pos(s_dot_cont, gap_center_x - 5, gap_center_y - dot_cont_h / 2);
@@ -621,7 +621,7 @@ void right_panel_create(void)
                                ? (lv_coord_t)(ui_anchor_w_get() + panel_gap)
                                : 0;
         lv_coord_t content_y = (!ui_layout_is_vertical_split() && ui_layout_order_get() == ORDER_NORMAL)
-                               ? (lv_coord_t)(ui_anchor_h_get() + panel_gap)
+                               ? (lv_coord_t)ui_anchor_h_get()
                                : 0;
         lv_coord_t dots_x = content_x + content_w - 18;
         lv_coord_t dots_y = content_y + (lv_coord_t)(content_h / 2U - dot_cont_h / 2);
