@@ -1379,7 +1379,7 @@ void screen_set_submenu_selection(uint8_t idx)
     if (selected_item)
     {
         lv_obj_update_layout(s_submenu_list);
-        lv_obj_scroll_to_view(selected_item, LV_ANIM_ON);
+        lv_obj_scroll_to_view(selected_item, MENU_LIST_SCROLL_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
     }
 }
 

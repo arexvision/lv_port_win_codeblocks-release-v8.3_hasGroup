@@ -486,7 +486,7 @@ static void menu_list_ensure_visible(lv_obj_t *list, uint8_t idx)
     if (!item) return;
 
     lv_obj_update_layout(list);
-    lv_obj_scroll_to_view(item, LV_ANIM_ON);
+    lv_obj_scroll_to_view(item, MENU_LIST_SCROLL_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
 }
 
 void screen_set_info_selection(uint8_t idx)
