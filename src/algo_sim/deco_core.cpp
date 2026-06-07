@@ -20,6 +20,11 @@ extern "C" {
 #define GAS_DENSITY_HE_G_L 0.179f
 #define DECO_SCHEDULE_DEBUG_PRINT_MS 1000U
 #define DECO_SCHEDULE_DEBUG_MAX_STOPS 6U
+#define DECO_CEILING_ACTIVE_M 0.01f           /* ceiling 大于该值即认为有实时减压义务 */
+#define DECO_STOP_ZONE_SHALLOW_MARGIN_M 0.6f  /* 减压站允许比 ceiling 浅的容差 */
+#define DECO_STOP_ZONE_DEEP_MARGIN_M 3.0f     /* 减压站允许比显示站深的范围 */
+#define SAFETY_STOP_ZONE_SHALLOW_M 2.4f       /* 安停区浅侧边界 */
+#define SAFETY_STOP_ZONE_DEEP_M 6.1f          /* 安停区深侧边界 */
 
 static ArexDecoDiveState s_state;
 static ArexDecoRuntimeMetrics s_metrics;
@@ -105,6 +110,18 @@ static uint16_t sync_stop_progress_total(stop_type_t type, float depth_m, uint16
 
     s_stop_progress.was_in_stop_zone = in_stop_zone;
     return s_stop_progress.total_s;
+}
+
+static bool deco_stop_zone_active(float current_depth_m, float stop_depth_m, float ceiling_depth_m)
+{
+    if (ceiling_depth_m <= DECO_CEILING_ACTIVE_M) return false;
+    if ((current_depth_m + DECO_STOP_ZONE_SHALLOW_MARGIN_M) < ceiling_depth_m) return false;
+    return current_depth_m <= (stop_depth_m + DECO_STOP_ZONE_DEEP_MARGIN_M);
+}
+
+static bool safety_stop_zone_active(float current_depth_m)
+{
+    return current_depth_m >= SAFETY_STOP_ZONE_SHALLOW_M && current_depth_m <= SAFETY_STOP_ZONE_DEEP_M;
 }
 
 static void debug_print_schedule(const ArexDecoSchedule *schedule)
@@ -372,14 +389,22 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
         ndl_min = (ndl_calc > 99U) ? 99 : (int16_t)ndl_calc;
     }
 
-    if (schedule != NULL && schedule->stop_count > 0U)
+    if (schedule != NULL && schedule->stop_count > 0U && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M)
+    {
+        const ArexDecoStop *stop = &schedule->stops[0];
+        stop_type = STOP_DECO;
+        stop_depth_m = stop->depth_m;
+        stop_left_s = (stop->duration_seconds > 65535U) ? 65535U : (uint16_t)stop->duration_seconds;
+        in_stop_zone = deco_stop_zone_active(s_state.current_depth_m, stop_depth_m, s_metrics.ceiling_depth_m);
+        ndl_min = 0;
+    }
+    else if (schedule != NULL && schedule->stop_count > 0U)
     {
         const ArexDecoStop *stop = &schedule->stops[0];
         stop_depth_m = stop->depth_m;
         stop_left_s = (stop->duration_seconds > 65535U) ? 65535U : (uint16_t)stop->duration_seconds;
-        stop_type = (s_metrics.ceiling_depth_m > 0.01f) ? STOP_DECO : STOP_SAFETY;
-        in_stop_zone = fabsf(s_state.current_depth_m - stop_depth_m) <= 0.8f;
-        if (stop_type == STOP_DECO) ndl_min = 0;
+        stop_type = STOP_SAFETY;
+        in_stop_zone = safety_stop_zone_active(s_state.current_depth_m);
     }
 
     stop_total_s = sync_stop_progress_total(stop_type, stop_depth_m, stop_left_s, in_stop_zone);
