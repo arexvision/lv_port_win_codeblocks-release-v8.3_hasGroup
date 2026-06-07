@@ -42,6 +42,7 @@ typedef struct
     float depth_m;
     bool was_in_stop_zone;
     uint16_t total_s;
+    uint16_t display_left_s;
 } stop_progress_t;
 
 static stop_progress_t s_stop_progress;
@@ -72,15 +73,19 @@ static void reset_stop_progress(void)
     (void)memset(&s_stop_progress, 0, sizeof(s_stop_progress));
 }
 
-static uint16_t sync_stop_progress_total(stop_type_t type, float depth_m, uint16_t left_s, bool in_stop_zone)
+static uint16_t sync_stop_progress_total(stop_type_t type, float depth_m, uint16_t left_s, bool in_stop_zone, uint32_t delta_time_s, uint16_t *display_left_s)
 {
     bool stop_changed;
+    uint16_t dec_s;
 
     if (type == STOP_NONE || left_s == 0U)
     {
         reset_stop_progress();
+        if (display_left_s != NULL) *display_left_s = 0U;
         return 0U;
     }
+    if (delta_time_s == 0U) delta_time_s = 1U;
+    dec_s = (delta_time_s > 65535U) ? 65535U : (uint16_t)delta_time_s;
 
     stop_changed = !s_stop_progress.active ||
                    s_stop_progress.type != type ||
@@ -92,22 +97,33 @@ static uint16_t sync_stop_progress_total(stop_type_t type, float depth_m, uint16
         s_stop_progress.depth_m = depth_m;
         s_stop_progress.was_in_stop_zone = false;
         s_stop_progress.total_s = left_s;
+        s_stop_progress.display_left_s = left_s;
     }
 
     if (in_stop_zone && !s_stop_progress.was_in_stop_zone)
     {
         s_stop_progress.total_s = left_s;
+        s_stop_progress.display_left_s = left_s;
     }
     else if (in_stop_zone && left_s > s_stop_progress.total_s)
     {
         s_stop_progress.total_s = left_s;
+        s_stop_progress.display_left_s = left_s;
+    }
+    else if (in_stop_zone)
+    {
+        if (left_s < s_stop_progress.display_left_s) s_stop_progress.display_left_s = left_s;
+        else if (s_stop_progress.display_left_s > dec_s) s_stop_progress.display_left_s = (uint16_t)(s_stop_progress.display_left_s - dec_s);
+        else s_stop_progress.display_left_s = 0U;
     }
     else if (!in_stop_zone)
     {
         s_stop_progress.total_s = left_s;
+        s_stop_progress.display_left_s = left_s;
     }
 
     s_stop_progress.was_in_stop_zone = in_stop_zone;
+    if (display_left_s != NULL) *display_left_s = s_stop_progress.display_left_s;
     return s_stop_progress.total_s;
 }
 
@@ -378,7 +394,7 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
     bus_set_deco_plan((count > 0U) ? stops : NULL, count);
 }
 
-static void sync_stop_data(const ArexDecoSchedule *schedule)
+static void sync_stop_data(const ArexDecoSchedule *schedule, uint32_t delta_time_s)
 {
     int16_t ndl_min = 0;
     stop_type_t stop_type = STOP_NONE;
@@ -418,7 +434,7 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
         in_stop_zone = safety_stop_zone_active(s_state.current_depth_m);
     }
 
-    stop_total_s = sync_stop_progress_total(stop_type, stop_depth_m, stop_left_s, in_stop_zone);
+    stop_total_s = sync_stop_progress_total(stop_type, stop_depth_m, stop_left_s, in_stop_zone, delta_time_s, &stop_left_s);
     bus_update_deco(ndl_min, stop_type, stop_depth_m, stop_total_s, stop_left_s, in_stop_zone);
     if (stop_type == STOP_NONE)
     {
@@ -427,7 +443,7 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
     }
 }
 
-static void sync_core_data(const ArexDecoSchedule *schedule)
+static void sync_core_data(const ArexDecoSchedule *schedule, uint32_t delta_time_s)
 {
     uint32_t nofly_seconds = 0U;
 
@@ -443,7 +459,7 @@ static void sync_core_data(const ArexDecoSchedule *schedule)
         bus_set_nofly_time(round_up_minutes(nofly_seconds));
     }
     sync_gas_data();
-    sync_stop_data(schedule);
+    sync_stop_data(schedule, delta_time_s);
     sync_deco_plan_data(schedule);
 }
 
@@ -545,7 +561,7 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     {
         debug_print_schedule(&schedule);
     }
-    sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
+    sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL, delta_time_s);
 }
 
 static uint16_t gas_qty_l(float depth_m, uint32_t seconds, float rmv_lpm, const ArexDecoConfig *config)
