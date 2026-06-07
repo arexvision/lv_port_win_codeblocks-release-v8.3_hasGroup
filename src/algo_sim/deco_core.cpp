@@ -21,8 +21,7 @@ extern "C" {
 #define DECO_SCHEDULE_DEBUG_PRINT_MS 1000U
 #define DECO_SCHEDULE_DEBUG_MAX_STOPS 6U
 #define DECO_CEILING_ACTIVE_M 0.01f           /* ceiling 大于该值即认为有实时减压义务 */
-#define DECO_STOP_ZONE_SHALLOW_MARGIN_M 0.6f  /* 减压站允许比 ceiling 浅的容差 */
-#define DECO_STOP_ZONE_DEEP_MARGIN_M 3.0f     /* 减压站允许比显示站深的范围 */
+#define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
 #define SAFETY_STOP_ZONE_SHALLOW_M 2.4f       /* 安停区浅侧边界 */
 #define SAFETY_STOP_ZONE_DEEP_M 6.1f          /* 安停区深侧边界 */
 
@@ -112,10 +111,8 @@ static uint16_t sync_stop_progress_total(stop_type_t type, float depth_m, uint16
     return s_stop_progress.total_s;
 }
 
-static bool deco_stop_zone_active(float current_depth_m, float stop_depth_m, float ceiling_depth_m)
+static bool deco_stop_zone_active(float current_depth_m, float stop_depth_m)
 {
-    if (ceiling_depth_m <= DECO_CEILING_ACTIVE_M) return false;
-    if ((current_depth_m + DECO_STOP_ZONE_SHALLOW_MARGIN_M) < ceiling_depth_m) return false;
     return current_depth_m <= (stop_depth_m + DECO_STOP_ZONE_DEEP_MARGIN_M);
 }
 
@@ -395,7 +392,7 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
         stop_type = STOP_DECO;
         stop_depth_m = stop->depth_m;
         stop_left_s = (stop->duration_seconds > 65535U) ? 65535U : (uint16_t)stop->duration_seconds;
-        in_stop_zone = deco_stop_zone_active(s_state.current_depth_m, stop_depth_m, s_metrics.ceiling_depth_m);
+        in_stop_zone = deco_stop_zone_active(s_state.current_depth_m, stop_depth_m);
         ndl_min = 0;
     }
     else if (schedule != NULL && schedule->stop_count > 0U)
