@@ -333,6 +333,7 @@ uint8_t bus_get_deco_stop_count(void);
 bool bus_get_deco_stop(uint8_t index, deco_stop_t *out_stop);
 
 /* --- Logbook / Last Dive backend --- */
+/* Logbook backend：PC 模拟器使用内存 demo；嵌入式请用 SD/PSRAM 后端覆盖这些 weak API。 */
 uint8_t logbook_backend_count(void);
 bool logbook_backend_get_summary(uint8_t index, logbook_entry_t *out_entry);
 bool logbook_backend_get_detail(uint8_t index, logbook_entry_t *out_entry);

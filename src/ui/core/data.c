@@ -22,10 +22,12 @@ static bool s_dive_log_sample_valid;
 static float s_dive_log_last_sample_time_s;
 static deco_stop_t s_deco_stops[MAX_DECO_STOPS];
 static uint16_t s_deco_stop_count;
+#ifdef PC_SIMULATOR
 static logbook_entry_t s_logbook_entries[MAX_LOGBOOK_ENTRIES];
 static dive_pt_t s_logbook_samples[MAX_LOGBOOK_ENTRIES][MAX_DIVE_LOG];
 static uint16_t s_logbook_sample_counts[MAX_LOGBOOK_ENTRIES];
 static uint8_t s_logbook_count;
+#endif
 static logbook_entry_t s_last_dive_snapshot;
 
 typedef enum
@@ -2419,6 +2421,7 @@ void dive_log_reset(void)
     s_deco_stop_count = 0U;
 }
 
+#ifdef PC_SIMULATOR
 uint8_t logbook_backend_count(void)
 {
     return s_logbook_count;
@@ -2561,6 +2564,83 @@ bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry)
     *out_entry = s_last_dive_snapshot;
     return true;
 }
+#else
+__attribute__((weak))
+uint8_t logbook_backend_count(void)
+{
+    return 0U;
+}
+
+__attribute__((weak))
+bool logbook_backend_get_summary(uint8_t index, logbook_entry_t *out_entry)
+{
+    (void)index;
+    (void)out_entry;
+    return false;
+}
+
+__attribute__((weak))
+bool logbook_backend_get_detail(uint8_t index, logbook_entry_t *out_entry)
+{
+    return logbook_backend_get_summary(index, out_entry);
+}
+
+__attribute__((weak))
+bool logbook_backend_get_samples(uint8_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count)
+{
+    (void)index;
+    (void)out_points;
+    (void)max_points;
+    if (out_count)
+    {
+        *out_count = 0U;
+    }
+    return false;
+}
+
+__attribute__((weak))
+bool logbook_backend_update_meta(uint8_t index, const logbook_meta_t *meta)
+{
+    (void)index;
+    (void)meta;
+    return false;
+}
+
+__attribute__((weak))
+bool logbook_backend_delete(uint8_t index)
+{
+    (void)index;
+    return false;
+}
+
+__attribute__((weak))
+bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const dive_pt_t *points, uint16_t point_count)
+{
+    (void)points;
+    (void)point_count;
+    if (entry == NULL)
+    {
+        return false;
+    }
+
+    s_last_dive_snapshot = *entry;
+    s_last_dive_snapshot.valid = true;
+    g_sensor_data.dirty_mask |= DIRTY_LOGBOOK;
+    return false;
+}
+
+__attribute__((weak))
+bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry)
+{
+    if ((out_entry == NULL) || !s_last_dive_snapshot.valid)
+    {
+        return false;
+    }
+
+    *out_entry = s_last_dive_snapshot;
+    return true;
+}
+#endif
 
 /* =========================================================
  * Legacy 配置接口兼容占位
