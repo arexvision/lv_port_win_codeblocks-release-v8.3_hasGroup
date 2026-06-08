@@ -50,11 +50,29 @@ static uint8_t s_logbook_time_digit = 0U;
 static bool s_logbook_editing = false;
 static bool s_logbook_delete_pending = false;
 static logbook_entry_t s_logbook_entry;
-static dive_pt_t s_logbook_points[MAX_DIVE_LOG];
+static const dive_pt_t *s_logbook_points = NULL;
 static uint16_t s_logbook_point_count;
 static bool s_logbook_valid = false;
 
 static void screen_handle_logbook_select(void);
+
+static void logbook_points_release(void)
+{
+    if (s_logbook_points == NULL)
+    {
+        return;
+    }
+
+    logbook_backend_release_samples(s_logbook_points);
+    s_logbook_points = NULL;
+    s_logbook_point_count = 0U;
+}
+
+static bool logbook_points_load(uint8_t index)
+{
+    logbook_points_release();
+    return logbook_backend_acquire_samples(index, &s_logbook_points, &s_logbook_point_count);
+}
 
 static void submenu_dive_plan_render_cache_reset(void)
 {
@@ -83,6 +101,7 @@ static void logbook_load_current(void)
     if (count == 0U)
     {
         s_logbook_index = 0U;
+        logbook_points_release();
         return;
     }
     if (s_logbook_index >= count)
@@ -91,7 +110,10 @@ static void logbook_load_current(void)
     }
 
     s_logbook_valid = logbook_backend_get_summary(s_logbook_index, &s_logbook_entry);
-    (void)logbook_backend_get_samples(s_logbook_index, s_logbook_points, MAX_DIVE_LOG, &s_logbook_point_count);
+    if (s_logbook_valid)
+    {
+        (void)logbook_points_load(s_logbook_index);
+    }
 }
 
 static void logbook_reset_state(void)
@@ -750,6 +772,7 @@ static lv_color_t submenu_light_status_color(const menu_row_t *row)
 void submenu_view_reset(void)
 {
     /* 布局重建后，旧的子菜单对象和菜单运行时都需要一起清空。 */
+    logbook_points_release();
     s_submenu_layer = NULL;
     s_submenu_title = NULL;
     s_submenu_title_line = NULL;
@@ -1952,6 +1975,7 @@ void screen_close_submenu(void)
         s_logbook_editing = false;
         s_logbook_time_digit = 0U;
         s_logbook_delete_pending = false;
+        logbook_points_release();
         ui_state_set_state(ui_state_get_sub_parent());
         return;
     }
@@ -1980,6 +2004,7 @@ void screen_close_submenu(void)
     s_logbook_editing = false;
     s_logbook_time_digit = 0U;
     s_logbook_delete_pending = false;
+    logbook_points_release();
     ui_state_set_sub_history_depth(0U);
     ui_state_set_sub_item_count(0U);
     ui_state_set_sub_menu_idx(0U);
@@ -2018,6 +2043,7 @@ void screen_confirm_submenu_setting(void)
     {
         ui_state_set_sub_history_depth(0U);
         ui_state_set_edit_active(false);
+        logbook_points_release();
         menu_runtime_reset();
         menu_actions_clear_pending();
         submenu_slide_out();

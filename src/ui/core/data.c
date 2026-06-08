@@ -11,9 +11,14 @@
 #include <float.h>
 #include "stdio.h"
 
+#define LOGBOOK_SAMPLE_BUFFER_BYTES ((uint32_t)(sizeof(dive_pt_t) * MAX_DIVE_LOG))
+
 #ifdef PC_SIMULATOR
+#include <stdlib.h>
 #include "lvgl.h"
 #include "../../algo_sim/deco_core.h"
+#else
+#include "mem_section.h"
 #endif
 
 static dive_pt_t s_dive_log[MAX_DIVE_LOG];
@@ -29,6 +34,14 @@ static uint16_t s_logbook_sample_counts[MAX_LOGBOOK_ENTRIES];
 static uint8_t s_logbook_count;
 #endif
 static logbook_entry_t s_last_dive_snapshot;
+
+#ifndef PC_SIMULATOR
+L2_RET_BSS_SECT_BEGIN(logbook_backend_heap)
+static uint8_t s_logbook_backend_heap_pool[LOGBOOK_SAMPLE_BUFFER_BYTES + 448U] L2_RET_BSS_SECT(logbook_backend_heap);
+L2_RET_BSS_SECT_END
+static struct rt_memheap s_logbook_backend_heap;
+static bool s_logbook_backend_heap_ready = false;
+#endif
 
 typedef enum
 {
@@ -2472,6 +2485,38 @@ bool logbook_backend_get_samples(uint8_t index, dive_pt_t *out_points, uint16_t 
     return true;
 }
 
+bool logbook_backend_acquire_samples(uint8_t index, const dive_pt_t **out_points, uint16_t *out_count)
+{
+    dive_pt_t *points;
+
+    if (out_points == NULL || out_count == NULL)
+    {
+        return false;
+    }
+
+    *out_points = NULL;
+    *out_count = 0U;
+    points = (dive_pt_t *)malloc(LOGBOOK_SAMPLE_BUFFER_BYTES);
+    if (points == NULL)
+    {
+        return false;
+    }
+
+    if (!logbook_backend_get_samples(index, points, MAX_DIVE_LOG, out_count))
+    {
+        free(points);
+        return false;
+    }
+
+    *out_points = points;
+    return true;
+}
+
+void logbook_backend_release_samples(const dive_pt_t *points)
+{
+    free((void *)points);
+}
+
 bool logbook_backend_update_meta(uint8_t index, const logbook_meta_t *meta)
 {
     if ((meta == NULL) || (index >= s_logbook_count))
@@ -2596,6 +2641,69 @@ bool logbook_backend_get_samples(uint8_t index, dive_pt_t *out_points, uint16_t 
         *out_count = 0U;
     }
     return false;
+}
+
+static bool logbook_backend_heap_ensure(void)
+{
+    if (s_logbook_backend_heap_ready)
+    {
+        return true;
+    }
+
+    if (rt_memheap_init(&s_logbook_backend_heap,
+                        "logbook_backend",
+                        (void *)s_logbook_backend_heap_pool,
+                        sizeof(s_logbook_backend_heap_pool)) != RT_EOK)
+    {
+        rt_kprintf("[Logbook] backend heap init failed\n");
+        return false;
+    }
+
+    s_logbook_backend_heap_ready = true;
+    return true;
+}
+
+__attribute__((weak))
+bool logbook_backend_acquire_samples(uint8_t index, const dive_pt_t **out_points, uint16_t *out_count)
+{
+    dive_pt_t *points;
+
+    if (out_points == NULL || out_count == NULL)
+    {
+        return false;
+    }
+
+    *out_points = NULL;
+    *out_count = 0U;
+    if (!logbook_backend_heap_ensure())
+    {
+        return false;
+    }
+
+    points = (dive_pt_t *)rt_memheap_alloc(&s_logbook_backend_heap, LOGBOOK_SAMPLE_BUFFER_BYTES);
+    if (points == NULL)
+    {
+        rt_kprintf("[Logbook] sample buffer alloc failed\n");
+        return false;
+    }
+
+    if (!logbook_backend_get_samples(index, points, MAX_DIVE_LOG, out_count))
+    {
+        rt_memheap_free(points);
+        return false;
+    }
+
+    *out_points = points;
+    return true;
+}
+
+__attribute__((weak))
+void logbook_backend_release_samples(const dive_pt_t *points)
+{
+    if (points != NULL)
+    {
+        rt_memheap_free((void *)points);
+    }
 }
 
 __attribute__((weak))
