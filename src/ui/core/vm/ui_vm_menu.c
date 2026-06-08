@@ -429,7 +429,7 @@ void ui_vm_oc_tech_menu_update(ui_vm_simple_menu_t *vm,
     }
 
     (void)memset(vm, 0, sizeof(*vm));
-    for (uint8_t i = 0U; i < 3U; i++)
+    for (uint8_t i = 0U; i < GAS_COUNT; i++)
     {
         uint8_t o2 = (o2_pct != NULL) ? o2_pct[i] : 0U;
         uint8_t he = (he_pct != NULL) ? he_pct[i] : 0U;
@@ -465,9 +465,8 @@ void ui_vm_oc_tech_menu_update(ui_vm_simple_menu_t *vm,
             (void)snprintf(vm->items[i], sizeof(vm->items[i]), "G%u: NX %u", (unsigned)(i + 1U), (unsigned)o2);
         }
     }
-    (void)snprintf(vm->items[3], sizeof(vm->items[3]), "%s", "CONFIRM & ACTIVATE");
-    (void)snprintf(vm->items[4], sizeof(vm->items[4]), "%s", "< BACK");
-    vm->count = 5U;
+    (void)snprintf(vm->items[GAS_COUNT], sizeof(vm->items[GAS_COUNT]), "%s", "CONFIRM & ACTIVATE");
+    vm->count = GAS_COUNT + 1U;
 }
 
 void ui_vm_edit_mod_ppo2_update(ui_vm_edit_spec_t *vm)

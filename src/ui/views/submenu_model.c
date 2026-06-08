@@ -545,7 +545,7 @@ static void apply_oc_tech_mode_gases(void)
 
     submenu_gas_profile_reset(slots, GAS_COUNT);
 
-    for (uint8_t i = 0; i < 3U; i++)
+    for (uint8_t i = 0; i < 5U; i++)
     {
         uint8_t o2 = s_oc_tech_o2_pct[i];
         uint8_t he = s_oc_tech_he_pct[i];
@@ -1003,8 +1003,7 @@ static const char **build_nested_oc_tech_edit(uint8_t slot, uint8_t *out_count)
     s_nested_oc_tech_edit[0] = s_oc_tech_edit_str[0];
     s_nested_oc_tech_edit[1] = s_oc_tech_edit_str[1];
     s_nested_oc_tech_edit[2] = "SAVE GAS CONFIG";
-    s_nested_oc_tech_edit[3] = "< BACK";
-    s_nested_oc_tech_edit[4] = NULL;
+    s_nested_oc_tech_edit[3] = NULL;
     if (out_count)
     {
         *out_count = count_items(s_nested_oc_tech_edit, 5);
@@ -1250,7 +1249,7 @@ const char **submenu_child_items_for(const char *current_title,
     }
     else if (clean_current_title && strcmp(clean_current_title, "OC Tech") == 0)
     {
-        if (item_index < 3U)
+        if (item_index < 5U)
         {
             begin_oc_tech_slot_edit(item_index);
             lv_snprintf(key, sizeof(key), "G%u TRIMIX", (unsigned)(item_index + 1U));
@@ -1341,7 +1340,7 @@ bool submenu_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if (strcmp(clean_title, "OC Tech") == 0 && item_index == 3)
+    if (strcmp(clean_title, "OC Tech") == 0 && item_index == 5)
     {
         out_setting->kind = SUBMENU_SETTING_DIVE_MODE;
         out_setting->value = 3;
@@ -1708,7 +1707,7 @@ bool submenu_setting_from_ids(menu_id_t current_menu,
         item_text = "CONFIRM";
         break;
     case MENU_ITEM_OC_TECH_CONFIRM:
-        item_index = 3U;
+        item_index = 5U;
         item_text = "CONFIRM & ACTIVATE";
         break;
     case MENU_ITEM_DISPLAY_RESET:

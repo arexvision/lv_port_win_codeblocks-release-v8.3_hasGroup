@@ -343,8 +343,9 @@ static void build_rows(void)
             MENU_ITEM_OC_TECH_SLOT_0,
             MENU_ITEM_OC_TECH_SLOT_1,
             MENU_ITEM_OC_TECH_SLOT_2,
+            MENU_ITEM_OC_TECH_SLOT_3,
+            MENU_ITEM_OC_TECH_SLOT_4,
             MENU_ITEM_OC_TECH_CONFIRM,
-            MENU_ITEM_BACK,
         };
         build_nested_by_title("OC Tech", ids, NULL);
         break;
@@ -356,7 +357,6 @@ static void build_rows(void)
             MENU_ITEM_OC_TECH_EDIT_O2,
             MENU_ITEM_OC_TECH_EDIT_HE,
             MENU_ITEM_OC_TECH_EDIT_SAVE,
-            MENU_ITEM_BACK,
         };
         build_nested_by_title(s_oc_tech_edit_title, ids, NULL);
         break;
