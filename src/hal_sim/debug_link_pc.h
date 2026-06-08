@@ -47,6 +47,8 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m);
 #define DEBUG_TX_BUF_SIZE 768U
 #define DEBUG_DEPTH_GOTO_DESCENT_MPM 18.0f
 #define DEBUG_DEPTH_GOTO_ASCENT_MPM 10.0f
+#define DEBUG_DEPTH_GOTO_MIN_MPM 0.1f
+#define DEBUG_DEPTH_GOTO_MAX_MPM 120.0f
 #define DEBUG_DEPTH_GOTO_EPSILON_M 0.01f
 
 typedef int (WSAAPI *wsa_startup_fn)(WORD, LPWSADATA);
@@ -80,6 +82,7 @@ typedef struct
     uint32_t depth_rate_last_tick_ms;
     bool depth_goto_active;
     float depth_goto_target_m;
+    float depth_goto_rate_mpm;
 
     wsa_startup_fn WSAStartup_;
     wsa_cleanup_fn WSACleanup_;
@@ -384,17 +387,28 @@ static void debug_depth_goto_cancel(void)
 {
     s_debug_link.depth_goto_active = false;
     s_debug_link.depth_goto_target_m = 0.0f;
+    s_debug_link.depth_goto_rate_mpm = 0.0f;
 }
 
-static bool debug_depth_goto_start(float target_depth_m)
+static bool debug_depth_goto_start(float target_depth_m, float rate_mpm)
 {
     if (target_depth_m < 0.0f)
     {
         target_depth_m = 0.0f;
     }
+    if (rate_mpm < 0.0f)
+    {
+        rate_mpm = -rate_mpm;
+    }
+    if (rate_mpm > 0.0f && (rate_mpm < DEBUG_DEPTH_GOTO_MIN_MPM || rate_mpm > DEBUG_DEPTH_GOTO_MAX_MPM))
+    {
+        debug_sendf("ERR goto speed %.1f out of range %.1f..%.0f m/min\r\n", (double)rate_mpm, (double)DEBUG_DEPTH_GOTO_MIN_MPM, (double)DEBUG_DEPTH_GOTO_MAX_MPM);
+        return false;
+    }
 
     s_debug_link.depth_goto_active = true;
     s_debug_link.depth_goto_target_m = target_depth_m;
+    s_debug_link.depth_goto_rate_mpm = rate_mpm;
     s_debug_link.depth_rate_valid = false;
     return true;
 }
@@ -491,7 +505,7 @@ static void debug_send_help(void)
         "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back | manual on|off | auto on|off | speed <1..120>\r\n"
-        "  depth <m> | goto <m>|stop | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
+        "  depth <m> | goto <m> [m_min]|stop | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
         "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
         "  heading <deg> | ppo2 <slot> <bar> | gf <low> <high> | gf99 <pct> | surf_gf <pct>\r\n"
@@ -502,19 +516,20 @@ static void debug_send_help(void)
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "  alert ids: asc po2 po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
-        "Slots are 0-based. TCP disables the auto depth script; goto moves at 18m/min down, 10m/min up in simulated time.\r\n");
+        "Slots are 0-based. TCP disables the auto depth script; goto defaults to 18m/min down, 10m/min up; optional goto speed uses simulated time.\r\n");
 }
 
 static void debug_send_state(void)
 {
     debug_sendf(
-        "STATE tcp=%u depth_manual=%u manual=%u speed=%u goto=%u target=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
+        "STATE tcp=%u depth_manual=%u manual=%u speed=%u goto=%u target=%.1f goto_rate=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
         (unsigned)debug_link_pc_time_scale(),
         s_debug_link.depth_goto_active ? 1U : 0U,
         (double)s_debug_link.depth_goto_target_m,
+        (double)s_debug_link.depth_goto_rate_mpm,
         (double)g_sensor_data.depth,
         (double)g_sensor_data.ascent_rate,
         (unsigned long)g_sensor_data.dive_time_s,
@@ -838,6 +853,8 @@ static void debug_exec_line(char *line)
     if (debug_streq(cmd, "goto") || debug_streq(cmd, "go"))
     {
         float target_depth_m;
+        float rate_mpm = 0.0f;
+        char *rate_arg;
         arg = debug_next_token(&cursor);
         if (debug_streq(arg, "stop") || debug_streq(arg, "cancel") || debug_streq(arg, "off"))
         {
@@ -847,14 +864,27 @@ static void debug_exec_line(char *line)
         }
         if (!debug_parse_float(arg, &target_depth_m))
         {
-            debug_send_raw("ERR usage: goto <depth_m>|stop\r\n");
+            debug_send_raw("ERR usage: goto <depth_m> [m_min]|stop\r\n");
             return;
         }
-        if (!debug_depth_goto_start(target_depth_m))
+        rate_arg = debug_next_token(&cursor);
+        if (rate_arg != NULL && !debug_parse_float(rate_arg, &rate_mpm))
+        {
+            debug_send_raw("ERR usage: goto <depth_m> [m_min]|stop\r\n");
+            return;
+        }
+        if (!debug_depth_goto_start(target_depth_m, rate_mpm))
         {
             return;
         }
-        debug_sendf("OK goto %.1f\r\n", (double)s_debug_link.depth_goto_target_m);
+        if (s_debug_link.depth_goto_rate_mpm > 0.0f)
+        {
+            debug_sendf("OK goto %.1f %.1fm/min\r\n", (double)s_debug_link.depth_goto_target_m, (double)s_debug_link.depth_goto_rate_mpm);
+        }
+        else
+        {
+            debug_sendf("OK goto %.1f auto\r\n", (double)s_debug_link.depth_goto_target_m);
+        }
         return;
     }
 
@@ -1548,7 +1578,18 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m)
         return true;
     }
 
-    step_m = (delta_m > 0.0f) ? (DEBUG_DEPTH_GOTO_DESCENT_MPM / 60.0f) : -(DEBUG_DEPTH_GOTO_ASCENT_MPM / 60.0f);
+    if (s_debug_link.depth_goto_rate_mpm > 0.0f)
+    {
+        step_m = s_debug_link.depth_goto_rate_mpm / 60.0f;
+        if (delta_m < 0.0f)
+        {
+            step_m = -step_m;
+        }
+    }
+    else
+    {
+        step_m = (delta_m > 0.0f) ? (DEBUG_DEPTH_GOTO_DESCENT_MPM / 60.0f) : -(DEBUG_DEPTH_GOTO_ASCENT_MPM / 60.0f);
+    }
     next_depth_m = current_depth_m + step_m;
     if ((step_m > 0.0f && next_depth_m >= target_depth_m) ||
             (step_m < 0.0f && next_depth_m <= target_depth_m))
