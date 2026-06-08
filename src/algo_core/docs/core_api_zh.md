@@ -1,6 +1,6 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.13`。
+本文档描述当前 core API。当前 API 版本为 `0.0.14`。
 
 ## 适用场景
 
@@ -15,7 +15,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 13`
+- `AREX_DECO_API_VERSION_PATCH = 14`
 
 固定容量：
 
@@ -423,6 +423,7 @@ Planner 行为：
 - 上升时间按深水段 / 浅水段两段速率计算，默认 10 m/min 到 10 m，10 m 以内 3 m/min。
 - 首停深度由当前 ceiling、`last_stop_m` 和 `deco_step_m` 计算，并锚定在 `last_stop_m + k * deco_step_m` 网格上。若 `last_stop_m` 不是 `deco_step_m` 的整数倍（例如 4.5 m / 3 m），相邻停站仍保持完整 `deco_step_m` 间距。
 - 实时上升过程中重新计划时，若当前深度已浅于理论 ceiling 网格首停但仍可合法停在“不深于当前深度”的最深网格站，planner 会保持首停在配置网格上，避免输出 8.8 m、5.9 m 这类由当前深度夹逼出的非网格停站。
+- GF 插值锚点由第一个实质停留站确立：planner 会先模拟经过候选网格站，只有当该站实际需要 `>= AREX_DECO_STOP_TIME_GRANULARITY_SECONDS` 的停留时，才把它锁定为本次计划的 first stop GF anchor；0 s 候选站不会污染后续 GF 斜率。
 - 中间停站按 `deco_step_m` 递减。
 - 到达 `last_stop_m` 后，不再生成更浅停站；若 `last_stop_m` 深于常规 step 网格（例如 6 m），最后一站会延长到满足直接升水条件。
 - 当较深 `last_stop_m` 与标准 step 网格对齐时，planner 会用一条“继续按常规 step 停到底”的 staged alt-plan 估算最后一站下界，避免直接升水求解低估保守停留时间。若该 alt-plan 在 6 h 单站上限内仍不可行，`arex_deco_plan` 返回 `AREX_DECO_STATUS_INVALID_STATE`，而不是输出被饱和值污染的计划。

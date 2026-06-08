@@ -26,6 +26,20 @@
 - smoke test
 - 文档
 
+## 0.0.14
+
+### 摘要
+
+本次版本修复浅水减压预测中的 GF anchor 过早绑定问题。旧 planner 会在找到最深候选停站时立即把该深度作为 GF 插值锚点，即使该候选站实际停留时间为 0 s；当潜水员继续上升并在真正需要停留的浅一档重新调用 `arex_deco_plan()` 时，GF anchor 会从较深候选站切到实质停留站，导致同一首停深度的显示停留时间突增。
+
+### 行为变更
+
+- GF anchor 不再由初始数学首停或 0 s 候选站确立。
+- Planner 会先模拟经过候选网格站；只有当某站实际产生 `>= AREX_DECO_STOP_TIME_GRANULARITY_SECONDS` 的停留时，才把该站锁定为本次计划的 first stop GF anchor。
+- 锚点一旦锁定，后续主计划和 staged alt-plan 都继承同一个锚点，不再在到站重算时漂移。
+- 新增 `scripts/reproduce_deco_time_jump.sh`，可用 `--verify-anchor` 复现并验证 12 m 候选站 / 9 m 实质停留站场景。
+- ABI 字节布局无变化；由于 planner 输出语义变化，API patch 版本升至 `0.0.14`。
+
 ## 0.0.13
 
 ### 摘要
