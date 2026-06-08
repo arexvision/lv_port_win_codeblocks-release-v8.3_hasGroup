@@ -508,7 +508,7 @@ static void sim_finalize_dive(void)
     uint8_t active_gas = bus_get_gas_active_idx();
     uint8_t active_o2 = bus_get_gas_slot_o2_pct(active_gas);
     uint8_t active_he = bus_get_gas_slot_he_pct(active_gas);
-    const char *mode = active_he > 0U ? "Trimix" : ((active_o2 == 21U) ? "Air" : "Nitrox");
+    const char *mode = active_he > 0U ? "TX" : ((active_o2 == 21U) ? "Air" : "Nitrox");
     uint32_t start_min;
     uint32_t end_min;
 

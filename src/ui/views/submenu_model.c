@@ -242,7 +242,7 @@ static void format_gas_name(char *out, size_t out_size, uint8_t o2_pct, uint8_t 
     }
     else if (he_pct > 0U)
     {
-        lv_snprintf(out, out_size, "Trimix %u/%u", (unsigned)o2_pct, (unsigned)he_pct);
+        lv_snprintf(out, out_size, "TX %u/%u", (unsigned)o2_pct, (unsigned)he_pct);
     }
     else if (o2_pct == 21U)
     {
@@ -359,7 +359,7 @@ static bool oc_tech_slot_from_title(const char *title, uint8_t *out_slot)
     {
         return false;
     }
-    if (sscanf(clean_title, "G%u TRIMIX", &slot_no) != 1)
+    if (sscanf(clean_title, "G%u TX", &slot_no) != 1)
     {
         return false;
     }
@@ -1252,7 +1252,7 @@ const char **submenu_child_items_for(const char *current_title,
         if (item_index < 5U)
         {
             begin_oc_tech_slot_edit(item_index);
-            lv_snprintf(key, sizeof(key), "G%u TRIMIX", (unsigned)(item_index + 1U));
+            lv_snprintf(key, sizeof(key), "G%u TX", (unsigned)(item_index + 1U));
             items = build_nested_oc_tech_edit(item_index, &count);
             if (out_title && out_title_size > 0)
             {
@@ -1823,7 +1823,7 @@ void submenu_prepare_oc_tech_child(menu_item_id_t item_id,
     begin_oc_tech_slot_edit((uint8_t)slot);
     if (out_title != NULL && out_title_size > 0U)
     {
-        lv_snprintf(out_title, out_title_size, "G%u TRIMIX", (unsigned)(slot + 1U));
+        lv_snprintf(out_title, out_title_size, "G%u TX", (unsigned)(slot + 1U));
     }
 }
 
