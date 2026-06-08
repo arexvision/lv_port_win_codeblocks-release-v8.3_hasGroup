@@ -1162,9 +1162,11 @@ static void plan_draw_result_summary(lv_obj_t *parent, int w, const ui_vm_dive_p
 static void plan_draw_result(lv_obj_t *parent, int w)
 {
     ui_vm_dive_plan_view_t vm;
-    static const int col_x[] = { 20, 88, 166, 244, 334 };
-    static const int col_w[] = { 64, 72, 72, 82, 72 };
+    int col_x[5];
+    int col_w[5];
     bool compact = plan_compact_layout();
+    int table_right = w - 44;
+    int gap = 8;
     int head_y = compact ? 58 : 68;
     int line_y = compact ? 80 : 88;
     int row_y = compact ? 92 : 100;
@@ -1172,6 +1174,23 @@ static void plan_draw_result(lv_obj_t *parent, int w)
     int page_y = compact ? (int)s_submenu_height - 60 : (int)s_submenu_height - 72;
 
     ui_vm_dive_plan_view_update(&vm);
+
+    if (table_right > w - 16) table_right = w - 16;
+    if (table_right < 360) table_right = w - 24;
+    col_w[4] = 64;
+    col_w[3] = 74;
+    col_w[2] = 58;
+    col_w[1] = 58;
+    col_w[0] = 58;
+    col_x[4] = table_right - col_w[4];
+    col_x[3] = col_x[4] - gap - col_w[3];
+    col_x[2] = col_x[3] - gap - col_w[2];
+    col_x[1] = col_x[2] - gap - col_w[1];
+    col_x[0] = col_x[1] - gap - col_w[0];
+    if (col_x[0] < 16)
+    {
+        col_x[0] = 16;
+    }
 
     if (vm.result_summary_page != 0U)
     {
