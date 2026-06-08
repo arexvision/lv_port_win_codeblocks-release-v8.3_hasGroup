@@ -18,7 +18,17 @@
 #include "lvgl.h"
 #include "../../algo_sim/deco_core.h"
 #else
+#if defined(__has_include)
+#if __has_include("mem_section.h")
 #include "mem_section.h"
+#else
+#define L2_RET_BSS_SECT_BEGIN(name)
+#define L2_RET_BSS_SECT_END
+#define L2_RET_BSS_SECT(name)
+#endif
+#else
+#include "mem_section.h"
+#endif
 #endif
 
 static dive_pt_t s_dive_log[MAX_DIVE_LOG];
