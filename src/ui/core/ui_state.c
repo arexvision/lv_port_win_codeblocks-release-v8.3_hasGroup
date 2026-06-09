@@ -253,6 +253,10 @@ void ui_handle_rotate(int8_t dir)
         {
             break;
         }
+        if (s_ui.sub_item_count == 0U)
+        {
+            break;
+        }
         int8_t next = (int8_t)s_ui.sub_menu_idx + dir;
         if (next < 0) next = 0;
         if (next >= (int8_t)s_ui.sub_item_count) next = s_ui.sub_item_count - 1;

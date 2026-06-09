@@ -273,7 +273,7 @@ static void plan_build_action_items(uint8_t *out_count)
     s_plan_dyn[n++] = "Exit";
     if (snapshot.page == DIVE_PLAN_PAGE_READY)
     {
-        s_plan_dyn[n++] = "Plan >";
+        s_plan_dyn[n++] = "Plan";
     }
     else if (snapshot.page == DIVE_PLAN_PAGE_CALCULATING)
     {
@@ -283,16 +283,16 @@ static void plan_build_action_items(uint8_t *out_count)
     {
         if (snapshot.result_page_index + 1U < snapshot.result_total_pages)
         {
-            s_plan_dyn[n++] = "More >";
+            s_plan_dyn[n++] = "More";
         }
         else
         {
-            s_plan_dyn[n++] = "Next >";
+            s_plan_dyn[n++] = "Next";
         }
     }
     else
     {
-        s_plan_dyn[n++] = "Next >";
+        s_plan_dyn[n++] = "Next";
     }
     s_plan_dyn[n] = NULL;
     *out_count = n;

@@ -939,29 +939,30 @@ static lv_obj_t *plan_make_label(lv_obj_t *parent,
 static lv_obj_t *plan_make_button(lv_obj_t *parent, const char *text, int x, int y, bool focused)
 {
     /* 潜水计划页底部按钮的统一样式工厂。 */
-    int btn_w = focused ? 92 : 80;
-    int btn_h = focused ? 34 : 28;
-    font_id_t font_id = focused ? FONT_ID_TITLE : FONT_ID_SMALL;
+    int btn_w = 92;
+    int btn_h = 34;
+    font_id_t font_id = focused ? FONT_ID_MEDIUM : FONT_ID_TITLE;
     lv_obj_t *btn = lv_obj_create(parent);
     lv_obj_remove_style_all(btn);
     lv_obj_set_pos(btn, x, y);
     lv_obj_set_size(btn, btn_w, btn_h);
-    lv_obj_set_style_bg_color(btn, focused ? GREEN : BLACK, 0);
+    lv_obj_set_style_bg_color(btn, BLACK, 0);
     lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(btn, GREEN, 0);
-    lv_obj_set_style_border_width(btn, focused ? 2 : 1, 0);
+    lv_obj_set_style_border_color(btn, focused ? GREEN : DARK, 0);
+    lv_obj_set_style_border_width(btn, focused ? INNER_BORDER_W + 2 : INNER_BORDER_W, 0);
     lv_obj_set_style_radius(btn, 0, 0);
     lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *lbl = plan_make_label(btn,
                                     text,
                                     font_id,
-                                    focused ? BLACK : LIGHT,
+                                    focused ? LIGHT : GREEN,
                                     0,
                                     0,
-                                    btn_w,
-                                    btn_h,
+                                    LV_SIZE_CONTENT,
+                                    LV_SIZE_CONTENT,
                                     LV_TEXT_ALIGN_CENTER);
+    lv_label_set_long_mode(lbl, LV_LABEL_LONG_CLIP);
     lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
     return btn;
 }
@@ -974,6 +975,13 @@ static bool plan_compact_layout(void)
 static uint8_t plan_result_rows_per_page_for_layout(void)
 {
     return plan_compact_layout() ? 6U : 8U;
+}
+
+static bool plan_action_buttons_visible(uint8_t page)
+{
+    return page != (uint8_t)DIVE_PLAN_PAGE_DEPTH &&
+           page != (uint8_t)DIVE_PLAN_PAGE_TIME &&
+           page != (uint8_t)DIVE_PLAN_PAGE_RMV;
 }
 
 static void plan_draw_header(lv_obj_t *parent, int w)
@@ -1262,18 +1270,21 @@ static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
 
     s_dive_plan_last_vm = vm;
     s_dive_plan_last_vm_valid = true;
+    ui_state_set_sub_item_count(count);
     lv_obj_clean(s_submenu_list);
     s_light_status_lbl = NULL;
 
-    if (count > 0U)
+    bool show_actions = plan_action_buttons_visible(vm.page);
+
+    if (show_actions && count > 0U)
     {
         bool focused = (focus_idx == 0U);
-        (void)plan_make_button(s_submenu_list, rows[0].label, 12, (int)s_submenu_height - (focused ? 38 : 34), focused);
+        (void)plan_make_button(s_submenu_list, rows[0].label, 12, (int)s_submenu_height - 38, focused);
     }
-    if (count > 1U)
+    if (show_actions && count > 1U)
     {
         bool focused = (focus_idx == 1U);
-        (void)plan_make_button(s_submenu_list, rows[1].label, w - (focused ? 104 : 92), (int)s_submenu_height - (focused ? 38 : 34), focused);
+        (void)plan_make_button(s_submenu_list, rows[1].label, w - 104, (int)s_submenu_height - 38, focused);
     }
 
     plan_draw_header(s_submenu_list, w);
@@ -1298,7 +1309,10 @@ static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
         plan_draw_input(s_submenu_list, w);
         break;
     }
-    plan_draw_bottom_line(s_submenu_list, w);
+    if (show_actions && count > 0U)
+    {
+        plan_draw_bottom_line(s_submenu_list, w);
+    }
     screen_set_submenu_selection(focus_idx);
 }
 
@@ -1454,6 +1468,14 @@ void screen_set_submenu_selection(uint8_t idx)
     {
         uint32_t cnt = lv_obj_get_child_cnt(s_submenu_list);
         uint32_t action_count = ui_state_get_sub_item_count();
+        if (!plan_action_buttons_visible((uint8_t)submenu_dive_plan_get_page()))
+        {
+            return;
+        }
+        if (action_count == 0U)
+        {
+            return;
+        }
         if (action_count > cnt)
         {
             action_count = cnt;
@@ -1465,15 +1487,25 @@ void screen_set_submenu_selection(uint8_t idx)
             if (!item) continue;
             if (i == idx)
             {
-                lv_obj_set_style_border_color(item, LIGHT, 0);
-                lv_obj_set_style_border_width(item, 2, 0);
-                if (lbl) lv_obj_set_style_text_color(lbl, LIGHT, 0);
+                lv_obj_set_style_border_color(item, GREEN, 0);
+                lv_obj_set_style_border_width(item, INNER_BORDER_W + 2, 0);
+                if (lbl)
+                {
+                    lv_obj_set_style_text_color(lbl, LIGHT, 0);
+                    lv_obj_set_style_text_font(lbl, get_font(FONT_ID_MEDIUM), 0);
+                    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+                }
             }
             else
             {
-                lv_obj_set_style_border_color(item, GREEN, 0);
-                lv_obj_set_style_border_width(item, 1, 0);
-                if (lbl) lv_obj_set_style_text_color(lbl, LIGHT, 0);
+                lv_obj_set_style_border_color(item, DARK, 0);
+                lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
+                if (lbl)
+                {
+                    lv_obj_set_style_text_color(lbl, GREEN, 0);
+                    lv_obj_set_style_text_font(lbl, get_font(FONT_ID_TITLE), 0);
+                    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+                }
             }
         }
         return;
@@ -1589,15 +1621,15 @@ static void refresh_info_submenu_page(uint8_t keep_idx)
     bool prev_silent = s_submenu_selection_scroll_silent;
     menu_runtime_refresh();
     (void)menu_runtime_current_rows(&count);
-    if (count == 0)
-    {
-        return;
-    }
 
     s_submenu_selection_scroll_silent = true;
     submenu_populate_current();
     ui_state_set_sub_item_count(count);
-    if (keep_idx >= count)
+    if (count == 0U)
+    {
+        keep_idx = 0U;
+    }
+    else if (keep_idx >= count)
     {
         keep_idx = (uint8_t)(count - 1U);
     }
@@ -1910,15 +1942,15 @@ static void refresh_current_submenu_page(uint8_t keep_idx)
     bool prev_silent = s_submenu_selection_scroll_silent;
     menu_runtime_refresh();
     (void)menu_runtime_current_rows(&count);
-    if (count == 0)
-    {
-        return;
-    }
 
     s_submenu_selection_scroll_silent = true;
     submenu_populate_current();
     ui_state_set_sub_item_count(count);
-    if (keep_idx >= count)
+    if (count == 0U)
+    {
+        keep_idx = 0U;
+    }
+    else if (keep_idx >= count)
     {
         keep_idx = (uint8_t)(count - 1);
     }
@@ -1935,6 +1967,17 @@ void screen_handle_submenu_select(uint8_t item_idx)
     if (menu_runtime_is_logbook())
     {
         screen_handle_logbook_select();
+        return;
+    }
+    if (menu_runtime_is_dive_plan() && ui_state_get_sub_item_count() == 0U)
+    {
+        bool close_submenu = false;
+        uint8_t keep_idx = 0U;
+        if (submenu_dive_plan_handle_action(MENU_ITEM_DIVE_PLAN_NEXT, &close_submenu, &keep_idx))
+        {
+            if (close_submenu) screen_close_submenu();
+            else refresh_current_submenu_page(keep_idx);
+        }
         return;
     }
     if (item_idx >= ui_state_get_sub_item_count()) return;
