@@ -266,7 +266,7 @@ void ui_handle_rotate(int8_t dir)
     {
         /* 数值编辑态只允许在 min/max 范围内按 step 递增或递减。 */
         if (!s_ui.edit_ctx.active) break;
-        float next = s_ui.edit_ctx.value + dir * s_ui.edit_ctx.step;
+        float next = s_ui.edit_ctx.value - dir * s_ui.edit_ctx.step;
         if (next < s_ui.edit_ctx.min) next = s_ui.edit_ctx.min;
         if (next > s_ui.edit_ctx.max) next = s_ui.edit_ctx.max;
         int steps = (int)((next - s_ui.edit_ctx.min) / s_ui.edit_ctx.step + 0.5f);

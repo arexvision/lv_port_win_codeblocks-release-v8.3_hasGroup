@@ -1671,18 +1671,18 @@ bool screen_handle_logbook_rotate(int8_t dir)
         {
             if (s_logbook_focus == 0U)
             {
-                int32_t log_no = (int32_t)s_logbook_entry.meta.log_no + dir;
+                int32_t log_no = (int32_t)s_logbook_entry.meta.log_no - dir;
                 if (log_no < 1) log_no = 1;
                 if (log_no > 9999) log_no = 9999;
                 s_logbook_entry.meta.log_no = (uint16_t)log_no;
             }
             else if (s_logbook_focus == 1U)
             {
-                logbook_adjust_start_time_digit(&s_logbook_entry.meta, dir);
+                logbook_adjust_start_time_digit(&s_logbook_entry.meta, (int8_t)-dir);
             }
             else if (s_logbook_focus == 2U)
             {
-                logbook_adjust_date(&s_logbook_entry.meta, dir);
+                logbook_adjust_date(&s_logbook_entry.meta, (int8_t)-dir);
             }
             submenu_populate_current();
             return true;

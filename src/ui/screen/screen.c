@@ -37,6 +37,8 @@ lv_obj_t *s_left_anchor;      /* 左侧锚点 (10U 沙盒) */
 lv_obj_t *s_right_cont;       /* clip container */
 lv_obj_t *s_tileview;
 lv_obj_t *s_tile_objs[PAGE_COUNT];
+static uint32_t s_layout_generation = 1U;
+static uint32_t s_tile_layout_generation[PAGE_COUNT];
 
 /* 灯光控制状态（LIGHT CONTROL 子菜单全局共享） */
 /* 问题4修复：灯光硬件默认开启，UI 初始值必须匹配硬件状态 */
@@ -126,6 +128,18 @@ void restore_brightness_overlay_state(void)
      * 否则 APP 下发布局后会出现旧遮罩残留或前后亮度现象不一致。 */
     ui_vm_brightness_update(&vm);
     apply_software_brightness(vm.brightness_level);
+}
+
+void screen_mark_tiles_layout_dirty(void)
+{
+    /* 布局/对象树重建后，下一次进入对应页面时再补 layout。
+     * 这样可以避免每次旋钮翻页都强制重排整棵 tile 子树。 */
+    s_layout_generation++;
+    if (s_layout_generation == 0U)
+    {
+        s_layout_generation = 1U;
+        memset(s_tile_layout_generation, 0, sizeof(s_tile_layout_generation));
+    }
 }
 
 static void styles_init(void)
@@ -279,13 +293,14 @@ void screen_scroll_to_page(uint8_t tile_pos)
     }
 
     lv_obj_set_tile(s_tileview, tile, TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
-    /* 到这里 tileview 只是切到了目标 tile，并不代表 tile 内所有内容都已经完成重排。
-     * 对于刚重建完或首次进入的页面，主动补 layout/invalidate 可以减少首帧残缺。 */
-
-    /* 首屏/重建后首次进卡时，当前 tile 可能没有后续脏数据驱动刷新
-     * 这里主动补一次当前可见页的布局和重绘，避免必须等用户旋钮交互后才完整显示。 */
-    lv_obj_update_layout(tile);
-    lv_obj_invalidate(tile);
+    if (s_tile_layout_generation[tile_pos] != s_layout_generation)
+    {
+        /* 首次进入或重建后才补一次 layout。
+         * 普通切页只切 tile 并重排当前页订阅数据，避免每次翻页都整页判脏。 */
+        lv_obj_update_layout(tile);
+        lv_obj_invalidate(tile);
+        s_tile_layout_generation[tile_pos] = s_layout_generation;
+    }
 
     /* 罗盘页进入时需要立刻补一次航向刷新，避免显示滞后。 */
     if (page_id_at(tile_pos) == PAGE_ID_COMPASS)

@@ -10,26 +10,16 @@
 #include "../core/ui_state.h"
 #include "page_registry.h"
 
-#include <stdio.h>
-
 void screen_update_scroll_dots(uint8_t active_idx, bool visible)
 {
     bool in_dash_or_edit = (ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_EDIT_GAS);
     bool dots_enabled = (ui_dots_position_get() != DOTS_NONE);
     uint8_t visible_dash = page_visible_dash_count();
 
-    printf("[DOTS] update: active=%u, visible=%d, state=%d, dots_pos=%d, visible_dash=%u, dot_cont_children=%d\r\n",
-           active_idx, visible, ui_state_get_state(), ui_dots_position_get(), visible_dash,
-           s_dot_cont ? lv_obj_get_child_cnt(s_dot_cont) : -1);
-
     for (uint8_t i = 0; i < DASH_PAGE_COUNT; i++)
     {
         if (!s_scroll_dots[i])
         {
-            if (i < visible_dash)
-            {
-                printf("[DOTS] WARN: s_scroll_dots[%u] is NULL but visible_dash=%u!\r\n", i, visible_dash);
-            }
             continue;
         }
 

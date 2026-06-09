@@ -15,6 +15,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 
 /* ============================================================
@@ -164,6 +165,40 @@ static bool ui_obj_is_valid(lv_obj_t **obj_ref)
     }
 
     return true;
+}
+
+static void comp_view_label_set_text_if_changed(lv_obj_t *label, const char *text)
+{
+    const char *old_text;
+
+    if (label == NULL || !lv_obj_is_valid(label) || !lv_obj_check_type(label, &lv_label_class) || text == NULL)
+    {
+        return;
+    }
+
+    old_text = lv_label_get_text(label);
+    if (old_text != NULL && strcmp(old_text, text) == 0)
+    {
+        return;
+    }
+
+    lv_label_set_text(label, text);
+}
+
+static void comp_view_label_set_text_fmt_if_changed(lv_obj_t *label, const char *fmt, ...)
+{
+    char buf[32];
+    va_list args;
+
+    if (label == NULL || fmt == NULL)
+    {
+        return;
+    }
+
+    va_start(args, fmt);
+    (void)vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    comp_view_label_set_text_if_changed(label, buf);
 }
 
 /* =========================================================
@@ -842,6 +877,13 @@ void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, dirty_mask_t dirty_mask
             continue;
         }
 
+        if (memcmp(&h->vm, vm, sizeof(h->vm)) == 0 &&
+            lv_obj_has_flag(h->placeholder, LV_OBJ_FLAG_HIDDEN) &&
+            !lv_obj_has_flag(h->chart, LV_OBJ_FLAG_HIDDEN))
+        {
+            continue;
+        }
+
         memcpy(&h->vm, vm, sizeof(h->vm));
         lv_obj_add_flag(h->placeholder, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(h->chart, LV_OBJ_FLAG_HIDDEN);
@@ -894,6 +936,12 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             continue;
         }
 
+        if (memcmp(draw_vm, vm, sizeof(*draw_vm)) == 0 &&
+            !lv_obj_has_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN))
+        {
+            continue;
+        }
+
         memcpy(draw_vm, vm, sizeof(*draw_vm));
 
         lv_obj_clear_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
@@ -905,11 +953,11 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
-            lv_label_set_text(h->sub_bot, "NDL");
+            comp_view_label_set_text_if_changed(h->sub_bot, "NDL");
             lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
 
             lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
-            lv_label_set_text_fmt(h->main_val, "%d", vm->ndl);
+            comp_view_label_set_text_fmt_if_changed(h->main_val, "%d", vm->ndl);
             lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
         }
         else if (vm->stop_type == STOP_SAFETY)
@@ -918,24 +966,24 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
-            lv_label_set_text_fmt(h->title_top, "SAFE %dm", (int)vm->stop_depth_m);
+            comp_view_label_set_text_fmt_if_changed(h->title_top, "SAFE %dm", (int)vm->stop_depth_m);
             lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
                          comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
 
             if (vm->in_stop_zone != 0U)
             {
-                lv_label_set_text(h->sub_bot, "IN STOP");
+                comp_view_label_set_text_if_changed(h->sub_bot, "IN STOP");
             }
             else
             {
-                lv_label_set_text_fmt(h->sub_bot, "NDL %d", vm->ndl);
+                comp_view_label_set_text_fmt_if_changed(h->sub_bot, "NDL %d", vm->ndl);
             }
             lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16);
 
             int m = vm->stop_time_left_s / 60;
             int s = vm->stop_time_left_s % 60;
             lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
-            lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
+            comp_view_label_set_text_fmt_if_changed(h->main_val, "%d:%02d", m, s);
             lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
         }
         else if (vm->stop_type == STOP_DECO)
@@ -944,14 +992,14 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
 
-            lv_label_set_text_fmt(h->title_top, "DECO %dm", (int)vm->stop_depth_m);
+            comp_view_label_set_text_fmt_if_changed(h->title_top, "DECO %dm", (int)vm->stop_depth_m);
             lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
                          comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
 
             int m = vm->stop_time_left_s / 60;
             int s = vm->stop_time_left_s % 60;
             lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
-            lv_label_set_text_fmt(h->main_val, "%d:%02d", m, s);
+            comp_view_label_set_text_fmt_if_changed(h->main_val, "%d:%02d", m, s);
             lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
         }
     }
@@ -968,14 +1016,14 @@ void comp_refresh_sys(dirty_mask_t dirty_mask)
 {
     if ((dirty_mask & DIRTY_SYSTEM) && ui_obj_is_valid(&s_sys_batt_lbl))
     {
-        lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", (unsigned)ui_battery_draw_pct(bus_get_battery_pct()));
+        comp_view_label_set_text_fmt_if_changed(s_sys_batt_lbl, "%u%%", (unsigned)ui_battery_draw_pct(bus_get_battery_pct()));
     }
     if ((dirty_mask & DIRTY_SYSTEM) && ui_obj_is_valid(&s_sys_temp_lbl))
     {
         float temp_c = bus_get_temperature();
         int16_t temp_int = (int16_t)temp_c;
         uint8_t temp_dec = (uint8_t)(fabsf(temp_c - (float)temp_int) * 10.0f);
-        lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%u C", (int)temp_int, (unsigned)temp_dec);
+        comp_view_label_set_text_fmt_if_changed(s_sys_temp_lbl, "%d.%u C", (int)temp_int, (unsigned)temp_dec);
     }
 }
 
@@ -1044,7 +1092,8 @@ void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)
     {
         /* 一次速率变化可能要同步多个 DEPTH/ASCENT 组件实例，所以这里广播到全部缓存图标。 */
         if (ui_obj_is_valid(&s_img_ascent_rate[i]) &&
-            screen_obj_refresh_visible(s_img_ascent_rate[i]))
+            screen_obj_refresh_visible(s_img_ascent_rate[i]) &&
+            lv_img_get_src(s_img_ascent_rate[i]) != target_img_src)
         {
             lv_img_set_src(s_img_ascent_rate[i], target_img_src);
         }

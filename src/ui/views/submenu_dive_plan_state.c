@@ -676,20 +676,20 @@ bool submenu_dive_plan_handle_rotate(int8_t dir)
     switch (s_state.page)
     {
     case DIVE_PLAN_PAGE_DEPTH:
-        s_state.depth_m += (float)dir;
+        s_state.depth_m -= (float)dir;
         if (s_state.depth_m < 3.0f) s_state.depth_m = 3.0f;
         if (s_state.depth_m > 120.0f) s_state.depth_m = 120.0f;
         return true;
     case DIVE_PLAN_PAGE_TIME:
     {
-        int next = (int)s_state.time_min + (int)dir;
+        int next = (int)s_state.time_min - (int)dir;
         if (next < 1) next = 1;
         if (next > 300) next = 300;
         s_state.time_min = (uint16_t)next;
         return true;
     }
     case DIVE_PLAN_PAGE_RMV:
-        s_state.rmv_lpm += (float)dir;
+        s_state.rmv_lpm -= (float)dir;
         if (s_state.rmv_lpm < 5.0f) s_state.rmv_lpm = 5.0f;
         if (s_state.rmv_lpm > 50.0f) s_state.rmv_lpm = 50.0f;
         return true;

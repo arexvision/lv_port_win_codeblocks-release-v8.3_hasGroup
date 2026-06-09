@@ -710,6 +710,7 @@ void screen_rebuild_layout(void)
      * 适用于安全区尺寸、左右翻转、dots 位置、左侧组件布局等几何类变化。 */
     lv_disp_t *disp = lv_disp_get_default();
     if (disp) lv_disp_enable_invalidation(disp, true);
+    screen_mark_tiles_layout_dirty();
     clear_widget_arrays();
     if (s_left_anchor) lv_obj_clean(s_left_anchor);
     if (s_left_anchor) left_anchor_rebuild(0);
@@ -731,6 +732,7 @@ void screen_rebuild_tileview(void)
      * 用于页面顺序、页面数量、页面类型发生变化的场景。 */
     lv_disp_t *disp = lv_disp_get_default();
     if (disp) lv_disp_enable_invalidation(disp, true);
+    screen_mark_tiles_layout_dirty();
     uint8_t saved_dash_page = ui_state_get_dash_page();
     screen_page_restore_snapshot_t saved_page_snapshot =
         screen_capture_page_restore_snapshot(saved_dash_page);

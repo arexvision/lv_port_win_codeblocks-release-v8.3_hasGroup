@@ -53,6 +53,7 @@ extern lv_style_t s_style_sep_line;
 /* 这些内部函数只给 screen 子模块使用，不建议外部业务层直接调用。 */
 void reset_transient_ui_refs(void);
 void restore_brightness_overlay_state(void);
+void screen_mark_tiles_layout_dirty(void);
 void edit_flash_stop(void);
 void wall_create(void);
 void render_left_anchor_grid(lv_obj_t *left_anchor);

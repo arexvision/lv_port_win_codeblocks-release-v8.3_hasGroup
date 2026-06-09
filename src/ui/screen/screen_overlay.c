@@ -8,8 +8,6 @@
 #include "screen_overlay.h"
 #include "../views/submenu_model.h"
 
-#include <stdio.h>
-
 void apply_software_brightness(uint8_t level)
 {
     lv_opa_t opa = (lv_opa_t)submenu_brightness_visible_opa(level);
@@ -43,8 +41,6 @@ void apply_software_brightness(uint8_t level)
         lv_obj_clear_flag(s_brightness_overlay, LV_OBJ_FLAG_HIDDEN);
         lv_obj_move_foreground(s_brightness_overlay);
     }
-
-    printf("[BRIGHTNESS] Level: %d (OPA: %d overlay=%d)\n", level, opa, overlay_opa);
 }
 
 void set_software_brightness_enabled(bool enabled)
