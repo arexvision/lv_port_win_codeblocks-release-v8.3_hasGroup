@@ -26,10 +26,6 @@ static void vm_format_gas_summary_text(char *out, size_t out_size)
     }
 
     gas_count = bus_get_gas_slot_count();
-    if (gas_count > 3U)
-    {
-        gas_count = 3U;
-    }
     if (gas_count == 0U)
     {
         (void)snprintf(out, out_size, "%s", "GAS: AIR");
@@ -42,7 +38,7 @@ static void vm_format_gas_summary_text(char *out, size_t out_size)
         used = (size_t)written;
     }
 
-    for (uint8_t i = 0U; (i < gas_count) && (valid_count < 3U) && (used + 1U < out_size); i++)
+    for (uint8_t i = 0U; (i < gas_count) && (valid_count < GAS_COUNT) && (used + 1U < out_size); i++)
     {
         uint8_t o2 = bus_get_gas_slot_o2_pct(i);
         uint8_t he = bus_get_gas_slot_he_pct(i);

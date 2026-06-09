@@ -65,6 +65,9 @@ void screen_create(void);
    ========================================= */
 /* 这些接口负责右侧页面切换和 tileview 级别的重建。 */
 void screen_scroll_to_page(uint8_t idx);
+bool screen_page_id_refresh_visible(page_id_t page_id);
+bool screen_custom_card_refresh_visible(uint8_t custom_card_idx);
+bool screen_obj_refresh_visible(lv_obj_t *obj);
 
 void screen_rebuild_tileview(void);
 void screen_request_enter_card_home_after_layout_rebuild(void);

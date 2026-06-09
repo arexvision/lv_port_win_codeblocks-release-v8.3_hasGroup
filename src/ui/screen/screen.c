@@ -69,6 +69,7 @@ void reset_transient_ui_refs(void);
 void edit_flash_stop(void);
 void restore_brightness_overlay_state(void);
 static void menu_list_ensure_visible(lv_obj_t *list, uint8_t idx);
+static dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos);
 
 /* =========================================================
  * 样式 (静态初始化一次)
@@ -292,6 +293,11 @@ void screen_scroll_to_page(uint8_t tile_pos)
         card_compass_refresh_heading(true);
     }
 
+    /* 切页后只补当前页关心的数据域。
+     * 后台刷新已经按可见页收敛，不可见页不会持续同步；用户滑到新页时必须
+     * 立即补一次该页 dirty，避免等待下一次传感器变化才看到最新数据。 */
+    bus_requeue_dirty(screen_visible_page_dirty_mask(tile_pos));
+
     /* SETUP（最后一页）不显示 dots，只有 DASH 动态页面才更新 */
     if (tile_pos >= PAGE_POS_DYNAMIC_FIRST && tile_pos < page_setup_display_pos())
     {
@@ -312,6 +318,204 @@ void screen_scroll_to_page(uint8_t tile_pos)
     {
         screen_update_scroll_dots(0, false);
     }
+}
+
+static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
+{
+    dirty_mask_t mask = DIRTY_NONE;
+
+    if (custom_card_idx >= ui_custom_card_count_get() ||
+        custom_card_idx >= MAX_CUSTOM_CARDS)
+    {
+        return DIRTY_NONE;
+    }
+
+    for (uint8_t i = 0; i < ui_custom_card_widget_count_get(custom_card_idx); i++)
+    {
+        const grid_widget_t *widget = ui_custom_card_widget_get(custom_card_idx, i);
+
+        if (widget == NULL || widget->widget_id == COMP_EMPTY)
+        {
+            continue;
+        }
+
+        switch (widget->widget_id)
+        {
+        case COMP_NDL_STOP_1606:
+            mask |= DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS;
+            break;
+        case COMP_DEPTH_1612:
+        case COMP_DEPTH_1606:
+        case COMP_DIVE_TIME_1606:
+        case COMP_ASCENT_0806:
+        case COMP_ASCENT_0812:
+        case COMP_DEPTH_MAX_0806:
+        case COMP_DEPTH_AVG_0806:
+            mask |= DIRTY_DIVE_PROFILE;
+            break;
+        case COMP_TTS_0806:
+        case COMP_STOP_DEPTH_0806:
+        case COMP_STOP_TIME_1606:
+        case COMP_CEILING_0806:
+            mask |= DIRTY_DECO_STATUS;
+            break;
+        case COMP_GAS_1606:
+        case COMP_PPO2_0806:
+        case COMP_MOD_0806:
+        case COMP_GAS_MIX_1606:
+        case COMP_GAS_DENS_0806:
+        case COMP_FIO2_0806:
+        case COMP_POD_0806:
+            mask |= DIRTY_GAS_SUPPLY;
+            break;
+        case COMP_SYS_1606:
+        case COMP_TEMP_0806:
+        case COMP_TIME_1606:
+        case COMP_BATTERY_0806:
+        case COMP_BATT_TEMP_0806:
+        case COMP_PRJ_TEMP_0806:
+        case COMP_TEMP_MIN_0806:
+        case COMP_TEMP_AVG_0806:
+            mask |= DIRTY_SYSTEM;
+            break;
+        case COMP_COMPASS_1612:
+        case COMP_HEADING_0806:
+            mask |= DIRTY_COMPASS;
+            break;
+        case COMP_TISSUE_GF_4012:
+        case COMP_TISSUE_RAW_4012:
+        case COMP_SURF_GF_0806:
+        case COMP_GF99_0806:
+        case COMP_CNS_0806:
+        case COMP_OTU_0806:
+            mask |= DIRTY_TISSUE_TOX;
+            break;
+        case COMP_GF_0806:
+            mask |= DIRTY_DIVE_CONFIG;
+            break;
+        case COMP_GYRO_2406:
+        case COMP_BATT_V_0806:
+        case COMP_CHARGE_0806:
+        case COMP_PRESSURE_0806:
+        case COMP_NOFLY_0806:
+        case COMP_ACCEL_2406:
+        case COMP_MAG_2406:
+        case COMP_MLX_2406:
+        case COMP_TMAG_2406:
+        case COMP_ATTITUDE_2406:
+        case COMP_BLE_RSSI_0806:
+        case COMP_CPU_0806:
+        case COMP_FPS_0806:
+        case COMP_SENSOR_STAT_1606:
+            mask |= DIRTY_SENSOR;
+            break;
+        default:
+            break;
+        }
+    }
+
+    return mask;
+}
+
+static dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos)
+{
+    uint8_t page_id = page_id_at(tile_pos);
+
+    switch (page_id)
+    {
+    case PAGE_ID_COMPASS:
+        return DIRTY_COMPASS;
+    case PAGE_ID_DECO:
+        return DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS |
+               DIRTY_TISSUE_TOX | DIRTY_DIVE_CONFIG;
+    case PAGE_ID_GAS:
+        return DIRTY_GAS_SUPPLY;
+    case PAGE_ID_PLAN:
+        return DIRTY_PLAN;
+    case PAGE_ID_CUSTOM_GRID:
+    {
+        uint8_t storage_pos = page_storage_pos(tile_pos);
+        uint8_t custom_card_idx = ui_custom_card_slot_get(storage_pos);
+        return screen_custom_card_dirty_mask(custom_card_idx);
+    }
+    case PAGE_ID_INFO:
+    case PAGE_ID_SETUP:
+        return DIRTY_INFO_REFRESH_MASK;
+    default:
+        return DIRTY_NONE;
+    }
+}
+
+bool screen_page_id_refresh_visible(page_id_t page_id)
+{
+    uint8_t dash_page = ui_state_get_dash_page();
+
+    return page_id_at(dash_page) == page_id;
+}
+
+bool screen_custom_card_refresh_visible(uint8_t custom_card_idx)
+{
+    uint8_t dash_page = ui_state_get_dash_page();
+    uint8_t storage_pos;
+
+    if (custom_card_idx >= MAX_CUSTOM_CARDS)
+    {
+        return false;
+    }
+
+    if (page_id_at(dash_page) != PAGE_ID_CUSTOM_GRID)
+    {
+        return false;
+    }
+
+    storage_pos = page_storage_pos(dash_page);
+    return ui_custom_card_slot_get(storage_pos) == custom_card_idx;
+}
+
+bool screen_obj_refresh_visible(lv_obj_t *obj)
+{
+    uint8_t dash_page = ui_state_get_dash_page();
+    lv_obj_t *visible_tile;
+
+    if (obj == NULL || !lv_obj_is_valid(obj))
+    {
+        return false;
+    }
+
+    if (g_left_anchor_obj != NULL && lv_obj_is_valid(g_left_anchor_obj))
+    {
+        lv_obj_t *p = obj;
+        while (p != NULL)
+        {
+            if (p == g_left_anchor_obj)
+            {
+                return true;
+            }
+            p = lv_obj_get_parent(p);
+        }
+    }
+
+    if (dash_page >= PAGE_COUNT)
+    {
+        return false;
+    }
+
+    visible_tile = s_tile_objs[dash_page];
+    if (visible_tile == NULL || !lv_obj_is_valid(visible_tile))
+    {
+        return false;
+    }
+
+    while (obj != NULL)
+    {
+        if (obj == visible_tile)
+        {
+            return true;
+        }
+        obj = lv_obj_get_parent(obj);
+    }
+
+    return false;
 }
 
 /* =========================================================

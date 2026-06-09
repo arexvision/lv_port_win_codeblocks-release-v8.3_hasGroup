@@ -136,6 +136,11 @@ void submenu_sync_persisted_settings(void)
     s_units_mode = snapshot.units_mode;
     s_log_rate_s = snapshot.log_rate_s;
     s_bluetooth_enabled = snapshot.bluetooth_enabled;
+    s_dive_mode = (snapshot.dive_mode > 3U) ? 0U : snapshot.dive_mode;
+    s_nitrox_o2_pct = snapshot.nitrox_o2_pct;
+    memcpy(s_three_gas_o2_pct, snapshot.three_gas_o2_pct, sizeof(s_three_gas_o2_pct));
+    memcpy(s_oc_tech_o2_pct, snapshot.oc_tech_o2_pct, sizeof(s_oc_tech_o2_pct));
+    memcpy(s_oc_tech_he_pct, snapshot.oc_tech_he_pct, sizeof(s_oc_tech_he_pct));
     s_datetime_year = snapshot.datetime_year;
     s_datetime_month = snapshot.datetime_month;
     s_datetime_day = snapshot.datetime_day;
@@ -413,6 +418,7 @@ static void save_oc_tech_slot(uint8_t slot)
     {
         s_oc_tech_he_pct[slot] = (uint8_t)(100U - s_oc_tech_o2_pct[slot]);
     }
+    ui_on_oc_tech_gas_set(slot, s_oc_tech_o2_pct[slot], s_oc_tech_he_pct[slot]);
 
     if (s_dive_mode == 3U)
     {
@@ -694,6 +700,7 @@ static void submenu_commit_edit_value(submenu_setting_kind_t kind, uint8_t arg, 
         break;
     case SUBMENU_SETTING_NITROX_O2:
         s_nitrox_o2_pct = (uint8_t)(value + 0.5f);
+        ui_on_nitrox_o2_set(s_nitrox_o2_pct);
         if (s_dive_mode == 1U)
         {
             apply_nitrox_mode_gases();
@@ -703,6 +710,7 @@ static void submenu_commit_edit_value(submenu_setting_kind_t kind, uint8_t arg, 
         if (arg < 3U)
         {
             s_three_gas_o2_pct[arg] = (uint8_t)(value + 0.5f);
+            ui_on_three_gas_o2_set(arg, s_three_gas_o2_pct[arg]);
             if (s_dive_mode == 2U)
             {
                 apply_three_gas_mode_gases();
@@ -934,6 +942,7 @@ static const char **build_systems_setup_items(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
+    submenu_sync_persisted_settings();
     ui_vm_systems_setup_menu_update(&vm, s_dive_mode);
     return copy_simple_menu_items(&vm, out_count);
 }
@@ -961,6 +970,7 @@ static const char **build_nested_nitrox(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
+    submenu_sync_persisted_settings();
     ui_vm_nitrox_menu_update(&vm, s_nitrox_o2_pct);
     return copy_simple_menu_items(&vm, out_count);
 }
@@ -969,6 +979,7 @@ static const char **build_nested_three_gas(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
+    submenu_sync_persisted_settings();
     ui_vm_three_gas_menu_update(&vm, s_three_gas_o2_pct);
     return copy_simple_menu_items(&vm, out_count);
 }
@@ -977,6 +988,7 @@ static const char **build_nested_oc_tech(uint8_t *out_count)
 {
     ui_vm_simple_menu_t vm;
 
+    submenu_sync_persisted_settings();
     ui_vm_oc_tech_menu_update(&vm, s_oc_tech_o2_pct, s_oc_tech_he_pct);
     return copy_simple_menu_items(&vm, out_count);
 }

@@ -118,6 +118,11 @@ static void ui_router_refresh_layout_widgets(dirty_mask_t mask)
 
     for (uint8_t page_idx = 0; page_idx < ui_custom_card_count_get() && page_idx < MAX_CUSTOM_CARDS; page_idx++)
     {
+        if (!screen_custom_card_refresh_visible(page_idx))
+        {
+            continue;
+        }
+
         for (uint8_t i = 0; i < ui_custom_card_widget_count_get(page_idx); i++)
         {
             ui_router_refresh_widget_if_dirty(ui_custom_card_widget_get(page_idx, i), mask);
@@ -149,6 +154,8 @@ static dirty_mask_t ui_router_custom_card_subscription_mask(uint8_t custom_card_
 static dirty_mask_t ui_router_layout_subscription_mask(void)
 {
     dirty_mask_t mask = DIRTY_NONE;
+    uint8_t dash_page = ui_state_get_dash_page();
+    uint8_t page_id = page_id_at(dash_page);
 
     for (uint8_t i = 0; i < ui_left_widget_count_get(); i++)
     {
@@ -159,33 +166,29 @@ static dirty_mask_t ui_router_layout_subscription_mask(void)
         }
     }
 
-    for (uint8_t storage_pos = PAGE_POS_DYNAMIC_FIRST; storage_pos < PAGE_POS_SETUP; storage_pos++)
+    switch (page_id)
     {
-        uint8_t page_id = g_sys_page_order(storage_pos);
-
-        switch (page_id)
-        {
-        case PAGE_ID_COMPASS:
-            mask |= DIRTY_COMPASS;
-            break;
-        case PAGE_ID_DECO:
-            mask |= DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX | DIRTY_DIVE_CONFIG;
-            break;
-        case PAGE_ID_GAS:
-            mask |= DIRTY_GAS_SUPPLY;
-            break;
-        case PAGE_ID_PLAN:
-            mask |= DIRTY_PLAN;
-            break;
-        case PAGE_ID_CUSTOM_GRID:
-        {
-            uint8_t custom_card_idx = ui_custom_card_slot_get(storage_pos);
-            mask |= ui_router_custom_card_subscription_mask(custom_card_idx);
-            break;
-        }
-        default:
-            break;
-        }
+    case PAGE_ID_COMPASS:
+        mask |= DIRTY_COMPASS;
+        break;
+    case PAGE_ID_DECO:
+        mask |= DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX | DIRTY_DIVE_CONFIG;
+        break;
+    case PAGE_ID_GAS:
+        mask |= DIRTY_GAS_SUPPLY;
+        break;
+    case PAGE_ID_PLAN:
+        mask |= DIRTY_PLAN;
+        break;
+    case PAGE_ID_CUSTOM_GRID:
+    {
+        uint8_t storage_pos = page_storage_pos(dash_page);
+        uint8_t custom_card_idx = ui_custom_card_slot_get(storage_pos);
+        mask |= ui_router_custom_card_subscription_mask(custom_card_idx);
+        break;
+    }
+    default:
+        break;
     }
 
     return mask;
@@ -256,7 +259,10 @@ void ui_update_router_dispatch(dirty_mask_t mask)
     {
         ui_vm_deco_update(&deco_vm, NULL, NULL);
         deco_vm_ready = true;
-        page_registry_update_deco_vm(&deco_vm);
+        if (screen_page_id_refresh_visible(PAGE_ID_DECO))
+        {
+            page_registry_update_deco_vm(&deco_vm);
+        }
     }
 
     if (mask & (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX))
@@ -310,13 +316,19 @@ void ui_update_router_dispatch(dirty_mask_t mask)
                          NULL,
                          ui_state_get_state(),
                          ui_state_get_gas_cursor());
-        page_registry_update_gas_vm(&gas_vm);
+        if (screen_page_id_refresh_visible(PAGE_ID_GAS))
+        {
+            page_registry_update_gas_vm(&gas_vm);
+        }
     }
 
     if (mask & DIRTY_PLAN)
     {
         ui_vm_plan_chart_update(&plan_chart_vm);
-        page_registry_update_plan_vm(&plan_chart_vm);
+        if (screen_page_id_refresh_visible(PAGE_ID_PLAN))
+        {
+            page_registry_update_plan_vm(&plan_chart_vm);
+        }
     }
 
     if (mask & DIRTY_DIVE_PROFILE)

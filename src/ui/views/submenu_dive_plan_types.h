@@ -69,7 +69,7 @@ typedef struct
     uint8_t gf_high;
     uint8_t last_stop_depth_m;
     uint8_t header_gas_o2;
-    char gas_summary[32];
+    char gas_summary[48];
     uint8_t result_page_index;
     uint8_t result_total_pages;
     uint8_t result_entry_count;

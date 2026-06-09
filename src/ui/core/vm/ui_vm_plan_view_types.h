@@ -20,7 +20,7 @@ typedef struct
     uint16_t time_min;
     float rmv_lpm;
     uint8_t header_gas_o2;
-    char gas_summary[32];
+    char gas_summary[48];
 } ui_vm_dive_plan_inputs_t;
 
 typedef struct
@@ -58,7 +58,7 @@ typedef struct
     char ready_gf_text[24];
     char ready_last_stop_text[24];
     char ready_start_cns_text[24];
-    char gas_summary[32];
+    char gas_summary[48];
     char result_runtime_text[24];
     char result_deco_text[24];
     char result_gas_text[24];

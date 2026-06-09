@@ -8,6 +8,7 @@
 #include "../core/ui_engine.h"
 #include "../core/data.h"
 #include "../core/vm/ui_vm_dashboard.h"
+#include "../screen/screen.h"
 #include "comp_view.h"
 #include "comp_style.h"
 #include "../fonts/fonts.h"
@@ -836,6 +837,10 @@ void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, dirty_mask_t dirty_mask
             memset(h, 0, sizeof(*h));
             continue;
         }
+        if (!screen_obj_refresh_visible(h->chart))
+        {
+            continue;
+        }
 
         memcpy(&h->vm, vm, sizeof(h->vm));
         lv_obj_add_flag(h->placeholder, LV_OBJ_FLAG_HIDDEN);
@@ -882,6 +887,10 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
         {
             memset(h, 0, sizeof(*h));
             memset(draw_vm, 0, sizeof(*draw_vm));
+            continue;
+        }
+        if (!screen_obj_refresh_visible(h->comp))
+        {
             continue;
         }
 
@@ -1034,7 +1043,8 @@ void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)
     for (int i = 0; i < s_ascent_icon_count; i++)
     {
         /* 一次速率变化可能要同步多个 DEPTH/ASCENT 组件实例，所以这里广播到全部缓存图标。 */
-        if (ui_obj_is_valid(&s_img_ascent_rate[i]))
+        if (ui_obj_is_valid(&s_img_ascent_rate[i]) &&
+            screen_obj_refresh_visible(s_img_ascent_rate[i]))
         {
             lv_img_set_src(s_img_ascent_rate[i], target_img_src);
         }

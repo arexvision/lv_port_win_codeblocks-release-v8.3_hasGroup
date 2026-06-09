@@ -8,33 +8,20 @@
 #include "../core/data.h"
 #include "../core/vm/ui_vm_dashboard_types.h"
 #include "../core/vm/ui_vm_dashboard.h"
+#include "../screen/screen.h"
 #include "comp_update.h"
 #include "comp_view.h"
 
 #include <math.h>
 #include <stdio.h>
-#include <string.h>
 
 #define POD_TAG_BASE  1000U
 #define POD1_TAG      ((uintptr_t)(POD_TAG_BASE + COMP_POD_0806))
 #define POD2_TAG      ((uintptr_t)(2U * POD_TAG_BASE + COMP_POD_0806))
 
-static void comp_label_set_text_if_changed(lv_obj_t *label, const char *text)
+static bool comp_container_refresh_visible(lv_obj_t *container)
 {
-    const char *old_text;
-
-    if (!label || !lv_obj_is_valid(label) || !lv_obj_check_type(label, &lv_label_class) || text == NULL)
-    {
-        return;
-    }
-
-    old_text = lv_label_get_text(label);
-    if (old_text != NULL && strcmp(old_text, text) == 0)
-    {
-        return;
-    }
-
-    lv_label_set_text(label, text);
+    return screen_obj_refresh_visible(container);
 }
 
 static void comp_sync_text_from_vm(comp_id_t w_id, uint8_t pod_index)
@@ -59,6 +46,7 @@ void comp_set_value(comp_id_t id, float value)
     {
         lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
         if (!container || !lv_obj_is_valid(container)) continue;
+        if (!comp_container_refresh_visible(container)) continue;
 
         int16_t child_cnt = lv_obj_get_child_cnt(container);
         for (int16_t i = 0; i < child_cnt; i++)
@@ -82,15 +70,11 @@ void comp_set_value(comp_id_t id, float value)
                 lv_obj_t *part1 = lv_obj_get_child(child, 1);
                 if (part0 && lv_obj_is_valid(part0) && lv_obj_check_type(part0, &lv_label_class))
                 {
-                    char buf[16];
-                    snprintf(buf, sizeof(buf), "%d", di);
-                    comp_label_set_text_if_changed(part0, buf);
+                    lv_label_set_text_fmt(part0, "%d", di);
                 }
                 if (part1 && lv_obj_is_valid(part1) && lv_obj_check_type(part1, &lv_label_class))
                 {
-                    char buf[16];
-                    snprintf(buf, sizeof(buf), ".%d", dd);
-                    comp_label_set_text_if_changed(part1, buf);
+                    lv_label_set_text_fmt(part1, ".%d", dd);
                 }
                 continue;
             }
@@ -129,7 +113,7 @@ void comp_set_value(comp_id_t id, float value)
                             {
                                 snprintf(buf, sizeof(buf), "%.0f", (double)value);
                             }
-                            comp_label_set_text_if_changed(sub, buf);
+                            lv_label_set_text(sub, buf);
                         }
                         break;
                     }
@@ -156,6 +140,7 @@ void comp_set_text(comp_id_t id, const char *text)
     {
         lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
         if (!container || !lv_obj_is_valid(container)) continue;
+        if (!comp_container_refresh_visible(container)) continue;
 
         int16_t child_cnt = lv_obj_get_child_cnt(container);
         for (int16_t i = 0; i < child_cnt; i++)
@@ -174,7 +159,7 @@ void comp_set_text(comp_id_t id, const char *text)
                     {
                         if (lv_obj_check_type(sub, &lv_label_class))
                         {
-                            comp_label_set_text_if_changed(sub, text);
+                            lv_label_set_text(sub, text);
                         }
                         break;
                     }
@@ -196,6 +181,7 @@ static void comp_sync_pod_values(void)
     {
         lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
         if (!container || !lv_obj_is_valid(container)) continue;
+        if (!comp_container_refresh_visible(container)) continue;
 
         int16_t child_cnt = lv_obj_get_child_cnt(container);
         for (int16_t i = 0; i < child_cnt; i++)
@@ -222,7 +208,7 @@ static void comp_sync_pod_values(void)
                 if ((uintptr_t)lv_obj_get_user_data(sub) == (uintptr_t)COMP_POD_0806 &&
                     lv_obj_check_type(sub, &lv_label_class))
                 {
-                    comp_label_set_text_if_changed(sub, value_vm.text);
+                    lv_label_set_text(sub, value_vm.text);
                     break;
                 }
             }
