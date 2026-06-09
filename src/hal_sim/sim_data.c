@@ -36,6 +36,7 @@ typedef struct
     uint16_t heading_deg;
     uint32_t dive_time_s;
     uint32_t surface_time_s;
+    uint32_t runtime_tick_s;
     uint32_t surface_pending_s;
     uint32_t last_surface_interval_s;
     float depth_m;
@@ -66,6 +67,7 @@ static sim_state_t s_sim = {
     .heading_deg = 0,
     .dive_time_s = 0,
     .surface_time_s = 0,
+    .runtime_tick_s = 0,
     .surface_pending_s = 0,
     .last_surface_interval_s = 0,
     .depth_m = 0.0f,
@@ -121,6 +123,20 @@ static void sim_update_mlx_diagnostics(uint32_t tick_s)
     bus_set_mlx(120.0f + phase,
                 -80.0f + (phase * 0.5f),
                 35.0f - (phase * 0.25f));
+}
+
+static void sim_update_runtime_metrics(uint16_t time_scale)
+{
+    uint16_t scale_load = (time_scale > 1U) ? (time_scale / 4U) : 0U;
+    uint8_t cpu_pct = (uint8_t)(12U + ((s_sim.runtime_tick_s * 7U + (s_sim.runtime_tick_s / 3U) * 5U) % 23U));
+    uint16_t fps = (time_scale > 20U) ? 30U : 33U;
+
+    if (scale_load > 38U)
+    {
+        scale_load = 38U;
+    }
+    bus_set_cpu_load((uint8_t)(cpu_pct + scale_load));
+    bus_set_fps((uint16_t)(fps + (s_sim.runtime_tick_s % 3U)));
 }
 
 static void sim_seed_original_defaults(void)
@@ -227,6 +243,8 @@ static void sim_reset_for_tcp_debug(void)
     bus_set_temperature(s_sim.temperature_c);
     bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
     bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+    bus_set_cpu_load(12U);
+    bus_set_fps(33U);
     sim_seed_tcp_algo_defaults();
     sim_seed_logbook_demo_if_empty();
     deco_core_reset();
@@ -617,6 +635,7 @@ static void sim_tick_cb(lv_timer_t *t)
     {
         uint16_t time_scale = debug_link_pc_time_scale();
         for (uint16_t tick = 0; tick < time_scale; tick++) {
+            s_sim.runtime_tick_s++;
             current_depth_m = g_sensor_data.depth;
             if (debug_link_pc_depth_goto_step(current_depth_m, &current_depth_m)) {
                 bus_set_depth(current_depth_m);
@@ -644,6 +663,7 @@ static void sim_tick_cb(lv_timer_t *t)
             bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
             bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
             sim_update_mlx_diagnostics(s_sim.dive_time_s);
+            sim_update_runtime_metrics(time_scale);
 
             deco_core_tick(current_depth_m, s_sim.temperature_c, 1U);
             sim_alert_tick();
@@ -657,6 +677,8 @@ static void sim_tick_cb(lv_timer_t *t)
         s_sim.layout_phase = (uint8_t)((s_sim.layout_phase + 1U) % SIM_LAYOUT_PHASE_COUNT);
     }
     s_sim.layout_tick = (uint16_t)((s_sim.layout_tick + 1U) % SIM_LAYOUT_SWITCH_TICKS);
+    s_sim.runtime_tick_s++;
+    sim_update_runtime_metrics(1U);
 
     s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
     bus_set_heading(s_sim.heading_deg);

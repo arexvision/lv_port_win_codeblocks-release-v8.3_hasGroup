@@ -161,7 +161,7 @@ void sys_config_defaults(sys_config_t *cfg)
      */
     /* custom_cards[0] 保留默认自定义卡片内容，custom_cards[1] 是传感器预览。 */
     cfg->custom_card_count = 2;
-    cfg->custom_cards[0].widget_count = 9;
+    cfg->custom_cards[0].widget_count = 10;
     cfg->custom_cards[1].widget_count = 16;
     (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "CUSTOM WIDGETS");
     (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "SENSOR PREVIEW");
@@ -198,9 +198,13 @@ void sys_config_defaults(sys_config_t *cfg)
     {
         COMP_MOD_0806,        1, 5
     };
-    cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
+    cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
     {
         COMP_GAS_DENS_0806,   2, 5
+    };
+    cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
+    {
+        COMP_CPU_0806,   3, 5
     };
 
     
