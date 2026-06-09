@@ -936,28 +936,31 @@ static lv_obj_t *plan_make_label(lv_obj_t *parent,
     return lbl;
 }
 
-static lv_obj_t *plan_make_button(lv_obj_t *parent, const char *text, int x, int y)
+static lv_obj_t *plan_make_button(lv_obj_t *parent, const char *text, int x, int y, bool focused)
 {
     /* 潜水计划页底部按钮的统一样式工厂。 */
+    int btn_w = focused ? 92 : 80;
+    int btn_h = focused ? 34 : 28;
+    font_id_t font_id = focused ? FONT_ID_TITLE : FONT_ID_SMALL;
     lv_obj_t *btn = lv_obj_create(parent);
     lv_obj_remove_style_all(btn);
     lv_obj_set_pos(btn, x, y);
-    lv_obj_set_size(btn, 80, 28);
-    lv_obj_set_style_bg_color(btn, BLACK, 0);
+    lv_obj_set_size(btn, btn_w, btn_h);
+    lv_obj_set_style_bg_color(btn, focused ? GREEN : BLACK, 0);
     lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(btn, GREEN, 0);
-    lv_obj_set_style_border_width(btn, 1, 0);
+    lv_obj_set_style_border_width(btn, focused ? 2 : 1, 0);
     lv_obj_set_style_radius(btn, 0, 0);
     lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *lbl = plan_make_label(btn,
                                     text,
-                                    FONT_ID_SMALL,
-                                    LIGHT,
+                                    font_id,
+                                    focused ? BLACK : LIGHT,
                                     0,
-                                    3,
-                                    80,
-                                    22,
+                                    0,
+                                    btn_w,
+                                    btn_h,
                                     LV_TEXT_ALIGN_CENTER);
     lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
     return btn;
@@ -1255,6 +1258,7 @@ static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
     }
 
     int w = (int)submenu_right_width();
+    uint8_t focus_idx = (count > 1U) ? 1U : 0U;
 
     s_dive_plan_last_vm = vm;
     s_dive_plan_last_vm_valid = true;
@@ -1263,11 +1267,13 @@ static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
 
     if (count > 0U)
     {
-        (void)plan_make_button(s_submenu_list, rows[0].label, 12, (int)s_submenu_height - 34);
+        bool focused = (focus_idx == 0U);
+        (void)plan_make_button(s_submenu_list, rows[0].label, 12, (int)s_submenu_height - (focused ? 38 : 34), focused);
     }
     if (count > 1U)
     {
-        (void)plan_make_button(s_submenu_list, rows[1].label, w - 92, (int)s_submenu_height - 34);
+        bool focused = (focus_idx == 1U);
+        (void)plan_make_button(s_submenu_list, rows[1].label, w - (focused ? 104 : 92), (int)s_submenu_height - (focused ? 38 : 34), focused);
     }
 
     plan_draw_header(s_submenu_list, w);
@@ -1293,7 +1299,7 @@ static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
         break;
     }
     plan_draw_bottom_line(s_submenu_list, w);
-    screen_set_submenu_selection((count > 1U) ? 1U : 0U);
+    screen_set_submenu_selection(focus_idx);
 }
 
 static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t count)
