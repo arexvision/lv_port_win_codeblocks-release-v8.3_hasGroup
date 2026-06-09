@@ -1,6 +1,6 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.14`。
+本文档描述当前 core API。当前 API 版本为 `0.0.15`。
 
 ## 适用场景
 
@@ -15,7 +15,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 14`
+- `AREX_DECO_API_VERSION_PATCH = 15`
 
 固定容量：
 
@@ -460,43 +460,40 @@ ArexDecoStatus arex_deco_nofly(
 
 - `nofly_seconds`
 
-### `arex_deco_calculate_tissue_margin`
+### `arex_deco_calculate_tissue_gradients`
 
 ```c
-ArexDecoStatus arex_deco_calculate_tissue_margin(
+ArexDecoStatus arex_deco_calculate_tissue_gradients(
     const ArexDecoDiveState* state,
-    float reference_depth_m,
-    float reference_limit_gf,
-    ArexDecoTissueMarginMetrics* metrics);
+    ArexDecoTissueGradientMetrics* gradients);
 ```
 
-计算 16 个组织舱在水面参考面和指定参考深度下，相对 GF limit 的占用比例。该接口用于 UI 或外部工具绘制组织舱 margin / limit 图，不推进组织舱，也不修改 `state`。
+计算 16 个组织舱在当前环境压力下的梯度百分比。该接口用于调用方绘制组织舱柱状图或提取逐仓 GF99 口径数据，不推进组织舱，也不修改 `state`。
 
 输入：
 
 - `state`：当前完整潜水状态，包含配置和组织舱惰性气体压强。
-- `reference_depth_m`：参考深度，单位 m，必须为有限值且 `>= 0`。例如 planner 首停深度、当前 ceiling 取整深度或用户指定的参考停站深度。
-- `reference_limit_gf`：参考深度使用的 limit GF，必须为有限值且在 `(0, 1]` 范围内。调用方应按自己的参考面语义显式传入，例如 `config.gf_low`、某个停站 target GF 或 UI 想比较的自定义 GF。
 
 输出：
 
-- `metrics->surface_limit_ratio[16]`：每个组织舱在水面压强下的 `GF / config.gf_high`。
-- `metrics->reference_limit_ratio[16]`：每个组织舱在 `reference_depth_m` 对应环境压强下的 `GF / reference_limit_gf`。
+- `gradients->absolute_gf_percent[16]`：当前环境压力下，每个组织舱相对绝对 M-value 的 GF 百分比。
+- `gradients->relative_gf_percent[16]`：当前环境压力下，每个组织舱相对当前 target GF limit 的百分比。
+- `gradients->current_target_gf`：算法内部判定的当前目标 GF，使用 `0.0f ~ 1.0f` 小数形式。
 
-Ratio 语义：
+百分比语义：
 
-- `1.0` 表示刚好达到该参考面的 limit。
-- `< 1.0` 表示仍有余量。
-- `> 1.0` 表示超过该参考面的 limit。
-- `surface_limit_ratio` 固定使用 `gf_high` 作为水面 limit，避免调用方把水面可浮出判断错误绑定到任意参考 GF。
-- `reference_limit_ratio` 的 limit GF 完全由 `reference_limit_gf` 参数决定，避免把任意参考深度错误绑定到 `gf_low`。
+- 返回数组已经是百分比数值域，例如 `70.0f` 表示 70%，调用方不要再乘以 100。
+- `absolute_gf_percent[i] = ((P_tissue - P_amb) / (M_amb - P_amb)) * 100`。
+- `relative_gf_percent[i] = absolute_gf_percent[i] / current_target_gf`。例如 absolute 为 `70.0f` 且 target GF 为 `0.70f` 时，relative 为 `100.0f`。
+- 当 `gf_high` ceiling 尚未产生强制减压义务时，`current_target_gf = config.gf_high`。
+- 只有进入强制减压后，core 才会求首停；当前深度深于或等于首停时使用 `config.gf_low`，浅于首停时在 `gf_low` 和 `gf_high` 之间按深度线性插值。
+- core 不钳制上界，也允许欠饱和时返回负值；UI 可按自身显示范围做下界/上界裁剪。
 
 约束：
 
-- `state` 和 `metrics` 不能为空。
+- `state` 和 `gradients` 不能为空。
 - `state->config` 必须通过 `arex_deco_validate_config()`。
-- `reference_depth_m` 必须为有限非负深度。
-- `reference_limit_gf` 必须为有限值，且 `0 < reference_limit_gf <= 1`。
+- `state->current_depth_m` 必须为有限非负深度。
 
 ## 嵌入式数值与 ABI 注意事项
 
@@ -527,7 +524,7 @@ Ratio 语义：
 | `ArexDecoStepInput` | 36 |
 | `ArexDecoPressureStepInput` | 36 |
 | `ArexDecoRuntimeMetrics` | 52 |
-| `ArexDecoTissueMarginMetrics` | 128 |
+| `ArexDecoTissueGradientMetrics` | 132 |
 | `ArexDecoGasRecommendation` | 44 |
 | `ArexDecoStop` | 36 |
 | `ArexDecoSchedule` | 1500 |
@@ -608,8 +605,9 @@ WASM 构建导出的是同一套 C ABI 符号，外加版本和 sizeof helper。
 | `_arex_deco_wasm_sizeof_dive_state()` | `ArexDecoDiveState` 字节大小 |
 | `_arex_deco_wasm_sizeof_step_input()` | `ArexDecoStepInput` 字节大小 |
 | `_arex_deco_wasm_sizeof_runtime_metrics()` | `ArexDecoRuntimeMetrics` 字节大小 |
+| `_arex_deco_wasm_sizeof_tissue_gradient_metrics()` | `ArexDecoTissueGradientMetrics` 字节大小 |
 | `_arex_deco_wasm_sizeof_schedule()` | `ArexDecoSchedule` 字节大小 |
-| `_arex_deco_calculate_tissue_margin()` | 计算组织舱 surface/reference limit ratio；reference limit GF 由调用方传入 |
+| `_arex_deco_calculate_tissue_gradients()` | 计算当前环境压力下 16 仓 absolute / relative GF 百分比 |
 
 ### WASM 调用规则
 

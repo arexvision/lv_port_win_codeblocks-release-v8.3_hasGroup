@@ -312,17 +312,16 @@ static bool ensure_initialized(void)
 
 static void sync_tissue_data(void)
 {
-    ArexDecoTissueMarginMetrics metrics;
+    ArexDecoTissueGradientMetrics gradients;
     uint8_t tissue_raw[AREX_DECO_COMPARTMENT_COUNT];
     uint8_t tissue_gf[AREX_DECO_COMPARTMENT_COUNT];
 
-    if (arex_deco_calculate_tissue_margin(&s_state, s_state.current_depth_m, s_state.config.gf_high, &metrics) != AREX_DECO_STATUS_OK) return;
+    if (arex_deco_calculate_tissue_gradients(&s_state, &gradients) != AREX_DECO_STATUS_OK) return;
 
     for (uint8_t i = 0U; i < AREX_DECO_COMPARTMENT_COUNT; i++)
     {
-        uint8_t surface_pct = round_u8_pct(metrics.surface_limit_ratio[i]);
-        tissue_raw[i] = surface_pct;
-        tissue_gf[i] = surface_pct;
+        tissue_raw[i] = round_u8_pct(gradients.absolute_gf_percent[i]);
+        tissue_gf[i] = round_u8_pct(gradients.relative_gf_percent[i]);
         if (tissue_raw[i] > 200U) tissue_raw[i] = 200U;
         if (tissue_gf[i] > 200U) tissue_gf[i] = 200U;
     }

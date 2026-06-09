@@ -40,11 +40,9 @@ ArexDecoStatus arex_deco_nofly(
     const ArexDecoDiveState* state,
     uint32_t* nofly_seconds);
 
-ArexDecoStatus arex_deco_calculate_tissue_margin(
+ArexDecoStatus arex_deco_calculate_tissue_gradients(
     const ArexDecoDiveState* state,
-    float reference_depth_m,
-    float reference_limit_gf,
-    ArexDecoTissueMarginMetrics* metrics);
+    ArexDecoTissueGradientMetrics* gradients);
 
 #ifdef __cplusplus
 }

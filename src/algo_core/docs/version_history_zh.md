@@ -26,6 +26,22 @@
 - smoke test
 - 文档
 
+## 0.0.15
+
+### 摘要
+
+本次版本重构组织舱百分比查询接口，移除调用方需要自行传入参考深度 / GF 的旧 margin API，改为由 core 在当前环境压力下直接输出 16 仓 absolute / relative GF 百分比。
+
+### 行为与 ABI 变更
+
+- 删除 `ArexDecoTissueMarginMetrics` 和 `arex_deco_calculate_tissue_margin()`。
+- 新增 `ArexDecoTissueGradientMetrics` 和 `arex_deco_calculate_tissue_gradients()`。
+- `absolute_gf_percent[16]` 使用当前环境压力下的绝对 M-value 口径；`GF99` 现在与该数组共用同一套逐仓计算逻辑，并取其最大值。
+- `relative_gf_percent[16] = absolute_gf_percent[16] / current_target_gf`，返回值已经是百分比数值，例如 `100.0f` 表示达到当前 target GF limit。
+- `current_target_gf` 先按 `gf_high` ceiling 判定是否存在强制减压义务；NDL 状态直接使用 `gf_high`，只有进入强制减压后才基于首停和当前深度使用 `gf_low` 或线性插值。
+- WASM 导出移除 `_arex_deco_calculate_tissue_margin`，新增 `_arex_deco_calculate_tissue_gradients` 和 `_arex_deco_wasm_sizeof_tissue_gradient_metrics()`。
+- `ArexDecoTissueGradientMetrics` 大小为 132 字节；API patch 版本升至 `0.0.15`。
+
 ## 0.0.14
 
 ### 摘要

@@ -1,0 +1,19 @@
+arex-deco-core release bundle
+API version: 0.0.15
+Source commit: e93dc5ced0967fe47ed40855953e9c1010d56325
+Source dirty: no
+Build host: Linux 6.17.0-22-generic x86_64
+Built at: 2026-06-09T05:21:33Z
+Platforms: sf32, mingw64
+
+Archive layout:
+  include/arex_deco/                         Public C API headers
+  docs/core_api_zh.md                        API reference
+  docs/version_history_zh.md                 Version history
+  docs/platform_release_builds_zh.md         Build and delivery notes
+  lib/<platform>/libarex_deco_core.a         Static library
+  lib/<platform>/artifact-file-report.txt    Object format verification
+
+Platform toolchains:
+  sf32: arm-none-eabi-gcc, SF32LB52X, cortex-m33 + fpv5-sp-d16 hard float
+  mingw64: x86_64-w64-mingw32-g++, Windows x86_64 COFF static archive
