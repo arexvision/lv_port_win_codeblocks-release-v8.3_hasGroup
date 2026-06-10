@@ -374,7 +374,12 @@ void card_plan_update(const ui_vm_plan_chart_t *vm)
         s_plan_chart_vm = *vm;
     }
 
-    if (s_chart_obj != NULL)
+    if (!screen_page_id_refresh_visible(PAGE_ID_PLAN))
+    {
+        return;
+    }
+
+    if (s_chart_obj != NULL && lv_obj_is_valid(s_chart_obj))
     {
         lv_obj_invalidate(s_chart_obj);
     }

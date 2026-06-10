@@ -15,6 +15,7 @@
 #include "../fonts/fonts.h"
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
 
 /* deco 内容区 Y 起点 = 标题区下方 */
 #define DECO_CONTENT_Y  (CARD_TITLE_H + 20)
@@ -44,6 +45,15 @@ static lv_obj_t *s_mvalue_label;
 static lv_timer_t *s_tissue_flash_timer;
 static bool        s_tissue_flash_phase;
 static ui_vm_deco_t s_deco_vm_cache;
+static int16_t     s_tissue_fill_h_cache[16];
+static lv_color_t  s_tissue_color_cache[16];
+static bool        s_tissue_draw_cache_valid[16];
+static int16_t     s_mvalue_line_y_cache = -1;
+static uint8_t     s_mvalue_line_pct_cache;
+static bool        s_mvalue_visible_cache;
+static bool        s_mvalue_visible_cache_valid;
+static bool        s_surf_gf_alert_cache;
+static bool        s_surf_gf_style_cache_valid;
 
 void card_deco_update(void);
 void card_deco_update_vm(const ui_vm_deco_t *vm);
@@ -64,6 +74,42 @@ static bool deco_obj_is_valid(lv_obj_t **obj_ref)
     return true;
 }
 
+static bool deco_page_refresh_visible(void)
+{
+    return screen_page_id_refresh_visible(PAGE_ID_DECO);
+}
+
+static void deco_label_set_text_if_changed(lv_obj_t *label, const char *text)
+{
+    const char *old_text;
+
+    if (label == NULL || text == NULL)
+    {
+        return;
+    }
+
+    old_text = lv_label_get_text(label);
+    if (old_text != NULL && strcmp(old_text, text) == 0)
+    {
+        return;
+    }
+
+    lv_label_set_text(label, text);
+}
+
+static void deco_label_set_text_fmt_if_changed(lv_obj_t *label, const char *fmt, uint8_t value)
+{
+    char buf[24];
+
+    if (label == NULL || fmt == NULL)
+    {
+        return;
+    }
+
+    (void)snprintf(buf, sizeof(buf), fmt, (unsigned)value);
+    deco_label_set_text_if_changed(label, buf);
+}
+
 static bool any_tissue_danger(void)
 {
     for (int i = 0; i < 16; i++)
@@ -76,6 +122,11 @@ static bool any_tissue_danger(void)
 static void tissue_danger_flash_cb(lv_timer_t *t)
 {
     (void)t;
+    if (!deco_page_refresh_visible())
+    {
+        return;
+    }
+
     s_tissue_flash_phase = !s_tissue_flash_phase;
     for (int i = 0; i < 16; i++)
     {
@@ -150,12 +201,22 @@ static void card_deco_update_mvalue_line(bool chart_active)
 
     if (!chart_active)
     {
-        lv_obj_add_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
+        if (!s_mvalue_visible_cache_valid || s_mvalue_visible_cache)
+        {
+            lv_obj_add_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
+            s_mvalue_visible_cache = false;
+            s_mvalue_visible_cache_valid = true;
+        }
         return;
     }
-    lv_obj_clear_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
+    if (!s_mvalue_visible_cache_valid || !s_mvalue_visible_cache)
+    {
+        lv_obj_clear_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
+        s_mvalue_visible_cache = true;
+        s_mvalue_visible_cache_valid = true;
+    }
 
     if (!deco_obj_is_valid(&s_bars[0]))
     {
@@ -176,19 +237,39 @@ static void card_deco_update_mvalue_line(bool chart_active)
         line_y = bar_max_h - 2;
     }
 
-    lv_obj_set_y(s_mvalue_line, line_y);
-    lv_label_set_text_fmt(s_mvalue_label, "M-VALUE %u%%", line_pct);
-    lv_obj_align_to(s_mvalue_label, s_mvalue_line, LV_ALIGN_OUT_TOP_RIGHT, -4, -2);
+    if (s_mvalue_line_y_cache != (int16_t)line_y)
+    {
+        lv_obj_set_y(s_mvalue_line, line_y);
+        s_mvalue_line_y_cache = (int16_t)line_y;
+        lv_obj_align_to(s_mvalue_label, s_mvalue_line, LV_ALIGN_OUT_TOP_RIGHT, -4, -2);
+    }
+    if (s_mvalue_line_pct_cache != line_pct)
+    {
+        deco_label_set_text_fmt_if_changed(s_mvalue_label, "M-VALUE %u%%", line_pct);
+        s_mvalue_line_pct_cache = line_pct;
+        lv_obj_align_to(s_mvalue_label, s_mvalue_line, LV_ALIGN_OUT_TOP_RIGHT, -4, -2);
+    }
 }
 
 static void surf_gf_apply_style(void)
 {
+    bool alert;
+
     if (!deco_obj_is_valid(&s_lbl_surf_gf))
     {
         return;
     }
 
-    if (s_deco_vm_cache.surf_gf_alert != 0U)
+    alert = (s_deco_vm_cache.surf_gf_alert != 0U);
+    if (s_surf_gf_style_cache_valid && s_surf_gf_alert_cache == alert)
+    {
+        return;
+    }
+
+    s_surf_gf_alert_cache = alert;
+    s_surf_gf_style_cache_valid = true;
+
+    if (alert)
     {
         lv_obj_set_style_bg_color(s_lbl_surf_gf, BLACK, 0);
         lv_obj_set_style_bg_opa(s_lbl_surf_gf, LV_OPA_COVER, 0);
@@ -252,6 +333,14 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 
 void card_deco_create(lv_obj_t *parent)
 {
+    memset(s_tissue_draw_cache_valid, 0, sizeof(s_tissue_draw_cache_valid));
+    s_mvalue_line_y_cache = -1;
+    s_mvalue_line_pct_cache = 0xFFU;
+    s_mvalue_visible_cache = false;
+    s_mvalue_visible_cache_valid = false;
+    s_surf_gf_alert_cache = false;
+    s_surf_gf_style_cache_valid = false;
+
     render_card_title(parent, "TISSUES & DECO");
 
     int right_canvas_w = (int)ui_content_w_get();
@@ -367,34 +456,38 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
     }
 
     s_deco_vm_cache = *vm;
+    if (!deco_page_refresh_visible())
+    {
+        return;
+    }
 
     uint8_t line_pct = card_deco_mvalue_line_pct();
     bool chart_active = card_deco_tissue_chart_active();
 
     if (deco_obj_is_valid(&s_lbl_gf_setting))
     {
-        lv_label_set_text(s_lbl_gf_setting, s_deco_vm_cache.gf_setting);
+        deco_label_set_text_if_changed(s_lbl_gf_setting, s_deco_vm_cache.gf_setting);
     }
 
     if (deco_obj_is_valid(&s_lbl_gf99))
     {
-        lv_label_set_text(s_lbl_gf99, s_deco_vm_cache.gf99);
+        deco_label_set_text_if_changed(s_lbl_gf99, s_deco_vm_cache.gf99);
     }
 
     if (deco_obj_is_valid(&s_lbl_surf_gf))
     {
-        lv_label_set_text(s_lbl_surf_gf, s_deco_vm_cache.surf_gf);
+        deco_label_set_text_if_changed(s_lbl_surf_gf, s_deco_vm_cache.surf_gf);
     }
     surf_gf_apply_style();
 
     if (deco_obj_is_valid(&s_lbl_cns))
     {
-        lv_label_set_text(s_lbl_cns, s_deco_vm_cache.cns);
+        deco_label_set_text_if_changed(s_lbl_cns, s_deco_vm_cache.cns);
     }
 
     if (deco_obj_is_valid(&s_lbl_otu))
     {
-        lv_label_set_text(s_lbl_otu, s_deco_vm_cache.otu);
+        deco_label_set_text_if_changed(s_lbl_otu, s_deco_vm_cache.otu);
     }
 
     card_deco_update_mvalue_line(chart_active);
@@ -438,9 +531,22 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
                 }
             }
 
-            lv_obj_set_size(bar_fill, LV_PCT(100), fill_h);
-            lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
-            lv_obj_set_style_bg_color(bar_fill, tissue_fill_color(pct, line_pct), 0);
+            if (!s_tissue_draw_cache_valid[i] ||
+                s_tissue_fill_h_cache[i] != (int16_t)fill_h)
+            {
+                lv_obj_set_size(bar_fill, LV_PCT(100), fill_h);
+                lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
+                s_tissue_fill_h_cache[i] = (int16_t)fill_h;
+            }
+
+            lv_color_t fill_color = tissue_fill_color(pct, line_pct);
+            if (!s_tissue_draw_cache_valid[i] ||
+                lv_color_to32(s_tissue_color_cache[i]) != lv_color_to32(fill_color))
+            {
+                lv_obj_set_style_bg_color(bar_fill, fill_color, 0);
+                s_tissue_color_cache[i] = fill_color;
+            }
+            s_tissue_draw_cache_valid[i] = true;
         }
     }
 }

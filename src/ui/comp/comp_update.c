@@ -13,6 +13,7 @@
 #include "comp_view.h"
 
 #include <math.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -23,6 +24,52 @@
 static bool comp_container_refresh_visible(lv_obj_t *container)
 {
     return screen_obj_refresh_visible(container);
+}
+
+typedef void (*comp_refresh_container_cb_t)(lv_obj_t *container, void *ctx);
+
+static void comp_for_each_refresh_container(comp_refresh_container_cb_t cb, void *ctx)
+{
+    uint8_t max_count;
+
+    if (cb == NULL)
+    {
+        return;
+    }
+
+    /* 数据源始终由 g_sensor_data/DataBus 维护，和 UI 对象是否存在无关。
+     * 这里仅裁剪“把数据写到哪些 LVGL 对象”：
+     * - 左侧固定区始终是当前屏幕的一部分；
+     * - 右侧自定义卡片只刷新当前可见页；
+     * - 删除左侧或右侧任一小组件，只会让对应对象不再被遍历，不会影响另一侧同类数据。 */
+    if (g_left_anchor_obj != NULL &&
+        lv_obj_is_valid(g_left_anchor_obj) &&
+        comp_container_refresh_visible(g_left_anchor_obj))
+    {
+        cb(g_left_anchor_obj, ctx);
+    }
+
+    max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS)
+                ? g_card_custom_obj_count
+                : MAX_CUSTOM_CARDS;
+
+    for (uint8_t c = 0; c < max_count; c++)
+    {
+        lv_obj_t *container;
+
+        if (!screen_custom_card_refresh_visible(c))
+        {
+            continue;
+        }
+
+        container = g_card_custom_objs[c];
+        if (container == NULL || !lv_obj_is_valid(container))
+        {
+            continue;
+        }
+
+        cb(container, ctx);
+    }
 }
 
 static void comp_label_set_text_if_changed(lv_obj_t *label, const char *text)
@@ -43,6 +90,23 @@ static void comp_label_set_text_if_changed(lv_obj_t *label, const char *text)
     lv_label_set_text(label, text);
 }
 
+static void comp_label_set_text_fmt_if_changed(lv_obj_t *label, const char *fmt, ...)
+{
+    char buf[32];
+    va_list args;
+
+    if (label == NULL || fmt == NULL)
+    {
+        return;
+    }
+
+    va_start(args, fmt);
+    (void)vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+
+    comp_label_set_text_if_changed(label, buf);
+}
+
 static void comp_sync_text_from_vm(comp_id_t w_id, uint8_t pod_index)
 {
     /* 文本类组件统一先走 VM，再落到具体 label，避免各处重复格式化。 */
@@ -52,94 +116,154 @@ static void comp_sync_text_from_vm(comp_id_t w_id, uint8_t pod_index)
     comp_set_text(w_id, value_vm.text);
 }
 
+typedef struct
+{
+    comp_id_t id;
+    float value;
+} comp_value_update_ctx_t;
+
+static void comp_set_value_in_container(lv_obj_t *container, void *ctx)
+{
+    comp_value_update_ctx_t *update = (comp_value_update_ctx_t *)ctx;
+    comp_id_t id;
+    float value;
+    int16_t child_cnt;
+
+    if (container == NULL || update == NULL)
+    {
+        return;
+    }
+
+    id = update->id;
+    value = update->value;
+    child_cnt = lv_obj_get_child_cnt(container);
+
+    for (int16_t i = 0; i < child_cnt; i++)
+    {
+        lv_obj_t *child = lv_obj_get_child(container, i);
+        if (!child || !lv_obj_is_valid(child)) continue;
+
+        uintptr_t child_tag = (uintptr_t)lv_obj_get_user_data(child);
+
+        if (id == COMP_DEPTH_1612 && child_tag == (uintptr_t)id)
+        {
+            /* 大深度组件把整数和小数拆成两个 label 分开更新。 */
+            int di = (int)value;
+            float decimal_part = fabsf(value - di);
+            int dd = (int)(decimal_part * 10 + 0.5f);
+            lv_obj_t *part0;
+            lv_obj_t *part1;
+
+            if (dd > 9) dd = 9;
+
+            part0 = lv_obj_get_child(child, 0);
+            part1 = lv_obj_get_child(child, 1);
+            if (part0 && lv_obj_is_valid(part0) && lv_obj_check_type(part0, &lv_label_class))
+            {
+                comp_label_set_text_fmt_if_changed(part0, "%d", di);
+            }
+            if (part1 && lv_obj_is_valid(part1) && lv_obj_check_type(part1, &lv_label_class))
+            {
+                comp_label_set_text_fmt_if_changed(part1, ".%d", dd);
+            }
+            continue;
+        }
+
+        if (child_tag == (uintptr_t)id)
+        {
+            /* 其余组件按 user_data 定位到对应子 label 并格式化输出。 */
+            int16_t sub_cnt = lv_obj_get_child_cnt(child);
+            for (int16_t j = 0; j < sub_cnt; j++)
+            {
+                lv_obj_t *sub = lv_obj_get_child(child, j);
+                if (!sub || !lv_obj_is_valid(sub)) continue;
+                if ((uintptr_t)lv_obj_get_user_data(sub) == (uintptr_t)id)
+                {
+                    if (lv_obj_check_type(sub, &lv_label_class))
+                    {
+                        char buf[32];
+                        if (id == COMP_TEMP_0806 || id == COMP_DEPTH_1606)
+                        {
+                            snprintf(buf, sizeof(buf), "%.1f", (double)value);
+                        }
+                        else if (id == COMP_PPO2_0806)
+                        {
+                            snprintf(buf, sizeof(buf), "%.2f", (double)value);
+                        }
+                        else if (id == COMP_BATTERY_0806)
+                        {
+                            snprintf(buf, sizeof(buf), "%.0f%%", (double)value);
+                        }
+                        else if (id == COMP_TTS_0806 || id == COMP_NDL_STOP_1606)
+                        {
+                            snprintf(buf, sizeof(buf), "%d", (int)value);
+                        }
+                        else
+                        {
+                            snprintf(buf, sizeof(buf), "%.0f", (double)value);
+                        }
+                        comp_label_set_text_if_changed(sub, buf);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
 void comp_set_value(comp_id_t id, float value)
 {
-    /* 数值型刷新会在左锚点和所有自定义卡片容器里遍历匹配组件。 */
-    /* 这套实现依赖 comp_view 创建组件时在对象/子对象的 user_data 里写入 comp_id_t。
-     * 因此刷新时不需要保存一堆全局 label 指针，而是靠“烙印”反向找到目标控件。 */
-    uint8_t max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS)
-                        ? g_card_custom_obj_count
-                        : MAX_CUSTOM_CARDS;
+    comp_value_update_ctx_t ctx = { id, value };
 
-    for (uint8_t c = 0; c <= max_count; c++)
+    if (comp_value_handle_set_value(id, value))
     {
-        lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
-        if (!container || !lv_obj_is_valid(container)) continue;
-        if (!comp_container_refresh_visible(container)) continue;
+        return;
+    }
 
-        int16_t child_cnt = lv_obj_get_child_cnt(container);
-        for (int16_t i = 0; i < child_cnt; i++)
+    comp_for_each_refresh_container(comp_set_value_in_container, &ctx);
+}
+
+typedef struct
+{
+    comp_id_t id;
+    const char *text;
+} comp_text_update_ctx_t;
+
+static void comp_set_text_in_container(lv_obj_t *container, void *ctx)
+{
+    comp_text_update_ctx_t *update = (comp_text_update_ctx_t *)ctx;
+    comp_id_t id;
+    const char *text;
+    int16_t child_cnt;
+
+    if (container == NULL || update == NULL || update->text == NULL)
+    {
+        return;
+    }
+
+    id = update->id;
+    text = update->text;
+    child_cnt = lv_obj_get_child_cnt(container);
+
+    for (int16_t i = 0; i < child_cnt; i++)
+    {
+        lv_obj_t *child = lv_obj_get_child(container, i);
+        if (!child || !lv_obj_is_valid(child)) continue;
+
+        if ((comp_id_t)(uintptr_t)lv_obj_get_user_data(child) == id)
         {
-            lv_obj_t *child = lv_obj_get_child(container, i);
-            if (!child || !lv_obj_is_valid(child)) continue;
-
-            uintptr_t child_tag = (uintptr_t)lv_obj_get_user_data(child);
-
-            if (id == COMP_DEPTH_1612 && child_tag == (uintptr_t)id)
+            int16_t sub_cnt = lv_obj_get_child_cnt(child);
+            for (int16_t j = 0; j < sub_cnt; j++)
             {
-                /* 大深度组件把整数和小数拆成两个 label 分开更新。 */
-                /* 这样做不是为了炫技，而是为了做“大整数 + 小数点后一位”的异形排版，
-                 * 单 label 很难同时兼顾字号、对齐和视觉重心。 */
-                int di = (int)value;
-                float decimal_part = fabsf(value - di);
-                int dd = (int)(decimal_part * 10 + 0.5f);
-                if (dd > 9) dd = 9;
-
-                lv_obj_t *part0 = lv_obj_get_child(child, 0);
-                lv_obj_t *part1 = lv_obj_get_child(child, 1);
-                if (part0 && lv_obj_is_valid(part0) && lv_obj_check_type(part0, &lv_label_class))
+                lv_obj_t *sub = lv_obj_get_child(child, j);
+                if (!sub || !lv_obj_is_valid(sub)) continue;
+                if ((comp_id_t)(uintptr_t)lv_obj_get_user_data(sub) == id)
                 {
-                    char buf[16];
-                    snprintf(buf, sizeof(buf), "%d", di);
-                    comp_label_set_text_if_changed(part0, buf);
-                }
-                if (part1 && lv_obj_is_valid(part1) && lv_obj_check_type(part1, &lv_label_class))
-                {
-                    char buf[16];
-                    snprintf(buf, sizeof(buf), ".%d", dd);
-                    comp_label_set_text_if_changed(part1, buf);
-                }
-                continue;
-            }
-
-            if (child_tag == (uintptr_t)id)
-            {
-                /* 其余组件按 user_data 定位到对应子 label 并格式化输出。 */
-                /* 这里统一处理不同组件的小数位规则，避免格式化逻辑散落在各个页面里。 */
-                int16_t sub_cnt = lv_obj_get_child_cnt(child);
-                for (int16_t j = 0; j < sub_cnt; j++)
-                {
-                    lv_obj_t *sub = lv_obj_get_child(child, j);
-                    if (!sub || !lv_obj_is_valid(sub)) continue;
-                    if ((uintptr_t)lv_obj_get_user_data(sub) == (uintptr_t)id)
+                    if (lv_obj_check_type(sub, &lv_label_class))
                     {
-                        if (lv_obj_check_type(sub, &lv_label_class))
-                        {
-                            char buf[32];
-                            if (id == COMP_TEMP_0806 || id == COMP_DEPTH_1606)
-                            {
-                                snprintf(buf, sizeof(buf), "%.1f", (double)value);
-                            }
-                            else if (id == COMP_PPO2_0806)
-                            {
-                                snprintf(buf, sizeof(buf), "%.2f", (double)value);
-                            }
-                            else if (id == COMP_BATTERY_0806)
-                            {
-                                snprintf(buf, sizeof(buf), "%.0f%%", (double)value);
-                            }
-                            else if (id == COMP_TTS_0806 || id == COMP_NDL_STOP_1606)
-                            {
-                                snprintf(buf, sizeof(buf), "%d", (int)value);
-                            }
-                            else
-                            {
-                                snprintf(buf, sizeof(buf), "%.0f", (double)value);
-                            }
-                            comp_label_set_text_if_changed(sub, buf);
-                        }
-                        break;
+                        comp_label_set_text_if_changed(sub, text);
                     }
+                    break;
                 }
             }
         }
@@ -148,45 +272,60 @@ void comp_set_value(comp_id_t id, float value)
 
 void comp_set_text(comp_id_t id, const char *text)
 {
-    /* 纯文本刷新路径，适合 TIME/GAS/POD 等已经格式化完成的内容。 */
-    /* 与 comp_set_value() 的区别是：
-     * - comp_set_value() 负责“拿到数值后格式化”
-     * - comp_set_text() 负责“上游已经格式化好，直接写 label”
-     * 两者分开后，VM 可以更灵活地决定格式策略。 */
+    comp_text_update_ctx_t ctx = { id, text };
+
     if (!text) return;
 
-    uint8_t max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS)
-                        ? g_card_custom_obj_count
-                        : MAX_CUSTOM_CARDS;
-
-    for (uint8_t c = 0; c <= max_count; c++)
+    if (comp_value_handle_set_text(id, text))
     {
-        lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
-        if (!container || !lv_obj_is_valid(container)) continue;
-        if (!comp_container_refresh_visible(container)) continue;
+        return;
+    }
 
-        int16_t child_cnt = lv_obj_get_child_cnt(container);
-        for (int16_t i = 0; i < child_cnt; i++)
+    comp_for_each_refresh_container(comp_set_text_in_container, &ctx);
+}
+
+static void comp_sync_pod_values_in_container(lv_obj_t *container, void *ctx)
+{
+    int16_t child_cnt;
+
+    (void)ctx;
+
+    if (container == NULL)
+    {
+        return;
+    }
+
+    child_cnt = lv_obj_get_child_cnt(container);
+    for (int16_t i = 0; i < child_cnt; i++)
+    {
+        lv_obj_t *child = lv_obj_get_child(container, i);
+        uintptr_t child_tag;
+        ui_vm_value_text_t value_vm;
+        uint8_t pod_index;
+        int16_t sub_cnt;
+
+        if (!child || !lv_obj_is_valid(child)) continue;
+
+        child_tag = (uintptr_t)lv_obj_get_user_data(child);
+        if (child_tag != POD1_TAG && child_tag != POD2_TAG)
         {
-            lv_obj_t *child = lv_obj_get_child(container, i);
-            if (!child || !lv_obj_is_valid(child)) continue;
+            continue;
+        }
 
-            if ((comp_id_t)(uintptr_t)lv_obj_get_user_data(child) == id)
+        pod_index = (child_tag == POD2_TAG) ? 2U : 1U;
+        ui_vm_value_text_update(&value_vm, COMP_POD_0806, pod_index);
+
+        sub_cnt = lv_obj_get_child_cnt(child);
+        for (int16_t j = 0; j < sub_cnt; j++)
+        {
+            lv_obj_t *sub = lv_obj_get_child(child, j);
+            if (!sub || !lv_obj_is_valid(sub)) continue;
+
+            if ((uintptr_t)lv_obj_get_user_data(sub) == (uintptr_t)COMP_POD_0806 &&
+                lv_obj_check_type(sub, &lv_label_class))
             {
-                int16_t sub_cnt = lv_obj_get_child_cnt(child);
-                for (int16_t j = 0; j < sub_cnt; j++)
-                {
-                    lv_obj_t *sub = lv_obj_get_child(child, j);
-                    if (!sub || !lv_obj_is_valid(sub)) continue;
-                    if ((comp_id_t)(uintptr_t)lv_obj_get_user_data(sub) == id)
-                    {
-                        if (lv_obj_check_type(sub, &lv_label_class))
-                        {
-                            comp_label_set_text_if_changed(sub, text);
-                        }
-                        break;
-                    }
-                }
+                comp_label_set_text_if_changed(sub, value_vm.text);
+                break;
             }
         }
     }
@@ -194,49 +333,12 @@ void comp_set_text(comp_id_t id, const char *text)
 
 static void comp_sync_pod_values(void)
 {
-    /* POD 组件比较特殊：同一个 comp_id_t 会在左右两个瓶压格里复用。
-     * 所以不能只靠 comp_id 判断，还要额外借助 POD1_TAG / POD2_TAG 区分实例。 */
-    uint8_t max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS)
-                        ? g_card_custom_obj_count
-                        : MAX_CUSTOM_CARDS;
-
-    for (uint8_t c = 0; c <= max_count; c++)
+    if (comp_value_handle_sync_pod())
     {
-        lv_obj_t *container = (c < max_count) ? g_card_custom_objs[c] : g_left_anchor_obj;
-        if (!container || !lv_obj_is_valid(container)) continue;
-        if (!comp_container_refresh_visible(container)) continue;
-
-        int16_t child_cnt = lv_obj_get_child_cnt(container);
-        for (int16_t i = 0; i < child_cnt; i++)
-        {
-            lv_obj_t *child = lv_obj_get_child(container, i);
-            if (!child || !lv_obj_is_valid(child)) continue;
-
-            uintptr_t child_tag = (uintptr_t)lv_obj_get_user_data(child);
-            if (child_tag != POD1_TAG && child_tag != POD2_TAG)
-            {
-                continue;
-            }
-
-            ui_vm_value_text_t value_vm;
-            uint8_t pod_index = (child_tag == POD2_TAG) ? 2U : 1U;
-            ui_vm_value_text_update(&value_vm, COMP_POD_0806, pod_index);
-
-            int16_t sub_cnt = lv_obj_get_child_cnt(child);
-            for (int16_t j = 0; j < sub_cnt; j++)
-            {
-                lv_obj_t *sub = lv_obj_get_child(child, j);
-                if (!sub || !lv_obj_is_valid(sub)) continue;
-
-                if ((uintptr_t)lv_obj_get_user_data(sub) == (uintptr_t)COMP_POD_0806 &&
-                    lv_obj_check_type(sub, &lv_label_class))
-                {
-                    comp_label_set_text_if_changed(sub, value_vm.text);
-                    break;
-                }
-            }
-        }
+        return;
     }
+
+    comp_for_each_refresh_container(comp_sync_pod_values_in_container, NULL);
 }
 
 void comp_sync_data(comp_id_t w_id)
@@ -268,7 +370,7 @@ void comp_sync_data(comp_id_t w_id)
         break;
 
     case COMP_DEPTH_1606:
-        comp_sync_text_from_vm(w_id, 0U);
+        comp_set_value(w_id, bus_get_depth());
         break;
 
     /* =========================================================

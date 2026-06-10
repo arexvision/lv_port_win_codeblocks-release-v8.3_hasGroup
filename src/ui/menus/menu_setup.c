@@ -57,6 +57,22 @@ static bool menu_setup_obj_is_valid(lv_obj_t **obj_ref)
     return true;
 }
 
+static void menu_setup_badge_set_text_if_changed(lv_obj_t *label, const char *text)
+{
+    const char *old_text;
+
+    if (label == NULL || text == NULL)
+    {
+        return;
+    }
+
+    old_text = lv_label_get_text(label);
+    if ((old_text == NULL) || (strcmp(old_text, text) != 0))
+    {
+        lv_label_set_text(label, text);
+    }
+}
+
 void menu_setup_create(lv_obj_t *parent)
 {
     uint8_t setup_count = 0;
@@ -116,16 +132,16 @@ void menu_setup_update(void)
 
     if (menu_setup_obj_is_valid(&s_setup_badge_lbls[1]))
     {
-        lv_label_set_text(s_setup_badge_lbls[1], vm.conservatism_badge);
+        menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[1], vm.conservatism_badge);
     }
     if (menu_setup_obj_is_valid(&s_setup_badge_lbls[2]))
     {
-        lv_label_set_text(s_setup_badge_lbls[2], vm.brightness_badge);
+        menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[2], vm.brightness_badge);
     }
     if (menu_setup_obj_is_valid(&s_setup_badge_lbls[3]))
     {
         uint8_t idx = (vm.compass_cal_badge_idx <= 2U) ? vm.compass_cal_badge_idx : 0U;
-        lv_label_set_text(s_setup_badge_lbls[3], cal_str[idx]);
+        menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[3], cal_str[idx]);
     }
     if (vm.compass_cal_state != last_cal_state)
     {

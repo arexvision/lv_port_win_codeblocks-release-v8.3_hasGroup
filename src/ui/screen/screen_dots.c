@@ -10,6 +10,25 @@
 #include "../core/ui_state.h"
 #include "page_registry.h"
 
+typedef struct
+{
+    uint8_t valid;
+    uint8_t show;
+    uint8_t active;
+} scroll_dot_state_t;
+
+static scroll_dot_state_t s_dot_state_cache[DASH_PAGE_COUNT];
+
+void screen_scroll_dots_reset_cache(void)
+{
+    for (uint8_t i = 0U; i < DASH_PAGE_COUNT; i++)
+    {
+        s_dot_state_cache[i].valid = 0U;
+        s_dot_state_cache[i].show = 0U;
+        s_dot_state_cache[i].active = 0U;
+    }
+}
+
 void screen_update_scroll_dots(uint8_t active_idx, bool visible)
 {
     bool in_dash_or_edit = (ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_EDIT_GAS);
@@ -24,6 +43,18 @@ void screen_update_scroll_dots(uint8_t active_idx, bool visible)
         }
 
         bool show = visible && in_dash_or_edit && dots_enabled && (i < visible_dash);
+        bool active = (show && i == active_idx);
+        if (s_dot_state_cache[i].valid &&
+            s_dot_state_cache[i].show == (show ? 1U : 0U) &&
+            s_dot_state_cache[i].active == (active ? 1U : 0U))
+        {
+            continue;
+        }
+
+        s_dot_state_cache[i].valid = 1U;
+        s_dot_state_cache[i].show = show ? 1U : 0U;
+        s_dot_state_cache[i].active = active ? 1U : 0U;
+
         if (!show)
         {
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
@@ -31,7 +62,7 @@ void screen_update_scroll_dots(uint8_t active_idx, bool visible)
         }
 
         lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
-        if (i == active_idx)
+        if (active)
         {
             lv_obj_set_style_bg_color(s_scroll_dots[i], GREEN, 0);
             lv_obj_set_style_shadow_width(s_scroll_dots[i], 8, 0);

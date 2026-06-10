@@ -24,6 +24,51 @@
 #include <stdio.h>
 #include <string.h>
 
+__attribute__((weak)) void app_ui_perf_note_dirty_mask(uint32_t mask)
+{
+    (void)mask;
+}
+
+__attribute__((weak)) void app_ui_perf_note_router_cost(uint32_t total_ms,
+                                                        uint32_t deco_ms,
+                                                        uint32_t ndl_ms,
+                                                        uint32_t plan_ms,
+                                                        uint32_t widget_ms,
+                                                        uint32_t info_ms,
+                                                        uint32_t mask)
+{
+    (void)total_ms;
+    (void)deco_ms;
+    (void)ndl_ms;
+    (void)plan_ms;
+    (void)widget_ms;
+    (void)info_ms;
+    (void)mask;
+}
+
+__attribute__((weak)) void app_ui_perf_get_context(uint8_t *state,
+                                                   uint8_t *dash_page,
+                                                   uint8_t *page_id,
+                                                   uint8_t *storage_pos)
+{
+    if (state)
+    {
+        *state = (uint8_t)ui_state_get_state();
+    }
+    if (dash_page)
+    {
+        *dash_page = ui_state_get_dash_page();
+    }
+    if (page_id)
+    {
+        *page_id = page_id_at(ui_state_get_dash_page());
+    }
+    if (storage_pos)
+    {
+        *storage_pos = page_storage_pos(ui_state_get_dash_page());
+    }
+}
+
 /* 气体名称(供全局引用) */
 const char *GAS_NAMES[GAS_COUNT] =
 {
@@ -542,7 +587,8 @@ void ui_update_data(void)
  *   - 硬件工程师：只能调用 bus_set_*() 系列函数（仅写数打脏标记
  *   - 两者通过 g_sensor_data.dirty_mask 完全解
  *
- * lv_timer 驱动，建50ms 周期0 FPS 足够覆盖所有传感器变化
+ * lv_timer 驱动，周期跟随 UI_DATA_FETCH_TASK_DELAY_MS。
+ * 这个任务只消费脏标记和推进轻量状态，不应靠高频空转追传感器。
  * ========================================================= */
 void ui_update_task(lv_timer_t *timer)
 {
@@ -608,11 +654,15 @@ void ui_update_task(lv_timer_t *timer)
         screen_refresh_info_submenu_if_open();
     }
 
+    ui_state_poll_deferred_navigation();
+    screen_poll_deferred_page_dirty();
+
     dirty_mask_t mask = bus_take_dirty();
     if (mask == DIRTY_NONE)
     {
         return;
     }
 
+    app_ui_perf_note_dirty_mask((uint32_t)mask);
     ui_update_router_dispatch(mask);
 }

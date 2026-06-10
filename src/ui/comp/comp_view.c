@@ -15,6 +15,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
 
@@ -28,9 +29,12 @@ LV_IMG_DECLARE(sudo_down_level0);
 LV_IMG_DECLARE(sudo_down_level1);
 LV_IMG_DECLARE(sudo_down_level2);
 
-#define MAX_ASCENT_ICONS  12
-#define MAX_NDL_ICONS     4
-#define MAX_TISSUE_WIDGETS 4
+#define MAX_WIDGET_RENDER_INSTANCES (LEFT_MAX_WIDGETS + (MAX_CUSTOM_CARDS * MAX_5F_WIDGETS))
+#define MAX_ASCENT_ICONS           MAX_WIDGET_RENDER_INSTANCES
+#define MAX_NDL_ICONS              (LEFT_MAX_WIDGETS + MAX_CUSTOM_CARDS)
+#define MAX_TISSUE_WIDGETS         (MAX_CUSTOM_CARDS * 3U)
+#define MAX_SYS_WIDGETS            MAX_WIDGET_RENDER_INSTANCES
+#define COMP_VALUE_HANDLE_ID_MAX   64U
 
 typedef struct
 {
@@ -39,6 +43,8 @@ typedef struct
     lv_obj_t *main_val;
     lv_obj_t *title_top;
     lv_obj_t *sub_bot;
+    int8_t last_stop_type;
+    bool layout_valid;
 } ndl_handle_t;
 
 typedef struct
@@ -48,6 +54,31 @@ typedef struct
     comp_id_t widget_id;
     ui_vm_deco_t vm;
 } tissue_handle_t;
+
+typedef struct
+{
+    lv_obj_t *batt_lbl;
+    lv_obj_t *temp_lbl;
+} sys_handle_t;
+
+typedef struct
+{
+    comp_id_t id;
+    uint8_t pod_index;
+    uint8_t part;
+    uint8_t custom_card_idx;
+    bool left_anchor;
+    lv_obj_t *label;
+    uint16_t next;
+    char last_text[32];
+} comp_value_handle_t;
+
+enum
+{
+    COMP_VALUE_HANDLE_PART_FULL = 0U,
+    COMP_VALUE_HANDLE_PART_DEPTH_INT = 1U,
+    COMP_VALUE_HANDLE_PART_DEPTH_DEC = 2U,
+};
 
 /* ============================================================
  * 速率图标指针阵列（支持多DEPTH 模块同时存在
@@ -142,13 +173,17 @@ static uint8_t s_pod_render_count = 0;  /* POD 渲染计数*/
 #define POD2_TAG      (2 * POD_TAG_BASE + COMP_POD_0806)  /* 2033 */
 
 /* =========================================================
- * SYS 模块全局静态指针（O(1) 直接访问，零遍历
+ * SYS 模块实例句柄表
+ *
+ * 不能用单个全局 label 指针缓存 SYS。左侧固定栏和右侧自定义页都可能放
+ * COMP_SYS_1606，单指针会被最后一个离屏实例覆盖，导致可见实例不刷新。
+ * 句柄表按实例保存，刷新时再用 screen_obj_refresh_visible() 裁剪到当前屏。
  * ========================================================= */
-static lv_obj_t *s_sys_batt_lbl = NULL;      /* 电量百分*/
-static lv_obj_t *s_sys_temp_lbl = NULL;      /* 温度 */
-static lv_obj_t *s_sys_strobe_img = NULL;    /* 留转灯图*/
-static lv_obj_t *s_sys_flash_img = NULL;     /* 手电筒图*/
-static lv_obj_t *s_sys_cyl_lbl = NULL;      /* 气瓶数量文本 "x0" */
+static sys_handle_t s_sys_handles[MAX_SYS_WIDGETS];
+static uint8_t s_sys_handle_count;
+static comp_value_handle_t s_value_handles[MAX_WIDGET_RENDER_INSTANCES];
+static uint16_t s_value_handle_heads[COMP_VALUE_HANDLE_ID_MAX];
+static uint16_t s_value_handle_count;
 
 static bool ui_obj_is_valid(lv_obj_t **obj_ref)
 {
@@ -185,6 +220,32 @@ static void comp_view_label_set_text_if_changed(lv_obj_t *label, const char *tex
     lv_label_set_text(label, text);
 }
 
+static bool comp_view_obj_set_hidden_if_changed(lv_obj_t *obj, bool hidden)
+{
+    bool is_hidden;
+
+    if (obj == NULL)
+    {
+        return false;
+    }
+
+    is_hidden = lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    if (is_hidden == hidden)
+    {
+        return false;
+    }
+
+    if (hidden)
+    {
+        lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    }
+    else
+    {
+        lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    }
+    return true;
+}
+
 static void comp_view_label_set_text_fmt_if_changed(lv_obj_t *label, const char *fmt, ...)
 {
     char buf[32];
@@ -199,6 +260,286 @@ static void comp_view_label_set_text_fmt_if_changed(lv_obj_t *label, const char 
     (void)vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
     comp_view_label_set_text_if_changed(label, buf);
+}
+
+void comp_value_handle_reset(void)
+{
+    memset(s_value_handles, 0, sizeof(s_value_handles));
+    for (uint8_t i = 0U; i < COMP_VALUE_HANDLE_ID_MAX; i++)
+    {
+        s_value_handle_heads[i] = UINT16_MAX;
+    }
+    s_value_handle_count = 0U;
+}
+
+static void comp_value_handle_register_part(comp_id_t id,
+                                            uint8_t pod_index,
+                                            uint8_t part,
+                                            lv_obj_t *label)
+{
+    comp_value_handle_t *h;
+    uint16_t idx;
+
+    if (label == NULL || id == COMP_EMPTY)
+    {
+        return;
+    }
+
+    if ((uint8_t)id >= COMP_VALUE_HANDLE_ID_MAX)
+    {
+        return;
+    }
+
+    if (s_value_handle_count >= (uint16_t)(sizeof(s_value_handles) / sizeof(s_value_handles[0])))
+    {
+        return;
+    }
+
+    idx = s_value_handle_count++;
+    h = &s_value_handles[idx];
+    memset(h, 0, sizeof(*h));
+    h->id = id;
+    h->pod_index = pod_index;
+    h->part = part;
+    h->label = label;
+    h->custom_card_idx = 0xFFU;
+    h->next = s_value_handle_heads[(uint8_t)id];
+
+    if (g_left_anchor_obj != NULL && lv_obj_is_valid(g_left_anchor_obj))
+    {
+        lv_obj_t *p = label;
+        while (p != NULL)
+        {
+            if (p == g_left_anchor_obj)
+            {
+                h->left_anchor = true;
+                break;
+            }
+            p = lv_obj_get_parent(p);
+        }
+    }
+
+    if (!h->left_anchor)
+    {
+        uint8_t max_count = (g_card_custom_obj_count < MAX_CUSTOM_CARDS) ?
+                            g_card_custom_obj_count : MAX_CUSTOM_CARDS;
+        for (uint8_t i = 0U; i < max_count; i++)
+        {
+            lv_obj_t *card = g_card_custom_objs[i];
+            lv_obj_t *p = label;
+
+            if (card == NULL || !lv_obj_is_valid(card))
+            {
+                continue;
+            }
+
+            while (p != NULL)
+            {
+                if (p == card)
+                {
+                    h->custom_card_idx = i;
+                    p = NULL;
+                    break;
+                }
+                p = lv_obj_get_parent(p);
+            }
+
+            if (h->custom_card_idx != 0xFFU)
+            {
+                break;
+            }
+        }
+    }
+
+    s_value_handle_heads[(uint8_t)id] = idx;
+}
+
+void comp_value_handle_register(comp_id_t id, uint8_t pod_index, lv_obj_t *label)
+{
+    comp_value_handle_register_part(id, pod_index, COMP_VALUE_HANDLE_PART_FULL, label);
+}
+
+void comp_value_handle_register_depth_part(comp_id_t id, bool decimal_part, lv_obj_t *label)
+{
+    comp_value_handle_register_part(id,
+                                    0U,
+                                    decimal_part ? COMP_VALUE_HANDLE_PART_DEPTH_DEC :
+                                                   COMP_VALUE_HANDLE_PART_DEPTH_INT,
+                                    label);
+}
+
+static bool comp_value_handle_label_valid(comp_value_handle_t *h)
+{
+    if (h == NULL || h->label == NULL)
+    {
+        return false;
+    }
+
+    if (!lv_obj_is_valid(h->label))
+    {
+        h->label = NULL;
+        return false;
+    }
+
+    return true;
+}
+
+static bool comp_value_handle_apply_text(comp_value_handle_t *h, const char *text)
+{
+    if (text == NULL || !comp_value_handle_label_valid(h))
+    {
+        return false;
+    }
+
+    if (!h->left_anchor &&
+        (h->custom_card_idx == 0xFFU ||
+         !screen_custom_card_refresh_visible(h->custom_card_idx)))
+    {
+        return false;
+    }
+
+    if (strncmp(h->last_text, text, sizeof(h->last_text) - 1U) == 0)
+    {
+        return true;
+    }
+
+    comp_view_label_set_text_if_changed(h->label, text);
+    (void)snprintf(h->last_text, sizeof(h->last_text), "%s", text);
+    return true;
+}
+
+static void comp_value_format_text(comp_id_t id, float value, char *buf, size_t buf_size)
+{
+    if (buf == NULL || buf_size == 0U)
+    {
+        return;
+    }
+
+    if (id == COMP_TEMP_0806 || id == COMP_DEPTH_1606)
+    {
+        (void)snprintf(buf, buf_size, "%.1f", (double)value);
+    }
+    else if (id == COMP_PPO2_0806)
+    {
+        (void)snprintf(buf, buf_size, "%.2f", (double)value);
+    }
+    else if (id == COMP_BATTERY_0806)
+    {
+        (void)snprintf(buf, buf_size, "%.0f%%", (double)value);
+    }
+    else if (id == COMP_TTS_0806 || id == COMP_NDL_STOP_1606)
+    {
+        (void)snprintf(buf, buf_size, "%d", (int)value);
+    }
+    else
+    {
+        (void)snprintf(buf, buf_size, "%.0f", (double)value);
+    }
+}
+
+bool comp_value_handle_set_text(comp_id_t id, const char *text)
+{
+    bool touched = false;
+    uint16_t idx;
+
+    if (text == NULL)
+    {
+        return false;
+    }
+
+    if ((uint8_t)id >= COMP_VALUE_HANDLE_ID_MAX)
+    {
+        return false;
+    }
+
+    idx = s_value_handle_heads[(uint8_t)id];
+    while (idx != UINT16_MAX && idx < s_value_handle_count)
+    {
+        comp_value_handle_t *h = &s_value_handles[idx];
+        if (h->part == COMP_VALUE_HANDLE_PART_FULL)
+        {
+            touched = comp_value_handle_apply_text(h, text) || touched;
+        }
+        idx = h->next;
+    }
+
+    return touched;
+}
+
+bool comp_value_handle_set_value(comp_id_t id, float value)
+{
+    char buf[32];
+    bool touched = false;
+    uint16_t idx;
+
+    if ((uint8_t)id >= COMP_VALUE_HANDLE_ID_MAX)
+    {
+        return false;
+    }
+
+    if (id == COMP_DEPTH_1606 || id == COMP_DEPTH_1612)
+    {
+        int di = (int)value;
+        float decimal_part = fabsf(value - (float)di);
+        int dd = (int)(decimal_part * 10.0f + 0.5f);
+
+        if (dd > 9)
+        {
+            dd = 9;
+        }
+
+        idx = s_value_handle_heads[(uint8_t)id];
+        while (idx != UINT16_MAX && idx < s_value_handle_count)
+        {
+            comp_value_handle_t *h = &s_value_handles[idx];
+
+            if (h->part == COMP_VALUE_HANDLE_PART_DEPTH_INT)
+            {
+                (void)snprintf(buf, sizeof(buf), "%d", di);
+                touched = comp_value_handle_apply_text(h, buf) || touched;
+            }
+            else if (h->part == COMP_VALUE_HANDLE_PART_DEPTH_DEC)
+            {
+                (void)snprintf(buf, sizeof(buf), ".%d", dd);
+                touched = comp_value_handle_apply_text(h, buf) || touched;
+            }
+            else if (h->part == COMP_VALUE_HANDLE_PART_FULL)
+            {
+                comp_value_format_text(id, value, buf, sizeof(buf));
+                touched = comp_value_handle_apply_text(h, buf) || touched;
+            }
+
+            idx = h->next;
+        }
+
+        return touched;
+    }
+
+    comp_value_format_text(id, value, buf, sizeof(buf));
+    return comp_value_handle_set_text(id, buf);
+}
+
+bool comp_value_handle_sync_pod(void)
+{
+    bool touched = false;
+    uint16_t idx;
+
+    idx = s_value_handle_heads[(uint8_t)COMP_POD_0806];
+    while (idx != UINT16_MAX && idx < s_value_handle_count)
+    {
+        comp_value_handle_t *h = &s_value_handles[idx];
+        ui_vm_value_text_t value_vm;
+
+        if (h->pod_index != 0U)
+        {
+            ui_vm_value_text_update(&value_vm, COMP_POD_0806, h->pod_index);
+            touched = comp_value_handle_apply_text(h, value_vm.text) || touched;
+        }
+
+        idx = h->next;
+    }
+
+    return touched;
 }
 
 /* =========================================================
@@ -227,6 +568,13 @@ static uint8_t get_pod_index(void)
     return (s_pod_render_count % 2 == 1) ? 1 : 2;
 }
 
+void reset_pod_render_sequence(void)
+{
+    /* POD1/POD2 的身份只应在同一个容器内部轮转。
+     * 左侧删除 POD 不应改变右侧自定义卡的 POD 身份，反之亦然。 */
+    s_pod_render_count = 0;
+}
+
 /* =========================================================
  * 渲染计数器归零（每次网格重建/重绘前必须调用）
  * screen_rebuild_layout() left_anchor_create() 调用
@@ -241,15 +589,11 @@ void reset_widget_render_state(void)
     memset(s_ndl_draw_vm, 0, sizeof(s_ndl_draw_vm));
     memset(s_tissue_handles, 0, sizeof(s_tissue_handles));
     s_tissue_handle_count = 0;
+    memset(s_sys_handles, 0, sizeof(s_sys_handles));
+    s_sys_handle_count = 0;
+    comp_value_handle_reset();
 
-    s_pod_render_count = 0;
-
-    /* 归零底部 SystemData 静态句柄，防止 lv_timer 访问死内*/
-    s_sys_batt_lbl     = NULL;
-    s_sys_temp_lbl     = NULL;
-    s_sys_strobe_img   = NULL;
-    s_sys_flash_img    = NULL;
-    s_sys_cyl_lbl      = NULL;
+    reset_pod_render_sequence();
 }
 
 /* =========================================================
@@ -552,6 +896,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
         // 读取字典中的 RIGHT_MID -45，把右边缘焊死在这堵墙上
         lv_obj_align(int_lbl, (lv_align_t)s->int_align, s->int_offset_x, s->int_offset_y);
+        comp_value_handle_register_depth_part(w_id, false, int_lbl);
 
         /* ==========================================
          * 2. 中号小数 -> 紧贴整数的右边界
@@ -566,6 +911,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
         // 因为整数的右边缘(个位被焊死了，小数挂在它右边，自然就永远贴紧个位数！
         lv_obj_align_to(dec_lbl, int_lbl, LV_ALIGN_OUT_RIGHT_BOTTOM, s->dec_offset_x, s->dec_offset_y);
+        comp_value_handle_register_depth_part(w_id, true, dec_lbl);
 
         /* ==========================================
          * 3. 小号单位 (m) -> 紧贴小数正下
@@ -642,35 +988,48 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     }
     else if (w_id == COMP_SYS_1606)
     {
+        sys_handle_t *sys_handle = NULL;
+
         /* ===== SYS 模块：电+ 温度横向排列 ===== */
-        /* SYS 组件走静态句柄缓存，是因为它刷新频率高、结构固定，
-         * 直接 O(1) 更新比每次遍历整棵对象树更省。 */
+        /* SYS 组件结构固定且刷新频率高，使用实例句柄表避免遍历对象树。
+         * 每个左侧/右侧 SYS 都有自己的 label 句柄，互不覆盖。 */
+        if (s_sys_handle_count < MAX_SYS_WIDGETS)
+        {
+            sys_handle = &s_sys_handles[s_sys_handle_count++];
+            memset(sys_handle, 0, sizeof(*sys_handle));
+        }
 
         /* 左侧：电Label */
-        s_sys_batt_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(s_sys_batt_lbl, get_font(FONT_ID_MEDIUM), 0);
-        lv_obj_set_style_text_color(s_sys_batt_lbl, GREEN, 0);
-        lv_obj_align(s_sys_batt_lbl, LV_ALIGN_LEFT_MID, 4, 0);
+        lv_obj_t *batt_lbl = lv_label_create(obj);
+        lv_obj_set_style_text_font(batt_lbl, get_font(FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_color(batt_lbl, GREEN, 0);
+        lv_obj_align(batt_lbl, LV_ALIGN_LEFT_MID, 4, 0);
         if (SHOW_PLACEHOLDER_ON_INIT)
-            lv_label_set_text(s_sys_batt_lbl, "--%");
+            lv_label_set_text(batt_lbl, "--%");
         else
         {
-            lv_label_set_text_fmt(s_sys_batt_lbl, "%u%%", (unsigned)ui_battery_draw_pct(bus_get_battery_pct()));
+            lv_label_set_text_fmt(batt_lbl, "%u%%", (unsigned)ui_battery_draw_pct(bus_get_battery_pct()));
         }
 
         /* 右侧：温Label */
-        s_sys_temp_lbl = lv_label_create(obj);
-        lv_obj_set_style_text_font(s_sys_temp_lbl, get_font(FONT_ID_MEDIUM), 0);
-        lv_obj_set_style_text_color(s_sys_temp_lbl, GREEN, 0);
-        lv_obj_align(s_sys_temp_lbl, LV_ALIGN_RIGHT_MID, -4, 0);
+        lv_obj_t *temp_lbl = lv_label_create(obj);
+        lv_obj_set_style_text_font(temp_lbl, get_font(FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_color(temp_lbl, GREEN, 0);
+        lv_obj_align(temp_lbl, LV_ALIGN_RIGHT_MID, -4, 0);
         if (SHOW_PLACEHOLDER_ON_INIT)
-            lv_label_set_text(s_sys_temp_lbl, "-- C");
+            lv_label_set_text(temp_lbl, "-- C");
         else
         {
             float temp_c = bus_get_temperature();
             int16_t temp_int = (int16_t)temp_c;
             uint8_t temp_dec = (uint8_t)(fabsf(temp_c - (float)temp_int) * 10.0f);
-            lv_label_set_text_fmt(s_sys_temp_lbl, "%d.%u C", (int)temp_int, (unsigned)temp_dec);
+            lv_label_set_text_fmt(temp_lbl, "%d.%u C", (int)temp_int, (unsigned)temp_dec);
+        }
+
+        if (sys_handle != NULL)
+        {
+            sys_handle->batt_lbl = batt_lbl;
+            sys_handle->temp_lbl = temp_lbl;
         }
 
         return obj;
@@ -749,6 +1108,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
                      comp_value_edge_offset_x((lv_align_t)style->spec.basic.value_align, style->spec.basic.value_offset_x),
                      style->spec.basic.value_offset_y);
         lv_obj_set_user_data(val_lbl, (void *)(uintptr_t)w_id);
+        comp_value_handle_register(w_id, is_pod_mold ? pod_index : 0U, val_lbl);
     }
 
     /* --- 零件 3：单--- */
@@ -920,6 +1280,9 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
     {
         ndl_handle_t *h = &s_ndl_handles[i];
         ui_vm_ndl_stop_t *draw_vm = &s_ndl_draw_vm[i];
+        bool vm_changed;
+        bool bar_visibility_changed;
+        bool layout_changed;
 
         if (!ui_obj_is_valid(&h->comp) ||
             !ui_obj_is_valid(&h->horiz_bg) ||
@@ -936,39 +1299,52 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             continue;
         }
 
-        if (memcmp(draw_vm, vm, sizeof(*draw_vm)) == 0 &&
-            !lv_obj_has_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN))
+        vm_changed = (memcmp(draw_vm, vm, sizeof(*draw_vm)) != 0);
+        bar_visibility_changed = comp_view_obj_set_hidden_if_changed(h->horiz_bg, false);
+        layout_changed = (!h->layout_valid || h->last_stop_type != (int8_t)vm->stop_type);
+
+        if (!vm_changed && !bar_visibility_changed && !layout_changed)
         {
             continue;
         }
 
-        memcpy(draw_vm, vm, sizeof(*draw_vm));
-
-        lv_obj_clear_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_invalidate(h->horiz_bg);
+        if (vm_changed)
+        {
+            memcpy(draw_vm, vm, sizeof(*draw_vm));
+        }
+        if (vm_changed || bar_visibility_changed)
+        {
+            lv_obj_invalidate(h->horiz_bg);
+        }
 
         if (vm->stop_type == STOP_NONE)
         {
             /* 普通 NDL 态：主值显示剩余免减压时间，底部显示 NDL 标签。 */
-            lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+            comp_view_obj_set_hidden_if_changed(h->title_top, true);
+            comp_view_obj_set_hidden_if_changed(h->sub_bot, false);
 
             comp_view_label_set_text_if_changed(h->sub_bot, "NDL");
-            lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
+            if (layout_changed)
+            {
+                lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
+                lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
+                lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
+            }
 
-            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
             comp_view_label_set_text_fmt_if_changed(h->main_val, "%d", vm->ndl);
-            lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
         }
         else if (vm->stop_type == STOP_SAFETY)
         {
             /* 安全停留态：顶部显示 SAFE 深度，主值改成倒计时，底部显示 IN STOP 或 NDL 参考。 */
-            lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+            comp_view_obj_set_hidden_if_changed(h->title_top, false);
+            comp_view_obj_set_hidden_if_changed(h->sub_bot, false);
 
             comp_view_label_set_text_fmt_if_changed(h->title_top, "SAFE %dm", (int)vm->stop_depth_m);
-            lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
-                         comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
+            if (layout_changed)
+            {
+                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
+                             comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
+            }
 
             if (vm->in_stop_zone != 0U)
             {
@@ -978,29 +1354,53 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             {
                 comp_view_label_set_text_fmt_if_changed(h->sub_bot, "NDL %d", vm->ndl);
             }
-            lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16);
+            if (layout_changed)
+            {
+                lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16);
+            }
 
             int m = vm->stop_time_left_s / 60;
             int s = vm->stop_time_left_s % 60;
-            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
+            if (layout_changed)
+            {
+                lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
+            }
             comp_view_label_set_text_fmt_if_changed(h->main_val, "%d:%02d", m, s);
-            lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
+            if (layout_changed)
+            {
+                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
+            }
         }
         else if (vm->stop_type == STOP_DECO)
         {
             /* 减压停留态：逻辑上比 SAFETY 更强制，所以只保留 DECO 深度和剩余时间。 */
-            lv_obj_clear_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(h->sub_bot, LV_OBJ_FLAG_HIDDEN);
+            comp_view_obj_set_hidden_if_changed(h->title_top, false);
+            comp_view_obj_set_hidden_if_changed(h->sub_bot, true);
 
             comp_view_label_set_text_fmt_if_changed(h->title_top, "DECO %dm", (int)vm->stop_depth_m);
-            lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
-                         comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
+            if (layout_changed)
+            {
+                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
+                             comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
+            }
 
             int m = vm->stop_time_left_s / 60;
             int s = vm->stop_time_left_s % 60;
-            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
+            if (layout_changed)
+            {
+                lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
+            }
             comp_view_label_set_text_fmt_if_changed(h->main_val, "%d:%02d", m, s);
-            lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
+            if (layout_changed)
+            {
+                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
+            }
+        }
+
+        if (layout_changed)
+        {
+            h->last_stop_type = (int8_t)vm->stop_type;
+            h->layout_valid = true;
         }
     }
 }
@@ -1014,16 +1414,34 @@ void comp_refresh_ndl_stop(dirty_mask_t dirty_mask)
 
 void comp_refresh_sys(dirty_mask_t dirty_mask)
 {
-    if ((dirty_mask & DIRTY_SYSTEM) && ui_obj_is_valid(&s_sys_batt_lbl))
+    if ((dirty_mask & DIRTY_SYSTEM) == 0U)
     {
-        comp_view_label_set_text_fmt_if_changed(s_sys_batt_lbl, "%u%%", (unsigned)ui_battery_draw_pct(bus_get_battery_pct()));
+        return;
     }
-    if ((dirty_mask & DIRTY_SYSTEM) && ui_obj_is_valid(&s_sys_temp_lbl))
+
+    for (uint8_t i = 0U; i < s_sys_handle_count; i++)
     {
-        float temp_c = bus_get_temperature();
-        int16_t temp_int = (int16_t)temp_c;
-        uint8_t temp_dec = (uint8_t)(fabsf(temp_c - (float)temp_int) * 10.0f);
-        comp_view_label_set_text_fmt_if_changed(s_sys_temp_lbl, "%d.%u C", (int)temp_int, (unsigned)temp_dec);
+        sys_handle_t *h = &s_sys_handles[i];
+
+        if (!ui_obj_is_valid(&h->batt_lbl) ||
+            !ui_obj_is_valid(&h->temp_lbl))
+        {
+            memset(h, 0, sizeof(*h));
+            continue;
+        }
+
+        if (screen_obj_refresh_visible(h->batt_lbl))
+        {
+            comp_view_label_set_text_fmt_if_changed(h->batt_lbl, "%u%%", (unsigned)ui_battery_draw_pct(bus_get_battery_pct()));
+        }
+
+        if (screen_obj_refresh_visible(h->temp_lbl))
+        {
+            float temp_c = bus_get_temperature();
+            int16_t temp_int = (int16_t)temp_c;
+            uint8_t temp_dec = (uint8_t)(fabsf(temp_c - (float)temp_int) * 10.0f);
+            comp_view_label_set_text_fmt_if_changed(h->temp_lbl, "%d.%u C", (int)temp_int, (unsigned)temp_dec);
+        }
     }
 }
 

@@ -54,6 +54,8 @@ extern lv_style_t s_style_sep_line;
 void reset_transient_ui_refs(void);
 void restore_brightness_overlay_state(void);
 void screen_mark_tiles_layout_dirty(void);
+uint8_t screen_visible_tile_pos_get(void);
+dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos);
 void edit_flash_stop(void);
 void wall_create(void);
 void render_left_anchor_grid(lv_obj_t *left_anchor);

@@ -6,6 +6,8 @@
  */
 
 #include "data.h"
+#include "../../config/build/ui_build_flags.h"
+#include "../../config/build/ui_debug_flags.h"
 #include <math.h>
 #include <string.h>
 #include <float.h>
@@ -17,6 +19,7 @@
 #include <stdlib.h>
 #include "lvgl.h"
 #include "../../algo_sim/deco_core.h"
+#include "rtthread.h"
 #else
 #if defined(__has_include)
 #if __has_include("mem_section.h")
@@ -72,6 +75,85 @@ static layout_archive_id_t layout_archive_id_for(theme_t theme, order_t order)
     }
     return LAYOUT_ARCHIVE_SIDE;
 }
+
+static void bus_mark_dirty(dirty_mask_t mask)
+{
+    if (mask == DIRTY_NONE)
+    {
+        return;
+    }
+
+    rt_base_t level = rt_hw_interrupt_disable();
+    g_sensor_data.dirty_mask |= mask;
+    rt_hw_interrupt_enable(level);
+}
+
+#if UI_DIRTY_THROTTLE_ENABLED
+static bool bus_dirty_due(uint32_t now_ms, uint32_t *last_ms, uint32_t interval_ms)
+{
+    if (last_ms == NULL)
+    {
+        return true;
+    }
+
+    if (*last_ms == 0U || (now_ms - *last_ms) >= interval_ms)
+    {
+        *last_ms = now_ms;
+        return true;
+    }
+
+    return false;
+}
+
+static dirty_mask_t bus_throttle_dirty_mask(dirty_mask_t mask)
+{
+    static uint32_t s_sensor_last_ms = 0U;
+    static uint32_t s_compass_last_ms = 0U;
+    static uint32_t s_system_last_ms = 0U;
+    static uint32_t s_gas_last_ms = 0U;
+    const uint32_t now_ms = rt_tick_get_millisecond();
+    dirty_mask_t deferred = DIRTY_NONE;
+
+    /*
+     * 这里只对高频显示域做合帧。强一致性的布局、告警、日志、减压/气体等
+     * dirty 原样放行，避免用户操作或潜水关键状态被节流。
+     */
+    if ((mask & DIRTY_SENSOR) != 0U &&
+        !bus_dirty_due(now_ms, &s_sensor_last_ms, UI_DIRTY_SENSOR_MIN_INTERVAL_MS))
+    {
+        deferred |= DIRTY_SENSOR;
+        mask &= ~DIRTY_SENSOR;
+    }
+
+    if ((mask & DIRTY_COMPASS) != 0U &&
+        !bus_dirty_due(now_ms, &s_compass_last_ms, UI_DIRTY_COMPASS_MIN_INTERVAL_MS))
+    {
+        deferred |= DIRTY_COMPASS;
+        mask &= ~DIRTY_COMPASS;
+    }
+
+    if ((mask & DIRTY_SYSTEM) != 0U &&
+        !bus_dirty_due(now_ms, &s_system_last_ms, UI_DIRTY_SYSTEM_MIN_INTERVAL_MS))
+    {
+        deferred |= DIRTY_SYSTEM;
+        mask &= ~DIRTY_SYSTEM;
+    }
+
+    if ((mask & DIRTY_GAS_SUPPLY) != 0U &&
+        !bus_dirty_due(now_ms, &s_gas_last_ms, UI_DIRTY_GAS_MIN_INTERVAL_MS))
+    {
+        deferred |= DIRTY_GAS_SUPPLY;
+        mask &= ~DIRTY_GAS_SUPPLY;
+    }
+
+    if (deferred != DIRTY_NONE)
+    {
+        bus_mark_dirty(deferred);
+    }
+
+    return mask;
+}
+#endif
 
 static void layout_copy_fields(sys_config_t *dst, const sys_config_t *src)
 {
@@ -475,7 +557,7 @@ void bus_set_depth(float depth_m)
     if (fabsf(g_sensor_data.depth - depth_m) > DEPTH_DISPLAY_DEBOUNCE_M)
     {
         g_sensor_data.depth = depth_m;
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS;
+        bus_mark_dirty(DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS);
     }
 }
 
@@ -507,7 +589,7 @@ void bus_set_dive_profile_stats(float max_depth_m, float avg_depth_m)
 
     if (changed)
     {
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_PROFILE;
+        bus_mark_dirty(DIRTY_DIVE_PROFILE);
     }
 }
 
@@ -531,7 +613,7 @@ void bus_set_ascent_rate(float rate_mpm)
         /* 只有跨过显示阈值或“静止/运动”状态切换时才刷新 UI，
          * 这样能明显降低速率图标在临界值附近闪烁。 */
         g_sensor_data.ascent_rate = rate_mpm;
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_PROFILE;
+        bus_mark_dirty(DIRTY_DIVE_PROFILE);
     }
 
 }
@@ -541,7 +623,7 @@ void bus_set_ndl(int16_t ndl_min)
     if (g_sensor_data.ndl != ndl_min)
     {
         g_sensor_data.ndl = ndl_min;
-        g_sensor_data.dirty_mask |= DIRTY_DECO_STATUS;
+        bus_mark_dirty(DIRTY_DECO_STATUS);
     }
 }
 
@@ -550,7 +632,7 @@ void bus_set_tts(uint16_t tts_min)
     if (g_sensor_data.tts != tts_min)
     {
         g_sensor_data.tts = tts_min;
-        g_sensor_data.dirty_mask |= DIRTY_DECO_STATUS;
+        bus_mark_dirty(DIRTY_DECO_STATUS);
     }
 }
 
@@ -559,12 +641,12 @@ void bus_set_pod(uint8_t pod_idx, float bar)
     if (pod_idx == 0 && g_sensor_data.pod1_bar != bar)
     {
         g_sensor_data.pod1_bar = bar;
-        g_sensor_data.dirty_mask |= DIRTY_GAS_SUPPLY;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
     else if (pod_idx == 1 && g_sensor_data.pod2_bar != bar)
     {
         g_sensor_data.pod2_bar = bar;
-        g_sensor_data.dirty_mask |= DIRTY_GAS_SUPPLY;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
 }
 
@@ -585,7 +667,7 @@ void bus_set_battery(float pct)
     {
         s_battery_initialized = true;
         g_sensor_data.battery_pct = pct;
-        g_sensor_data.dirty_mask |= DIRTY_SYSTEM;
+        bus_mark_dirty(DIRTY_SYSTEM);
     }
 }
 
@@ -601,7 +683,7 @@ void bus_set_sys_time(uint8_t hour, uint8_t minute, uint8_t second)
         g_sensor_data.sys_time_h = hour;
         g_sensor_data.sys_time_m = minute;
         g_sensor_data.sys_time_s = second;
-        g_sensor_data.dirty_mask |= DIRTY_SYSTEM;
+        bus_mark_dirty(DIRTY_SYSTEM);
     }
 }
 
@@ -610,7 +692,7 @@ void bus_set_heading(uint16_t heading_deg)
     if (g_sensor_data.heading != heading_deg)
     {
         g_sensor_data.heading = heading_deg;
-        g_sensor_data.dirty_mask |= DIRTY_COMPASS;
+        bus_mark_dirty(DIRTY_COMPASS);
     }
 }
 
@@ -619,7 +701,7 @@ void bus_set_dive_time(uint32_t dive_s)
     if (g_sensor_data.dive_time_s != dive_s)
     {
         g_sensor_data.dive_time_s = dive_s;
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_PROFILE;
+        bus_mark_dirty(DIRTY_DIVE_PROFILE);
     }
 }
 
@@ -628,7 +710,7 @@ void bus_set_surface_time(uint32_t surface_s)
     if (g_sensor_data.surface_time_s != surface_s)
     {
         g_sensor_data.surface_time_s = surface_s;
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_PROFILE;
+        bus_mark_dirty(DIRTY_DIVE_PROFILE);
     }
 }
 
@@ -637,13 +719,15 @@ void bus_set_ppo2(uint8_t sensor_idx, float ppo2_val)
     if (sensor_idx < GAS_COUNT && g_sensor_data.ppo2[sensor_idx] != ppo2_val)
     {
         g_sensor_data.ppo2[sensor_idx] = ppo2_val;
-        g_sensor_data.dirty_mask |= DIRTY_GAS_SUPPLY;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
 }
 
 void bus_set_gas(uint8_t gas_idx, const char *gas_name)
 {
+    bool changed = false;
     uint8_t gas_count = g_sensor_data.gas_slot_count;
+
     if (gas_count > GAS_COUNT)
     {
         gas_count = GAS_COUNT;
@@ -661,13 +745,18 @@ void bus_set_gas(uint8_t gas_idx, const char *gas_name)
     if (g_sensor_data.gas_active_idx != gas_idx)
     {
         g_sensor_data.gas_active_idx = gas_idx;
+        changed = true;
     }
     if (gas_name != NULL && strncmp(g_sensor_data.gas_name, gas_name, 15) != 0)
     {
         strncpy(g_sensor_data.gas_name, gas_name, 15);
         g_sensor_data.gas_name[15] = '\0';
+        changed = true;
     }
-    g_sensor_data.dirty_mask |= DIRTY_GAS_SUPPLY;
+    if (changed)
+    {
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
+    }
 }
 
 void bus_set_gas_slot_count(uint8_t count)
@@ -693,7 +782,7 @@ void bus_set_gas_slot_count(uint8_t count)
                      "%s",
                      g_sensor_data.gas_slot_name[0][0] ? g_sensor_data.gas_slot_name[0] : "AIR");
         }
-        g_sensor_data.dirty_mask |= DIRTY_GAS_SUPPLY;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
     bus_apply_algo_gases();
 }
@@ -732,7 +821,7 @@ void bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
 
     if (changed)
     {
-        g_sensor_data.dirty_mask |= DIRTY_GAS_SUPPLY;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
     if (changed)
     {
@@ -746,7 +835,7 @@ void bus_set_deco(int16_t stop_m, uint8_t stop_min)
     {
         g_sensor_data.next_stop_m = stop_m;
         g_sensor_data.next_stop_min = stop_min;
-        g_sensor_data.dirty_mask |= DIRTY_PLAN;
+        bus_mark_dirty(DIRTY_PLAN);
     }
 }
 
@@ -755,7 +844,7 @@ void bus_set_cns(uint8_t cns_pct)
     if (g_sensor_data.cns_pct != cns_pct)
     {
         g_sensor_data.cns_pct = cns_pct;
-        g_sensor_data.dirty_mask |= DIRTY_TISSUE_TOX;
+        bus_mark_dirty(DIRTY_TISSUE_TOX);
     }
 }
 
@@ -764,7 +853,7 @@ void bus_set_otu(uint16_t otu_val)
     if (g_sensor_data.otu != otu_val)
     {
         g_sensor_data.otu = otu_val;
-        g_sensor_data.dirty_mask |= DIRTY_TISSUE_TOX;
+        bus_mark_dirty(DIRTY_TISSUE_TOX);
     }
 }
 
@@ -773,7 +862,7 @@ void bus_set_gf99(float gf99)
     if (fabsf(g_sensor_data.gf99 - gf99) > 0.1f)
     {
         g_sensor_data.gf99 = gf99;
-        g_sensor_data.dirty_mask |= DIRTY_TISSUE_TOX;
+        bus_mark_dirty(DIRTY_TISSUE_TOX);
     }
 }
 
@@ -782,7 +871,7 @@ void bus_set_surf_gf(float surf_gf)
     if (fabsf(g_sensor_data.surf_gf - surf_gf) > 0.1f)
     {
         g_sensor_data.surf_gf = surf_gf;
-        g_sensor_data.dirty_mask |= DIRTY_TISSUE_TOX;
+        bus_mark_dirty(DIRTY_TISSUE_TOX);
     }
 }
 
@@ -798,7 +887,19 @@ void bus_set_surf_gf(float surf_gf)
 void bus_set_tissue_loads(const uint8_t tissue_raw_pct[16],
                           const uint8_t tissue_gf_pct[16])
 {
+    if (tissue_raw_pct == NULL || tissue_gf_pct == NULL)
+    {
+        return;
+    }
+
     rt_base_t level = rt_hw_interrupt_disable();
+    if ((memcmp(g_sensor_data.tissue_raw_pct, tissue_raw_pct, 16) == 0) &&
+        (memcmp(g_sensor_data.tissue_gf_pct, tissue_gf_pct, 16) == 0))
+    {
+        rt_hw_interrupt_enable(level);
+        return;
+    }
+
     memcpy(g_sensor_data.tissue_raw_pct, tissue_raw_pct, 16);
     memcpy(g_sensor_data.tissue_gf_pct, tissue_gf_pct, 16);
     g_sensor_data.dirty_mask |= DIRTY_TISSUE_TOX;
@@ -839,24 +940,22 @@ dirty_mask_t bus_take_dirty(void)
     dirty_mask_t mask = g_sensor_data.dirty_mask;
     g_sensor_data.dirty_mask = DIRTY_NONE;
     rt_hw_interrupt_enable(level);
+#if UI_DIRTY_THROTTLE_ENABLED
+    mask = bus_throttle_dirty_mask(mask);
+#endif
     return mask;
 }
 
 void bus_requeue_dirty(dirty_mask_t mask)
 {
-    if (mask == DIRTY_NONE)
-    {
-        return;
-    }
-
-    rt_base_t level = rt_hw_interrupt_disable();
-    g_sensor_data.dirty_mask |= mask;
-    rt_hw_interrupt_enable(level);
+    bus_mark_dirty(mask);
 }
 
 void bus_clear_all_dirty(void)
 {
+    rt_base_t level = rt_hw_interrupt_disable();
     g_sensor_data.dirty_mask = DIRTY_NONE;
+    rt_hw_interrupt_enable(level);
 }
 
 void bus_set_temperature(float temp_c)
@@ -864,7 +963,7 @@ void bus_set_temperature(float temp_c)
     if (fabsf(g_sensor_data.temperature_c - temp_c) > 0.1f)
     {
         g_sensor_data.temperature_c = temp_c;
-        g_sensor_data.dirty_mask |= DIRTY_SYSTEM;
+        bus_mark_dirty(DIRTY_SYSTEM);
 
         /* 统计计算：最低温度 + 平均温度 */
         if (_temp_sample_count == 0 || temp_c < g_sensor_data.min_temp)
@@ -886,7 +985,7 @@ void bus_set_bat_temperature(float temp_c)
     if (fabsf(g_sensor_data.bat_temperature_c - temp_c) > 0.1f)
     {
         g_sensor_data.bat_temperature_c = temp_c;
-        g_sensor_data.dirty_mask |= DIRTY_SYSTEM;
+        bus_mark_dirty(DIRTY_SYSTEM);
     }
 }
 
@@ -895,7 +994,7 @@ void bus_set_prj_temperature(float temp_c)
     if (fabsf(g_sensor_data.prj_temperature_c - temp_c) > 0.1f)
     {
         g_sensor_data.prj_temperature_c = temp_c;
-        g_sensor_data.dirty_mask |= DIRTY_SYSTEM;
+        bus_mark_dirty(DIRTY_SYSTEM);
     }
 }
 
@@ -904,7 +1003,7 @@ void bus_set_battery_voltage(float voltage_v)
     if (fabsf(g_sensor_data.battery_voltage_v - voltage_v) > 0.01f)
     {
         g_sensor_data.battery_voltage_v = voltage_v;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -917,7 +1016,7 @@ void bus_set_charge_state(uint8_t state)
     if (g_sensor_data.charge_state != state)
     {
         g_sensor_data.charge_state = state;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -926,7 +1025,7 @@ void bus_set_ambient_pressure(float pressure_mbar)
     if (fabsf(g_sensor_data.ambient_pressure_mbar - pressure_mbar) > 0.5f)
     {
         g_sensor_data.ambient_pressure_mbar = pressure_mbar;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -935,7 +1034,7 @@ void bus_set_nofly_time(uint16_t minutes)
     if (g_sensor_data.nofly_time_min != minutes)
     {
         g_sensor_data.nofly_time_min = minutes;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -948,7 +1047,7 @@ void bus_set_gyro(float x_dps, float y_dps, float z_dps)
         g_sensor_data.gyro_x_dps = x_dps;
         g_sensor_data.gyro_y_dps = y_dps;
         g_sensor_data.gyro_z_dps = z_dps;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -961,7 +1060,7 @@ void bus_set_accel(float x_g, float y_g, float z_g)
         g_sensor_data.accel_x_g = x_g;
         g_sensor_data.accel_y_g = y_g;
         g_sensor_data.accel_z_g = z_g;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -974,7 +1073,7 @@ void bus_set_mag(float x_ut, float y_ut, float z_ut)
         g_sensor_data.mag_x_ut = x_ut;
         g_sensor_data.mag_y_ut = y_ut;
         g_sensor_data.mag_z_ut = z_ut;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -987,7 +1086,7 @@ void bus_set_mlx(float x_ut, float y_ut, float z_ut)
         g_sensor_data.mlx_x_ut = x_ut;
         g_sensor_data.mlx_y_ut = y_ut;
         g_sensor_data.mlx_z_ut = z_ut;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -1002,7 +1101,7 @@ void bus_set_tmag(float x_ut, float y_ut, float z_ut)
         g_sensor_data.tmag_y_ut = y_ut;
         g_sensor_data.tmag_z_ut = z_ut;
         g_sensor_data.tmag_ut = total_ut;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -1016,7 +1115,7 @@ void bus_set_attitude(int16_t pitch_deg, int16_t roll_deg, uint16_t heading_deg)
         g_sensor_data.pitch_deg = pitch_deg;
         g_sensor_data.roll_deg = roll_deg;
         g_sensor_data.attitude_heading_deg = heading_deg;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -1025,7 +1124,7 @@ void bus_set_ble_rssi(int16_t rssi_dbm)
     if (g_sensor_data.ble_rssi_dbm != rssi_dbm)
     {
         g_sensor_data.ble_rssi_dbm = rssi_dbm;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -1038,7 +1137,7 @@ void bus_set_cpu_load(uint8_t pct)
     if (g_sensor_data.cpu_load_pct != pct)
     {
         g_sensor_data.cpu_load_pct = pct;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -1047,7 +1146,7 @@ void bus_set_fps(uint16_t fps)
     if (g_sensor_data.fps != fps)
     {
         g_sensor_data.fps = fps;
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
@@ -1057,17 +1156,19 @@ void bus_set_sensor_status(const char *status)
     if (strncmp(g_sensor_data.sensor_status, text, sizeof(g_sensor_data.sensor_status) - 1U) != 0)
     {
         (void)snprintf(g_sensor_data.sensor_status, sizeof(g_sensor_data.sensor_status), "%s", text);
-        g_sensor_data.dirty_mask |= DIRTY_SENSOR;
+        bus_mark_dirty(DIRTY_SENSOR);
     }
 }
 
 void bus_set_ui_layout(const ble_ui_sync_payload_t *payload)
 {
-    printf("[BUS] bus_set_ui_layout called, version=0x%02X\r\n", payload ? payload->version : 0);
+    UI_DATA_LAYOUT_TRACE("[BUS] bus_set_ui_layout called, version=0x%02X\r\n",
+                         payload ? payload->version : 0);
 
     if (payload == NULL || payload->version != BLE_CFG_VERSION)
     {
-        printf("[BUS] REJECTED: payload=%p, version=0x%02X\r\n", payload, payload ? payload->version : 0);
+        UI_DATA_LAYOUT_TRACE("[BUS] REJECTED: payload=%p, version=0x%02X\r\n",
+                             payload, payload ? payload->version : 0);
         return;
     }
 
@@ -1165,7 +1266,8 @@ void bus_set_ui_layout(const ble_ui_sync_payload_t *payload)
 
     g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
     layout_archive_save_current();
-    printf("[BUS] DIRTY_UI_LAYOUT set, dirty_mask=0x%08X\r\n", g_sensor_data.dirty_mask);
+    UI_DATA_LAYOUT_TRACE("[BUS] DIRTY_UI_LAYOUT set, dirty_mask=0x%08X\r\n",
+                         g_sensor_data.dirty_mask);
 
 #ifdef PC_SIMULATOR
     (void)level;
@@ -1191,7 +1293,7 @@ void bus_toggle_layout_order(void)
     g_sys_config.layout_order = (g_sys_config.layout_order == ORDER_NORMAL)
                                 ? ORDER_REVERSE
                                 : ORDER_NORMAL;
-    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
 void bus_set_layout_mode(theme_t theme, order_t order)
@@ -1220,7 +1322,7 @@ void bus_set_layout_mode(theme_t theme, order_t order)
 
     if (changed)
     {
-        g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+        bus_mark_dirty(DIRTY_UI_LAYOUT);
     }
 }
 
@@ -1250,7 +1352,7 @@ void bus_switch_layout_profile(theme_t theme, order_t order)
         layout_apply_direction_defaults(theme, order);
         layout_archive_save_current();
     }
-    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
 void bus_toggle_theme(void)
@@ -1258,7 +1360,7 @@ void bus_toggle_theme(void)
     g_sys_config.theme_mode = (g_sys_config.theme_mode == THEME_TECH)
                               ? THEME_CLASSIC
                               : THEME_TECH;
-    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
 void bus_toggle_dots_position(void)
@@ -1267,7 +1369,7 @@ void bus_toggle_dots_position(void)
     static uint8_t idx = 0;
     idx = (idx + 1) % (sizeof(seq) / sizeof(seq[0]));
     g_sys_config.dots_position = seq[idx];
-    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
 void bus_toggle_compass_style(void)
@@ -1276,7 +1378,7 @@ void bus_toggle_compass_style(void)
     static uint8_t idx = 0;
     idx = (idx + 1) % (sizeof(seq) / sizeof(seq[0]));
     g_sys_config.compass_style = seq[idx];
-    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
 void bus_toggle_sep_style(void)
@@ -1285,25 +1387,25 @@ void bus_toggle_sep_style(void)
     static uint8_t idx = 0;
     idx = (idx + 1) % (sizeof(seq) / sizeof(seq[0]));
     g_sys_config.sep_style = seq[idx];
-    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
 void bus_toggle_flash_speed(void)
 {
     g_sys_config.flash_speed = (g_sys_config.flash_speed + 1) % 3;
-    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
 void bus_toggle_mask(void)
 {
     g_sys_config.mask_enabled = !g_sys_config.mask_enabled;
-    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
 void bus_toggle_split_outward(void)
 {
     g_sys_config.split_outward = !g_sys_config.split_outward;
-    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
 void bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
@@ -1315,7 +1417,7 @@ void bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
 
     g_sys_config.offset_x = offset_x;
     g_sys_config.offset_y = offset_y;
-    g_sensor_data.dirty_mask |= DIRTY_UI_LAYOUT;
+    bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
 /* =========================================================
@@ -1388,7 +1490,7 @@ void bus_set_ndl_bar_pct(uint8_t pct)
     if (g_sensor_data.ndl_bar_pct != pct)
     {
         g_sensor_data.ndl_bar_pct = pct;
-        g_sensor_data.dirty_mask |= DIRTY_DECO_STATUS;
+        bus_mark_dirty(DIRTY_DECO_STATUS);
     }
 }
 
@@ -1402,7 +1504,7 @@ void bus_set_gf_setting(uint8_t gf_low, uint8_t gf_high)
     {
         g_sensor_data.gf_low = gf_low;
         g_sensor_data.gf_high = gf_high;
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_CONFIG;
+        bus_mark_dirty(DIRTY_DIVE_CONFIG);
     }
     g_sys_config.conservatism = ui_conservatism_from_gf(gf_low, gf_high);
     bus_apply_algo_gf(gf_low, gf_high);
@@ -1431,7 +1533,7 @@ void bus_set_mod_ppo2(float ppo2)
     if (g_sys_config.mod_ppo2 != ppo2)
     {
         g_sys_config.mod_ppo2 = ppo2;
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_CONFIG;
+        bus_mark_dirty(DIRTY_DIVE_CONFIG);
     }
 }
 
@@ -1441,7 +1543,7 @@ void bus_set_last_deco_stop(uint8_t depth_m)
     if (g_sys_config.last_deco_stop_m != depth_m)
     {
         g_sys_config.last_deco_stop_m = depth_m;
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_CONFIG;
+        bus_mark_dirty(DIRTY_DIVE_CONFIG);
     }
     bus_apply_algo_last_deco(depth_m);
 }
@@ -1470,7 +1572,7 @@ void bus_set_safety_stop_mode(uint8_t mode)
     if (g_sys_config.safety_stop_mode != mode)
     {
         g_sys_config.safety_stop_mode = mode;
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_CONFIG;
+        bus_mark_dirty(DIRTY_DIVE_CONFIG);
     }
     bus_apply_algo_safety_stop(mode);
 }
@@ -1480,7 +1582,7 @@ void bus_set_altitude_level(uint8_t level)
     if (g_sys_config.altitude_level != level)
     {
         g_sys_config.altitude_level = level;
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_CONFIG;
+        bus_mark_dirty(DIRTY_DIVE_CONFIG);
     }
 }
 
@@ -1514,7 +1616,7 @@ void bus_set_salinity_mode(uint8_t mode)
     if (g_sys_config.salinity_mode != mode)
     {
         g_sys_config.salinity_mode = mode;
-        g_sensor_data.dirty_mask |= DIRTY_DIVE_CONFIG;
+        bus_mark_dirty(DIRTY_DIVE_CONFIG);
     }
     bus_apply_algo_salinity(mode);
 }
@@ -1525,7 +1627,7 @@ void bus_set_mod(float mod_m)
     if (g_sensor_data.mod_m != mod_m)
     {
         g_sensor_data.mod_m = mod_m;
-        g_sensor_data.dirty_mask |= DIRTY_GAS_SUPPLY;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
 }
 
@@ -1535,7 +1637,7 @@ void bus_set_ceiling(float ceiling_m)
     if (g_sensor_data.ceiling_m != ceiling_m)
     {
         g_sensor_data.ceiling_m = ceiling_m;
-        g_sensor_data.dirty_mask |= DIRTY_DECO_STATUS;
+        bus_mark_dirty(DIRTY_DECO_STATUS);
     }
 }
 
@@ -1546,7 +1648,7 @@ void bus_set_gas_mix(uint8_t o2_pct, uint8_t he_pct)
     {
         g_sensor_data.gas_o2_pct = o2_pct;
         g_sensor_data.gas_he_pct = he_pct;
-        g_sensor_data.dirty_mask |= DIRTY_GAS_SUPPLY;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
 }
 
@@ -1556,7 +1658,7 @@ void bus_set_gas_density(float density)
     if (g_sensor_data.gas_density != density)
     {
         g_sensor_data.gas_density = density;
-        g_sensor_data.dirty_mask |= DIRTY_GAS_SUPPLY;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
 }
 
@@ -1566,7 +1668,7 @@ void bus_set_fio2(float fio2_pct)
     if (g_sensor_data.fio2_pct != fio2_pct)
     {
         g_sensor_data.fio2_pct = fio2_pct;
-        g_sensor_data.dirty_mask |= DIRTY_GAS_SUPPLY;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
 }
 
@@ -2342,7 +2444,7 @@ void bus_lock_heading_to_current(void)
     {
         g_sensor_data.heading_locked = true;
         g_sensor_data.heading_target = g_sensor_data.heading;
-        g_sensor_data.dirty_mask |= DIRTY_COMPASS;
+        bus_mark_dirty(DIRTY_COMPASS);
     }
 }
 
@@ -2351,7 +2453,7 @@ void bus_clear_heading_lock(void)
     if (g_sensor_data.heading_locked)
     {
         g_sensor_data.heading_locked = false;
-        g_sensor_data.dirty_mask |= DIRTY_COMPASS;
+        bus_mark_dirty(DIRTY_COMPASS);
     }
 }
 
@@ -2389,7 +2491,7 @@ void dive_log_append(float current_time_s, float current_depth_m)
                 s_dive_log[s_dive_log_count].time_s  = current_time_s;
                 s_dive_log[s_dive_log_count].depth_m = current_depth_m;
                 s_dive_log_count++;
-                g_sensor_data.dirty_mask |= DIRTY_PLAN;
+                bus_mark_dirty(DIRTY_PLAN);
             }
             return;
         }
@@ -2405,7 +2507,7 @@ void dive_log_append(float current_time_s, float current_depth_m)
         s_dive_log[s_dive_log_count].time_s  = current_time_s;
         s_dive_log[s_dive_log_count].depth_m = current_depth_m;
         s_dive_log_count++;
-        g_sensor_data.dirty_mask |= DIRTY_PLAN;
+        bus_mark_dirty(DIRTY_PLAN);
     }
 }
 
@@ -2539,7 +2641,7 @@ bool logbook_backend_update_meta(uint8_t index, const logbook_meta_t *meta)
     {
         s_last_dive_snapshot.meta = *meta;
     }
-    g_sensor_data.dirty_mask |= DIRTY_LOGBOOK;
+    bus_mark_dirty(DIRTY_LOGBOOK);
     return true;
 }
 
@@ -2567,7 +2669,7 @@ bool logbook_backend_delete(uint8_t index)
     {
         (void)memset(&s_last_dive_snapshot, 0, sizeof(s_last_dive_snapshot));
     }
-    g_sensor_data.dirty_mask |= DIRTY_LOGBOOK;
+    bus_mark_dirty(DIRTY_LOGBOOK);
     return true;
 }
 
@@ -2605,7 +2707,7 @@ bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const d
     }
 
     s_last_dive_snapshot = s_logbook_entries[index];
-    g_sensor_data.dirty_mask |= DIRTY_LOGBOOK;
+    bus_mark_dirty(DIRTY_LOGBOOK);
     return true;
 }
 
@@ -2743,7 +2845,7 @@ bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const d
 
     s_last_dive_snapshot = *entry;
     s_last_dive_snapshot.valid = true;
-    g_sensor_data.dirty_mask |= DIRTY_LOGBOOK;
+    bus_mark_dirty(DIRTY_LOGBOOK);
     return false;
 }
 

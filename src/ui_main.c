@@ -2,7 +2,9 @@
 #include "ui/core/ui_state.h"
 #include "ui/screen/screen.h"
 #include "ui/core/ui_dirty.h"
+#include "config/build/ui_build_flags.h"
 #include "lvgl/lvgl.h"
+#include "ui_test/ui_test.h"
 #include "ui_main.h"
 
 #ifdef PC_SIMULATOR
@@ -10,7 +12,7 @@
 #include "hal_sim/sim_data.h"
 #endif
 
-static lv_timer_t *s_update_task_timer;  /* 50ms UI 消费定时器 */
+static lv_timer_t *s_update_task_timer;  /* UI 数据消费定时器 */
 
 static void ui_bootstrap_force_first_paint(void)
 {
@@ -30,6 +32,11 @@ static void ui_bootstrap_force_first_paint(void)
 void UI_main(void)
 {
     ui_init();
+    if (ui_test_try_start())
+    {
+        return;
+    }
+
     screen_create();
     ui_state_init();
     ui_state_set_state(UI_DASH);
@@ -43,7 +50,7 @@ void UI_main(void)
     #endif
     screen_scroll_to_page(PAGE_POS_DYNAMIC_FIRST);
 
-    s_update_task_timer = lv_timer_create(ui_update_task, 50, NULL);
+    s_update_task_timer = lv_timer_create(ui_update_task, APP_UI_UPDATE_TIMER_DELAY_MS, NULL);
     #ifdef PC_SIMULATOR
     sim_data_start();
     #endif

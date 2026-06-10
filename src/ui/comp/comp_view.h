@@ -16,6 +16,13 @@ extern "C" {
 #endif
 
 void reset_widget_render_state(void);
+void reset_pod_render_sequence(void);
+void comp_value_handle_reset(void);
+void comp_value_handle_register(comp_id_t id, uint8_t pod_index, lv_obj_t *label);
+void comp_value_handle_register_depth_part(comp_id_t id, bool decimal_part, lv_obj_t *label);
+bool comp_value_handle_set_text(comp_id_t id, const char *text);
+bool comp_value_handle_set_value(comp_id_t id, float value);
+bool comp_value_handle_sync_pod(void);
 
 /* 根据组件 ID 创建对应的可视对象，并按布局参数放置到父容器内。 */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,

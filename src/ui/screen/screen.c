@@ -9,6 +9,8 @@
 #include "screen_layout.h"
 #include "screen_dots.h"
 #include "screen_overlay.h"
+#include "../../config/build/ui_build_flags.h"
+#include "../../config/build/ui_debug_flags.h"
 #include "layout_view.h"
 #include "../comp/comp_update.h"
 #include "../comp/comp_view.h"
@@ -39,6 +41,36 @@ lv_obj_t *s_tileview;
 lv_obj_t *s_tile_objs[PAGE_COUNT];
 static uint32_t s_layout_generation = 1U;
 static uint32_t s_tile_layout_generation[PAGE_COUNT];
+static uint8_t s_visible_tile_pos = PAGE_POS_INFO;
+static uint8_t s_pending_page_dirty_pos = 0xFFU;
+static uint32_t s_pending_page_dirty_due_ms = 0U;
+
+#if UI_SCROLL_PROFILE_ENABLED
+typedef struct
+{
+    uint32_t count;
+    uint32_t skipped_same;
+    uint32_t total_ms;
+    uint32_t max_ms;
+    uint32_t tile_ms_total;
+    uint32_t tile_ms_max;
+    uint32_t layout_ms_total;
+    uint32_t layout_ms_max;
+    uint32_t compass_ms_total;
+    uint32_t compass_ms_max;
+    uint32_t dirty_ms_total;
+    uint32_t dirty_ms_max;
+    uint32_t dots_ms_total;
+    uint32_t dots_ms_max;
+    uint32_t slow_count;
+    uint32_t slow_mask_or;
+    uint8_t max_tile_pos;
+    uint8_t max_page_id;
+    uint32_t last_print_ms;
+} screen_scroll_profile_t;
+
+static screen_scroll_profile_t s_scroll_profile;
+#endif
 
 /* 灯光控制状态（LIGHT CONTROL 子菜单全局共享） */
 /* 问题4修复：灯光硬件默认开启，UI 初始值必须匹配硬件状态 */
@@ -71,7 +103,94 @@ void reset_transient_ui_refs(void);
 void edit_flash_stop(void);
 void restore_brightness_overlay_state(void);
 static void menu_list_ensure_visible(lv_obj_t *list, uint8_t idx);
-static dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos);
+static void screen_schedule_visible_page_dirty(uint8_t tile_pos);
+static void screen_flush_visible_page_dirty(uint8_t tile_pos);
+dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos);
+
+#if UI_SCROLL_PROFILE_ENABLED
+extern void rt_kprintf(const char *fmt, ...);
+
+static void screen_scroll_profile_maybe_print(uint32_t now_ms)
+{
+    if (s_scroll_profile.last_print_ms == 0U)
+    {
+        s_scroll_profile.last_print_ms = now_ms;
+        return;
+    }
+
+    if ((now_ms - s_scroll_profile.last_print_ms) < UI_SCROLL_PROFILE_INTERVAL_MS)
+    {
+        return;
+    }
+
+    const uint32_t count = (s_scroll_profile.count == 0U) ? 1U : s_scroll_profile.count;
+    rt_kprintf("[UI_SCROLL] count=%lu skip_same=%lu total_avg/max=%lu/%lu "
+               "tile_avg/max=%lu/%lu layout_avg/max=%lu/%lu compass_avg/max=%lu/%lu "
+               "dirty_avg/max=%lu/%lu dots_avg/max=%lu/%lu slow=%lu slow_mask=0x%08lX "
+               "max_tile=%u max_page=%u\n",
+               (unsigned long)s_scroll_profile.count,
+               (unsigned long)s_scroll_profile.skipped_same,
+               (unsigned long)(s_scroll_profile.total_ms / count),
+               (unsigned long)s_scroll_profile.max_ms,
+               (unsigned long)(s_scroll_profile.tile_ms_total / count),
+               (unsigned long)s_scroll_profile.tile_ms_max,
+               (unsigned long)(s_scroll_profile.layout_ms_total / count),
+               (unsigned long)s_scroll_profile.layout_ms_max,
+               (unsigned long)(s_scroll_profile.compass_ms_total / count),
+               (unsigned long)s_scroll_profile.compass_ms_max,
+               (unsigned long)(s_scroll_profile.dirty_ms_total / count),
+               (unsigned long)s_scroll_profile.dirty_ms_max,
+               (unsigned long)(s_scroll_profile.dots_ms_total / count),
+               (unsigned long)s_scroll_profile.dots_ms_max,
+               (unsigned long)s_scroll_profile.slow_count,
+               (unsigned long)s_scroll_profile.slow_mask_or,
+               (unsigned)s_scroll_profile.max_tile_pos,
+               (unsigned)s_scroll_profile.max_page_id);
+
+    memset(&s_scroll_profile, 0, sizeof(s_scroll_profile));
+    s_scroll_profile.last_print_ms = now_ms;
+}
+
+static void screen_scroll_profile_note(uint8_t tile_pos,
+                                       dirty_mask_t dirty_mask,
+                                       uint32_t total_ms,
+                                       uint32_t tile_ms,
+                                       uint32_t layout_ms,
+                                       uint32_t compass_ms,
+                                       uint32_t dirty_ms,
+                                       uint32_t dots_ms)
+{
+    const uint32_t now_ms = lv_tick_get();
+
+    s_scroll_profile.count++;
+    s_scroll_profile.total_ms += total_ms;
+    s_scroll_profile.tile_ms_total += tile_ms;
+    s_scroll_profile.layout_ms_total += layout_ms;
+    s_scroll_profile.compass_ms_total += compass_ms;
+    s_scroll_profile.dirty_ms_total += dirty_ms;
+    s_scroll_profile.dots_ms_total += dots_ms;
+
+    if (total_ms > s_scroll_profile.max_ms)
+    {
+        s_scroll_profile.max_ms = total_ms;
+        s_scroll_profile.max_tile_pos = tile_pos;
+        s_scroll_profile.max_page_id = page_id_at(tile_pos);
+    }
+    if (tile_ms > s_scroll_profile.tile_ms_max) s_scroll_profile.tile_ms_max = tile_ms;
+    if (layout_ms > s_scroll_profile.layout_ms_max) s_scroll_profile.layout_ms_max = layout_ms;
+    if (compass_ms > s_scroll_profile.compass_ms_max) s_scroll_profile.compass_ms_max = compass_ms;
+    if (dirty_ms > s_scroll_profile.dirty_ms_max) s_scroll_profile.dirty_ms_max = dirty_ms;
+    if (dots_ms > s_scroll_profile.dots_ms_max) s_scroll_profile.dots_ms_max = dots_ms;
+
+    if (total_ms >= UI_SCROLL_SLOW_MS)
+    {
+        s_scroll_profile.slow_count++;
+        s_scroll_profile.slow_mask_or |= dirty_mask;
+    }
+
+    screen_scroll_profile_maybe_print(now_ms);
+}
+#endif
 
 /* =========================================================
  * 样式 (静态初始化一次)
@@ -105,6 +224,10 @@ void reset_transient_ui_refs(void)
     s_edit_flash_badge = NULL;
     s_edit_flash_val_lbl = NULL;
     edit_flash_stop();
+    screen_scroll_dots_reset_cache();
+    s_visible_tile_pos = PAGE_POS_INFO;
+    s_pending_page_dirty_pos = 0xFFU;
+    s_pending_page_dirty_due_ms = 0U;
 
     /* 子菜单/编辑态相关状态也一起回到初始值，确保下一次进入页面时完全干净。 */
     ui_state_set_sub_history_depth(0U);
@@ -269,6 +392,17 @@ void screen_create(void)
  * ========================================================= */
 void screen_scroll_to_page(uint8_t tile_pos)
 {
+#if UI_SCROLL_PROFILE_ENABLED
+    uint32_t start_ms = 0U;
+    uint32_t mark_ms = 0U;
+    uint32_t tile_ms = 0U;
+    uint32_t layout_ms = 0U;
+    uint32_t compass_ms = 0U;
+    uint32_t dirty_ms = 0U;
+    uint32_t dots_ms = 0U;
+    dirty_mask_t dirty_mask = DIRTY_NONE;
+#endif
+
     /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
 
@@ -285,6 +419,25 @@ void screen_scroll_to_page(uint8_t tile_pos)
         return;
     }
 
+#if UI_SCROLL_PROFILE_ENABLED
+    start_ms = lv_tick_get();
+    mark_ms = start_ms;
+#endif
+
+    if (tile_pos == s_visible_tile_pos)
+    {
+#if UI_SCROLL_PROFILE_ENABLED
+        s_scroll_profile.skipped_same++;
+#endif
+        screen_schedule_visible_page_dirty(tile_pos);
+#if UI_SCROLL_PROFILE_ENABLED
+        dirty_ms = lv_tick_get() - mark_ms;
+        screen_scroll_profile_note(tile_pos, screen_visible_page_dirty_mask(tile_pos),
+                                   dirty_ms, 0U, 0U, 0U, dirty_ms, 0U);
+#endif
+        return;
+    }
+
     if (tile_pos == 0)
     {
         /* 首屏需要清掉残留动画，保证返回 INFO 页时位置绝对归零。 */
@@ -293,25 +446,44 @@ void screen_scroll_to_page(uint8_t tile_pos)
     }
 
     lv_obj_set_tile(s_tileview, tile, TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
+    s_visible_tile_pos = tile_pos;
+#if UI_SCROLL_PROFILE_ENABLED
+    tile_ms = lv_tick_get() - mark_ms;
+    mark_ms = lv_tick_get();
+#endif
     if (s_tile_layout_generation[tile_pos] != s_layout_generation)
     {
         /* 首次进入或重建后才补一次 layout。
-         * 普通切页只切 tile 并重排当前页订阅数据，避免每次翻页都整页判脏。 */
+         * 普通切页只切 tile 并重排当前页订阅数据，避免每次翻页都整页判脏。
+         * 这里不能再主动 invalidate 整个 tile；重建产生的新对象和后续
+         * bus_requeue_dirty() 会按真实变化补脏区，整页 invalidation 会把
+         * LVGL handler 峰值放大到数百 ms。 */
         lv_obj_update_layout(tile);
-        lv_obj_invalidate(tile);
         s_tile_layout_generation[tile_pos] = s_layout_generation;
     }
+#if UI_SCROLL_PROFILE_ENABLED
+    layout_ms = lv_tick_get() - mark_ms;
+    mark_ms = lv_tick_get();
+#endif
 
     /* 罗盘页进入时需要立刻补一次航向刷新，避免显示滞后。 */
     if (page_id_at(tile_pos) == PAGE_ID_COMPASS)
     {
         card_compass_refresh_heading(true);
     }
+#if UI_SCROLL_PROFILE_ENABLED
+    compass_ms = lv_tick_get() - mark_ms;
+    mark_ms = lv_tick_get();
+#endif
 
-    /* 切页后只补当前页关心的数据域。
-     * 后台刷新已经按可见页收敛，不可见页不会持续同步；用户滑到新页时必须
-     * 立即补一次该页 dirty，避免等待下一次传感器变化才看到最新数据。 */
-    bus_requeue_dirty(screen_visible_page_dirty_mask(tile_pos));
+#if UI_SCROLL_PROFILE_ENABLED
+    dirty_mask = screen_visible_page_dirty_mask(tile_pos);
+#endif
+    screen_schedule_visible_page_dirty(tile_pos);
+#if UI_SCROLL_PROFILE_ENABLED
+    dirty_ms = lv_tick_get() - mark_ms;
+    mark_ms = lv_tick_get();
+#endif
 
     /* SETUP（最后一页）不显示 dots，只有 DASH 动态页面才更新 */
     if (tile_pos >= PAGE_POS_DYNAMIC_FIRST && tile_pos < page_setup_display_pos())
@@ -333,6 +505,66 @@ void screen_scroll_to_page(uint8_t tile_pos)
     {
         screen_update_scroll_dots(0, false);
     }
+#if UI_SCROLL_PROFILE_ENABLED
+    dots_ms = lv_tick_get() - mark_ms;
+    screen_scroll_profile_note(tile_pos, dirty_mask, lv_tick_get() - start_ms,
+                               tile_ms, layout_ms, compass_ms, dirty_ms, dots_ms);
+#endif
+}
+
+uint8_t screen_visible_tile_pos_get(void)
+{
+    return s_visible_tile_pos;
+}
+
+static void screen_flush_visible_page_dirty(uint8_t tile_pos)
+{
+    /* 切页后只补当前页关心的数据域。
+     * 后台刷新已经按可见页收敛，不可见页不会持续同步；用户滑到新页时必须
+     * 补一次该页 dirty，避免等待下一次传感器变化才看到最新数据。 */
+    dirty_mask_t mask = screen_visible_page_dirty_mask(tile_pos);
+    if (mask != DIRTY_NONE)
+    {
+        bus_requeue_dirty(mask);
+    }
+}
+
+static void screen_schedule_visible_page_dirty(uint8_t tile_pos)
+{
+#if UI_PAGE_DIRTY_DEFER_ENABLED
+    const uint32_t now_ms = lv_tick_get();
+
+    if (s_pending_page_dirty_pos != tile_pos)
+    {
+        s_pending_page_dirty_pos = tile_pos;
+        s_pending_page_dirty_due_ms = now_ms + UI_PAGE_DIRTY_DEFER_WINDOW_MS;
+    }
+#else
+    screen_flush_visible_page_dirty(tile_pos);
+#endif
+}
+
+void screen_poll_deferred_page_dirty(void)
+{
+#if UI_PAGE_DIRTY_DEFER_ENABLED
+    uint8_t tile_pos = s_pending_page_dirty_pos;
+
+    if (tile_pos == 0xFFU)
+    {
+        return;
+    }
+
+    if ((int32_t)(lv_tick_get() - s_pending_page_dirty_due_ms) < 0)
+    {
+        return;
+    }
+
+    s_pending_page_dirty_pos = 0xFFU;
+    if (tile_pos == ui_state_get_dash_page())
+    {
+        screen_flush_visible_page_dirty(tile_pos);
+    }
+#endif
 }
 
 static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
@@ -432,7 +664,7 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
     return mask;
 }
 
-static dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos)
+dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos)
 {
     uint8_t page_id = page_id_at(tile_pos);
 
@@ -463,14 +695,11 @@ static dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos)
 
 bool screen_page_id_refresh_visible(page_id_t page_id)
 {
-    uint8_t dash_page = ui_state_get_dash_page();
-
-    return page_id_at(dash_page) == page_id;
+    return page_id_at(s_visible_tile_pos) == page_id;
 }
 
 bool screen_custom_card_refresh_visible(uint8_t custom_card_idx)
 {
-    uint8_t dash_page = ui_state_get_dash_page();
     uint8_t storage_pos;
 
     if (custom_card_idx >= MAX_CUSTOM_CARDS)
@@ -478,18 +707,17 @@ bool screen_custom_card_refresh_visible(uint8_t custom_card_idx)
         return false;
     }
 
-    if (page_id_at(dash_page) != PAGE_ID_CUSTOM_GRID)
+    if (page_id_at(s_visible_tile_pos) != PAGE_ID_CUSTOM_GRID)
     {
         return false;
     }
 
-    storage_pos = page_storage_pos(dash_page);
+    storage_pos = page_storage_pos(s_visible_tile_pos);
     return ui_custom_card_slot_get(storage_pos) == custom_card_idx;
 }
 
 bool screen_obj_refresh_visible(lv_obj_t *obj)
 {
-    uint8_t dash_page = ui_state_get_dash_page();
     lv_obj_t *visible_tile;
 
     if (obj == NULL || !lv_obj_is_valid(obj))
@@ -510,12 +738,12 @@ bool screen_obj_refresh_visible(lv_obj_t *obj)
         }
     }
 
-    if (dash_page >= PAGE_COUNT)
+    if (s_visible_tile_pos >= PAGE_COUNT)
     {
         return false;
     }
 
-    visible_tile = s_tile_objs[dash_page];
+    visible_tile = s_tile_objs[s_visible_tile_pos];
     if (visible_tile == NULL || !lv_obj_is_valid(visible_tile))
     {
         return false;
@@ -562,6 +790,13 @@ bool screen_obj_refresh_visible(lv_obj_t *obj)
  * ========================================================= */
 void screen_refresh_all_widgets(void)
 {
+    uint8_t dash_page = ui_state_get_dash_page();
+    bool visible_page_is_custom = (page_id_at(dash_page) == PAGE_ID_CUSTOM_GRID);
+    uint8_t visible_storage_pos = page_storage_pos(dash_page);
+    uint8_t visible_custom_card_idx = visible_page_is_custom ?
+                                      ui_custom_card_slot_get(visible_storage_pos) :
+                                      0xFFU;
+
     /* 1. 同步左侧固定区配置 */
     /* 注意这里不直接保存每个组件的 label 句柄，而是按配置遍历 widget_id。
      * 好处是布局变了、卡片顺序变了，刷新逻辑不用跟着大改。 */
@@ -574,12 +809,19 @@ void screen_refresh_all_widgets(void)
         }
     }
 
-    /* 2. 同步右侧全部自定义卡片配置 */
-    /* 右侧 5F 卡片也是同样思路：刷新跟着“配置里有哪些组件”走，而不是跟着“某个页固定有哪些控件”走。 */
+    /* 2. 同步当前可见自定义卡片。
+     * 不可见卡片对象已经建好，但不需要在启动/重建时马上写文本。
+     * 用户切到对应页时 screen_scroll_to_page() 会按该页订阅的 dirty 域补齐数据，
+     * 这样避免“10 页小组件全开”时启动和布局重建一次性刷新所有离屏组件。 */
     for (uint8_t page_idx = 0;
             page_idx < ui_custom_card_count_get() && page_idx < MAX_CUSTOM_CARDS;
             page_idx++)
     {
+        if (!visible_page_is_custom || page_idx != visible_custom_card_idx)
+        {
+            continue;
+        }
+
         for (uint8_t i = 0; i < ui_custom_card_widget_count_get(page_idx); i++)
         {
             const grid_widget_t *widget = ui_custom_card_widget_get(page_idx, i);
@@ -893,18 +1135,30 @@ void screen_update_setup_badge(uint8_t item_idx, const char *value)
 void screen_refresh_compass_target(void)
 {
     page_t *c = page_get_by_id(PAGE_ID_COMPASS);
+    if (!screen_page_id_refresh_visible(PAGE_ID_COMPASS))
+    {
+        return;
+    }
     if (c && c->update_cb) c->update_cb();
 }
 
 void screen_refresh_gas_menu(void)
 {
     page_t *c = page_get_by_id(PAGE_ID_GAS);
+    if (!screen_page_id_refresh_visible(PAGE_ID_GAS))
+    {
+        return;
+    }
     if (c && c->update_cb) c->update_cb();
 }
 
 void screen_refresh_setup_menu(void)
 {
     page_t *c = page_get_by_id(PAGE_ID_SETUP);
+    if (!screen_page_id_refresh_visible(PAGE_ID_SETUP))
+    {
+        return;
+    }
     if (c && c->update_cb) c->update_cb();
 }
 

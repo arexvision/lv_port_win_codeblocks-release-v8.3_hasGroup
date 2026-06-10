@@ -143,6 +143,7 @@ void ui_handle_rotate(int8_t dir);
 
 void ui_handle_click(void);
 void ui_handle_back(void);
+void ui_state_poll_deferred_navigation(void);
 
 ui_state_t ui_state_get_state(void);
 void ui_state_set_state(ui_state_t state);

@@ -7,6 +7,7 @@
 
 #include "alarm_view.h"
 #include "alarm.h"
+#include "../screen/screen.h"
 
 #include <stdio.h>
 
@@ -312,6 +313,10 @@ static void alarm_view_visit_targets(const alarm_view_context_t *ctx,
     {
         lv_obj_t *container = (c < max_count && ctx->custom_cards) ? ctx->custom_cards[c] : ctx->left_anchor;
         if (!container)
+        {
+            continue;
+        }
+        if (!restore && (c < max_count) && !screen_custom_card_refresh_visible(c))
         {
             continue;
         }

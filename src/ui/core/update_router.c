@@ -19,13 +19,34 @@
 #include "../comp/comp_view.h"
 #include "../cards/card_compass.h"
 
-static void ui_router_refresh_text_widget(comp_id_t widget_id, uint8_t pod_index)
-{
-    /* 文本型组件的刷新统一走 VM 更新 -> comp_set_text，避免每个调用点重复组装字符串。 */
-    ui_vm_value_text_t value_vm;
+#include <string.h>
 
-    ui_vm_value_text_update(&value_vm, widget_id, pod_index);
-    comp_set_text(widget_id, value_vm.text);
+#define UI_ROUTER_COMP_ID_MAX  64U
+
+typedef struct
+{
+    uint8_t dash_page;
+    uint8_t page_id;
+    uint8_t storage_pos;
+    uint8_t custom_card_idx;
+    dirty_mask_t visible_widget_mask;
+} ui_router_visible_ctx_t;
+
+__attribute__((weak)) void app_ui_perf_note_router_cost(uint32_t total_ms,
+                                                        uint32_t deco_ms,
+                                                        uint32_t ndl_ms,
+                                                        uint32_t plan_ms,
+                                                        uint32_t widget_ms,
+                                                        uint32_t info_ms,
+                                                        uint32_t mask)
+{
+    (void)total_ms;
+    (void)deco_ms;
+    (void)ndl_ms;
+    (void)plan_ms;
+    (void)widget_ms;
+    (void)info_ms;
+    (void)mask;
 }
 
 static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
@@ -96,109 +117,139 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     }
 }
 
-static void ui_router_refresh_widget_if_dirty(const grid_widget_t *widget, dirty_mask_t mask)
+static void ui_router_refresh_widget_if_dirty(const grid_widget_t *widget,
+                                              dirty_mask_t mask,
+                                              uint8_t refreshed[UI_ROUTER_COMP_ID_MAX])
 {
+    comp_id_t widget_id;
+
     if (widget == NULL || widget->widget_id == COMP_EMPTY)
     {
         return;
     }
 
-    if (ui_router_widget_dirty_mask(widget->widget_id) & mask)
+    widget_id = (comp_id_t)widget->widget_id;
+    if ((uint8_t)widget_id < UI_ROUTER_COMP_ID_MAX && refreshed[(uint8_t)widget_id] != 0U)
     {
-        comp_sync_data(widget->widget_id);
+        return;
+    }
+
+    if (ui_router_widget_dirty_mask(widget_id) & mask)
+    {
+        if ((uint8_t)widget_id < UI_ROUTER_COMP_ID_MAX)
+        {
+            refreshed[(uint8_t)widget_id] = 1U;
+        }
+        comp_sync_data(widget_id);
     }
 }
 
-static void ui_router_refresh_layout_widgets(dirty_mask_t mask)
+static void ui_router_visible_ctx_update(ui_router_visible_ctx_t *ctx)
 {
-    for (uint8_t i = 0; i < ui_left_widget_count_get(); i++)
+    if (ctx == NULL)
     {
-        ui_router_refresh_widget_if_dirty(ui_left_widget_get(i), mask);
+        return;
     }
 
-    for (uint8_t page_idx = 0; page_idx < ui_custom_card_count_get() && page_idx < MAX_CUSTOM_CARDS; page_idx++)
-    {
-        if (!screen_custom_card_refresh_visible(page_idx))
-        {
-            continue;
-        }
-
-        for (uint8_t i = 0; i < ui_custom_card_widget_count_get(page_idx); i++)
-        {
-            ui_router_refresh_widget_if_dirty(ui_custom_card_widget_get(page_idx, i), mask);
-        }
-    }
-}
-
-static dirty_mask_t ui_router_custom_card_subscription_mask(uint8_t custom_card_idx)
-{
-    dirty_mask_t mask = DIRTY_NONE;
-
-    if (custom_card_idx >= ui_custom_card_count_get() || custom_card_idx >= MAX_CUSTOM_CARDS)
-    {
-        return DIRTY_NONE;
-    }
-
-    for (uint8_t i = 0; i < ui_custom_card_widget_count_get(custom_card_idx); i++)
-    {
-        const grid_widget_t *widget = ui_custom_card_widget_get(custom_card_idx, i);
-        if (widget && widget->widget_id != COMP_EMPTY)
-        {
-            mask |= ui_router_widget_dirty_mask(widget->widget_id);
-        }
-    }
-
-    return mask;
-}
-
-static dirty_mask_t ui_router_layout_subscription_mask(void)
-{
-    dirty_mask_t mask = DIRTY_NONE;
-    uint8_t dash_page = ui_state_get_dash_page();
-    uint8_t page_id = page_id_at(dash_page);
+    ctx->dash_page = ui_state_get_dash_page();
+    ctx->storage_pos = page_storage_pos(ctx->dash_page);
+    ctx->page_id = (ctx->storage_pos == 0xFFU) ? PAGE_ID_UNUSED : g_sys_page_order(ctx->storage_pos);
+    ctx->custom_card_idx = 0xFFU;
+    ctx->visible_widget_mask = DIRTY_NONE;
 
     for (uint8_t i = 0; i < ui_left_widget_count_get(); i++)
     {
         const grid_widget_t *widget = ui_left_widget_get(i);
         if (widget && widget->widget_id != COMP_EMPTY)
         {
-            mask |= ui_router_widget_dirty_mask(widget->widget_id);
+            ctx->visible_widget_mask |= ui_router_widget_dirty_mask(widget->widget_id);
         }
     }
 
-    switch (page_id)
+    if (ctx->page_id == PAGE_ID_CUSTOM_GRID && ctx->storage_pos != 0xFFU)
     {
-    case PAGE_ID_COMPASS:
-        mask |= DIRTY_COMPASS;
-        break;
-    case PAGE_ID_DECO:
-        mask |= DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX | DIRTY_DIVE_CONFIG;
-        break;
-    case PAGE_ID_GAS:
-        mask |= DIRTY_GAS_SUPPLY;
-        break;
-    case PAGE_ID_PLAN:
-        mask |= DIRTY_PLAN;
-        break;
-    case PAGE_ID_CUSTOM_GRID:
-    {
-        uint8_t storage_pos = page_storage_pos(dash_page);
-        uint8_t custom_card_idx = ui_custom_card_slot_get(storage_pos);
-        mask |= ui_router_custom_card_subscription_mask(custom_card_idx);
-        break;
+        ctx->custom_card_idx = ui_custom_card_slot_get(ctx->storage_pos);
+        if (ctx->custom_card_idx < ui_custom_card_count_get() &&
+            ctx->custom_card_idx < MAX_CUSTOM_CARDS)
+        {
+            for (uint8_t i = 0; i < ui_custom_card_widget_count_get(ctx->custom_card_idx); i++)
+            {
+                const grid_widget_t *widget = ui_custom_card_widget_get(ctx->custom_card_idx, i);
+                if (widget && widget->widget_id != COMP_EMPTY)
+                {
+                    ctx->visible_widget_mask |= ui_router_widget_dirty_mask(widget->widget_id);
+                }
+            }
+        }
     }
-    default:
-        break;
+}
+
+static bool ui_router_visible_page_id(const ui_router_visible_ctx_t *ctx, uint8_t page_id)
+{
+    return (ctx != NULL && ctx->page_id == page_id);
+}
+
+static bool ui_router_visible_custom_card(const ui_router_visible_ctx_t *ctx, uint8_t custom_card_idx)
+{
+    return (ctx != NULL &&
+            ctx->page_id == PAGE_ID_CUSTOM_GRID &&
+            ctx->custom_card_idx == custom_card_idx);
+}
+
+static void ui_router_refresh_layout_widgets(dirty_mask_t mask,
+                                             const ui_router_visible_ctx_t *ctx)
+{
+    uint8_t refreshed[UI_ROUTER_COMP_ID_MAX];
+
+    memset(refreshed, 0, sizeof(refreshed));
+
+    for (uint8_t i = 0; i < ui_left_widget_count_get(); i++)
+    {
+        ui_router_refresh_widget_if_dirty(ui_left_widget_get(i), mask, refreshed);
     }
 
-    return mask;
+    if (ctx == NULL ||
+        ctx->page_id != PAGE_ID_CUSTOM_GRID ||
+        ctx->custom_card_idx >= ui_custom_card_count_get() ||
+        ctx->custom_card_idx >= MAX_CUSTOM_CARDS)
+    {
+        return;
+    }
+
+    for (uint8_t i = 0; i < ui_custom_card_widget_count_get(ctx->custom_card_idx); i++)
+    {
+        ui_router_refresh_widget_if_dirty(ui_custom_card_widget_get(ctx->custom_card_idx, i), mask, refreshed);
+    }
+}
+
+static dirty_mask_t ui_router_layout_subscription_mask(const ui_router_visible_ctx_t *ctx)
+{
+    if (ctx == NULL)
+    {
+        return DIRTY_NONE;
+    }
+
+    switch (ctx->page_id)
+    {
+    case PAGE_ID_COMPASS:
+        return ctx->visible_widget_mask | DIRTY_COMPASS;
+    case PAGE_ID_DECO:
+        return ctx->visible_widget_mask |
+               DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX | DIRTY_DIVE_CONFIG;
+    case PAGE_ID_GAS:
+        return ctx->visible_widget_mask | DIRTY_GAS_SUPPLY;
+    case PAGE_ID_PLAN:
+        return ctx->visible_widget_mask | DIRTY_PLAN;
+    default:
+        return ctx->visible_widget_mask;
+    }
 }
 
 static dirty_mask_t ui_router_state_subscription_mask(void)
 {
     ui_state_t state = ui_state_get_state();
 
-    if (state == UI_INFO || (state == UI_SUB_MENU && ui_state_get_sub_parent() == UI_INFO))
+    if (state == UI_SUB_MENU && ui_state_get_sub_parent() == UI_INFO)
     {
         return DIRTY_INFO_REFRESH_MASK;
     }
@@ -206,10 +257,60 @@ static dirty_mask_t ui_router_state_subscription_mask(void)
     return DIRTY_NONE;
 }
 
-static dirty_mask_t ui_router_subscription_mask(void)
+static bool ui_router_widget_visible(comp_id_t widget_id, const ui_router_visible_ctx_t *ctx)
+{
+    for (uint8_t i = 0U; i < ui_left_widget_count_get(); i++)
+    {
+        const grid_widget_t *widget = ui_left_widget_get(i);
+        if (widget != NULL && (comp_id_t)widget->widget_id == widget_id)
+        {
+            return true;
+        }
+    }
+
+    if (ctx != NULL &&
+        ctx->page_id == PAGE_ID_CUSTOM_GRID &&
+        ctx->custom_card_idx < ui_custom_card_count_get() &&
+        ctx->custom_card_idx < MAX_CUSTOM_CARDS)
+    {
+        for (uint8_t i = 0U; i < ui_custom_card_widget_count_get(ctx->custom_card_idx); i++)
+        {
+            const grid_widget_t *widget = ui_custom_card_widget_get(ctx->custom_card_idx, i);
+            if (widget != NULL && (comp_id_t)widget->widget_id == widget_id)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+static bool ui_router_any_widget_visible(dirty_mask_t widget_mask, const ui_router_visible_ctx_t *ctx)
+{
+    return (ctx != NULL && (ctx->visible_widget_mask & widget_mask) != 0U);
+}
+
+static bool ui_router_deco_vm_needed(dirty_mask_t mask, const ui_router_visible_ctx_t *ctx)
+{
+    if (ui_router_visible_page_id(ctx, PAGE_ID_DECO))
+    {
+        return true;
+    }
+
+    if ((mask & DIRTY_TISSUE_TOX) != 0U &&
+        ui_router_any_widget_visible(DIRTY_TISSUE_TOX, ctx))
+    {
+        return true;
+    }
+
+    return ui_router_widget_visible(COMP_NDL_STOP_1606, ctx);
+}
+
+static dirty_mask_t ui_router_subscription_mask(const ui_router_visible_ctx_t *ctx)
 {
     return DIRTY_UI_LAYOUT | DIRTY_ALARM |
-           ui_router_layout_subscription_mask() |
+           ui_router_layout_subscription_mask(ctx) |
            ui_router_state_subscription_mask();
 }
 
@@ -227,6 +328,16 @@ void ui_update_router_dispatch(dirty_mask_t mask)
     ui_vm_ascent_t ascent_vm;
     ui_vm_plan_chart_t plan_chart_vm;
     bool deco_vm_ready = false;
+    uint32_t route_start_ms = lv_tick_get();
+    uint32_t deco_ms = 0U;
+    uint32_t ndl_ms = 0U;
+    uint32_t plan_ms = 0U;
+    uint32_t widget_ms = 0U;
+    uint32_t info_ms = 0U;
+    dirty_mask_t original_mask = mask;
+    ui_router_visible_ctx_t visible_ctx;
+
+    ui_router_visible_ctx_update(&visible_ctx);
 
     if (mask & DIRTY_UI_LAYOUT)
     {
@@ -249,24 +360,28 @@ void ui_update_router_dispatch(dirty_mask_t mask)
         return;
     }
 
-    mask &= ui_router_subscription_mask();
+    mask &= ui_router_subscription_mask(&visible_ctx);
     if (mask == DIRTY_NONE)
     {
         return;
     }
 
-    if (mask & (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX | DIRTY_DIVE_CONFIG))
+    if ((mask & (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX | DIRTY_DIVE_CONFIG)) &&
+        ui_router_deco_vm_needed(mask, &visible_ctx))
     {
+        uint32_t start_ms = lv_tick_get();
         ui_vm_deco_update(&deco_vm, NULL, NULL);
         deco_vm_ready = true;
-        if (screen_page_id_refresh_visible(PAGE_ID_DECO))
+        if (ui_router_visible_page_id(&visible_ctx, PAGE_ID_DECO))
         {
             page_registry_update_deco_vm(&deco_vm);
         }
+        deco_ms += lv_tick_get() - start_ms;
     }
 
     if (mask & (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS | DIRTY_TISSUE_TOX))
     {
+        uint32_t start_ms = lv_tick_get();
         /* 减压态势相关域共享 deco VM，但组织柱只在组织/毒性域变化时重绘。 */
         if (mask & DIRTY_TISSUE_TOX)
         {
@@ -275,29 +390,41 @@ void ui_update_router_dispatch(dirty_mask_t mask)
                 comp_refresh_tissue_widgets(&deco_vm, mask);
             }
         }
+        deco_ms += lv_tick_get() - start_ms;
     }
 
-    if (mask & DIRTY_DIVE_PROFILE)
+    if ((mask & DIRTY_DIVE_PROFILE) &&
+        (ui_router_widget_visible(COMP_ASCENT_0806, &visible_ctx) ||
+         ui_router_widget_visible(COMP_ASCENT_0812, &visible_ctx)))
     {
+        uint32_t start_ms = lv_tick_get();
         ui_vm_ascent_update(&ascent_vm, bus_get_ascent_rate());
         comp_refresh_ascent_icons(&ascent_vm);
+        deco_ms += lv_tick_get() - start_ms;
     }
 
-    ui_vm_ndl_stop_update(&ndl_stop_vm, NULL);
-    comp_refresh_ndl_stop_vm(&ndl_stop_vm, mask);
+    if ((mask & (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS)) &&
+        ui_router_widget_visible(COMP_NDL_STOP_1606, &visible_ctx))
+    {
+        uint32_t start_ms = lv_tick_get();
+        ui_vm_ndl_stop_update(&ndl_stop_vm, NULL);
+        comp_refresh_ndl_stop_vm(&ndl_stop_vm, mask);
+        ndl_ms += lv_tick_get() - start_ms;
+    }
 
     if (mask & DIRTY_SYSTEM)
     {
-        /* 系统域统一覆盖电量、主温和板级温度，SYS 复合组件一次刷新两格。 */
-        ui_router_refresh_text_widget(COMP_BATTERY_0806, 0U);
-        ui_router_refresh_text_widget(COMP_TEMP_0806, 0U);
-        ui_router_refresh_text_widget(COMP_TEMP_MIN_0806, 0U);
-        ui_router_refresh_text_widget(COMP_TEMP_AVG_0806, 0U);
-        refresh_left_aux_slots();
-        comp_refresh_sys(mask);
+        if (ui_router_widget_visible(COMP_BATT_TEMP_0806, &visible_ctx) ||
+            ui_router_widget_visible(COMP_PRJ_TEMP_0806, &visible_ctx))
+        {
+            /* 左侧固定栏的辅助温度标签不是通用 widget 子树，不能依赖后续
+             * ui_router_refresh_layout_widgets()；其它系统类 widget 交给统一
+             * layout widget 路由，避免同一帧重复写 LVGL label。 */
+            refresh_left_aux_slots();
+        }
     }
 
-    if (mask & DIRTY_COMPASS)
+    if ((mask & DIRTY_COMPASS) && ui_router_visible_page_id(&visible_ctx, PAGE_ID_COMPASS))
     {
         ui_vm_compass_update(&compass_vm, NULL, NULL);
         card_compass_refresh_heading_vm(&compass_vm, false);
@@ -311,30 +438,26 @@ void ui_update_router_dispatch(dirty_mask_t mask)
          * - PPO2/MOD 等派生数据显示
          * - GAS 菜单页自身的选中态
          * 所以这里不能只刷某一个 label。 */
-        ui_vm_gas_update(&gas_vm,
-                         NULL,
-                         NULL,
-                         ui_state_get_state(),
-                         ui_state_get_gas_cursor());
-        if (screen_page_id_refresh_visible(PAGE_ID_GAS))
+        if (ui_router_visible_page_id(&visible_ctx, PAGE_ID_GAS))
         {
+            ui_vm_gas_update(&gas_vm,
+                             NULL,
+                             NULL,
+                             ui_state_get_state(),
+                             ui_state_get_gas_cursor());
             page_registry_update_gas_vm(&gas_vm);
         }
     }
 
     if (mask & DIRTY_PLAN)
     {
+        uint32_t start_ms = lv_tick_get();
         ui_vm_plan_chart_update(&plan_chart_vm);
-        if (screen_page_id_refresh_visible(PAGE_ID_PLAN))
+        if (ui_router_visible_page_id(&visible_ctx, PAGE_ID_PLAN))
         {
             page_registry_update_plan_vm(&plan_chart_vm);
         }
-    }
-
-    if (mask & DIRTY_DIVE_PROFILE)
-    {
-        ui_router_refresh_text_widget(COMP_DEPTH_MAX_0806, 0U);
-        ui_router_refresh_text_widget(COMP_DEPTH_AVG_0806, 0U);
+        plan_ms += lv_tick_get() - start_ms;
     }
 
     if (mask & DIRTY_ALARM)
@@ -344,12 +467,24 @@ void ui_update_router_dispatch(dirty_mask_t mask)
 
     if (mask & DIRTY_INFO_REFRESH_MASK)
     {
+        uint32_t start_ms = lv_tick_get();
         screen_refresh_info_submenu_if_open();
+        info_ms += lv_tick_get() - start_ms;
     }
 
     if (mask & DIRTY_WIDGET_REFRESH_MASK)
     {
+        uint32_t start_ms = lv_tick_get();
         /* 只刷新当前布局里订阅本轮 dirty 的组件，避免新模块再维护临时组件清单。 */
-        ui_router_refresh_layout_widgets(mask & DIRTY_WIDGET_REFRESH_MASK);
+        ui_router_refresh_layout_widgets(mask & DIRTY_WIDGET_REFRESH_MASK, &visible_ctx);
+        widget_ms += lv_tick_get() - start_ms;
     }
+
+    app_ui_perf_note_router_cost(lv_tick_get() - route_start_ms,
+                                 deco_ms,
+                                 ndl_ms,
+                                 plan_ms,
+                                 widget_ms,
+                                 info_ms,
+                                 (uint32_t)original_mask);
 }

@@ -11,14 +11,12 @@
 #include "../core/data.h"
 #include "../core/vm/ui_vm_menu.h"
 #include "../core/vm/ui_vm_plan_view.h"
+#include "submenu_dive_plan_port.h"
 
 #ifdef PC_SIMULATOR
 #include "../../algo_sim/deco_core.h"
 #else
 #include "rtthread.h"
-#ifdef RT_USING_PM
-#include "drivers/pm.h"
-#endif
 #endif
 
 #include <stdio.h>
@@ -314,21 +312,17 @@ static uint32_t plan_async_now_ms(void)
 
 static void plan_async_pm_hold(void)
 {
-#ifdef RT_USING_PM
     /*
      * DivePlan 是 CPU 密集型后台计算，不能通过提高线程优先级来提速：
      * LCD/LVGL/DMA 消费链路必须始终优先于它。这里仅阻止计算期间进入
      * idle 低功耗，让大计算稳定跑完，同时不破坏 RTOS 调度优先级。
      */
-    rt_pm_request(PM_SLEEP_MODE_IDLE);
-#endif
+    submenu_dive_plan_port_pm_hold();
 }
 
 static void plan_async_pm_release(void)
 {
-#ifdef RT_USING_PM
-    rt_pm_release(PM_SLEEP_MODE_IDLE);
-#endif
+    submenu_dive_plan_port_pm_release();
 }
 
 static void plan_async_worker(void *parameter)

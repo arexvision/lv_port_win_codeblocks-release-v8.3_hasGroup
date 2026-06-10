@@ -8,9 +8,12 @@
 #include "ui_state.h"
 #include "data.h"
 #include "ui_engine.h"
+#include "../../config/build/ui_build_flags.h"
+#include "../../config/build/ui_debug_flags.h"
 #include "../screen/page_registry.h"
 #include "../screen/screen.h"
 
+#include "lvgl/lvgl.h"
 #include <string.h>
 
 /* =========================================
@@ -31,6 +34,102 @@ static compass_cal_ui_state_t g_compass_cal_ui_state = COMPASS_CAL_IDLE;
 /* 罗盘航向锁定相关状态：pending 表示待触发，active 表示已经进入锁定。 */
 static bool g_heading_lock_pending = false;
 static bool g_heading_lock_active = false;
+static uint8_t s_pending_dash_page = 0xFFU;
+static uint32_t s_pending_dash_due_ms = 0U;
+static uint32_t s_last_click_ms = 0U;
+
+#if UI_CLICK_PROFILE_ENABLED
+extern void rt_kprintf(const char *fmt, ...);
+
+typedef struct
+{
+    uint32_t count;
+    uint32_t debounced;
+    uint32_t total_ms;
+    uint32_t max_ms;
+    uint32_t flush_ms_total;
+    uint32_t flush_ms_max;
+    uint32_t action_ms_total;
+    uint32_t action_ms_max;
+    uint32_t slow_count;
+    uint8_t max_state_before;
+    uint8_t max_state_after;
+    uint8_t max_page_id;
+    uint32_t last_print_ms;
+} ui_click_profile_t;
+
+static ui_click_profile_t s_click_profile;
+
+static void ui_click_profile_maybe_print(uint32_t now_ms)
+{
+    if (s_click_profile.last_print_ms == 0U)
+    {
+        s_click_profile.last_print_ms = now_ms;
+        return;
+    }
+
+    if ((now_ms - s_click_profile.last_print_ms) < UI_CLICK_PROFILE_INTERVAL_MS)
+    {
+        return;
+    }
+
+    const uint32_t count = (s_click_profile.count == 0U) ? 1U : s_click_profile.count;
+    rt_kprintf("[UI_CLICK] count=%lu debounced=%lu total_avg/max=%lu/%lu "
+               "flush_avg/max=%lu/%lu action_avg/max=%lu/%lu slow=%lu "
+               "max_state:%u->%u max_page=%u\n",
+               (unsigned long)s_click_profile.count,
+               (unsigned long)s_click_profile.debounced,
+               (unsigned long)(s_click_profile.total_ms / count),
+               (unsigned long)s_click_profile.max_ms,
+               (unsigned long)(s_click_profile.flush_ms_total / count),
+               (unsigned long)s_click_profile.flush_ms_max,
+               (unsigned long)(s_click_profile.action_ms_total / count),
+               (unsigned long)s_click_profile.action_ms_max,
+               (unsigned long)s_click_profile.slow_count,
+               (unsigned)s_click_profile.max_state_before,
+               (unsigned)s_click_profile.max_state_after,
+               (unsigned)s_click_profile.max_page_id);
+
+    memset(&s_click_profile, 0, sizeof(s_click_profile));
+    s_click_profile.last_print_ms = now_ms;
+}
+
+static void ui_click_profile_note(bool debounced,
+                                  uint8_t state_before,
+                                  uint8_t state_after,
+                                  uint8_t page_id,
+                                  uint32_t total_ms,
+                                  uint32_t flush_ms,
+                                  uint32_t action_ms)
+{
+    const uint32_t now_ms = lv_tick_get();
+
+    if (debounced)
+    {
+        s_click_profile.debounced++;
+        ui_click_profile_maybe_print(now_ms);
+        return;
+    }
+
+    s_click_profile.count++;
+    s_click_profile.total_ms += total_ms;
+    s_click_profile.flush_ms_total += flush_ms;
+    s_click_profile.action_ms_total += action_ms;
+
+    if (total_ms > s_click_profile.max_ms)
+    {
+        s_click_profile.max_ms = total_ms;
+        s_click_profile.max_state_before = state_before;
+        s_click_profile.max_state_after = state_after;
+        s_click_profile.max_page_id = page_id;
+    }
+    if (flush_ms > s_click_profile.flush_ms_max) s_click_profile.flush_ms_max = flush_ms;
+    if (action_ms > s_click_profile.action_ms_max) s_click_profile.action_ms_max = action_ms;
+    if (total_ms >= UI_CLICK_SLOW_MS) s_click_profile.slow_count++;
+
+    ui_click_profile_maybe_print(now_ms);
+}
+#endif
 
 /* =========================================
    Init
@@ -47,6 +146,9 @@ void ui_state_init(void)
     s_ui.menu_info_idx = 0;
     /* 边界充能计数归零，避免上一次进入菜单的“蓄力”残留。 */
     s_ui.wall_charge   = 0;
+    s_pending_dash_page = 0xFFU;
+    s_pending_dash_due_ms = 0U;
+    s_last_click_ms = 0U;
 }
 
 /* =========================================
@@ -69,10 +171,60 @@ void ui_refresh_all(void)
    ========================================= */
 void ui_go_to_page(uint8_t tile_pos)
 {
+    s_pending_dash_page = 0xFFU;
     /* 同步 UI 状态机中的当前页索引。 */
     s_ui.dash_page = tile_pos;
     /* 真正的页面切换动作交给 screen 层完成。 */
     screen_scroll_to_page(tile_pos);
+}
+
+static void ui_schedule_dash_page(uint8_t tile_pos)
+{
+#if UI_DASH_ROTATE_COALESCE_ENABLED
+    s_ui.dash_page = tile_pos;
+    s_pending_dash_page = tile_pos;
+    s_pending_dash_due_ms = lv_tick_get() + UI_DASH_ROTATE_COALESCE_WINDOW_MS;
+#else
+    ui_go_to_page(tile_pos);
+#endif
+}
+
+static void ui_flush_pending_dash_page(void)
+{
+#if UI_DASH_ROTATE_COALESCE_ENABLED
+    uint8_t tile_pos = s_pending_dash_page;
+
+    if (tile_pos == 0xFFU)
+    {
+        return;
+    }
+
+    s_pending_dash_page = 0xFFU;
+    if (tile_pos != ui_state_get_dash_page())
+    {
+        return;
+    }
+
+    s_ui.dash_page = tile_pos;
+    screen_scroll_to_page(tile_pos);
+#endif
+}
+
+void ui_state_poll_deferred_navigation(void)
+{
+#if UI_DASH_ROTATE_COALESCE_ENABLED
+    if (s_pending_dash_page == 0xFFU)
+    {
+        return;
+    }
+
+    if ((int32_t)(lv_tick_get() - s_pending_dash_due_ms) < 0)
+    {
+        return;
+    }
+
+    ui_flush_pending_dash_page();
+#endif
 }
 
 static void ui_return_to_card_home(void)
@@ -89,6 +241,11 @@ static void ui_return_to_card_home(void)
    ========================================= */
 void ui_handle_rotate(int8_t dir)
 {
+    if (s_ui.state != UI_DASH)
+    {
+        ui_flush_pending_dash_page();
+    }
+
     /* 旋钮方向统一由状态机解释，不同 UI 状态下含义不同。 */
     /* 这是真正的 UI 状态机入口之一。
      * 同一个物理输入，在 DASH/菜单/编辑态下会被翻译成完全不同的语义：
@@ -105,6 +262,17 @@ void ui_handle_rotate(int8_t dir)
         /* 仪表盘只允许在动态页范围内滑动；最后一页外侧保留为菜单入口。 */
         uint8_t dash_min = PAGE_POS_DYNAMIC_FIRST;
         uint8_t dash_max = page_setup_display_pos() - 1;
+
+        if (s_pending_dash_page != 0xFFU &&
+            ((s_ui.dash_page == dash_min && dir == -1) ||
+             (s_ui.dash_page == dash_max && dir == 1)))
+        {
+            /* 已经合并到边界页但屏幕尚未实际滚动时，先落地边界页。
+             * 边界蓄力必须以用户已经看到边界页为前提，否则会出现视觉还在中间页、
+             * 状态机却开始进入 INFO/SETUP 的错位。 */
+            ui_flush_pending_dash_page();
+            break;
+        }
 
 #if ENABLE_INFO_MENU
         if (s_ui.dash_page == dash_min && dir == -1)
@@ -151,7 +319,7 @@ void ui_handle_rotate(int8_t dir)
                 int8_t next = (int8_t)s_ui.dash_page + dir;
                 if (next < (int8_t)dash_min) next = (int8_t)dash_min;
                 if (next > (int8_t)dash_max) next = (int8_t)dash_max;
-                ui_go_to_page((uint8_t)next);
+                ui_schedule_dash_page((uint8_t)next);
             }
         break;
     }
@@ -289,11 +457,45 @@ void ui_handle_rotate(int8_t dir)
    ========================================= */
 void ui_handle_click(void)
 {
+#if UI_CLICK_DEBOUNCE_ENABLED || UI_CLICK_PROFILE_ENABLED
+    const uint32_t click_start_ms = lv_tick_get();
+#endif
+#if UI_CLICK_PROFILE_ENABLED
+    uint32_t mark_ms = click_start_ms;
+    uint32_t flush_ms = 0U;
+    uint8_t state_before = (uint8_t)s_ui.state;
+    uint8_t page_id_before = page_id_at(s_ui.dash_page);
+#endif
+
+#if UI_CLICK_DEBOUNCE_ENABLED
+    if (s_last_click_ms != 0U &&
+        (click_start_ms - s_last_click_ms) < UI_CLICK_DEBOUNCE_WINDOW_MS)
+    {
+#if UI_CLICK_PROFILE_ENABLED
+        ui_click_profile_note(true, state_before, (uint8_t)s_ui.state, page_id_before,
+                              0U, 0U, 0U);
+#endif
+        return;
+    }
+    s_last_click_ms = click_start_ms;
+#endif
+
+    ui_flush_pending_dash_page();
+#if UI_CLICK_PROFILE_ENABLED
+    flush_ms = lv_tick_get() - mark_ms;
+    mark_ms = lv_tick_get();
+#endif
+
     {
         extern bool alarm_mark_clear_requested(void);
         if (alarm_mark_clear_requested())
         {
             s_ui.alarm_pending_click = false;
+#if UI_CLICK_PROFILE_ENABLED
+            ui_click_profile_note(false, state_before, (uint8_t)s_ui.state, page_id_before,
+                                  lv_tick_get() - click_start_ms, flush_ms,
+                                  lv_tick_get() - mark_ms);
+#endif
             return;
         }
     }
@@ -434,6 +636,12 @@ void ui_handle_click(void)
     default:
         break;
     }
+
+#if UI_CLICK_PROFILE_ENABLED
+    ui_click_profile_note(false, state_before, (uint8_t)s_ui.state, page_id_before,
+                          lv_tick_get() - click_start_ms, flush_ms,
+                          lv_tick_get() - mark_ms);
+#endif
 }
 
 /* =========================================
@@ -441,6 +649,8 @@ void ui_handle_click(void)
    ========================================= */
 void ui_handle_back(void)
 {
+    ui_flush_pending_dash_page();
+
     {
         extern bool alarm_mark_clear_requested(void);
         if (alarm_mark_clear_requested())

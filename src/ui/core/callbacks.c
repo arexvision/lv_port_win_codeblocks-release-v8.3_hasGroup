@@ -7,6 +7,7 @@
 
 #include "callbacks.h"
 #include "data.h"
+#include "../../config/build/ui_debug_flags.h"
 #include <stdio.h>
 
 #ifndef PC_SIMULATOR
@@ -20,7 +21,7 @@
 WEAK_CALLBACK
 void bus_set_light_power(bool on)
 {
-    printf("[LIGHT] Power: %s\n", on ? "ON" : "OFF");
+    UI_CALLBACK_TRACE("[LIGHT] Power: %s\n", on ? "ON" : "OFF");
 }
 
 WEAK_CALLBACK
@@ -40,7 +41,7 @@ void bus_toggle_light_power(void)
 WEAK_CALLBACK
 void bus_set_light_mode(light_mode_t mode)
 {
-    printf("[LIGHT] Mode: %s\n", mode == LIGHT_MODE_BREATH ? "BREATH" : "ALWAYS");
+    UI_CALLBACK_TRACE("[LIGHT] Mode: %s\n", mode == LIGHT_MODE_BREATH ? "BREATH" : "ALWAYS");
 }
 
 WEAK_CALLBACK
@@ -61,7 +62,7 @@ void bus_toggle_light_mode(void)
 WEAK_CALLBACK
 void ui_on_light_color_set(const char *color, const char *level)
 {
-    printf("[LIGHT] Color: %s, Level: %s\n", color, level);
+    UI_CALLBACK_TRACE("[LIGHT] Color: %s, Level: %s\n", color, level);
 }
 
 WEAK_CALLBACK
@@ -88,7 +89,7 @@ WEAK_CALLBACK
 void ui_on_safety_stop_mode_set(uint8_t mode)
 {
     bus_set_safety_stop_mode(mode);
-    printf("[DIVE_SETUP] Safety stop: %s\n", ui_safety_stop_label(mode));
+    UI_CALLBACK_TRACE("[DIVE_SETUP] Safety stop: %s\n", ui_safety_stop_label(mode));
 }
 
 WEAK_CALLBACK
@@ -111,7 +112,7 @@ void ui_on_altitude_range_set(uint8_t level)
     };
     const char *label = (level < (sizeof(labels) / sizeof(labels[0]))) ? labels[level] : "UNKNOWN";
     bus_set_altitude_level(level);
-    printf("[DIVE_SETUP] Altitude: %s\n", label);
+    UI_CALLBACK_TRACE("[DIVE_SETUP] Altitude: %s\n", label);
 }
 
 WEAK_CALLBACK
@@ -122,7 +123,7 @@ void ui_on_dive_mode_set(uint8_t mode)
     {
         mode = 0;
     }
-    printf("[SYSTEM_SETUP] Dive mode: %s\n", labels[mode]);
+    UI_CALLBACK_TRACE("[SYSTEM_SETUP] Dive mode: %s\n", labels[mode]);
 }
 
 WEAK_CALLBACK
@@ -156,7 +157,7 @@ void ui_on_oc_tech_gas_set(uint8_t slot, uint8_t o2_pct, uint8_t he_pct)
 WEAK_CALLBACK
 void ui_on_ai_pair(uint8_t tank_index)
 {
-    printf("[SYSTEM_SETUP] Pair AI tank: T%u\n", (unsigned)(tank_index + 1));
+    UI_CALLBACK_TRACE("[SYSTEM_SETUP] Pair AI tank: T%u\n", (unsigned)(tank_index + 1));
 }
 
 WEAK_CALLBACK
@@ -167,53 +168,53 @@ void ui_on_ai_tank_state_set(uint8_t tank_index, uint8_t state)
     {
         state = 0;
     }
-    printf("[SYSTEM_SETUP] AI T%u: %s\n", (unsigned)(tank_index + 1), labels[state]);
+    UI_CALLBACK_TRACE("[SYSTEM_SETUP] AI T%u: %s\n", (unsigned)(tank_index + 1), labels[state]);
 }
 
 WEAK_CALLBACK
 void ui_on_gtr_mode_set(bool enabled)
 {
-    printf("[SYSTEM_SETUP] GTR mode: %s\n", enabled ? "ON" : "OFF");
+    UI_CALLBACK_TRACE("[SYSTEM_SETUP] GTR mode: %s\n", enabled ? "ON" : "OFF");
 }
 
 WEAK_CALLBACK
 void ui_on_mod_ppo2_set(float ppo2)
 {
     bus_set_mod_ppo2(ppo2);
-    printf("[DIVE_SETUP] MOD PPO2: %.1f\n", (double)ppo2);
+    UI_CALLBACK_TRACE("[DIVE_SETUP] MOD PPO2: %.1f\n", (double)ppo2);
 }
 
 WEAK_CALLBACK
 void ui_on_depth_alarm_set(uint16_t depth_m)
 {
     bus_set_depth_alarm_m(depth_m);
-    printf("[ALERT_SETUP] Depth alarm: %um\n", depth_m);
+    UI_CALLBACK_TRACE("[ALERT_SETUP] Depth alarm: %um\n", depth_m);
 }
 
 WEAK_CALLBACK
 void ui_on_time_alarm_set(uint16_t minutes)
 {
     bus_set_time_alarm_min(minutes);
-    printf("[ALERT_SETUP] Time alarm: %umin\n", minutes);
+    UI_CALLBACK_TRACE("[ALERT_SETUP] Time alarm: %umin\n", minutes);
 }
 
 WEAK_CALLBACK
 void ui_on_ndl_alarm_set(uint16_t minutes)
 {
     bus_set_ndl_alarm_min(minutes);
-    printf("[ALERT_SETUP] NDL alarm: %umin\n", minutes);
+    UI_CALLBACK_TRACE("[ALERT_SETUP] NDL alarm: %umin\n", minutes);
 }
 
 WEAK_CALLBACK
 void ui_on_vibration_test(void)
 {
-    printf("[ALERT_SETUP] Test vibration\n");
+    UI_CALLBACK_TRACE("[ALERT_SETUP] Test vibration\n");
 }
 
 WEAK_CALLBACK
 void ui_on_units_set(uint8_t units)
 {
-    printf("[DISPLAY_SETUP] Units: %s\n", units == 1 ? "IMPERIAL" : "METRIC");
+    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Units: %s\n", units == 1 ? "IMPERIAL" : "METRIC");
 }
 
 WEAK_CALLBACK
@@ -224,7 +225,7 @@ void ui_on_datetime_field_set(uint8_t field, uint16_t value)
     {
         field = 0;
     }
-    printf("[DISPLAY_SETUP] Date/time %s: %u\n", labels[field], value);
+    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Date/time %s: %u\n", labels[field], value);
 }
 
 WEAK_CALLBACK
@@ -235,20 +236,20 @@ void ui_on_datetime_action(uint8_t action)
     {
         action = 0;
     }
-    printf("[DISPLAY_SETUP] Date/time action: %s\n", labels[action]);
+    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Date/time action: %s\n", labels[action]);
 }
 
 WEAK_CALLBACK
 void ui_on_log_rate_set(uint8_t seconds)
 {
     bus_set_log_rate(seconds);
-    printf("[DISPLAY_SETUP] Log rate: %us\n", seconds);
+    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Log rate: %us\n", seconds);
 }
 
 WEAK_CALLBACK
 void ui_on_bluetooth_set(bool enabled)
 {
-    printf("[DISPLAY_SETUP] Bluetooth: %s\n", enabled ? "ON" : "OFF");
+    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Bluetooth: %s\n", enabled ? "ON" : "OFF");
 }
 
 WEAK_CALLBACK
@@ -260,7 +261,7 @@ void ui_on_reset_defaults(void)
     bus_set_depth_alarm_m(40U);
     bus_set_time_alarm_min(60U);
     bus_set_ndl_alarm_min(5U);
-    printf("[DISPLAY_SETUP] Reset defaults\n");
+    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Reset defaults\n");
 }
 
 WEAK_CALLBACK

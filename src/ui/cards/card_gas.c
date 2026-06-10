@@ -15,6 +15,7 @@
 #include "lvgl/lvgl.h"
 #include "../fonts/fonts.h"
 #include <stdio.h>
+#include <string.h>
 
 /* GAS 行高按规范锁死 49px（不可改），行间距从 gap_menu 配置推算 */
 #define GAS_ROW_H   49
@@ -40,6 +41,99 @@ static bool gas_obj_is_valid(lv_obj_t **obj_ref)
     }
 
     return true;
+}
+
+static void gas_label_set_text_if_changed(lv_obj_t *label, const char *text)
+{
+    const char *old_text;
+
+    if (label == NULL || text == NULL)
+    {
+        return;
+    }
+
+    old_text = lv_label_get_text(label);
+    if ((old_text == NULL) || (strcmp(old_text, text) != 0))
+    {
+        lv_label_set_text(label, text);
+    }
+}
+
+static void gas_obj_set_hidden_if_changed(lv_obj_t *obj, bool hidden)
+{
+    if (obj == NULL)
+    {
+        return;
+    }
+
+    if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN) != hidden)
+    {
+        if (hidden)
+        {
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        }
+        else
+        {
+            lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+}
+
+static void gas_obj_set_focused_if_changed(lv_obj_t *obj, bool focused)
+{
+    if (obj == NULL)
+    {
+        return;
+    }
+
+    if (focused)
+    {
+        if (!lv_obj_has_state(obj, LV_STATE_FOCUSED))
+        {
+            lv_obj_add_state(obj, LV_STATE_FOCUSED);
+        }
+    }
+    else if (lv_obj_has_state(obj, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED))
+    {
+        lv_obj_clear_state(obj, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);
+    }
+}
+
+static void gas_obj_set_border_if_changed(lv_obj_t *obj, lv_color_t color, lv_coord_t width)
+{
+    if (obj == NULL)
+    {
+        return;
+    }
+
+    if (lv_obj_get_style_border_color(obj, LV_PART_MAIN).full != color.full)
+    {
+        lv_obj_set_style_border_color(obj, color, 0);
+    }
+    if (lv_obj_get_style_border_width(obj, LV_PART_MAIN) != width)
+    {
+        lv_obj_set_style_border_width(obj, width, 0);
+    }
+}
+
+static void gas_label_set_text_style_if_changed(lv_obj_t *label, lv_color_t color, font_id_t font_id)
+{
+    const lv_font_t *font;
+
+    if (label == NULL)
+    {
+        return;
+    }
+
+    font = get_font(font_id);
+    if (lv_obj_get_style_text_color(label, LV_PART_MAIN).full != color.full)
+    {
+        lv_obj_set_style_text_color(label, color, 0);
+    }
+    if (lv_obj_get_style_text_font(label, LV_PART_MAIN) != font)
+    {
+        lv_obj_set_style_text_font(label, font, 0);
+    }
 }
 
 void card_gas_update(void); /* forward declaration */
@@ -147,6 +241,11 @@ void card_gas_update_vm(const ui_vm_gas_t *vm)
 
     s_gas_vm_cache = *vm;
 
+    if (!screen_page_id_refresh_visible(PAGE_ID_GAS))
+    {
+        return;
+    }
+
     for (int i = 0; i < GAS_COUNT; i++)
     {
         if (!gas_obj_is_valid(&s_items[i]) ||
@@ -159,52 +258,43 @@ void card_gas_update_vm(const ui_vm_gas_t *vm)
 
         if (s_gas_vm_cache.visible[i] == 0U)
         {
-            lv_obj_add_flag(s_items[i], LV_OBJ_FLAG_HIDDEN);
+            gas_obj_set_hidden_if_changed(s_items[i], true);
             continue;
         }
-        lv_obj_clear_flag(s_items[i], LV_OBJ_FLAG_HIDDEN);
+        gas_obj_set_hidden_if_changed(s_items[i], false);
         bool highlight = (s_gas_vm_cache.highlighted[i] != 0U);
 
         lv_color_t fg = GREEN;
 
-        lv_obj_set_style_bg_color(s_items[i], BLACK, 0);
-        lv_obj_set_style_bg_opa(s_items[i], LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(s_items[i], highlight ? GREEN : DARK, 0);
-        lv_obj_set_style_border_width(s_items[i], highlight ? (GAS_BORDER_W + 2) : GAS_BORDER_W, 0);
-        if (highlight)
-        {
-            lv_obj_add_state(s_items[i], LV_STATE_FOCUSED);
-        }
-        else
-        {
-            lv_obj_clear_state(s_items[i], LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);
-        }
+        gas_obj_set_border_if_changed(s_items[i],
+                                      highlight ? GREEN : DARK,
+                                      highlight ? (GAS_BORDER_W + 2) : GAS_BORDER_W);
+        gas_obj_set_focused_if_changed(s_items[i], highlight);
 
-        lv_label_set_text(s_lbl_name[i], s_gas_vm_cache.names[i]);
-        lv_label_set_text(s_lbl_mod[i], s_gas_vm_cache.mod_text[i]);
-        lv_label_set_text(s_lbl_ppo2[i], s_gas_vm_cache.ppo2_text[i]);
+        gas_label_set_text_if_changed(s_lbl_name[i], s_gas_vm_cache.names[i]);
+        gas_label_set_text_if_changed(s_lbl_mod[i], s_gas_vm_cache.mod_text[i]);
+        gas_label_set_text_if_changed(s_lbl_ppo2[i], s_gas_vm_cache.ppo2_text[i]);
 
         /* Recolor children */
         if (s_lbl_name[i])
         {
-            lv_obj_set_style_text_color(s_lbl_name[i], highlight ? LIGHT : fg, 0);
-            lv_obj_set_style_text_font(s_lbl_name[i],
-                                       get_font(highlight ? FONT_ID_MEDIUM : FONT_ID_TITLE),
-                                       0);
+            gas_label_set_text_style_if_changed(s_lbl_name[i],
+                                                highlight ? LIGHT : fg,
+                                                highlight ? FONT_ID_MEDIUM : FONT_ID_TITLE);
         }
         if (s_lbl_mod[i])
         {
-            lv_obj_set_style_text_color(s_lbl_mod[i], LIGHT, 0);
+            gas_label_set_text_style_if_changed(s_lbl_mod[i], LIGHT, FONT_ID_SMALL);
         }
         if (s_lbl_ppo2[i])
         {
-            lv_obj_set_style_text_color(s_lbl_ppo2[i], LIGHT, 0);
+            gas_label_set_text_style_if_changed(s_lbl_ppo2[i], LIGHT, FONT_ID_SMALL);
         }
     }
 
     /* Update hint text based on edit state */
     if (gas_obj_is_valid(&s_hint))
     {
-        lv_label_set_text(s_hint, s_gas_vm_cache.hint);
+        gas_label_set_text_if_changed(s_hint, s_gas_vm_cache.hint);
     }
 }

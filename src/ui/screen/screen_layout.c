@@ -17,6 +17,7 @@
 #include "../views/submenu_view.h"
 #include "../cards/card_compass.h"
 #include "layout_view.h"
+#include "screen_dots.h"
 #include "page_registry.h"
 #include <stdio.h>
 #include <string.h>
@@ -634,6 +635,7 @@ void right_panel_create(void)
         lv_obj_set_pos(s_dot_cont, dots_x, dots_y);
     }
 
+    screen_scroll_dots_reset_cache();
     for (uint8_t i = 0; i < DASH_PAGE_COUNT; i++)
     {
         s_scroll_dots[i] = lv_obj_create(s_dot_cont);
@@ -719,9 +721,9 @@ void screen_rebuild_layout(void)
     /* 重建后的新对象还没有数据，必须主动补一次全量同步。 */
     screen_refresh_all_widgets();
     restore_brightness_overlay_state();
-    /* 布局重建可能让温度/电量/POD 等辅助槽位引用失效，这里再补一轮常用脏位，
-     * 让后续 router 走正常刷新路径，把派生视图状态也一起拉齐。 */
-    bus_requeue_dirty(DIRTY_DIVE_PROFILE | DIRTY_SYSTEM | DIRTY_GAS_SUPPLY);
+    /* 布局重建后只补当前可见页订阅的数据域。
+     * 不可见页在切入时由 screen_scroll_to_page() 补刷，避免布局重建一次性刷新全部卡片。 */
+    bus_requeue_dirty(screen_visible_page_dirty_mask(screen_visible_tile_pos_get()));
 }
 
 void screen_rebuild_tileview(void)

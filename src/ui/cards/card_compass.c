@@ -11,6 +11,7 @@
 #include "../core/ui_state.h"
 #include "../core/vm/ui_vm_dashboard.h"
 #include "../screen/layout_view.h"
+#include "../../config/build/ui_debug_flags.h"
 #include "card_compass.h"
 #include "lvgl/lvgl.h"
 #include "../fonts/fonts.h"
@@ -19,6 +20,11 @@
 #include <string.h>
 
 extern void rt_kprintf(const char *fmt, ...);
+
+#if UI_COMPASS_DIAG_TRACE_ENABLED
+void ble_sensor_debug_note_ui_force_refresh(uint16_t heading);
+void ble_sensor_debug_note_ui_dirty(uint16_t heading);
+#endif
 
 /* ============================================================
  * 1F: NAV COMPASS — 零内存数学绘制引擎
@@ -199,6 +205,24 @@ static bool compass_obj_is_valid(lv_obj_t **obj_ref)
     return true;
 }
 
+static void compass_label_set_text_if_changed(lv_obj_t *label, const char *text)
+{
+    const char *old_text;
+
+    if (label == NULL || text == NULL)
+    {
+        return;
+    }
+
+    old_text = lv_label_get_text(label);
+    if (old_text != NULL && strcmp(old_text, text) == 0)
+    {
+        return;
+    }
+
+    lv_label_set_text(label, text);
+}
+
 /* ============================================================
  * 罗盘卡片工厂渲染函数
  *
@@ -279,7 +303,7 @@ void card_compass_refresh_heading_vm(const ui_vm_compass_t *vm, bool force_refre
     {
         s_compass_vm_cache = *vm;
     }
-#if BLE_COMPASS_DIAG_LOG_ENABLED
+#if UI_COMPASS_DIAG_TRACE_ENABLED
     static uint32_t s_last_compass_ui_log_tick = 0;
     static uint16_t s_last_compass_ui_heading = 0xFFFFU;
 
@@ -300,7 +324,7 @@ void card_compass_refresh_heading_vm(const ui_vm_compass_t *vm, bool force_refre
             s_last_compass_ui_log_tick = now_tick;
             s_last_compass_ui_heading = s_compass_vm_cache.heading;
             ble_sensor_debug_note_ui_dirty(s_last_compass_ui_heading);
-#if BLE_COMPASS_DIAG_SYSTEM_LOG_ENABLED
+#if UI_COMPASS_DIAG_SYSTEM_TRACE_ENABLED
             rt_kprintf("[COMPASS_UI] dirty heading=%u label=%d tape=%d card=%u dash=%u\r\n",
                        s_last_compass_ui_heading,
                        s_heading_val_lbl ? 1 : 0,
@@ -314,10 +338,18 @@ void card_compass_refresh_heading_vm(const ui_vm_compass_t *vm, bool force_refre
     (void)force_refresh;
 #endif
 
+    if (!screen_page_id_refresh_visible(PAGE_ID_COMPASS))
+    {
+        return;
+    }
+
     if (compass_obj_is_valid(&s_heading_val_lbl))
     {
-        lv_label_set_text_fmt(s_heading_val_lbl, "%03d", s_compass_vm_cache.heading);
+        char heading_text[8];
+        (void)snprintf(heading_text, sizeof(heading_text), "%03d", s_compass_vm_cache.heading);
+        compass_label_set_text_if_changed(s_heading_val_lbl, heading_text);
     }
+
     if (compass_obj_is_valid(&s_compass_tape_obj))
     {
         lv_obj_invalidate(s_compass_tape_obj);
@@ -326,11 +358,15 @@ void card_compass_refresh_heading_vm(const ui_vm_compass_t *vm, bool force_refre
     {
         if (s_compass_vm_cache.locked != 0U)
         {
-            lv_label_set_text_fmt(s_heading_hint_lbl, "[ TARGET LOCKED: %03d ]", s_compass_vm_cache.heading_target);
+            char hint_text[32];
+            (void)snprintf(hint_text, sizeof(hint_text),
+                           "[ TARGET LOCKED: %03d ]",
+                           s_compass_vm_cache.heading_target);
+            compass_label_set_text_if_changed(s_heading_hint_lbl, hint_text);
         }
         else
         {
-            lv_label_set_text(s_heading_hint_lbl, "[ ENTER ] mark heading");
+            compass_label_set_text_if_changed(s_heading_hint_lbl, "[ ENTER ] mark heading");
         }
     }
 }

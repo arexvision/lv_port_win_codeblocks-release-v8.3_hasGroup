@@ -9,11 +9,13 @@
 #include "../core/data.h"
 #include "../core/ui_vm.h"
 #include "../core/vm/ui_vm_dashboard.h"
+#include "../../config/build/ui_debug_flags.h"
 #include "layout_view.h"
 #include "../comp/comp_style.h"
 #include "../comp/comp_view.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #define COMP_GAP  0
 
@@ -35,6 +37,24 @@ static bool layout_label_is_valid(lv_obj_t **obj_ref)
     }
 
     return true;
+}
+
+static void layout_label_set_text_if_changed(lv_obj_t *label, const char *text)
+{
+    const char *old_text;
+
+    if (label == NULL || text == NULL)
+    {
+        return;
+    }
+
+    old_text = lv_label_get_text(label);
+    if (old_text != NULL && strcmp(old_text, text) == 0)
+    {
+        return;
+    }
+
+    lv_label_set_text(label, text);
 }
 
 bool safe_zone_in_danger(void)
@@ -404,12 +424,12 @@ void refresh_left_aux_slots(void)
 
     if (layout_label_is_valid(&s_left_bat_lbl))
     {
-        lv_label_set_text(s_left_bat_lbl, vm.battery_temp_text);
+        layout_label_set_text_if_changed(s_left_bat_lbl, vm.battery_temp_text);
     }
 
     if (layout_label_is_valid(&s_left_prj_lbl))
     {
-        lv_label_set_text(s_left_prj_lbl, vm.project_temp_text);
+        layout_label_set_text_if_changed(s_left_prj_lbl, vm.project_temp_text);
     }
 }
 
@@ -422,6 +442,7 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
     g_left_anchor_obj = left_anchor;
     s_left_bat_lbl = NULL;
     s_left_prj_lbl = NULL;
+    reset_pod_render_sequence();
 
     uint16_t sep_boundaries[LEFT_MAX_WIDGETS * 2];
     uint16_t sep_x_boundaries[LEFT_MAX_WIDGETS * 2];
@@ -454,14 +475,14 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
             (uint16_t)origin_col + span_w > grid_cols ||
             (uint16_t)origin_row + span_h > grid_rows)
         {
-            printf("[LAYOUT] skip fixed widget id=%u pos=%u,%u span=%u,%u grid=%u,%u\r\n",
-                   (unsigned)cfg->widget_id,
-                   (unsigned)origin_col,
-                   (unsigned)origin_row,
-                   (unsigned)span_w,
-                   (unsigned)span_h,
-                   (unsigned)grid_cols,
-                   (unsigned)grid_rows);
+            UI_LAYOUT_TRACE("[LAYOUT] skip fixed widget id=%u pos=%u,%u span=%u,%u grid=%u,%u\r\n",
+                            (unsigned)cfg->widget_id,
+                            (unsigned)origin_col,
+                            (unsigned)origin_row,
+                            (unsigned)span_w,
+                            (unsigned)span_h,
+                            (unsigned)grid_cols,
+                            (unsigned)grid_rows);
             continue;
         }
 
@@ -529,6 +550,7 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
      * 这是一种“整卡重绘”策略，简单直接，能避免局部布局变更后残留旧对象。 */
     lv_obj_clean(card_custom);
     render_card_title(card_custom, ui_custom_card_title_get(custom_card_idx));
+    reset_pod_render_sequence();
 
     if (count == 0U)
     {
@@ -556,14 +578,14 @@ static void render_custom_card_widgets(lv_obj_t *card_custom, uint8_t custom_car
             (uint16_t)c + span_w > grid_cols ||
             (uint16_t)r + span_h > grid_rows)
         {
-            printf("[LAYOUT] skip custom widget id=%u pos=%u,%u span=%u,%u grid=%u,%u\r\n",
-                   (unsigned)w_id,
-                   (unsigned)c,
-                   (unsigned)r,
-                   (unsigned)span_w,
-                   (unsigned)span_h,
-                   (unsigned)grid_cols,
-                   (unsigned)grid_rows);
+            UI_LAYOUT_TRACE("[LAYOUT] skip custom widget id=%u pos=%u,%u span=%u,%u grid=%u,%u\r\n",
+                            (unsigned)w_id,
+                            (unsigned)c,
+                            (unsigned)r,
+                            (unsigned)span_w,
+                            (unsigned)span_h,
+                            (unsigned)grid_cols,
+                            (unsigned)grid_rows);
             continue;
         }
 
