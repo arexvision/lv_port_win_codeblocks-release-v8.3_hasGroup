@@ -411,6 +411,30 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
     bus_set_deco_plan((count > 0U) ? stops : NULL, count);
 }
 
+static bool deco_stop_is_switch_only(const ArexDecoStop *stop)
+{
+    if (stop == NULL || s_state.config.gas_switch_penalty_seconds == 0U) return false;
+    if (stop->gas_index < 0 || stop->gas_index == s_state.gas_plan.active_gas_index) return false;
+    return stop->duration_seconds <= s_state.config.gas_switch_penalty_seconds;
+}
+
+static const ArexDecoStop *display_stop_from_schedule(const ArexDecoSchedule *schedule)
+{
+    const ArexDecoStop *fallback = NULL;
+
+    if (schedule == NULL || schedule->stop_count == 0U) return NULL;
+
+    for (uint8_t i = 0U; i < schedule->stop_count; i++)
+    {
+        const ArexDecoStop *stop = &schedule->stops[i];
+        if (stop->depth_m <= 0.0f || stop->duration_seconds == 0U) continue;
+        if (fallback == NULL) fallback = stop;
+        if (!deco_stop_is_switch_only(stop)) return stop;
+    }
+
+    return fallback;
+}
+
 static void sync_stop_data(const ArexDecoSchedule *schedule)
 {
     int16_t ndl_min = 0;
@@ -428,20 +452,26 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
 
     if (schedule != NULL && schedule->stop_count > 0U && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M)
     {
-        const ArexDecoStop *stop = &schedule->stops[0];
-        stop_type = STOP_DECO;
-        stop_depth_m = stop->depth_m;
-        stop_left_s = (stop->duration_seconds > 65535U) ? 65535U : (uint16_t)stop->duration_seconds;
-        in_stop_zone = deco_stop_zone_active(s_state.current_depth_m, stop_depth_m);
-        ndl_min = 0;
+        const ArexDecoStop *stop = display_stop_from_schedule(schedule);
+        if (stop != NULL)
+        {
+            stop_type = STOP_DECO;
+            stop_depth_m = stop->depth_m;
+            stop_left_s = (stop->duration_seconds > 65535U) ? 65535U : (uint16_t)stop->duration_seconds;
+            in_stop_zone = deco_stop_zone_active(s_state.current_depth_m, stop_depth_m);
+            ndl_min = 0;
+        }
     }
     else if (schedule != NULL && schedule->stop_count > 0U)
     {
-        const ArexDecoStop *stop = &schedule->stops[0];
-        stop_depth_m = stop->depth_m;
-        stop_left_s = (stop->duration_seconds > 65535U) ? 65535U : (uint16_t)stop->duration_seconds;
-        stop_type = STOP_SAFETY;
-        in_stop_zone = safety_stop_zone_active(s_state.current_depth_m);
+        const ArexDecoStop *stop = display_stop_from_schedule(schedule);
+        if (stop != NULL)
+        {
+            stop_depth_m = stop->depth_m;
+            stop_left_s = (stop->duration_seconds > 65535U) ? 65535U : (uint16_t)stop->duration_seconds;
+            stop_type = STOP_SAFETY;
+            in_stop_zone = safety_stop_zone_active(s_state.current_depth_m);
+        }
     }
     else if (ndl_min <= 0 && safety_stop_fallback_active())
     {
