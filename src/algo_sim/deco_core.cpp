@@ -354,17 +354,26 @@ static void sync_gas_data(void)
     }
 }
 
-static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec)
+static void sync_gas_recommendation(const ArexDecoSchedule *schedule,
+                                    const ArexDecoGasRecommendation *gas_rec)
 {
     int8_t recommended_idx = -1;
+    bool mandatory_deco = schedule != NULL &&
+                          schedule->stop_count > 0U &&
+                          s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M;
 
-    if (gas_rec != NULL &&
+    if (mandatory_deco &&
+        gas_rec != NULL &&
         gas_rec->available &&
         gas_rec->recommended_gas_index >= 0 &&
         gas_rec->recommended_gas_index < (int8_t)s_state.gas_plan.gas_count &&
         gas_rec->recommended_gas_index != s_state.gas_plan.active_gas_index)
     {
-        recommended_idx = gas_rec->recommended_gas_index;
+        const ArexDecoGas *gas = &s_state.gas_plan.gases[gas_rec->recommended_gas_index];
+        if (gas->enabled != 0U && s_state.current_depth_m <= gas->max_depth_m + 0.1f)
+        {
+            recommended_idx = gas_rec->recommended_gas_index;
+        }
     }
 
     bus_set_recommended_gas_idx(recommended_idx);
@@ -564,7 +573,8 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     {
         debug_print_schedule(&schedule);
     }
-    sync_gas_recommendation((plan_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
+    sync_gas_recommendation((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL,
+                            (plan_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
     sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
 }
 
