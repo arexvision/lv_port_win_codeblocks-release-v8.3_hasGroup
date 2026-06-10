@@ -21,7 +21,7 @@
 				</Compiler>
 				<Linker>
 					<Add option="-mwindows -mconsole" />
-					<Add library="src/algo_core/lib/libarex_deco_core.a" />
+					<Add library="src/algo_core/lib/mingw64/libarex_deco_core.a" />
 					<Add library="mingw32" />
 				</Linker>
 			</Target>
@@ -36,7 +36,7 @@
 				<Linker>
 					<Add option="-s" />
 					<Add option="-mwindows -mconsole" />
-					<Add library="src/algo_core/lib/libarex_deco_core.a" />
+					<Add library="src/algo_core/lib/mingw64/libarex_deco_core.a" />
 					<Add library="mingw32" />
 				</Linker>
 			</Target>
