@@ -1,6 +1,6 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.15`。
+本文档描述当前 core API。当前 API 版本为 `0.0.17`。
 
 ## 适用场景
 
@@ -15,7 +15,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 15`
+- `AREX_DECO_API_VERSION_PATCH = 17`
 
 固定容量：
 
@@ -30,9 +30,10 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 - `water_meters_per_bar = 10.0` 海水默认
 - `gf_low = 0.50`
 - `gf_high = 0.70`
-- `ascent_rate_m_per_min = 10.0`
-- `ascent_rate_shallow_m_per_min = 3.0`
-- `ascent_rate_shallow_start_m = 10.0`
+- `ascent_rate.rate_75_percent_m_per_min = 9.0`
+- `ascent_rate.rate_50_percent_m_per_min = 9.0`
+- `ascent_rate.rate_stops_m_per_min = 9.0`
+- `ascent_rate.rate_last_6m_m_per_min = 9.0`
 - `deco_step_m = 3.0`
 - `last_stop_m = 3.0`
 - `safety_stop_enabled = 1`
@@ -97,15 +98,25 @@ CNS 衰减（0.0.3 起）：
 | `water_meters_per_bar` | `float` | m/bar | 水深到压强换算 |
 | `gf_low` | `float` | 0-1 | 低 GF |
 | `gf_high` | `float` | 0-1 | 高 GF，必须大于等于 `gf_low` |
-| `ascent_rate_m_per_min` | `float` | m/min | 深水段上升速率 |
-| `ascent_rate_shallow_m_per_min` | `float` | m/min | 浅水段上升速率 |
-| `ascent_rate_shallow_start_m` | `float` | m | 浅水段切换深度 |
+| `ascent_rate` | `ArexDecoAscentRate` | m/min | 上升速率 profile，按 Subsurface core planner 的四段规则选择速率 |
 | `deco_step_m` | `float` | m | 中间减压站跨度 |
 | `last_stop_m` | `float` | m | 最后减压站深度。Planner 到达该深度后不再生成更浅停站，而是在该站延长时间直到可升水 |
 | `safety_stop_seconds` | `uint32_t` | s | 非强制减压时的安全停留时长 |
 | `gas_switch_penalty_seconds` | `uint32_t` | s | 切换气体时附加的同深度停留 |
 | `water_type` | `ArexDecoWaterType` | - | `SALT=0`，`FRESH=1` |
 | `safety_stop_enabled` | `uint8_t` | - | 非强制减压安全停留开关，`1` 启用，`0` 关闭 |
+
+`ArexDecoAscentRate` 字段：
+
+| 字段 | 类型 | 单位 | 说明 |
+|---|---|---:|---|
+| `rate_75_percent_m_per_min` | `float` | m/min | 当前深度大于平均深度 75% 时的上升速率 |
+| `rate_50_percent_m_per_min` | `float` | m/min | 当前深度大于平均深度 50%、且不在 75% 段时的上升速率 |
+| `rate_stops_m_per_min` | `float` | m/min | 当前深度不大于平均深度 50%、且深于 6m 时的上升速率 |
+| `rate_last_6m_m_per_min` | `float` | m/min | 6m 及以内的最终上升速率 |
+
+平均深度由 `ArexDecoDiveState.depth_time_m_seconds / elapsed_seconds` 得出，
+`arex_deco_step()` 会按线性深度段自动累计该积分。
 
 校验规则：
 
@@ -114,10 +125,10 @@ CNS 衰减（0.0.3 起）：
 - `water_meters_per_bar > 0`
 - `0 < gf_low <= 1`
 - `gf_low <= gf_high <= 1`
-- `ascent_rate_m_per_min > 0`
-- `ascent_rate_shallow_m_per_min > 0`
-- `ascent_rate_m_per_min >= ascent_rate_shallow_m_per_min`
-- `ascent_rate_shallow_start_m >= 0`
+- `ascent_rate.rate_75_percent_m_per_min > 0`
+- `ascent_rate.rate_50_percent_m_per_min > 0`
+- `ascent_rate.rate_stops_m_per_min > 0`
+- `ascent_rate.rate_last_6m_m_per_min > 0`
 - `deco_step_m > 0`
 - `last_stop_m > 0`
 - `safety_stop_enabled` 必须为 `0` 或 `1`
@@ -190,8 +201,15 @@ CNS 衰减（0.0.3 起）：
 | `oxygen_exposure` | `ArexDecoOxygenExposure` | - | 氧暴露 |
 | `current_depth_m` | `float` | m | 当前深度 |
 | `max_depth_m` | `float` | m | 本次潜水最大深度 |
+| `depth_time_m_seconds` | `float` | m*s | 深度时间积分，由 `arex_deco_step()` 按线性深度段自动累计，用于计算平均深度 |
 | `elapsed_seconds` | `uint32_t` | s | 已经过时间 |
 | `was_deco_dive` | `uint8_t` | - | 本次潜水是否曾触发减压义务（latched bit）。一旦 `metrics->ceiling_depth_m > 0` 则置 1，并保持到 `arex_deco_reset_tissue_to_surface` / `arex_deco_make_initial_dive_state` 重置。**该字段服务过去式语义**（影响 nofly 等下限），不要用作 UI 实时 "DECO NOW" 指示——实时义务请读 `metrics->ceiling_depth_m`。0.0.4 起字段名由 `in_deco` 重命名为 `was_deco_dive` 以消除时态歧义；内存布局不变 |
+
+`arex_deco_plan()` 会校验 `current_depth_m`、`max_depth_m`、
+`depth_time_m_seconds` 和 `elapsed_seconds` 的基本一致性。若调用方手工拼接
+或篡改 `ArexDecoDiveState`，导致例如 `current_depth_m > max_depth_m`、
+0 秒状态带有非零深度、或 `depth_time_m_seconds > max_depth_m * elapsed_seconds`
+等不可能状态，planner 返回 `AREX_DECO_STATUS_INVALID_STATE`。
 
 ### `ArexDecoStepInput`
 
@@ -420,7 +438,12 @@ ArexDecoStatus arex_deco_plan(
 Planner 行为：
 
 - 强制减压义务按 `gf_high` 天花板判断；没有强制减压、`safety_stop_enabled == 1`、本次最大深度超过 `AREX_DECO_SAFETY_STOP_TRIGGER_DEPTH_M`、且当前深度深于 `AREX_DECO_SAFETY_STOP_DEPTH_M` 时，生成安全停留。默认安全停留深度为 5 m；调用方只可通过 `safety_stop_seconds` 参数化停留时长。英制展示由 UI / App 产品层从米换算。
-- 上升时间按深水段 / 浅水段两段速率计算，默认 10 m/min 到 10 m，10 m 以内 3 m/min。
+- 上升时间按 Subsurface 风格四段 `ascent_rate` profile 计算。Planner 先由
+  `depth_time_m_seconds / elapsed_seconds` 得出平均深度，再按当前深度是否
+  大于平均深度 75%、大于平均深度 50%、深于 6 m、6 m 及以内选择对应速率；
+  跨越边界的一次上升会被拆成多段分别计算。
+- `arex_deco_plan()` 会拒绝明显不一致的 depth-time 状态，并返回
+  `AREX_DECO_STATUS_INVALID_STATE`，避免用失真的平均深度参与四段速率选择。
 - 首停深度由当前 ceiling、`last_stop_m` 和 `deco_step_m` 计算，并锚定在 `last_stop_m + k * deco_step_m` 网格上。若 `last_stop_m` 不是 `deco_step_m` 的整数倍（例如 4.5 m / 3 m），相邻停站仍保持完整 `deco_step_m` 间距。
 - 实时上升过程中重新计划时，若当前深度已浅于理论 ceiling 网格首停但仍可合法停在“不深于当前深度”的最深网格站，planner 会保持首停在配置网格上，避免输出 8.8 m、5.9 m 这类由当前深度夹逼出的非网格停站。
 - GF 插值锚点由第一个实质停留站确立：planner 会先模拟经过候选网格站，只有当该站实际需要 `>= AREX_DECO_STOP_TIME_GRANULARITY_SECONDS` 的停留时，才把它锁定为本次计划的 first stop GF anchor；0 s 候选站不会污染后续 GF 斜率。
@@ -437,7 +460,8 @@ Planner 行为：
 - 组织舱推进、ceiling、GF99、SurfGF 等底层计算仍使用连续时间的 Bühlmann ZHL-16C 数学模型。
 - Planner 的二分求解器先计算满足“离开当前站到下一站 / 水面”所需的最小数学停留时间。
 - 二分求解固定 24 次迭代，6 h 上限下时间分辨率约 1.29 ms，输出前按严格上界取到整数秒。
-- 如果 0 s 已满足离开条件，该深度不会写入 `schedule->stops`，但 planner 仍会继续模拟上升到下一深度。
+- 如果 0 s 已满足离开条件，该深度通常不会写入 `schedule->stops`，但 planner 仍会继续模拟上升到下一深度。
+- 当较深的实质停站已经确立 GF anchor 后，后续中间网格站若数学停留为 0 s，planner 会先验证在该站停留最小输出粒度后仍满足离开到下一站的 ceiling 约束；验证通过时输出一个 `AREX_DECO_STOP_TIME_GRANULARITY_SECONDS` 的安全 waypoint，避免实时重复调用 `arex_deco_plan()` 时出现 9 m / 3 m 这类跳过 6 m 的断档计划。该 waypoint 会参与 tissue、氧暴露和 TTS 递推，不是纯 UI 展示项。
 - 如果需要停留，Core 将该停站时间输出为整数秒。例如 12 s 会输出为 12 s，而不会在核心算法层抬到 60 s。
 - Core 会用该秒级停留时间继续推进组织舱和氧暴露，再计算后续更浅停站。
 - 因此 `tts_seconds`、后续停站时间、气体使用估算和跨语言移植结果都必须基于“求解 -> 秒级 strict-ceil -> 重算”的闭环，不能在 core 层额外套用分钟级取整。
@@ -633,12 +657,12 @@ WASM 构建导出的是同一套 C ABI 符号，外加版本和 sizeof helper。
 | `water_meters_per_bar` | 16 |
 | `gf_low` | 20 |
 | `gf_high` | 24 |
-| `ascent_rate_m_per_min` | 28 |
-| `ascent_rate_shallow_m_per_min` | 32 |
-| `ascent_rate_shallow_start_m` | 36 |
-| `deco_step_m` | 40 |
-| `last_stop_m` | 44 |
-| `reserved_config` | 48 |
+| `ascent_rate.rate_75_percent_m_per_min` | 28 |
+| `ascent_rate.rate_50_percent_m_per_min` | 32 |
+| `ascent_rate.rate_stops_m_per_min` | 36 |
+| `ascent_rate.rate_last_6m_m_per_min` | 40 |
+| `deco_step_m` | 44 |
+| `last_stop_m` | 48 |
 | `safety_stop_seconds` | 52 |
 | `gas_switch_penalty_seconds` | 56 |
 | `water_type` | 60 |

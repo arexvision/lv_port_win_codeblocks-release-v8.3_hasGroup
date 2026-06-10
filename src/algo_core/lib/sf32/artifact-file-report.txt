@@ -1,0 +1,16 @@
+./arex_deco_abi_checks.cpp.obj:       ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./arex_deco_api.cpp.obj:              ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./arex_deco_defaults.cpp.obj:         ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./arex_deco_plan.cpp.obj:             ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./arex_deco_step.cpp.obj:             ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./arex_deco_step_common.cpp.obj:      ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./arex_deco_tissue_gradients.cpp.obj: ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./arex_deco_version.cpp.obj:          ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./deco_planner.cpp.obj:               ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./gas_model.cpp.obj:                  ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./gradient_factors.cpp.obj:           ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./ndl.cpp.obj:                        ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./nofly.cpp.obj:                      ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./oxygen_exposure.cpp.obj:            ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./tissue_model.cpp.obj:               ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./zhl16c_coefficients.cpp.obj:        ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped

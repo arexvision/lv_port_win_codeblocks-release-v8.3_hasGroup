@@ -23,6 +23,13 @@ typedef enum ArexDecoGasRole {
     AREX_DECO_GAS_ROLE_UNKNOWN = 255
 } ArexDecoGasRole;
 
+typedef struct ArexDecoAscentRate {
+    float rate_75_percent_m_per_min;
+    float rate_50_percent_m_per_min;
+    float rate_stops_m_per_min;
+    float rate_last_6m_m_per_min;
+} ArexDecoAscentRate;
+
 typedef struct ArexDecoConfig {
     ArexDecoVersion api_version;
     float surface_pressure_bar;
@@ -30,12 +37,9 @@ typedef struct ArexDecoConfig {
     float water_meters_per_bar;
     float gf_low;
     float gf_high;
-    float ascent_rate_m_per_min;
-    float ascent_rate_shallow_m_per_min;
-    float ascent_rate_shallow_start_m;
+    ArexDecoAscentRate ascent_rate;
     float deco_step_m;
     float last_stop_m;
-    uint8_t reserved_config[4];
     uint32_t safety_stop_seconds;
     uint32_t gas_switch_penalty_seconds;
     ArexDecoWaterType water_type;
@@ -83,13 +87,14 @@ typedef struct ArexDecoDiveState {
     ArexDecoOxygenExposure oxygen_exposure;
     float current_depth_m;
     float max_depth_m;
+    float depth_time_m_seconds;
     uint32_t elapsed_seconds;
     // 本次潜水是否曾产生减压义务（latched bit）。一旦在某个 step 中
     // ceiling > 0 即置 1，至 arex_deco_reset_tissue_to_surface 才清零。
     // 此字段服务的是过去式语义（影响 nofly 等下限），不要用作 UI 实时
     // "DECO NOW" 指示——实时义务请读 ArexDecoRuntimeMetrics.ceiling_depth_m。
     uint8_t was_deco_dive;
-    uint8_t reserved[31];
+    uint8_t reserved[27];
 } ArexDecoDiveState;
 
 typedef struct ArexDecoStepInput {

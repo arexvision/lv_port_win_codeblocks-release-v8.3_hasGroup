@@ -26,6 +26,49 @@
 - smoke test
 - 文档
 
+## 0.0.17
+
+### 摘要
+
+本次版本将 planner 上升速率从 AREX 自有的“深水/浅水两段模型”改为与
+Subsurface core planner 对齐的四段 `ascent_rate` profile。
+
+### 行为与 ABI 变更
+
+- 新增 `ArexDecoAscentRate`，字段为：
+  `rate_75_percent_m_per_min`、`rate_50_percent_m_per_min`、
+  `rate_stops_m_per_min`、`rate_last_6m_m_per_min`。
+- `ArexDecoConfig` 移除旧字段 `ascent_rate_m_per_min`、
+  `ascent_rate_shallow_m_per_min`、`ascent_rate_shallow_start_m`，改为
+  `ArexDecoAscentRate ascent_rate`。
+- `ArexDecoDiveState` 新增 `depth_time_m_seconds`，由 `arex_deco_step()`
+  按线性深度段自动累计，用于实时 `arex_deco_plan()` 计算平均深度。
+- Planner 选择上升速率时按 Subsurface 规则分段：
+  当前深度大于平均深度 75%、大于平均深度 50%、深于 6m、6m 及以内。
+- `arex_deco_plan()` 新增 depth-time 状态一致性校验；若调用方手工拼接或
+  篡改 `ArexDecoDiveState`，导致平均深度输入不可信，返回
+  `AREX_DECO_STATUS_INVALID_STATE`。
+- 默认四段速率均为 `9.0 m/min`，对齐 Subsurface 当前默认
+  `prefs.ascrate75/ascrate50/ascratestops/ascratelast6m = 9000/60 mm/s`。
+- WASM adapter 与 smoke test 同步更新 config / dive state offset。
+- API patch 版本升至 `0.0.17`。
+
+## 0.0.16
+
+### 摘要
+
+本次版本修复实时重复调用 `arex_deco_plan()` 时，中间减压网格站可能短暂从计划输出中消失的问题。典型复现为 40 m 停底、每秒重新规划时，计划从 `6 m` 变为 `9 m / 3 m`，之后才恢复为 `9 m / 6 m / 3 m`。
+
+### 行为变更
+
+- Planner 仍然先按连续数学模型求解每个站点的最小停留时间，并保留“首个 0 s 候选站不锁定 GF anchor”的既有规则。
+- 当较深的实质停站已经确立 GF anchor 后，后续中间网格站若数学停留为 0 s，planner 会把它视为计划路径 waypoint，而不是直接从输出中滤掉。
+- 输出该 waypoint 前，planner 会先模拟最小输出粒度 `AREX_DECO_STOP_TIME_GRANULARITY_SECONDS` 的停留，并确认停留后仍满足离开到下一站的 ceiling 约束。
+- 验证通过时，该中间站以最小安全停留时间写入 `schedule->stops`，并参与后续 tissue、氧暴露和 TTS 递推；因此它不是纯 UI 展示项。
+- 该修复只会保持计划网格连续或增加极小保守停留，不会放宽减压约束。
+- 新增回归测试覆盖 `GF 30/70`、40 m、10 m/min 下潜后停底并每秒重新规划的场景，确保计划不会出现 `9 m / 3 m` 跳过 `6 m` 的中间断档。
+- ABI 字节布局无变化；由于 planner 输出语义变化，API patch 版本升至 `0.0.16`。
+
 ## 0.0.15
 
 ### 摘要
