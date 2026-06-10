@@ -66,6 +66,9 @@ typedef enum
 
 static sys_config_t s_layout_archives[LAYOUT_ARCHIVE_COUNT];
 static bool s_layout_archive_valid[LAYOUT_ARCHIVE_COUNT];
+#if UI_DIRTY_THROTTLE_ENABLED
+static dirty_mask_t s_dirty_throttle_bypass_once;
+#endif
 
 static layout_archive_id_t layout_archive_id_for(theme_t theme, order_t order)
 {
@@ -113,6 +116,14 @@ static dirty_mask_t bus_throttle_dirty_mask(dirty_mask_t mask)
     static uint32_t s_gas_last_ms = 0U;
     const uint32_t now_ms = rt_tick_get_millisecond();
     dirty_mask_t deferred = DIRTY_NONE;
+    dirty_mask_t bypass = DIRTY_NONE;
+
+    rt_base_t level = rt_hw_interrupt_disable();
+    bypass = s_dirty_throttle_bypass_once & mask;
+    s_dirty_throttle_bypass_once &= ~bypass;
+    rt_hw_interrupt_enable(level);
+
+    mask &= ~bypass;
 
     /*
      * 这里只对高频显示域做合帧。强一致性的布局、告警、日志、减压/气体等
@@ -151,7 +162,7 @@ static dirty_mask_t bus_throttle_dirty_mask(dirty_mask_t mask)
         bus_mark_dirty(deferred);
     }
 
-    return mask;
+    return mask | bypass;
 }
 #endif
 
@@ -948,6 +959,16 @@ dirty_mask_t bus_take_dirty(void)
 
 void bus_requeue_dirty(dirty_mask_t mask)
 {
+    bus_mark_dirty(mask);
+}
+
+void bus_requeue_dirty_immediate(dirty_mask_t mask)
+{
+#if UI_DIRTY_THROTTLE_ENABLED
+    rt_base_t level = rt_hw_interrupt_disable();
+    s_dirty_throttle_bypass_once |= mask;
+    rt_hw_interrupt_enable(level);
+#endif
     bus_mark_dirty(mask);
 }
 

@@ -36,6 +36,7 @@ static bool g_heading_lock_pending = false;
 static bool g_heading_lock_active = false;
 static uint8_t s_pending_dash_page = 0xFFU;
 static uint32_t s_pending_dash_due_ms = 0U;
+static uint32_t s_last_dash_commit_ms = 0U;
 static uint32_t s_last_click_ms = 0U;
 
 #if UI_CLICK_PROFILE_ENABLED
@@ -148,6 +149,7 @@ void ui_state_init(void)
     s_ui.wall_charge   = 0;
     s_pending_dash_page = 0xFFU;
     s_pending_dash_due_ms = 0U;
+    s_last_dash_commit_ms = 0U;
     s_last_click_ms = 0U;
 }
 
@@ -176,14 +178,28 @@ void ui_go_to_page(uint8_t tile_pos)
     s_ui.dash_page = tile_pos;
     /* 真正的页面切换动作交给 screen 层完成。 */
     screen_scroll_to_page(tile_pos);
+    s_last_dash_commit_ms = lv_tick_get();
 }
 
 static void ui_schedule_dash_page(uint8_t tile_pos)
 {
 #if UI_DASH_ROTATE_COALESCE_ENABLED
+    const uint32_t now_ms = lv_tick_get();
+
+    /* 首次旋转必须立即落页，保证用户得到确定的视觉反馈。
+     * 只有在一个合并窗口内继续旋转，才延后到最终目标页，避免中间页反复
+     * set_tile/set_text/invalidate。 */
+    if (s_pending_dash_page == 0xFFU &&
+        (s_last_dash_commit_ms == 0U ||
+         (now_ms - s_last_dash_commit_ms) >= UI_DASH_ROTATE_COALESCE_WINDOW_MS))
+    {
+        ui_go_to_page(tile_pos);
+        return;
+    }
+
     s_ui.dash_page = tile_pos;
     s_pending_dash_page = tile_pos;
-    s_pending_dash_due_ms = lv_tick_get() + UI_DASH_ROTATE_COALESCE_WINDOW_MS;
+    s_pending_dash_due_ms = now_ms + UI_DASH_ROTATE_COALESCE_WINDOW_MS;
 #else
     ui_go_to_page(tile_pos);
 #endif
@@ -207,6 +223,7 @@ static void ui_flush_pending_dash_page(void)
 
     s_ui.dash_page = tile_pos;
     screen_scroll_to_page(tile_pos);
+    s_last_dash_commit_ms = lv_tick_get();
 #endif
 }
 
@@ -457,15 +474,11 @@ void ui_handle_rotate(int8_t dir)
    ========================================= */
 void ui_handle_click(void)
 {
-#if UI_CLICK_DEBOUNCE_ENABLED || UI_CLICK_PROFILE_ENABLED
     const uint32_t click_start_ms = lv_tick_get();
-#endif
-#if UI_CLICK_PROFILE_ENABLED
     uint32_t mark_ms = click_start_ms;
     uint32_t flush_ms = 0U;
     uint8_t state_before = (uint8_t)s_ui.state;
     uint8_t page_id_before = page_id_at(s_ui.dash_page);
-#endif
 
 #if UI_CLICK_DEBOUNCE_ENABLED
     if (s_last_click_ms != 0U &&

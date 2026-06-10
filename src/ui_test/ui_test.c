@@ -1,4 +1,3 @@
-#define UI_TEST_IMPLEMENTATION
 #include "ui_test.h"
 
 #include "ui_test_flags.h"

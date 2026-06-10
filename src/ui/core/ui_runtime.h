@@ -19,6 +19,7 @@ extern "C" {
 void ui_init(void);
 void ui_apply_config(void);
 void ui_update_data(void);
+void ui_update_flush_pending_once(void);
 void sys_config_defaults(sys_config_t *cfg);
 lv_text_align_t align_to_lv(uint8_t align);
 lv_align_t align_to_lv_align(uint8_t align);

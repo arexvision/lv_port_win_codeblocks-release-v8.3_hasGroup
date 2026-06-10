@@ -356,7 +356,7 @@ void ui_update_router_dispatch(dirty_mask_t mask)
         {
             lv_disp_enable_invalidation(disp, true);
         }
-        bus_requeue_dirty(mask & ~DIRTY_UI_LAYOUT);
+        bus_requeue_dirty_immediate(mask & ~DIRTY_UI_LAYOUT);
         return;
     }
 

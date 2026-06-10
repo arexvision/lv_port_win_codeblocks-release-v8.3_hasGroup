@@ -41,9 +41,12 @@ lv_obj_t *s_tileview;
 lv_obj_t *s_tile_objs[PAGE_COUNT];
 static uint32_t s_layout_generation = 1U;
 static uint32_t s_tile_layout_generation[PAGE_COUNT];
-static uint8_t s_visible_tile_pos = PAGE_POS_INFO;
+#define SCREEN_VISIBLE_TILE_INVALID 0xFFU
+static uint8_t s_visible_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
+#if UI_PAGE_DIRTY_DEFER_ENABLED
 static uint8_t s_pending_page_dirty_pos = 0xFFU;
 static uint32_t s_pending_page_dirty_due_ms = 0U;
+#endif
 
 #if UI_SCROLL_PROFILE_ENABLED
 typedef struct
@@ -225,9 +228,10 @@ void reset_transient_ui_refs(void)
     s_edit_flash_val_lbl = NULL;
     edit_flash_stop();
     screen_scroll_dots_reset_cache();
-    s_visible_tile_pos = PAGE_POS_INFO;
+#if UI_PAGE_DIRTY_DEFER_ENABLED
     s_pending_page_dirty_pos = 0xFFU;
     s_pending_page_dirty_due_ms = 0U;
+#endif
 
     /* 子菜单/编辑态相关状态也一起回到初始值，确保下一次进入页面时完全干净。 */
     ui_state_set_sub_history_depth(0U);
@@ -392,7 +396,6 @@ void screen_create(void)
  * ========================================================= */
 void screen_scroll_to_page(uint8_t tile_pos)
 {
-#if UI_SCROLL_PROFILE_ENABLED
     uint32_t start_ms = 0U;
     uint32_t mark_ms = 0U;
     uint32_t tile_ms = 0U;
@@ -401,7 +404,6 @@ void screen_scroll_to_page(uint8_t tile_pos)
     uint32_t dirty_ms = 0U;
     uint32_t dots_ms = 0U;
     dirty_mask_t dirty_mask = DIRTY_NONE;
-#endif
 
     /* 【问题三修复】s_tileview 可能为 NULL（布局重建期间） */
     if (!s_tileview) return;
@@ -476,9 +478,7 @@ void screen_scroll_to_page(uint8_t tile_pos)
     mark_ms = lv_tick_get();
 #endif
 
-#if UI_SCROLL_PROFILE_ENABLED
     dirty_mask = screen_visible_page_dirty_mask(tile_pos);
-#endif
     screen_schedule_visible_page_dirty(tile_pos);
 #if UI_SCROLL_PROFILE_ENABLED
     dirty_ms = lv_tick_get() - mark_ms;
@@ -517,6 +517,16 @@ uint8_t screen_visible_tile_pos_get(void)
     return s_visible_tile_pos;
 }
 
+void screen_invalidate_visible_tile_cache(void)
+{
+    /*
+     * LVGL tileview 新建后真实选中页是第 0 页；本模块的缓存只有在
+     * screen_scroll_to_page() 成功调用 lv_obj_set_tile() 后才可信。
+     * 重建 tileview 时必须置 invalid，避免第一次切到卡片首页被“同页跳过”。
+     */
+    s_visible_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
+}
+
 static void screen_flush_visible_page_dirty(uint8_t tile_pos)
 {
     /* 切页后只补当前页关心的数据域。
@@ -525,7 +535,10 @@ static void screen_flush_visible_page_dirty(uint8_t tile_pos)
     dirty_mask_t mask = screen_visible_page_dirty_mask(tile_pos);
     if (mask != DIRTY_NONE)
     {
-        bus_requeue_dirty(mask);
+        /* 切到可见页时必须立即补齐当前数据。普通高频 dirty 可以合帧，
+         * 但“新页面首帧显示”不能再被 SENSOR/SYSTEM 等节流窗口挡住，
+         * 否则用户会看到页面先出现、组件值过一会才填上的半成品界面。 */
+        bus_requeue_dirty_immediate(mask);
     }
 }
 

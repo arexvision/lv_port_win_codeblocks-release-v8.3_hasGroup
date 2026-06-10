@@ -580,6 +580,26 @@ void ui_update_data(void)
      */
 }
 
+void ui_update_flush_pending_once(void)
+{
+    /*
+     * 输入事件已经在 display task 的 LVGL 持锁窗口内消费。这里不推进告警闪烁、
+     * 异步菜单和其它周期状态机，只把“切页/点击刚产生的 pending navigation 与
+     * dirty mask”立即落到当前可见对象，避免再等 100ms UI timer 才补齐页面首帧。
+     */
+    ui_state_poll_deferred_navigation();
+    screen_poll_deferred_page_dirty();
+
+    dirty_mask_t mask = bus_take_dirty();
+    if (mask == DIRTY_NONE)
+    {
+        return;
+    }
+
+    app_ui_perf_note_dirty_mask((uint32_t)mask);
+    ui_update_router_dispatch(mask);
+}
+
 /* =========================================================
  * 11. Data Bus UI 消费任务 全系统唯一允许执行 lv_label_set_text 的地
  *
@@ -654,15 +674,5 @@ void ui_update_task(lv_timer_t *timer)
         screen_refresh_info_submenu_if_open();
     }
 
-    ui_state_poll_deferred_navigation();
-    screen_poll_deferred_page_dirty();
-
-    dirty_mask_t mask = bus_take_dirty();
-    if (mask == DIRTY_NONE)
-    {
-        return;
-    }
-
-    app_ui_perf_note_dirty_mask((uint32_t)mask);
-    ui_update_router_dispatch(mask);
+    ui_update_flush_pending_once();
 }

@@ -518,6 +518,7 @@ void right_panel_create(void)
     uint16_t content_w = ui_content_w_get();
     uint16_t content_h = ui_content_h_get();
     s_cached_right_w = content_w;
+    screen_invalidate_visible_tile_cache();
 
     s_right_cont = lv_obj_create(s_safe_zone);
     lv_obj_set_size(s_right_cont, content_w, content_h);
@@ -723,7 +724,7 @@ void screen_rebuild_layout(void)
     restore_brightness_overlay_state();
     /* 布局重建后只补当前可见页订阅的数据域。
      * 不可见页在切入时由 screen_scroll_to_page() 补刷，避免布局重建一次性刷新全部卡片。 */
-    bus_requeue_dirty(screen_visible_page_dirty_mask(screen_visible_tile_pos_get()));
+    bus_requeue_dirty_immediate(screen_visible_page_dirty_mask(screen_visible_tile_pos_get()));
 }
 
 void screen_rebuild_tileview(void)

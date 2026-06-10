@@ -28,18 +28,22 @@
 #define UI_DIRTY_SYSTEM_MIN_INTERVAL_MS 1000U
 #define UI_DIRTY_GAS_MIN_INTERVAL_MS 200U
 
-/* 页面快速切换时的补刷新延后，属于真实运行优化。
+/* 页面切换后的可见页补刷新策略，属于真实运行优化。
  *
  * 取值：
- * - 1：启用切页后补 dirty 延后。正常开发和量产建议保持 1；
- * - 0：切页后立即补 dirty。仅用于临时排查“切到新页后数据补刷太慢/未补刷”。
+ * - 1：切页后延后补 dirty。只适合专项验证“极限快速旋转时是否还存在中间页刷新压力”；
+ * - 0：最终可见页立即补 dirty。正常开发和量产建议保持 0。
  *
  * 作用：
- * - 快速旋转时，中间页很快变成不可见页，不立即刷新中间页；
- * - 停顿后只给最终可见页补 dirty；
- * - 延后的是显示补刷，不是业务数据同步。
+ * - 数据源始终由 bus_set_* 保存最新值，这个宏只控制“切到可见页后何时把最新值写入 LVGL 对象”；
+ * - 快速旋转时，中间页刷新压力主要由 UI_DASH_ROTATE_COALESCE_ENABLED 解决；
+ * - 最终落页再延后补 dirty 会造成“页面先到、组件值过一会才出现”的体感滞后。
+ *
+ * 嵌入式第一性原理：
+ * - 不可见页不刷新，避免无效 CPU/LCD flush；
+ * - 可见页必须尽快补齐当前数据，避免用户看到半成品界面。
  */
-#define UI_PAGE_DIRTY_DEFER_ENABLED 1
+#define UI_PAGE_DIRTY_DEFER_ENABLED 0
 #define UI_PAGE_DIRTY_DEFER_WINDOW_MS 120U
 
 /* DASH 快速翻页目标合并，属于真实运行优化。
@@ -54,7 +58,7 @@
  * - 不合并菜单、编辑态、modal、边界蓄力进入 INFO/SETUP。
  */
 #define UI_DASH_ROTATE_COALESCE_ENABLED 1
-#define UI_DASH_ROTATE_COALESCE_WINDOW_MS 120U
+#define UI_DASH_ROTATE_COALESCE_WINDOW_MS 80U
 
 /* 点击消费防抖，属于真实运行保护。
  *
