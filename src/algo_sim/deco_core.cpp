@@ -179,6 +179,12 @@ static float mod_depth_for_gas(const ArexDecoConfig *config, float o2_fraction, 
     return (depth_m > 0.0f) ? depth_m : 0.0f;
 }
 
+static float ppo2_for_mod_depth(const ArexDecoConfig *config, float o2_fraction, float mod_depth_m)
+{
+    if (o2_fraction <= 0.0001f || mod_depth_m <= 0.0f) return bus_get_mod_ppo2();
+    return (config->surface_pressure_bar + mod_depth_m / config->water_meters_per_bar) * o2_fraction;
+}
+
 static void format_gas_name(const ArexDecoGas *gas, char *name_buf, size_t name_buf_size)
 {
     uint8_t o2_pct = round_u8_pct(gas->oxygen_fraction * 100.0f);
@@ -255,13 +261,14 @@ static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan 
         }
 
         ArexDecoGas *gas = &gas_plan->gases[valid_count];
-        float ppo2 = (valid_count == 0U) ? AREX_DECO_DEFAULT_BOTTOM_PPO2_BAR : AREX_DECO_DEFAULT_DECO_PPO2_BAR;
+        float slot_mod_m = bus_get_gas_slot_mod_m(i);
+        float ppo2 = ppo2_for_mod_depth(config, (float)o2 / 100.0f, slot_mod_m);
         gas->oxygen_fraction = (float)o2 / 100.0f;
         gas->helium_fraction = (float)he / 100.0f;
         gas->nitrogen_fraction = 1.0f - gas->oxygen_fraction - gas->helium_fraction;
         gas->min_depth_m = 0.0f;
         gas->max_ppo2_bar = ppo2;
-        gas->max_depth_m = mod_depth_for_gas(config, gas->oxygen_fraction, ppo2);
+        gas->max_depth_m = (slot_mod_m > 0.0f) ? slot_mod_m : mod_depth_for_gas(config, gas->oxygen_fraction, ppo2);
         gas->enabled = 1U;
         gas->role = (valid_count == 0U) ? AREX_DECO_GAS_ROLE_BOTTOM : AREX_DECO_GAS_ROLE_DECO;
 
