@@ -108,6 +108,7 @@ typedef struct
     uint32_t surface_time_s;
     char    gas_name[16];
     uint8_t gas_active_idx;
+    int8_t  gas_recommended_idx;
     float   temperature_c;
     float   bat_temperature_c;
     float   prj_temperature_c;

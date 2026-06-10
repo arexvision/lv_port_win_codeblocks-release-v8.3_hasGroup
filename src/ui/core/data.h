@@ -110,6 +110,7 @@ void bus_set_dive_time(uint32_t dive_s);
 void bus_set_surface_time(uint32_t surface_s);
 void bus_set_ppo2(uint8_t sensor_idx, float ppo2_val); /* sensor_idx: 0~4 */
 void bus_set_gas(uint8_t gas_idx, const char *gas_name);
+void bus_set_recommended_gas_idx(int8_t gas_idx);
 void bus_set_gas_slot_count(uint8_t count);
 void bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
                            uint8_t o2_pct, uint8_t he_pct, float mod_m);
@@ -286,6 +287,7 @@ uint16_t bus_get_sys_time_m(void);
 uint16_t bus_get_sys_time_s(void);
 uint8_t bus_get_gas_slot_count(void);
 uint8_t bus_get_gas_active_idx(void);
+int8_t bus_get_recommended_gas_idx(void);
 const char *bus_get_gas_slot_name(uint8_t gas_idx);
 uint8_t bus_get_gas_slot_o2_pct(uint8_t gas_idx);
 uint8_t bus_get_gas_slot_he_pct(uint8_t gas_idx);

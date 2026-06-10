@@ -401,6 +401,11 @@ bool alarm_ack_current(void)
     return false;
 }
 
+bool alarm_display_is(alarm_id_t id)
+{
+    return id < ALARM_ID_COUNT && s_display_key == (int16_t)id;
+}
+
 void alarm_tick(uint32_t now_ms)
 {
     bool changed = false;

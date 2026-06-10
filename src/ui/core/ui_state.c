@@ -10,6 +10,7 @@
 #include "ui_engine.h"
 #include "../../config/build/ui_build_flags.h"
 #include "../../config/build/ui_debug_flags.h"
+#include "../alarm/alarm.h"
 #include "../screen/page_registry.h"
 #include "../screen/screen.h"
 
@@ -472,13 +473,46 @@ void ui_handle_rotate(int8_t dir)
 /* =========================================
    Click handler
    ========================================= */
+static bool ui_try_confirm_gas_switch_info(void)
+{
+    int8_t gas_idx;
+    float mod_m;
+
+    if (!alarm_display_is(ALARM_ID_INFO_GAS_SWITCH))
+    {
+        return false;
+    }
+
+    gas_idx = bus_get_recommended_gas_idx();
+    if (gas_idx < 0)
+    {
+        (void)alarm_set_active(ALARM_ID_INFO_GAS_SWITCH, false);
+        return true;
+    }
+
+    mod_m = bus_get_gas_slot_mod_m((uint8_t)gas_idx);
+    if (mod_m <= 0.0f || bus_get_depth() <= mod_m + 0.1f)
+    {
+        request_gas_switch((uint8_t)gas_idx);
+        bus_set_recommended_gas_idx(-1);
+        (void)alarm_set_active(ALARM_ID_INFO_GAS_SWITCH, false);
+        return true;
+    }
+
+    return true;
+}
+
 void ui_handle_click(void)
 {
+#if UI_CLICK_DEBOUNCE_ENABLED || UI_CLICK_PROFILE_ENABLED
     const uint32_t click_start_ms = lv_tick_get();
+#endif
+#if UI_CLICK_PROFILE_ENABLED
     uint32_t mark_ms = click_start_ms;
     uint32_t flush_ms = 0U;
     uint8_t state_before = (uint8_t)s_ui.state;
     uint8_t page_id_before = page_id_at(s_ui.dash_page);
+#endif
 
 #if UI_CLICK_DEBOUNCE_ENABLED
     if (s_last_click_ms != 0U &&
@@ -498,6 +532,17 @@ void ui_handle_click(void)
     flush_ms = lv_tick_get() - mark_ms;
     mark_ms = lv_tick_get();
 #endif
+
+    if (ui_try_confirm_gas_switch_info())
+    {
+        s_ui.alarm_pending_click = false;
+#if UI_CLICK_PROFILE_ENABLED
+        ui_click_profile_note(false, state_before, (uint8_t)s_ui.state, page_id_before,
+                              lv_tick_get() - click_start_ms, flush_ms,
+                              lv_tick_get() - mark_ms);
+#endif
+        return;
+    }
 
     {
         extern bool alarm_mark_clear_requested(void);

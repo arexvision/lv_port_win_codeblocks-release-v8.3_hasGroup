@@ -4,6 +4,7 @@
 #include "rtthread.h"
 
 extern "C" {
+#include "../ui/alarm/alarm.h"
 #include "../ui/core/data.h"
 #include "../ui/core/ui_settings.h"
 #include "../ui/core/ui_state.h"
@@ -353,6 +354,23 @@ static void sync_gas_data(void)
     }
 }
 
+static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec)
+{
+    int8_t recommended_idx = -1;
+
+    if (gas_rec != NULL &&
+        gas_rec->available &&
+        gas_rec->recommended_gas_index >= 0 &&
+        gas_rec->recommended_gas_index < (int8_t)s_state.gas_plan.gas_count &&
+        gas_rec->recommended_gas_index != s_state.gas_plan.active_gas_index)
+    {
+        recommended_idx = gas_rec->recommended_gas_index;
+    }
+
+    bus_set_recommended_gas_idx(recommended_idx);
+    (void)alarm_set_active(ALARM_ID_INFO_GAS_SWITCH, recommended_idx >= 0);
+}
+
 static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
 {
     deco_stop_t stops[MAX_DECO_STOPS];
@@ -538,12 +556,15 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     s_state = next_state;
 
     ArexDecoSchedule schedule;
+    ArexDecoGasRecommendation gas_rec;
     (void)memset(&schedule, 0, sizeof(schedule));
-    ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
+    (void)memset(&gas_rec, 0, sizeof(gas_rec));
+    ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, &gas_rec);
     if (plan_status == AREX_DECO_STATUS_OK)
     {
         debug_print_schedule(&schedule);
     }
+    sync_gas_recommendation((plan_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
     sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
 }
 

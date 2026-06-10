@@ -509,6 +509,7 @@ void data_init(void)
 
     g_sensor_data.ndl_bar_pct = 255U;
     g_sensor_data.gas_active_idx = 0;
+    g_sensor_data.gas_recommended_idx = -1;
     g_sensor_data.gas_slot_count = 1;
     strncpy(g_sensor_data.gas_name, "AIR", sizeof(g_sensor_data.gas_name) - 1);
 
@@ -756,6 +757,10 @@ void bus_set_gas(uint8_t gas_idx, const char *gas_name)
     if (g_sensor_data.gas_active_idx != gas_idx)
     {
         g_sensor_data.gas_active_idx = gas_idx;
+        if (g_sensor_data.gas_recommended_idx == (int8_t)gas_idx)
+        {
+            g_sensor_data.gas_recommended_idx = -1;
+        }
         changed = true;
     }
     if (gas_name != NULL && strncmp(g_sensor_data.gas_name, gas_name, 15) != 0)
@@ -766,6 +771,23 @@ void bus_set_gas(uint8_t gas_idx, const char *gas_name)
     }
     if (changed)
     {
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
+    }
+}
+
+void bus_set_recommended_gas_idx(int8_t gas_idx)
+{
+    uint8_t gas_count = bus_get_gas_slot_count();
+
+    if (gas_idx < 0 || gas_count == 0U || gas_idx >= (int8_t)gas_count || gas_idx >= (int8_t)GAS_COUNT ||
+        gas_idx == (int8_t)bus_get_gas_active_idx())
+    {
+        gas_idx = -1;
+    }
+
+    if (g_sensor_data.gas_recommended_idx != gas_idx)
+    {
+        g_sensor_data.gas_recommended_idx = gas_idx;
         bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
 }
@@ -792,6 +814,10 @@ void bus_set_gas_slot_count(uint8_t count)
                      sizeof(g_sensor_data.gas_name),
                      "%s",
                      g_sensor_data.gas_slot_name[0][0] ? g_sensor_data.gas_slot_name[0] : "AIR");
+        }
+        if (g_sensor_data.gas_recommended_idx >= (int8_t)count)
+        {
+            g_sensor_data.gas_recommended_idx = -1;
         }
         bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
@@ -2183,6 +2209,20 @@ uint8_t bus_get_gas_active_idx(void)
     if ((count == 0U) || (idx >= count))
     {
         return 0U;
+    }
+
+    return idx;
+}
+
+int8_t bus_get_recommended_gas_idx(void)
+{
+    int8_t idx = g_sensor_data.gas_recommended_idx;
+    uint8_t count = bus_get_gas_slot_count();
+
+    if (idx < 0 || count == 0U || idx >= (int8_t)count || idx >= (int8_t)GAS_COUNT ||
+        idx == (int8_t)bus_get_gas_active_idx())
+    {
+        return -1;
     }
 
     return idx;

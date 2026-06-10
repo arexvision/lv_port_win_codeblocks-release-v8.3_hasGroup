@@ -69,6 +69,7 @@ bool alarm_clear_custom(void);
 void alarm_clear_all(void);
 /* ACK 当前展示告警，用于支持用户手动确认隐藏。 */
 bool alarm_ack_current(void);
+bool alarm_display_is(alarm_id_t id);
 /* 周期推进告警展示和轮播逻辑。 */
 void alarm_tick(uint32_t now_ms);
 
