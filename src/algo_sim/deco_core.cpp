@@ -368,7 +368,8 @@ static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec)
 {
     int8_t recommended_idx = -1;
 
-    if (gas_rec != NULL &&
+    if (bus_get_dive_time_s() > 0U &&
+        gas_rec != NULL &&
         gas_rec->available &&
         gas_rec->recommended_gas_index >= 0 &&
         gas_rec->recommended_gas_index < (int8_t)s_state.gas_plan.gas_count &&
