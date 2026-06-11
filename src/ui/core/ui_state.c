@@ -476,7 +476,6 @@ void ui_handle_rotate(int8_t dir)
 static bool ui_try_confirm_gas_switch_info(void)
 {
     int8_t gas_idx;
-    float mod_m;
 
     if (!alarm_display_is(ALARM_ID_INFO_GAS_SWITCH))
     {
@@ -490,15 +489,9 @@ static bool ui_try_confirm_gas_switch_info(void)
         return true;
     }
 
-    mod_m = bus_get_gas_slot_mod_m((uint8_t)gas_idx);
-    if (mod_m <= 0.0f || bus_get_depth() <= mod_m + 0.1f)
-    {
-        request_gas_switch((uint8_t)gas_idx);
-        bus_set_recommended_gas_idx(-1);
-        (void)alarm_set_active(ALARM_ID_INFO_GAS_SWITCH, false);
-        return true;
-    }
-
+    request_gas_switch((uint8_t)gas_idx);
+    bus_set_recommended_gas_idx(-1);
+    (void)alarm_set_active(ALARM_ID_INFO_GAS_SWITCH, false);
     return true;
 }
 
