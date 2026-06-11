@@ -409,6 +409,18 @@ static void bus_apply_algo_safety_stop(uint8_t mode)
 #endif
 }
 
+float bus_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2)
+{
+#ifdef PC_SIMULATOR
+    return deco_core_calculate_gas_mod(o2_pct, he_pct, max_ppo2);
+#else
+    (void)o2_pct;
+    (void)he_pct;
+    (void)max_ppo2;
+    return 0.0f;
+#endif
+}
+
 /* 温度统计累计值 */
 static float    _temp_sum = 0.0f;        /* 温度累计和 */
 static uint32_t _temp_sample_count = 0;  /* 温度采样次数 */

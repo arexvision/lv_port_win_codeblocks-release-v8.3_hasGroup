@@ -52,6 +52,8 @@ PC simulator-only modules (`src/hal_sim`, `src/algo_sim`, `input_pc`, `buhlmann_
 
 DIVE PLAN is not PC-only. The UI should call the neutral `dive_plan_backend_calculate()` backend interface. PC simulator builds may implement that backend with `buhlmann_debug`; embedded builds should provide their real algorithm implementation instead of depending on `src/algo_sim`.
 
+If the algorithm layer provides a calculation interface for a value, the main project must call that interface instead of duplicating the formula locally. This includes values such as MOD, gas recommendation, decompression stop timing, tissue/GF metrics, no-fly time, and similar algorithm-owned outputs. Local fallback formulas are only acceptable when the algorithm layer genuinely has no API for that value and the boundary contract is documented.
+
 ## Git / Commit
 
 本仓库的 commit message 默认使用中文；只有用户明确要求时，才使用其他语言。

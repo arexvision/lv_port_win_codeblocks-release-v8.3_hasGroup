@@ -155,10 +155,12 @@ static void debug_print_schedule(const ArexDecoSchedule *schedule)
     for (uint8_t i = 0U; i < print_count; i++)
     {
         const ArexDecoStop *stop = &schedule->stops[i];
-        rt_kprintf(" | #%u %.2fm %lus gas=%d gf=%.2f",
+        rt_kprintf(" | #%u %.2fm dur=%lus hold=%lus sw=%lus gas=%d gf=%.2f",
                    (unsigned)(i + 1U),
                    (double)stop->depth_m,
                    (unsigned long)stop->duration_seconds,
+                   (unsigned long)stop->hold_seconds,
+                   (unsigned long)stop->switch_penalty_seconds,
                    (int)stop->gas_index,
                    (double)stop->target_gf);
     }
@@ -172,17 +174,18 @@ static float pressure_bar_at_depth(const ArexDecoConfig *config, float depth_m)
     return config->surface_pressure_bar + depth_m / config->water_meters_per_bar;
 }
 
-static float mod_depth_for_gas(const ArexDecoConfig *config, float o2_fraction, float max_ppo2)
+static float core_mod_depth_for_gas(const ArexDecoConfig *config, const ArexDecoGas *gas)
 {
-    if (o2_fraction <= 0.0001f) return 0.0f;
-    float depth_m = (max_ppo2 / o2_fraction - config->surface_pressure_bar) * config->water_meters_per_bar;
-    return (depth_m > 0.0f) ? depth_m : 0.0f;
+    float mod_m = 0.0f;
+    if (config == NULL || gas == NULL) return 0.0f;
+    if (arex_deco_calculate_gas_mod(config, gas, &mod_m) == AREX_DECO_STATUS_OK) return mod_m;
+    return gas->max_depth_m;
 }
 
-static float ppo2_for_mod_depth(const ArexDecoConfig *config, float o2_fraction, float mod_depth_m)
+static uint32_t stop_hold_seconds(const ArexDecoStop *stop)
 {
-    if (o2_fraction <= 0.0001f || mod_depth_m <= 0.0f) return bus_get_mod_ppo2();
-    return (config->surface_pressure_bar + mod_depth_m / config->water_meters_per_bar) * o2_fraction;
+    if (stop == NULL) return 0U;
+    return stop->hold_seconds;
 }
 
 static void format_gas_name(const ArexDecoGas *gas, char *name_buf, size_t name_buf_size)
@@ -262,13 +265,13 @@ static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan 
 
         ArexDecoGas *gas = &gas_plan->gases[valid_count];
         float slot_mod_m = bus_get_gas_slot_mod_m(i);
-        float ppo2 = ppo2_for_mod_depth(config, (float)o2 / 100.0f, slot_mod_m);
+        float ppo2 = bus_get_mod_ppo2();
         gas->oxygen_fraction = (float)o2 / 100.0f;
         gas->helium_fraction = (float)he / 100.0f;
         gas->nitrogen_fraction = 1.0f - gas->oxygen_fraction - gas->helium_fraction;
         gas->min_depth_m = 0.0f;
         gas->max_ppo2_bar = ppo2;
-        gas->max_depth_m = (slot_mod_m > 0.0f) ? slot_mod_m : mod_depth_for_gas(config, gas->oxygen_fraction, ppo2);
+        gas->max_depth_m = (slot_mod_m > 0.0f) ? slot_mod_m : core_mod_depth_for_gas(config, gas);
         gas->enabled = 1U;
         gas->role = (valid_count == 0U) ? AREX_DECO_GAS_ROLE_BOTTOM : AREX_DECO_GAS_ROLE_DECO;
 
@@ -349,7 +352,7 @@ static void sync_gas_data(void)
     bus_set_gas((uint8_t)active_idx, gas_name);
     bus_set_gas_mix(round_u8_pct(active_gas->oxygen_fraction * 100.0f), round_u8_pct(active_gas->helium_fraction * 100.0f));
     bus_set_fio2(active_gas->oxygen_fraction * 100.0f);
-    bus_set_mod(mod_depth_for_gas(&s_state.config, active_gas->oxygen_fraction, bus_get_mod_ppo2()));
+    bus_set_mod(core_mod_depth_for_gas(&s_state.config, active_gas));
 
     float n2_fraction = active_gas->nitrogen_fraction;
     float gas_density = (active_gas->oxygen_fraction * GAS_DENSITY_O2_G_L + n2_fraction * GAS_DENSITY_N2_G_L + active_gas->helium_fraction * GAS_DENSITY_HE_G_L) * pressure_bar / s_state.config.surface_pressure_bar;
@@ -400,12 +403,13 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
 
     for (uint8_t i = 0U; i < schedule->stop_count && count < MAX_DECO_STOPS; i++)
     {
-        if (schedule->stops[i].depth_m <= 0.0f || schedule->stops[i].duration_seconds == 0U)
+        uint32_t hold_s = stop_hold_seconds(&schedule->stops[i]);
+        if (schedule->stops[i].depth_m <= 0.0f || hold_s == 0U)
         {
             continue;
         }
         stops[count].depth_m = schedule->stops[i].depth_m;
-        stops[count].stay_min = (float)schedule->stops[i].duration_seconds / 60.0f;
+        stops[count].stay_min = (float)hold_s / 60.0f;
         count++;
     }
     bus_set_deco_plan((count > 0U) ? stops : NULL, count);
@@ -429,17 +433,19 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
     if (schedule != NULL && schedule->stop_count > 0U && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M)
     {
         const ArexDecoStop *stop = &schedule->stops[0];
+        uint32_t hold_s = stop_hold_seconds(stop);
         stop_type = STOP_DECO;
         stop_depth_m = stop->depth_m;
-        stop_left_s = (stop->duration_seconds > 65535U) ? 65535U : (uint16_t)stop->duration_seconds;
+        stop_left_s = (hold_s > 65535U) ? 65535U : (uint16_t)hold_s;
         in_stop_zone = deco_stop_zone_active(s_state.current_depth_m, stop_depth_m);
         ndl_min = 0;
     }
     else if (schedule != NULL && schedule->stop_count > 0U)
     {
         const ArexDecoStop *stop = &schedule->stops[0];
+        uint32_t hold_s = stop_hold_seconds(stop);
         stop_depth_m = stop->depth_m;
-        stop_left_s = (stop->duration_seconds > 65535U) ? 65535U : (uint16_t)stop->duration_seconds;
+        stop_left_s = (hold_s > 65535U) ? 65535U : (uint16_t)hold_s;
         stop_type = STOP_SAFETY;
         in_stop_zone = safety_stop_zone_active(s_state.current_depth_m);
     }
@@ -483,14 +489,27 @@ static void sync_core_data(const ArexDecoSchedule *schedule)
 static void handle_pending_gas_switch(float depth_m)
 {
     uint8_t target_gas_idx = 0U;
+    ArexDecoStepInput input;
+    ArexDecoDiveState next_state;
+
+    (void)depth_m;
     if (!has_pending_gas_switch(&target_gas_idx)) return;
 
     if (target_gas_idx < s_state.gas_plan.gas_count)
     {
         ArexDecoGas *gas = &s_state.gas_plan.gases[target_gas_idx];
-        if (gas->enabled != 0U && depth_m <= gas->max_depth_m + 0.1f)
+        if (gas->enabled != 0U && s_state.current_depth_m <= gas->max_depth_m + 0.1f)
         {
-            s_state.gas_plan.active_gas_index = (int8_t)target_gas_idx;
+            (void)memset(&input, 0, sizeof(input));
+            input.api_version = arex_deco_get_api_version();
+            input.start_depth_m = s_state.current_depth_m;
+            input.end_depth_m = s_state.current_depth_m;
+            input.duration_seconds = 0U;
+            input.gas_index = (int8_t)target_gas_idx;
+            if (arex_deco_step(&s_state, &input, &next_state, &s_metrics) == AREX_DECO_STATUS_OK)
+            {
+                s_state = next_state;
+            }
         }
     }
     clear_gas_switch_cmd();
@@ -544,6 +563,24 @@ void deco_core_apply_gases_from_ui(void)
     if (ensure_initialized()) apply_current_ui_config();
 }
 
+float deco_core_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2)
+{
+    ArexDecoConfig config;
+    ArexDecoGas gas;
+    float mod_m = 0.0f;
+
+    if (o2_pct == 0U || o2_pct > 100U || he_pct > 100U || (uint16_t)o2_pct + (uint16_t)he_pct > 100U) return 0.0f;
+    fill_config_from_ui(&config);
+    (void)memset(&gas, 0, sizeof(gas));
+    gas.oxygen_fraction = (float)o2_pct / 100.0f;
+    gas.helium_fraction = (float)he_pct / 100.0f;
+    gas.nitrogen_fraction = 1.0f - gas.oxygen_fraction - gas.helium_fraction;
+    gas.max_ppo2_bar = max_ppo2;
+    gas.enabled = 1U;
+    if (arex_deco_calculate_gas_mod(&config, &gas, &mod_m) != AREX_DECO_STATUS_OK) return 0.0f;
+    return mod_m;
+}
+
 void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
 {
     (void)temperature_c;
@@ -575,13 +612,14 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     ArexDecoGasRecommendation gas_rec;
     (void)memset(&schedule, 0, sizeof(schedule));
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
-    ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, &gas_rec);
+    ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
+    ArexDecoStatus gas_status = arex_deco_recommend_gas(&s_state, &gas_rec);
     if (plan_status == AREX_DECO_STATUS_OK)
     {
         debug_print_schedule(&schedule);
     }
     sync_gas_recommendation((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL,
-                            (plan_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
+                            (gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
     sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
 }
 

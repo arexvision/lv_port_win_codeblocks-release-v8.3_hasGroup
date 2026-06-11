@@ -26,6 +26,38 @@
 - smoke test
 - 文档
 
+## 0.0.18
+
+### 摘要
+
+本次版本把切气惩罚从 runtime 当前站倒计时语义中拆出来，明确区分
+Planning 的保守预测和 Runtime 的真实执行状态。Planner 仍把未来切气延迟计入
+TTS、气量估算和氧暴露预测；实时 UI 应通过独立切气推荐接口提示潜水员，并在
+确认后用 0 秒 step 更新 active gas。
+
+### 行为与 ABI 变更
+
+- `ArexDecoStop` 新增 `hold_seconds` 与 `switch_penalty_seconds`：
+  `duration_seconds == hold_seconds + switch_penalty_seconds`。
+- `duration_seconds` 继续表示静态计划/预测总时长，适合 TTS、CNS / OTU
+  预测和气量估算；runtime 当前站倒计时应使用确认切气后重算得到的
+  `hold_seconds`。
+- 新增 `arex_deco_recommend_gas()`，复用既有 `ArexDecoGasRecommendation`
+  结构体作为 runtime 切气提示的单一输出，不把推荐字段重复塞进
+  `ArexDecoRuntimeMetrics`。
+- 新增 `arex_deco_calculate_gas_mod()`，外部 UI 可直接按 core 当前压力模型
+  获取 MOD，避免 Web / App 端复刻公式后与 `validate_gas()`、切气推荐口径漂移。
+- `arex_deco_plan(..., gas_rec)` 仍保留兼容输出；WASM/Web 适配层改为
+  `arex_deco_plan(..., NULL)` 获取计划，再单独调用 `arex_deco_recommend_gas()`。
+- Web realtime 增加确认切气动作：确认后用 `arex_deco_step()` 的
+  `duration_seconds = 0`、`gas_index = recommended_gas_index` 更新真实 active gas。
+- WASM 导出新增 `_arex_deco_recommend_gas()`、`_arex_deco_calculate_gas_mod()`、
+  `_arex_deco_wasm_sizeof_gas_recommendation()` 和
+  `_arex_deco_wasm_sizeof_stop()`；JS adapter 与 smoke test 同步校验。
+- `ArexDecoStop` 大小保持 36 字节，新增字段使用原 reserved 空间；字段 offset 为
+  `hold_seconds = 16`、`switch_penalty_seconds = 20`。
+- API patch 版本升至 `0.0.18`。
+
 ## 0.0.17
 
 ### 摘要

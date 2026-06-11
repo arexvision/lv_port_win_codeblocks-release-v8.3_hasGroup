@@ -18,6 +18,10 @@ ArexDecoStatus arex_deco_reset_tissue_to_surface(
 ArexDecoStatus arex_deco_make_initial_dive_state(ArexDecoDiveState* state);
 ArexDecoStatus arex_deco_validate_gas(const ArexDecoConfig* config, const ArexDecoGas* gas);
 ArexDecoStatus arex_deco_validate_config(const ArexDecoConfig* config);
+ArexDecoStatus arex_deco_calculate_gas_mod(
+    const ArexDecoConfig* config,
+    const ArexDecoGas* gas,
+    float* mod_m);
 
 ArexDecoStatus arex_deco_step(
     const ArexDecoDiveState* state,
@@ -34,6 +38,10 @@ ArexDecoStatus arex_deco_step_pressure(
 ArexDecoStatus arex_deco_plan(
     const ArexDecoDiveState* state,
     ArexDecoSchedule* schedule,
+    ArexDecoGasRecommendation* gas_rec);
+
+ArexDecoStatus arex_deco_recommend_gas(
+    const ArexDecoDiveState* state,
     ArexDecoGasRecommendation* gas_rec);
 
 ArexDecoStatus arex_deco_nofly(

@@ -220,18 +220,14 @@ static void normalize_menu_key(const char *text, char *out, uint8_t out_size)
     }
 }
 
-static float gas_mod_for_o2(uint8_t o2_pct)
+static float gas_mod_for_mix(uint8_t o2_pct, uint8_t he_pct)
 {
-    /* 根据当前 PPO2 设定和氧浓度计算 MOD。 */
-    ui_vm_edit_spec_t vm_edit;
-
     if (o2_pct == 0U)
     {
         return 0.0f;
     }
 
-    ui_vm_edit_mod_ppo2_update(&vm_edit);
-    return ((vm_edit.value * 100.0f) / (float)o2_pct - 1.0f) * 10.0f;
+    return bus_calculate_gas_mod(o2_pct, he_pct, bus_get_mod_ppo2());
 }
 
 static void format_gas_name(char *out, size_t out_size, uint8_t o2_pct, uint8_t he_pct)
@@ -452,7 +448,7 @@ static void submenu_gas_profile_set(submenu_gas_profile_slot_t *slots,
 
     slots[index].o2_pct = o2_pct;
     slots[index].he_pct = he_pct;
-    slots[index].mod_m = gas_mod_for_o2(o2_pct);
+    slots[index].mod_m = gas_mod_for_mix(o2_pct, he_pct);
     slots[index].valid = (o2_pct > 0U) ? 1U : 0U;
     format_gas_name(slots[index].name, sizeof(slots[index].name), o2_pct, he_pct);
 }

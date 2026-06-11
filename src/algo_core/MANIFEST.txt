@@ -1,9 +1,9 @@
 arex-deco-core release bundle
-API version: 0.0.17
-Source commit: f160b03b19429f40d751697b62eee58ca6dc03ed
+API version: 0.0.18
+Source commit: 9e6f81fd6cf97b48959c1cbef72635449b814025
 Source dirty: no
 Build host: Linux 6.17.0-22-generic x86_64
-Built at: 2026-06-10T09:28:15Z
+Built at: 2026-06-11T11:07:28Z
 Platforms: sf32, mingw64
 
 Archive layout:

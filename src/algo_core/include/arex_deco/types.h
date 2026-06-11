@@ -148,10 +148,16 @@ typedef struct ArexDecoGasRecommendation {
 
 typedef struct ArexDecoStop {
     float depth_m;
+    // Total predicted time at this stop. This includes the physical hold and
+    // any same-depth gas-switch penalty used by the planner.
     uint32_t duration_seconds;
     int8_t gas_index;
     float target_gf;
-    uint8_t reserved[19];
+    // Physical stop hold only. Does not include gas-switch penalty.
+    uint32_t hold_seconds;
+    // Planner-only same-depth gas-switch delay.
+    uint32_t switch_penalty_seconds;
+    uint8_t reserved[12];
 } ArexDecoStop;
 
 typedef struct ArexDecoSchedule {
