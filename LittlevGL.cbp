@@ -2090,6 +2090,11 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui_main.h" />
+		<Unit filename="src/ui_test/ui_test.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui_test/ui_test.h" />
+		<Unit filename="src/ui_test/ui_test_flags.h" />
 		<Unit filename="src/ui/views/submenu_dive_plan_state.c">
 			<Option compilerVar="CC" />
 		</Unit>
