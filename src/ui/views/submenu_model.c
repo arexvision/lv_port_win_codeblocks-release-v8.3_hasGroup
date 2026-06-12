@@ -1055,7 +1055,7 @@ static const char **build_nested_oc_tech_edit(uint8_t slot, uint8_t *out_count)
     snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "PO2: %.1f", (double)s_gas_edit_draft_ppo2);
     s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
     n++;
-    s_nested_oc_tech_edit[n++] = "CONFIRM";
+    s_nested_oc_tech_edit[n++] = (s_gas_edit_mode <= 1U) ? "CONFIRM" : "SAVE GAS CONFIG";
     s_nested_oc_tech_edit[n] = NULL;
     if (out_count)
     {
@@ -1435,15 +1435,12 @@ bool submenu_setting_from_selection(const char *current_title,
     }
 
     if ((strcmp(clean_title, "AIR GAS") == 0 && item_index == 1U) ||
-        ((strcmp(clean_title, "NITROX GAS") == 0 || strstr(clean_title, "3 GAS") != NULL) && item_index == 2U) ||
-        (strstr(clean_title, "TX") != NULL && item_index == 3U))
+        (strcmp(clean_title, "NITROX GAS") == 0 && item_index == 2U))
     {
         out_setting->kind = SUBMENU_SETTING_OC_TECH_SAVE;
         out_setting->arg = s_gas_edit_slot;
         if (s_gas_edit_mode == 0U) lv_snprintf(out_setting->body, sizeof(out_setting->body), "%s", "GAS CONFIG\nAIR");
         else if (s_gas_edit_mode == 1U) lv_snprintf(out_setting->body, sizeof(out_setting->body), "GAS CONFIG\nNITROX %u%%", (unsigned)s_gas_edit_draft_o2_pct);
-        else if (s_gas_edit_mode == 2U) lv_snprintf(out_setting->body, sizeof(out_setting->body), "GAS CONFIG\nG%u EAN%u", (unsigned)(s_gas_edit_slot + 1U), (unsigned)s_gas_edit_draft_o2_pct);
-        else lv_snprintf(out_setting->body, sizeof(out_setting->body), "GAS CONFIG\nG%u TX %u/%u", (unsigned)(s_gas_edit_slot + 1U), (unsigned)s_gas_edit_draft_o2_pct, (unsigned)s_gas_edit_draft_he_pct);
         return true;
     }
 
@@ -1553,6 +1550,14 @@ bool submenu_direct_setting_from_selection(const char *current_title,
     {
         out_setting->kind = SUBMENU_SETTING_BLUETOOTH;
         out_setting->value = s_bluetooth_enabled ? 0 : 1;
+        return true;
+    }
+
+    if ((strstr(clean_title, "3 GAS") != NULL && item_index == 2U) ||
+        (strstr(clean_title, "TX") != NULL && item_index == 3U))
+    {
+        out_setting->kind = SUBMENU_SETTING_OC_TECH_SAVE;
+        out_setting->arg = s_gas_edit_slot;
         return true;
     }
 
@@ -1841,15 +1846,13 @@ bool submenu_setting_from_ids(menu_id_t current_menu,
     uint8_t item_index = 0U;
     const char *item_text = "";
 
-    if (current_menu == MENU_OC_TECH_EDIT && item_id == MENU_ITEM_OC_TECH_EDIT_SAVE)
+    if (current_menu == MENU_OC_TECH_EDIT && item_id == MENU_ITEM_OC_TECH_EDIT_SAVE && s_gas_edit_mode <= 1U)
     {
         memset(out_setting, 0, sizeof(*out_setting));
         out_setting->kind = SUBMENU_SETTING_OC_TECH_SAVE;
         out_setting->arg = s_gas_edit_slot;
         if (s_gas_edit_mode == 0U) lv_snprintf(out_setting->body, sizeof(out_setting->body), "%s", "GAS CONFIG\nAIR");
         else if (s_gas_edit_mode == 1U) lv_snprintf(out_setting->body, sizeof(out_setting->body), "GAS CONFIG\nNITROX %u%%", (unsigned)s_gas_edit_draft_o2_pct);
-        else if (s_gas_edit_mode == 2U) lv_snprintf(out_setting->body, sizeof(out_setting->body), "GAS CONFIG\nG%u EAN%u", (unsigned)(s_gas_edit_slot + 1U), (unsigned)s_gas_edit_draft_o2_pct);
-        else lv_snprintf(out_setting->body, sizeof(out_setting->body), "GAS CONFIG\nG%u TX %u/%u", (unsigned)(s_gas_edit_slot + 1U), (unsigned)s_gas_edit_draft_o2_pct, (unsigned)s_gas_edit_draft_he_pct);
         return true;
     }
 
@@ -1889,6 +1892,14 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
     /* 直接生效项的 ID 映射入口。 */
     const char *title = submenu_title_for_menu_id(current_menu);
     uint8_t item_index = 0U;
+
+    if (current_menu == MENU_OC_TECH_EDIT && item_id == MENU_ITEM_OC_TECH_EDIT_SAVE && s_gas_edit_mode > 1U)
+    {
+        memset(out_setting, 0, sizeof(*out_setting));
+        out_setting->kind = SUBMENU_SETTING_OC_TECH_SAVE;
+        out_setting->arg = s_gas_edit_slot;
+        return true;
+    }
 
     switch (item_id)
     {
