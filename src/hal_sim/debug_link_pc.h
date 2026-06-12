@@ -8,7 +8,10 @@
 extern "C" {
 #endif
 
+typedef bool (*debug_link_pc_rtc_offline_fn)(uint32_t seconds, char *err_buf, uint16_t err_buf_size);
+
 void debug_link_pc_start(void);
+void debug_link_pc_set_rtc_offline_handler(debug_link_pc_rtc_offline_fn handler);
 bool debug_link_pc_manual_mode(void);
 bool debug_link_pc_consume_connect_event(void);
 uint16_t debug_link_pc_time_scale(void);
@@ -83,6 +86,7 @@ typedef struct
     bool depth_goto_active;
     float depth_goto_target_m;
     float depth_goto_rate_mpm;
+    debug_link_pc_rtc_offline_fn rtc_offline_handler;
 
     wsa_startup_fn WSAStartup_;
     wsa_cleanup_fn WSACleanup_;
@@ -506,6 +510,7 @@ static void debug_send_help(void)
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back | manual on|off | auto on|off | speed <1..120>\r\n"
         "  depth <m> | goto <m> [m_min]|stop | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
+        "  rtc_offline <seconds>\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
         "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
         "  heading <deg> | ppo2 <slot> <bar> | gf <low> <high> | gf99 <pct> | surf_gf <pct>\r\n"
@@ -1026,6 +1031,41 @@ static void debug_exec_line(char *line)
         }
         bus_set_surface_time((uint32_t)time_s);
         debug_sendf("OK surface %d\r\n", time_s);
+        return;
+    }
+
+    if (debug_streq(cmd, "rtc_offline"))
+    {
+        int seconds;
+        char *extra;
+        char err_buf[96];
+
+        if (!debug_parse_int(debug_next_token(&cursor), &seconds) || seconds <= 0)
+        {
+            debug_send_raw("ERR usage: rtc_offline <seconds>\r\n");
+            return;
+        }
+        extra = debug_next_token(&cursor);
+        if (extra != NULL)
+        {
+            debug_send_raw("ERR usage: rtc_offline <seconds>\r\n");
+            return;
+        }
+        if (s_debug_link.rtc_offline_handler == NULL)
+        {
+            debug_send_raw("ERR rtc_offline unavailable\r\n");
+            return;
+        }
+        err_buf[0] = '\0';
+        if (!s_debug_link.rtc_offline_handler((uint32_t)seconds, err_buf, (uint16_t)sizeof(err_buf)))
+        {
+            debug_sendf("ERR %s\r\n", err_buf[0] != '\0' ? err_buf : "rtc_offline failed");
+            return;
+        }
+        debug_depth_goto_cancel();
+        bus_set_ascent_rate(0.0f);
+        s_debug_link.depth_rate_valid = false;
+        debug_sendf("OK rtc_offline %d AIR\r\n", seconds);
         return;
     }
 
@@ -1552,6 +1592,11 @@ void debug_link_pc_start(void)
            (unsigned)DEBUG_TCP_PORT);
 }
 
+void debug_link_pc_set_rtc_offline_handler(debug_link_pc_rtc_offline_fn handler)
+{
+    s_debug_link.rtc_offline_handler = handler;
+}
+
 bool debug_link_pc_manual_mode(void)
 {
     return s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET;
@@ -1622,6 +1667,11 @@ uint16_t debug_link_pc_time_scale(void)
 
 void debug_link_pc_start(void)
 {
+}
+
+void debug_link_pc_set_rtc_offline_handler(debug_link_pc_rtc_offline_fn handler)
+{
+    (void)handler;
 }
 
 bool debug_link_pc_manual_mode(void)

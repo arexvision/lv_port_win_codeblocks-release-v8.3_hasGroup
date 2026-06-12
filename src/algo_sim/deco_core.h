@@ -18,6 +18,7 @@ void deco_core_set_salinity_mode(uint8_t mode);
 void deco_core_set_safety_stop_mode(uint8_t mode);
 void deco_core_apply_gases_from_ui(void);
 float deco_core_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2);
+bool deco_core_rtc_offline(uint32_t seconds);
 bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv_lpm, dive_plan_result_snapshot_t *out_snapshot);
 
 #ifdef __cplusplus

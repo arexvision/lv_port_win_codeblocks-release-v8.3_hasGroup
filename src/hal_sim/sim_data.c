@@ -251,6 +251,35 @@ static void sim_reset_for_tcp_debug(void)
 
     bus_requeue_dirty(DIRTY_DATA_ALL);
 }
+
+static bool sim_apply_rtc_offline(uint32_t seconds, char *err_buf, uint16_t err_buf_size)
+{
+    if (seconds == 0U)
+    {
+        if (err_buf && err_buf_size > 0U) (void)snprintf(err_buf, err_buf_size, "%s", "usage: rtc_offline <seconds>");
+        return false;
+    }
+    if (bus_get_depth() > 0.30f || s_sim.in_dive || s_sim.surfacing_pending)
+    {
+        if (err_buf && err_buf_size > 0U) (void)snprintf(err_buf, err_buf_size, "%s", "rtc_offline requires confirmed surface state");
+        return false;
+    }
+    if (!deco_core_rtc_offline(seconds))
+    {
+        if (err_buf && err_buf_size > 0U) (void)snprintf(err_buf, err_buf_size, "%s", "deco core rtc offline failed");
+        return false;
+    }
+
+    s_sim.depth_m = 0.0f;
+    s_sim.surface_pending_s = 0U;
+    s_sim.surface_time_s += seconds;
+    s_sim.rate_sample_valid = false;
+    bus_set_depth(0.0f);
+    bus_set_ascent_rate(0.0f);
+    bus_set_surface_time(s_sim.surface_time_s);
+    bus_requeue_dirty(DIRTY_DATA_ALL);
+    return true;
+}
 #endif
 
 static void test_set_ui_layout(uint8_t phase)
@@ -764,6 +793,7 @@ void sim_data_start(void)
     }
 
 #if TCP_ALGO_DEBUG
+    debug_link_pc_set_rtc_offline_handler(sim_apply_rtc_offline);
     debug_link_pc_start();
     sim_alert_init();
     sim_seed_logbook_demo_if_empty();
