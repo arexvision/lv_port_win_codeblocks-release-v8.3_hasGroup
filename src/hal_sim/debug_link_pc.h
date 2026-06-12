@@ -44,6 +44,7 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m);
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define DEBUG_TCP_PORT 7623U
 #define DEBUG_RX_BUF_SIZE 512U
@@ -53,6 +54,8 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m);
 #define DEBUG_DEPTH_GOTO_MIN_MPM 0.1f
 #define DEBUG_DEPTH_GOTO_MAX_MPM 120.0f
 #define DEBUG_DEPTH_GOTO_EPSILON_M 0.01f
+#define DEBUG_RTC_VALID_AFTER_EPOCH 1577836800LL
+#define DEBUG_RTC_OFFLINE_MAX_SECONDS (30UL * 24UL * 60UL * 60UL)
 
 typedef int (WSAAPI *wsa_startup_fn)(WORD, LPWSADATA);
 typedef int (WSAAPI *wsa_cleanup_fn)(void);
@@ -86,6 +89,8 @@ typedef struct
     bool depth_goto_active;
     float depth_goto_target_m;
     float depth_goto_rate_mpm;
+    bool rtc_sleep_mark_valid;
+    time_t rtc_sleep_mark;
     debug_link_pc_rtc_offline_fn rtc_offline_handler;
 
     wsa_startup_fn WSAStartup_;
@@ -394,6 +399,77 @@ static void debug_depth_goto_cancel(void)
     s_debug_link.depth_goto_rate_mpm = 0.0f;
 }
 
+static bool debug_rtc_now(time_t *out_now)
+{
+    time_t now;
+
+    if (!out_now)
+    {
+        return false;
+    }
+
+    now = time(NULL);
+    if (now < (time_t)DEBUG_RTC_VALID_AFTER_EPOCH)
+    {
+        return false;
+    }
+
+    *out_now = now;
+    return true;
+}
+
+static bool debug_apply_rtc_offline_seconds(uint32_t seconds, const char *ok_name)
+{
+    char err_buf[96];
+
+    if (seconds == 0U)
+    {
+        debug_send_raw("ERR usage: rtc_offline <seconds>\r\n");
+        return false;
+    }
+    if (s_debug_link.rtc_offline_handler == NULL)
+    {
+        debug_send_raw("ERR rtc_offline unavailable\r\n");
+        return false;
+    }
+
+    err_buf[0] = '\0';
+    if (!s_debug_link.rtc_offline_handler(seconds, err_buf, (uint16_t)sizeof(err_buf)))
+    {
+        debug_sendf("ERR %s\r\n", err_buf[0] != '\0' ? err_buf : "rtc_offline failed");
+        return false;
+    }
+
+    debug_depth_goto_cancel();
+    bus_set_ascent_rate(0.0f);
+    s_debug_link.depth_rate_valid = false;
+    debug_sendf("OK %s %lu AIR\r\n", ok_name ? ok_name : "rtc_offline", (unsigned long)seconds);
+    return true;
+}
+
+static void debug_rtc_sleep_status(void)
+{
+    time_t now;
+    long long offline_s = 0;
+
+    if (!debug_rtc_now(&now))
+    {
+        debug_send_raw("ERR rtc invalid\r\n");
+        return;
+    }
+
+    if (s_debug_link.rtc_sleep_mark_valid && now > s_debug_link.rtc_sleep_mark)
+    {
+        offline_s = (long long)(now - s_debug_link.rtc_sleep_mark);
+    }
+
+    debug_sendf("OK rtc_sleep_status valid=%u mark=%lld now=%lld offline=%lld\r\n",
+                s_debug_link.rtc_sleep_mark_valid ? 1U : 0U,
+                (long long)s_debug_link.rtc_sleep_mark,
+                (long long)now,
+                offline_s);
+}
+
 static bool debug_depth_goto_start(float target_depth_m, float rate_mpm)
 {
     if (target_depth_m < 0.0f)
@@ -510,7 +586,7 @@ static void debug_send_help(void)
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back [2] | manual on|off | auto on|off | speed <1..120>\r\n"
         "  depth <m> | goto <m> [m_min]|stop | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
-        "  rtc_offline <seconds>\r\n"
+        "  rtc_offline <seconds> | rtc_sleep_mark | rtc_sleep_apply | rtc_sleep_status\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
         "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
         "  heading <deg> | ppo2 <slot> <bar> | gf <low> <high> | gf99 <pct> | surf_gf <pct>\r\n"
@@ -1059,11 +1135,83 @@ static void debug_exec_line(char *line)
         return;
     }
 
+    if (debug_streq(cmd, "rtc_sleep_mark"))
+    {
+        time_t now;
+        if (debug_next_token(&cursor) != NULL)
+        {
+            debug_send_raw("ERR usage: rtc_sleep_mark\r\n");
+            return;
+        }
+        if (!debug_rtc_now(&now))
+        {
+            debug_send_raw("ERR rtc invalid\r\n");
+            return;
+        }
+
+        s_debug_link.rtc_sleep_mark = now;
+        s_debug_link.rtc_sleep_mark_valid = true;
+        debug_sendf("OK rtc_sleep_mark rtc=%lld\r\n", (long long)now);
+        return;
+    }
+
+    if (debug_streq(cmd, "rtc_sleep_status"))
+    {
+        if (debug_next_token(&cursor) != NULL)
+        {
+            debug_send_raw("ERR usage: rtc_sleep_status\r\n");
+            return;
+        }
+        debug_rtc_sleep_status();
+        return;
+    }
+
+    if (debug_streq(cmd, "rtc_sleep_apply"))
+    {
+        time_t now;
+        uint32_t offline_seconds;
+
+        if (debug_next_token(&cursor) != NULL)
+        {
+            debug_send_raw("ERR usage: rtc_sleep_apply\r\n");
+            return;
+        }
+        if (!s_debug_link.rtc_sleep_mark_valid)
+        {
+            debug_send_raw("ERR rtc_sleep_mark required\r\n");
+            return;
+        }
+        if (!debug_rtc_now(&now))
+        {
+            debug_send_raw("ERR rtc invalid\r\n");
+            return;
+        }
+        if (now <= s_debug_link.rtc_sleep_mark)
+        {
+            debug_sendf("ERR rtc not advanced mark=%lld now=%lld\r\n", (long long)s_debug_link.rtc_sleep_mark, (long long)now);
+            return;
+        }
+        if ((unsigned long long)(now - s_debug_link.rtc_sleep_mark) > (unsigned long long)DEBUG_RTC_OFFLINE_MAX_SECONDS)
+        {
+            debug_sendf("ERR rtc offline too large %llu > %lu\r\n",
+                        (unsigned long long)(now - s_debug_link.rtc_sleep_mark),
+                        (unsigned long)DEBUG_RTC_OFFLINE_MAX_SECONDS);
+            return;
+        }
+
+        offline_seconds = (uint32_t)(now - s_debug_link.rtc_sleep_mark);
+        if (debug_apply_rtc_offline_seconds(offline_seconds, "rtc_sleep_apply"))
+        {
+            s_debug_link.rtc_sleep_mark = now;
+            s_debug_link.rtc_sleep_mark_valid = true;
+        }
+        return;
+    }
+
     if (debug_streq(cmd, "rtc_offline"))
     {
         int seconds;
         char *extra;
-        char err_buf[96];
 
         if (!debug_parse_int(debug_next_token(&cursor), &seconds) || seconds <= 0)
         {
@@ -1076,21 +1224,7 @@ static void debug_exec_line(char *line)
             debug_send_raw("ERR usage: rtc_offline <seconds>\r\n");
             return;
         }
-        if (s_debug_link.rtc_offline_handler == NULL)
-        {
-            debug_send_raw("ERR rtc_offline unavailable\r\n");
-            return;
-        }
-        err_buf[0] = '\0';
-        if (!s_debug_link.rtc_offline_handler((uint32_t)seconds, err_buf, (uint16_t)sizeof(err_buf)))
-        {
-            debug_sendf("ERR %s\r\n", err_buf[0] != '\0' ? err_buf : "rtc_offline failed");
-            return;
-        }
-        debug_depth_goto_cancel();
-        bus_set_ascent_rate(0.0f);
-        s_debug_link.depth_rate_valid = false;
-        debug_sendf("OK rtc_offline %d AIR\r\n", seconds);
+        (void)debug_apply_rtc_offline_seconds((uint32_t)seconds, "rtc_offline");
         return;
     }
 
@@ -1514,6 +1648,8 @@ static void debug_poll_cb(lv_timer_t *timer)
             s_debug_link.depth_rate_valid = false;
             s_debug_link.depth_rate_last_m = g_sensor_data.depth;
             s_debug_link.depth_rate_last_tick_ms = lv_tick_get();
+            s_debug_link.rtc_sleep_mark_valid = false;
+            s_debug_link.rtc_sleep_mark = 0;
             bus_set_ascent_rate(0.0f);
             printf("[DBG] TCP debug client connected\r\n");
             debug_send_raw("Debug TCP ready on 127.0.0.1:7623\r\n");
