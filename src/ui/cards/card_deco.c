@@ -189,7 +189,21 @@ static uint8_t card_deco_mvalue_line_pct(void)
 
 static bool card_deco_tissue_chart_active(void)
 {
-    return s_deco_vm_cache.chart_active != 0U;
+    if (s_deco_vm_cache.chart_active != 0U)
+    {
+        return true;
+    }
+
+    for (uint8_t i = 0U; i < 16U; i++)
+    {
+        if (s_deco_vm_cache.tissue_raw_pct[i] > 0U ||
+            s_deco_vm_cache.tissue_gf_pct[i] > 0U)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static void card_deco_update_mvalue_line(bool chart_active)
