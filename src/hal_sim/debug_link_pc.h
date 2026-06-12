@@ -508,7 +508,7 @@ static void debug_send_help(void)
     debug_send_raw(
         "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
-        "  help | state | back | manual on|off | auto on|off | speed <1..120>\r\n"
+        "  help | state | back [2] | manual on|off | auto on|off | speed <1..120>\r\n"
         "  depth <m> | goto <m> [m_min]|stop | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
         "  rtc_offline <seconds>\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
@@ -850,6 +850,31 @@ static void debug_exec_line(char *line)
 
     if (debug_streq(cmd, "back") || debug_streq(cmd, "esc"))
     {
+        char *hold_arg = debug_next_token(&cursor);
+        if (hold_arg)
+        {
+            int hold_seconds;
+            if (!debug_streq(cmd, "back") ||
+                !debug_parse_int(hold_arg, &hold_seconds) ||
+                hold_seconds != 2 ||
+                debug_next_token(&cursor) != NULL)
+            {
+                debug_send_raw("ERR usage: back [2]\r\n");
+                return;
+            }
+
+            if (!alarm_ack_current())
+            {
+                ui_handle_back();
+            }
+            else
+            {
+                ui_state_set_alarm_pending_click(false);
+            }
+            debug_send_raw("OK back 2\r\n");
+            return;
+        }
+
         ui_handle_back();
         debug_send_raw("OK back\r\n");
         return;

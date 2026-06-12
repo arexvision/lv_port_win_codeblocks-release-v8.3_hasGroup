@@ -67,6 +67,9 @@ bool alarm_raise_custom(alarm_level_t level,
                              comp_id_t target);
 bool alarm_clear_custom(void);
 void alarm_clear_all(void);
+/* 同步服务层 ACK 状态；只对 ACK_HIDE 告警生效。 */
+bool alarm_set_acknowledged(alarm_id_t id, bool acknowledged);
+bool alarm_current_requires_ack(void);
 /* ACK 当前展示告警，用于支持用户手动确认隐藏。 */
 bool alarm_ack_current(void);
 bool alarm_display_is(alarm_id_t id);

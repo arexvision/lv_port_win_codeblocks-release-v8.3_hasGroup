@@ -374,6 +374,48 @@ void alarm_clear_all(void)
     alarm_mark_dirty();
 }
 
+bool alarm_set_acknowledged(alarm_id_t id, bool acknowledged)
+{
+    if (id >= ALARM_ID_COUNT)
+    {
+        return false;
+    }
+
+    if (s_alarm_defs[id].clear_policy != ALARM_CLEAR_ACK_HIDE ||
+            !s_alarm_states[id].active)
+    {
+        return false;
+    }
+
+    if (s_alarm_states[id].acked == acknowledged)
+    {
+        return false;
+    }
+
+    s_alarm_states[id].acked = acknowledged;
+    alarm_mark_dirty();
+    return true;
+}
+
+bool alarm_current_requires_ack(void)
+{
+    if (s_display_key >= 0)
+    {
+        return s_alarm_states[s_display_key].active &&
+               !s_alarm_states[s_display_key].acked &&
+               s_alarm_defs[s_display_key].clear_policy == ALARM_CLEAR_ACK_HIDE;
+    }
+
+    if (s_display_key == -1)
+    {
+        return s_custom_alarm.active &&
+               !s_custom_alarm.acked &&
+               s_custom_alarm.clear_policy == ALARM_CLEAR_ACK_HIDE;
+    }
+
+    return false;
+}
+
 bool alarm_ack_current(void)
 {
     if (s_display_key >= 0)

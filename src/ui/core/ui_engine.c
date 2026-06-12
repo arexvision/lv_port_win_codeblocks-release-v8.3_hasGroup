@@ -564,7 +564,9 @@ uint8_t   g_card_custom_obj_count;
 
 bool alarm_mark_clear_requested(void)
 {
-    return alarm_ack_current();
+    /* 告警确认不再由普通 click/back 直接触发。
+     * 当前展示待确认告警时，这里只吞掉普通输入，确认统一走 BACK 长按 2 秒。 */
+    return alarm_current_requires_ack();
 }
 
 
