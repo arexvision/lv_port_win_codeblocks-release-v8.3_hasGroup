@@ -27,10 +27,10 @@ static void error_screen_create(void)
 
     lv_obj_t *title = lv_label_create(scr);
     lv_obj_set_style_text_color(title, title_color, 0);
-    lv_obj_set_style_text_font(title, FONT_HUGE, 0);
+    lv_obj_set_style_text_font(title, FONT_MEDIUM, 0);
     lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(title, ERROR_SCREEN_TITLE);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, group_y);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, (lv_coord_t)(group_y + 14));
 
     lv_obj_t *line = lv_obj_create(scr);
     lv_obj_set_size(line, line_w, 2);
@@ -45,7 +45,7 @@ static void error_screen_create(void)
     lv_obj_t *message = lv_label_create(scr);
     lv_obj_set_width(message, (lv_coord_t)(w - 80));
     lv_obj_set_style_text_color(message, GREEN, 0);
-    lv_obj_set_style_text_font(message, FONT_MEDIUM, 0);
+    lv_obj_set_style_text_font(message, FONT_SMALL, 0);
     lv_obj_set_style_text_align(message, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(message, LV_LABEL_LONG_WRAP);
     lv_label_set_text(message, ERROR_SCREEN_MESSAGE);

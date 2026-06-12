@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#define ERROR_SCREEN_ENABLED 0
+#define ERROR_SCREEN_ENABLED 1
 #define ERROR_SCREEN_TITLE "ERROR"
 #define ERROR_SCREEN_MESSAGE "SYSTEM ERROR"
 
