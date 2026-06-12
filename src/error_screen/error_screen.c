@@ -4,7 +4,7 @@
 #include "ui/core/ui_defs.h"
 #include "ui/fonts/fonts.h"
 
-#if ERROR_SCREEN_ENABLED
+static bool s_boot_error_active;
 
 static void error_screen_create(void)
 {
@@ -54,14 +54,23 @@ static void error_screen_create(void)
     lv_scr_load(scr);
 }
 
-#endif /* ERROR_SCREEN_ENABLED */
+void error_screen_set_boot_error(bool active)
+{
+    s_boot_error_active = active;
+}
+
+bool error_screen_has_boot_error(void)
+{
+    return s_boot_error_active;
+}
 
 bool error_screen_try_start(void)
 {
-#if ERROR_SCREEN_ENABLED
+    if (!ERROR_SCREEN_FORCE_SHOW && !error_screen_has_boot_error())
+    {
+        return false;
+    }
+
     error_screen_create();
     return true;
-#else
-    return false;
-#endif
 }
