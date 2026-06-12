@@ -564,9 +564,9 @@ uint8_t   g_card_custom_obj_count;
 
 bool alarm_mark_clear_requested(void)
 {
-    /* 告警确认不再由普通 click/back 直接触发。
-     * 当前展示待确认告警时，这里只吞掉普通输入，确认统一走 BACK 长按 2 秒。 */
-    return alarm_current_requires_ack();
+    /* 告警确认已经从普通 key 输入中解耦，普通 click/back 不再吞输入。
+     * PC 调试的 BACK 长按由 debug_link_pc 直接调用 alarm_ack_current()。 */
+    return false;
 }
 
 
