@@ -13,6 +13,7 @@
 | 增加一个右侧 tileview 页面，比如新业务卡片 | `FLOW_ADD_RIGHT_PAGE.md` |
 | 算法/TCP 新增一个数据字段并显示到 UI | `FLOW_ADD_DATA_FIELD_TO_UI.md` |
 | 真机侧触发/解除警告，或新增固定警告 ID | `ALARM_SYSTEM_PORTING_GUIDE.md` |
+| 算法口径、计算参数、真机回调移植规则 | `规则书.md` |
 
 ## 总规则
 
@@ -22,6 +23,7 @@
 - 可信菜单 index / enum 不额外加 clamp。
 - TCP、BLE、文件、协议输入属于不可信边界，需要校验。
 - 不新增项目名前缀。
+- 涉及算法计算、派生显示或真机业务回调时，必须同步更新 `规则书.md` 和相关专题文档。
 
 ## 快速判断改哪里
 
