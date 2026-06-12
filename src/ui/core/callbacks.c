@@ -18,6 +18,19 @@
 
 /* 这些 weak 回调是 UI 层的默认落地实现。
  * 真机平台可以覆盖它们，把 UI 操作接到真实业务或硬件服务。 */
+static uint8_t s_dive_mode = 0U;
+static uint8_t s_nitrox_o2_pct = 32U;
+static uint8_t s_three_gas_o2_pct[3] = { 21U, 32U, 100U };
+static uint8_t s_oc_tech_o2_pct[5] = { 18U, 21U, 35U, 50U, 100U };
+static uint8_t s_oc_tech_he_pct[5] = { 45U, 35U, 25U, 0U, 0U };
+static uint8_t s_units_mode = 0U;
+static uint8_t s_bluetooth_enabled = 0U;
+static uint16_t s_datetime_year = 2026U;
+static uint8_t s_datetime_month = 1U;
+static uint8_t s_datetime_day = 1U;
+static uint8_t s_datetime_hour = 0U;
+static uint8_t s_datetime_minute = 0U;
+
 WEAK_CALLBACK
 void bus_set_light_power(bool on)
 {
@@ -123,6 +136,7 @@ void ui_on_dive_mode_set(uint8_t mode)
     {
         mode = 0;
     }
+    s_dive_mode = mode;
     UI_CALLBACK_TRACE("[SYSTEM_SETUP] Dive mode: %s\n", labels[mode]);
 }
 
@@ -136,22 +150,26 @@ void ui_on_gas_profile_commit(void)
 WEAK_CALLBACK
 void ui_on_nitrox_o2_set(uint8_t o2_pct)
 {
-    (void)o2_pct;
+    s_nitrox_o2_pct = o2_pct;
 }
 
 WEAK_CALLBACK
 void ui_on_three_gas_o2_set(uint8_t slot, uint8_t o2_pct)
 {
-    (void)slot;
-    (void)o2_pct;
+    if (slot < (sizeof(s_three_gas_o2_pct) / sizeof(s_three_gas_o2_pct[0])))
+    {
+        s_three_gas_o2_pct[slot] = o2_pct;
+    }
 }
 
 WEAK_CALLBACK
 void ui_on_oc_tech_gas_set(uint8_t slot, uint8_t o2_pct, uint8_t he_pct)
 {
-    (void)slot;
-    (void)o2_pct;
-    (void)he_pct;
+    if (slot < (sizeof(s_oc_tech_o2_pct) / sizeof(s_oc_tech_o2_pct[0])))
+    {
+        s_oc_tech_o2_pct[slot] = o2_pct;
+        s_oc_tech_he_pct[slot] = he_pct;
+    }
 }
 
 WEAK_CALLBACK
@@ -214,6 +232,7 @@ void ui_on_vibration_test(void)
 WEAK_CALLBACK
 void ui_on_units_set(uint8_t units)
 {
+    s_units_mode = units;
     UI_CALLBACK_TRACE("[DISPLAY_SETUP] Units: %s\n", units == 1 ? "IMPERIAL" : "METRIC");
 }
 
@@ -221,6 +240,15 @@ WEAK_CALLBACK
 void ui_on_datetime_field_set(uint8_t field, uint16_t value)
 {
     static const char *labels[] = { "YEAR", "MONTH", "DAY", "HOUR", "MINUTE" };
+    switch (field)
+    {
+    case 0: s_datetime_year = value; break;
+    case 1: s_datetime_month = (uint8_t)value; break;
+    case 2: s_datetime_day = (uint8_t)value; break;
+    case 3: s_datetime_hour = (uint8_t)value; break;
+    case 4: s_datetime_minute = (uint8_t)value; break;
+    default: break;
+    }
     if (field >= (sizeof(labels) / sizeof(labels[0])))
     {
         field = 0;
@@ -249,12 +277,35 @@ void ui_on_log_rate_set(uint8_t seconds)
 WEAK_CALLBACK
 void ui_on_bluetooth_set(bool enabled)
 {
+    s_bluetooth_enabled = enabled ? 1U : 0U;
     UI_CALLBACK_TRACE("[DISPLAY_SETUP] Bluetooth: %s\n", enabled ? "ON" : "OFF");
 }
 
 WEAK_CALLBACK
 void ui_on_reset_defaults(void)
 {
+    s_dive_mode = 0U;
+    s_nitrox_o2_pct = 32U;
+    s_three_gas_o2_pct[0] = 21U;
+    s_three_gas_o2_pct[1] = 32U;
+    s_three_gas_o2_pct[2] = 100U;
+    s_oc_tech_o2_pct[0] = 18U;
+    s_oc_tech_o2_pct[1] = 21U;
+    s_oc_tech_o2_pct[2] = 35U;
+    s_oc_tech_o2_pct[3] = 50U;
+    s_oc_tech_o2_pct[4] = 100U;
+    s_oc_tech_he_pct[0] = 45U;
+    s_oc_tech_he_pct[1] = 35U;
+    s_oc_tech_he_pct[2] = 25U;
+    s_oc_tech_he_pct[3] = 0U;
+    s_oc_tech_he_pct[4] = 0U;
+    s_units_mode = 0U;
+    s_bluetooth_enabled = 0U;
+    s_datetime_year = 2026U;
+    s_datetime_month = 1U;
+    s_datetime_day = 1U;
+    s_datetime_hour = 0U;
+    s_datetime_minute = 0U;
     bus_set_safety_stop_mode(UI_SAFETY_STOP_DEFAULT);
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
@@ -279,29 +330,29 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->depth_alarm_m = bus_get_depth_alarm_m();
     out_snapshot->time_alarm_min = bus_get_time_alarm_min();
     out_snapshot->ndl_alarm_min = bus_get_ndl_alarm_min();
-    out_snapshot->units_mode = 0U;
+    out_snapshot->units_mode = s_units_mode;
     out_snapshot->log_rate_s = bus_get_log_rate();
-    out_snapshot->bluetooth_enabled = 0U;
-    out_snapshot->dive_mode = 0U;
-    out_snapshot->nitrox_o2_pct = 32U;
-    out_snapshot->three_gas_o2_pct[0] = 21U;
-    out_snapshot->three_gas_o2_pct[1] = 32U;
-    out_snapshot->three_gas_o2_pct[2] = 100U;
-    out_snapshot->oc_tech_o2_pct[0] = 18U;
-    out_snapshot->oc_tech_o2_pct[1] = 21U;
-    out_snapshot->oc_tech_o2_pct[2] = 35U;
-    out_snapshot->oc_tech_o2_pct[3] = 50U;
-    out_snapshot->oc_tech_o2_pct[4] = 100U;
-    out_snapshot->oc_tech_he_pct[0] = 45U;
-    out_snapshot->oc_tech_he_pct[1] = 35U;
-    out_snapshot->oc_tech_he_pct[2] = 25U;
-    out_snapshot->oc_tech_he_pct[3] = 0U;
-    out_snapshot->oc_tech_he_pct[4] = 0U;
-    out_snapshot->datetime_year = 2026U;
-    out_snapshot->datetime_month = 1U;
-    out_snapshot->datetime_day = 1U;
-    out_snapshot->datetime_hour = 0U;
-    out_snapshot->datetime_minute = 0U;
+    out_snapshot->bluetooth_enabled = s_bluetooth_enabled;
+    out_snapshot->dive_mode = s_dive_mode;
+    out_snapshot->nitrox_o2_pct = s_nitrox_o2_pct;
+    out_snapshot->three_gas_o2_pct[0] = s_three_gas_o2_pct[0];
+    out_snapshot->three_gas_o2_pct[1] = s_three_gas_o2_pct[1];
+    out_snapshot->three_gas_o2_pct[2] = s_three_gas_o2_pct[2];
+    out_snapshot->oc_tech_o2_pct[0] = s_oc_tech_o2_pct[0];
+    out_snapshot->oc_tech_o2_pct[1] = s_oc_tech_o2_pct[1];
+    out_snapshot->oc_tech_o2_pct[2] = s_oc_tech_o2_pct[2];
+    out_snapshot->oc_tech_o2_pct[3] = s_oc_tech_o2_pct[3];
+    out_snapshot->oc_tech_o2_pct[4] = s_oc_tech_o2_pct[4];
+    out_snapshot->oc_tech_he_pct[0] = s_oc_tech_he_pct[0];
+    out_snapshot->oc_tech_he_pct[1] = s_oc_tech_he_pct[1];
+    out_snapshot->oc_tech_he_pct[2] = s_oc_tech_he_pct[2];
+    out_snapshot->oc_tech_he_pct[3] = s_oc_tech_he_pct[3];
+    out_snapshot->oc_tech_he_pct[4] = s_oc_tech_he_pct[4];
+    out_snapshot->datetime_year = s_datetime_year;
+    out_snapshot->datetime_month = s_datetime_month;
+    out_snapshot->datetime_day = s_datetime_day;
+    out_snapshot->datetime_hour = s_datetime_hour;
+    out_snapshot->datetime_minute = s_datetime_minute;
     return true;
 }
 
