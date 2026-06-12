@@ -625,6 +625,11 @@ static void apply_dive_mode_gases(uint8_t mode)
     }
 }
 
+void submenu_reapply_current_gas_profile(void)
+{
+    apply_dive_mode_gases(s_dive_mode);
+}
+
 static void submenu_commit_dive_mode(uint16_t value)
 {
     s_dive_mode = (value > 3U) ? 0U : (uint8_t)value;

@@ -72,6 +72,7 @@ void submenu_prepare_oc_tech_child(menu_item_id_t item_id,
 void submenu_apply_setting(submenu_setting_kind_t kind, uint8_t arg, uint16_t value);
 void submenu_apply_edit_value(submenu_setting_kind_t kind, uint8_t arg, float value);
 void submenu_sync_persisted_settings(void);
+void submenu_reapply_current_gas_profile(void);
 #ifdef __cplusplus
 }
 #endif

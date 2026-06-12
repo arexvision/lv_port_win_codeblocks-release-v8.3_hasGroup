@@ -50,6 +50,7 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
         break;
     case SUBMENU_SETTING_SALINITY:
         ui_on_salinity_set((uint8_t)setting->value);
+        submenu_reapply_current_gas_profile();
         break;
     case SUBMENU_SETTING_SAFETY_STOP:
         ui_on_safety_stop_mode_set((uint8_t)setting->value);

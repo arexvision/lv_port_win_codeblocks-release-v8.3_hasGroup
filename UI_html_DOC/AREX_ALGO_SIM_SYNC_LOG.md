@@ -42,6 +42,7 @@
 - UI 菜单通过 `bus_calculate_gas_mod()` 请求算法层计算 MOD。
 - 实时 active gas 的 MOD 显示通过 `core_mod_depth_for_gas()` 调用 `arex_deco_calculate_gas_mod()`。
 - 启动默认 AIR 气体槽和 TCP 调试默认种子不再硬编码 `56m` 或 `33m`，改为通过 `bus_calculate_gas_mod(21, 0, 1.4)` 获取算法口径 MOD；只有算法接口不可用时才 fallback 到 `56m`。
+- `SALINITY` 变更后会重新应用当前 dive mode 的 gas profile，触发每个气体槽按当前盐度和各自最大 PO2 重新计算 MOD，避免 GAS 卡片继续显示旧水型下缓存的 `gas_slot_mod_m`。
 - 删除 UI/模拟器侧 MOD 公式复刻。
 
 影响：
@@ -49,6 +50,7 @@
 - 模拟器、真机和算法文档中的 MOD 口径统一。
 - 海水/淡水、水面压力、气体最大 PPO2 等影响因素由算法层统一处理。
 - 上电默认 AIR / PO2 1.4 的气体卡片 MOD 与进入 AIR GAS 后确认得到的 MOD 保持一致；默认 `FRESH` 约为 `58.2m`，`SALT` 约为 `56.5m`。
+- DIVE SETUP 中切换 `FRESH / SALT / EN13319` 后，当前已配置气体的 MOD 显示会立即跟随新水型刷新，不需要重新进入气体配置页确认。
 
 #### 气体最大 PPO2
 
