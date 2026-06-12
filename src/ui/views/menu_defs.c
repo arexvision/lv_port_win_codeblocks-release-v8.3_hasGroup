@@ -131,7 +131,7 @@ menu_id_t menu_defs_child_menu_for_item(menu_item_id_t id)
     case MENU_ITEM_SYSTEM_ALERTS_SETUP:  return MENU_ALERTS_SETUP;
     case MENU_ITEM_SYSTEM_DISPLAY:       return MENU_DISPLAY;
     case MENU_ITEM_MODE_AIR:             return MENU_OC_TECH_EDIT;
-    case MENU_ITEM_MODE_NITROX:          return MENU_NITROX;
+    case MENU_ITEM_MODE_NITROX:          return MENU_OC_TECH_EDIT;
     case MENU_ITEM_MODE_THREE_GAS:       return MENU_THREE_GAS;
     case MENU_ITEM_MODE_OC_TECH:         return MENU_OC_TECH;
     case MENU_ITEM_NITROX_O2:            return MENU_OC_TECH_EDIT;
