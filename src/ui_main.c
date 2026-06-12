@@ -11,6 +11,8 @@
 #ifdef PC_SIMULATOR
 #include "hal_sim/input_pc.h"
 #include "hal_sim/sim_data.h"
+#else
+#include "startup_gif.h"
 #endif
 
 static lv_timer_t *s_update_task_timer;  /* UI 数据消费定时器 */
@@ -35,12 +37,20 @@ void UI_main(void)
     ui_init();
     if (error_screen_try_start())
     {
+#ifndef PC_SIMULATOR
+        app_ui_startup_gif_disable();
+#endif
         return;
     }
     if (ui_test_try_start())
     {
         return;
     }
+
+#ifndef PC_SIMULATOR
+    /* 设备端启动动画依赖 SF32 资源/GIF 解码；PC 模拟器不进入这条路径。 */
+    app_ui_startup_gif_preload();
+#endif
 
     screen_create();
     ui_state_init();
