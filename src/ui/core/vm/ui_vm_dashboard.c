@@ -368,7 +368,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)bus_get_sys_time_h(),(unsigned)bus_get_sys_time_m());
         break;
     case COMP_TIME_1606:
-        (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)bus_get_sys_time_m(),(unsigned)bus_get_sys_time_s());
+        (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)bus_get_sys_time_h(),(unsigned)bus_get_sys_time_m());
         break;
     case COMP_TTS_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%d", (int)bus_get_tts());

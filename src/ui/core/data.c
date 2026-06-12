@@ -701,13 +701,16 @@ void bus_set_sys_time(uint8_t hour, uint8_t minute, uint8_t second)
     minute = (minute > 59U) ? 0U : minute;
     second = (second > 59U) ? 0U : second;
 
-    if ((g_sensor_data.sys_time_h != hour) ||
-        (g_sensor_data.sys_time_m != minute) ||
-        (g_sensor_data.sys_time_s != second)) {
+    bool visible_time_changed = (g_sensor_data.sys_time_h != hour) || (g_sensor_data.sys_time_m != minute);
+
+    if (visible_time_changed || (g_sensor_data.sys_time_s != second)) {
         g_sensor_data.sys_time_h = hour;
         g_sensor_data.sys_time_m = minute;
         g_sensor_data.sys_time_s = second;
-        bus_mark_dirty(DIRTY_SYSTEM);
+        if (visible_time_changed)
+        {
+            bus_mark_dirty(DIRTY_SYSTEM);
+        }
     }
 }
 
