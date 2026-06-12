@@ -23,6 +23,12 @@ static lv_timer_t *s_sim_timer;
 
 static void sim_fill_logbook_tanks(logbook_entry_t *entry);
 
+static float sim_default_air_mod_m(void)
+{
+    float mod_m = bus_calculate_gas_mod(21U, 0U, 1.4f);
+    return (mod_m > 0.0f) ? mod_m : 56.0f;
+}
+
 #define SIM_LAYOUT_PHASE_COUNT 4U
 #define SIM_LAYOUT_SWITCH_TICKS 5U
 #define SIM_DIVE_ENTRY_DEPTH_M 1.2f
@@ -141,7 +147,8 @@ static void sim_update_runtime_metrics(uint16_t time_scale)
 
 static void sim_seed_original_defaults(void)
 {
-    bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
+    float air_mod_m = sim_default_air_mod_m();
+    bus_set_gas_slot(0, "AIR", 21, 0, air_mod_m);
     bus_set_gas_slot(1, "", 0, 0, 0.0f);
     bus_set_gas_slot(2, "", 0, 0, 0.0f);
     bus_set_gas_slot_count(1);
@@ -151,7 +158,7 @@ static void sim_seed_original_defaults(void)
     bus_set_gf_setting(30, 70);
     bus_set_surf_gf(85.0f);
     bus_set_gf99(42.0f);
-    bus_set_mod(33.0f);
+    bus_set_mod(air_mod_m);
     bus_set_ceiling(0.0f);
     bus_set_gas_mix(21, 0);
     sim_update_gas_derived(0.0f);
@@ -206,7 +213,8 @@ static void sim_seed_logbook_demo_if_empty(void)
 #if TCP_ALGO_DEBUG
 static void sim_seed_tcp_algo_defaults(void)
 {
-    bus_set_gas_slot(0, "AIR", 21, 0, 56.0f);
+    float air_mod_m = sim_default_air_mod_m();
+    bus_set_gas_slot(0, "AIR", 21, 0, air_mod_m);
     bus_set_gas_slot(1, "", 0, 0, 0.0f);
     bus_set_gas_slot(2, "", 0, 0, 0.0f);
     bus_set_gas_slot_count(1);
@@ -216,7 +224,7 @@ static void sim_seed_tcp_algo_defaults(void)
     bus_set_gf_setting(30, 70);
     bus_set_surf_gf(0.0f);
     bus_set_gf99(0.0f);
-    bus_set_mod(56.0f);
+    bus_set_mod(air_mod_m);
     bus_set_ceiling(0.0f);
     bus_set_gas_mix(21, 0);
     sim_update_gas_derived(0.0f);

@@ -421,6 +421,12 @@ float bus_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2)
 #endif
 }
 
+static float bus_default_air_mod_m(void)
+{
+    float mod_m = bus_calculate_gas_mod(21U, 0U, 1.4f);
+    return (mod_m > 0.0f) ? mod_m : 56.0f;
+}
+
 /* 温度统计累计值 */
 static float    _temp_sum = 0.0f;        /* 温度累计和 */
 static uint32_t _temp_sample_count = 0;  /* 温度采样次数 */
@@ -528,7 +534,7 @@ void data_init(void)
     strncpy(g_sensor_data.gas_slot_name[0], "AIR", sizeof(g_sensor_data.gas_slot_name[0]) - 1);
     g_sensor_data.gas_slot_o2_pct[0] = 21;
     g_sensor_data.gas_slot_he_pct[0] = 0;
-    g_sensor_data.gas_slot_mod_m[0] = 56.0f;
+    g_sensor_data.gas_slot_mod_m[0] = bus_default_air_mod_m();
 
     g_sensor_data.gas_slot_name[1][0] = '\0';
     g_sensor_data.gas_slot_o2_pct[1] = 0;
