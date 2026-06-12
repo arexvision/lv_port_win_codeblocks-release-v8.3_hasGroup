@@ -1802,6 +1802,10 @@
 		<Unit filename="src/algo_sim/README.md" />
 		<Unit filename="src/algo_sim/rtdevice.h" />
 		<Unit filename="src/algo_sim/rtthread.h" />
+		<Unit filename="src/error_screen/error_screen.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/error_screen/error_screen.h" />
 		<Unit filename="src/hal_sim/README.md" />
 		<Unit filename="src/hal_sim/debug_link_pc.h" />
 		<Unit filename="src/hal_sim/input_pc.c">

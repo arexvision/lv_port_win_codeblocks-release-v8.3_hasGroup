@@ -3,6 +3,7 @@
 #include "ui/screen/screen.h"
 #include "ui/core/ui_dirty.h"
 #include "config/build/ui_build_flags.h"
+#include "error_screen/error_screen.h"
 #include "lvgl/lvgl.h"
 #include "ui_test/ui_test.h"
 #include "ui_main.h"
@@ -32,6 +33,10 @@ static void ui_bootstrap_force_first_paint(void)
 void UI_main(void)
 {
     ui_init();
+    if (error_screen_try_start())
+    {
+        return;
+    }
     if (ui_test_try_start())
     {
         return;
