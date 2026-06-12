@@ -37,6 +37,30 @@ static uint16_t vm_content_w_from_config(const sys_config_t *config)
            : 0U;
 }
 
+static void vm_format_mod_text(char *buf, size_t buf_size, float mod_m)
+{
+    if (buf == NULL || buf_size == 0U)
+    {
+        return;
+    }
+
+    if (mod_m <= 0.0f)
+    {
+        (void)snprintf(buf, buf_size, "%s", "MOD --");
+        return;
+    }
+
+    float nearest_meter = floorf(mod_m + 0.5f);
+    if (fabsf(mod_m - nearest_meter) < 0.05f)
+    {
+        (void)snprintf(buf, buf_size, "MOD %.0fm", (double)mod_m);
+    }
+    else
+    {
+        (void)snprintf(buf, buf_size, "MOD %.1fm", (double)mod_m);
+    }
+}
+
 static void vm_split_decimal_1(float value, int16_t *int_part, uint8_t *dec_part)
 {
     int16_t local_int;
@@ -124,14 +148,7 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
             float ppo2 = bus_get_mod_ppo2();
 
             (void)snprintf(vm->names[i], sizeof(vm->names[i]), "%s", (name != NULL) ? name : "--");
-            if (mod_m > 0.0f)
-            {
-                (void)snprintf(vm->mod_text[i], sizeof(vm->mod_text[i]), "MOD %.0fm", (double)mod_m);
-            }
-            else
-            {
-                (void)snprintf(vm->mod_text[i], sizeof(vm->mod_text[i]), "%s", "MOD --");
-            }
+            vm_format_mod_text(vm->mod_text[i], sizeof(vm->mod_text[i]), mod_m);
             (void)snprintf(vm->ppo2_text[i], sizeof(vm->ppo2_text[i]), "PO2 %.2f", (double)ppo2);
             vm->visible[i] = 1U;
             vm->highlighted[i] = ((selection_mode && i == vm->cursor_idx) ||
@@ -172,14 +189,7 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
         float ppo2 = config->mod_ppo2;
 
         (void)snprintf(vm->names[i], sizeof(vm->names[i]), "%s", name);
-        if (mod_m > 0.0f)
-        {
-            (void)snprintf(vm->mod_text[i], sizeof(vm->mod_text[i]), "MOD %.0fm", (double)mod_m);
-        }
-        else
-        {
-            (void)snprintf(vm->mod_text[i], sizeof(vm->mod_text[i]), "%s", "MOD --");
-        }
+        vm_format_mod_text(vm->mod_text[i], sizeof(vm->mod_text[i]), mod_m);
         (void)snprintf(vm->ppo2_text[i], sizeof(vm->ppo2_text[i]), "PO2 %.2f", (double)ppo2);
         vm->visible[i] = 1U;
         vm->highlighted[i] = ((selection_mode && i == vm->cursor_idx) ||
