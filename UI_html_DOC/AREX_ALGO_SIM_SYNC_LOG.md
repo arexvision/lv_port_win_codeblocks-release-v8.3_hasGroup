@@ -41,12 +41,14 @@
 - 模拟器新增 `deco_core_calculate_gas_mod()`，内部调用 `arex_deco_calculate_gas_mod()`。
 - UI 菜单通过 `bus_calculate_gas_mod()` 请求算法层计算 MOD。
 - 实时 active gas 的 MOD 显示通过 `core_mod_depth_for_gas()` 调用 `arex_deco_calculate_gas_mod()`。
+- 启动默认 AIR 气体槽和 TCP 调试默认种子不再硬编码 `56m` 或 `33m`，改为通过 `bus_calculate_gas_mod(21, 0, 1.4)` 获取算法口径 MOD；只有算法接口不可用时才 fallback 到 `56m`。
 - 删除 UI/模拟器侧 MOD 公式复刻。
 
 影响：
 
 - 模拟器、真机和算法文档中的 MOD 口径统一。
 - 海水/淡水、水面压力、气体最大 PPO2 等影响因素由算法层统一处理。
+- 上电默认 AIR / PO2 1.4 的气体卡片 MOD 与进入 AIR GAS 后确认得到的 MOD 保持一致；默认 `FRESH` 约为 `58.2m`，`SALT` 约为 `56.5m`。
 
 #### 气体最大 PPO2
 

@@ -54,6 +54,8 @@ DIVE PLAN is not PC-only. The UI should call the neutral `dive_plan_backend_calc
 
 If the algorithm layer provides a calculation interface for a value, the main project must call that interface instead of duplicating the formula locally. This includes values such as MOD, gas recommendation, decompression stop timing, tissue/GF metrics, no-fly time, and similar algorithm-owned outputs. Local fallback formulas are only acceptable when the algorithm layer genuinely has no API for that value and the boundary contract is documented.
 
+任何涉及算法计算口径、算法字段语义、算法输入输出映射、模拟器与真机计算同步的改动，都必须同步更新对应的 Markdown 文档。优先更新 `UI_html_DOC/AREX_ALGO_SIM_SYNC_LOG.md`；如果改动影响 API 调用链、推荐气体、停站/计划、组织仓/GF、MOD、nofly、RTC 离线补偿等专题文档，也要同步更新对应专题文档。提交代码前检查文档是否说明了“改了什么、为什么改、旧口径和新口径差异、验证方式”。
+
 ## Git / Commit
 
 本仓库的 commit message 默认使用中文；只有用户明确要求时，才使用其他语言。
