@@ -97,13 +97,19 @@ static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
 static uint8_t s_last_deco_mode = 0;     /* 0=3m, 1=6m */
 static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1=SEA, 2=L1, 3=L2 */
 static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS, 3=OC Tech */
+static float s_air_ppo2 = 1.4f;
 static uint8_t s_nitrox_o2_pct = 32;
+static float s_nitrox_ppo2 = 1.4f;
 static uint8_t s_three_gas_o2_pct[3] = { 21, 32, 100 };
+static float s_three_gas_ppo2[3] = { 1.4f, 1.4f, 1.4f };
 static uint8_t s_oc_tech_o2_pct[5] = { 18, 21, 35, 50, 100 };
 static uint8_t s_oc_tech_he_pct[5] = { 45, 35, 25, 0, 0 };
-static uint8_t s_oc_tech_draft_o2_pct[5] = { 18, 21, 35, 50, 100 };
-static uint8_t s_oc_tech_draft_he_pct[5] = { 45, 35, 25, 0, 0 };
-static uint8_t s_oc_tech_edit_slot = 0;
+static float s_oc_tech_ppo2[5] = { 1.4f, 1.4f, 1.4f, 1.4f, 1.4f };
+static uint8_t s_gas_edit_mode = 0;      /* 0=AIR, 1=NITROX, 2=3 GAS, 3=OC Tech */
+static uint8_t s_gas_edit_slot = 0;
+static uint8_t s_gas_edit_draft_o2_pct = 21;
+static uint8_t s_gas_edit_draft_he_pct = 0;
+static float s_gas_edit_draft_ppo2 = 1.4f;
 static uint8_t s_ai_tank_state[2] = { 0, 0 }; /* 0=UNPAIRED, 1=PAIRING, 2=PAIRED */
 static uint8_t s_gtr_enabled = 1;        /* 0=OFF, 1=ON */
 static uint16_t s_depth_alarm_m = 40;
@@ -117,6 +123,8 @@ static uint8_t s_datetime_month = 5;
 static uint8_t s_datetime_day = 20;
 static uint8_t s_datetime_hour = 12;
 static uint8_t s_datetime_minute = 0;
+
+static float gas_ppo2_or_default(float ppo2);
 
 void submenu_sync_persisted_settings(void)
 {
@@ -137,10 +145,16 @@ void submenu_sync_persisted_settings(void)
     s_log_rate_s = snapshot.log_rate_s;
     s_bluetooth_enabled = snapshot.bluetooth_enabled;
     s_dive_mode = (snapshot.dive_mode > 3U) ? 0U : snapshot.dive_mode;
+    s_air_ppo2 = gas_ppo2_or_default(snapshot.air_ppo2);
     s_nitrox_o2_pct = snapshot.nitrox_o2_pct;
+    s_nitrox_ppo2 = gas_ppo2_or_default(snapshot.nitrox_ppo2);
     memcpy(s_three_gas_o2_pct, snapshot.three_gas_o2_pct, sizeof(s_three_gas_o2_pct));
+    memcpy(s_three_gas_ppo2, snapshot.three_gas_ppo2, sizeof(s_three_gas_ppo2));
     memcpy(s_oc_tech_o2_pct, snapshot.oc_tech_o2_pct, sizeof(s_oc_tech_o2_pct));
     memcpy(s_oc_tech_he_pct, snapshot.oc_tech_he_pct, sizeof(s_oc_tech_he_pct));
+    memcpy(s_oc_tech_ppo2, snapshot.oc_tech_ppo2, sizeof(s_oc_tech_ppo2));
+    for (uint8_t i = 0U; i < 3U; i++) s_three_gas_ppo2[i] = gas_ppo2_or_default(s_three_gas_ppo2[i]);
+    for (uint8_t i = 0U; i < 5U; i++) s_oc_tech_ppo2[i] = gas_ppo2_or_default(s_oc_tech_ppo2[i]);
     s_datetime_year = snapshot.datetime_year;
     s_datetime_month = snapshot.datetime_month;
     s_datetime_day = snapshot.datetime_day;
@@ -220,14 +234,19 @@ static void normalize_menu_key(const char *text, char *out, uint8_t out_size)
     }
 }
 
-static float gas_mod_for_mix(uint8_t o2_pct, uint8_t he_pct)
+static float gas_mod_for_mix(uint8_t o2_pct, uint8_t he_pct, float ppo2)
 {
     if (o2_pct == 0U)
     {
         return 0.0f;
     }
 
-    return bus_calculate_gas_mod(o2_pct, he_pct, bus_get_mod_ppo2());
+    return bus_calculate_gas_mod(o2_pct, he_pct, ppo2);
+}
+
+static float gas_ppo2_or_default(float ppo2)
+{
+    return (ppo2 >= 1.0f && ppo2 <= 1.6f) ? ppo2 : 1.4f;
 }
 
 static void format_gas_name(char *out, size_t out_size, uint8_t o2_pct, uint8_t he_pct)
@@ -351,74 +370,91 @@ static const char **copy_menu_lines(const char items[][32], uint8_t count, uint8
     return s_menu_vm_dyn;
 }
 
-static bool oc_tech_slot_from_title(const char *title, uint8_t *out_slot)
-{
-    unsigned slot_no = 0;
-    const char *clean_title = strip_title_prefix(title);
-
-    if (!clean_title)
-    {
-        return false;
-    }
-    if (sscanf(clean_title, "G%u TX", &slot_no) != 1)
-    {
-        return false;
-    }
-    if (slot_no < 1U || slot_no > 5U)
-    {
-        return false;
-    }
-    if (out_slot)
-    {
-        *out_slot = (uint8_t)(slot_no - 1U);
-    }
-    return true;
-}
-
-static void apply_oc_tech_mode_gases(void);
 static void apply_nitrox_mode_gases(void);
 static void apply_three_gas_mode_gases(void);
+static void apply_oc_tech_mode_gases(void);
+static void apply_air_mode_gases(void);
 
-static void begin_oc_tech_slot_edit(uint8_t slot)
+static void begin_gas_slot_edit(uint8_t mode, uint8_t slot)
 {
-    if (slot >= 5U)
+    s_gas_edit_mode = mode;
+    s_gas_edit_slot = slot;
+    s_gas_edit_draft_he_pct = 0U;
+    s_gas_edit_draft_ppo2 = 1.4f;
+
+    if (mode == 1U)
     {
-        slot = 0;
+        s_gas_edit_slot = 0U;
+        s_gas_edit_draft_o2_pct = s_nitrox_o2_pct;
+        s_gas_edit_draft_ppo2 = s_nitrox_ppo2;
     }
-    s_oc_tech_edit_slot = slot;
-    s_oc_tech_draft_o2_pct[slot] = s_oc_tech_o2_pct[slot];
-    s_oc_tech_draft_he_pct[slot] = s_oc_tech_he_pct[slot];
-    if (s_oc_tech_draft_o2_pct[slot] < 8U)
+    else if (mode == 2U)
     {
-        s_oc_tech_draft_o2_pct[slot] = 21U;
+        if (s_gas_edit_slot >= 3U) s_gas_edit_slot = 0U;
+        s_gas_edit_draft_o2_pct = s_three_gas_o2_pct[s_gas_edit_slot];
+        s_gas_edit_draft_ppo2 = s_three_gas_ppo2[s_gas_edit_slot];
     }
-    if ((uint16_t)s_oc_tech_draft_o2_pct[slot] + (uint16_t)s_oc_tech_draft_he_pct[slot] > 100U)
+    else if (mode == 3U)
     {
-        s_oc_tech_draft_he_pct[slot] = (uint8_t)(100U - s_oc_tech_draft_o2_pct[slot]);
+        if (s_gas_edit_slot >= 5U) s_gas_edit_slot = 0U;
+        s_gas_edit_draft_o2_pct = s_oc_tech_o2_pct[s_gas_edit_slot];
+        s_gas_edit_draft_he_pct = s_oc_tech_he_pct[s_gas_edit_slot];
+        s_gas_edit_draft_ppo2 = s_oc_tech_ppo2[s_gas_edit_slot];
     }
+    else
+    {
+        s_gas_edit_mode = 0U;
+        s_gas_edit_slot = 0U;
+        s_gas_edit_draft_o2_pct = 21U;
+        s_gas_edit_draft_ppo2 = s_air_ppo2;
+    }
+
+    if (s_gas_edit_draft_o2_pct < 8U) s_gas_edit_draft_o2_pct = 21U;
+    if ((uint16_t)s_gas_edit_draft_o2_pct + (uint16_t)s_gas_edit_draft_he_pct > 100U) s_gas_edit_draft_he_pct = (uint8_t)(100U - s_gas_edit_draft_o2_pct);
 }
 
-static void save_oc_tech_slot(uint8_t slot)
+static void save_current_gas_slot(void)
 {
-    if (slot >= 5U)
+    if (s_gas_edit_mode == 1U)
     {
-        return;
+        s_nitrox_o2_pct = s_gas_edit_draft_o2_pct;
+        s_nitrox_ppo2 = s_gas_edit_draft_ppo2;
+        ui_on_nitrox_o2_set(s_nitrox_o2_pct);
+        ui_on_nitrox_ppo2_set(s_nitrox_ppo2);
+        if (s_dive_mode == 1U) apply_nitrox_mode_gases();
     }
-    s_oc_tech_o2_pct[slot] = s_oc_tech_draft_o2_pct[slot];
-    s_oc_tech_he_pct[slot] = s_oc_tech_draft_he_pct[slot];
-    if (s_oc_tech_o2_pct[slot] < 8U)
+    else if (s_gas_edit_mode == 2U)
     {
-        s_oc_tech_o2_pct[slot] = 8U;
+        if (s_gas_edit_slot < 3U)
+        {
+            s_three_gas_o2_pct[s_gas_edit_slot] = s_gas_edit_draft_o2_pct;
+            s_three_gas_ppo2[s_gas_edit_slot] = s_gas_edit_draft_ppo2;
+            ui_on_three_gas_o2_set(s_gas_edit_slot, s_three_gas_o2_pct[s_gas_edit_slot]);
+            ui_on_three_gas_ppo2_set(s_gas_edit_slot, s_three_gas_ppo2[s_gas_edit_slot]);
+            if (s_dive_mode == 2U) apply_three_gas_mode_gases();
+        }
     }
-    if ((uint16_t)s_oc_tech_o2_pct[slot] + (uint16_t)s_oc_tech_he_pct[slot] > 100U)
+    else if (s_gas_edit_mode == 3U)
     {
-        s_oc_tech_he_pct[slot] = (uint8_t)(100U - s_oc_tech_o2_pct[slot]);
+        if (s_gas_edit_slot < 5U)
+        {
+            s_oc_tech_o2_pct[s_gas_edit_slot] = s_gas_edit_draft_o2_pct;
+            s_oc_tech_he_pct[s_gas_edit_slot] = s_gas_edit_draft_he_pct;
+            s_oc_tech_ppo2[s_gas_edit_slot] = s_gas_edit_draft_ppo2;
+            if (s_oc_tech_o2_pct[s_gas_edit_slot] < 8U) s_oc_tech_o2_pct[s_gas_edit_slot] = 8U;
+            if ((uint16_t)s_oc_tech_o2_pct[s_gas_edit_slot] + (uint16_t)s_oc_tech_he_pct[s_gas_edit_slot] > 100U) s_oc_tech_he_pct[s_gas_edit_slot] = (uint8_t)(100U - s_oc_tech_o2_pct[s_gas_edit_slot]);
+            ui_on_oc_tech_gas_set(s_gas_edit_slot, s_oc_tech_o2_pct[s_gas_edit_slot], s_oc_tech_he_pct[s_gas_edit_slot]);
+            ui_on_oc_tech_ppo2_set(s_gas_edit_slot, s_oc_tech_ppo2[s_gas_edit_slot]);
+            if (s_dive_mode == 3U) apply_oc_tech_mode_gases();
+        }
     }
-    ui_on_oc_tech_gas_set(slot, s_oc_tech_o2_pct[slot], s_oc_tech_he_pct[slot]);
-
-    if (s_dive_mode == 3U)
+    else
     {
-        apply_oc_tech_mode_gases();
+        s_air_ppo2 = s_gas_edit_draft_ppo2;
+        ui_on_air_ppo2_set(s_air_ppo2);
+        s_dive_mode = 0U;
+        ui_on_dive_mode_set(0U);
+        apply_air_mode_gases();
     }
 }
 
@@ -439,7 +475,8 @@ static void submenu_gas_profile_set(submenu_gas_profile_slot_t *slots,
                                     uint8_t slot_count,
                                     uint8_t index,
                                     uint8_t o2_pct,
-                                    uint8_t he_pct)
+                                    uint8_t he_pct,
+                                    float ppo2)
 {
     if ((slots == NULL) || (index >= slot_count))
     {
@@ -448,7 +485,7 @@ static void submenu_gas_profile_set(submenu_gas_profile_slot_t *slots,
 
     slots[index].o2_pct = o2_pct;
     slots[index].he_pct = he_pct;
-    slots[index].mod_m = gas_mod_for_mix(o2_pct, he_pct);
+    slots[index].mod_m = gas_mod_for_mix(o2_pct, he_pct, ppo2);
     slots[index].valid = (o2_pct > 0U) ? 1U : 0U;
     format_gas_name(slots[index].name, sizeof(slots[index].name), o2_pct, he_pct);
 }
@@ -515,7 +552,7 @@ static void apply_air_mode_gases(void)
     submenu_gas_profile_slot_t slots[GAS_COUNT];
 
     submenu_gas_profile_reset(slots, GAS_COUNT);
-    submenu_gas_profile_set(slots, GAS_COUNT, 0U, 21U, 0U);
+    submenu_gas_profile_set(slots, GAS_COUNT, 0U, 21U, 0U, s_air_ppo2);
     submenu_commit_gas_profile(slots, 1U);
 }
 
@@ -524,7 +561,7 @@ static void apply_nitrox_mode_gases(void)
     submenu_gas_profile_slot_t slots[GAS_COUNT];
 
     submenu_gas_profile_reset(slots, GAS_COUNT);
-    submenu_gas_profile_set(slots, GAS_COUNT, 0U, s_nitrox_o2_pct, 0U);
+    submenu_gas_profile_set(slots, GAS_COUNT, 0U, s_nitrox_o2_pct, 0U, s_nitrox_ppo2);
     submenu_commit_gas_profile(slots, 1U);
 }
 
@@ -535,7 +572,7 @@ static void apply_three_gas_mode_gases(void)
     submenu_gas_profile_reset(slots, GAS_COUNT);
     for (uint8_t i = 0U; i < 3U; i++)
     {
-        submenu_gas_profile_set(slots, GAS_COUNT, i, s_three_gas_o2_pct[i], 0U);
+        submenu_gas_profile_set(slots, GAS_COUNT, i, s_three_gas_o2_pct[i], 0U, s_three_gas_ppo2[i]);
     }
     submenu_commit_gas_profile(slots, 3U);
 }
@@ -560,7 +597,7 @@ static void apply_oc_tech_mode_gases(void)
             he = (uint8_t)(100U - o2);
         }
 
-        submenu_gas_profile_set(slots, GAS_COUNT, active_count, o2, he);
+        submenu_gas_profile_set(slots, GAS_COUNT, active_count, o2, he, s_oc_tech_ppo2[i]);
         active_count++;
     }
 
@@ -624,7 +661,8 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         submenu_commit_dive_mode(value);
         break;
     case SUBMENU_SETTING_OC_TECH_SAVE:
-        save_oc_tech_slot(arg);
+        (void)arg;
+        save_current_gas_slot();
         break;
     case SUBMENU_SETTING_SALINITY:
         s_salinity_mode = (value > 2) ? 0 : (uint8_t)value;
@@ -672,6 +710,10 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         s_depth_alarm_m = 40U;
         s_time_alarm_min = 60U;
         s_ndl_alarm_min = 5U;
+        s_air_ppo2 = 1.4f;
+        s_nitrox_ppo2 = 1.4f;
+        for (uint8_t i = 0U; i < 3U; i++) s_three_gas_ppo2[i] = 1.4f;
+        for (uint8_t i = 0U; i < 5U; i++) s_oc_tech_ppo2[i] = 1.4f;
         break;
     default:
         break;
@@ -714,17 +756,16 @@ static void submenu_commit_edit_value(submenu_setting_kind_t kind, uint8_t arg, 
         }
         break;
     case SUBMENU_SETTING_OC_TECH_GAS:
-        if (arg < 10U)
+        if (arg < 2U)
         {
-            uint8_t slot = (uint8_t)(arg / 2U);
             uint8_t val = (uint8_t)(value + 0.5f);
-            if ((arg % 2U) == 0U)
+            if (arg == 0U)
             {
-                uint8_t max_o2 = (uint8_t)(100U - s_oc_tech_draft_he_pct[slot]);
+                uint8_t max_o2 = (uint8_t)(100U - s_gas_edit_draft_he_pct);
                 if (max_o2 < 8U)
                 {
                     max_o2 = 8U;
-                    s_oc_tech_draft_he_pct[slot] = 92U;
+                    s_gas_edit_draft_he_pct = 92U;
                 }
                 if (val < 8U)
                 {
@@ -734,25 +775,28 @@ static void submenu_commit_edit_value(submenu_setting_kind_t kind, uint8_t arg, 
                 {
                     val = max_o2;
                 }
-                s_oc_tech_draft_o2_pct[slot] = val;
-                if ((uint16_t)s_oc_tech_draft_o2_pct[slot] + (uint16_t)s_oc_tech_draft_he_pct[slot] > 100U)
+                s_gas_edit_draft_o2_pct = val;
+                if ((uint16_t)s_gas_edit_draft_o2_pct + (uint16_t)s_gas_edit_draft_he_pct > 100U)
                 {
-                    s_oc_tech_draft_he_pct[slot] = (uint8_t)(100U - s_oc_tech_draft_o2_pct[slot]);
+                    s_gas_edit_draft_he_pct = (uint8_t)(100U - s_gas_edit_draft_o2_pct);
                 }
             }
             else
             {
-                if (s_oc_tech_draft_o2_pct[slot] < 8U)
+                if (s_gas_edit_draft_o2_pct < 8U)
                 {
-                    s_oc_tech_draft_o2_pct[slot] = 8U;
+                    s_gas_edit_draft_o2_pct = 8U;
                 }
-                if (val > (uint8_t)(100U - s_oc_tech_draft_o2_pct[slot]))
+                if (val > (uint8_t)(100U - s_gas_edit_draft_o2_pct))
                 {
-                    val = (uint8_t)(100U - s_oc_tech_draft_o2_pct[slot]);
+                    val = (uint8_t)(100U - s_gas_edit_draft_o2_pct);
                 }
-                s_oc_tech_draft_he_pct[slot] = val;
+                s_gas_edit_draft_he_pct = val;
             }
         }
+        break;
+    case SUBMENU_SETTING_GAS_EDIT_PPO2:
+        s_gas_edit_draft_ppo2 = value;
         break;
     case SUBMENU_SETTING_DEPTH_ALARM:
         s_depth_alarm_m = (uint16_t)(value + 0.5f);
@@ -991,30 +1035,29 @@ static const char **build_nested_oc_tech(uint8_t *out_count)
 
 static const char **build_nested_oc_tech_edit(uint8_t slot, uint8_t *out_count)
 {
-    if (slot >= 5U)
-    {
-        slot = s_oc_tech_edit_slot;
-    }
-    if (slot >= 5U)
-    {
-        slot = 0;
-    }
+    uint8_t n = 0U;
+    (void)slot;
 
-    snprintf(s_oc_tech_edit_str[0],
-             sizeof(s_oc_tech_edit_str[0]),
-             "O2 PERCENT: %u%%",
-             (unsigned)s_oc_tech_draft_o2_pct[slot]);
-    snprintf(s_oc_tech_edit_str[1],
-             sizeof(s_oc_tech_edit_str[1]),
-             "HE PERCENT: %u%%",
-             (unsigned)s_oc_tech_draft_he_pct[slot]);
-    s_nested_oc_tech_edit[0] = s_oc_tech_edit_str[0];
-    s_nested_oc_tech_edit[1] = s_oc_tech_edit_str[1];
-    s_nested_oc_tech_edit[2] = "SAVE GAS CONFIG";
-    s_nested_oc_tech_edit[3] = NULL;
+    if (s_gas_edit_mode != 0U)
+    {
+        snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "O2 PERCENT: %u%%", (unsigned)s_gas_edit_draft_o2_pct);
+        s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
+        n++;
+    }
+    if (s_gas_edit_mode == 3U)
+    {
+        snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "HE PERCENT: %u%%", (unsigned)s_gas_edit_draft_he_pct);
+        s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
+        n++;
+    }
+    snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "PO2: %.1f", (double)s_gas_edit_draft_ppo2);
+    s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
+    n++;
+    s_nested_oc_tech_edit[n++] = "SAVE GAS CONFIG";
+    s_nested_oc_tech_edit[n] = NULL;
     if (out_count)
     {
-        *out_count = count_items(s_nested_oc_tech_edit, 5);
+        *out_count = n;
     }
     return s_nested_oc_tech_edit;
 }
@@ -1151,7 +1194,10 @@ const char **submenu_nested_items_for(const char *title, uint8_t *out_count)
     else if (strcmp(clean_title, "NITROX") == 0) return build_nested_nitrox(out_count);
     else if (strcmp(clean_title, "3 GAS") == 0) return build_nested_three_gas(out_count);
     else if (strcmp(clean_title, "OC Tech") == 0) return build_nested_oc_tech(out_count);
-    else if (oc_tech_slot_from_title(clean_title, &s_oc_tech_edit_slot)) return build_nested_oc_tech_edit(s_oc_tech_edit_slot, out_count);
+    else if (strcmp(clean_title, "AIR GAS") == 0 ||
+             strcmp(clean_title, "NITROX GAS") == 0 ||
+             strstr(clean_title, "3 GAS") != NULL ||
+             strstr(clean_title, "TX") != NULL) return build_nested_oc_tech_edit(s_gas_edit_slot, out_count);
     else if (strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) return build_nested_dive_setup(out_count);
     else if (strcmp(clean_title, "AI SETUP") == 0) return build_nested_ai_setup(out_count);
     else if (strcmp(clean_title, "ALERTS SETUP") == 0) return build_nested_alerts_setup(out_count);
@@ -1238,7 +1284,12 @@ const char **submenu_child_items_for(const char *current_title,
     }
     else if (clean_current_title && strcmp(clean_current_title, "MODE SETUP") == 0)
     {
-        if (item_index == 1)
+        if (item_index == 0)
+        {
+            begin_gas_slot_edit(0U, 0U);
+            lv_snprintf(key, sizeof(key), "%s", "AIR GAS");
+        }
+        else if (item_index == 1)
         {
             lv_snprintf(key, sizeof(key), "%s", "NITROX");
         }
@@ -1255,11 +1306,35 @@ const char **submenu_child_items_for(const char *current_title,
             key[0] = '\0';
         }
     }
+    else if (clean_current_title && strcmp(clean_current_title, "NITROX") == 0)
+    {
+        if (item_index == 0)
+        {
+            begin_gas_slot_edit(1U, 0U);
+            lv_snprintf(key, sizeof(key), "%s", "NITROX GAS");
+        }
+        else
+        {
+            key[0] = '\0';
+        }
+    }
+    else if (clean_current_title && strcmp(clean_current_title, "3 GAS") == 0)
+    {
+        if (item_index < 3U)
+        {
+            begin_gas_slot_edit(2U, item_index);
+            lv_snprintf(key, sizeof(key), "G%u 3 GAS", (unsigned)(item_index + 1U));
+        }
+        else
+        {
+            key[0] = '\0';
+        }
+    }
     else if (clean_current_title && strcmp(clean_current_title, "OC Tech") == 0)
     {
         if (item_index < 5U)
         {
-            begin_oc_tech_slot_edit(item_index);
+            begin_gas_slot_edit(3U, item_index);
             lv_snprintf(key, sizeof(key), "G%u TX", (unsigned)(item_index + 1U));
             items = build_nested_oc_tech_edit(item_index, &count);
             if (out_title && out_title_size > 0)
@@ -1466,10 +1541,12 @@ bool submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if (oc_tech_slot_from_title(clean_title, &s_oc_tech_edit_slot) && item_index == 2)
+    if ((strcmp(clean_title, "AIR GAS") == 0 && item_index == 1U) ||
+        ((strcmp(clean_title, "NITROX GAS") == 0 || strstr(clean_title, "3 GAS") != NULL) && item_index == 2U) ||
+        (strstr(clean_title, "TX") != NULL && item_index == 3U))
     {
         out_setting->kind = SUBMENU_SETTING_OC_TECH_SAVE;
-        out_setting->arg = s_oc_tech_edit_slot;
+        out_setting->arg = s_gas_edit_slot;
         return true;
     }
 
@@ -1537,17 +1614,75 @@ bool submenu_edit_spec_from_selection(const char *current_title,
         return true;
     }
 
-    if (oc_tech_slot_from_title(clean_title, &s_oc_tech_edit_slot) && item_index < 2)
+    if (strcmp(clean_title, "AIR GAS") == 0 ||
+        strcmp(clean_title, "NITROX GAS") == 0 ||
+        strstr(clean_title, "3 GAS") != NULL ||
+        strstr(clean_title, "TX") != NULL)
     {
-        uint8_t slot = s_oc_tech_edit_slot;
-        bool edit_he = (item_index == 1U);
-        uint8_t o2 = s_oc_tech_draft_o2_pct[slot];
-        uint8_t he = s_oc_tech_draft_he_pct[slot];
+        if (s_gas_edit_mode == 0U && item_index == 0U)
+        {
+            ui_vm_edit_gas_ppo2_update(&vm_edit, s_gas_edit_draft_ppo2);
+            out_spec->kind = SUBMENU_SETTING_GAS_EDIT_PPO2;
+        }
+        else if (s_gas_edit_mode == 1U)
+        {
+            if (item_index == 0U)
+            {
+                ui_vm_edit_nitrox_o2_update(&vm_edit, s_gas_edit_draft_o2_pct);
+                out_spec->kind = SUBMENU_SETTING_OC_TECH_GAS;
+                out_spec->arg = 0U;
+            }
+            else if (item_index == 1U)
+            {
+                ui_vm_edit_gas_ppo2_update(&vm_edit, s_gas_edit_draft_ppo2);
+                out_spec->kind = SUBMENU_SETTING_GAS_EDIT_PPO2;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else if (s_gas_edit_mode == 2U)
+        {
+            if (item_index == 0U)
+            {
+                ui_vm_edit_three_gas_o2_update(&vm_edit, s_gas_edit_slot, s_gas_edit_draft_o2_pct);
+                out_spec->kind = SUBMENU_SETTING_OC_TECH_GAS;
+                out_spec->arg = 0U;
+            }
+            else if (item_index == 1U)
+            {
+                ui_vm_edit_gas_ppo2_update(&vm_edit, s_gas_edit_draft_ppo2);
+                out_spec->kind = SUBMENU_SETTING_GAS_EDIT_PPO2;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else if (s_gas_edit_mode == 3U)
+        {
+            if (item_index < 2U)
+            {
+                ui_vm_edit_oc_tech_gas_update(&vm_edit, s_gas_edit_slot, item_index, s_gas_edit_draft_o2_pct, s_gas_edit_draft_he_pct);
+                out_spec->kind = SUBMENU_SETTING_OC_TECH_GAS;
+                out_spec->arg = item_index;
+            }
+            else if (item_index == 2U)
+            {
+                ui_vm_edit_gas_ppo2_update(&vm_edit, s_gas_edit_draft_ppo2);
+                out_spec->kind = SUBMENU_SETTING_GAS_EDIT_PPO2;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            return false;
+        }
 
-        ui_vm_edit_oc_tech_gas_update(&vm_edit, slot, item_index, o2, he);
-        out_spec->kind = SUBMENU_SETTING_OC_TECH_GAS;
-        out_spec->arg = (uint8_t)(slot * 2U + item_index);
-        (void)edit_he;
         out_spec->value = vm_edit.value;
         out_spec->min = vm_edit.min;
         out_spec->max = vm_edit.max;
@@ -1737,6 +1872,14 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
     const char *title = submenu_title_for_menu_id(current_menu);
     uint8_t item_index = 0U;
 
+    if (current_menu == MENU_OC_TECH_EDIT && item_id == MENU_ITEM_OC_TECH_EDIT_SAVE)
+    {
+        memset(out_setting, 0, sizeof(*out_setting));
+        out_setting->kind = SUBMENU_SETTING_OC_TECH_SAVE;
+        out_setting->arg = s_gas_edit_slot;
+        return true;
+    }
+
     switch (item_id)
     {
     case MENU_ITEM_DIVE_SALINITY:    item_index = 0U; break;
@@ -1749,7 +1892,6 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
     case MENU_ITEM_DISPLAY_UNITS:    item_index = 0U; break;
     case MENU_ITEM_DISPLAY_LOG_RATE: item_index = 2U; break;
     case MENU_ITEM_DISPLAY_BLUETOOTH:item_index = 3U; break;
-    case MENU_ITEM_OC_TECH_EDIT_SAVE:item_index = 2U; break;
     default:
         return false;
     }
@@ -1764,6 +1906,25 @@ bool submenu_edit_spec_from_ids(menu_id_t current_menu,
     /* 通过 menu_id + item_id 生成编辑规格。 */
     const char *title = submenu_title_for_menu_id(current_menu);
     uint8_t item_index = 0U;
+
+    if (current_menu == MENU_OC_TECH_EDIT)
+    {
+        char gas_title[16];
+        if (s_gas_edit_mode == 0U) lv_snprintf(gas_title, sizeof(gas_title), "%s", "AIR GAS");
+        else if (s_gas_edit_mode == 1U) lv_snprintf(gas_title, sizeof(gas_title), "%s", "NITROX GAS");
+        else if (s_gas_edit_mode == 2U) lv_snprintf(gas_title, sizeof(gas_title), "G%u 3 GAS", (unsigned)(s_gas_edit_slot + 1U));
+        else lv_snprintf(gas_title, sizeof(gas_title), "G%u TX", (unsigned)(s_gas_edit_slot + 1U));
+
+        if (item_id == MENU_ITEM_OC_TECH_EDIT_O2) return submenu_edit_spec_from_selection(gas_title, 0U, NULL, out_spec);
+        if (item_id == MENU_ITEM_OC_TECH_EDIT_HE) return submenu_edit_spec_from_selection(gas_title, 1U, NULL, out_spec);
+        if (item_id == MENU_ITEM_GAS_EDIT_PPO2)
+        {
+            if (s_gas_edit_mode == 0U) return submenu_edit_spec_from_selection(gas_title, 0U, NULL, out_spec);
+            if (s_gas_edit_mode == 3U) return submenu_edit_spec_from_selection(gas_title, 2U, NULL, out_spec);
+            return submenu_edit_spec_from_selection(gas_title, 1U, NULL, out_spec);
+        }
+        return false;
+    }
 
     switch (item_id)
     {
@@ -1812,26 +1973,61 @@ bool submenu_edit_spec_from_ids(menu_id_t current_menu,
     return submenu_edit_spec_from_selection(title, item_index, NULL, out_spec);
 }
 
+uint8_t submenu_gas_edit_item_ids(menu_item_id_t *out_ids, uint8_t max_count)
+{
+    uint8_t n = 0U;
+
+    if (out_ids == NULL || max_count == 0U)
+    {
+        return 0U;
+    }
+
+    if (s_gas_edit_mode != 0U && n < max_count) out_ids[n++] = MENU_ITEM_OC_TECH_EDIT_O2;
+    if (s_gas_edit_mode == 3U && n < max_count) out_ids[n++] = MENU_ITEM_OC_TECH_EDIT_HE;
+    if (n < max_count) out_ids[n++] = MENU_ITEM_GAS_EDIT_PPO2;
+    if (n < max_count) out_ids[n++] = MENU_ITEM_OC_TECH_EDIT_SAVE;
+    return n;
+}
+
 void submenu_prepare_oc_tech_child(menu_item_id_t item_id,
                                    char *out_title,
                                    uint8_t out_title_size)
 {
-    /* OC Tech 的子菜单标题需要带槽位编号。 */
     int8_t slot = oc_tech_slot_from_item_id(item_id);
+    uint8_t mode = 3U;
 
     if (out_title != NULL && out_title_size > 0U)
     {
         out_title[0] = '\0';
     }
-    if (slot < 0)
+
+    if (item_id == MENU_ITEM_MODE_AIR)
+    {
+        mode = 0U;
+        slot = 0;
+    }
+    else if (item_id == MENU_ITEM_NITROX_O2)
+    {
+        mode = 1U;
+        slot = 0;
+    }
+    else if (item_id >= MENU_ITEM_THREE_GAS_O2_0 && item_id <= MENU_ITEM_THREE_GAS_O2_2)
+    {
+        mode = 2U;
+        slot = (int8_t)(item_id - MENU_ITEM_THREE_GAS_O2_0);
+    }
+    else if (slot < 0)
     {
         return;
     }
 
-    begin_oc_tech_slot_edit((uint8_t)slot);
+    begin_gas_slot_edit(mode, (uint8_t)slot);
     if (out_title != NULL && out_title_size > 0U)
     {
-        lv_snprintf(out_title, out_title_size, "G%u TX", (unsigned)(slot + 1U));
+        if (mode == 0U) lv_snprintf(out_title, out_title_size, "%s", "AIR GAS");
+        else if (mode == 1U) lv_snprintf(out_title, out_title_size, "%s", "NITROX GAS");
+        else if (mode == 2U) lv_snprintf(out_title, out_title_size, "G%u 3 GAS", (unsigned)(slot + 1U));
+        else lv_snprintf(out_title, out_title_size, "G%u TX", (unsigned)(slot + 1U));
     }
 }
 

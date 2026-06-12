@@ -55,6 +55,7 @@ void ui_vm_edit_oc_tech_gas_update(ui_vm_edit_spec_t *vm,
                                    uint8_t item_index,
                                    uint8_t o2,
                                    uint8_t he);
+void ui_vm_edit_gas_ppo2_update(ui_vm_edit_spec_t *vm, float value);
 void ui_vm_edit_depth_alarm_update(ui_vm_edit_spec_t *vm, uint16_t value);
 void ui_vm_edit_time_alarm_update(ui_vm_edit_spec_t *vm, uint16_t value);
 void ui_vm_edit_ndl_alarm_update(ui_vm_edit_spec_t *vm, uint16_t value);

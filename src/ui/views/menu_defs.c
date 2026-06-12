@@ -130,9 +130,14 @@ menu_id_t menu_defs_child_menu_for_item(menu_item_id_t id)
     case MENU_ITEM_SYSTEM_AI_SETUP:      return MENU_AI_SETUP;
     case MENU_ITEM_SYSTEM_ALERTS_SETUP:  return MENU_ALERTS_SETUP;
     case MENU_ITEM_SYSTEM_DISPLAY:       return MENU_DISPLAY;
+    case MENU_ITEM_MODE_AIR:             return MENU_OC_TECH_EDIT;
     case MENU_ITEM_MODE_NITROX:          return MENU_NITROX;
     case MENU_ITEM_MODE_THREE_GAS:       return MENU_THREE_GAS;
     case MENU_ITEM_MODE_OC_TECH:         return MENU_OC_TECH;
+    case MENU_ITEM_NITROX_O2:            return MENU_OC_TECH_EDIT;
+    case MENU_ITEM_THREE_GAS_O2_0:
+    case MENU_ITEM_THREE_GAS_O2_1:
+    case MENU_ITEM_THREE_GAS_O2_2:       return MENU_OC_TECH_EDIT;
     case MENU_ITEM_DISPLAY_DATE_CLOCK:   return MENU_DATE_CLOCK;
     case MENU_ITEM_LIGHT_RED:            return MENU_LIGHT_RED;
     case MENU_ITEM_LIGHT_GREEN:          return MENU_LIGHT_GREEN;

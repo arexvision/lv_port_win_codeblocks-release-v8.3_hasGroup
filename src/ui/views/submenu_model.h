@@ -64,6 +64,7 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
 bool submenu_edit_spec_from_ids(menu_id_t current_menu,
                                 menu_item_id_t item_id,
                                 submenu_edit_spec_t *out_spec);
+uint8_t submenu_gas_edit_item_ids(menu_item_id_t *out_ids, uint8_t max_count);
 void submenu_prepare_oc_tech_child(menu_item_id_t item_id,
                                    char *out_title,
                                    uint8_t out_title_size);

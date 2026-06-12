@@ -392,8 +392,15 @@ void ui_vm_nitrox_menu_update(ui_vm_simple_menu_t *vm, uint8_t nitrox_o2_pct)
     }
 
     (void)memset(vm, 0, sizeof(*vm));
-    (void)snprintf(vm->items[0], sizeof(vm->items[0]), "O2: %u%%", (unsigned)nitrox_o2_pct);
-    (void)snprintf(vm->items[1], sizeof(vm->items[1]), "%s", "CONFIRM");
+    if (nitrox_o2_pct == 21U)
+    {
+        (void)snprintf(vm->items[0], sizeof(vm->items[0]), "%s", "G1: AIR");
+    }
+    else
+    {
+        (void)snprintf(vm->items[0], sizeof(vm->items[0]), "G1: EAN%u", (unsigned)nitrox_o2_pct);
+    }
+    (void)snprintf(vm->items[1], sizeof(vm->items[1]), "%s", "CONFIRM & ACTIVATE");
     vm->count = 2U;
 }
 
@@ -409,13 +416,20 @@ void ui_vm_three_gas_menu_update(ui_vm_simple_menu_t *vm,
     for (uint8_t i = 0U; i < 3U; i++)
     {
         const uint8_t value = (three_gas_o2_pct != NULL) ? three_gas_o2_pct[i] : 0U;
-        (void)snprintf(vm->items[i],
-                       sizeof(vm->items[i]),
-                       "GAS %u: %u%%",
-                       (unsigned)(i + 1U),
-                       (unsigned)value);
+        if (value == 21U)
+        {
+            (void)snprintf(vm->items[i], sizeof(vm->items[i]), "G%u: AIR", (unsigned)(i + 1U));
+        }
+        else if (value == 100U)
+        {
+            (void)snprintf(vm->items[i], sizeof(vm->items[i]), "G%u: O2 100%%", (unsigned)(i + 1U));
+        }
+        else
+        {
+            (void)snprintf(vm->items[i], sizeof(vm->items[i]), "G%u: EAN%u", (unsigned)(i + 1U), (unsigned)value);
+        }
     }
-    (void)snprintf(vm->items[3], sizeof(vm->items[3]), "%s", "CONFIRM");
+    (void)snprintf(vm->items[3], sizeof(vm->items[3]), "%s", "CONFIRM & ACTIVATE");
     vm->count = 4U;
 }
 
@@ -552,6 +566,22 @@ void ui_vm_edit_oc_tech_gas_update(ui_vm_edit_spec_t *vm,
         }
         (void)snprintf(vm->label, sizeof(vm->label), "%s", "O2 PERCENT:");
     }
+}
+
+void ui_vm_edit_gas_ppo2_update(ui_vm_edit_spec_t *vm, float value)
+{
+    if (vm == NULL)
+    {
+        return;
+    }
+
+    (void)memset(vm, 0, sizeof(*vm));
+    vm->value = value;
+    vm->min = 1.0f;
+    vm->max = 1.6f;
+    vm->step = 0.1f;
+    vm->decimals = 1U;
+    (void)snprintf(vm->label, sizeof(vm->label), "%s", "PO2:");
 }
 
 void ui_vm_edit_depth_alarm_update(ui_vm_edit_spec_t *vm, uint16_t value)

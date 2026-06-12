@@ -20,10 +20,14 @@
  * 真机平台可以覆盖它们，把 UI 操作接到真实业务或硬件服务。 */
 #ifdef PC_SIMULATOR
 static uint8_t s_dive_mode = 0U;
+static float s_air_ppo2 = 1.4f;
 static uint8_t s_nitrox_o2_pct = 32U;
+static float s_nitrox_ppo2 = 1.4f;
 static uint8_t s_three_gas_o2_pct[3] = { 21U, 32U, 100U };
+static float s_three_gas_ppo2[3] = { 1.4f, 1.4f, 1.4f };
 static uint8_t s_oc_tech_o2_pct[5] = { 18U, 21U, 35U, 50U, 100U };
 static uint8_t s_oc_tech_he_pct[5] = { 45U, 35U, 25U, 0U, 0U };
+static float s_oc_tech_ppo2[5] = { 1.4f, 1.4f, 1.4f, 1.4f, 1.4f };
 static uint8_t s_units_mode = 0U;
 static uint8_t s_bluetooth_enabled = 0U;
 static uint16_t s_datetime_year = 2026U;
@@ -152,12 +156,32 @@ void ui_on_gas_profile_commit(void)
 }
 
 WEAK_CALLBACK
+void ui_on_air_ppo2_set(float ppo2)
+{
+#ifdef PC_SIMULATOR
+    s_air_ppo2 = ppo2;
+#else
+    (void)ppo2;
+#endif
+}
+
+WEAK_CALLBACK
 void ui_on_nitrox_o2_set(uint8_t o2_pct)
 {
 #ifdef PC_SIMULATOR
     s_nitrox_o2_pct = o2_pct;
 #else
     (void)o2_pct;
+#endif
+}
+
+WEAK_CALLBACK
+void ui_on_nitrox_ppo2_set(float ppo2)
+{
+#ifdef PC_SIMULATOR
+    s_nitrox_ppo2 = ppo2;
+#else
+    (void)ppo2;
 #endif
 }
 
@@ -176,6 +200,20 @@ void ui_on_three_gas_o2_set(uint8_t slot, uint8_t o2_pct)
 }
 
 WEAK_CALLBACK
+void ui_on_three_gas_ppo2_set(uint8_t slot, float ppo2)
+{
+#ifdef PC_SIMULATOR
+    if (slot < (sizeof(s_three_gas_ppo2) / sizeof(s_three_gas_ppo2[0])))
+    {
+        s_three_gas_ppo2[slot] = ppo2;
+    }
+#else
+    (void)slot;
+    (void)ppo2;
+#endif
+}
+
+WEAK_CALLBACK
 void ui_on_oc_tech_gas_set(uint8_t slot, uint8_t o2_pct, uint8_t he_pct)
 {
 #ifdef PC_SIMULATOR
@@ -188,6 +226,20 @@ void ui_on_oc_tech_gas_set(uint8_t slot, uint8_t o2_pct, uint8_t he_pct)
     (void)slot;
     (void)o2_pct;
     (void)he_pct;
+#endif
+}
+
+WEAK_CALLBACK
+void ui_on_oc_tech_ppo2_set(uint8_t slot, float ppo2)
+{
+#ifdef PC_SIMULATOR
+    if (slot < (sizeof(s_oc_tech_ppo2) / sizeof(s_oc_tech_ppo2[0])))
+    {
+        s_oc_tech_ppo2[slot] = ppo2;
+    }
+#else
+    (void)slot;
+    (void)ppo2;
 #endif
 }
 
@@ -311,10 +363,15 @@ void ui_on_reset_defaults(void)
 {
 #ifdef PC_SIMULATOR
     s_dive_mode = 0U;
+    s_air_ppo2 = 1.4f;
     s_nitrox_o2_pct = 32U;
+    s_nitrox_ppo2 = 1.4f;
     s_three_gas_o2_pct[0] = 21U;
     s_three_gas_o2_pct[1] = 32U;
     s_three_gas_o2_pct[2] = 100U;
+    s_three_gas_ppo2[0] = 1.4f;
+    s_three_gas_ppo2[1] = 1.4f;
+    s_three_gas_ppo2[2] = 1.4f;
     s_oc_tech_o2_pct[0] = 18U;
     s_oc_tech_o2_pct[1] = 21U;
     s_oc_tech_o2_pct[2] = 35U;
@@ -325,6 +382,7 @@ void ui_on_reset_defaults(void)
     s_oc_tech_he_pct[2] = 25U;
     s_oc_tech_he_pct[3] = 0U;
     s_oc_tech_he_pct[4] = 0U;
+    for (uint8_t i = 0U; i < 5U; i++) s_oc_tech_ppo2[i] = 1.4f;
     s_units_mode = 0U;
     s_bluetooth_enabled = 0U;
     s_datetime_year = 2026U;
@@ -362,10 +420,15 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->log_rate_s = bus_get_log_rate();
     out_snapshot->bluetooth_enabled = s_bluetooth_enabled;
     out_snapshot->dive_mode = s_dive_mode;
+    out_snapshot->air_ppo2 = s_air_ppo2;
     out_snapshot->nitrox_o2_pct = s_nitrox_o2_pct;
+    out_snapshot->nitrox_ppo2 = s_nitrox_ppo2;
     out_snapshot->three_gas_o2_pct[0] = s_three_gas_o2_pct[0];
     out_snapshot->three_gas_o2_pct[1] = s_three_gas_o2_pct[1];
     out_snapshot->three_gas_o2_pct[2] = s_three_gas_o2_pct[2];
+    out_snapshot->three_gas_ppo2[0] = s_three_gas_ppo2[0];
+    out_snapshot->three_gas_ppo2[1] = s_three_gas_ppo2[1];
+    out_snapshot->three_gas_ppo2[2] = s_three_gas_ppo2[2];
     out_snapshot->oc_tech_o2_pct[0] = s_oc_tech_o2_pct[0];
     out_snapshot->oc_tech_o2_pct[1] = s_oc_tech_o2_pct[1];
     out_snapshot->oc_tech_o2_pct[2] = s_oc_tech_o2_pct[2];
@@ -376,6 +439,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->oc_tech_he_pct[2] = s_oc_tech_he_pct[2];
     out_snapshot->oc_tech_he_pct[3] = s_oc_tech_he_pct[3];
     out_snapshot->oc_tech_he_pct[4] = s_oc_tech_he_pct[4];
+    for (uint8_t i = 0U; i < 5U; i++) out_snapshot->oc_tech_ppo2[i] = s_oc_tech_ppo2[i];
     out_snapshot->datetime_year = s_datetime_year;
     out_snapshot->datetime_month = s_datetime_month;
     out_snapshot->datetime_day = s_datetime_day;
@@ -386,10 +450,15 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->log_rate_s = bus_get_log_rate();
     out_snapshot->bluetooth_enabled = 0U;
     out_snapshot->dive_mode = 0U;
+    out_snapshot->air_ppo2 = 1.4f;
     out_snapshot->nitrox_o2_pct = 32U;
+    out_snapshot->nitrox_ppo2 = 1.4f;
     out_snapshot->three_gas_o2_pct[0] = 21U;
     out_snapshot->three_gas_o2_pct[1] = 32U;
     out_snapshot->three_gas_o2_pct[2] = 100U;
+    out_snapshot->three_gas_ppo2[0] = 1.4f;
+    out_snapshot->three_gas_ppo2[1] = 1.4f;
+    out_snapshot->three_gas_ppo2[2] = 1.4f;
     out_snapshot->oc_tech_o2_pct[0] = 18U;
     out_snapshot->oc_tech_o2_pct[1] = 21U;
     out_snapshot->oc_tech_o2_pct[2] = 35U;
@@ -400,6 +469,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->oc_tech_he_pct[2] = 25U;
     out_snapshot->oc_tech_he_pct[3] = 0U;
     out_snapshot->oc_tech_he_pct[4] = 0U;
+    for (uint8_t i = 0U; i < 5U; i++) out_snapshot->oc_tech_ppo2[i] = 1.4f;
     out_snapshot->datetime_year = 2026U;
     out_snapshot->datetime_month = 1U;
     out_snapshot->datetime_day = 1U;

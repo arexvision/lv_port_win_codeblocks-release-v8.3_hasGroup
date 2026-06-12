@@ -352,12 +352,9 @@ static void build_rows(void)
     }
     case MENU_OC_TECH_EDIT:
     {
-        static const menu_item_id_t ids[] =
-        {
-            MENU_ITEM_OC_TECH_EDIT_O2,
-            MENU_ITEM_OC_TECH_EDIT_HE,
-            MENU_ITEM_OC_TECH_EDIT_SAVE,
-        };
+        menu_item_id_t ids[4];
+        uint8_t id_count = submenu_gas_edit_item_ids(ids, (uint8_t)(sizeof(ids) / sizeof(ids[0])));
+        (void)id_count;
         build_nested_by_title(s_oc_tech_edit_title, ids, NULL);
         break;
     }
