@@ -1546,7 +1546,7 @@ static void debug_exec_line(char *line)
         {
             debug_format_gas_name(name, sizeof(name), o2, he);
         }
-        bus_set_gas_slot((uint8_t)idx, name, (uint8_t)o2, (uint8_t)he, mod);
+        bus_set_gas_slot((uint8_t)idx, name, (uint8_t)o2, (uint8_t)he, mod, bus_get_mod_ppo2());
         debug_sendf("OK gas_slot %d %s %d/%d %.0f\r\n", idx, name, o2, he, (double)mod);
         return;
     }

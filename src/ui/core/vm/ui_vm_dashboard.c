@@ -145,7 +145,8 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
         {
             const char *name = bus_get_gas_slot_name(i);
             float mod_m = bus_get_gas_slot_mod_m(i);
-            float ppo2 = bus_get_mod_ppo2();
+            float ppo2 = bus_get_gas_slot_max_ppo2(i);
+            if (ppo2 <= 0.0f) ppo2 = bus_get_mod_ppo2();
 
             (void)snprintf(vm->names[i], sizeof(vm->names[i]), "%s", (name != NULL) ? name : "--");
             vm_format_mod_text(vm->mod_text[i], sizeof(vm->mod_text[i]), mod_m);
@@ -186,7 +187,8 @@ void ui_vm_gas_update(ui_vm_gas_t *vm,
     {
         const char *name = sensor->gas_slot_name[i][0] ? sensor->gas_slot_name[i] : GAS_NAMES[i];
         float mod_m = sensor->gas_slot_mod_m[i];
-        float ppo2 = config->mod_ppo2;
+        float ppo2 = sensor->gas_slot_max_ppo2[i];
+        if (ppo2 <= 0.0f) ppo2 = config->mod_ppo2;
 
         (void)snprintf(vm->names[i], sizeof(vm->names[i]), "%s", name);
         vm_format_mod_text(vm->mod_text[i], sizeof(vm->mod_text[i]), mod_m);

@@ -96,6 +96,7 @@ typedef struct ArexDecoGas {
 - `bus_get_gas_slot_count()`
 - `bus_get_gas_slot_o2_pct(i)`
 - `bus_get_gas_slot_he_pct(i)`
+- `bus_get_gas_slot_max_ppo2(i)`
 - `bus_get_gas_active_idx()`
 
 然后转换成算法 gas：
@@ -103,8 +104,8 @@ typedef struct ArexDecoGas {
 - O2/He 百分比转 fraction。
 - N2 = 1 - O2 - He。
 - 第一个有效气体 role 设置为 `BOTTOM`，后续设置为 `DECO`。
-- 第一个有效气体 max ppO2 用 1.4，其它用 1.6。
-- `max_depth_m` 由 MOD 公式计算，不再硬编码。
+- `max_ppo2_bar` 优先使用每个气体槽自己的最大 PO2；旧 TCP/旧数据没有该字段时才 fallback 到全局 `MOD PO2`。
+- `max_depth_m` 使用 UI gas profile 已按算法接口计算出的 MOD；如果旧数据没有 MOD，则由算法接口按 `max_ppo2_bar` 和当前 config 计算。
 
 如果 UI 没有有效气体，适配层会退回 `arex_deco_make_default_gas_plan()`，即默认空气。
 

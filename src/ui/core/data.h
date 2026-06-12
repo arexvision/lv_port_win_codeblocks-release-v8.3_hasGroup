@@ -111,9 +111,11 @@ void bus_set_surface_time(uint32_t surface_s);
 void bus_set_ppo2(uint8_t sensor_idx, float ppo2_val); /* sensor_idx: 0~4 */
 void bus_set_gas(uint8_t gas_idx, const char *gas_name);
 void bus_set_recommended_gas_idx(int8_t gas_idx);
+void bus_begin_gas_profile_update(void);
+void bus_end_gas_profile_update(void);
 void bus_set_gas_slot_count(uint8_t count);
 void bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
-                           uint8_t o2_pct, uint8_t he_pct, float mod_m);
+                           uint8_t o2_pct, uint8_t he_pct, float mod_m, float max_ppo2);
 void bus_set_deco(int16_t stop_m, uint8_t stop_min);
 void bus_set_cns(uint8_t cns_pct);
 void bus_set_otu(uint16_t otu_val);
@@ -293,6 +295,7 @@ const char *bus_get_gas_slot_name(uint8_t gas_idx);
 uint8_t bus_get_gas_slot_o2_pct(uint8_t gas_idx);
 uint8_t bus_get_gas_slot_he_pct(uint8_t gas_idx);
 float bus_get_gas_slot_mod_m(uint8_t gas_idx);
+float bus_get_gas_slot_max_ppo2(uint8_t gas_idx);
 float bus_get_gas_slot_ppo2(uint8_t gas_idx);
 uint8_t bus_get_gas_mix_o2(void);
 uint8_t bus_get_gas_mix_he(void);

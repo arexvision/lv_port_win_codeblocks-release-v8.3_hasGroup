@@ -152,6 +152,7 @@ typedef struct
     uint8_t gas_slot_o2_pct[GAS_COUNT];
     uint8_t gas_slot_he_pct[GAS_COUNT];
     float   gas_slot_mod_m[GAS_COUNT];
+    float   gas_slot_max_ppo2[GAS_COUNT];
     uint8_t gas_slot_count;
     int16_t next_stop_m;
     uint8_t next_stop_min;

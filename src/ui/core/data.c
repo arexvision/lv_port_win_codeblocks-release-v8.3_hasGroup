@@ -430,6 +430,19 @@ static float bus_default_air_mod_m(void)
 /* 温度统计累计值 */
 static float    _temp_sum = 0.0f;        /* 温度累计和 */
 static uint32_t _temp_sample_count = 0;  /* 温度采样次数 */
+static uint8_t  s_gas_profile_batch_depth = 0U;
+static bool     s_gas_profile_apply_pending = false;
+
+static void bus_request_algo_gases_apply(void)
+{
+    if (s_gas_profile_batch_depth > 0U)
+    {
+        s_gas_profile_apply_pending = true;
+        return;
+    }
+
+    bus_apply_algo_gases();
+}
 
 static float dive_log_triangle_area(const dive_pt_t *a,
                                     const dive_pt_t *b,
@@ -524,6 +537,8 @@ void data_init(void)
     memset(&g_sensor_data, 0, sizeof(g_sensor_data));
     _temp_sum = 0.0f;
     _temp_sample_count = 0;
+    s_gas_profile_batch_depth = 0U;
+    s_gas_profile_apply_pending = false;
 
     g_sensor_data.ndl_bar_pct = 255U;
     g_sensor_data.gas_active_idx = 0;
@@ -535,26 +550,31 @@ void data_init(void)
     g_sensor_data.gas_slot_o2_pct[0] = 21;
     g_sensor_data.gas_slot_he_pct[0] = 0;
     g_sensor_data.gas_slot_mod_m[0] = bus_default_air_mod_m();
+    g_sensor_data.gas_slot_max_ppo2[0] = 1.4f;
 
     g_sensor_data.gas_slot_name[1][0] = '\0';
     g_sensor_data.gas_slot_o2_pct[1] = 0;
     g_sensor_data.gas_slot_he_pct[1] = 0;
     g_sensor_data.gas_slot_mod_m[1] = 0.0f;
+    g_sensor_data.gas_slot_max_ppo2[1] = 0.0f;
 
     g_sensor_data.gas_slot_name[2][0] = '\0';
     g_sensor_data.gas_slot_o2_pct[2] = 0;
     g_sensor_data.gas_slot_he_pct[2] = 0;
     g_sensor_data.gas_slot_mod_m[2] = 0.0f;
+    g_sensor_data.gas_slot_max_ppo2[2] = 0.0f;
 
     g_sensor_data.gas_slot_name[3][0] = '\0';
     g_sensor_data.gas_slot_o2_pct[3] = 0;
     g_sensor_data.gas_slot_he_pct[3] = 0;
     g_sensor_data.gas_slot_mod_m[3] = 0.0f;
+    g_sensor_data.gas_slot_max_ppo2[3] = 0.0f;
 
     g_sensor_data.gas_slot_name[4][0] = '\0';
     g_sensor_data.gas_slot_o2_pct[4] = 0;
     g_sensor_data.gas_slot_he_pct[4] = 0;
     g_sensor_data.gas_slot_mod_m[4] = 0.0f;
+    g_sensor_data.gas_slot_max_ppo2[4] = 0.0f;
     g_sensor_data.battery_voltage_v = 4.0f;
     g_sensor_data.charge_state = 0U;
     g_sensor_data.ambient_pressure_mbar = 1013.0f;
@@ -813,6 +833,23 @@ void bus_set_recommended_gas_idx(int8_t gas_idx)
     }
 }
 
+void bus_begin_gas_profile_update(void)
+{
+    if (s_gas_profile_batch_depth < 255U) s_gas_profile_batch_depth++;
+    s_gas_profile_apply_pending = true;
+}
+
+void bus_end_gas_profile_update(void)
+{
+    if (s_gas_profile_batch_depth == 0U) return;
+    s_gas_profile_batch_depth--;
+    if (s_gas_profile_batch_depth == 0U && s_gas_profile_apply_pending)
+    {
+        s_gas_profile_apply_pending = false;
+        bus_apply_algo_gases();
+    }
+}
+
 void bus_set_gas_slot_count(uint8_t count)
 {
     if (count > GAS_COUNT)
@@ -842,11 +879,11 @@ void bus_set_gas_slot_count(uint8_t count)
         }
         bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
-    bus_apply_algo_gases();
+    bus_request_algo_gases_apply();
 }
 
 void bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
-                           uint8_t o2_pct, uint8_t he_pct, float mod_m)
+                           uint8_t o2_pct, uint8_t he_pct, float mod_m, float max_ppo2)
 {
     if (gas_idx >= GAS_COUNT)
     {
@@ -876,6 +913,11 @@ void bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
         g_sensor_data.gas_slot_mod_m[gas_idx] = mod_m;
         changed = true;
     }
+    if (fabsf(g_sensor_data.gas_slot_max_ppo2[gas_idx] - max_ppo2) > 0.005f)
+    {
+        g_sensor_data.gas_slot_max_ppo2[gas_idx] = max_ppo2;
+        changed = true;
+    }
 
     if (changed)
     {
@@ -883,7 +925,7 @@ void bus_set_gas_slot(uint8_t gas_idx, const char *gas_name,
     }
     if (changed)
     {
-        bus_apply_algo_gases();
+        bus_request_algo_gases_apply();
     }
 }
 
@@ -2292,6 +2334,16 @@ float bus_get_gas_slot_mod_m(uint8_t gas_idx)
     }
 
     return g_sensor_data.gas_slot_mod_m[gas_idx];
+}
+
+float bus_get_gas_slot_max_ppo2(uint8_t gas_idx)
+{
+    if (gas_idx >= GAS_COUNT)
+    {
+        return 0.0f;
+    }
+
+    return g_sensor_data.gas_slot_max_ppo2[gas_idx];
 }
 
 float bus_get_gas_slot_ppo2(uint8_t gas_idx)

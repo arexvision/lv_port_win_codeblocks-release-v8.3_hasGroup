@@ -57,16 +57,54 @@
 旧口径：
 
 - 模拟器曾通过气体槽 MOD 反推 `max_ppo2_bar`。
+- 引入每槽 PO2 后，GAS 卡片 MOD 已按每槽 PO2 计算，但算法 gas plan 仍使用全局 `MOD PPO2` 作为所有气体的 `max_ppo2_bar`。
 
 新口径：
 
-- 气体传入算法时，`max_ppo2_bar` 直接使用 UI 配置的 `MOD PPO2`。
 - 不再从 MOD 反推 PPO2。
+- 每个气体槽新增独立 `gas_slot_max_ppo2` 数据，算法 `fill_gas_plan_from_ui()` 优先使用该槽自己的最大 PO2；只有旧 TCP/旧数据没有 per-slot PO2 时，才 fallback 到全局 `MOD PPO2`。
+- GAS 卡片右侧 `PO2` 显示同样改为每槽最大 PO2，不再显示实时 PPO2，也不再统一显示全局 `MOD PPO2`。
 
 影响：
 
 - 气体配置的最大 PPO2 与产品设置一致。
 - 避免 UI/模拟器公式与算法公式互相反推导致误差。
+- `AIR / NITROX / 3 GAS / OC Tech` 中每个气体单独设置的 PO2 会同时影响 MOD 展示、算法 gas plan 的 `max_ppo2_bar` 和切气/计划口径。
+- `DIVE SETUP / MOD PO2` 保留为旧路径和未配置槽的 fallback，不覆盖已配置气体槽自己的 PO2。
+
+#### 算法配置变更后的即时刷新
+
+旧口径：
+
+- GF、盐度、last deco stop、safety stop、gas profile 等设置写入算法 config/gas plan 后，通常要等下一次 `deco_core_tick()` 才会重新 `plan/recommend/sync_core_data()`。
+- 在 0m 或慢速调试时，部分 UI 可能短时间显示旧的 TTS、stop、gas recommendation、MOD 或组织仓/GF 指标。
+
+新口径：
+
+- `deco_core_set_gf()`、`deco_core_set_salinity_mode()`、`deco_core_set_final_stop_depth()`、`deco_core_set_safety_stop_mode()`、`deco_core_apply_gases_from_ui()` 在 apply config/gas plan 后，立即执行一次不推进时间的 `arex_deco_plan()` / `arex_deco_recommend_gas()` / `sync_core_data()`。
+- 该刷新不调用 `arex_deco_step()`，不推进组织舱、不增加潜水时间，只把当前状态按新配置重新输出到 data bus。
+- gas profile 提交使用 data bus 批量门控，所有 slot、slot count 和 active gas 都写完后才统一 apply 算法，避免中途用旧 active gas 或旧 per-slot PO2 生成一次临时 plan。
+
+影响：
+
+- 设置确认后，INFO、GAS、DECO、PLAN、组织仓/GF 等算法输出能立即使用新配置刷新。
+- 避免配置项变更后等待下一帧算法 tick 才更新造成的短暂错觉。
+- 多气体配置确认时只触发一次算法 apply/plan，避免逐个 slot 写入时重复规划造成 CPU 抖动。
+
+#### 本轮参数检查结果
+
+已确认并同步到算法/显示刷新链路：
+
+- `GF / CONSERVATISM`：通过 `deco_core_set_gf()` 更新算法 config，并立即重新输出 plan/recommend/core data。
+- `SALINITY`：通过 `deco_core_set_salinity_mode()` 更新水型；同时重新应用当前 gas profile，让每槽 MOD 按新水型刷新。
+- `LAST DECO STOP`：通过 `deco_core_set_final_stop_depth()` 更新 `last_stop_m`，并立即重新规划。
+- `SAFETY STOP`：通过 `deco_core_set_safety_stop_mode()` 更新 safety stop 秒数/开关，并立即重新规划。
+- `GAS MODE / O2 / He / per-slot PO2`：气体槽携带 O2、He、MOD、每槽最大 PO2；算法 gas plan 与 GAS 卡片都使用同一份 per-slot PO2。
+- `DIVE SETUP / MOD PO2`：保留为旧 TCP/旧数据 fallback，不覆盖已配置气体槽自己的 PO2。
+
+已检查但暂不在主工程补公式：
+
+- `ALTITUDE`：当前只保存 UI 配置，AREX 适配层尚无“altitude level -> surface_pressure_bar”的产品/算法接口。本仓库规则要求算法已有计算接口时必须直接调用算法接口，因此这里不在 UI 侧复刻气压换算公式。后续需要算法或平台层提供明确 surface pressure 输入/映射后再接入。
 
 #### 停站时间显示
 

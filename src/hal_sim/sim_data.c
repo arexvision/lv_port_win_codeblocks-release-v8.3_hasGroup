@@ -148,9 +148,9 @@ static void sim_update_runtime_metrics(uint16_t time_scale)
 static void sim_seed_original_defaults(void)
 {
     float air_mod_m = sim_default_air_mod_m();
-    bus_set_gas_slot(0, "AIR", 21, 0, air_mod_m);
-    bus_set_gas_slot(1, "", 0, 0, 0.0f);
-    bus_set_gas_slot(2, "", 0, 0, 0.0f);
+    bus_set_gas_slot(0, "AIR", 21, 0, air_mod_m, 1.4f);
+    bus_set_gas_slot(1, "", 0, 0, 0.0f, 0.0f);
+    bus_set_gas_slot(2, "", 0, 0, 0.0f, 0.0f);
     bus_set_gas_slot_count(1);
     bus_set_gas(0, "AIR");
     bus_set_pod(0, 200.0f);
@@ -214,9 +214,9 @@ static void sim_seed_logbook_demo_if_empty(void)
 static void sim_seed_tcp_algo_defaults(void)
 {
     float air_mod_m = sim_default_air_mod_m();
-    bus_set_gas_slot(0, "AIR", 21, 0, air_mod_m);
-    bus_set_gas_slot(1, "", 0, 0, 0.0f);
-    bus_set_gas_slot(2, "", 0, 0, 0.0f);
+    bus_set_gas_slot(0, "AIR", 21, 0, air_mod_m, 1.4f);
+    bus_set_gas_slot(1, "", 0, 0, 0.0f, 0.0f);
+    bus_set_gas_slot(2, "", 0, 0, 0.0f, 0.0f);
     bus_set_gas_slot_count(1);
     bus_set_gas(0, "AIR");
     bus_set_pod(0, 200.0f);

@@ -265,7 +265,8 @@ static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan 
 
         ArexDecoGas *gas = &gas_plan->gases[valid_count];
         float slot_mod_m = bus_get_gas_slot_mod_m(i);
-        float ppo2 = bus_get_mod_ppo2();
+        float ppo2 = bus_get_gas_slot_max_ppo2(i);
+        if (ppo2 <= 0.0f) ppo2 = bus_get_mod_ppo2();
         gas->oxygen_fraction = (float)o2 / 100.0f;
         gas->helium_fraction = (float)he / 100.0f;
         gas->nitrogen_fraction = 1.0f - gas->oxygen_fraction - gas->helium_fraction;
@@ -478,6 +479,20 @@ static void sync_core_data(const ArexDecoSchedule *schedule)
     sync_deco_plan_data(schedule);
 }
 
+static void refresh_current_outputs(void)
+{
+    ArexDecoSchedule schedule;
+    ArexDecoGasRecommendation gas_rec;
+
+    (void)memset(&schedule, 0, sizeof(schedule));
+    (void)memset(&gas_rec, 0, sizeof(gas_rec));
+    ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
+    ArexDecoStatus gas_status = arex_deco_recommend_gas(&s_state, &gas_rec);
+    if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
+    sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
+    sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
+}
+
 static void handle_pending_gas_switch(float depth_m)
 {
     uint8_t target_gas_idx = 0U;
@@ -522,7 +537,11 @@ void deco_core_reset(void)
 void deco_core_set_final_stop_depth(uint8_t depth_m)
 {
     s_final_deco_stop_depth_m = (depth_m == 6U) ? 6U : 3U;
-    if (ensure_initialized()) apply_current_ui_config();
+    if (ensure_initialized())
+    {
+        apply_current_ui_config();
+        refresh_current_outputs();
+    }
     rt_kprintf("[DIVE_SETUP] Last deco stop: %um\n", (unsigned)s_final_deco_stop_depth_m);
 }
 
@@ -532,27 +551,43 @@ void deco_core_set_gf(uint8_t gf_low_pct, uint8_t gf_high_pct)
     if (gf_high_pct > 100U) gf_high_pct = 100U;
     s_gf_low_pct = gf_low_pct;
     s_gf_high_pct = gf_high_pct;
-    if (ensure_initialized()) apply_current_ui_config();
+    if (ensure_initialized())
+    {
+        apply_current_ui_config();
+        refresh_current_outputs();
+    }
     rt_kprintf("[DIVE_SETUP] GF: %u/%u\n", (unsigned)s_gf_low_pct, (unsigned)s_gf_high_pct);
 }
 
 void deco_core_set_salinity_mode(uint8_t mode)
 {
     s_salinity_mode = mode;
-    if (ensure_initialized()) apply_current_ui_config();
+    if (ensure_initialized())
+    {
+        apply_current_ui_config();
+        refresh_current_outputs();
+    }
     rt_kprintf("[DIVE_SETUP] Salinity mode: %u\n", (unsigned)mode);
 }
 
 void deco_core_set_safety_stop_mode(uint8_t mode)
 {
     s_safety_stop_mode = mode;
-    if (ensure_initialized()) apply_current_ui_config();
+    if (ensure_initialized())
+    {
+        apply_current_ui_config();
+        refresh_current_outputs();
+    }
     rt_kprintf("[DIVE_SETUP] Safety stop mode: %s\n", ui_safety_stop_label(mode));
 }
 
 void deco_core_apply_gases_from_ui(void)
 {
-    if (ensure_initialized()) apply_current_ui_config();
+    if (ensure_initialized())
+    {
+        apply_current_ui_config();
+        refresh_current_outputs();
+    }
 }
 
 float deco_core_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2)

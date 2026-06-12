@@ -168,6 +168,7 @@ typedef struct
     uint8_t o2_pct;
     uint8_t he_pct;
     float mod_m;
+    float max_ppo2;
     uint8_t valid;
 } submenu_gas_profile_slot_t;
 
@@ -488,6 +489,7 @@ static void submenu_gas_profile_set(submenu_gas_profile_slot_t *slots,
     slots[index].o2_pct = o2_pct;
     slots[index].he_pct = he_pct;
     slots[index].mod_m = gas_mod_for_mix(o2_pct, he_pct, ppo2);
+    slots[index].max_ppo2 = ppo2;
     slots[index].valid = (o2_pct > 0U) ? 1U : 0U;
     format_gas_name(slots[index].name, sizeof(slots[index].name), o2_pct, he_pct);
 }
@@ -516,6 +518,7 @@ static void submenu_commit_gas_profile(const submenu_gas_profile_slot_t *slots, 
         }
     }
 
+    bus_begin_gas_profile_update();
     for (uint8_t i = 0U; i < GAS_COUNT; i++)
     {
         if ((slots != NULL) && (i < commit_count) && (slots[i].valid != 0U))
@@ -524,11 +527,12 @@ static void submenu_commit_gas_profile(const submenu_gas_profile_slot_t *slots, 
                              slots[i].name,
                              slots[i].o2_pct,
                              slots[i].he_pct,
-                             slots[i].mod_m);
+                             slots[i].mod_m,
+                             slots[i].max_ppo2);
         }
         else
         {
-            bus_set_gas_slot(i, "", 0U, 0U, 0.0f);
+            bus_set_gas_slot(i, "", 0U, 0U, 0.0f, 0.0f);
         }
     }
 
@@ -545,6 +549,7 @@ static void submenu_commit_gas_profile(const submenu_gas_profile_slot_t *slots, 
         bus_set_gas_mix(0U, 0U);
         bus_set_fio2(0.0f);
     }
+    bus_end_gas_profile_update();
 
     ui_on_gas_profile_commit();
 }
