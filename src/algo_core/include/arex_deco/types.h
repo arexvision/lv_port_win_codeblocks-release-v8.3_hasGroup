@@ -164,7 +164,10 @@ typedef struct ArexDecoSchedule {
     ArexDecoVersion api_version;
     uint8_t stop_count;
     uint8_t truncated;
-    uint8_t reserved[14];
+    // 1 if current_depth_m is shallower than the GF-high ceiling at plan time.
+    // Product layers must treat this as a warning even when stops/tts are zero.
+    uint8_t ceiling_violated;
+    uint8_t reserved[13];
     uint32_t tts_seconds;
     ArexDecoOxygenExposure end_of_dive_exposure;
     ArexDecoStop stops[AREX_DECO_MAX_DECO_STOP_COUNT];

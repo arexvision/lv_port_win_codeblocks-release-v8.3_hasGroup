@@ -26,6 +26,26 @@
 - smoke test
 - 文档
 
+## 0.0.19
+
+### 摘要
+
+本次版本为计划输出增加 ceiling violation 标志，避免 missed-deco / 已浅于 ceiling
+状态被产品层误判为无义务空计划。
+
+### 行为与 ABI 变更
+
+- `ArexDecoSchedule` 新增 `ceiling_violated` 字段，offset 为 `8`。
+- 该字段占用原 reserved 空间，`ArexDecoSchedule` 总大小保持 `1500` 字节，
+  `tts_seconds`、`end_of_dive_exposure` 和 `stops` offset 不变。
+- `arex_deco_plan()` 在所有返回路径上都会基于 GF-high ceiling 设置该字段。
+  如果当前深度浅于 GF-high ceiling，字段为 `1`；否则为 `0`。
+- 当潜水员已经在水面但仍有 ceiling 时，`arex_deco_plan()` 仍可返回
+  `AREX_DECO_STATUS_OK`、`stops=0`、`tts_seconds=0`，同时
+  `ceiling_violated=1`。产品层必须把该字段作为警告条件，不能只用
+  `stops == 0` 或 `tts_seconds == 0` 判断安全。
+- API patch 版本升至 `0.0.19`。
+
 ## 0.0.18
 
 ### 摘要

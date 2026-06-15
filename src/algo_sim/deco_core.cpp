@@ -177,9 +177,10 @@ static void debug_print_schedule(const ArexDecoSchedule *schedule)
     print_count = schedule->stop_count;
     if (print_count > DECO_SCHEDULE_DEBUG_MAX_STOPS) print_count = DECO_SCHEDULE_DEBUG_MAX_STOPS;
 
-    rt_kprintf("[AREX_PLAN] depth=%.1fm ceiling=%.2fm tts=%lus stops=%u",
+    rt_kprintf("[AREX_PLAN] depth=%.1fm ceiling=%.2fm cv=%u tts=%lus stops=%u",
                (double)s_state.current_depth_m,
                (double)s_metrics.ceiling_depth_m,
+               (unsigned)schedule->ceiling_violated,
                (unsigned long)schedule->tts_seconds,
                (unsigned)schedule->stop_count);
     for (uint8_t i = 0U; i < print_count; i++)
@@ -212,10 +213,18 @@ static float core_mod_depth_for_gas(const ArexDecoConfig *config, const ArexDeco
     return gas->max_depth_m;
 }
 
-static uint32_t stop_hold_seconds(const ArexDecoStop *stop)
+static bool stop_is_switch_only(const ArexDecoStop *stop)
 {
-    if (stop == NULL) return 0U;
-    return stop->hold_seconds;
+    return stop != NULL &&
+           stop->duration_seconds > 0U &&
+           stop->hold_seconds == 0U &&
+           stop->switch_penalty_seconds > 0U;
+}
+
+static uint32_t stop_runtime_seconds(const ArexDecoStop *stop)
+{
+    if (stop == NULL || stop_is_switch_only(stop)) return 0U;
+    return stop->duration_seconds;
 }
 
 static void format_gas_name(const ArexDecoGas *gas, char *name_buf, size_t name_buf_size)
@@ -427,16 +436,27 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
 
     for (uint8_t i = 0U; i < schedule->stop_count && count < MAX_DECO_STOPS; i++)
     {
-        uint32_t hold_s = stop_hold_seconds(&schedule->stops[i]);
-        if (schedule->stops[i].depth_m <= 0.0f || hold_s == 0U)
+        uint32_t runtime_s = stop_runtime_seconds(&schedule->stops[i]);
+        if (schedule->stops[i].depth_m <= 0.0f || runtime_s == 0U)
         {
             continue;
         }
         stops[count].depth_m = schedule->stops[i].depth_m;
-        stops[count].stay_min = (float)hold_s / 60.0f;
+        stops[count].stay_min = (float)runtime_s / 60.0f;
         count++;
     }
     bus_set_deco_plan((count > 0U) ? stops : NULL, count);
+}
+
+static const ArexDecoStop *first_runtime_stop(const ArexDecoSchedule *schedule)
+{
+    if (schedule == NULL) return NULL;
+    for (uint8_t i = 0U; i < schedule->stop_count; i++)
+    {
+        const ArexDecoStop *stop = &schedule->stops[i];
+        if (stop->depth_m > 0.0f && stop_runtime_seconds(stop) > 0U) return stop;
+    }
+    return NULL;
 }
 
 static void sync_stop_data(const ArexDecoSchedule *schedule)
@@ -454,22 +474,22 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
         ndl_min = (ndl_calc > 99U) ? 99 : (int16_t)ndl_calc;
     }
 
-    if (schedule != NULL && schedule->stop_count > 0U && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M)
+    const ArexDecoStop *runtime_stop = first_runtime_stop(schedule);
+
+    if (runtime_stop != NULL && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M)
     {
-        const ArexDecoStop *stop = &schedule->stops[0];
-        uint32_t hold_s = stop_hold_seconds(stop);
+        uint32_t runtime_s = stop_runtime_seconds(runtime_stop);
         stop_type = STOP_DECO;
-        stop_depth_m = stop->depth_m;
-        stop_left_s = (hold_s > 65535U) ? 65535U : (uint16_t)hold_s;
+        stop_depth_m = runtime_stop->depth_m;
+        stop_left_s = (runtime_s > 65535U) ? 65535U : (uint16_t)runtime_s;
         in_stop_zone = deco_stop_zone_active(s_state.current_depth_m, stop_depth_m);
         ndl_min = 0;
     }
-    else if (schedule != NULL && schedule->stop_count > 0U)
+    else if (runtime_stop != NULL)
     {
-        const ArexDecoStop *stop = &schedule->stops[0];
-        uint32_t hold_s = stop_hold_seconds(stop);
-        stop_depth_m = stop->depth_m;
-        stop_left_s = (hold_s > 65535U) ? 65535U : (uint16_t)hold_s;
+        uint32_t runtime_s = stop_runtime_seconds(runtime_stop);
+        stop_depth_m = runtime_stop->depth_m;
+        stop_left_s = (runtime_s > 65535U) ? 65535U : (uint16_t)runtime_s;
         stop_type = STOP_SAFETY;
         in_stop_zone = safety_stop_zone_active(s_state.current_depth_m);
     }
@@ -500,6 +520,7 @@ static void sync_core_data(const ArexDecoSchedule *schedule)
     bus_set_gf99(s_metrics.gf99_percent);
     bus_set_surf_gf(s_metrics.surface_gf_percent);
     bus_set_ceiling(s_metrics.ceiling_depth_m);
+    (void)alarm_set_active(ALARM_ID_CRIT_CEIL_BROKEN, schedule != NULL && schedule->ceiling_violated != 0U);
     bus_set_tts(schedule != NULL ? round_up_minutes(schedule->tts_seconds) : 0U);
     if (arex_deco_nofly(&s_state, &nofly_seconds) == AREX_DECO_STATUS_OK)
     {

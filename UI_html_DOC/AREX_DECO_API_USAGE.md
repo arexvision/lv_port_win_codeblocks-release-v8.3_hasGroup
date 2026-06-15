@@ -163,6 +163,7 @@ ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
 
 ```c
 uint8_t stop_count;
+uint8_t ceiling_violated;
 uint32_t tts_seconds;
 ArexDecoOxygenExposure end_of_dive_exposure;
 ArexDecoStop stops[AREX_DECO_MAX_DECO_STOP_COUNT];
@@ -175,12 +176,18 @@ float depth_m;
 uint32_t duration_seconds;
 int8_t gas_index;
 float target_gf;
+uint32_t hold_seconds;
+uint32_t switch_penalty_seconds;
 ```
 
-注意两个点：
+注意几个点：
 
 1. `duration_seconds` 是秒级输出，算法不会自动取整到整分钟。
 2. `depth_m` 是算法返回的停站深度；当前 UI 适配层没有对它做 3m 网格吸附。
+3. `duration_seconds` 是计划总时长，包含物理停留和同深度预测切气 penalty。
+4. `hold_seconds` 是物理停留时间，不包含切气 penalty。
+5. `switch_penalty_seconds` 是 planner 预测用的同深度切气延迟。
+6. `ceiling_violated == 1` 表示 plan 时当前深度已经浅于 GF-high ceiling；即使 `stops/tts` 为 0，产品层也必须提示违规风险。
 
 ## 当前项目的实时输出链路
 
@@ -193,6 +200,7 @@ bus_set_otu(...);
 bus_set_gf99(...);
 bus_set_surf_gf(...);
 bus_set_ceiling(s_metrics.ceiling_depth_m);
+alarm_set_active(ALARM_ID_CRIT_CEIL_BROKEN, schedule != NULL && schedule->ceiling_violated != 0);
 bus_set_tts(schedule != NULL ? round_up_minutes(schedule->tts_seconds) : 0U);
 sync_gas_data();
 sync_stop_data(schedule);
@@ -204,8 +212,9 @@ sync_deco_plan_data(schedule);
 右上角状态来自 `sync_stop_data()`：
 
 1. 如果 `s_metrics.ndl_seconds > 0`，适配层把它向上取整成分钟，写成 NDL。
-2. 如果 `schedule.stop_count > 0`，适配层取 `schedule.stops[0]` 作为当前 stop。
-3. 当前 stop 的 depth/time/type 被写入：
+2. 如果 `schedule.stop_count > 0`，适配层从 `schedule.stops[]` 中找第一个 runtime stop。
+3. 如果某站满足 `hold_seconds == 0 && switch_penalty_seconds > 0`，它是纯切气预测站，不作为右上角 `DECO xxm` 主倒计时显示。
+4. 当前 stop 的 depth/time/type 被写入：
 
 ```c
 bus_update_deco(ndl_min, stop_type, stop_depth_m, stop_total_s, stop_left_s, in_stop_zone);
@@ -224,6 +233,8 @@ stop_type = (s_metrics.ceiling_depth_m > 0.01f) ? STOP_DECO : STOP_SAFETY;
 ```
 
 因此只要实时 ceiling 大于 0，就认为是强制减压停留；否则如果 schedule 有 stop，就按安全停留处理。
+
+0.0.19 后，`schedule.ceiling_violated` 也会直接驱动 `CEILING BROKEN` 告警。这个告警不能只依赖 `stop_count` 或 `tts_seconds`，因为算法明确说明存在“计划为空但当前深度已经浅于 ceiling”的风险场景。
 
 ### 2. 停留进度条
 
@@ -245,6 +256,8 @@ stops[count].stay_min = schedule->stops[i].duration_seconds / 60.0f;
 ```
 
 所以图上显示的停站深度同样来自算法返回的 `schedule.stops[i].depth_m`。
+
+当前实时轨迹图同样会过滤纯切气预测站，避免把 `hold_seconds == 0 && switch_penalty_seconds > 0` 的锚点画成 `0:00` 减压站。真正进入停站列表的时间使用 `duration_seconds`，与 TTS/planner 的总时长口径一致。
 
 ## 为什么会出现非 3m 倍数的站点
 
@@ -328,8 +341,9 @@ display_stop = last_stop_m + ceil((raw_stop_m - last_stop_m) / deco_step_m) * de
 2. `s_state.was_deco_dive` 是“本次是否曾经进入过减压”的 latched bit，不能用来判断当前是否 DECO；当前是否有减压义务要看 `s_metrics.ceiling_depth_m`。
 3. `arex_deco_plan()` 每次 tick 都重新从当前状态规划，所以 schedule 会随深度、组织舱和气体变化不断变化。
 4. `schedule.tts_seconds` 是算法规划的总升水时间，UI 里通过 `round_up_minutes()` 显示成 TTS 分钟。
-5. 当前 `sync_stop_data()` 只取 `schedule.stops[0]` 做右上角当前站，后续站只进入 PLAN TRACK 图。
+5. 当前 `sync_stop_data()` 取第一个非纯切气预测的 runtime stop 做右上角当前站，后续 runtime stops 进入 PLAN TRACK 图。
 6. 当前适配层没有检查 `schedule.truncated`，如果未来有超长/容量不足计划，需要补 UI 提示。
+7. 当前适配层会消费 `schedule.ceiling_violated`，用于触发 `CEILING BROKEN`；真机侧也需要同步该语义。
 
 ## 建议后续确认项
 

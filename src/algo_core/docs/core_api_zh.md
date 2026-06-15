@@ -1,6 +1,6 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.18`。
+本文档描述当前 core API。当前 API 版本为 `0.0.19`。
 
 ## 适用场景
 
@@ -15,7 +15,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 18`
+- `AREX_DECO_API_VERSION_PATCH = 19`
 
 固定容量：
 
@@ -102,7 +102,7 @@ CNS 衰减（0.0.3 起）：
 | `deco_step_m` | `float` | m | 中间减压站跨度 |
 | `last_stop_m` | `float` | m | 最后减压站深度。Planner 到达该深度后不再生成更浅停站，而是在该站延长时间直到可升水 |
 | `safety_stop_seconds` | `uint32_t` | s | 非强制减压时的安全停留时长 |
-| `gas_switch_penalty_seconds` | `uint32_t` | s | 静态计划/TTS 中预测切换气体时附加的同深度延迟；runtime 当前站倒计时应看 `hold_seconds` 和切气确认状态 |
+| `gas_switch_penalty_seconds` | `uint32_t` | s | 计划中预测切换气体时附加的同深度延迟；penalty 期间按新气体推进组织舱，并计入停站 `duration_seconds` 和 TTS |
 | `water_type` | `ArexDecoWaterType` | - | `SALT=0`，`FRESH=1` |
 | `safety_stop_enabled` | `uint8_t` | - | 非强制减压安全停留开关，`1` 启用，`0` 关闭 |
 
@@ -250,14 +250,15 @@ CNS 衰减（0.0.3 起）：
 
 ### `ArexDecoGasRecommendation`
 
-当前状态下的气体切换建议。它是 runtime 切气提示的单一输出结构；
-`arex_deco_plan()` 的 `gas_rec` 参数仅作为兼容/便利输出，实时 UI 推荐直接调用
-`arex_deco_recommend_gas()`。
+当前深度下的最佳安全可用气体推荐。它只回答“按当前 `ArexDecoDiveState`
+和气体表，是否存在比 active gas 更优的安全气体”，不直接决定产品 UI 是否弹窗；
+`arex_deco_plan()` 的 `gas_rec` 参数仅作为兼容/便利输出，实时侧推荐直接调用
+`arex_deco_recommend_gas()` 并叠加产品层展示门控。
 
 | 字段 | 类型 | 单位 | 说明 |
 |---|---|---:|---|
 | `api_version` | `ArexDecoVersion` | - | API 版本 |
-| `available` | `uint8_t` | - | 1 表示有推荐切换 |
+| `available` | `uint8_t` | - | 1 表示当前深度存在比 active gas 更优的安全可用气体 |
 | `recommended_gas_index` | `int8_t` | - | 推荐气体索引 |
 | `active_gas_index` | `int8_t` | - | 当前气体索引 |
 | `is_emergency_no_safe_gas` | `uint8_t` | - | 1 表示当前没有任何安全可用气体 |
@@ -271,11 +272,15 @@ CNS 衰减（0.0.3 起）：
 | 字段 | 类型 | 单位 | 说明 |
 |---|---|---:|---|
 | `depth_m` | `float` | m | 停站深度 |
-| `duration_seconds` | `uint32_t` | s | 预测总时长，等于 `hold_seconds + switch_penalty_seconds`。适合静态计划、TTS 和气量估算，不应直接作为 runtime 当前站倒计时 |
+| `duration_seconds` | `uint32_t` | s | 停站预测总时长，等于 `hold_seconds + switch_penalty_seconds`。适合静态计划、TTS、气量估算，也适合作为 runtime 当前站主倒计时 |
 | `gas_index` | `int8_t` | - | 停站使用气体 |
 | `target_gf` | `float` | 0-1 | 该停站目标 GF |
-| `hold_seconds` | `uint32_t` | s | 物理脱气停留时间，不包含切气惩罚 |
-| `switch_penalty_seconds` | `uint32_t` | s | planner 预测用的同深度切气延迟，不是 runtime 强制停留 |
+| `hold_seconds` | `uint32_t` | s | 扣除预测切气延迟后的停留求解时间。强制减压站由 `solve_stop_time_seconds()` 从 penalty 推进后的组织状态起算；安全停留站使用 `safety_stop_seconds` |
+| `switch_penalty_seconds` | `uint32_t` | s | planner 预测用的同深度切气延迟；期间按新气体推进组织舱，并已包含在 `duration_seconds` 内 |
+
+`hold_seconds` 依赖 `switch_penalty_seconds` 已按新气体推进组织舱这一前提，
+两者不可被视为两个互不相关的倒计时。若只需要一个停站剩余时间，
+调用方应使用 `duration_seconds`。
 
 ### `ArexDecoSchedule`
 
@@ -286,6 +291,7 @@ CNS 衰减（0.0.3 起）：
 | `api_version` | `ArexDecoVersion` | - | API 版本 |
 | `stop_count` | `uint8_t` | - | 有效停站数量 |
 | `truncated` | `uint8_t` | - | 1 表示停站数组容量不足被截断 |
+| `ceiling_violated` | `uint8_t` | - | 1 表示计划时当前深度浅于 GF-high ceiling，即使 `stops/tts` 为 0 也必须提示违规/风险 |
 | `tts_seconds` | `uint32_t` | s | Time To Surface，包括停站和上升时间 |
 | `end_of_dive_exposure` | `ArexDecoOxygenExposure` | - | 若严格按此计划升水，出水时预测累计 CNS / OTU |
 | `stops[40]` | `ArexDecoStop[]` | - | 固定容量停站数组 |
@@ -457,7 +463,7 @@ ArexDecoStatus arex_deco_plan(
 输出：
 
 - `schedule`：停站列表和 TTS
-- `gas_rec`：如果不为 `NULL`，输出当前深度的推荐切换气体
+- `gas_rec`：如果不为 `NULL`，输出当前深度的最佳安全可用气体推荐
 
 Planner 行为：
 
@@ -477,13 +483,24 @@ Planner 行为：
 - 气体切换会计入同深度额外停留，默认 60 s。该值写入停站的 `switch_penalty_seconds`，并计入 `duration_seconds`。
 - 气体切换惩罚期间按新气体推进组织舱，且该惩罚计入新气体所在停站的 `duration_seconds`。
 - `tts_seconds` 包含停站时间、上升时间、安全停留和气体切换惩罚。
+- 若计划时当前深度浅于 GF-high ceiling，`schedule.ceiling_violated` 置 1。
+  这种情况下 planner 仍描述“从当前位置到水面”的未来路径；如果潜水员已在水面，
+  路径可以为空且 `stops == 0 && tts_seconds == 0`。产品层不得只用
+  `stops == 0` 或 `tts_seconds == 0` 判断安全，必须同时确认
+  `ceiling_violated == 0`。
 - 单站时长上限 6 h（0.0.3 起）。若该上限内仍无法满足 ceiling 约束，返回 `AREX_DECO_STATUS_INVALID_STATE`。
+
+纯切气预测站：
+
+- 当某站 `hold_seconds == 0 && switch_penalty_seconds > 0` 时，该站在物理上不需要额外脱气停留，只是 planner 对未来同深度切气动作的预测锚点。
+- Runtime UI 不应把纯切气预测站渲染成减压倒计时表盘；应通过 `arex_deco_recommend_gas()` 和产品层门控展示切气确认提示。用户确认后用 0 秒 `arex_deco_step()` 更新 active gas 并重新 plan，该站通常会因 penalty 清零而消失。
+- 静态计划、日志、计划详情不应隐藏纯切气预测站的时间，可显示为“切气 +N s -> Gas X”。因为该时间已经计入 `tts_seconds`，隐藏会导致各站时间与 TTS 对不上。
 
 Planning 与 Runtime 语义：
 
-- 静态计划、TTS、CNS / OTU 预测和气量估算应使用 `duration_seconds` / `tts_seconds`，因为它们代表“未来按计划执行”的保守预测。
-- 实时水下 UI 不应把 `switch_penalty_seconds` 当作当前站强制倒计时。当前站应通过 `arex_deco_recommend_gas()` 弹出切气提示；潜水员确认后，调用 `arex_deco_step()` 的 0 秒 step，把 `gas_index` 改成推荐气体，再重新 plan。
-- 确认切气后，新的 `active_gas_index` 已等于推荐气体，当前站的 `switch_penalty_seconds` 会清零；此时 UI 倒计时才应使用 `hold_seconds`。
+- 静态计划、TTS、CNS / OTU 预测、气量估算和 runtime 当前站主倒计时应使用 `duration_seconds` / `tts_seconds`，因为它们代表“按当前计划执行”的连续预测。
+- 实时水下 UI 不应把 `switch_penalty_seconds` 做成独立强制倒计时；它已经包含在当前站 `duration_seconds` 内。当前站可通过 `arex_deco_recommend_gas()` 获取当前深度最佳安全可用气体；产品层确认需要展示切气提示后，由潜水员确认，再调用 `arex_deco_step()` 的 0 秒 step，把 `gas_index` 改成推荐气体，随后重新 plan。
+- 确认切气后，新的 `active_gas_index` 已等于推荐气体，当前站的 `switch_penalty_seconds` 会清零；由于切气 penalty 期间原本已按新气体推进组织舱，重新计划后的 `duration_seconds` 通常会比单独显示 `hold_seconds` 更平顺，避免确认切气后当前站倒计时向上跳变。
 - 若潜水员拒绝或该气体不可用，产品层应保持 active gas 不变，并在传入 core 的 gas plan 中禁用/移除该气体后重新 plan；core 不在 `ArexDecoDiveState` 内保存“拒绝切气”策略状态。
 
 停站时间秒级输出与重算闭环：
@@ -505,14 +522,26 @@ ArexDecoStatus arex_deco_recommend_gas(
     ArexDecoGasRecommendation* gas_rec);
 ```
 
-按当前真实状态输出切气提示，不生成减压计划，也不修改组织舱状态。
+按当前真实状态输出最佳安全可用气体推荐，不生成减压计划，也不修改组织舱状态。
+
+该接口不保存隐藏会话状态，也不判断产品生命周期。`available == 1` 只表示
+“当前深度存在比 active gas 更优的安全可用气体”，不等价于“UI 必须立即弹窗”。
+是否展示 `BETTER GAS AVAILABLE` / "Switch gas?" 应由产品层结合是否已入水、
+是否处于潜水中、提示抑制策略、用户是否拒绝该气体等状态决定。
 
 推荐用法：
 
-- 每次 `arex_deco_step()` 后调用一次，用于 runtime UI 的 "Switch gas?" 提示。
-- `available == 1` 时由产品层提示潜水员确认；确认后用 0 秒 `arex_deco_step()` 更新 active gas。
+- 每次 `arex_deco_step()` 后调用一次，用于获得当前深度的最佳安全可用气体。
+- `available == 1` 时，产品层可在自己的潜水生命周期和提示策略允许时提示潜水员确认；确认后用 0 秒 `arex_deco_step()` 更新 active gas。
 - `available == 0` 且 `is_emergency_no_safe_gas == 0` 表示保持当前气体。
 - `is_emergency_no_safe_gas == 1` 表示当前没有安全可用气体，应作为告警处理。
+- 输入的 `ArexDecoDiveState` 必须是宿主侧持续 `arex_deco_step()` 推进后的最新真实状态；不要复用旧计划或旧组织舱快照调用该接口，否则切气深度附近的推荐时机可能早出或晚出。
+
+该接口与 `arex_deco_plan()` 的职责不同：
+
+- `arex_deco_recommend_gas()` 回答当前深度下“现在是否有更优且安全的气体”，适合在实时 tick 后高频调用。
+- `arex_deco_plan()` 回答“从当前状态开始，如果按可用气体和规划策略上升，未来停站、TTS、氧暴露会怎样”，其中未来切气延迟会进入 `switch_penalty_seconds` 和 `tts_seconds`。
+- 如果设备为了性能降低 `arex_deco_plan()` 调用频率，仍可在每次 `arex_deco_step()` 后调用 `arex_deco_recommend_gas()`，避免当前深度的切气推荐被低频计划刷新延迟。
 
 ### `arex_deco_nofly`
 
@@ -658,6 +687,16 @@ if (status == AREX_DECO_STATUS_OK) {
 }
 ```
 
+实时 UI 消费建议：
+
+- tick 内先用 `arex_deco_step()` 推进真实状态，再用 `arex_deco_recommend_gas()` 获取当前深度最佳安全可用气体，最后按产品需要调用 `arex_deco_plan()` 刷新计划。
+- TTS 显示使用 `schedule.tts_seconds`。该值包含未来上升、停站、安全停留和预测切气延迟，适合做保守总时间估计。
+- 当前站主倒计时使用当前站的 `duration_seconds`。不要只绑定 `hold_seconds`，否则在 pending 切气被确认、`switch_penalty_seconds` 清零后，隐藏在 penalty 中的新气体脱气时间会回到 `hold_seconds`，可能导致倒计时向上跳变。
+- `hold_seconds` 和 `switch_penalty_seconds` 可用于拆分展示、调试或计划详情；若只显示一个当前站剩余时间，应显示 `duration_seconds`。
+- 若当前首站满足 `hold_seconds == 0 && switch_penalty_seconds > 0`，它是纯切气预测站。Runtime 主界面应隐藏该站减压倒计时，只保留切气提示；静态计划和日志中可显示为“切气 +N s”。
+- 用户确认切气后，用 0 秒 `arex_deco_step()` 更新 active gas，再重新调用 `arex_deco_plan()`。此时当前气体已是推荐气体，对应当前站的 `switch_penalty_seconds` 会按新状态重新计算，主倒计时继续绑定新的 `duration_seconds`。
+- 用户拒绝或气体不可用时，产品层应保持 active gas 不变，并在传给 core 的 gas plan 中把该气体 `enabled` 设为 0 或移除该气体后重新 plan；core 不保存拒绝策略状态。
+
 ### Runtime 切气确认
 
 ```c
@@ -666,7 +705,7 @@ status = arex_deco_recommend_gas(&state, &gas_rec);
 if (status == AREX_DECO_STATUS_OK &&
     gas_rec.available &&
     gas_rec.recommended_gas_index >= 0) {
-    // UI prompts the diver here.
+    // Product layer may prompt the diver here after dive-lifecycle gating.
 }
 
 ArexDecoStepInput switch_input = {0};
@@ -708,7 +747,7 @@ WASM 构建导出的是同一套 C ABI 符号，外加版本和 sizeof helper。
 | `_arex_deco_wasm_sizeof_stop()` | `ArexDecoStop` 字节大小 |
 | `_arex_deco_wasm_sizeof_schedule()` | `ArexDecoSchedule` 字节大小 |
 | `_arex_deco_calculate_gas_mod()` | 按 core 口径计算气体 MOD |
-| `_arex_deco_recommend_gas()` | 当前状态下的 runtime 切气提示 |
+| `_arex_deco_recommend_gas()` | 当前深度的最佳安全可用气体推荐 |
 | `_arex_deco_calculate_tissue_gradients()` | 计算当前环境压力下 16 仓 absolute / relative GF 百分比 |
 
 ### WASM 调用规则
@@ -752,6 +791,7 @@ WASM 构建导出的是同一套 C ABI 符号，外加版本和 sizeof helper。
 |---|---:|
 | `stop_count` | 6 |
 | `truncated` | 7 |
+| `ceiling_violated` | 8 |
 | `tts_seconds` | 24 |
 | `end_of_dive_exposure` | 28 |
 | `stops` | 60 |

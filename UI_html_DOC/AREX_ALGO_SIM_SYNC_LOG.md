@@ -13,6 +13,62 @@
 
 原则：只要算法层已经提供计算接口，模拟器和主工程都必须调用算法接口，不在 UI 或模拟器里重复实现公式。
 
+## 0.0.18 -> 0.0.19
+
+### 算法包变化
+
+本次从 AREX Deco Core `0.0.18` 升级到 `0.0.19`。
+
+算法层新增/明确了以下字段和行为：
+
+- `ArexDecoSchedule` 新增 `ceiling_violated` 字段。
+- `ceiling_violated == 1` 表示 plan 时当前深度浅于 GF-high ceiling。
+- 即使 `stops == 0` 或 `tts_seconds == 0`，只要 `ceiling_violated == 1`，产品层也必须提示 ceiling violation 风险。
+- API patch 版本升至 `0.0.19`。
+
+### 模拟器口径调整
+
+#### Ceiling Violation
+
+旧口径：
+
+- PC 模拟器主要通过 `depth < ceiling` 的本地策略触发 `CEILING BROKEN`。
+- 当算法返回空计划或 `tts=0` 时，产品层没有显式消费 schedule 中的 ceiling violation 语义。
+
+新口径：
+
+- `sync_core_data()` 读取 `schedule->ceiling_violated`。
+- `ceiling_violated != 0` 时触发现有 `ALARM_ID_CRIT_CEIL_BROKEN`。
+- 调试日志增加 `cv=<0|1>`，方便确认算法返回的 ceiling violation 标志。
+
+影响：
+
+- Missed-deco、已浅于 ceiling 或已到水面但仍有 ceiling 的场景，不再只依赖 `stops/tts` 判断安全。
+- 真机侧也必须消费 `ArexDecoSchedule.ceiling_violated`，不能只用 `stops == 0` 或 `tts == 0` 判断无减压风险。
+
+#### Runtime 停站显示
+
+旧口径：
+
+- 0.0.18 同步后，runtime 当前站和轨迹图曾使用 `hold_seconds`，避免把预测切气惩罚显示成停留倒计时。
+- 该口径会导致纯切气预测站显示为 `DECO xxm 0:00`，也可能在确认切气后出现倒计时跳变。
+
+新口径：
+
+- Runtime 主倒计时和轨迹图改为使用 `duration_seconds`。
+- 当某站满足 `hold_seconds == 0 && switch_penalty_seconds > 0` 时，视为纯切气预测站，不作为 runtime 当前减压站显示，也不进入实时轨迹停站列表。
+- 切气提示仍通过 `arex_deco_recommend_gas()` 和产品层门控展示。
+
+影响：
+
+- 不再出现纯切气预测站渲染成 `DECO xxm 0:00`。
+- 对于包含切气 penalty 的真实停站，runtime 主倒计时与 TTS/planner 保持同一 planning 口径。
+
+### 工程和库同步
+
+- 更新 AREX 头文件、`mingw64` 静态库、`sf32` 静态库和算法文档到 `0.0.19`。
+- 恢复 `src/algo_core/lib/libarex_deco_core.a` 兼容拷贝，避免 CodeBlocks 仍引用旧路径时报链接错误。
+
 ## 0.0.17 -> 0.0.18
 
 ### 算法包变化
