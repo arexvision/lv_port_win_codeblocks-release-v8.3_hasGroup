@@ -447,7 +447,7 @@ flowchart LR
 | 等级 | 行为 |
 |---|---|
 | `ALARM_CRIT` | 横幅反色闪烁，目标模块反色闪烁；`back 2` 后只隐藏横幅，目标模块继续闪烁，直到条件解除 |
-| `ALARM_WARN` | 目标模块可见时不弹横幅，只在原位呼吸；目标不可见时弹 WARNING 横幅；`back 2` 后隐藏横幅并取消呼吸，直到条件解除 |
+| `ALARM_WARN` | 目标模块可见时不弹横幅，只在原位呼吸；目标不可见时弹 WARNING 横幅；`back 2` 后只隐藏横幅，目标模块继续呼吸，直到条件解除 |
 | `ALARM_INFO` | 普通通知静态显示 5s 后自动消失；`INFO_GAS_SWITCH` 是特殊交互提示，必须 `back 2` 确认 |
 
 目标效果依赖组件创建时的 `user_data` 烙印。比如 `ALARM_ID_WARN_NDL_LOW` 的 target 是 `COMP_NDL_STOP_1606`，告警视图会在左侧锚点和当前可见 CUSTOM_GRID 容器中找这个 comp id，然后按等级应用闪烁、呼吸或稳定高亮。

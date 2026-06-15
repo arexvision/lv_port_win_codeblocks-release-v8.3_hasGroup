@@ -662,7 +662,7 @@ uint8_t alarm_get_target_effects(alarm_target_effect_entry_t *entries, uint8_t m
         }
         else if (s_alarm_defs[i].level == ALARM_WARN)
         {
-            effect = s_alarm_states[i].target_acked ? ALARM_TARGET_EFFECT_WARN_STEADY : ALARM_TARGET_EFFECT_WARN_BREATHE;
+            effect = ALARM_TARGET_EFFECT_WARN_BREATHE;
         }
 
         (void)alarm_effect_add(entries, &count, max_entries, s_alarm_defs[i].target, s_alarm_defs[i].level, effect);
@@ -672,7 +672,7 @@ uint8_t alarm_get_target_effects(alarm_target_effect_entry_t *entries, uint8_t m
     {
         alarm_target_effect_t effect = (s_custom_alarm.level >= ALARM_CRIT)
                                        ? ALARM_TARGET_EFFECT_CRIT_FLASH
-                                       : (s_custom_alarm.target_acked ? ALARM_TARGET_EFFECT_WARN_STEADY : ALARM_TARGET_EFFECT_WARN_BREATHE);
+                                       : ALARM_TARGET_EFFECT_WARN_BREATHE;
         (void)alarm_effect_add(entries, &count, max_entries, s_custom_alarm.target, s_custom_alarm.level, effect);
     }
 

@@ -146,13 +146,13 @@ Current alarms separate condition ownership from visual acknowledgement.
 
 - The owner calls `alarm_set_active(id, true/false)` to set or clear the real condition.
 - `back 2` calls `alarm_confirm_current()`.
-- Confirmation hides the banner, but it does not mean the condition is gone. CRITICAL target flashing is not cancelled by confirmation.
+- Confirmation hides the banner, but it does not mean the condition is gone. CRITICAL target flashing and WARNING target breathing are not cancelled by confirmation.
 - When the owner clears the condition with `alarm_set_active(id, false)`, ack state is reset for the next trigger.
 
 Level behavior:
 
 - CRITICAL: banner and target flash. `back 2` hides the banner only; the target keeps flashing until condition clear.
-- WARNING: if the target widget is visible, only the target breathes; if the target is not visible, a warning banner is shown. `back 2` hides the banner/stops breathing and leaves a steady highlight until condition clear.
+- WARNING: if the target widget is visible, only the target breathes; if the target is not visible, a warning banner is shown. `back 2` hides the banner only; the target keeps breathing until condition clear.
 - INFO: normal notifications auto-hide after 5 seconds.
 
 `INFO_GAS_SWITCH` is special:

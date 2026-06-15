@@ -269,28 +269,12 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
             return;
         }
     }
-    else if (effect == ALARM_TARGET_EFFECT_CRIT_STEADY)
-    {
-        lv_obj_set_style_bg_color(obj, alarm_color, 0);
-        lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(obj, alarm_color, 0);
-        lv_obj_set_style_border_width(obj, 2, 0);
-        text_color = BLACK;
-    }
     else if (effect == ALARM_TARGET_EFFECT_WARN_BREATHE)
     {
         lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
         lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(obj, alarm_color, 0);
         lv_obj_set_style_border_width(obj, phase_on ? 2 : 1, 0);
-        text_color = GREEN;
-    }
-    else if (effect == ALARM_TARGET_EFFECT_WARN_STEADY)
-    {
-        lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
-        lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(obj, alarm_color, 0);
-        lv_obj_set_style_border_width(obj, 1, 0);
         text_color = GREEN;
     }
     else
