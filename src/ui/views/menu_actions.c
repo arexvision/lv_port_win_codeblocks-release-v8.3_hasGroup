@@ -99,6 +99,9 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
         ui_on_datetime_action((uint8_t)setting->value);
         break;
     case SUBMENU_SETTING_TIME_24H:
+        ui_on_time_24h_set(setting->value != 0U);
+        screen_refresh_setup_menu();
+        break;
     case SUBMENU_SETTING_DATE_FORMAT:
         screen_refresh_setup_menu();
         break;

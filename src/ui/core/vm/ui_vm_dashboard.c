@@ -61,6 +61,33 @@ static void vm_format_mod_text(char *buf, size_t buf_size, float mod_m)
     }
 }
 
+static void vm_format_sys_time(char *buf, size_t buf_size)
+{
+    uint16_t hour;
+    uint16_t minute;
+
+    if (buf == NULL || buf_size == 0U)
+    {
+        return;
+    }
+
+    hour = bus_get_sys_time_h();
+    minute = bus_get_sys_time_m();
+    if (bus_get_time_24h_enabled())
+    {
+        (void)snprintf(buf, buf_size, "%02u:%02u", (unsigned)hour, (unsigned)minute);
+        return;
+    }
+
+    const char *suffix = (hour >= 12U) ? "PM" : "AM";
+    uint16_t hour12 = hour % 12U;
+    if (hour12 == 0U)
+    {
+        hour12 = 12U;
+    }
+    (void)snprintf(buf, buf_size, "%u:%02u %s", (unsigned)hour12, (unsigned)minute, suffix);
+}
+
 static void vm_split_decimal_1(float value, int16_t *int_part, uint8_t *dec_part)
 {
     int16_t local_int;
@@ -377,10 +404,10 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%s",bus_get_gas_slot_name(bus_get_gas_active_idx()));
         break;
     case COMP_SYS_1606:
-        (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)bus_get_sys_time_h(),(unsigned)bus_get_sys_time_m());
+        vm_format_sys_time(vm->text, sizeof(vm->text));
         break;
     case COMP_TIME_1606:
-        (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)bus_get_sys_time_h(),(unsigned)bus_get_sys_time_m());
+        vm_format_sys_time(vm->text, sizeof(vm->text));
         break;
     case COMP_TTS_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%d", (int)bus_get_tts());

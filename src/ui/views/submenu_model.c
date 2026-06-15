@@ -148,6 +148,7 @@ void submenu_sync_persisted_settings(void)
     s_ndl_alarm_min = (uint8_t)snapshot.ndl_alarm_min;
     s_units_mode = snapshot.units_mode;
     s_log_rate_s = snapshot.log_rate_s;
+    s_time_24h_enabled = snapshot.time_24h_enabled ? 1U : 0U;
     s_bluetooth_enabled = snapshot.bluetooth_enabled;
     s_dive_mode = (snapshot.dive_mode > 3U) ? 0U : snapshot.dive_mode;
     s_air_ppo2 = gas_ppo2_or_default(snapshot.air_ppo2);

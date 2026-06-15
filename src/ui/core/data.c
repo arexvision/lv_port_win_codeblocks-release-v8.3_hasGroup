@@ -1677,6 +1677,16 @@ void bus_set_log_rate(uint8_t seconds)
     g_sys_config.log_rate_s = UI_LOG_RATE_DEFAULT_S;
 }
 
+void bus_set_time_24h_enabled(bool enabled)
+{
+    uint8_t value = enabled ? 1U : 0U;
+    if (g_sys_config.time_24h_enabled != value)
+    {
+        g_sys_config.time_24h_enabled = value;
+        bus_mark_dirty(DIRTY_SYSTEM);
+    }
+}
+
 void bus_set_safety_stop_mode(uint8_t mode)
 {
     if (g_sys_config.safety_stop_mode != mode)
@@ -2488,6 +2498,11 @@ uint8_t bus_get_log_rate(void)
         return g_sys_config.log_rate_s;
     }
     return UI_LOG_RATE_DEFAULT_S;
+}
+
+bool bus_get_time_24h_enabled(void)
+{
+    return g_sys_config.time_24h_enabled != 0U;
 }
 
 uint8_t bus_get_safety_stop_mode(void)

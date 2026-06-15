@@ -421,7 +421,7 @@
       - 行为：ON/OFF 切换
       - ON：24 小时制
       - OFF：12 小时制 AM/PM
-      - 修改后刷新 `TIME` 摘要
+      - 修改后刷新 `TIME` 摘要和当前时间组件
     - `Date format`
       - 副标题：当前格式样例
       - 点击进入 `DATE FORMAT` 单选页
@@ -601,6 +601,7 @@
 - `sys_time_h`
 - `sys_time_m`
 - `sys_time_s`
+- `time_24h_enabled`
 
 ### 12.5 传感器和系统
 

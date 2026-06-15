@@ -360,6 +360,13 @@ void ui_on_datetime_action(uint8_t action)
 }
 
 WEAK_CALLBACK
+void ui_on_time_24h_set(bool enabled)
+{
+    bus_set_time_24h_enabled(enabled);
+    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Time format: %s\n", enabled ? "24-hour" : "12-hour");
+}
+
+WEAK_CALLBACK
 void ui_on_log_rate_set(uint8_t seconds)
 {
     bus_set_log_rate(seconds);
@@ -411,6 +418,7 @@ void ui_on_reset_defaults(void)
     bus_set_safety_stop_mode(UI_SAFETY_STOP_DEFAULT);
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
+    bus_set_time_24h_enabled(true);
     bus_set_depth_alarm_m(40U);
     bus_set_time_alarm_min(60U);
     bus_set_ndl_alarm_min(5U);
@@ -435,6 +443,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
 #ifdef PC_SIMULATOR
     out_snapshot->units_mode = s_units_mode;
     out_snapshot->log_rate_s = bus_get_log_rate();
+    out_snapshot->time_24h_enabled = bus_get_time_24h_enabled() ? 1U : 0U;
     out_snapshot->bluetooth_enabled = s_bluetooth_enabled;
     out_snapshot->dive_mode = s_dive_mode;
     out_snapshot->air_ppo2 = s_air_ppo2;
@@ -465,6 +474,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
 #else
     out_snapshot->units_mode = 0U;
     out_snapshot->log_rate_s = bus_get_log_rate();
+    out_snapshot->time_24h_enabled = bus_get_time_24h_enabled() ? 1U : 0U;
     out_snapshot->bluetooth_enabled = 0U;
     out_snapshot->dive_mode = 0U;
     out_snapshot->air_ppo2 = 1.4f;

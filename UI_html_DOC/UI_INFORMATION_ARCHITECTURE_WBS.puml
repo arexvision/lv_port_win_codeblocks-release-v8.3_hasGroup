@@ -410,7 +410,7 @@ wbsDiagram {
 ******* toggle ON/OFF
 ******* ON = 24小时制
 ******* OFF = 12小时制 AM/PM
-******* 修改后刷新 TIME 摘要
+******* 修改后刷新 TIME 摘要和当前时间组件
 ****** Date format
 ******* subtitle = 当前格式样例
 ******* click -> DATE FORMAT 单选页
@@ -457,9 +457,13 @@ wbsDiagram {
 **** COMP_DIVE_TIME_1606
 **** COMP_GAS_1606
 **** COMP_SYS_1606
+***** 显示当前系统时间
+***** 跟随 24-hour: ON=HH:MM, OFF=h:MM AM/PM
 *** 常用数据组件
 **** COMP_TEMP_0806
 **** COMP_TIME_1606
+***** 显示当前系统时间
+***** 跟随 24-hour: ON=HH:MM, OFF=h:MM AM/PM
 **** COMP_TTS_0806
 **** COMP_ASCENT_0806
 **** COMP_ASCENT_0812
@@ -569,6 +573,7 @@ wbsDiagram {
 **** sys_time_h
 **** sys_time_m
 **** sys_time_s
+**** time_24h_enabled
 *** 传感器和系统
 **** ambient_pressure_mbar
 **** nofly_time_min

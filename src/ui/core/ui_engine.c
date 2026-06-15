@@ -400,6 +400,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->last_deco_stop_m = 3;
     cfg->brightness     = BRIGHTNESS_MED;
     cfg->log_rate_s     = UI_LOG_RATE_DEFAULT_S;
+    cfg->time_24h_enabled = 1U;
     cfg->safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
     cfg->altitude_level = 0;
     cfg->depth_alarm_m = 40;
