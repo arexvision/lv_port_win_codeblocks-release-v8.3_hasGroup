@@ -6,6 +6,7 @@
  */
 
 #include "data.h"
+#include "callbacks.h"
 #include "../../config/build/ui_build_flags.h"
 #include "../../config/build/ui_debug_flags.h"
 #include <math.h>
@@ -414,10 +415,7 @@ float bus_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2)
 #ifdef PC_SIMULATOR
     return deco_core_calculate_gas_mod(o2_pct, he_pct, max_ppo2);
 #else
-    (void)o2_pct;
-    (void)he_pct;
-    (void)max_ppo2;
-    return 0.0f;
+    return ui_calculate_gas_mod(o2_pct, he_pct, max_ppo2);
 #endif
 }
 

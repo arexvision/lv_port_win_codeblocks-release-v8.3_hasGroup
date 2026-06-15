@@ -69,6 +69,7 @@ void ui_on_last_deco_stop_set(uint8_t depth_m);
 void ui_on_altitude_range_set(uint8_t level);
 void ui_on_dive_mode_set(uint8_t mode);
 void ui_on_gas_profile_commit(void);
+float ui_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2);
 void ui_on_air_ppo2_set(float ppo2);
 void ui_on_nitrox_o2_set(uint8_t o2_pct);
 void ui_on_nitrox_ppo2_set(float ppo2);

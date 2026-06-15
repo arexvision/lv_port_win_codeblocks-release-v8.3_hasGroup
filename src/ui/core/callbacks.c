@@ -10,6 +10,10 @@
 #include "../../config/build/ui_debug_flags.h"
 #include <stdio.h>
 
+#ifdef PC_SIMULATOR
+#include "../../algo_sim/deco_core.h"
+#endif
+
 #ifndef PC_SIMULATOR
 #define WEAK_CALLBACK __attribute__((weak))
 #else
@@ -153,6 +157,19 @@ void ui_on_gas_profile_commit(void)
 {
     /* 默认实现只保留 UI data.c 的显示态更新。
      * 真机平台可覆盖此 hook，把 gas profile 同步到真实算法运行态。 */
+}
+
+WEAK_CALLBACK
+float ui_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2)
+{
+#ifdef PC_SIMULATOR
+    return deco_core_calculate_gas_mod(o2_pct, he_pct, max_ppo2);
+#else
+    (void)o2_pct;
+    (void)he_pct;
+    (void)max_ppo2;
+    return 0.0f;
+#endif
 }
 
 WEAK_CALLBACK

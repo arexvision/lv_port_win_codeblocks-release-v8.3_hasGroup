@@ -29,6 +29,8 @@ extern "C" {
 static ArexDecoDiveState s_state;
 static ArexDecoRuntimeMetrics s_metrics;
 static bool s_initialized;
+static bool s_api_version_checked;
+static bool s_api_version_ok;
 static uint8_t s_gf_low_pct = 40U;
 static uint8_t s_gf_high_pct = 85U;
 static uint8_t s_final_deco_stop_depth_m = 3U;
@@ -46,6 +48,34 @@ typedef struct
 } stop_progress_t;
 
 static stop_progress_t s_stop_progress;
+
+static bool check_api_version_once(void)
+{
+    if (s_api_version_checked)
+    {
+        return s_api_version_ok;
+    }
+
+    s_api_version_checked = true;
+    const ArexDecoVersion version = arex_deco_get_api_version();
+    if (version.major != AREX_DECO_API_VERSION_MAJOR ||
+        version.minor != AREX_DECO_API_VERSION_MINOR ||
+        version.patch != AREX_DECO_API_VERSION_PATCH)
+    {
+        rt_kprintf("[AREX_SIM] API version mismatch: lib=%u.%u.%u header=%u.%u.%u\n",
+                   (unsigned)version.major,
+                   (unsigned)version.minor,
+                   (unsigned)version.patch,
+                   (unsigned)AREX_DECO_API_VERSION_MAJOR,
+                   (unsigned)AREX_DECO_API_VERSION_MINOR,
+                   (unsigned)AREX_DECO_API_VERSION_PATCH);
+        s_api_version_ok = false;
+        return false;
+    }
+
+    s_api_version_ok = true;
+    return true;
+}
 
 static uint16_t round_up_minutes(uint32_t seconds)
 {
@@ -312,6 +342,7 @@ static void apply_current_ui_config(void)
 static bool ensure_initialized(void)
 {
     if (s_initialized) return true;
+    if (!check_api_version_once()) return false;
 
     if (arex_deco_make_initial_dive_state(&s_state) != AREX_DECO_STATUS_OK) return false;
     (void)memset(&s_metrics, 0, sizeof(s_metrics));
@@ -597,6 +628,7 @@ float deco_core_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2
     float mod_m = 0.0f;
 
     if (o2_pct == 0U || o2_pct > 100U || he_pct > 100U || (uint16_t)o2_pct + (uint16_t)he_pct > 100U) return 0.0f;
+    if (!check_api_version_once()) return 0.0f;
     fill_config_from_ui(&config);
     (void)memset(&gas, 0, sizeof(gas));
     gas.oxygen_fraction = (float)o2_pct / 100.0f;
