@@ -1311,12 +1311,8 @@ static const char **build_nested_date_adjust(uint8_t *out_count)
 static const char **build_nested_date_format(uint8_t *out_count)
 {
     submenu_sync_persisted_settings();
-    snprintf(s_menu_vm_str[0], sizeof(s_menu_vm_str[0]), "%s: %s",
-             date_format_label(DATE_FORMAT_MM_DD_YY),
-             (s_date_format == DATE_FORMAT_MM_DD_YY) ? "ON" : "OFF");
-    snprintf(s_menu_vm_str[1], sizeof(s_menu_vm_str[1]), "%s: %s",
-             date_format_label(DATE_FORMAT_DD_MM_YY),
-             (s_date_format == DATE_FORMAT_DD_MM_YY) ? "ON" : "OFF");
+    snprintf(s_menu_vm_str[0], sizeof(s_menu_vm_str[0]), "%s", date_format_label(DATE_FORMAT_MM_DD_YY));
+    snprintf(s_menu_vm_str[1], sizeof(s_menu_vm_str[1]), "%s", date_format_label(DATE_FORMAT_DD_MM_YY));
     s_nested_date_format[0] = s_menu_vm_str[0];
     s_nested_date_format[1] = s_menu_vm_str[1];
     s_nested_date_format[2] = NULL;

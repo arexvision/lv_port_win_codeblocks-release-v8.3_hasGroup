@@ -356,7 +356,7 @@ void ui_vm_display_menu_update(ui_vm_simple_menu_t *vm,
 
     (void)memset(vm, 0, sizeof(*vm));
     (void)snprintf(vm->items[0], sizeof(vm->items[0]), "UNITS: %s", vm_units_label(units_mode));
-    (void)snprintf(vm->items[1], sizeof(vm->items[1]), "%s", "DATE & CLOCK");
+    (void)snprintf(vm->items[1], sizeof(vm->items[1]), "%s", "Time/date");
     (void)snprintf(vm->items[2], sizeof(vm->items[2]), "LOG RATE: %us", (unsigned)log_rate_s);
     (void)snprintf(vm->items[3], sizeof(vm->items[3]), "BLUETOOTH: %s", vm_bluetooth_label(bluetooth_enabled));
     (void)snprintf(vm->items[4], sizeof(vm->items[4]), "%s", "RESET DEFAULTS");

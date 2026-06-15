@@ -393,7 +393,7 @@
   - `UNITS`
     - `METRIC`
     - `IMPERIAL`
-  - `DATE & CLOCK`
+  - `Time/date`
     - `TIME`
       - 副标题：当前时间
       - 24-hour ON：`17:07`
@@ -427,7 +427,7 @@
       - 点击进入 `DATE FORMAT` 单选页
       - `mm/dd/yyyy`
       - `dd.mm.yyyy`
-      - 选中后保存并返回 `DATE & CLOCK`
+      - 选中后保存并返回 `Time/date`
   - `LOG RATE`
     - `2s`
     - `5s`

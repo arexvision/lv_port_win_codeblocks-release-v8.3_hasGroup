@@ -382,7 +382,7 @@ wbsDiagram {
 ***** UNITS
 ****** METRIC
 ****** IMPERIAL
-***** DATE & CLOCK
+***** Time/date
 ****** TIME
 ******* subtitle = 当前时间
 ******* 24-hour ON: 17:07
@@ -416,7 +416,7 @@ wbsDiagram {
 ******* click -> DATE FORMAT 单选页
 ******** mm/dd/yyyy
 ******** dd.mm.yyyy
-******** 选中后保存并返回 DATE & CLOCK
+******** 选中后保存并返回 Time/date
 ***** LOG RATE
 ****** 2s
 ****** 5s
