@@ -44,7 +44,7 @@ typedef enum
 
 static logbook_page_t s_logbook_page = LOGBOOK_PAGE_PICK;
 static uint8_t s_logbook_index = 0U;
-static uint8_t s_logbook_focus = 1U;
+static uint8_t s_logbook_focus = 0U;
 static logbook_entry_t s_logbook_entry;
 static const dive_pt_t *s_logbook_points = NULL;
 static uint16_t s_logbook_point_count;
@@ -263,7 +263,7 @@ static void logbook_draw_summary(lv_obj_t *parent, uint16_t w, uint16_t h)
 static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
 {
     uint8_t count = logbook_backend_count();
-    uint8_t selected = (s_logbook_focus > 0U) ? (uint8_t)(s_logbook_focus - 1U) : 0U;
+    uint8_t selected = s_logbook_focus;
     bool compact = logbook_compact_layout();
     uint8_t max_visible = compact ? 5U : 8U;
     uint8_t first = 0U;
@@ -1394,8 +1394,8 @@ bool screen_handle_logbook_rotate(int8_t dir)
     {
         uint8_t count = logbook_backend_count();
         int16_t next = (int16_t)s_logbook_focus + dir;
-        if (next < 0) next = 0;
-        if (next >= (int16_t)count) next = (int16_t)(count - 1U);
+        if (next < 0) next = (int16_t)(count - 1U);
+        if (next >= (int16_t)count) next = 0;
         s_logbook_focus = (uint8_t)next;
         submenu_populate_current();
         return true;
@@ -1454,7 +1454,7 @@ static void screen_handle_logbook_select(void)
         break;
     default:
         s_logbook_page = LOGBOOK_PAGE_PICK;
-        s_logbook_focus = 1U;
+        s_logbook_focus = 0U;
         submenu_populate_current();
         break;
     }
