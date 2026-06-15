@@ -446,7 +446,7 @@ flowchart LR
 
 | 等级 | 行为 |
 |---|---|
-| `ALARM_CRIT` | 横幅反色闪烁，目标模块反色闪烁；`back 2` 后隐藏横幅，目标模块保持稳定异常高亮，直到条件解除 |
+| `ALARM_CRIT` | 横幅反色闪烁，目标模块反色闪烁；`back 2` 后只隐藏横幅，目标模块继续闪烁，直到条件解除 |
 | `ALARM_WARN` | 目标模块可见时不弹横幅，只在原位呼吸；目标不可见时弹 WARNING 横幅；`back 2` 后隐藏横幅并取消呼吸，直到条件解除 |
 | `ALARM_INFO` | 普通通知静态显示 5s 后自动消失；`INFO_GAS_SWITCH` 是特殊交互提示，必须 `back 2` 确认 |
 
@@ -639,8 +639,8 @@ sequenceDiagram
     View->>View: show banner + flash target widgets
     User->>Input: back 2 / 长按 BACK 两秒
     Input->>Alarm: alarm_confirm_current()
-    Alarm-->>Input: banner_ack + target_ack
-    View->>View: hide banner + keep target steady highlight
+    Alarm-->>Input: banner_ack
+    View->>View: hide banner + keep target flashing
     Algo->>Alarm: alarm_set_active(ALARM_ID_CRIT_PO2_MAX, false)
     Timer->>View: next tick restores target styles
 ```

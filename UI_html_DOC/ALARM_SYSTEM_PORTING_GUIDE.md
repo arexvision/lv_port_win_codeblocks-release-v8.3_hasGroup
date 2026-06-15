@@ -67,7 +67,7 @@ ALARM_CRIT = 3
 
 显示效果：
 
-- `CRIT`：banner 显示 `CRITICAL: xxx`，反色闪烁；目标组件也反色闪烁。`back 2` 确认后 banner 隐藏，目标组件保持稳定异常高亮，直到条件解除。
+- `CRIT`：banner 显示 `CRITICAL: xxx`，反色闪烁；目标组件也反色闪烁。`back 2` 确认后只隐藏 banner，目标组件不取消闪烁，直到条件解除。
 - `WARN`：如果目标组件当前可见，只做原位绿色透明底 + 1Hz 呼吸，不弹 banner；如果目标组件不可见，显示 `WARNING: xxx` banner。`back 2` 确认后取消 banner/呼吸，目标组件保持稳定高亮，直到条件解除。
 - `INFO`：普通提示 banner，不高亮组件，默认 5s 自动消失。
 
@@ -123,7 +123,7 @@ alarm clear
 
 - 条件状态：业务层通过 `alarm_set_active(id, true/false)` 设置。只有业务层写入 `false`，才表示风险真的解除。
 - `banner_ack`：用户通过 `back 2` 确认后隐藏横幅。
-- `target_ack`：用户通过 `back 2` 确认后取消原位闪烁/呼吸，但目标组件保持稳定高亮，直到条件解除。
+- `target_ack`：仅用于 `WARN` 等可确认原位效果；用户通过 `back 2` 确认后取消原位呼吸，但目标组件保持稳定高亮，直到条件解除。`CRIT` 不设置 `target_ack`，确认后原位模块继续闪烁。
 - 条件解除后，ack 状态自动重置；下一次重新触发会再次显示。
 
 普通 INFO 事件使用自动超时，显示 5s 后消失。`INFO_STOP_DONE` 文案固定为 `STOP DONE`。

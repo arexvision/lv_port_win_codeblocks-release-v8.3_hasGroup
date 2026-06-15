@@ -327,7 +327,13 @@ static int16_t alarm_first_confirmable_key(void)
         {
             continue;
         }
-        if (s_alarm_states[i].banner_acked && s_alarm_states[i].target_acked)
+        if (s_alarm_defs[i].level >= ALARM_CRIT && s_alarm_states[i].banner_acked)
+        {
+            continue;
+        }
+        if (s_alarm_defs[i].level < ALARM_CRIT &&
+            s_alarm_states[i].banner_acked &&
+            s_alarm_states[i].target_acked)
         {
             continue;
         }
@@ -340,7 +346,8 @@ static int16_t alarm_first_confirmable_key(void)
     }
 
     if (s_custom_alarm.active &&
-        !(s_custom_alarm.banner_acked && s_custom_alarm.target_acked) &&
+        !((s_custom_alarm.level >= ALARM_CRIT && s_custom_alarm.banner_acked) ||
+          (s_custom_alarm.level < ALARM_CRIT && s_custom_alarm.banner_acked && s_custom_alarm.target_acked)) &&
         (s_custom_alarm.level > best_level || (s_custom_alarm.level == best_level && s_custom_alarm.seq < best_seq)))
     {
         best_key = -1;
@@ -375,7 +382,10 @@ static bool alarm_confirm_key(int16_t key)
         }
 
         state->banner_acked = true;
-        state->target_acked = true;
+        if (s_alarm_defs[key].level < ALARM_CRIT)
+        {
+            state->target_acked = true;
+        }
         if (s_alarm_defs[key].level == ALARM_INFO)
         {
             alarm_state_reset(state);
@@ -387,7 +397,10 @@ static bool alarm_confirm_key(int16_t key)
     if (key == -1 && s_custom_alarm.active)
     {
         s_custom_alarm.banner_acked = true;
-        s_custom_alarm.target_acked = true;
+        if (s_custom_alarm.level < ALARM_CRIT)
+        {
+            s_custom_alarm.target_acked = true;
+        }
         if (s_custom_alarm.level == ALARM_INFO)
         {
             memset(&s_custom_alarm, 0, sizeof(s_custom_alarm));
@@ -645,7 +658,7 @@ uint8_t alarm_get_target_effects(alarm_target_effect_entry_t *entries, uint8_t m
 
         if (s_alarm_defs[i].level >= ALARM_CRIT)
         {
-            effect = s_alarm_states[i].target_acked ? ALARM_TARGET_EFFECT_CRIT_STEADY : ALARM_TARGET_EFFECT_CRIT_FLASH;
+            effect = ALARM_TARGET_EFFECT_CRIT_FLASH;
         }
         else if (s_alarm_defs[i].level == ALARM_WARN)
         {
@@ -658,7 +671,7 @@ uint8_t alarm_get_target_effects(alarm_target_effect_entry_t *entries, uint8_t m
     if (s_custom_alarm.active && s_custom_alarm.level != ALARM_INFO)
     {
         alarm_target_effect_t effect = (s_custom_alarm.level >= ALARM_CRIT)
-                                       ? (s_custom_alarm.target_acked ? ALARM_TARGET_EFFECT_CRIT_STEADY : ALARM_TARGET_EFFECT_CRIT_FLASH)
+                                       ? ALARM_TARGET_EFFECT_CRIT_FLASH
                                        : (s_custom_alarm.target_acked ? ALARM_TARGET_EFFECT_WARN_STEADY : ALARM_TARGET_EFFECT_WARN_BREATHE);
         (void)alarm_effect_add(entries, &count, max_entries, s_custom_alarm.target, s_custom_alarm.level, effect);
     }
