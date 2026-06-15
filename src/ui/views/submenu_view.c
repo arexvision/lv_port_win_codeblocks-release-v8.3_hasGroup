@@ -1394,8 +1394,8 @@ bool screen_handle_logbook_rotate(int8_t dir)
     {
         uint8_t count = logbook_backend_count();
         int16_t next = (int16_t)s_logbook_focus + dir;
-        if (next < 0) next = (int16_t)(count - 1U);
-        if (next >= (int16_t)count) next = 0;
+        if (next < 0) next = 0;
+        if (next >= (int16_t)count) next = (int16_t)(count - 1U);
         s_logbook_focus = (uint8_t)next;
         submenu_populate_current();
         return true;
@@ -1405,13 +1405,11 @@ bool screen_handle_logbook_rotate(int8_t dir)
     {
         if (s_logbook_page == LOGBOOK_PAGE_SUMMARY) s_logbook_page = LOGBOOK_PAGE_DETAIL_1;
         else if (s_logbook_page == LOGBOOK_PAGE_DETAIL_1) s_logbook_page = LOGBOOK_PAGE_DETAIL_2;
-        else s_logbook_page = LOGBOOK_PAGE_SUMMARY;
     }
     else if (dir < 0)
     {
-        if (s_logbook_page == LOGBOOK_PAGE_SUMMARY) s_logbook_page = LOGBOOK_PAGE_DETAIL_2;
-        else if (s_logbook_page == LOGBOOK_PAGE_DETAIL_1) s_logbook_page = LOGBOOK_PAGE_SUMMARY;
-        else s_logbook_page = LOGBOOK_PAGE_DETAIL_1;
+        if (s_logbook_page == LOGBOOK_PAGE_DETAIL_1) s_logbook_page = LOGBOOK_PAGE_SUMMARY;
+        else if (s_logbook_page == LOGBOOK_PAGE_DETAIL_2) s_logbook_page = LOGBOOK_PAGE_DETAIL_1;
     }
     s_logbook_focus = 0U;
     submenu_populate_current();
