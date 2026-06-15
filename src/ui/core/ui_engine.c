@@ -246,7 +246,7 @@ void sys_config_defaults(sys_config_t *cfg)
     };
     cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
     {
-        COMP_DIVE_TIME_1606, 2, 2
+        COMP_TIME_1606, 2, 2
     };
 
     
