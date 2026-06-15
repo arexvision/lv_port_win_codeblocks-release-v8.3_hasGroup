@@ -1,669 +1,578 @@
 # 潜水电脑 UI 信息架构
 
+## 文档定位
+
+本文面向项目经理，用于整理当前 UI 的包含关系、页面入口、实际显示内容和设备端用户可调参数。
+
+本文按“源码可证明、截图可验证”的原则整理。没有在当前 UI 源码里确认到的字段，不写进本文档。
+
+## 来源说明
+
+| 内容类型 | 核对来源 |
+|---|---|
+| 页面滑动区页面 | `page_registry_types.h`、`page_registry.c` |
+| INFO MENU 和 SETUP MENU 顶层入口 | `menu_defs.c`、`menu_defs.h` |
+| INFO 子页实际显示行 | `ui_vm_info.c`、`submenu_model.c` |
+| SETUP 子菜单层级 | `menu_runtime.c`、`submenu_model.c` |
+| 可编辑参数范围 | `ui_vm_menu.c`、`ui_settings.h` |
+| COMPASS / DECO / GAS / PLAN 卡片可见标题与标签 | 对应 `card_*.c` 和 VM 文件 |
+
+说明：本文不展开底层连接方式、工程调试能力或布局工程细节。只读页面如果没有逐项截图确认，只写源码中能确认的标题和可见标签。
+
+## UI 包含关系总览
+
+```mermaid
+flowchart TD
+    DASH["DASH 主界面"] --> FIXED["固定显示区"]
+    DASH --> PAGES["页面滑动区"]
+
+    PAGES --> INFO["INFO MENU"]
+    PAGES --> COMPASS["NAV COMPASS"]
+    PAGES --> DECO["TISSUES & DECO"]
+    PAGES --> PLAN["DIVE PLAN TRACK"]
+    PAGES --> GAS["GAS SWITCH"]
+    PAGES --> CUSTOM["CUSTOM WIDGETS"]
+    PAGES --> SETUP["DIVE MENU"]
+
+    INFO --> LAST["LAST DIVE"]
+    INFO --> DPLAN["DIVE PLAN"]
+    INFO --> TISSUE["TISSUE & TOX"]
+    INFO --> GCALC["GAS & CALC"]
+    INFO --> SENSOR["SENSOR & DEVICE"]
+    INFO --> LOG["DIVE LOG"]
+
+    DPLAN --> DP_DEPTH["Enter Bottom Depth"]
+    DPLAN --> DP_TIME["Enter Bottom Time"]
+    DPLAN --> DP_RMV["Enter RMV"]
+    DPLAN --> DP_READY["Ready to Plan Dive"]
+    DPLAN --> DP_RESULT["Plan Result"]
+
+    SETUP --> SWITCH["GAS SWITCH"]
+    SETUP --> CONS["CONSERVATISM"]
+    SETUP --> BRT["BRIGHTNESS"]
+    SETUP --> CAL["COMPASS CAL"]
+    SETUP --> LIGHT["LIGHT CONTROL"]
+    SETUP --> SYS["SYSTEM SETUP"]
+
+    LIGHT --> RED["RED COLOR"]
+    LIGHT --> GREEN["GREEN COLOR"]
+    LIGHT --> BLUE["BLUE COLOR"]
+    LIGHT --> WHITE["WHITE COLOR"]
+
+    SYS --> MODE["MODE SETUP"]
+    SYS --> DSETUP["DIVE SETUP"]
+    SYS --> AI["AI SETUP"]
+    SYS --> ALERTS["ALERTS SETUP"]
+    SYS --> DISPLAY["DISPLAY"]
+
+    MODE --> AIR["AIR"]
+    MODE --> NITROX["NITROX"]
+    MODE --> THREE["3 GAS"]
+    MODE --> OCTECH["OC Tech"]
+
+    DISPLAY --> DATETIME["DATE & CLOCK"]
+    DATETIME --> TIME["TIME"]
+    DATETIME --> DATE["DATE"]
+    DATETIME --> DATEFMT["DATE FORMAT"]
+```
+
 ## DASH 主界面
 
-- 固定数据区
+- 固定显示区
   - NDL / 停留信息
-    - 免减压时间，单位 min
-    - 安全停留状态
-    - 减压停留状态
-    - 停留深度，单位 m
-    - 停留剩余时间
-    - 停留进度条
   - 当前深度
-    - 深度数值，单位 m
-    - 上升 / 下潜速率提示
-    - 上升过快告警状态
   - 潜水时间
-    - 当前潜水时长
   - 当前气体
-    - 当前活动气体名称
-    - 当前气体槽位
-  - 系统信息
-    - 电池状态
-    - 温度状态
-    - 设备状态
-- 右侧页面区
-  - INFO MENU [滑动进入]
-  - COMPASS [滑动进入]
-  - DECO [滑动进入]
-  - PLAN [滑动进入]
-  - GAS [滑动进入]
-  - 自定义数据页 [滑动进入]
-  - SETUP MENU [滑动进入]
+  - 电池 / 温度等系统信息
+- 页面滑动区
+  - INFO MENU
+  - NAV COMPASS
+  - TISSUES & DECO
+  - DIVE PLAN TRACK
+  - GAS SWITCH
+  - CUSTOM WIDGETS
+  - DIVE MENU
+
+说明：固定显示区在本文只作为主界面组成描述，不展开工程布局配置。
 
 ## INFO MENU
 
-- LAST DIVE [点击 -> 查看上一次潜水]
-- DIVE PLAN [点击 -> 进入潜水计划]
-- TISSUE & TOX [点击 -> 查看组织与氧毒性]
-- GAS & CALC [点击 -> 查看气体与计算数据]
-- SENSOR & DEVICE [点击 -> 查看传感器与设备信息]
-- DIVE LOG [点击 -> 查看潜水日志]
+INFO MENU 的顶层入口来自 `menu_defs.c`：
+
+- LAST DIVE
+- DIVE PLAN
+- TISSUE & TOX
+- GAS & CALC
+- SENSOR & DEVICE
+- DIVE LOG
 
 ### LAST DIVE
 
-- 潜水摘要
-  - 潜水编号
-  - 日期
-  - 开始时间
-  - 结束时间
-  - 潜水时长
-  - 水面间隔
-- 深度统计
-  - 最大深度，单位 m
-  - 平均深度，单位 m
-- 生理与减压摘要
-  - 起始 CNS，单位 %
-  - 结束 CNS，单位 %
-  - 减压模型
-  - 潜水模式
-- 气体与耗气摘要
-  - 平均 SAC，单位 L/min
-  - 气瓶起始压力
-  - 气瓶结束压力
+- 页面类型：只读信息页
+- 可调参数：无
+- 无上次潜水记录时显示：
+  - `NO LAST DIVE`
+  - `SURFACE: mm:ss` 或 `SURFACE: hh:mm:ss`
+- 有上次潜水记录时显示：
+  - `LOG #0000  dd-mm-yyyy`
+  - `MAX DEPTH: x.xm`
+  - `AVG DEPTH: x.xm`
+  - `DIVE TIME: mm:ss` 或 `DIVE TIME: hh:mm:ss`
+  - `SURFACE: mm:ss` 或 `SURFACE: hh:mm:ss`
 
 ### DIVE PLAN
 
-- 计划输入
-  - 计划深度，单位 m [编辑]
-  - 计划时间，单位 min [编辑]
-  - 呼吸量 RMV，单位 L/min [编辑]
-  - 使用气体
-  - 保守度 / GF 设置
-- 计划结果
-  - NDL
-  - TTS
-  - 减压停留列表
-  - 每站停留深度，单位 m
-  - 每站停留时间，单位 min
-  - 预计总时间
-  - 预计气体消耗
-- 操作
-  - Exit [点击 -> 退出潜水计划]
-  - Next [点击 -> 下一步]
-  - Plan [点击 -> 开始计算]
-  - More [点击 -> 查看更多结果]
+- 页面类型：一次性计划输入
+- 可调参数：计划深度、计划时间、RMV
+- 顶部输入摘要：
+  - `DEPTH`
+  - `TIME`
+  - `RMV`
+  - 当前气体摘要，例如 `GAS: ...`
+- 输入页：
+  - `Enter Bottom Depth`
+  - `in meters`
+  - `MIN: 3`
+  - `MAX: 120`
+  - `Enter Bottom Time`
+  - `in minutes`
+  - `MIN: 1`
+  - `MAX: 300`
+  - `Enter RMV`
+  - `in Liters/min`
+  - `MIN: 5`
+  - `MAX: 50`
+- 准备页：
+  - `Ready to Plan Dive`
+  - `GF: low/high`
+  - `Last Stop: xm`
+  - `Start CNS: 0%`
+  - `GAS: ...`
+- 结果列表页：
+  - 表头：`Stp`、`Tme`、`Run`、`Gas`、`Qty`
+  - 行内容：停留深度、停留时间、运行时间、气体、气量
+  - 页码：`Page x/y`
+- 结果摘要页：
+  - `SUMMARY`
+  - `Runtime: xmin`
+  - `Total Deco: xmin`
+  - `Gas: xL`
+  - `CNS: x%`
+  - `OTU: x`
+- 错误页：
+  - `Plan Failed`
+  - `Check depth, time, RMV and gas setup`
+- 操作：
+  - `Exit`
+  - `Next`
+  - `Plan`
+  - `More`
+  - `Calculating...`
+
+说明：DIVE PLAN 的输入只用于本次计划计算，不等同于长期系统设置。
 
 ### TISSUE & TOX
 
-- 组织负荷
-  - 16 个组织舱原始负荷
-  - 16 个组织舱 GF 负荷
-- 氧毒性
-  - CNS，单位 %
-  - OTU
-- 减压压力
-  - GF99
-  - Surf GF
-  - Ceiling，单位 m
-  - NDL
-  - TTS
+- 页面类型：只读信息页
+- 可调参数：无
+- 实际显示行：
+  - `GF: low/high`
+  - `GF99: x%`
+  - `SURF GF: x%`
+  - `TISSUE: x%`
+  - `CNS: x%`
+  - `OTU: x`
 
 ### GAS & CALC
 
-- 当前气体
-  - 气体名称
-  - 活动气体槽位
-  - O2 比例，单位 %
-  - He 比例，单位 %
-  - PPO2，单位 bar
-  - MOD，单位 m
-  - FiO2
-  - 气体密度
-- 气体建议
-  - 推荐气体
-  - 更优气体提示
-  - 是否超过 MOD
+- 页面类型：只读信息页
+- 可调参数：无
+- 实际显示行：
+  - `ACTIVE: Gx name`
+  - `MIX: O2 x% HE x%`
+  - `MOD: xm`
+  - `PPO2: x.xx`
+  - `DENS: x.xg/L`
 
 ### SENSOR & DEVICE
 
-- 电源
-  - 电池电量，单位 %
-  - 电池电压，单位 V
-  - 充电状态
-- 温度
-  - 水温 / 主温度，单位 °C
-  - 电池温度，单位 °C
-  - 主板 / 光学温度，单位 °C
-- 环境
-  - 环境压力，单位 mbar
-  - 禁飞时间，单位 min
-- 姿态与运动
-  - 俯仰角
-  - 横滚角
-  - 姿态航向
-  - 加速度计数据
-  - 陀螺仪数据
-  - 磁力计数据
-- 连接与性能
-  - BLE 信号强度，单位 dBm
-  - CPU 负载，单位 %
-  - UI 帧率
-  - 传感器状态
+- 页面类型：只读信息页
+- 可调参数：无
+- 实际显示行：
+  - `POD 1: -- BAR` 或 `POD 1: x BAR`
+  - `POD 2: -- BAR` 或 `POD 2: x BAR`
+  - `BATTERY: x%`
+  - `TEMP: x.xC`
+  - `BAT/PRJ: x.x/x.xC`
+
+说明：当前页面按源码和截图只确认以上五行。
 
 ### DIVE LOG
 
-- 日志列表
-  - 潜水编号
-  - 日期
-  - 开始时间
-  - 结束时间
-  - 潜水时长
-  - 最大深度，单位 m
-  - 平均深度，单位 m
-- 日志详情
-  - 水面间隔
-  - 水面压力，单位 mbar
-  - 起始 CNS，单位 %
-  - 结束 CNS，单位 %
-  - 平均 SAC，单位 L/min
-  - 潜水模式
-  - 减压模型
-  - 各气瓶起始压力
-  - 各气瓶结束压力
-- 操作
-  - More [点击 -> 查看更多日志]
-  - Edit [点击 -> 编辑日志]
-  - Delete [点击 -> 删除确认]
-  - Exit [点击 -> 返回]
+- 页面类型：日志管理
+- 可调参数：日志编号、开始时间、日期、删除日志
+- 已确认页面状态：
+  - 日志列表
+  - 日志摘要
+  - 日志详情
+  - 日志编辑
+- 已确认可见文案：
+  - `DIVE#x     dd-Mmm-yyyy`
+  - `MAX x.xm`
+  - `AVG x.xm`
+  - `Mode`
+  - `Surface Int`
+  - `Surface mbar`
+  - `Deco Model`
+  - `Start CNS`
+  - `End CNS`
+  - `Avg SAC D1 x.x`
+  - `Back`
+  - `More`
+  - `Edit`
 
-## COMPASS 页面
+说明：DIVE LOG 页面较多，后续如果要给外部做最终图稿，建议逐页截图再补齐详情字段。
 
-- 指南针显示
-  - 当前航向，单位 °
-  - 航向刻度
-  - 方向指示
-- 航向锁定
-  - 当前锁定状态
-  - 目标航向，单位 °
-  - 航向偏差，单位 °
-  - 锁定航向 [点击 / 按键 -> 锁定当前航向]
-  - 解除锁定 [点击 / 按键 -> 清除锁定]
-- 校准状态
-  - 未校准
-  - 校准中
-  - 校准完成
-  - 需要校准提示
+## 页面滑动区卡片
 
-## DECO 页面
+### NAV COMPASS
 
-- 减压概览
-  - NDL，单位 min
-  - TTS，单位 min
-  - Ceiling，单位 m
-  - 当前停留类型
-  - 当前停留深度，单位 m
-  - 当前停留剩余时间
-  - 是否处于停留区
-- 组织与 GF
-  - Tissue Raw
-  - Tissue GF
-  - GF99
-  - Surf GF
-  - GF Low
-  - GF High
-- 氧毒性
-  - CNS，单位 %
-  - OTU
-- 状态
-  - 无减压
-  - 安全停留
-  - 减压停留
-  - 停留违规
-  - 突破 Ceiling
+- 页面类型：只读信息页
+- 可调参数：无
+- 已确认可见内容：
+  - 页面标题：`NAV COMPASS`
+  - 当前航向：`000` 格式数字
+  - 未锁定提示：`[ ENTER ] mark heading`
+  - 锁定提示：`[ TARGET LOCKED: 000 ]`
+  - 底部罗盘卷尺
 
-## PLAN 页面
+说明：罗盘校准入口在 `DIVE MENU -> COMPASS CAL`。
 
-- 潜水轨迹
-  - 当前潜水时间
-  - 当前深度，单位 m
-  - 历史轨迹曲线
-  - 当前点
-- 减压预测
-  - 预计总时间
-  - 减压停留列表
-  - 停留深度，单位 m
-  - 停留时长，单位 min
-- 坐标轴
-  - 时间轴
+### TISSUES & DECO
+
+- 页面类型：只读信息页
+- 可调参数：无
+- 已确认可见内容：
+  - 页面标题：`TISSUES & DECO`
+  - `ALGORITHM`
+  - `ZHL-16C`
+  - `GF LOW / HIGH`
+  - `GF99`
+  - `SurfGF`
+  - `CNS O2`
+  - `OTU`
+  - `TISSUE SATURATION`
+  - 1 到 16 的组织柱状图编号
+  - M-value 参考线
+
+### DIVE PLAN TRACK
+
+- 页面类型：只读信息页
+- 可调参数：无
+- 已确认可见内容：
+  - 页面标题：`DIVE PLAN TRACK`
   - 深度轴
-- 刷新规则
-  - 按 LOG RATE 记录轨迹点
-  - 按 LOG RATE 刷新 PLAN 图
-  - LOG RATE 可选：2s / 5s / 10s / 30s
-
-## GAS 页面
-
-- 当前气体
-  - 活动气体名称
-  - 活动气体槽位
-  - O2 比例，单位 %
-  - He 比例，单位 %
-  - PPO2，单位 bar
-  - MOD，单位 m
-  - 是否超过 MOD
-- 气体列表
-  - GAS 1
-    - 名称
-    - O2 比例，单位 %
-    - He 比例，单位 %
-    - MOD，单位 m
-    - PPO2，单位 bar
-  - GAS 2
-  - GAS 3
-  - GAS 4
-  - GAS 5
-- 操作
-  - 选择气体 [点击 -> 打开 CONFIRM GAS 弹窗]
-  - 推荐气体提示 [状态变化 -> 显示提示]
-
-## 自定义数据页
-
-- 自定义数据页 [滑动 -> 进入]
-  - 页面用途：按产品需要组合多个数据模块，用于扩展默认主界面之外的信息展示
-  - 页面标题
-  - 数据模块组合
-  - 数据模块排序
-  - 数据模块显示 / 隐藏 [配置 -> 更新页面内容]
-- 默认模块池
-  - ALARM TARGETS
-    - 当前深度，单位 m
-    - 当前 PPO2，单位 bar
-    - 电池电量，单位 %
-    - 气瓶压力，单位 bar
-    - NDL / 停留状态
-    - CNS / OTU
-    - 当前航向，单位 °
-    - 当前时间 / 潜水时间
-  - SENSOR PREVIEW
-    - 传感器读数预览
-    - 电源与环境状态
-    - 连接与系统状态
-- 模块归类建议
-  - ALARM TARGETS：可作为正式默认自定义页保留
-  - SENSOR PREVIEW：建议归入工程诊断 / 调试页，不作为项目经理版主信息架构展开
-  - 其他默认模块：作为模块池存档，不进入主导航层级
-
-## SETUP MENU
-
-- GAS SWITCH [点击 -> 进入气体切换]
-- CONSERVATISM [点击 -> 进入保守度设置]
-- BRIGHTNESS [点击 -> 进入亮度设置]
-- COMPASS CAL [点击 -> 进入指南针校准]
-- LIGHT CONTROL [点击 -> 进入灯光控制]
-- SYSTEM SETUP [点击 -> 进入系统设置]
+  - 时间轴
+  - 当前点 / `NOW`
+  - 潜水轨迹
+  - 减压停留点
 
 ### GAS SWITCH
 
-- 气体槽
-  - GAS 1 [点击 -> 打开 CONFIRM GAS 弹窗]
-  - GAS 2 [点击 -> 打开 CONFIRM GAS 弹窗]
-  - GAS 3 [点击 -> 打开 CONFIRM GAS 弹窗]
-  - GAS 4 [点击 -> 打开 CONFIRM GAS 弹窗]
-  - GAS 5 [点击 -> 打开 CONFIRM GAS 弹窗]
-- 弹窗校验
-  - 显示目标气体
-  - 显示目标气体 MOD
-  - 当前深度超过 MOD 时显示危险提示
+- 页面类型：气体选择页
+- 可调参数：当前活动气体
+- 已确认可见内容：
+  - 页面标题：`GAS SWITCH`
+  - 气体名称
+  - `MOD xm`
+  - `PO2 x.xx` 或 `PO2 -.-`
+  - `[ PRESS TO SWITCH GAS ]`
+
+### CUSTOM WIDGETS
+
+- 页面类型：只读信息页
+- 可调参数：无
+- 已确认页面注册标题：
+  - `5F: CUSTOM WIDGETS`
+
+说明：本文不展开该页的组合内容。外部图稿如需展示该页，请以实际截图为准。
+
+## DIVE MENU
+
+DIVE MENU 的顶层入口来自 `menu_defs.c`：
+
+- GAS SWITCH
+- CONSERVATISM
+- BRIGHTNESS
+- COMPASS CAL
+- LIGHT CONTROL
+- SYSTEM SETUP
+
+### GAS SWITCH
+
+- 页面类型：可配置
+- 可调参数：当前活动气体
+- 菜单行：
+  - 当前可用气体列表；多气体时显示 `GAS x: name`
+  - 没有可用气体时显示 `NO ACTIVE GAS`
+- 确认弹窗：
+  - 标题：`CONFIRM GAS`
+  - 目标气体名称
+  - `MOD: xm`
+  - 正常提示：`[ ENTER CONFIRM ]  [ ESC CANCEL ]`
+  - 超过 MOD 提示：`[ FATAL: OVER MOD ]`
 
 ### CONSERVATISM
 
-- LOW
-  - GF：40/95
-  - LOW [点击 -> 立即应用]
-- MED
-  - GF：40/85
-  - MED [点击 -> 立即应用]
-- HIGH
-  - GF：30/70
-  - HIGH [点击 -> 立即应用]
-- CUSTOM
-  - GF：50/70
-  - CUSTOM [点击 -> 立即应用]
+- 页面类型：可配置
+- 可调参数：保守度档位
+- 菜单行：
+  - `LOW (GF 40/95)`
+  - `MED (GF 40/85)`
+  - `HIGH (GF 30/70)`
+  - `CUSTOM (GF 50/70)`
 
 ### BRIGHTNESS
 
-- LOW [点击 -> 应用亮度]
-  - 亮度值：190
-- MED [点击 -> 应用亮度]
-  - 亮度值：212
-- HIGH [点击 -> 应用亮度]
-  - 亮度值：232
-- MAX [点击 -> 应用亮度]
-  - 亮度值：255
+- 页面类型：可配置
+- 可调参数：屏幕亮度
+- 菜单行：
+  - `LOW`，亮度值 190
+  - `MED`，亮度值 212
+  - `HIGH`，亮度值 232
+  - `MAX`，亮度值 255
 
 ### COMPASS CAL
 
-- AUTO CAL
-  - 当前状态
-    - IDLE
-    - RUNNING
-    - READY
-  - AUTO CAL [点击 -> 开始校准]
-- RESET AUTO CAL [点击 -> 重置校准]
+- 页面类型：维护操作
+- 可调参数：无
+- 菜单行：
+  - `AUTO CAL: ...`
+  - `RESET AUTO CAL`
 
 ### LIGHT CONTROL
 
-- LIGHT ON/OFF [点击 -> 开关灯光]
-- LIGHT MODE [点击 -> 切换灯光模式]
-- RED COLOR [点击 -> 进入红色亮度]
-  - 10% [点击 -> 应用]
-  - 30% [点击 -> 应用]
-  - 50% [点击 -> 应用]
-  - 70% [点击 -> 应用]
-  - 100% [点击 -> 应用]
-- GREEN COLOR [点击 -> 进入绿色亮度]
-  - 10% [点击 -> 应用]
-  - 30% [点击 -> 应用]
-  - 50% [点击 -> 应用]
-  - 70% [点击 -> 应用]
-  - 100% [点击 -> 应用]
-- BLUE COLOR [点击 -> 进入蓝色亮度]
-  - 10% [点击 -> 应用]
-  - 30% [点击 -> 应用]
-  - 50% [点击 -> 应用]
-  - 70% [点击 -> 应用]
-  - 100% [点击 -> 应用]
-- WHITE COLOR [点击 -> 进入白色亮度]
-  - 10% [点击 -> 应用]
-  - 30% [点击 -> 应用]
-  - 50% [点击 -> 应用]
-  - 70% [点击 -> 应用]
-  - 100% [点击 -> 应用]
+- 页面类型：可配置
+- 可调参数：灯光开关、灯光模式、颜色强度
+- 菜单行：
+  - `LIGHT ON/OFF`
+  - `LIGHT MODE`
+  - `RED COLOR`
+  - `GREEN COLOR`
+  - `BLUE COLOR`
+  - `WHITE COLOR`
+- 颜色强度子菜单：
+  - `10%`
+  - `30%`
+  - `50%`
+  - `70%`
+  - `100%`
 
 ### SYSTEM SETUP
 
-- VERSION
-  - 当前软件版本
-- MODE SETUP [点击 -> 潜水模式设置]
-- DIVE SETUP [点击 -> 潜水参数设置]
-- AI SETUP [点击 -> 气瓶 / AI 设置]
-- ALERTS SETUP [点击 -> 告警设置]
-- DISPLAY [点击 -> 显示设置]
+- 页面类型：系统设置入口
+- 可调参数：无
+- 菜单行：
+  - `VERSION: ...`
+  - `MODE SETUP: AIR / NITROX / 3 GAS / OC Tech`
+  - `DIVE SETUP`
+  - `AI SETUP`
+  - `ALERTS SETUP`
+  - `DISPLAY`
 
 ## MODE SETUP
 
-### AIR
+### MODE SETUP 入口
 
-- AIR [点击 -> 进入 AIR 气体配置]
-- AIR 气体配置
-  - PPO2 [编辑]
-  - CONFIRM [点击 -> 确认并激活 AIR]
+- 菜单行：
+  - `AIR`
+  - `NITROX`
+  - `3 GAS`
+  - `OC Tech`
 
-### NITROX
+### AIR / NITROX 编辑
 
-- NITROX [点击 -> 进入 NITROX 气体配置]
-- NITROX 气体配置
-  - O2 PERCENT [编辑]
-    - 默认：32%
-    - 最小：21%
-    - 最大：40%
-    - 步进：1%
-  - PPO2 [编辑]
-  - CONFIRM [点击 -> 确认并激活 NITROX]
+- AIR GAS：
+  - `MOD PO2`
+    - 最小：1.0
+    - 最大：1.6
+    - 步进：0.1
+- NITROX：
+  - `G1: AIR` 或 `G1: EANx`
+  - `CONFIRM & ACTIVATE`
+- NITROX GAS：
+  - `O2`
+    - 最小：21
+    - 最大：40
+    - 步进：1
+  - `PO2`
+    - 最小：1.0
+    - 最大：1.6
+    - 步进：0.1
 
 ### 3 GAS
 
-- GAS 1 [点击 -> 编辑 GAS 1]
-  - O2 PERCENT [编辑]
-  - PPO2 [编辑]
-  - SAVE GAS CONFIG [点击 -> 保存]
-- GAS 2 [点击 -> 编辑 GAS 2]
-  - O2 PERCENT [编辑]
-  - PPO2 [编辑]
-  - SAVE GAS CONFIG [点击 -> 保存]
-- GAS 3 [点击 -> 编辑 GAS 3]
-  - O2 PERCENT [编辑]
-  - PPO2 [编辑]
-  - SAVE GAS CONFIG [点击 -> 保存]
-- CONFIRM [点击 -> 确认并激活 3 GAS]
+- 菜单行：
+  - `G1: AIR / O2 100% / EANx`
+  - `G2: AIR / O2 100% / EANx`
+  - `G3: AIR / O2 100% / EANx`
+  - `CONFIRM & ACTIVATE`
+- 单个气体编辑：
+  - `GAS x`
+    - 最小：21
+    - 最大：100
+    - 步进：1
+  - `PO2`
+    - 最小：1.0
+    - 最大：1.6
+    - 步进：0.1
 
 ### OC Tech
 
-- G1 TRIMIX [点击 -> 编辑 G1]
-- G2 TRIMIX [点击 -> 编辑 G2]
-- G3 TRIMIX [点击 -> 编辑 G3]
-- G4 TRIMIX [点击 -> 编辑 G4]
-- G5 TRIMIX [点击 -> 编辑 G5]
-- 每个 TRIMIX 气体配置
-  - O2 PERCENT [编辑]
-    - 最小：8%
-    - 最大：100% - He%
-    - 步进：1%
-  - HE PERCENT [编辑]
-    - 最小：0%
-    - 最大：100% - O2%
-    - 步进：1%
-  - PPO2 [编辑]
-  - SAVE GAS CONFIG [点击 -> 保存]
-- CONFIRM & ACTIVATE [点击 -> 确认并激活 OC Tech]
+- 菜单行：
+  - `G1` 到 `G5`，显示 `OFF`、`AIR`、`O2 100%`、`NX x` 或 `TX x/y`
+  - `CONFIRM & ACTIVATE`
+- 单个气体编辑：
+  - `O2 PERCENT`
+    - 最小：8
+    - 最大：100 - He
+    - 步进：1
+  - `HE PERCENT`
+    - 最小：0
+    - 最大：100 - O2
+    - 步进：1
+  - `PO2`
+    - 最小：1.0
+    - 最大：1.6
+    - 步进：0.1
+  - 保存气体配置
 
 ## DIVE SETUP
 
-- SALINITY [点击 -> 循环切换]
-  - FRESH
-  - SALT
-  - EN13319
-- MOD PO2 [点击 -> 编辑]
-  - 默认：1.4
-  - 最小：1.0
-  - 最大：1.6
-  - 步进：0.1
-- SAFETY STOP [点击 -> 循环切换]
-  - OFF
-  - 3min
-  - 4min
-  - 5min
-- LAST DECO [点击 -> 循环切换]
-  - 3m
-  - 6m
-- ALTITUDE [点击 -> 循环切换]
-  - AUTO
-  - ALT1
-  - ALT2
-  - ALT3
+- 页面类型：可配置
+- 菜单行：
+  - `SALINITY: FRESH / SALT / EN13319`
+  - `MOD PO2: x.x`
+  - `SAFETY STOP: OFF / 3MIN / 4MIN / 5MIN / ADAPT / CNTUP`
+  - `LAST DECO: 3M / 6M`
+  - `ALTITUDE: SEA / ALT1 / ALT2 / ALT3`
+- 可编辑范围：
+  - `MOD PO2`
+    - 最小：1.0
+    - 最大：1.6
+    - 步进：0.1
 
 ## AI SETUP
 
-- T1 MAIN [点击 -> 循环切换]
-  - UNPAIRED
-  - PAIRING
-  - PAIRED
-- T2 BUDDY [点击 -> 循环切换]
-  - UNPAIRED
-  - PAIRING
-  - PAIRED
-- GTR MODE [点击 -> 切换]
-  - OFF
-  - ON
+- 页面类型：可配置
+- 菜单行：
+  - `T1 MAIN: UNPAIRED / PAIRING / PAIRED`
+  - `T2 BUDDY: UNPAIRED / PAIRING / PAIRED`
+  - `GTR MODE: OFF / ON`
 
 ## ALERTS SETUP
 
-- DEPTH ALARM [点击 -> 编辑]
-  - 默认：40m
-  - 最小：10m
-  - 最大：150m
-  - 步进：10m
-- TIME ALARM [点击 -> 编辑]
-  - 默认：60min
-  - 最小：10min
-  - 最大：300min
-  - 步进：10min
-- LOW NDL ALARM [点击 -> 编辑]
-  - 默认：5min
+- 页面类型：可配置
+- 菜单行：
+  - `DEPTH ALARM: xm`
+  - `TIME ALARM: xmin`
+  - `LOW NDL ALARM: xmin`
+- 可编辑范围：
+  - DEPTH
+    - 最小：10
+    - 最大：150
+    - 步进：10
+  - TIME
+    - 最小：10
+    - 最大：300
+    - 步进：10
+  - NDL
+    - 最小：0
+    - 最大：80
+    - 步进：1
 
 ## DISPLAY
 
-- UNITS [点击 -> 切换]
-  - METRIC
-  - IMPERIAL
-- Time/date [点击 -> 进入日期时间设置]
-- LOG RATE [点击 -> 循环切换]
-  - 2s
-  - 5s
-  - 10s
-  - 30s
-  - 用于轨迹记录点和 PLAN 图刷新
-- BLUETOOTH [点击 -> 切换]
-  - OFF
-  - ON
-- RESET TO DEFAULTS [点击 -> 打开确认弹窗]
+- 页面类型：可配置
+- 菜单行：
+  - `UNITS: METRIC / IMPERIAL`
+  - `Time/date`
+  - `LOG RATE: 2s / 5s / 10s / 30s`
+  - `RESET DEFAULTS`
 
-### Time/date
+说明：源码中还有其他内部行，但本文按当前需求不展开。
 
-- YEAR [编辑]
-  - 最小：2000
-  - 最大：2099
-  - 步进：1
-- MONTH [编辑]
-  - 最小：1
-  - 最大：12
-  - 步进：1
-- DAY [编辑]
-  - 最小：1
-  - 最大：31
-  - 步进：1
-- HOUR [编辑]
-  - 最小：0
-  - 最大：23
-  - 步进：1
-- MINUTE [编辑]
-  - 最小：0
-  - 最大：59
-  - 步进：1
-- 24-hour [点击 -> 切换]
-  - ON
-  - OFF
-  - ON 时显示 24 小时制
-  - OFF 时显示 12 小时制 AM / PM
-- Date format [点击 -> 进入日期格式选择]
-  - mm/dd/yyyy [点击 -> 应用]
-  - dd.mm.yyyy [点击 -> 应用]
+### DATE & CLOCK
 
-## CONFIRM GAS 弹窗
+- 菜单行：
+  - `TIME: ...`
+  - `DATE: ...`
+  - `24-hour: ON / OFF`
+  - `Date format: ...`
 
-- 弹窗内容
-  - 目标气体名称
-  - MOD，单位 m
-  - 当前深度
-  - 是否超过 MOD
-- 操作
-  - Confirm [点击 -> 切换气体]
-  - Cancel [点击 -> 取消切换]
-- 状态
-  - 正常可切换
-  - 超过 MOD 风险提示
+### TIME
 
-## RESET DEFAULTS 确认弹窗
+- 菜单行：
+  - `HOUR: 00`
+  - `MINUTE: 00`
+- 可编辑范围：
+  - HOUR：0 到 23，步进 1
+  - MINUTE：0 到 59，步进 1
 
-- 弹窗内容
-  - 重置显示设置
-  - 恢复单位、日志频率、蓝牙、告警阈值等默认值
-- 操作
-  - Confirm [点击 -> 恢复默认]
-  - Cancel [点击 -> 取消]
+### DATE
 
-## 告警横幅
+- 菜单行：
+  - `YEAR: yyyy`
+  - `MONTH: mm`
+  - `DAY: dd`
+- 可编辑范围：
+  - YEAR：2000 到 2099，步进 1
+  - MONTH：1 到 12，步进 1
+  - DAY：1 到 31，步进 1
 
-- CRITICAL 告警
-  - ASCENT TOO FAST
-  - PO2 CRITICAL
-  - PO2 TOO LOW
-  - CEILING BROKEN
-  - ALGORITHM LOCKED
-  - TANK EMPTY
-  - BATTERY DEAD
-- WARNING 告警
-  - HIGH PO2
-  - NDL LOW
-  - HIGH CNS
-  - HIGH OTU
-  - SAFETY BROKEN
-  - TURN PRESSURE
-  - TANK PRESSURE DIFF
-  - DEPTH LIMIT
-  - TIME LIMIT
-  - BATTERY LOW
-  - POD LOST
-- INFO 提示
-  - SAFETY STOP ACTIVE
-  - BETTER GAS AVAILABLE
-  - STOP DONE
-  - CALIBRATE COMPASS
-- 告警交互
-  - 当前告警确认 [点击 -> 确认当前告警]
-  - 更优气体提示确认 [点击 -> 进入气体切换确认]
+### DATE FORMAT
 
-## 全局可配置项汇总
+- 菜单行：
+  - `MM-DD-YY`
+  - `DD-MM-YY`
 
-- 潜水模式
-  - AIR
-  - NITROX
-  - 3 GAS
-  - OC Tech
-- 气体参数
+## 可调参数汇总
+
+- 气体与模式
+  - 当前活动气体
+  - 潜水模式：AIR、NITROX、3 GAS、OC Tech
   - O2 百分比
   - He 百分比
-  - PPO2
-  - MOD
-  - 气体槽数量
-  - 活动气体
-- 减压参数
+  - PO2 / MOD PO2
+- 潜水参数
   - Conservatism
-  - GF Low
-  - GF High
-  - MOD PO2
-  - Last Deco Stop
-  - Safety Stop
-- 环境参数
   - Salinity
+  - Safety Stop
+  - Last Deco
   - Altitude
-- 告警参数
+- 告警阈值
   - Depth Alarm
   - Time Alarm
   - Low NDL Alarm
-- 显示参数
+- 显示与记录
   - Units
-  - Date
-  - Clock
+  - Time / Date
   - 24-hour
   - Date format
   - Log Rate
   - Brightness
-  - Bluetooth
-- 外设参数
+- 灯光与外设
   - Compass Calibration
   - Light Power
   - Light Mode
   - Light Color Level
   - AI Tank State
   - GTR Mode
+- 一次性输入 / 日志管理
+  - DIVE PLAN：计划深度、计划时间、RMV
+  - DIVE LOG：日志编号、开始时间、日期、删除日志
 
-## 页面导航关系
+## 待截图确认项
 
-- DASH 主界面
-  - INFO MENU [滑动 -> 进入]
-    - LAST DIVE
-    - DIVE PLAN
-    - TISSUE & TOX
-    - GAS & CALC
-    - SENSOR & DEVICE
-    - DIVE LOG
-  - COMPASS [滑动 -> 进入]
-  - DECO [滑动 -> 进入]
-  - PLAN [滑动 -> 进入]
-  - GAS [滑动 -> 进入]
-  - 自定义数据页 [滑动 -> 进入，可选默认页]
-  - SETUP MENU [滑动 -> 进入]
-    - GAS SWITCH
-    - CONSERVATISM
-    - BRIGHTNESS
-    - COMPASS CAL
-    - LIGHT CONTROL
-    - SYSTEM SETUP
-      - MODE SETUP
-      - DIVE SETUP
-      - AI SETUP
-      - ALERTS SETUP
-      - DISPLAY
+- DIVE LOG 的所有详情页字段建议用最新 UI 截图逐页核对。
+- CUSTOM WIDGETS 页面本文只确认页面存在，不确认内部组合内容。
