@@ -341,6 +341,12 @@ void ui_on_datetime_field_set(uint8_t field, uint16_t value)
     default: break;
     }
 #endif
+    if (field == 3U || field == 4U)
+    {
+        uint8_t hour = (field == 3U) ? (uint8_t)value : (uint8_t)bus_get_sys_time_h();
+        uint8_t minute = (field == 4U) ? (uint8_t)value : (uint8_t)bus_get_sys_time_m();
+        bus_set_sys_time(hour, minute, (uint8_t)bus_get_sys_time_s());
+    }
     if (field >= (sizeof(labels) / sizeof(labels[0])))
     {
         field = 0;
@@ -419,6 +425,7 @@ void ui_on_reset_defaults(void)
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     bus_set_time_24h_enabled(true);
+    bus_set_sys_time(0U, 0U, 0U);
     bus_set_depth_alarm_m(40U);
     bus_set_time_alarm_min(60U);
     bus_set_ndl_alarm_min(5U);
@@ -469,8 +476,8 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->datetime_year = s_datetime_year;
     out_snapshot->datetime_month = s_datetime_month;
     out_snapshot->datetime_day = s_datetime_day;
-    out_snapshot->datetime_hour = s_datetime_hour;
-    out_snapshot->datetime_minute = s_datetime_minute;
+    out_snapshot->datetime_hour = (uint8_t)bus_get_sys_time_h();
+    out_snapshot->datetime_minute = (uint8_t)bus_get_sys_time_m();
 #else
     out_snapshot->units_mode = 0U;
     out_snapshot->log_rate_s = bus_get_log_rate();
@@ -500,8 +507,8 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->datetime_year = 2026U;
     out_snapshot->datetime_month = 1U;
     out_snapshot->datetime_day = 1U;
-    out_snapshot->datetime_hour = 0U;
-    out_snapshot->datetime_minute = 0U;
+    out_snapshot->datetime_hour = (uint8_t)bus_get_sys_time_h();
+    out_snapshot->datetime_minute = (uint8_t)bus_get_sys_time_m();
 #endif
     return true;
 }

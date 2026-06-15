@@ -385,15 +385,18 @@ wbsDiagram {
 ***** Time/date
 ****** TIME
 ******* subtitle = 当前时间
+******* source = bus sys_time_h/sys_time_m
 ******* 24-hour ON: 17:07
 ******* 24-hour OFF: 5:07 PM
 ******* click -> TIME 调节页
 ******** HOUR
 ********* min = 0
 ********* max = 23
+********* commit -> bus_set_sys_time()
 ******** MINUTE
 ********* min = 0
 ********* max = 59
+********* commit -> bus_set_sys_time()
 ****** DATE
 ******* subtitle = 当前日期
 ******* click -> DATE 调节页

@@ -396,15 +396,18 @@
   - `Time/date`
     - `TIME`
       - 副标题：当前时间
+      - 来源：`bus_get_sys_time_h()` / `bus_get_sys_time_m()`
       - 24-hour ON：`17:07`
       - 24-hour OFF：`5:07 PM`
       - 点击进入 `TIME` 调节页
       - `HOUR`
         - min：`0`
         - max：`23`
+        - 确认后写入 `bus_set_sys_time()`
       - `MINUTE`
         - min：`0`
         - max：`59`
+        - 确认后写入 `bus_set_sys_time()`
     - `DATE`
       - 副标题：当前日期
       - 点击进入 `DATE` 调节页
