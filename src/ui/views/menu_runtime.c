@@ -116,8 +116,6 @@ static void build_info_rows(uint8_t index)
 static void build_logbook_rows(void)
 {
     rows_clear();
-    row_add(MENU_ITEM_LOGBOOK_BACK, MENU_ROW_DIVE_PLAN, "Back");
-    row_add(MENU_ITEM_LOGBOOK_MORE, MENU_ROW_DIVE_PLAN, "More");
 }
 
 static void build_setup_gas_switch(void)

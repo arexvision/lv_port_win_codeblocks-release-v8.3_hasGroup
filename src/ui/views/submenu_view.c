@@ -40,15 +40,11 @@ typedef enum
     LOGBOOK_PAGE_SUMMARY,
     LOGBOOK_PAGE_DETAIL_1,
     LOGBOOK_PAGE_DETAIL_2,
-    LOGBOOK_PAGE_EDIT,
 } logbook_page_t;
 
 static logbook_page_t s_logbook_page = LOGBOOK_PAGE_PICK;
 static uint8_t s_logbook_index = 0U;
 static uint8_t s_logbook_focus = 1U;
-static uint8_t s_logbook_time_digit = 0U;
-static bool s_logbook_editing = false;
-static bool s_logbook_delete_pending = false;
 static logbook_entry_t s_logbook_entry;
 static const dive_pt_t *s_logbook_points = NULL;
 static uint16_t s_logbook_point_count;
@@ -121,10 +117,7 @@ static void logbook_reset_state(void)
     uint8_t count = logbook_backend_count();
 
     s_logbook_page = LOGBOOK_PAGE_PICK;
-    s_logbook_focus = count;
-    s_logbook_time_digit = 0U;
-    s_logbook_editing = false;
-    s_logbook_delete_pending = false;
+    s_logbook_focus = (count > 0U) ? (uint8_t)(count - 1U) : 0U;
     s_logbook_index = (count > 0U) ? (uint8_t)(count - 1U) : 0U;
     logbook_load_current();
 }
@@ -145,83 +138,6 @@ static void logbook_format_date(char *buf, size_t buf_size, const logbook_meta_t
     (void)snprintf(buf, buf_size, "%02u-%s-%04u", (unsigned)meta->day, months[month], (unsigned)meta->year);
 }
 
-static uint8_t logbook_days_in_month(uint16_t year, uint8_t month)
-{
-    static const uint8_t days[] = {31U, 28U, 31U, 30U, 31U, 30U, 31U, 31U, 30U, 31U, 30U, 31U};
-    bool leap = ((year % 4U) == 0U && (year % 100U) != 0U) || ((year % 400U) == 0U);
-
-    if (month < 1U || month > 12U)
-    {
-        return 31U;
-    }
-    if (month == 2U && leap)
-    {
-        return 29U;
-    }
-    return days[month - 1U];
-}
-
-static void logbook_adjust_date(logbook_meta_t *meta, int8_t dir)
-{
-    if (dir >= 0)
-    {
-        meta->day++;
-        if (meta->day > logbook_days_in_month(meta->year, meta->month))
-        {
-            meta->day = 1U;
-            meta->month++;
-            if (meta->month > 12U)
-            {
-                meta->month = 1U;
-                meta->year++;
-            }
-        }
-    }
-    else
-    {
-        if (meta->day > 1U)
-        {
-            meta->day--;
-            return;
-        }
-        if (meta->month > 1U) meta->month--;
-        else
-        {
-            meta->month = 12U;
-            if (meta->year > 0U) meta->year--;
-        }
-        meta->day = logbook_days_in_month(meta->year, meta->month);
-    }
-}
-
-static void logbook_adjust_start_time_digit(logbook_meta_t *meta, int8_t dir)
-{
-    uint8_t digits[4] =
-    {
-        (uint8_t)(meta->start_h / 10U),
-        (uint8_t)(meta->start_h % 10U),
-        (uint8_t)(meta->start_m / 10U),
-        (uint8_t)(meta->start_m % 10U),
-    };
-    int8_t max_digit = 9;
-    int8_t value;
-
-    if (s_logbook_time_digit == 0U) max_digit = 2;
-    else if (s_logbook_time_digit == 1U && digits[0] == 2U) max_digit = 3;
-    else if (s_logbook_time_digit == 2U) max_digit = 5;
-
-    value = (int8_t)digits[s_logbook_time_digit] + dir;
-    if (value < 0) value = max_digit;
-    if (value > max_digit) value = 0;
-    digits[s_logbook_time_digit] = (uint8_t)value;
-    if (s_logbook_time_digit == 0U && digits[0] == 2U && digits[1] > 3U)
-    {
-        digits[1] = 3U;
-    }
-    meta->start_h = (uint8_t)(digits[0] * 10U + digits[1]);
-    meta->start_m = (uint8_t)(digits[2] * 10U + digits[3]);
-}
-
 static uint16_t logbook_panel_width(uint16_t w)
 {
     if (w > 430U)
@@ -236,16 +152,6 @@ static bool logbook_compact_layout(void)
     return !ui_layout_is_vertical_split() && s_submenu_height <= 320U;
 }
 
-static int16_t logbook_button_y(uint16_t h)
-{
-    return logbook_compact_layout() ? (int16_t)(h - 36U) : (int16_t)(h - 48U);
-}
-
-static uint16_t logbook_button_h(void)
-{
-    return logbook_compact_layout() ? 30U : 34U;
-}
-
 static lv_obj_t *logbook_label(lv_obj_t *parent, const char *text, font_id_t font_id, lv_color_t color,
                                int16_t x, int16_t y, uint16_t w, uint16_t h, lv_text_align_t align)
 {
@@ -258,74 +164,6 @@ static lv_obj_t *logbook_label(lv_obj_t *parent, const char *text, font_id_t fon
     lv_obj_set_style_text_align(lbl, align, 0);
     lv_label_set_text(lbl, text ? text : "");
     return lbl;
-}
-
-static lv_obj_t *logbook_button(lv_obj_t *parent, const char *text, uint8_t focus_id,
-                                int16_t x, int16_t y, uint16_t w, uint16_t h)
-{
-    lv_obj_t *btn = lv_obj_create(parent);
-    lv_obj_t *lbl;
-    lv_obj_remove_style_all(btn);
-    lv_obj_set_pos(btn, x, y);
-    lv_obj_set_size(btn, w, h);
-    lv_obj_set_style_bg_color(btn, (s_logbook_focus == focus_id) ? GREEN : BLACK, 0);
-    lv_obj_set_style_bg_opa(btn, (s_logbook_focus == focus_id) ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_color(btn, (s_logbook_focus == focus_id) ? GREEN : DARK, 0);
-    lv_obj_set_style_border_width(btn, (s_logbook_focus == focus_id) ? 2 : 0, 0);
-    lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
-
-    lbl = lv_label_create(btn);
-    lv_obj_set_style_text_font(lbl, get_font(h <= 30U ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
-    lv_obj_set_style_text_color(lbl, (s_logbook_focus == focus_id) ? BLACK : GREEN, 0);
-    lv_label_set_text(lbl, text ? text : "");
-    lv_obj_center(lbl);
-    if (s_logbook_focus == focus_id)
-    {
-        lv_obj_set_style_text_color(lbl, BLACK, 0);
-    }
-    return btn;
-}
-
-static void logbook_soft_select_event_cb(lv_event_t *e)
-{
-    if (lv_event_get_code(e) == LV_EVENT_CLICKED)
-    {
-        screen_handle_logbook_select();
-    }
-}
-
-static void logbook_soft_back_event_cb(lv_event_t *e)
-{
-    if (lv_event_get_code(e) == LV_EVENT_CLICKED)
-    {
-        if (!screen_handle_logbook_back())
-        {
-            screen_close_submenu();
-        }
-    }
-}
-
-static lv_obj_t *logbook_softkey(lv_obj_t *parent, const char *text, int16_t x, int16_t y, uint16_t w, uint16_t h, lv_event_cb_t cb)
-{
-    lv_obj_t *btn = lv_obj_create(parent);
-    lv_obj_t *lbl;
-    lv_obj_remove_style_all(btn);
-    lv_obj_set_pos(btn, x, y);
-    lv_obj_set_size(btn, w, h);
-    lv_obj_set_style_bg_color(btn, BLACK, 0);
-    lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_color(btn, DARK, 0);
-    lv_obj_set_style_border_width(btn, 1, 0);
-    lv_obj_add_flag(btn, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, NULL);
-
-    lbl = lv_label_create(btn);
-    lv_obj_set_style_text_font(lbl, get_font(FONT_ID_SMALL), 0);
-    lv_obj_set_style_text_color(lbl, GREEN, 0);
-    lv_label_set_text(lbl, text ? text : "");
-    lv_obj_center(lbl);
-    return btn;
 }
 
 static void logbook_draw_row(lv_obj_t *parent, const char *left, const char *right, uint8_t focus_id,
@@ -347,109 +185,6 @@ static void logbook_draw_row(lv_obj_t *parent, const char *left, const char *rig
     if (right != NULL)
     {
         logbook_label(row, right, row_font, focused ? LIGHT : GREEN, (int16_t)(w / 2U), 4, (uint16_t)(w / 2U - 12U), (uint16_t)(h - 8U), LV_TEXT_ALIGN_RIGHT);
-    }
-}
-
-static void logbook_draw_edit_row(lv_obj_t *parent, const char *left, const char *right, uint8_t focus_id,
-                                  int16_t x, int16_t y, uint16_t w, uint16_t h)
-{
-    bool focused = (s_logbook_focus == focus_id);
-    bool editing = focused && s_logbook_editing && (right != NULL);
-    int16_t text_y = (int16_t)((h > 30U) ? ((h - 30U) / 2U) : 0U);
-    uint16_t value_w = (right != NULL && strlen(right) > 8U) ? 118U : 74U;
-    int16_t value_x = (int16_t)(w - value_w - 50U);
-    lv_obj_t *row = lv_obj_create(parent);
-    lv_obj_remove_style_all(row);
-    lv_obj_set_pos(row, x, y);
-    lv_obj_set_size(row, w, h);
-    lv_obj_set_style_bg_color(row, BLACK, 0);
-    lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(row, focused ? GREEN : DARK, 0);
-    lv_obj_set_style_border_width(row, focused ? 2 : 1, 0);
-    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-
-    logbook_label(row, left, FONT_ID_TITLE, focused ? LIGHT : GREEN, 12, text_y, 170, 30, LV_TEXT_ALIGN_LEFT);
-    if (right != NULL)
-    {
-        lv_obj_t *value = logbook_label(row, right, (strlen(right) > 8U) ? FONT_ID_SMALL : FONT_ID_TITLE,
-                                        editing ? BLACK : (focused ? LIGHT : GREEN),
-                                        value_x, text_y, value_w, 30, LV_TEXT_ALIGN_CENTER);
-        if (editing)
-        {
-            lv_obj_set_style_bg_color(value, GREEN, 0);
-            lv_obj_set_style_bg_opa(value, LV_OPA_COVER, 0);
-            logbook_label(row, "^", FONT_ID_SMALL, GREEN, (int16_t)(w - 36U), 5, 24, 18, LV_TEXT_ALIGN_CENTER);
-            logbook_label(row, "v", FONT_ID_SMALL, GREEN, (int16_t)(w - 36U), 24, 24, 18, LV_TEXT_ALIGN_CENTER);
-        }
-        else if (focused)
-        {
-            logbook_label(row, ">", FONT_ID_TITLE, GREEN, (int16_t)(w - 34U), text_y, 24, 30, LV_TEXT_ALIGN_CENTER);
-        }
-    }
-}
-
-static void logbook_draw_time_edit_row(lv_obj_t *parent, int16_t x, int16_t y, uint16_t w, uint16_t h)
-{
-    bool focused = (s_logbook_focus == 1U);
-    char digit_text[2] = {'0', '\0'};
-    int16_t text_y = (int16_t)((h > 30U) ? ((h - 30U) / 2U) : 0U);
-    int16_t value_x = (int16_t)(w - 132U);
-    int16_t start_x = value_x;
-    uint8_t digits[4] =
-    {
-        (uint8_t)(s_logbook_entry.meta.start_h / 10U),
-        (uint8_t)(s_logbook_entry.meta.start_h % 10U),
-        (uint8_t)(s_logbook_entry.meta.start_m / 10U),
-        (uint8_t)(s_logbook_entry.meta.start_m % 10U),
-    };
-    lv_obj_t *row = lv_obj_create(parent);
-    lv_obj_remove_style_all(row);
-    lv_obj_set_pos(row, x, y);
-    lv_obj_set_size(row, w, h);
-    lv_obj_set_style_bg_color(row, BLACK, 0);
-    lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(row, focused ? GREEN : DARK, 0);
-    lv_obj_set_style_border_width(row, focused ? 2 : 1, 0);
-    lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-
-    logbook_label(row, "Start Time", FONT_ID_TITLE, focused ? LIGHT : GREEN, 12, text_y, 170, 30, LV_TEXT_ALIGN_LEFT);
-    if (focused)
-    {
-        lv_obj_t *value_box = lv_obj_create(row);
-        lv_obj_remove_style_all(value_box);
-        lv_obj_set_pos(value_box, value_x, (int16_t)(text_y - 1));
-        lv_obj_set_size(value_box, 92, 32);
-        lv_obj_set_style_bg_color(value_box, BLACK, 0);
-        lv_obj_set_style_bg_opa(value_box, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(value_box, s_logbook_editing ? GREEN : DARK, 0);
-        lv_obj_set_style_border_width(value_box, 1, 0);
-        lv_obj_clear_flag(value_box, LV_OBJ_FLAG_SCROLLABLE);
-        lv_obj_move_background(value_box);
-    }
-    for (uint8_t i = 0U; i < 4U; i++)
-    {
-        uint8_t display_i = (i < 2U) ? i : (uint8_t)(i + 2U);
-        bool digit_focused = focused && s_logbook_editing && (s_logbook_time_digit == i);
-        digit_text[0] = (char)('0' + digits[i]);
-        lv_obj_t *digit = logbook_label(row, digit_text, FONT_ID_TITLE,
-                                        digit_focused ? BLACK : (focused ? LIGHT : GREEN),
-                                        (int16_t)(start_x + 9U + display_i * 13U), text_y, 13, 30, LV_TEXT_ALIGN_CENTER);
-        if (digit_focused)
-        {
-            lv_obj_set_style_bg_color(digit, GREEN, 0);
-            lv_obj_set_style_bg_opa(digit, LV_OPA_COVER, 0);
-            lv_obj_t *mark = lv_obj_create(row);
-            lv_obj_remove_style_all(mark);
-            lv_obj_set_pos(mark, (int16_t)(start_x + 11U + display_i * 13U), (int16_t)(text_y + 29));
-            lv_obj_set_size(mark, 9, 2);
-            lv_obj_set_style_bg_color(mark, GREEN, 0);
-            lv_obj_set_style_bg_opa(mark, LV_OPA_COVER, 0);
-        }
-    }
-    logbook_label(row, ":", FONT_ID_TITLE, focused ? LIGHT : GREEN, (int16_t)(start_x + 34), text_y, 12, 30, LV_TEXT_ALIGN_CENTER);
-    if (focused && !s_logbook_editing)
-    {
-        logbook_label(row, ">", FONT_ID_TITLE, GREEN, (int16_t)(w - 34U), text_y, 24, 30, LV_TEXT_ALIGN_CENTER);
     }
 }
 
@@ -522,8 +257,7 @@ static void logbook_draw_summary(lv_obj_t *parent, uint16_t w, uint16_t h)
     (void)snprintf(buf, sizeof(buf), "END %02u:%02u", (unsigned)s_logbook_entry.meta.end_h, (unsigned)s_logbook_entry.meta.end_m);
     logbook_label(parent, buf, stats_font, LIGHT, 230, stats_y2, 200, stats_h, LV_TEXT_ALIGN_LEFT);
 
-    logbook_button(parent, "Back", 0U, 12, logbook_button_y(h), 110, logbook_button_h());
-    logbook_button(parent, "More", 1U, (int16_t)(w - 128), logbook_button_y(h), 110, logbook_button_h());
+    (void)h;
 }
 
 static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
@@ -574,10 +308,10 @@ static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
         logbook_format_date(date, sizeof(date), &entry.meta);
         (void)snprintf(left, sizeof(left), "DIVE#%u", (unsigned)entry.meta.log_no);
         (void)snprintf(right, sizeof(right), "%s", date);
-        logbook_draw_row(parent, left, right, (uint8_t)(index + 1U), 18, (int16_t)(row_start_y + row * row_gap), panel_w, row_h);
+        logbook_draw_row(parent, left, right, index, 18, (int16_t)(row_start_y + row * row_gap), panel_w, row_h);
     }
 
-    logbook_button(parent, "Back", 0U, 12, logbook_button_y(h), 110, logbook_button_h());
+    (void)h;
 }
 
 static void logbook_draw_detail_1(lv_obj_t *parent, uint16_t w, uint16_t h)
@@ -616,8 +350,7 @@ static void logbook_draw_detail_1(lv_obj_t *parent, uint16_t w, uint16_t h)
         logbook_draw_row(parent, labels[i], values[i], 255U, 18, y, logbook_panel_width(w), row_h);
     }
 
-    logbook_button(parent, "Back", 0U, 12, logbook_button_y(h), 110, logbook_button_h());
-    logbook_button(parent, "More", 1U, (int16_t)(w - 128), logbook_button_y(h), 110, logbook_button_h());
+    (void)h;
 }
 
 static void logbook_draw_detail_2(lv_obj_t *parent, uint16_t w, uint16_t h)
@@ -649,43 +382,7 @@ static void logbook_draw_detail_2(lv_obj_t *parent, uint16_t w, uint16_t h)
 
     (void)snprintf(buf, sizeof(buf), "Avg SAC D1 %.1f", (double)s_logbook_entry.avg_sac_l_min);
     logbook_label(parent, buf, table_font, LIGHT, 60, avg_y, 300, avg_h, LV_TEXT_ALIGN_LEFT);
-    logbook_button(parent, "Back", 0U, 12, logbook_button_y(h), 110, logbook_button_h());
-    logbook_button(parent, "Edit", 1U, (int16_t)(w - 128), logbook_button_y(h), 110, logbook_button_h());
-}
-
-static void logbook_draw_edit(lv_obj_t *parent, uint16_t w, uint16_t h)
-{
-    char date[20];
-    char buf[56];
-    uint16_t panel_w = logbook_panel_width(w);
-    char log_no[12];
-    bool compact = logbook_compact_layout();
-    int16_t line_y = compact ? 48 : 62;
-    int16_t row_start_y = compact ? 58 : 82;
-    int16_t row_gap = compact ? 46 : 56;
-    uint16_t row_h = compact ? 40U : 48U;
-
-    logbook_label(parent, "EDIT LOG", FONT_ID_TITLE, GREEN, 18, compact ? 10 : 18, panel_w, 34, LV_TEXT_ALIGN_LEFT);
-    lv_obj_t *line = lv_obj_create(parent);
-    lv_obj_remove_style_all(line);
-    lv_obj_set_pos(line, 18, line_y);
-    lv_obj_set_size(line, panel_w, 1);
-    lv_obj_set_style_bg_color(line, DARK, 0);
-    lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
-
-    logbook_format_date(date, sizeof(date), &s_logbook_entry.meta);
-    (void)snprintf(log_no, sizeof(log_no), "%04u", (unsigned)s_logbook_entry.meta.log_no);
-    logbook_draw_edit_row(parent, "Log #", log_no, 0U, 18, row_start_y, panel_w, row_h);
-    logbook_draw_time_edit_row(parent, 18, (int16_t)(row_start_y + row_gap), panel_w, row_h);
-    logbook_draw_edit_row(parent, "Date", date, 2U, 18, (int16_t)(row_start_y + row_gap * 2), panel_w, row_h);
-    logbook_draw_edit_row(parent, "Delete", NULL, 3U, 18, (int16_t)(row_start_y + row_gap * 3), panel_w, row_h);
-
-    if (s_logbook_editing && s_logbook_focus == 1U && s_logbook_time_digit < 3U) (void)snprintf(buf, sizeof(buf), "Next");
-    else (void)snprintf(buf, sizeof(buf), "%s", s_logbook_editing ? "Done" : "Select");
-    logbook_softkey(parent, buf, 12, logbook_button_y(h), 110, logbook_button_h(), logbook_soft_select_event_cb);
-    lv_obj_t *back_btn = logbook_button(parent, "Back", 4U, (int16_t)(w - 128), logbook_button_y(h), 110, logbook_button_h());
-    lv_obj_add_flag(back_btn, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(back_btn, logbook_soft_back_event_cb, LV_EVENT_CLICKED, NULL);
+    (void)h;
 }
 
 static void submenu_populate_logbook(void)
@@ -697,8 +394,8 @@ static void submenu_populate_logbook(void)
     if (!s_logbook_valid)
     {
         logbook_label(s_submenu_list, "NO LOGS", FONT_ID_MEDIUM, LIGHT, 0, logbook_compact_layout() ? 116 : 160, w, 48, LV_TEXT_ALIGN_CENTER);
-        logbook_button(s_submenu_list, "Back", 0U, 12, logbook_button_y(h), 110, logbook_button_h());
-        ui_state_set_sub_item_count(1U);
+        (void)h;
+        ui_state_set_sub_item_count(0U);
         ui_state_set_sub_menu_idx(0U);
         return;
     }
@@ -707,24 +404,20 @@ static void submenu_populate_logbook(void)
     {
     case LOGBOOK_PAGE_PICK:
         logbook_draw_picker(s_submenu_list, w, h);
-        ui_state_set_sub_item_count((uint8_t)(logbook_backend_count() + 1U));
+        ui_state_set_sub_item_count(logbook_backend_count());
         break;
     case LOGBOOK_PAGE_DETAIL_1:
         logbook_draw_detail_1(s_submenu_list, w, h);
-        ui_state_set_sub_item_count(2U);
+        ui_state_set_sub_item_count(0U);
         break;
     case LOGBOOK_PAGE_DETAIL_2:
         logbook_draw_detail_2(s_submenu_list, w, h);
-        ui_state_set_sub_item_count(2U);
-        break;
-    case LOGBOOK_PAGE_EDIT:
-        logbook_draw_edit(s_submenu_list, w, h);
-        ui_state_set_sub_item_count(5U);
+        ui_state_set_sub_item_count(0U);
         break;
     case LOGBOOK_PAGE_SUMMARY:
     default:
         logbook_draw_summary(s_submenu_list, w, h);
-        ui_state_set_sub_item_count(2U);
+        ui_state_set_sub_item_count(0U);
         break;
     }
     ui_state_set_sub_menu_idx(s_logbook_focus);
@@ -1345,10 +1038,7 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
             lv_obj_add_flag(s_submenu_title_line, LV_OBJ_FLAG_HIDDEN);
         }
         submenu_list_set_page_geometry();
-        if (!s_logbook_editing)
-        {
-            logbook_load_current();
-        }
+        logbook_load_current();
         submenu_populate_logbook();
         return;
     }
@@ -1686,8 +1376,6 @@ bool screen_handle_dive_plan_rotate(int8_t dir)
 
 bool screen_handle_logbook_rotate(int8_t dir)
 {
-    uint8_t max_focus = 1U;
-
     if ((ui_state_get_state() != UI_SUB_MENU) ||
         (ui_state_get_sub_parent() != UI_INFO) ||
         !submenu_is_logbook_visible())
@@ -1702,53 +1390,30 @@ bool screen_handle_logbook_rotate(int8_t dir)
         return true;
     }
 
-    if (s_logbook_page == LOGBOOK_PAGE_EDIT)
+    if (s_logbook_page == LOGBOOK_PAGE_PICK)
     {
-        max_focus = 4U;
-        if (s_logbook_editing)
-        {
-            if (s_logbook_focus == 0U)
-            {
-                int32_t log_no = (int32_t)s_logbook_entry.meta.log_no - dir;
-                if (log_no < 1) log_no = 1;
-                if (log_no > 9999) log_no = 9999;
-                s_logbook_entry.meta.log_no = (uint16_t)log_no;
-            }
-            else if (s_logbook_focus == 1U)
-            {
-                logbook_adjust_start_time_digit(&s_logbook_entry.meta, (int8_t)-dir);
-            }
-            else if (s_logbook_focus == 2U)
-            {
-                logbook_adjust_date(&s_logbook_entry.meta, (int8_t)-dir);
-            }
-            submenu_populate_current();
-            return true;
-        }
-    }
-    else if (s_logbook_page == LOGBOOK_PAGE_PICK)
-    {
-        max_focus = logbook_backend_count();
+        uint8_t count = logbook_backend_count();
+        int16_t next = (int16_t)s_logbook_focus + dir;
+        if (next < 0) next = 0;
+        if (next >= (int16_t)count) next = (int16_t)(count - 1U);
+        s_logbook_focus = (uint8_t)next;
+        submenu_populate_current();
+        return true;
     }
 
+    if (dir > 0)
     {
-        int16_t next = (int16_t)s_logbook_focus + dir;
-        if (s_logbook_page == LOGBOOK_PAGE_EDIT)
-        {
-            if (next < 0) next = (int16_t)max_focus;
-            if (next > (int16_t)max_focus) next = 0;
-        }
-        else
-        {
-            if (next < 0) next = 0;
-            if (next > (int16_t)max_focus) next = (int16_t)max_focus;
-        }
-        s_logbook_focus = (uint8_t)next;
-        if (s_logbook_page == LOGBOOK_PAGE_EDIT && s_logbook_focus != 1U)
-        {
-            s_logbook_time_digit = 0U;
-        }
+        if (s_logbook_page == LOGBOOK_PAGE_SUMMARY) s_logbook_page = LOGBOOK_PAGE_DETAIL_1;
+        else if (s_logbook_page == LOGBOOK_PAGE_DETAIL_1) s_logbook_page = LOGBOOK_PAGE_DETAIL_2;
+        else s_logbook_page = LOGBOOK_PAGE_SUMMARY;
     }
+    else if (dir < 0)
+    {
+        if (s_logbook_page == LOGBOOK_PAGE_SUMMARY) s_logbook_page = LOGBOOK_PAGE_DETAIL_2;
+        else if (s_logbook_page == LOGBOOK_PAGE_DETAIL_1) s_logbook_page = LOGBOOK_PAGE_SUMMARY;
+        else s_logbook_page = LOGBOOK_PAGE_DETAIL_1;
+    }
+    s_logbook_focus = 0U;
     submenu_populate_current();
     return true;
 }
@@ -1762,17 +1427,8 @@ bool screen_handle_logbook_back(void)
         return false;
     }
 
-    if (s_logbook_page == LOGBOOK_PAGE_EDIT)
-    {
-        s_logbook_editing = false;
-        s_logbook_time_digit = 0U;
-        logbook_load_current();
-        s_logbook_page = LOGBOOK_PAGE_DETAIL_2;
-        s_logbook_focus = 1U;
-        submenu_populate_current();
-        return true;
-    }
-    return false;
+    screen_close_submenu();
+    return true;
 }
 
 static void screen_handle_logbook_select(void)
@@ -1786,80 +1442,15 @@ static void screen_handle_logbook_select(void)
     switch (s_logbook_page)
     {
     case LOGBOOK_PAGE_PICK:
-        if (s_logbook_focus == 0U)
-        {
-            screen_close_submenu();
-        }
-        else
-        {
-            s_logbook_index = (uint8_t)(s_logbook_focus - 1U);
-            logbook_load_current();
-            s_logbook_page = LOGBOOK_PAGE_SUMMARY;
-            s_logbook_focus = 1U;
-            submenu_populate_current();
-        }
+        s_logbook_index = s_logbook_focus;
+        logbook_load_current();
+        s_logbook_page = LOGBOOK_PAGE_SUMMARY;
+        s_logbook_focus = 0U;
+        submenu_populate_current();
         break;
     case LOGBOOK_PAGE_SUMMARY:
-        if (s_logbook_focus == 0U)
-        {
-            s_logbook_page = LOGBOOK_PAGE_PICK;
-            s_logbook_focus = (uint8_t)(s_logbook_index + 1U);
-            submenu_populate_current();
-        }
-        else
-        {
-            s_logbook_page = LOGBOOK_PAGE_DETAIL_1;
-            s_logbook_focus = 1U;
-            submenu_populate_current();
-        }
-        break;
     case LOGBOOK_PAGE_DETAIL_1:
-        s_logbook_page = (s_logbook_focus == 0U) ? LOGBOOK_PAGE_SUMMARY : LOGBOOK_PAGE_DETAIL_2;
-        s_logbook_focus = 1U;
-        submenu_populate_current();
-        break;
     case LOGBOOK_PAGE_DETAIL_2:
-        s_logbook_page = (s_logbook_focus == 0U) ? LOGBOOK_PAGE_DETAIL_1 : LOGBOOK_PAGE_EDIT;
-        s_logbook_focus = (s_logbook_page == LOGBOOK_PAGE_EDIT) ? 0U : 1U;
-        s_logbook_editing = false;
-        s_logbook_time_digit = 0U;
-        submenu_populate_current();
-        break;
-    case LOGBOOK_PAGE_EDIT:
-        if (s_logbook_focus == 4U)
-        {
-            (void)screen_handle_logbook_back();
-            break;
-        }
-        if (s_logbook_focus <= 2U)
-        {
-            if (s_logbook_editing)
-            {
-                if (s_logbook_focus == 1U && s_logbook_time_digit < 3U)
-                {
-                    s_logbook_time_digit++;
-                }
-                else
-                {
-                    (void)logbook_backend_update_meta(s_logbook_index, &s_logbook_entry.meta);
-                    s_logbook_editing = false;
-                    s_logbook_time_digit = 0U;
-                    logbook_load_current();
-                }
-            }
-            else
-            {
-                s_logbook_editing = true;
-                s_logbook_time_digit = 0U;
-            }
-            submenu_populate_current();
-        }
-        else
-        {
-            s_logbook_delete_pending = true;
-            screen_show_modal_setup_confirm("DELETE LOG?");
-            ui_state_set_state(UI_MODAL_SETUP_CONFIRM);
-        }
         break;
     default:
         s_logbook_page = LOGBOOK_PAGE_PICK;
@@ -2040,9 +1631,6 @@ void screen_close_submenu(void)
         ui_state_set_sub_menu_idx(0U);
         ui_state_set_edit_active(false);
         ui_state_set_gas_modal_from_submenu(false);
-        s_logbook_editing = false;
-        s_logbook_time_digit = 0U;
-        s_logbook_delete_pending = false;
         logbook_points_release();
         ui_state_set_state(ui_state_get_sub_parent());
         return;
@@ -2069,9 +1657,6 @@ void screen_close_submenu(void)
     submenu_slide_out();
     menu_runtime_reset();
     menu_actions_clear_pending();
-    s_logbook_editing = false;
-    s_logbook_time_digit = 0U;
-    s_logbook_delete_pending = false;
     logbook_points_release();
     ui_state_set_sub_history_depth(0U);
     ui_state_set_sub_item_count(0U);
@@ -2083,23 +1668,6 @@ void screen_confirm_submenu_setting(void)
 {
     bool close_extra_mode_layer = false;
     bool return_dash_after_apply = false;
-    if (s_logbook_delete_pending)
-    {
-        s_logbook_delete_pending = false;
-        (void)logbook_backend_delete(s_logbook_index);
-        s_logbook_editing = false;
-        if (s_logbook_index >= logbook_backend_count() && logbook_backend_count() > 0U)
-        {
-            s_logbook_index = (uint8_t)(logbook_backend_count() - 1U);
-        }
-        s_logbook_page = LOGBOOK_PAGE_PICK;
-        s_logbook_focus = logbook_backend_count() > 0U ? (uint8_t)(s_logbook_index + 1U) : 0U;
-        logbook_load_current();
-        screen_hide_modal();
-        ui_state_set_state(UI_SUB_MENU);
-        submenu_populate_current();
-        return;
-    }
     if (!menu_actions_confirm_pending(&close_extra_mode_layer, &return_dash_after_apply))
     {
         screen_hide_modal();
@@ -2127,7 +1695,6 @@ void screen_confirm_submenu_setting(void)
 
 void screen_cancel_submenu_setting(void)
 {
-    s_logbook_delete_pending = false;
     menu_actions_clear_pending();
     screen_hide_modal();
     ui_state_set_state(UI_SUB_MENU);
