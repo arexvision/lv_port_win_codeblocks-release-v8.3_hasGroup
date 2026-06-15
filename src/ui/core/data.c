@@ -265,15 +265,16 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
 {
     static const grid_widget_t side_custom[] =
     {
-        { COMP_TISSUE_RAW_4012, 0, 0 },
-        { COMP_TISSUE_GF_4012, 0, 2 },
-        { COMP_GAS_MIX_1606, 0, 4 },
-        { COMP_ASCENT_0806, 2, 4 },
-        { COMP_FIO2_0806, 3, 4 },
-        { COMP_CEILING_0806, 4, 4 },
-        { COMP_TTS_0806, 0, 5 },
-        { COMP_MOD_0806, 1, 5 },
-        { COMP_GAS_DENS_0806, 2, 5 },
+        { COMP_DEPTH_1606, 0, 0 },
+        { COMP_PPO2_0806, 2, 0 },
+        { COMP_BATTERY_0806, 3, 0 },
+        { COMP_POD_0806, 4, 0 },
+        { COMP_NDL_STOP_1606, 0, 1 },
+        { COMP_CNS_0806, 2, 1 },
+        { COMP_OTU_0806, 3, 1 },
+        { COMP_HEADING_0806, 4, 1 },
+        { COMP_GAS_1606, 0, 2 },
+        { COMP_DIVE_TIME_1606, 2, 2 },
     };
     static const grid_widget_t side_sensor[] =
     {
@@ -296,15 +297,16 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
     };
     static const grid_widget_t top_custom[] =
     {
-        { COMP_TISSUE_RAW_4012, 0, 0 },
-        { COMP_TISSUE_GF_4012, 0, 2 },
-        { COMP_GAS_MIX_1606, 5, 0 },
-        { COMP_ASCENT_0806, 5, 1 },
-        { COMP_FIO2_0806, 6, 1 },
-        { COMP_CEILING_0806, 5, 2 },
-        { COMP_TTS_0806, 6, 2 },
-        { COMP_MOD_0806, 5, 3 },
-        { COMP_GAS_DENS_0806, 6, 3 },
+        { COMP_DEPTH_1606, 0, 0 },
+        { COMP_PPO2_0806, 2, 0 },
+        { COMP_BATTERY_0806, 3, 0 },
+        { COMP_POD_0806, 4, 0 },
+        { COMP_NDL_STOP_1606, 0, 1 },
+        { COMP_CNS_0806, 2, 1 },
+        { COMP_OTU_0806, 3, 1 },
+        { COMP_HEADING_0806, 4, 1 },
+        { COMP_GAS_1606, 0, 2 },
+        { COMP_DIVE_TIME_1606, 2, 2 },
     };
     static const grid_widget_t top_sensor[] =
     {
@@ -330,7 +332,7 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
     cfg->custom_card_count = 2U;
     cfg->custom_cards[0].widget_count = custom_count;
     cfg->custom_cards[1].widget_count = sensor_count;
-    (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "CUSTOM WIDGETS");
+    (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "ALARM TARGETS");
     (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "SENSOR PREVIEW");
     for (uint8_t i = 0U; i < custom_count; i++) cfg->custom_cards[0].widgets[i] = custom[i];
     for (uint8_t i = 0U; i < sensor_count; i++) cfg->custom_cards[1].widgets[i] = sensor[i];

@@ -663,17 +663,16 @@ static void debug_layout_fill_custom(ble_ui_sync_payload_t *payload, bool gas_la
 {
     static const uint8_t side_default[][3] =
     {
-        { COMP_DEPTH_1612,     0, 0 },
-        { COMP_DEPTH_1612,     0, 2 },
-        { COMP_HEADING_0806,   0, 4 },
-        { COMP_EMPTY,          2, 0 },
-        { COMP_BATTERY_0806,   2, 2 },
-        { COMP_PPO2_0806,      2, 4 },
-        { COMP_NDL_STOP_1606,  3, 0 },
-        { COMP_TTS_0806,       3, 2 },
-        { COMP_CNS_0806,       3, 4 },
-        { COMP_DEPTH_1612,     4, 0 },
-        { COMP_DEPTH_1612,     4, 2 },
+        { COMP_DEPTH_1606,     0, 0 },
+        { COMP_PPO2_0806,      0, 2 },
+        { COMP_BATTERY_0806,   0, 3 },
+        { COMP_POD_0806,       0, 4 },
+        { COMP_NDL_STOP_1606,  1, 0 },
+        { COMP_CNS_0806,       1, 2 },
+        { COMP_OTU_0806,       1, 3 },
+        { COMP_HEADING_0806,   1, 4 },
+        { COMP_GAS_1606,       2, 0 },
+        { COMP_DIVE_TIME_1606, 2, 2 },
     };
     static const uint8_t side_gas[][3] =
     {
@@ -686,16 +685,16 @@ static void debug_layout_fill_custom(ble_ui_sync_payload_t *payload, bool gas_la
     };
     static const uint8_t top_default[][3] =
     {
-        { COMP_DEPTH_1612,     0, 0 },
-        { COMP_DEPTH_1612,     2, 0 },
-        { COMP_HEADING_0806,   4, 0 },
-        { COMP_BATTERY_0806,   5, 0 },
-        { COMP_PPO2_0806,      6, 0 },
-        { COMP_NDL_STOP_1606,  0, 2 },
-        { COMP_TTS_0806,       2, 2 },
-        { COMP_CNS_0806,       3, 2 },
-        { COMP_DEPTH_1606,     4, 2 },
-        { COMP_MOD_0806,       6, 2 },
+        { COMP_DEPTH_1606,     0, 0 },
+        { COMP_PPO2_0806,      0, 2 },
+        { COMP_BATTERY_0806,   0, 3 },
+        { COMP_POD_0806,       0, 4 },
+        { COMP_NDL_STOP_1606,  1, 0 },
+        { COMP_CNS_0806,       1, 2 },
+        { COMP_OTU_0806,       1, 3 },
+        { COMP_HEADING_0806,   1, 4 },
+        { COMP_GAS_1606,       2, 0 },
+        { COMP_DIVE_TIME_1606, 2, 2 },
     };
     static const uint8_t top_gas[][3] =
     {

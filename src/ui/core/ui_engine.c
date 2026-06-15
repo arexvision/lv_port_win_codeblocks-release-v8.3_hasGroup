@@ -193,14 +193,11 @@ void sys_config_defaults(sys_config_t *cfg)
 
     /* ========== [A] 自定义网格：side=5列 x 6行，top/bottom=7列 x 4行 ==========
      *
-     *  默认 CUSTOM WIDGETS 布局示意（5列 x 6行）
+     *  默认 ALARM TARGETS 布局示意（5列 x 6行）
      *  col:  0  1  2  3  4
-     *  row0: [TISSUE RAW 4012                    ]
-     *  row1: [TISSUE RAW 4012                    ]
-     *  row2: [TISSUE GF  4012                    ]
-     *  row3: [TISSUE GF  4012                    ]
-     *  row4: [O2/He 1606] [RATE] [FIO2] [CEIL]
-     *  row5: [TTS] [MOD] [DENS] [empty] [empty]
+     *  row0: [DEPTH 1606] [PPO2] [BATT] [POD]
+     *  row1: [NDL   1606] [CNS ] [OTU ] [HDG]
+     *  row2: [GAS   1606] [DIVE TIME 1606]
      *
      *  简洁位置配置：widget_id + x/y 三字段，span_w/h MCU 样式表自动推
      */
@@ -208,48 +205,48 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->custom_card_count = 2;
     cfg->custom_cards[0].widget_count = 10;
     cfg->custom_cards[1].widget_count = 16;
-    (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "CUSTOM WIDGETS");
+    (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "ALARM TARGETS");
     (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "SENSOR PREVIEW");
     /* 下面这些 widget 配置决定默认 side 自定义卡片的格子内容和位置。 */
     cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
     {
-        COMP_TISSUE_RAW_4012, 0, 0
+        COMP_DEPTH_1606, 0, 0
     };
     cfg->custom_cards[0].widgets[1]  = (grid_widget_t)
     {
-        COMP_TISSUE_GF_4012,  0, 2
+        COMP_PPO2_0806, 2, 0
     };
     cfg->custom_cards[0].widgets[2]  = (grid_widget_t)
     {
-        COMP_GAS_MIX_1606,    0, 4
+        COMP_BATTERY_0806, 3, 0
     };
     cfg->custom_cards[0].widgets[3]  = (grid_widget_t)
     {
-        COMP_ASCENT_0806,     2, 4
+        COMP_POD_0806, 4, 0
     };
     cfg->custom_cards[0].widgets[4]  = (grid_widget_t)
     {
-        COMP_FIO2_0806,       3, 4
+        COMP_NDL_STOP_1606, 0, 1
     };
     cfg->custom_cards[0].widgets[5]  = (grid_widget_t)
     {
-        COMP_CEILING_0806,    4, 4
+        COMP_CNS_0806, 2, 1
     };
     cfg->custom_cards[0].widgets[6]  = (grid_widget_t)
     {
-        COMP_TTS_0806,        0, 5
+        COMP_OTU_0806, 3, 1
     };
     cfg->custom_cards[0].widgets[7]  = (grid_widget_t)
     {
-        COMP_MOD_0806,        1, 5
-    };
-    cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
-    {
-        COMP_GAS_DENS_0806,   2, 5
+        COMP_HEADING_0806, 4, 1
     };
     cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
     {
-        COMP_CPU_0806,   3, 5
+        COMP_GAS_1606, 0, 2
+    };
+    cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
+    {
+        COMP_DIVE_TIME_1606, 2, 2
     };
 
     
