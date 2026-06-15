@@ -456,7 +456,7 @@ bool menu_runtime_open_info(uint8_t index)
     s_current_menu = menu_defs_info_menu_for_index(index);
     s_stack_depth = 0;
     build_rows();
-    return s_current_menu != MENU_NONE && s_row_count > 0U;
+    return s_current_menu != MENU_NONE && (s_row_count > 0U || menu_runtime_is_logbook());
 }
 
 bool menu_runtime_open_setup(uint8_t index)
