@@ -1,0 +1,670 @@
+@startwbs
+title 潜水电脑 UI 信息架构树
+
+<style>
+wbsDiagram {
+  BackgroundColor white
+  LineColor #8c8c8c
+  FontName "Microsoft YaHei"
+  FontSize 13
+  :depth(0) {
+    BackgroundColor #12a7dd
+    FontColor white
+    RoundCorner 8
+    LineColor #0784b0
+  }
+  :depth(1) {
+    BackgroundColor #12a7dd
+    FontColor white
+    RoundCorner 6
+    LineColor #0784b0
+  }
+  :depth(2) {
+    BackgroundColor #18b7e8
+    FontColor white
+    RoundCorner 4
+    LineColor #0784b0
+  }
+  :depth(3) {
+    BackgroundColor #e8f7fc
+    FontColor #12313d
+    RoundCorner 4
+    LineColor #a8c8d2
+  }
+}
+</style>
+
+* 潜水电脑 UI
+** 运行入口
+*** WinMain
+**** lv_init
+**** lv_win32_init
+**** UI_main
+***** ui_init
+***** screen_create
+***** input_init
+***** ui_update_task 50ms
+***** sim_data_start PC
+*** 主循环
+**** lv_task_handler 10ms
+**** 数据总线 bus_set_*
+**** dirty_mask
+**** update_router
+** 屏幕基础参数
+*** 物理屏幕
+**** PHYSICAL_W = 640
+**** PHYSICAL_H = 480
+**** BASE_U = 10px
+*** Safe Zone
+**** safe_zone_w = 580
+**** safe_zone_h = 420
+**** offset_x = 0
+**** offset_y = -10
+**** MASK_EDGE_GUARD = 80
+*** 固定栏
+**** LEFT_ANCHOR_W = 160
+**** TOP_ANCHOR_H = 120
+**** FIXED_SIDE_COLS = 2
+**** FIXED_SIDE_ROWS = 7
+**** FIXED_TOP_COLS = 7
+**** FIXED_TOP_ROWS = 2
+*** 内容区
+**** CARD_TITLE_H = 60
+**** panel_gap_u = 2
+**** gap_u = 0
+**** CUSTOM_SIDE_COLS = 5
+**** CUSTOM_SIDE_ROWS = 6
+**** CUSTOM_TOP_COLS = 7
+**** CUSTOM_TOP_ROWS = 4
+*** 样式全局
+**** BG = #050505
+**** GREEN = #00FF00
+**** LIGHT = #55FF55
+**** DARK = #003300
+**** INNER_BORDER_W = 2
+**** GAS_BORDER_W = 2
+**** GRID_BORDER_W = 0
+** 全局配置 sys_config_t
+*** 布局字段
+**** theme_mode = THEME_TECH
+**** layout_order = ORDER_REVERSE
+**** dots_position = DOTS_LEFT
+**** compass_style = COMPASS_CLASSIC
+**** mask_enabled = false
+**** split_outward = true
+**** flash_speed = 1
+*** 分割线字段
+**** sep_style = SEP_DASHED
+**** sep_thick = 2
+**** sep_alpha = 51
+**** ANCHOR_SEP_THICK = 3
+**** ANCHOR_SEP_STYLE = SEP_SOLID
+*** Classic 预留高度
+**** h_depth = 8U
+**** h_ndl = 6U
+**** h_pod = 6U
+**** h_batt = 5U
+**** h_gas = 6U
+**** h_time = 5U
+**** title_h_u = 2U
+**** h_menu_item = 5U
+**** gap_menu = 1U
+**** h_tissues_chart = 9U
+*** 用户设置默认值
+**** mod_ppo2 = 1.4
+**** conservatism = MED
+**** salinity_mode = FRESH
+**** last_deco_stop_m = 3
+**** brightness = MED
+**** log_rate_s = UI_LOG_RATE_DEFAULT_S
+**** safety_stop_mode = UI_SAFETY_STOP_DEFAULT
+**** altitude_level = 0
+**** depth_alarm_m = 40
+**** time_alarm_min = 60
+**** ndl_alarm_min = 5
+*** 容量限制
+**** LEFT_MAX_WIDGETS = 14
+**** MAX_5F_WIDGETS = 30
+**** MAX_CUSTOM_CARDS = 12
+**** UI_CUSTOM_CARD_TITLE_MAX_LEN = 16
+**** GAS_COUNT = 5
+**** MAX_DIVE_LOG = 200
+**** MAX_DECO_STOPS = 10
+** 页面结构 TileView
+*** 固定位置
+**** PAGE_POS_INFO = 0
+**** PAGE_POS_SETUP = 13
+**** MAX_DYNAMIC_SLOTS = 12
+*** 页面 ID
+**** PAGE_ID_INFO
+**** PAGE_ID_COMPASS
+**** PAGE_ID_DECO
+**** PAGE_ID_GAS
+**** PAGE_ID_PLAN
+**** PAGE_ID_CUSTOM_GRID
+**** PAGE_ID_BLANK
+**** PAGE_ID_SETUP
+**** PAGE_ID_UNUSED = 0xFF
+*** 默认页面顺序 card_order
+**** POS_INFO -> INFO
+**** POS_1 -> BLANK
+**** POS_2 -> COMPASS
+**** POS_3 -> DECO
+**** POS_4 -> PLAN
+**** POS_5 -> GAS
+**** POS_6 -> CUSTOM_GRID slot 0
+**** POS_7 -> CUSTOM_GRID slot 1
+**** POS_8~12 -> UNUSED
+**** POS_SETUP -> SETUP
+** DASH 首页
+*** 固定栏默认 2x7
+**** row0 col0 -> COMP_NDL_STOP_1606
+**** row1 col0 -> COMP_DEPTH_1612
+**** row3 col0 -> COMP_DIVE_TIME_1606
+**** row4 col0 -> COMP_GAS_1606
+**** row5 col0 -> COMP_EMPTY
+**** row5 col1 -> COMP_EMPTY
+**** row6 col0 -> COMP_SYS_1606
+*** 右侧卡片
+**** INFO MENU
+**** BLANK
+**** COMPASS
+**** DECO
+**** PLAN
+**** GAS
+**** CUSTOM GRID: ALARM TARGETS
+**** CUSTOM GRID: SENSOR PREVIEW
+**** SETUP MENU
+** 默认自定义卡片
+*** ALARM TARGETS
+**** title = ALARM TARGETS
+**** widget_count = 10
+**** 0,0 -> COMP_DEPTH_1606
+**** 2,0 -> COMP_PPO2_0806
+**** 3,0 -> COMP_BATTERY_0806
+**** 4,0 -> COMP_POD_0806
+**** 0,1 -> COMP_NDL_STOP_1606
+**** 2,1 -> COMP_CNS_0806
+**** 3,1 -> COMP_OTU_0806
+**** 4,1 -> COMP_HEADING_0806
+**** 0,2 -> COMP_TIME_1606
+**** 2,2 -> COMP_DIVE_TIME_1606
+*** SENSOR PREVIEW
+**** title = SENSOR PREVIEW
+**** widget_count = 16
+**** 0,0 -> COMP_ACCEL_2406
+**** 3,0 -> COMP_BATT_V_0806
+**** 4,0 -> COMP_PRESSURE_0806
+**** 0,1 -> COMP_GYRO_2406
+**** 3,1 -> COMP_CPU_0806
+**** 4,1 -> COMP_FPS_0806
+**** 0,2 -> COMP_MAG_2406
+**** 3,2 -> COMP_BLE_RSSI_0806
+**** 4,2 -> COMP_CHARGE_0806
+**** 0,3 -> COMP_MLX_2406
+**** 3,3 -> COMP_BATT_TEMP_0806
+**** 4,3 -> COMP_PRJ_TEMP_0806
+**** 0,4 -> COMP_TMAG_2406
+**** 3,4 -> COMP_NOFLY_0806
+**** 0,5 -> COMP_ATTITUDE_2406
+**** 3,5 -> COMP_SENSOR_STAT_1606
+** INFO MENU
+*** LAST DIVE
+**** menu_id = MENU_INFO_LAST_DIVE
+**** item_id = MENU_ITEM_INFO_LAST_DIVE
+**** 只读信息页
+*** DIVE PLAN
+**** menu_id = MENU_INFO_DIVE_PLAN
+**** item_id = MENU_ITEM_INFO_DIVE_PLAN
+**** 特殊向导页
+**** Exit
+**** Next
+**** Plan
+**** More
+*** TISSUE & TOX
+**** menu_id = MENU_INFO_TISSUE_TOX
+**** item_id = MENU_ITEM_INFO_TISSUE_TOX
+**** 只读信息页
+*** GAS & CALC
+**** menu_id = MENU_INFO_GAS_CALC
+**** item_id = MENU_ITEM_INFO_GAS_CALC
+**** 只读信息页
+*** SENSOR & DEVICE
+**** menu_id = MENU_INFO_SENSOR_DEVICE
+**** item_id = MENU_ITEM_INFO_SENSOR_DEVICE
+**** 只读信息页
+*** DIVE LOG
+**** menu_id = MENU_INFO_DIVE_LOG
+**** item_id = MENU_ITEM_INFO_DIVE_LOG
+**** Log No
+**** Start Time
+**** Date
+**** Edit
+**** Delete
+**** More
+**** Exit
+** SETUP MENU
+*** GAS SWITCH
+**** menu_id = MENU_SETUP_GAS_SWITCH
+**** slots = GAS 1~5
+**** MENU_ITEM_GAS_SLOT_0
+**** MENU_ITEM_GAS_SLOT_1
+**** MENU_ITEM_GAS_SLOT_2
+**** MENU_ITEM_GAS_SLOT_3
+**** MENU_ITEM_GAS_SLOT_4
+**** 选中后 SHOW_GAS_MODAL
+*** CONSERVATISM
+**** menu_id = MENU_SETUP_CONSERVATISM
+**** LOW = GF 40/95
+**** MED = GF 40/85
+**** HIGH = GF 30/70
+**** CUSTOM = GF 50/70
+*** BRIGHTNESS
+**** menu_id = MENU_SETUP_BRIGHTNESS
+**** LOW = 190
+**** MED = 212
+**** HIGH = 232
+**** MAX = 255
+*** COMPASS CAL
+**** menu_id = MENU_SETUP_COMPASS_CAL
+**** AUTO CAL: status
+**** RESET AUTO CAL
+**** states: IDLE/RUNNING/READY
+*** LIGHT CONTROL
+**** menu_id = MENU_SETUP_LIGHT_CONTROL
+**** LIGHT ON/OFF
+**** LIGHT MODE
+**** RED COLOR
+***** 10%
+***** 30%
+***** 50%
+***** 70%
+***** 100%
+**** GREEN COLOR
+***** 10%
+***** 30%
+***** 50%
+***** 70%
+***** 100%
+**** BLUE COLOR
+***** 10%
+***** 30%
+***** 50%
+***** 70%
+***** 100%
+**** WHITE COLOR
+***** 10%
+***** 30%
+***** 50%
+***** 70%
+***** 100%
+*** SYSTEM SETUP
+**** VERSION = SYSTEM_VERSION
+**** MODE SETUP
+***** AIR
+****** GAS CONFIG
+******* PPO2
+******* CONFIRM
+***** NITROX
+****** GAS CONFIG
+******* O2 PERCENT
+******* PPO2
+******* CONFIRM
+***** 3 GAS
+****** GAS 1 O2
+****** GAS 2 O2
+****** GAS 3 O2
+****** CONFIRM
+****** 每个 GAS 可进入 GAS CONFIG
+******* O2 PERCENT
+******* PPO2
+******* SAVE GAS CONFIG
+***** OC Tech
+****** G1 TRIMIX
+****** G2 TRIMIX
+****** G3 TRIMIX
+****** G4 TRIMIX
+****** G5 TRIMIX
+****** CONFIRM & ACTIVATE
+****** 每个 Gx 进入 GAS CONFIG
+******* O2 PERCENT
+******* HE PERCENT
+******* PPO2
+******* SAVE GAS CONFIG
+**** DIVE SETUP
+***** SALINITY
+****** FRESH
+****** SALT
+****** EN13319
+***** MOD PO2
+****** min = 1.0
+****** max = 1.6
+****** step = 0.1
+***** SAFETY STOP
+****** UI_SAFETY_STOP_OFF
+****** UI_SAFETY_STOP_3MIN
+****** UI_SAFETY_STOP_4MIN
+****** UI_SAFETY_STOP_5MIN
+***** LAST DECO
+****** 3m
+****** 6m
+***** ALTITUDE
+****** AUTO
+****** ALT1
+****** ALT2
+****** ALT3
+**** AI SETUP
+***** T1 MAIN
+****** UNPAIRED
+****** PAIRING
+****** PAIRED
+***** T2 BUDDY
+****** UNPAIRED
+****** PAIRING
+****** PAIRED
+***** GTR MODE
+****** OFF
+****** ON
+**** ALERTS SETUP
+***** DEPTH ALARM
+****** default = 40m
+****** min = 10m
+****** max = 150m
+****** step = 10m
+***** TIME ALARM
+****** default = 60min
+****** min = 10min
+****** max = 300min
+****** step = 10min
+***** LOW NDL ALARM
+****** default = 5min
+**** DISPLAY
+***** UNITS
+****** METRIC
+****** IMPERIAL
+***** DATE & CLOCK
+****** YEAR
+******* min = 2000
+******* max = 2099
+****** MONTH
+******* min = 1
+******* max = 12
+****** DAY
+******* min = 1
+******* max = 31
+****** HOUR
+******* min = 0
+******* max = 23
+****** MINUTE
+******* min = 0
+******* max = 59
+***** LOG RATE
+****** 2s
+****** 5s
+****** 10s
+****** 30s
+****** 控制轨迹记录点和 PLAN 图视觉刷新
+***** BLUETOOTH
+****** OFF
+****** ON
+***** RESET TO DEFAULTS
+** 弹窗与编辑
+*** GAS MODAL
+**** CONFIRM GAS
+**** MOD 检查
+**** OVER MOD 提示
+**** ENTER CONFIRM
+**** ESC CANCEL
+*** CONFIRM MODAL
+**** DIVE MODE
+**** DISPLAY RESET
+**** GAS CONFIG
+*** EDIT
+**** MOD PO2
+**** O2 PERCENT
+**** HE PERCENT
+**** DEPTH ALARM
+**** TIME ALARM
+**** NDL ALARM
+**** DATE & CLOCK 字段
+*** TEXT MODAL
+**** 默认文本提示
+** 组件库 comp_id_t
+*** 核心驻留组件
+**** COMP_NDL_STOP_1606
+**** COMP_DEPTH_1612
+**** COMP_DEPTH_1606
+**** COMP_DIVE_TIME_1606
+**** COMP_GAS_1606
+**** COMP_SYS_1606
+*** 常用数据组件
+**** COMP_TEMP_0806
+**** COMP_TIME_1606
+**** COMP_TTS_0806
+**** COMP_ASCENT_0806
+**** COMP_ASCENT_0812
+**** COMP_COMPASS_1612
+**** COMP_BATTERY_0806
+**** COMP_STOP_DEPTH_0806
+**** COMP_STOP_TIME_1606
+**** COMP_PPO2_0806
+**** COMP_HEADING_0806
+**** COMP_POD_0806
+*** 减压/气体/毒性
+**** COMP_SURF_GF_0806
+**** COMP_GF99_0806
+**** COMP_CNS_0806
+**** COMP_OTU_0806
+**** COMP_GF_0806
+**** COMP_MOD_0806
+**** COMP_CEILING_0806
+**** COMP_GAS_MIX_1606
+**** COMP_TISSUE_GF_4012
+**** COMP_TISSUE_RAW_4012
+**** COMP_GAS_DENS_0806
+**** COMP_FIO2_0806
+*** 统计组件
+**** COMP_DEPTH_MAX_0806
+**** COMP_DEPTH_AVG_0806
+**** COMP_TEMP_MIN_0806
+**** COMP_TEMP_AVG_0806
+*** 传感器/系统组件
+**** COMP_GYRO_2406
+**** COMP_BATT_V_0806
+**** COMP_BATT_TEMP_0806
+**** COMP_PRJ_TEMP_0806
+**** COMP_CHARGE_0806
+**** COMP_PRESSURE_0806
+**** COMP_NOFLY_0806
+**** COMP_ACCEL_2406
+**** COMP_MAG_2406
+**** COMP_MLX_2406
+**** COMP_TMAG_2406
+**** COMP_ATTITUDE_2406
+**** COMP_BLE_RSSI_0806
+**** COMP_CPU_0806
+**** COMP_FPS_0806
+**** COMP_SENSOR_STAT_1606
+**** COMP_EMPTY
+** 运行数据 sensor_data_t
+*** 潜水核心
+**** depth
+**** ndl
+**** ndl_stop_value
+**** ndl_bar_pct
+**** stop_type
+**** stop_depth_m
+**** stop_time_total_s
+**** stop_time_left_s
+**** in_stop_zone
+**** tts
+**** dive_time_s
+**** surface_time_s
+**** ascent_rate
+*** 气体和瓶压
+**** gas_name
+**** gas_active_idx
+**** gas_recommended_idx
+**** ppo2[5]
+**** gas_slot_name[5]
+**** gas_slot_o2_pct[5]
+**** gas_slot_he_pct[5]
+**** gas_slot_mod_m[5]
+**** gas_slot_max_ppo2[5]
+**** gas_slot_count
+**** gas_o2_pct
+**** gas_he_pct
+**** gas_density
+**** fio2_pct
+**** pod1_bar
+**** pod2_bar
+**** cylinder_count
+**** sac_rate
+*** 减压和毒性
+**** next_stop_m
+**** next_stop_min
+**** surf_gf
+**** gf99
+**** gf_low
+**** gf_high
+**** mod_m
+**** ceiling_m
+**** tissue_raw_pct[16]
+**** tissue_gf_pct[16]
+**** cns_pct
+**** otu
+**** deco_violation
+*** 温度/电池/时间
+**** temperature_c
+**** bat_temperature_c
+**** prj_temperature_c
+**** battery_voltage_v
+**** battery_pct
+**** charge_state
+**** min_temp
+**** max_temp
+**** avg_temp
+**** max_depth
+**** avg_depth
+**** sys_time_h
+**** sys_time_m
+**** sys_time_s
+*** 传感器和系统
+**** ambient_pressure_mbar
+**** nofly_time_min
+**** gyro_x/y/z_dps
+**** accel_x/y/z_g
+**** mag_x/y/z_ut
+**** mlx_x/y/z_ut
+**** tmag_x/y/z_ut
+**** tmag_ut
+**** pitch_deg
+**** roll_deg
+**** attitude_heading_deg
+**** ble_rssi_dbm
+**** cpu_load_pct
+**** fps
+**** sensor_status[16]
+*** 状态开关
+**** heading
+**** heading_locked
+**** heading_target
+**** strobe_on
+**** flashlight_on
+**** dirty_mask
+** 告警系统
+*** 等级
+**** ALARM_INFO
+**** ALARM_WARN
+**** ALARM_CRIT
+*** CRIT
+**** ASCENT TOO FAST -> COMP_DEPTH_1606
+**** PO2 CRITICAL -> COMP_PPO2_0806
+**** PO2 TOO LOW -> COMP_PPO2_0806
+**** CEILING BROKEN -> COMP_NDL_STOP_1606
+**** ALGORITHM LOCKED -> no target
+**** TANK EMPTY -> COMP_POD_0806
+**** BATTERY DEAD -> COMP_BATTERY_0806
+*** WARN
+**** HIGH PO2 -> COMP_PPO2_0806
+**** NDL LOW -> COMP_NDL_STOP_1606
+**** HIGH CNS -> COMP_CNS_0806
+**** HIGH OTU -> COMP_OTU_0806
+**** SAFETY BROKEN -> COMP_NDL_STOP_1606
+**** TURN PRESSURE -> COMP_POD_0806
+**** TANK PRESSURE DIFF -> COMP_POD_0806
+**** DEPTH LIMIT -> COMP_DEPTH_1606
+**** TIME LIMIT -> COMP_DIVE_TIME_1606
+**** BATTERY LOW -> COMP_BATTERY_0806
+**** POD LOST -> no visible target
+*** INFO
+**** SAFETY STOP ACTIVE -> COMP_NDL_STOP_1606
+**** BETTER GAS AVAILABLE -> COMP_GAS_1606
+**** STOP DONE -> COMP_NDL_STOP_1606
+**** CALIBRATE COMPASS -> COMP_HEADING_0806
+*** 节奏
+**** ALARM_INFO_DISPLAY_MS = 5000
+**** ALARM_BANNER_ROTATE_MS = 3000
+**** ALARM_GAS_SWITCH_PROMPT_EXIT_DELTA_M = 1.0
+*** 视觉效果
+**** CRIT_FLASH
+**** WARN_BREATHE
+**** NONE
+** 数据刷新节奏
+*** ui_update_task = 50ms
+*** alarm_view_tick 每帧
+*** dirty_mask 消费
+*** DECO_REFRESH_MS = 1000
+*** LOG RATE
+**** dive_log_append_sampled
+**** 2/5/10/30s
+**** PLAN 图按采样点刷新
+*** 上升率
+**** RATE_LEVEL1_THRESHOLD = 3.0 m/min
+**** RATE_LEVEL2_THRESHOLD = 9.0 m/min
+**** RATE_STILL_THRESHOLD = UI_ASCENT_RATE_STILL_DEADBAND_MPM
+** 字体
+*** FONT_ID_SMALL = 20px
+*** FONT_ID_TITLE = 20px
+*** FONT_ID_MEDIUM = 32px
+*** FONT_ID_LARGE = 64px
+*** FONT_ID_HUGE = 64px
+*** FONT_ID_NDL = 48px
+** 代码边界
+*** core
+**** ui_engine
+**** data
+**** ui_state
+**** update_router
+**** callbacks
+*** screen
+**** screen
+**** layout_view
+**** page_registry
+**** overlay
+**** dots
+**** edit
+*** views
+**** menu_defs
+**** menu_runtime
+**** menu_actions
+**** submenu_model
+**** submenu_view
+**** modal_view
+*** cards
+**** card_compass
+**** card_deco
+**** card_gas
+**** card_plan
+**** card_blank
+*** menus
+**** menu_info
+**** menu_setup
+*** comp
+**** comp_view
+**** comp_style
+**** comp_update
+*** alarm
+**** alarm
+**** alarm_view
+@endwbs
