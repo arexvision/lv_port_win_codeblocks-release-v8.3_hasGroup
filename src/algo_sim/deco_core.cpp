@@ -21,6 +21,7 @@ extern "C" {
 #define GAS_DENSITY_HE_G_L 0.179f
 #define DECO_SCHEDULE_DEBUG_PRINT_MS 1000U
 #define DECO_SCHEDULE_DEBUG_MAX_STOPS 6U
+#define DECO_HIDE_SWITCH_ONLY_STOPS 1U        /* 隐藏 planner 返回的纯切气预测站 */
 #define DECO_CEILING_ACTIVE_M 0.01f           /* ceiling 大于该值即认为有实时减压义务 */
 #define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
 #define SAFETY_STOP_ZONE_SHALLOW_M 2.4f       /* 安停区浅侧边界 */
@@ -223,7 +224,10 @@ static bool stop_is_switch_only(const ArexDecoStop *stop)
 
 static uint32_t stop_runtime_seconds(const ArexDecoStop *stop)
 {
-    if (stop == NULL || stop_is_switch_only(stop)) return 0U;
+    if (stop == NULL) return 0U;
+#if DECO_HIDE_SWITCH_ONLY_STOPS
+    if (stop_is_switch_only(stop)) return 0U;
+#endif
     return stop->duration_seconds;
 }
 
@@ -822,13 +826,15 @@ bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv
     for (uint8_t i = 0U; i < schedule.stop_count && out_snapshot->entry_count < PLAN_MAX_ROWS; i++)
     {
         const ArexDecoStop *stop = &schedule.stops[i];
+        uint32_t runtime_s = stop_runtime_seconds(stop);
         int8_t gas_idx = stop->gas_index;
         if (gas_idx < 0 || gas_idx >= (int8_t)plan_state.gas_plan.gas_count) gas_idx = plan_state.gas_plan.active_gas_index;
         const ArexDecoGas *gas = &plan_state.gas_plan.gases[gas_idx];
         uint16_t stop_gas_l = gas_qty_l(stop->depth_m, stop->duration_seconds, rmv_lpm, &plan_state.config);
         run_s += stop->duration_seconds;
         total_deco_l = (uint16_t)(total_deco_l + stop_gas_l);
-        (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_DECO_STOP, (int16_t)(stop->depth_m + 0.5f), round_up_minutes(stop->duration_seconds), round_up_minutes(run_s), gas, stop_gas_l);
+        if (runtime_s == 0U) continue;
+        (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_DECO_STOP, (int16_t)(stop->depth_m + 0.5f), round_up_minutes(runtime_s), round_up_minutes(run_s), gas, stop_gas_l);
     }
 
     uint32_t total_runtime_s = descent_s + (uint32_t)bottom_time_min * 60U + schedule.tts_seconds;

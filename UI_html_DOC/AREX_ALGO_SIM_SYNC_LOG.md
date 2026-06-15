@@ -69,6 +69,14 @@
 - 更新 AREX 头文件、`mingw64` 静态库、`sf32` 静态库和算法文档到 `0.0.19`。
 - 恢复 `src/algo_core/lib/libarex_deco_core.a` 兼容拷贝，避免 CodeBlocks 仍引用旧路径时报链接错误。
 
+### 展示开关
+
+- 新增 `DECO_HIDE_SWITCH_ONLY_STOPS` 宏，默认 `1`。
+- 该宏只影响 UI 展示层是否跳过纯切气预测站。
+- 开启时，满足 `hold_seconds == 0 && switch_penalty_seconds > 0` 的 stop 不进入右上角 runtime 当前站、实时轨迹停站列表和 DIVE PLAN 表格停站行。
+- 关闭时，纯切气预测站会按 `duration_seconds` 作为普通 schedule stop 显示，便于和算法日志逐项对齐。
+- 无论宏开关如何，算法原始 `schedule`、`tts_seconds`、氧暴露预测、气量估算和推荐气体链路都不被改写。
+
 ## 0.0.17 -> 0.0.18
 
 ### 算法包变化

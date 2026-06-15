@@ -259,6 +259,8 @@ stops[count].stay_min = schedule->stops[i].duration_seconds / 60.0f;
 
 当前实时轨迹图同样会过滤纯切气预测站，避免把 `hold_seconds == 0 && switch_penalty_seconds > 0` 的锚点画成 `0:00` 减压站。真正进入停站列表的时间使用 `duration_seconds`，与 TTS/planner 的总时长口径一致。
 
+这层过滤由 `src/algo_sim/deco_core.cpp` 中的 `DECO_HIDE_SWITCH_ONLY_STOPS` 控制。默认开启，只影响 UI 是否展示纯切气预测站；不改写算法返回的 `schedule`，也不改变 `tts_seconds`、氧暴露预测、气量估算或推荐气体状态。
+
 ## 为什么会出现非 3m 倍数的站点
 
 按当前适配层配置：
