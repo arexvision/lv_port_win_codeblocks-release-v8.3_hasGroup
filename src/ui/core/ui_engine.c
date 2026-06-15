@@ -565,7 +565,7 @@ uint8_t   g_card_custom_obj_count;
 bool alarm_mark_clear_requested(void)
 {
     /* 告警确认已经从普通 key 输入中解耦，普通 click/back 不再吞输入。
-     * PC 调试的 BACK 长按由 debug_link_pc 直接调用 alarm_ack_current()。 */
+     * PC 调试的 BACK 长按由 debug_link_pc 直接调用 alarm_confirm_current()。 */
     return false;
 }
 

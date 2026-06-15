@@ -140,60 +140,43 @@ Recommended usage:
 
 Not recommended for ordinary runtime condition handling.
 
-## 5. Why some alarms can be acknowledged and some cannot
+## 5. Alarm confirmation model
 
-Each fixed alarm has a clear policy in `src/ui/alarm/alarm.c`.
+Current alarms separate condition ownership from visual acknowledgement.
 
-There are 3 policies:
+- The owner calls `alarm_set_active(id, true/false)` to set or clear the real condition.
+- `back 2` calls `alarm_confirm_current()`.
+- Confirmation hides the banner and stops target flashing/breathing, but it does not mean the condition is gone.
+- When the owner clears the condition with `alarm_set_active(id, false)`, ack state is reset for the next trigger.
 
-1. `ALARM_CLEAR_CONDITION_ONLY`
-   User click does not hide it.
-   It stays visible until the owner clears the condition with `alarm_set_active(id, false)`.
+Level behavior:
 
-2. `ALARM_CLEAR_ACK_HIDE`
-   User click can hide it.
-   But internally it still counts as active until the owner clears the condition first.
-   If the condition later clears and then happens again, it can show again.
+- CRITICAL: banner and target flash. `back 2` hides the banner and leaves the target in steady highlighted state until condition clear.
+- WARNING: if the target widget is visible, only the target breathes; if the target is not visible, a warning banner is shown. `back 2` hides the banner/stops breathing and leaves a steady highlight until condition clear.
+- INFO: normal notifications auto-hide after 5 seconds.
 
-3. `ALARM_CLEAR_AUTO_TIMEOUT`
-   Auto-hides after the configured timeout.
-   Used for one-shot prompt style notifications.
+`INFO_GAS_SWITCH` is special:
 
-Examples in current code:
+- It does not auto-hide after 5 seconds.
+- It appears when a recommended gas is available.
+- It records the depth at which the prompt appears.
+- If the diver ascends more than `ALARM_GAS_SWITCH_PROMPT_EXIT_DELTA_M` shallower than that prompt depth without confirming, the prompt hides for this recommendation.
+- `back 2` confirms it and automatically submits `request_gas_switch(bus_get_recommended_gas_idx())`.
+- ENTER does not confirm alarms and does not switch gas.
 
-- `ALARM_ID_CRIT_CEIL_BROKEN`
-  `CONDITION_ONLY`
-  Reason: user should not be able to dismiss a still-dangerous condition.
+## 6. Input mapping
 
-- `ALARM_ID_WARN_PO2_ELEVATED`
-  `ACK_HIDE`
-  Reason: user may confirm it once, but the underlying condition still exists until the owner clears it.
+The generic click-to-clear path is retired. `alarm_mark_clear_requested()` remains as a compatibility hook and returns false.
 
-- `ALARM_ID_INFO_STOP_DONE`
-  `AUTO_TIMEOUT`
-  Reason: this is a short informational event.
+Current input ownership:
 
-## 6. What the click-to-clear logic currently does
-
-The click-side logic is in:
-
-- `src/ui/core/ui_state.c`
-- `src/ui/alarm/alarm.c`
-
-Current behavior:
-
-1. UI detects `alarm_pending_click`
-2. next user click calls `alarm_mark_clear_requested()`
-3. that calls `alarm_ack_current()`
-4. only alarms with `ALARM_CLEAR_ACK_HIDE` will actually hide
-
-So the user click is not a universal clear.
-
-It is only an `ACK` action.
+- normal ENTER: regular UI confirm/click only.
+- normal BACK: regular UI back only.
+- long BACK / TCP `back 2`: `alarm_confirm_current()`.
 
 That distinction is important for real-device porting:
 
-- `ACK` means: "I saw it"
+- `CONFIRM` means: "I saw it" or, for GAS_SWITCH, "switch to the recommended gas".
 - `CLEAR` means: "condition is gone"
 
 Real-device code should still call `alarm_set_active(id, false)` when the condition truly disappears.
@@ -239,7 +222,7 @@ Create a new `alarm_id_t` when all of these are true:
 1. the condition is stable and expected in production
 2. the text is stable
 3. the target widget is known
-4. the clear policy should be consistent every time
+4. the condition owner and visual confirmation behavior should be consistent every time
 
 If the text is temporary, debug-only, or highly variable, use custom alarm instead.
 
@@ -301,7 +284,7 @@ For real-device porting, the recommended order is:
 2. move all warning condition decisions into algorithm/device tasks
 3. use `alarm_set_active()` for stable conditions
 4. use `alarm_raise_custom()` only for temporary/debug text
-5. define whether each new alarm is `CONDITION_ONLY`, `ACK_HIDE`, or `AUTO_TIMEOUT`
+5. define whether each new alarm is condition, 5s auto-timeout notification, or a `back 2` confirm action
 6. wire `LOG RATE` to a real config field and a real logging task
 
 ## 12. Files to read

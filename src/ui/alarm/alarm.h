@@ -17,12 +17,15 @@ extern "C" {
 #endif
 
 #define ALARM_TARGET_MAX  12
+#define ALARM_VISIBLE_TARGET_MAX 64
+#define ALARM_GAS_SWITCH_PROMPT_EXIT_DELTA_M 1.0f
 
 /* 告警 ID 按 CRIT/WARN/INFO 分组，顺序会影响展示优先级和轮播行为。 */
 typedef enum
 {
     ALARM_ID_CRIT_ASCENT_RATE = 0,
     ALARM_ID_CRIT_PO2_MAX,
+    ALARM_ID_CRIT_PO2_MIN,
     ALARM_ID_CRIT_CEIL_BROKEN,
     ALARM_ID_CRIT_ALGO_LOCK,
     ALARM_ID_CRIT_TANK_EMPTY,
@@ -48,6 +51,15 @@ typedef enum
     ALARM_ID_COUNT
 } alarm_id_t;
 
+typedef enum
+{
+    ALARM_TARGET_EFFECT_NONE = 0,
+    ALARM_TARGET_EFFECT_CRIT_FLASH,
+    ALARM_TARGET_EFFECT_CRIT_STEADY,
+    ALARM_TARGET_EFFECT_WARN_BREATHE,
+    ALARM_TARGET_EFFECT_WARN_STEADY,
+} alarm_target_effect_t;
+
 typedef struct
 {
     /* 这是闹钟模块对外暴露的当前展示快照，view 层只读使用。 */
@@ -58,6 +70,13 @@ typedef struct
     uint32_t revision;
 } alarm_display_t;
 
+typedef struct
+{
+    comp_id_t target;
+    alarm_level_t level;
+    alarm_target_effect_t effect;
+} alarm_target_effect_entry_t;
+
 void alarm_init(void);
 /* active=true 表示条件触发，false 表示条件解除。 */
 bool alarm_set_active(alarm_id_t id, bool active);
@@ -67,20 +86,20 @@ bool alarm_raise_custom(alarm_level_t level,
                              comp_id_t target);
 bool alarm_clear_custom(void);
 void alarm_clear_all(void);
-/* 同步服务层 ACK 状态；只对 ACK_HIDE 告警生效。 */
+/* 同步服务层确认状态；确认只影响视觉提示，不代表条件解除。 */
 bool alarm_set_acknowledged(alarm_id_t id, bool acknowledged);
 bool alarm_current_requires_ack(void);
-/* ACK 当前展示告警，用于支持用户手动确认隐藏。 */
+/* 确认当前展示告警；INFO_GAS_SWITCH 会在这里提交自动切气请求。 */
+bool alarm_confirm_current(void);
+/* 兼容旧接口，内部等价于 alarm_confirm_current()。 */
 bool alarm_ack_current(void);
 bool alarm_display_is(alarm_id_t id);
 /* 周期推进告警展示和轮播逻辑。 */
 void alarm_tick(uint32_t now_ms);
 
 const alarm_display_t *alarm_get_display(void);
-/* 收集当前某一等级下需要高亮的组件 ID 列表。 */
-uint8_t alarm_get_active_targets(alarm_level_t level,
-                                      comp_id_t *targets,
-                                      uint8_t max_targets);
+void alarm_set_visible_targets(const comp_id_t *targets, uint8_t count);
+uint8_t alarm_get_target_effects(alarm_target_effect_entry_t *entries, uint8_t max_entries);
 
 #ifdef __cplusplus
 }

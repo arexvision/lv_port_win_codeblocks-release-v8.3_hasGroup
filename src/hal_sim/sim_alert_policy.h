@@ -169,6 +169,7 @@ static bool sim_alert_alarm_id_from_text(const char *text, alarm_id_t *out_id)
 
     if (sim_alert_streq(text, "asc") || sim_alert_streq(text, "ascent")) *out_id = ALARM_ID_CRIT_ASCENT_RATE;
     else if (sim_alert_streq(text, "po2") || sim_alert_streq(text, "ppo2")) *out_id = ALARM_ID_CRIT_PO2_MAX;
+    else if (sim_alert_streq(text, "po2min") || sim_alert_streq(text, "ppo2min")) *out_id = ALARM_ID_CRIT_PO2_MIN;
     else if (sim_alert_streq(text, "po2w") || sim_alert_streq(text, "ppo2w")) *out_id = ALARM_ID_WARN_PO2_ELEVATED;
     else if (sim_alert_streq(text, "ceil") || sim_alert_streq(text, "ceiling")) *out_id = ALARM_ID_CRIT_CEIL_BROKEN;
     else if (sim_alert_streq(text, "lock") || sim_alert_streq(text, "algo")) *out_id = ALARM_ID_CRIT_ALGO_LOCK;
@@ -193,6 +194,7 @@ static const char *sim_alert_alarm_id_name(alarm_id_t id)
     {
     case ALARM_ID_CRIT_ASCENT_RATE: return "asc";
     case ALARM_ID_CRIT_PO2_MAX: return "po2";
+    case ALARM_ID_CRIT_PO2_MIN: return "po2min";
     case ALARM_ID_CRIT_CEIL_BROKEN: return "ceil";
     case ALARM_ID_CRIT_ALGO_LOCK: return "lock";
     case ALARM_ID_CRIT_BATTERY_DEAD: return "dead";

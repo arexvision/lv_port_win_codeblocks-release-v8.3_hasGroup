@@ -596,7 +596,7 @@ static void debug_send_help(void)
         "  layout <default|current|gas|empty|side|top|bottom>\r\n"
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
-        "  alert ids: asc po2 po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
+        "  alert ids: asc po2 po2min po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
         "Slots are 0-based. TCP disables the auto depth script; goto defaults to 18m/min down, 10m/min up; optional goto speed uses simulated time.\r\n");
 }
 
@@ -862,7 +862,7 @@ static void debug_exec_line(char *line)
 
         if (!sub || debug_streq(sub, "list"))
         {
-            debug_send_raw("ALERT ids: asc po2 po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n");
+            debug_send_raw("ALERT ids: asc po2 po2min po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n");
             return;
         }
 
@@ -939,7 +939,7 @@ static void debug_exec_line(char *line)
                 return;
             }
 
-            if (!alarm_ack_current())
+            if (!alarm_confirm_current())
             {
                 ui_handle_back();
             }

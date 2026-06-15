@@ -427,8 +427,8 @@ sequenceDiagram
 
 | 模块 | 责任 |
 |---|---|
-| `alarm/alarm.c` | 告警定义表、active 状态、优先级、ACK、自动超时、横幅轮播 |
-| `alarm/alarm_view.c` | 横幅创建、颜色/动画、靶向组件闪烁、样式恢复 |
+| `alarm/alarm.c` | 告警定义表、条件 active、横幅/原位确认状态、自动超时、横幅轮播 |
+| `alarm/alarm_view.c` | 横幅创建、颜色/动画、目标组件反色闪烁/呼吸/稳定高亮、样式恢复 |
 
 ```mermaid
 flowchart LR
@@ -437,20 +437,20 @@ flowchart LR
     Timer["ui_update_task() 每 50ms"] --> View["alarm_view_tick(ctx)"]
     View --> Engine
     Engine --> Display["alarm_display_t<br/>当前横幅"]
-    Engine --> Targets["target comp_id_t[]"]
+    Engine --> Targets["alarm_target_effect_t[]"]
     View --> Banner["safe zone 横幅"]
-    View --> Blink["左锚点和 5F 目标组件闪烁"]
+    View --> Blink["左锚点和 5F 目标组件效果"]
 ```
 
 告警等级和策略：
 
 | 等级 | 行为 |
 |---|---|
-| `ALARM_CRIT` | 最高优先级，通常条件解除前强制驻留 |
-| `ALARM_WARN` | 可 ACK 隐藏，但条件解除前不重新触发同一个提示 |
-| `ALARM_INFO` | 信息提示，可自动超时 |
+| `ALARM_CRIT` | 横幅反色闪烁，目标模块反色闪烁；`back 2` 后隐藏横幅，目标模块保持稳定异常高亮，直到条件解除 |
+| `ALARM_WARN` | 目标模块可见时不弹横幅，只在原位呼吸；目标不可见时弹 WARNING 横幅；`back 2` 后隐藏横幅并取消呼吸，直到条件解除 |
+| `ALARM_INFO` | 普通通知静态显示 5s 后自动消失；`INFO_GAS_SWITCH` 是特殊交互提示，必须 `back 2` 确认 |
 
-靶向闪烁依赖组件创建时的 `user_data` 烙印。比如 `ALARM_ID_WARN_NDL_LOW` 的 target 是 `COMP_NDL_STOP_1606`，告警视图会在左侧锚点和所有 CUSTOM_GRID 容器中找这个 comp id，然后统一闪烁。
+目标效果依赖组件创建时的 `user_data` 烙印。比如 `ALARM_ID_WARN_NDL_LOW` 的 target 是 `COMP_NDL_STOP_1606`，告警视图会在左侧锚点和当前可见 CUSTOM_GRID 容器中找这个 comp id，然后按等级应用闪烁、呼吸或稳定高亮。
 
 ## 14. PC 模拟器边界
 
@@ -616,7 +616,7 @@ sequenceDiagram
 
 业务分发依据 `MENU_ITEM_BRIGHTNESS_HIGH`，不是 `"HIGH"` 这个显示字符串。
 
-## 19. 例子 5：告警触发和 ACK
+## 19. 例子 5：告警触发和确认
 
 假设算法判断 PPO2 超限：
 
@@ -627,22 +627,25 @@ sequenceDiagram
     participant Timer as ui_update_task
     participant View as alarm_view.c
     participant User as 用户
-    participant State as ui_state
+    participant Input as 输入层
 
     Algo->>Alarm: alarm_set_active(ALARM_ID_CRIT_PO2_MAX, true)
     Timer->>View: alarm_view_tick(ctx)
+    View->>Alarm: alarm_set_visible_targets(...)
     View->>Alarm: alarm_tick(now)
     View->>Alarm: alarm_get_display()
     Alarm-->>View: level/text/target COMP_PPO2_0806
-    View->>View: show banner + blink target widgets
-    User->>State: click/back/rotate
-    State->>Alarm: alarm_ack_current()
-    Alarm-->>State: true/false according to clear policy
+    View->>Alarm: alarm_get_target_effects()
+    View->>View: show banner + flash target widgets
+    User->>Input: back 2 / 长按 BACK 两秒
+    Input->>Alarm: alarm_confirm_current()
+    Alarm-->>Input: banner_ack + target_ack
+    View->>View: hide banner + keep target steady highlight
     Algo->>Alarm: alarm_set_active(ALARM_ID_CRIT_PO2_MAX, false)
     Timer->>View: next tick restores target styles
 ```
 
-CRIT 类型通常不是 ACK 后直接消失，而是需要条件解除；WARN 类型可 ACK 隐藏；INFO 类型可自动超时。
+确认只影响视觉提示，不代表条件解除。普通 ENTER/BACK 不确认告警；PC 调试链路的 `back 2` 和真机长按 BACK 两秒应统一调用 `alarm_confirm_current()`。`INFO_GAS_SWITCH` 在该函数内读取推荐气体并提交 `request_gas_switch()`。
 
 ## 20. 改代码时的定位方法
 

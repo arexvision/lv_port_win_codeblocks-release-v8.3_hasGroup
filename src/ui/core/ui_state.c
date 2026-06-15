@@ -473,28 +473,6 @@ void ui_handle_rotate(int8_t dir)
 /* =========================================
    Click handler
    ========================================= */
-static bool ui_try_confirm_gas_switch_info(void)
-{
-    int8_t gas_idx;
-
-    if (!alarm_display_is(ALARM_ID_INFO_GAS_SWITCH))
-    {
-        return false;
-    }
-
-    gas_idx = bus_get_recommended_gas_idx();
-    if (gas_idx < 0)
-    {
-        (void)alarm_set_active(ALARM_ID_INFO_GAS_SWITCH, false);
-        return true;
-    }
-
-    request_gas_switch((uint8_t)gas_idx);
-    bus_set_recommended_gas_idx(-1);
-    (void)alarm_set_active(ALARM_ID_INFO_GAS_SWITCH, false);
-    return true;
-}
-
 void ui_handle_click(void)
 {
 #if UI_CLICK_DEBOUNCE_ENABLED || UI_CLICK_PROFILE_ENABLED
@@ -525,17 +503,6 @@ void ui_handle_click(void)
     flush_ms = lv_tick_get() - mark_ms;
     mark_ms = lv_tick_get();
 #endif
-
-    if (ui_try_confirm_gas_switch_info())
-    {
-        s_ui.alarm_pending_click = false;
-#if UI_CLICK_PROFILE_ENABLED
-        ui_click_profile_note(false, state_before, (uint8_t)s_ui.state, page_id_before,
-                              lv_tick_get() - click_start_ms, flush_ms,
-                              lv_tick_get() - mark_ms);
-#endif
-        return;
-    }
 
     {
         extern bool alarm_mark_clear_requested(void);

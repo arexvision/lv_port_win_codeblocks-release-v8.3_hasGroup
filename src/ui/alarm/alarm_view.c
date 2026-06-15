@@ -246,14 +246,14 @@ static void alarm_view_set_text_color_recursive(lv_obj_t *obj, lv_color_t color)
 static void alarm_view_restore_widget_style(lv_obj_t *obj);
 
 static void alarm_view_apply_widget_style(lv_obj_t *obj,
-                                          alarm_level_t level,
+                                          alarm_target_effect_t effect,
                                           bool phase_on)
 {
     /* 告警高亮的核心逻辑：按等级切换底色、边框和文字颜色。 */
-    lv_color_t alarm_color = alarm_view_level_color(level);
+    lv_color_t alarm_color = alarm_view_level_color(ALARM_CRIT);
     lv_color_t text_color = GREEN;
 
-    if (level >= ALARM_CRIT)
+    if (effect == ALARM_TARGET_EFFECT_CRIT_FLASH)
     {
         if (phase_on)
         {
@@ -269,13 +269,34 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
             return;
         }
     }
-    else if (level == ALARM_WARN)
+    else if (effect == ALARM_TARGET_EFFECT_CRIT_STEADY)
+    {
+        lv_obj_set_style_bg_color(obj, alarm_color, 0);
+        lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_color(obj, alarm_color, 0);
+        lv_obj_set_style_border_width(obj, 2, 0);
+        text_color = BLACK;
+    }
+    else if (effect == ALARM_TARGET_EFFECT_WARN_BREATHE)
     {
         lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
         lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
         lv_obj_set_style_border_color(obj, alarm_color, 0);
         lv_obj_set_style_border_width(obj, phase_on ? 2 : 1, 0);
         text_color = GREEN;
+    }
+    else if (effect == ALARM_TARGET_EFFECT_WARN_STEADY)
+    {
+        lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
+        lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_color(obj, alarm_color, 0);
+        lv_obj_set_style_border_width(obj, 1, 0);
+        text_color = GREEN;
+    }
+    else
+    {
+        alarm_view_restore_widget_style(obj);
+        return;
     }
 
     alarm_view_set_text_color_recursive(obj, text_color);
@@ -297,7 +318,7 @@ static void alarm_view_restore_widget_style(lv_obj_t *obj)
 static void alarm_view_visit_targets(const alarm_view_context_t *ctx,
                                      const comp_id_t *targets,
                                      uint8_t target_count,
-                                     alarm_level_t level,
+                                     alarm_target_effect_t effect,
                                      bool phase_on,
                                      bool restore)
 {
@@ -348,7 +369,7 @@ static void alarm_view_visit_targets(const alarm_view_context_t *ctx,
             }
             else
             {
-                alarm_view_apply_widget_style(child, level, phase_on);
+                alarm_view_apply_widget_style(child, effect, phase_on);
             }
         }
     }
@@ -358,7 +379,77 @@ static void alarm_view_restore_targets(const alarm_view_context_t *ctx,
                                        const comp_id_t *targets,
                                        uint8_t count)
 {
-    alarm_view_visit_targets(ctx, targets, count, ALARM_NONE, false, true);
+    alarm_view_visit_targets(ctx, targets, count, ALARM_TARGET_EFFECT_NONE, false, true);
+}
+
+static comp_id_t alarm_view_comp_from_raw(uintptr_t raw)
+{
+    if (raw >= 1000U)
+    {
+        raw %= 1000U;
+    }
+    if (raw == 0U || raw >= 255U)
+    {
+        return COMP_EMPTY;
+    }
+    return (comp_id_t)raw;
+}
+
+static void alarm_view_visible_target_add(comp_id_t *targets,
+                                          uint8_t *count,
+                                          comp_id_t target)
+{
+    if (targets == NULL || count == NULL || target == COMP_EMPTY || *count >= ALARM_VISIBLE_TARGET_MAX)
+    {
+        return;
+    }
+
+    for (uint8_t i = 0U; i < *count; i++)
+    {
+        if (targets[i] == target)
+        {
+            return;
+        }
+    }
+    targets[(*count)++] = target;
+}
+
+static void alarm_view_collect_visible_targets(const alarm_view_context_t *ctx)
+{
+    comp_id_t targets[ALARM_VISIBLE_TARGET_MAX];
+    uint8_t count = 0U;
+
+    if (!ctx)
+    {
+        alarm_set_visible_targets(NULL, 0U);
+        return;
+    }
+
+    uint8_t max_count = (ctx->custom_card_count < ctx->max_custom_cards)
+                        ? ctx->custom_card_count : ctx->max_custom_cards;
+
+    for (uint8_t c = 0; c <= max_count; c++)
+    {
+        lv_obj_t *container = (c < max_count && ctx->custom_cards) ? ctx->custom_cards[c] : ctx->left_anchor;
+        if (!container)
+        {
+            continue;
+        }
+        if ((c < max_count) && !screen_custom_card_refresh_visible(c))
+        {
+            continue;
+        }
+
+        int16_t child_count = lv_obj_get_child_cnt(container);
+        for (int16_t i = 0; i < child_count; i++)
+        {
+            lv_obj_t *child = lv_obj_get_child(container, i);
+            comp_id_t target = alarm_view_comp_from_raw((uintptr_t)lv_obj_get_user_data(child));
+            alarm_view_visible_target_add(targets, &count, target);
+        }
+    }
+
+    alarm_set_visible_targets(targets, count);
 }
 
 static void alarm_view_format_banner(const alarm_display_t *display,
@@ -391,6 +482,7 @@ void alarm_view_tick(const alarm_view_context_t *ctx)
     static bool s_last_visible;
 
     uint32_t now = lv_tick_get();
+    alarm_view_collect_visible_targets(ctx);
     alarm_tick(now);
 
     const alarm_display_t *display = alarm_get_display();
@@ -405,40 +497,77 @@ void alarm_view_tick(const alarm_view_context_t *ctx)
         phase_on = ((now / 500U) % 2U) == 0U;
     }
 
-    if (!display->visible)
+    bool need_banner_update = (!s_last_visible ||
+                               s_last_revision != display->revision ||
+                               s_last_level != display->level ||
+                               s_last_phase != phase_on);
+
+    if (!display->visible && s_last_visible)
     {
-        if (s_last_visible)
+        if (s_alarm_banner)
         {
-            if (s_alarm_banner)
+            if (s_last_level == ALARM_INFO)
             {
-                if (s_last_level == ALARM_INFO)
+                alarm_view_banner_animate_out();
+            }
+            else
+            {
+                alarm_view_banner_cancel_anim();
+                lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
+                lv_obj_add_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);
+            }
+        }
+    }
+    else if (display->visible && need_banner_update)
+    {
+        char banner_text[128];
+        bool was_visible = s_last_visible;
+        alarm_level_t prev_level = s_last_level;
+        uint32_t prev_revision = s_last_revision;
+
+        alarm_view_format_banner(display, banner_text, sizeof(banner_text));
+        alarm_view_show_banner(ctx, display->level, banner_text);
+
+        if (s_alarm_banner && s_alarm_banner_lbl)
+        {
+            lv_color_t alarm_color = alarm_view_level_color(display->level);
+
+            if (display->level >= ALARM_CRIT)
+            {
+                alarm_view_banner_cancel_anim();
+                lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
+                lv_obj_set_style_bg_color(s_alarm_banner, phase_on ? alarm_color : BLACK, 0);
+                lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+                lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
+                lv_obj_set_style_border_width(s_alarm_banner, 2, 0);
+                lv_obj_set_style_text_color(s_alarm_banner_lbl, phase_on ? BLACK : alarm_color, 0);
+            }
+            else if (display->level == ALARM_WARN)
+            {
+                alarm_view_banner_cancel_anim();
+                lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
+                lv_obj_set_style_bg_color(s_alarm_banner, alarm_view_dim_green(20), 0);
+                lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+                lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
+                lv_obj_set_style_border_width(s_alarm_banner, 2, 0);
+                lv_obj_set_style_text_color(s_alarm_banner_lbl, alarm_color, 0);
+            }
+            else
+            {
+                lv_obj_set_style_bg_color(s_alarm_banner, alarm_view_dim_green(10), 0);
+                lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
+                lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
+                lv_obj_set_style_border_width(s_alarm_banner, 1, 0);
+                lv_obj_set_style_text_color(s_alarm_banner_lbl, alarm_color, 0);
+
+                if (!was_visible ||
+                    prev_level != display->level ||
+                    prev_revision != display->revision)
                 {
-                    alarm_view_banner_animate_out();
-                }
-                else
-                {
-                    alarm_view_banner_cancel_anim();
-                    lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
-                    lv_obj_add_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);
+                    alarm_view_banner_animate_in();
                 }
             }
-            alarm_view_restore_targets(ctx, s_prev_targets, s_prev_target_count);
-            s_prev_target_count = 0;
         }
-
-        s_last_visible = false;
-        s_last_level = ALARM_NONE;
-        s_last_revision = display->revision;
-        return;
-    }
-
-    bool need_update = (!s_last_visible ||
-                        s_last_revision != display->revision ||
-                        s_last_level != display->level ||
-                        s_last_phase != phase_on);
-    if (!need_update)
-    {
-        return;
     }
 
     if (s_prev_target_count > 0U)
@@ -447,66 +576,28 @@ void alarm_view_tick(const alarm_view_context_t *ctx)
         s_prev_target_count = 0;
     }
 
-    char banner_text[128];
-    bool was_visible = s_last_visible;
-    alarm_level_t prev_level = s_last_level;
-    uint32_t prev_revision = s_last_revision;
-
-    alarm_view_format_banner(display, banner_text, sizeof(banner_text));
-    alarm_view_show_banner(ctx, display->level, banner_text);
-
-    if (s_alarm_banner && s_alarm_banner_lbl)
+    alarm_target_effect_entry_t effects[ALARM_TARGET_MAX];
+    uint8_t effect_count = alarm_get_target_effects(effects, ALARM_TARGET_MAX);
+    for (uint8_t i = 0U; i < effect_count; i++)
     {
-        lv_color_t alarm_color = alarm_view_level_color(display->level);
-
-        if (display->level >= ALARM_CRIT)
+        bool target_phase = true;
+        if (effects[i].effect == ALARM_TARGET_EFFECT_CRIT_FLASH)
         {
-            alarm_view_banner_cancel_anim();
-            lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
-            lv_obj_set_style_bg_color(s_alarm_banner, phase_on ? alarm_color : BLACK, 0);
-            lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
-            lv_obj_set_style_border_width(s_alarm_banner, 2, 0);
-            lv_obj_set_style_text_color(s_alarm_banner_lbl, phase_on ? BLACK : alarm_color, 0);
+            target_phase = ((now / 333U) % 2U) == 0U;
         }
-        else if (display->level == ALARM_WARN)
+        else if (effects[i].effect == ALARM_TARGET_EFFECT_WARN_BREATHE)
         {
-            alarm_view_banner_cancel_anim();
-            lv_obj_set_style_opa(s_alarm_banner, LV_OPA_COVER, 0);
-            lv_obj_set_style_bg_color(s_alarm_banner, alarm_view_dim_green(20), 0);
-            lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
-            lv_obj_set_style_border_width(s_alarm_banner, phase_on ? 4 : 1, 0);
-            lv_obj_set_style_text_color(s_alarm_banner_lbl, alarm_color, 0);
+            target_phase = ((now / 500U) % 2U) == 0U;
         }
-        else
+        alarm_view_visit_targets(ctx, &effects[i].target, 1U, effects[i].effect, target_phase, false);
+        if (s_prev_target_count < ALARM_TARGET_MAX)
         {
-            lv_obj_set_style_bg_color(s_alarm_banner, alarm_view_dim_green(10), 0);
-            lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
-            lv_obj_set_style_border_width(s_alarm_banner, 1, 0);
-            lv_obj_set_style_text_color(s_alarm_banner_lbl, alarm_color, 0);
-
-            if (!was_visible ||
-                prev_level != display->level ||
-                prev_revision != display->revision)
-            {
-                alarm_view_banner_animate_in();
-            }
+            s_prev_targets[s_prev_target_count++] = effects[i].target;
         }
     }
 
-    s_prev_target_count = alarm_get_active_targets(display->level,
-                                                        s_prev_targets,
-                                                        ALARM_TARGET_MAX);
-    if (s_prev_target_count > 0U)
-    {
-        alarm_view_visit_targets(ctx, s_prev_targets, s_prev_target_count,
-                                 display->level, phase_on, false);
-    }
-
-    s_last_visible = true;
-    s_last_level = display->level;
+    s_last_visible = display->visible;
+    s_last_level = display->visible ? display->level : ALARM_NONE;
     s_last_phase = phase_on;
     s_last_revision = display->revision;
 }

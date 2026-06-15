@@ -7,18 +7,19 @@
 
 #include "alarm.h"
 #include "../core/data.h"
+#include "../core/ui_state.h"
 #include "lvgl/lvgl.h"
 #include <string.h>
 
-#define ALARM_INFO_DISPLAY_MS  3000U
+#define ALARM_INFO_DISPLAY_MS  5000U
 #define ALARM_BANNER_ROTATE_MS 3000U
 
 typedef enum
 {
-    ALARM_CLEAR_CONDITION_ONLY = 0, /* 条件解除前强制驻留，ACK 不隐藏 */
-    ALARM_CLEAR_ACK_HIDE,           /* ACK 后隐藏，直到条件先解除再重新触发 */
-    ALARM_CLEAR_AUTO_TIMEOUT        /* 通知类：自动超时隐藏 */
-} alarm_clear_policy_t;
+    ALARM_MODE_CONDITION = 0,
+    ALARM_MODE_AUTO_TIMEOUT,
+    ALARM_MODE_CONFIRM_ACTION,
+} alarm_mode_t;
 
 typedef struct
 {
@@ -27,13 +28,14 @@ typedef struct
     const char *text;
     comp_id_t target;
     bool connected;
-    alarm_clear_policy_t clear_policy;
+    alarm_mode_t mode;
 } alarm_def_t;
 
 typedef struct
 {
     bool active;
-    bool acked;
+    bool banner_acked;
+    bool target_acked;
     uint32_t first_tick;
     uint32_t last_tick;
     uint32_t seq;
@@ -47,123 +49,158 @@ typedef struct
     comp_id_t target;
     uint32_t first_tick;
     uint32_t seq;
-    bool acked;
-    alarm_clear_policy_t clear_policy;
+    bool banner_acked;
+    bool target_acked;
+    alarm_mode_t mode;
 } alarm_custom_t;
 
 static const alarm_def_t s_alarm_defs[ALARM_ID_COUNT] =
 {
-    { ALARM_ID_CRIT_ASCENT_RATE,    ALARM_CRIT, "ASCENT TOO FAST",       COMP_DEPTH_1606,    true,  ALARM_CLEAR_CONDITION_ONLY },
-    { ALARM_ID_CRIT_PO2_MAX,        ALARM_CRIT, "PO2 CRITICAL",          COMP_PPO2_0806,     true,  ALARM_CLEAR_CONDITION_ONLY },
-    { ALARM_ID_CRIT_CEIL_BROKEN,    ALARM_CRIT, "CEILING BROKEN",        COMP_NDL_STOP_1606, true,  ALARM_CLEAR_CONDITION_ONLY },
-    { ALARM_ID_CRIT_ALGO_LOCK,      ALARM_CRIT, "ALGORITHM LOCKED",      COMP_EMPTY,         false, ALARM_CLEAR_CONDITION_ONLY },
-    { ALARM_ID_CRIT_TANK_EMPTY,     ALARM_CRIT, "TANK EMPTY",            COMP_POD_0806,      true,  ALARM_CLEAR_CONDITION_ONLY },
-    { ALARM_ID_CRIT_BATTERY_DEAD,   ALARM_CRIT, "BATTERY DEAD",          COMP_BATTERY_0806,  true,  ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_CRIT_ASCENT_RATE,    ALARM_CRIT, "ASCENT TOO FAST",       COMP_DEPTH_1606,    true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_CRIT_PO2_MAX,        ALARM_CRIT, "PO2 CRITICAL",          COMP_PPO2_0806,     true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_CRIT_PO2_MIN,        ALARM_CRIT, "PO2 TOO LOW",           COMP_PPO2_0806,     true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_CRIT_CEIL_BROKEN,    ALARM_CRIT, "CEILING BROKEN",        COMP_NDL_STOP_1606, true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_CRIT_ALGO_LOCK,      ALARM_CRIT, "ALGORITHM LOCKED",      COMP_EMPTY,         false, ALARM_MODE_CONDITION },
+    { ALARM_ID_CRIT_TANK_EMPTY,     ALARM_CRIT, "TANK EMPTY",            COMP_POD_0806,      true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_CRIT_BATTERY_DEAD,   ALARM_CRIT, "BATTERY DEAD",          COMP_BATTERY_0806,  true,  ALARM_MODE_CONDITION },
 
-    { ALARM_ID_WARN_PO2_ELEVATED,   ALARM_WARN, "HIGH PO2",              COMP_PPO2_0806,     true,  ALARM_CLEAR_ACK_HIDE },
-    { ALARM_ID_WARN_NDL_LOW,        ALARM_WARN, "NDL LOW",               COMP_NDL_STOP_1606, true,  ALARM_CLEAR_ACK_HIDE },
-    { ALARM_ID_WARN_CNS_HIGH,       ALARM_WARN, "HIGH CNS",              COMP_CNS_0806,      true,  ALARM_CLEAR_ACK_HIDE },
-    { ALARM_ID_WARN_OTU_HIGH,       ALARM_WARN, "HIGH OTU",              COMP_OTU_0806,      true,  ALARM_CLEAR_ACK_HIDE },
-    { ALARM_ID_WARN_SAFETY_BROKEN,  ALARM_WARN, "SAFETY BROKEN",         COMP_NDL_STOP_1606, true,  ALARM_CLEAR_ACK_HIDE },
-    { ALARM_ID_WARN_TANK_TURN,      ALARM_WARN, "TURN PRESSURE",         COMP_POD_0806,      true,  ALARM_CLEAR_ACK_HIDE },
-    { ALARM_ID_WARN_SIDEMOUNT_DIFF, ALARM_WARN, "TANK PRESSURE DIFF",    COMP_POD_0806,      true,  ALARM_CLEAR_ACK_HIDE },
-    { ALARM_ID_WARN_DEPTH_LIMIT,    ALARM_WARN, "DEPTH LIMIT",           COMP_DEPTH_1606,    true,  ALARM_CLEAR_ACK_HIDE },
-    { ALARM_ID_WARN_TIME_LIMIT,     ALARM_WARN, "TIME LIMIT",            COMP_DIVE_TIME_1606,true,  ALARM_CLEAR_ACK_HIDE },
-    { ALARM_ID_WARN_BATTERY_LOW,    ALARM_WARN, "BATTERY LOW",           COMP_BATTERY_0806,  true,  ALARM_CLEAR_ACK_HIDE },
-    { ALARM_ID_WARN_POD_LOST,       ALARM_WARN, "POD LOST",              COMP_POD_0806,      false, ALARM_CLEAR_ACK_HIDE },
+    { ALARM_ID_WARN_PO2_ELEVATED,   ALARM_WARN, "HIGH PO2",              COMP_PPO2_0806,     true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_NDL_LOW,        ALARM_WARN, "NDL LOW",               COMP_NDL_STOP_1606, true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_CNS_HIGH,       ALARM_WARN, "HIGH CNS",              COMP_CNS_0806,      true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_OTU_HIGH,       ALARM_WARN, "HIGH OTU",              COMP_OTU_0806,      true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_SAFETY_BROKEN,  ALARM_WARN, "SAFETY BROKEN",         COMP_NDL_STOP_1606, true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_TANK_TURN,      ALARM_WARN, "TURN PRESSURE",         COMP_POD_0806,      true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_SIDEMOUNT_DIFF, ALARM_WARN, "TANK PRESSURE DIFF",    COMP_POD_0806,      true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_DEPTH_LIMIT,    ALARM_WARN, "DEPTH LIMIT",           COMP_DEPTH_1606,    true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_TIME_LIMIT,     ALARM_WARN, "TIME LIMIT",            COMP_DIVE_TIME_1606,true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_BATTERY_LOW,    ALARM_WARN, "BATTERY LOW",           COMP_BATTERY_0806,  true,  ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_POD_LOST,       ALARM_WARN, "POD LOST",              COMP_POD_0806,      false, ALARM_MODE_CONDITION },
 
-    /* L1 prompts are event-style notifications unless a future owner needs a modal flow. */
-    { ALARM_ID_INFO_SAFETY_STOP,    ALARM_INFO, "SAFETY STOP ACTIVE",    COMP_NDL_STOP_1606, true,  ALARM_CLEAR_AUTO_TIMEOUT },
-    { ALARM_ID_INFO_GAS_SWITCH,     ALARM_INFO, "BETTER GAS AVAILABLE",  COMP_GAS_1606,      true,  ALARM_CLEAR_CONDITION_ONLY },
-    { ALARM_ID_INFO_STOP_DONE,      ALARM_INFO, "STOP DONE",             COMP_NDL_STOP_1606, true,  ALARM_CLEAR_AUTO_TIMEOUT },
-    { ALARM_ID_INFO_COMPASS_CALI,   ALARM_INFO, "CALIBRATE COMPASS",     COMP_HEADING_0806,  false, ALARM_CLEAR_CONDITION_ONLY },
+    { ALARM_ID_INFO_SAFETY_STOP,    ALARM_INFO, "SAFETY STOP ACTIVE",    COMP_NDL_STOP_1606, true,  ALARM_MODE_AUTO_TIMEOUT },
+    { ALARM_ID_INFO_GAS_SWITCH,     ALARM_INFO, "BETTER GAS AVAILABLE",  COMP_GAS_1606,      true,  ALARM_MODE_CONFIRM_ACTION },
+    { ALARM_ID_INFO_STOP_DONE,      ALARM_INFO, "STOP DONE",             COMP_NDL_STOP_1606, true,  ALARM_MODE_AUTO_TIMEOUT },
+    { ALARM_ID_INFO_COMPASS_CALI,   ALARM_INFO, "CALIBRATE COMPASS",     COMP_HEADING_0806,  false, ALARM_MODE_CONDITION },
 };
 
 static alarm_state_t s_alarm_states[ALARM_ID_COUNT];
 static alarm_custom_t s_custom_alarm;
 static alarm_display_t s_display;
+static comp_id_t s_visible_targets[ALARM_VISIBLE_TARGET_MAX];
+static uint8_t s_visible_target_count;
 static uint32_t s_seq;
 static int16_t s_display_key = -2;
+static int8_t s_gas_switch_prompt_idx = -1;
+static float s_gas_switch_prompt_depth_m;
+static bool s_gas_switch_depth_hidden;
 
 static void alarm_mark_dirty(void)
 {
-    /* 告警显示内容发生变化后，通过脏标记通知 UI 层刷新告警区域。 */
     bus_requeue_dirty(DIRTY_ALARM);
     s_display.revision++;
 }
 
 static uint32_t alarm_now(void)
 {
-    /* 统一使用 LVGL tick 作为告警时间基准，便于和 UI 动画节奏保持一致。 */
     return lv_tick_get();
 }
 
-static bool alarm_is_ack_hidden(uint8_t id)
+static bool alarm_target_is_visible(comp_id_t target)
 {
-    /* ACK_HIDE 策略表示用户确认后先隐藏，但条件未解除前仍保留内部状态。 */
-    return s_alarm_states[id].acked &&
-           s_alarm_defs[id].clear_policy == ALARM_CLEAR_ACK_HIDE;
-}
-
-static bool alarm_is_displayable(uint8_t id)
-{
-    /* 活跃且未被 ACK 隐藏的告警，才允许进入展示候选集。 */
-    return s_alarm_states[id].active && !alarm_is_ack_hidden(id);
-}
-
-static bool alarm_custom_is_displayable(void)
-{
-    /* 自定义告警走和标准告警相同的显示资格判断逻辑。 */
-    return s_custom_alarm.active &&
-           !(s_custom_alarm.acked &&
-             s_custom_alarm.clear_policy == ALARM_CLEAR_ACK_HIDE);
-}
-
-static bool alarm_target_add(comp_id_t *targets, uint8_t *count,
-                             uint8_t max_targets, comp_id_t target)
-{
-    /* 这个工具函数用于收集需要被高亮的组件列表，同时做去重和容量保护。 */
-    if (target == COMP_EMPTY || targets == NULL || count == NULL)
+    if (target == COMP_EMPTY)
     {
         return false;
     }
-
-    for (uint8_t i = 0; i < *count; i++)
+    for (uint8_t i = 0U; i < s_visible_target_count; i++)
     {
-        if (targets[i] == target)
+        if (s_visible_targets[i] == target)
         {
-            return false;
+            return true;
         }
     }
+    return false;
+}
 
-    if (*count >= max_targets)
+static void alarm_state_reset(alarm_state_t *state)
+{
+    if (state == NULL) return;
+    state->active = false;
+    state->banner_acked = false;
+    state->target_acked = false;
+    state->first_tick = 0U;
+    state->last_tick = 0U;
+    state->seq = 0U;
+}
+
+static void alarm_gas_switch_reset(void)
+{
+    s_gas_switch_prompt_idx = -1;
+    s_gas_switch_prompt_depth_m = 0.0f;
+    s_gas_switch_depth_hidden = false;
+}
+
+static bool alarm_gas_switch_accept_active(void)
+{
+    int8_t recommended_idx = bus_get_recommended_gas_idx();
+    if (recommended_idx < 0)
     {
+        alarm_gas_switch_reset();
         return false;
     }
 
-    targets[*count] = target;
-    (*count)++;
+    if (recommended_idx != s_gas_switch_prompt_idx)
+    {
+        s_gas_switch_prompt_idx = recommended_idx;
+        s_gas_switch_prompt_depth_m = bus_get_depth();
+        s_gas_switch_depth_hidden = false;
+    }
+
+    return !s_gas_switch_depth_hidden;
+}
+
+static bool alarm_is_active(uint8_t id)
+{
+    return id < ALARM_ID_COUNT && s_alarm_states[id].active;
+}
+
+static bool alarm_banner_candidate(uint8_t id)
+{
+    if (!alarm_is_active(id) || s_alarm_states[id].banner_acked)
+    {
+        return false;
+    }
+    if (s_alarm_defs[id].level == ALARM_WARN && alarm_target_is_visible(s_alarm_defs[id].target))
+    {
+        return false;
+    }
     return true;
 }
 
-static alarm_level_t alarm_highest_level(void)
+static bool alarm_custom_banner_candidate(void)
 {
-    /* 当前展示优先级完全由“最高告警等级”决定。 */
+    if (!s_custom_alarm.active || s_custom_alarm.banner_acked)
+    {
+        return false;
+    }
+    if (s_custom_alarm.level == ALARM_WARN && alarm_target_is_visible(s_custom_alarm.target))
+    {
+        return false;
+    }
+    return true;
+}
+
+static alarm_level_t alarm_highest_banner_level(void)
+{
     alarm_level_t level = ALARM_NONE;
 
-    for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
+    for (uint8_t i = 0U; i < ALARM_ID_COUNT; i++)
     {
-        if (!alarm_is_displayable(i))
-        {
-            continue;
-        }
-        if (s_alarm_defs[i].level > level)
+        if (alarm_banner_candidate(i) && s_alarm_defs[i].level > level)
         {
             level = s_alarm_defs[i].level;
         }
     }
 
-    if (alarm_custom_is_displayable() && s_custom_alarm.level > level)
+    if (alarm_custom_banner_candidate() && s_custom_alarm.level > level)
     {
         level = s_custom_alarm.level;
     }
@@ -171,26 +208,24 @@ static alarm_level_t alarm_highest_level(void)
     return level;
 }
 
-static uint8_t alarm_collect_level(alarm_level_t level, int16_t *items, uint8_t max_items)
+static uint8_t alarm_collect_banner_level(alarm_level_t level, int16_t *items, uint8_t max_items)
 {
-    /* 先收集同等级候选，再按 seq 排序，保证轮播顺序和触发顺序一致。 */
-    uint8_t count = 0;
+    uint8_t count = 0U;
 
-    for (uint8_t i = 0; i < ALARM_ID_COUNT && count < max_items; i++)
+    for (uint8_t i = 0U; i < ALARM_ID_COUNT && count < max_items; i++)
     {
-        if (alarm_is_displayable(i) &&
-                s_alarm_defs[i].level == level)
+        if (alarm_banner_candidate(i) && s_alarm_defs[i].level == level)
         {
             items[count++] = (int16_t)i;
         }
     }
 
-    if (alarm_custom_is_displayable() && s_custom_alarm.level == level && count < max_items)
+    if (alarm_custom_banner_candidate() && s_custom_alarm.level == level && count < max_items)
     {
         items[count++] = -1;
     }
 
-    for (uint8_t i = 0; i < count; i++)
+    for (uint8_t i = 0U; i < count; i++)
     {
         for (uint8_t j = (uint8_t)(i + 1U); j < count; j++)
         {
@@ -208,24 +243,19 @@ static uint8_t alarm_collect_level(alarm_level_t level, int16_t *items, uint8_t 
     return count;
 }
 
-static uint32_t alarm_level_first_tick(alarm_level_t level)
+static uint32_t alarm_banner_level_first_tick(alarm_level_t level)
 {
-    /* 同等级多告警轮播时，first_tick 用来决定轮播起点和时间基准。 */
     uint32_t first = UINT32_MAX;
 
-    for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
+    for (uint8_t i = 0U; i < ALARM_ID_COUNT; i++)
     {
-        if (alarm_is_displayable(i) &&
-                s_alarm_defs[i].level == level &&
-                s_alarm_states[i].first_tick < first)
+        if (alarm_banner_candidate(i) && s_alarm_defs[i].level == level && s_alarm_states[i].first_tick < first)
         {
             first = s_alarm_states[i].first_tick;
         }
     }
 
-    if (alarm_custom_is_displayable() &&
-            s_custom_alarm.level == level &&
-            s_custom_alarm.first_tick < first)
+    if (alarm_custom_banner_candidate() && s_custom_alarm.level == level && s_custom_alarm.first_tick < first)
     {
         first = s_custom_alarm.first_tick;
     }
@@ -235,8 +265,7 @@ static uint32_t alarm_level_first_tick(alarm_level_t level)
 
 static void alarm_update_display(uint32_t now_ms)
 {
-    /* 这个函数负责把“内部告警状态集合”压缩成“当前前台显示的一条 banner”。 */
-    alarm_level_t level = alarm_highest_level();
+    alarm_level_t level = alarm_highest_banner_level();
     int16_t old_key = s_display_key;
 
     if (level == ALARM_NONE)
@@ -249,13 +278,12 @@ static void alarm_update_display(uint32_t now_ms)
     }
     else
     {
-        /* 同等级多条告警时按照固定时间窗口轮播展示。 */
         int16_t items[ALARM_ID_COUNT + 1];
-        uint8_t count = alarm_collect_level(level, items, (uint8_t)(ALARM_ID_COUNT + 1));
-        uint8_t pick = 0;
+        uint8_t count = alarm_collect_banner_level(level, items, (uint8_t)(ALARM_ID_COUNT + 1));
+        uint8_t pick = 0U;
         if (count > 1U)
         {
-            uint32_t first = alarm_level_first_tick(level);
+            uint32_t first = alarm_banner_level_first_tick(level);
             pick = (uint8_t)(((now_ms - first) / ALARM_BANNER_ROTATE_MS) % count);
         }
 
@@ -266,7 +294,6 @@ static void alarm_update_display(uint32_t now_ms)
 
         if (key >= 0)
         {
-            /* 标准告警从静态定义表取文本和目标组件。 */
             s_display.text = s_alarm_defs[key].text;
             s_display.banner_target = s_alarm_defs[key].target;
         }
@@ -283,15 +310,107 @@ static void alarm_update_display(uint32_t now_ms)
     }
 }
 
+static int16_t alarm_first_confirmable_key(void)
+{
+    alarm_level_t best_level = ALARM_NONE;
+    int16_t best_key = -2;
+    uint32_t best_seq = UINT32_MAX;
+
+    if (s_display_key != -2)
+    {
+        return s_display_key;
+    }
+
+    for (uint8_t i = 0U; i < ALARM_ID_COUNT; i++)
+    {
+        if (!s_alarm_states[i].active)
+        {
+            continue;
+        }
+        if (s_alarm_states[i].banner_acked && s_alarm_states[i].target_acked)
+        {
+            continue;
+        }
+        if (s_alarm_defs[i].level > best_level || (s_alarm_defs[i].level == best_level && s_alarm_states[i].seq < best_seq))
+        {
+            best_level = s_alarm_defs[i].level;
+            best_key = (int16_t)i;
+            best_seq = s_alarm_states[i].seq;
+        }
+    }
+
+    if (s_custom_alarm.active &&
+        !(s_custom_alarm.banner_acked && s_custom_alarm.target_acked) &&
+        (s_custom_alarm.level > best_level || (s_custom_alarm.level == best_level && s_custom_alarm.seq < best_seq)))
+    {
+        best_key = -1;
+    }
+
+    return best_key;
+}
+
+static bool alarm_confirm_key(int16_t key)
+{
+    if (key >= 0)
+    {
+        alarm_state_t *state = &s_alarm_states[key];
+        if (!state->active)
+        {
+            return false;
+        }
+
+        if ((alarm_id_t)key == ALARM_ID_INFO_GAS_SWITCH)
+        {
+            int8_t gas_idx = bus_get_recommended_gas_idx();
+            if (gas_idx >= 0 && gas_idx < (int8_t)bus_get_gas_slot_count())
+            {
+                request_gas_switch((uint8_t)gas_idx);
+            }
+            bus_set_recommended_gas_idx(-1);
+            alarm_state_reset(state);
+            s_gas_switch_prompt_idx = gas_idx;
+            s_gas_switch_depth_hidden = true;
+            alarm_mark_dirty();
+            return true;
+        }
+
+        state->banner_acked = true;
+        state->target_acked = true;
+        if (s_alarm_defs[key].level == ALARM_INFO)
+        {
+            alarm_state_reset(state);
+        }
+        alarm_mark_dirty();
+        return true;
+    }
+
+    if (key == -1 && s_custom_alarm.active)
+    {
+        s_custom_alarm.banner_acked = true;
+        s_custom_alarm.target_acked = true;
+        if (s_custom_alarm.level == ALARM_INFO)
+        {
+            memset(&s_custom_alarm, 0, sizeof(s_custom_alarm));
+        }
+        alarm_mark_dirty();
+        return true;
+    }
+
+    return false;
+}
+
 void alarm_init(void)
 {
     memset(s_alarm_states, 0, sizeof(s_alarm_states));
     memset(&s_custom_alarm, 0, sizeof(s_custom_alarm));
     memset(&s_display, 0, sizeof(s_display));
+    memset(s_visible_targets, 0, sizeof(s_visible_targets));
     s_display.level = ALARM_NONE;
     s_display.banner_target = COMP_EMPTY;
-    s_seq = 0;
+    s_visible_target_count = 0U;
+    s_seq = 0U;
     s_display_key = -2;
+    alarm_gas_switch_reset();
 }
 
 bool alarm_set_active(alarm_id_t id, bool active)
@@ -303,38 +422,44 @@ bool alarm_set_active(alarm_id_t id, bool active)
 
     alarm_state_t *state = &s_alarm_states[id];
     uint32_t now = alarm_now();
+    bool accepted_active = active;
 
-    if (state->active == active)
+    if (id == ALARM_ID_INFO_GAS_SWITCH)
     {
-        if (active)
+        accepted_active = active && alarm_gas_switch_accept_active();
+        if (!active)
+        {
+            alarm_gas_switch_reset();
+        }
+    }
+
+    if (state->active == accepted_active)
+    {
+        if (accepted_active)
         {
             state->last_tick = now;
         }
         return false;
     }
 
-    state->active = active;
-    state->acked = false;
+    if (!accepted_active)
+    {
+        alarm_state_reset(state);
+        alarm_mark_dirty();
+        return true;
+    }
+
+    state->active = true;
+    state->banner_acked = false;
+    state->target_acked = false;
+    state->first_tick = now;
     state->last_tick = now;
-
-    if (active)
-    {
-        state->first_tick = now;
-        state->seq = ++s_seq;
-    }
-    else
-    {
-        state->first_tick = 0;
-        state->seq = 0;
-    }
-
+    state->seq = ++s_seq;
     alarm_mark_dirty();
     return true;
 }
 
-bool alarm_raise_custom(alarm_level_t level,
-                             const char *text,
-                             comp_id_t target)
+bool alarm_raise_custom(alarm_level_t level, const char *text, comp_id_t target)
 {
     if (level == ALARM_NONE)
     {
@@ -347,10 +472,9 @@ bool alarm_raise_custom(alarm_level_t level,
     s_custom_alarm.target = target;
     s_custom_alarm.first_tick = alarm_now();
     s_custom_alarm.seq = ++s_seq;
-    s_custom_alarm.acked = false;
-    s_custom_alarm.clear_policy = (level == ALARM_INFO) ?
-                                  ALARM_CLEAR_AUTO_TIMEOUT :
-                                  ALARM_CLEAR_ACK_HIDE;
+    s_custom_alarm.banner_acked = false;
+    s_custom_alarm.target_acked = false;
+    s_custom_alarm.mode = (level == ALARM_INFO) ? ALARM_MODE_AUTO_TIMEOUT : ALARM_MODE_CONDITION;
     alarm_mark_dirty();
     return true;
 }
@@ -371,76 +495,41 @@ void alarm_clear_all(void)
 {
     memset(s_alarm_states, 0, sizeof(s_alarm_states));
     memset(&s_custom_alarm, 0, sizeof(s_custom_alarm));
+    alarm_gas_switch_reset();
     alarm_mark_dirty();
 }
 
 bool alarm_set_acknowledged(alarm_id_t id, bool acknowledged)
 {
-    if (id >= ALARM_ID_COUNT)
+    if (id >= ALARM_ID_COUNT || !s_alarm_states[id].active)
     {
         return false;
     }
 
-    if (s_alarm_defs[id].clear_policy != ALARM_CLEAR_ACK_HIDE ||
-            !s_alarm_states[id].active)
+    if (s_alarm_states[id].banner_acked == acknowledged && s_alarm_states[id].target_acked == acknowledged)
     {
         return false;
     }
 
-    if (s_alarm_states[id].acked == acknowledged)
-    {
-        return false;
-    }
-
-    s_alarm_states[id].acked = acknowledged;
+    s_alarm_states[id].banner_acked = acknowledged;
+    s_alarm_states[id].target_acked = acknowledged;
     alarm_mark_dirty();
     return true;
 }
 
 bool alarm_current_requires_ack(void)
 {
-    if (s_display_key >= 0)
-    {
-        return s_alarm_states[s_display_key].active &&
-               !s_alarm_states[s_display_key].acked &&
-               s_alarm_defs[s_display_key].clear_policy == ALARM_CLEAR_ACK_HIDE;
-    }
+    return alarm_first_confirmable_key() != -2;
+}
 
-    if (s_display_key == -1)
-    {
-        return s_custom_alarm.active &&
-               !s_custom_alarm.acked &&
-               s_custom_alarm.clear_policy == ALARM_CLEAR_ACK_HIDE;
-    }
-
-    return false;
+bool alarm_confirm_current(void)
+{
+    return alarm_confirm_key(alarm_first_confirmable_key());
 }
 
 bool alarm_ack_current(void)
 {
-    if (s_display_key >= 0)
-    {
-        if (s_alarm_defs[s_display_key].clear_policy != ALARM_CLEAR_ACK_HIDE)
-        {
-            return false;
-        }
-        s_alarm_states[s_display_key].acked = true;
-        alarm_mark_dirty();
-        return true;
-    }
-
-    if (s_display_key == -1)
-    {
-        if (s_custom_alarm.clear_policy != ALARM_CLEAR_ACK_HIDE)
-        {
-            return false;
-        }
-        s_custom_alarm.acked = true;
-        alarm_mark_dirty();
-        return true;
-    }
-
-    return false;
+    return alarm_confirm_current();
 }
 
 bool alarm_display_is(alarm_id_t id)
@@ -452,22 +541,29 @@ void alarm_tick(uint32_t now_ms)
 {
     bool changed = false;
 
-    for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
+    for (uint8_t i = 0U; i < ALARM_ID_COUNT; i++)
     {
-        if (s_alarm_states[i].active &&
-                s_alarm_defs[i].clear_policy == ALARM_CLEAR_AUTO_TIMEOUT &&
-                now_ms - s_alarm_states[i].first_tick >= ALARM_INFO_DISPLAY_MS)
+        if (s_alarm_states[i].active && s_alarm_defs[i].mode == ALARM_MODE_AUTO_TIMEOUT && now_ms - s_alarm_states[i].first_tick >= ALARM_INFO_DISPLAY_MS)
         {
-            s_alarm_states[i].active = false;
+            alarm_state_reset(&s_alarm_states[i]);
             changed = true;
         }
     }
 
-    if (s_custom_alarm.active &&
-            s_custom_alarm.clear_policy == ALARM_CLEAR_AUTO_TIMEOUT &&
-            now_ms - s_custom_alarm.first_tick >= ALARM_INFO_DISPLAY_MS)
+    if (s_alarm_states[ALARM_ID_INFO_GAS_SWITCH].active &&
+        s_gas_switch_prompt_idx >= 0 &&
+        bus_get_depth() < (s_gas_switch_prompt_depth_m - ALARM_GAS_SWITCH_PROMPT_EXIT_DELTA_M))
     {
-        s_custom_alarm.active = false;
+        alarm_state_reset(&s_alarm_states[ALARM_ID_INFO_GAS_SWITCH]);
+        s_gas_switch_depth_hidden = true;
+        changed = true;
+    }
+
+    if (s_custom_alarm.active &&
+        s_custom_alarm.mode == ALARM_MODE_AUTO_TIMEOUT &&
+        now_ms - s_custom_alarm.first_tick >= ALARM_INFO_DISPLAY_MS)
+    {
+        memset(&s_custom_alarm, 0, sizeof(s_custom_alarm));
         changed = true;
     }
 
@@ -484,29 +580,87 @@ const alarm_display_t *alarm_get_display(void)
     return &s_display;
 }
 
-uint8_t alarm_get_active_targets(alarm_level_t level,
-                                      comp_id_t *targets,
-                                      uint8_t max_targets)
+void alarm_set_visible_targets(const comp_id_t *targets, uint8_t count)
 {
-    uint8_t count = 0;
-
-    if (level == ALARM_INFO || level == ALARM_NONE)
+    if (count > ALARM_VISIBLE_TARGET_MAX)
     {
-        return 0;
+        count = ALARM_VISIBLE_TARGET_MAX;
     }
 
-    for (uint8_t i = 0; i < ALARM_ID_COUNT; i++)
+    s_visible_target_count = count;
+    if (count > 0U && targets != NULL)
     {
-        if (alarm_is_displayable(i) &&
-                s_alarm_defs[i].level == level)
+        memcpy(s_visible_targets, targets, count * sizeof(s_visible_targets[0]));
+    }
+}
+
+static bool alarm_effect_add(alarm_target_effect_entry_t *entries,
+                             uint8_t *count,
+                             uint8_t max_entries,
+                             comp_id_t target,
+                             alarm_level_t level,
+                             alarm_target_effect_t effect)
+{
+    if (entries == NULL || count == NULL || target == COMP_EMPTY || effect == ALARM_TARGET_EFFECT_NONE)
+    {
+        return false;
+    }
+
+    for (uint8_t i = 0U; i < *count; i++)
+    {
+        if (entries[i].target == target)
         {
-            (void)alarm_target_add(targets, &count, max_targets, s_alarm_defs[i].target);
+            if (level > entries[i].level || (level == entries[i].level && effect > entries[i].effect))
+            {
+                entries[i].level = level;
+                entries[i].effect = effect;
+            }
+            return true;
         }
     }
 
-    if (alarm_custom_is_displayable() && s_custom_alarm.level == level)
+    if (*count >= max_entries)
     {
-        (void)alarm_target_add(targets, &count, max_targets, s_custom_alarm.target);
+        return false;
+    }
+
+    entries[*count].target = target;
+    entries[*count].level = level;
+    entries[*count].effect = effect;
+    (*count)++;
+    return true;
+}
+
+uint8_t alarm_get_target_effects(alarm_target_effect_entry_t *entries, uint8_t max_entries)
+{
+    uint8_t count = 0U;
+
+    for (uint8_t i = 0U; i < ALARM_ID_COUNT; i++)
+    {
+        alarm_target_effect_t effect = ALARM_TARGET_EFFECT_NONE;
+        if (!s_alarm_states[i].active || s_alarm_defs[i].level == ALARM_INFO)
+        {
+            continue;
+        }
+
+        if (s_alarm_defs[i].level >= ALARM_CRIT)
+        {
+            effect = s_alarm_states[i].target_acked ? ALARM_TARGET_EFFECT_CRIT_STEADY : ALARM_TARGET_EFFECT_CRIT_FLASH;
+        }
+        else if (s_alarm_defs[i].level == ALARM_WARN)
+        {
+            effect = s_alarm_states[i].target_acked ? ALARM_TARGET_EFFECT_WARN_STEADY : ALARM_TARGET_EFFECT_WARN_BREATHE;
+        }
+
+        (void)alarm_effect_add(entries, &count, max_entries, s_alarm_defs[i].target, s_alarm_defs[i].level, effect);
+    }
+
+    if (s_custom_alarm.active && s_custom_alarm.level != ALARM_INFO)
+    {
+        alarm_target_effect_t effect = (s_custom_alarm.level >= ALARM_CRIT)
+                                       ? (s_custom_alarm.target_acked ? ALARM_TARGET_EFFECT_CRIT_STEADY : ALARM_TARGET_EFFECT_CRIT_FLASH)
+                                       : (s_custom_alarm.target_acked ? ALARM_TARGET_EFFECT_WARN_STEADY : ALARM_TARGET_EFFECT_WARN_BREATHE);
+        (void)alarm_effect_add(entries, &count, max_entries, s_custom_alarm.target, s_custom_alarm.level, effect);
     }
 
     return count;
