@@ -86,6 +86,9 @@ static const char *s_nested_ai_setup[4];
 static const char *s_nested_alerts_setup[4];
 static const char *s_nested_display_sys[6];
 static const char *s_nested_datetime[6];
+static const char *s_nested_time_adjust[3];
+static const char *s_nested_date_adjust[4];
+static const char *s_nested_date_format[3];
 static const char *s_nested_nitrox[3];
 static const char *s_nested_three_gas[6];
 static const char *s_nested_oc_tech[8];
@@ -118,6 +121,8 @@ static uint8_t s_ndl_alarm_min = 5;
 static uint8_t s_units_mode = 0;         /* 0=METRIC, 1=IMPERIAL */
 static uint8_t s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
 static uint8_t s_bluetooth_enabled = 0;  /* 0=OFF, 1=ON */
+static uint8_t s_time_24h_enabled = 1;   /* 1=24-hour, 0=12-hour AM/PM */
+static uint8_t s_date_format = 1;        /* 0=mm/dd/yy, 1=dd.mm.yy */
 static uint16_t s_datetime_year = 2026;
 static uint8_t s_datetime_month = 5;
 static uint8_t s_datetime_day = 20;
@@ -181,6 +186,13 @@ enum
     DATETIME_FIELD_MINUTE,
 };
 
+enum
+{
+    DATE_FORMAT_MM_DD_YY = 0,
+    DATE_FORMAT_DD_MM_YY,
+    DATE_FORMAT_COUNT,
+};
+
 static uint8_t count_items(const char **items, uint8_t max_count)
 {
     /* 统计以 NULL 结尾的字符串数组长度。 */
@@ -194,6 +206,63 @@ static uint8_t count_items(const char **items, uint8_t max_count)
         count++;
     }
     return count;
+}
+
+static void format_time_value(char *out, size_t out_size)
+{
+    if (out == NULL || out_size == 0U)
+    {
+        return;
+    }
+
+    if (s_time_24h_enabled)
+    {
+        snprintf(out, out_size, "%02u:%02u",
+                 (unsigned)s_datetime_hour,
+                 (unsigned)s_datetime_minute);
+    }
+    else
+    {
+        uint8_t hour = s_datetime_hour;
+        const char *suffix = (hour >= 12U) ? "PM" : "AM";
+        uint8_t hour12 = (uint8_t)(hour % 12U);
+        if (hour12 == 0U)
+        {
+            hour12 = 12U;
+        }
+        snprintf(out, out_size, "%u:%02u %s",
+                 (unsigned)hour12,
+                 (unsigned)s_datetime_minute,
+                 suffix);
+    }
+}
+
+static const char *date_format_label(uint8_t format)
+{
+    return (format == DATE_FORMAT_MM_DD_YY) ? "mm/dd/yyyy" : "dd.mm.yyyy";
+}
+
+static void format_date_value(char *out, size_t out_size, uint8_t format)
+{
+    if (out == NULL || out_size == 0U)
+    {
+        return;
+    }
+
+    if (format == DATE_FORMAT_MM_DD_YY)
+    {
+        snprintf(out, out_size, "%u/%u/%04u",
+                 (unsigned)s_datetime_month,
+                 (unsigned)s_datetime_day,
+                 (unsigned)s_datetime_year);
+    }
+    else
+    {
+        snprintf(out, out_size, "%u.%u.%04u",
+                 (unsigned)s_datetime_day,
+                 (unsigned)s_datetime_month,
+                 (unsigned)s_datetime_year);
+    }
 }
 
 static const char *strip_title_prefix(const char *title)
@@ -709,6 +778,12 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
     case SUBMENU_SETTING_DATETIME_FIELD:
         submenu_commit_datetime_field(arg, value);
         break;
+    case SUBMENU_SETTING_TIME_24H:
+        s_time_24h_enabled = value ? 1U : 0U;
+        break;
+    case SUBMENU_SETTING_DATE_FORMAT:
+        s_date_format = (value >= DATE_FORMAT_COUNT) ? DATE_FORMAT_DD_MM_YY : (uint8_t)value;
+        break;
     case SUBMENU_SETTING_LOG_RATE:
         s_log_rate_s = (uint8_t)value;
         break;
@@ -719,6 +794,8 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         s_units_mode = 0;
         s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
         s_bluetooth_enabled = 0;
+        s_time_24h_enabled = 1U;
+        s_date_format = DATE_FORMAT_DD_MM_YY;
         s_depth_alarm_m = 40U;
         s_time_alarm_min = 60U;
         s_ndl_alarm_min = 5U;
@@ -1173,16 +1250,81 @@ static const char **build_nested_display_sys(uint8_t *out_count)
 
 static const char **build_nested_datetime(uint8_t *out_count)
 {
-    ui_vm_simple_menu_t vm;
+    char time_text[16];
+    char date_text[16];
+    char format_sample[16];
 
     submenu_sync_persisted_settings();
-    ui_vm_datetime_menu_update(&vm,
-                               s_datetime_year,
-                               s_datetime_month,
-                               s_datetime_day,
-                               s_datetime_hour,
-                               s_datetime_minute);
-    return copy_simple_menu_items(&vm, out_count);
+    format_time_value(time_text, sizeof(time_text));
+    format_date_value(date_text, sizeof(date_text), s_date_format);
+    format_date_value(format_sample, sizeof(format_sample), s_date_format);
+
+    snprintf(s_menu_vm_str[0], sizeof(s_menu_vm_str[0]), "TIME: %s", time_text);
+    snprintf(s_menu_vm_str[1], sizeof(s_menu_vm_str[1]), "DATE: %s", date_text);
+    snprintf(s_menu_vm_str[2], sizeof(s_menu_vm_str[2]), "24-hour: %s", s_time_24h_enabled ? "ON" : "OFF");
+    snprintf(s_menu_vm_str[3], sizeof(s_menu_vm_str[3]), "Date format: %s", format_sample);
+
+    for (uint8_t i = 0U; i < 4U; i++)
+    {
+        s_nested_datetime[i] = s_menu_vm_str[i];
+    }
+    s_nested_datetime[4] = NULL;
+    if (out_count != NULL)
+    {
+        *out_count = 4U;
+    }
+    return s_nested_datetime;
+}
+
+static const char **build_nested_time_adjust(uint8_t *out_count)
+{
+    submenu_sync_persisted_settings();
+    snprintf(s_menu_vm_str[0], sizeof(s_menu_vm_str[0]), "HOUR: %02u", (unsigned)s_datetime_hour);
+    snprintf(s_menu_vm_str[1], sizeof(s_menu_vm_str[1]), "MINUTE: %02u", (unsigned)s_datetime_minute);
+    s_nested_time_adjust[0] = s_menu_vm_str[0];
+    s_nested_time_adjust[1] = s_menu_vm_str[1];
+    s_nested_time_adjust[2] = NULL;
+    if (out_count != NULL)
+    {
+        *out_count = 2U;
+    }
+    return s_nested_time_adjust;
+}
+
+static const char **build_nested_date_adjust(uint8_t *out_count)
+{
+    submenu_sync_persisted_settings();
+    snprintf(s_menu_vm_str[0], sizeof(s_menu_vm_str[0]), "YEAR: %04u", (unsigned)s_datetime_year);
+    snprintf(s_menu_vm_str[1], sizeof(s_menu_vm_str[1]), "MONTH: %02u", (unsigned)s_datetime_month);
+    snprintf(s_menu_vm_str[2], sizeof(s_menu_vm_str[2]), "DAY: %02u", (unsigned)s_datetime_day);
+    s_nested_date_adjust[0] = s_menu_vm_str[0];
+    s_nested_date_adjust[1] = s_menu_vm_str[1];
+    s_nested_date_adjust[2] = s_menu_vm_str[2];
+    s_nested_date_adjust[3] = NULL;
+    if (out_count != NULL)
+    {
+        *out_count = 3U;
+    }
+    return s_nested_date_adjust;
+}
+
+static const char **build_nested_date_format(uint8_t *out_count)
+{
+    submenu_sync_persisted_settings();
+    snprintf(s_menu_vm_str[0], sizeof(s_menu_vm_str[0]), "%s: %s",
+             date_format_label(DATE_FORMAT_MM_DD_YY),
+             (s_date_format == DATE_FORMAT_MM_DD_YY) ? "ON" : "OFF");
+    snprintf(s_menu_vm_str[1], sizeof(s_menu_vm_str[1]), "%s: %s",
+             date_format_label(DATE_FORMAT_DD_MM_YY),
+             (s_date_format == DATE_FORMAT_DD_MM_YY) ? "ON" : "OFF");
+    s_nested_date_format[0] = s_menu_vm_str[0];
+    s_nested_date_format[1] = s_menu_vm_str[1];
+    s_nested_date_format[2] = NULL;
+    if (out_count != NULL)
+    {
+        *out_count = 2U;
+    }
+    return s_nested_date_format;
 }
 
 const char **submenu_nested_items_for(const char *title, uint8_t *out_count)
@@ -1215,6 +1357,9 @@ const char **submenu_nested_items_for(const char *title, uint8_t *out_count)
     else if (strcmp(clean_title, "ALERTS SETUP") == 0) return build_nested_alerts_setup(out_count);
     else if (strcmp(clean_title, "DISPLAY") == 0) return build_nested_display_sys(out_count);
     else if (strcmp(clean_title, "DATE & CLOCK") == 0) return build_nested_datetime(out_count);
+    else if (strcmp(clean_title, "TIME") == 0) return build_nested_time_adjust(out_count);
+    else if (strcmp(clean_title, "DATE") == 0) return build_nested_date_adjust(out_count);
+    else if (strcmp(clean_title, "DATE FORMAT") == 0) return build_nested_date_format(out_count);
     else if (strcmp(clean_title, "RED") == 0) items = s_nested_red;
     else if (strcmp(clean_title, "GREEN") == 0) items = s_nested_green;
     else if (strcmp(clean_title, "BLUE") == 0) items = s_nested_blue;
@@ -1563,6 +1708,20 @@ bool submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
+    if (strcmp(clean_title, "DATE & CLOCK") == 0 && item_index == 2)
+    {
+        out_setting->kind = SUBMENU_SETTING_TIME_24H;
+        out_setting->value = s_time_24h_enabled ? 0U : 1U;
+        return true;
+    }
+
+    if (strcmp(clean_title, "DATE FORMAT") == 0 && item_index < DATE_FORMAT_COUNT)
+    {
+        out_setting->kind = SUBMENU_SETTING_DATE_FORMAT;
+        out_setting->value = item_index;
+        return true;
+    }
+
     if ((strstr(clean_title, "3 GAS") != NULL && item_index == 2U) ||
         (strstr(clean_title, "TX") != NULL && item_index == 3U))
     {
@@ -1752,7 +1911,35 @@ bool submenu_edit_spec_from_selection(const char *current_title,
         return true;
     }
 
-    if (strcmp(clean_title, "DATE & CLOCK") == 0)
+    if (strcmp(clean_title, "TIME") == 0)
+    {
+        out_spec->kind = SUBMENU_SETTING_DATETIME_FIELD;
+        out_spec->decimals = 0;
+        out_spec->step = 1.0f;
+
+        if (item_index == 0U)
+        {
+            ui_vm_edit_datetime_update(&vm_edit, 3U, s_datetime_hour);
+            out_spec->arg = DATETIME_FIELD_HOUR;
+        }
+        else if (item_index == 1U)
+        {
+            ui_vm_edit_datetime_update(&vm_edit, 4U, s_datetime_minute);
+            out_spec->arg = DATETIME_FIELD_MINUTE;
+        }
+        else
+        {
+            return false;
+        }
+
+        out_spec->value = vm_edit.value;
+        out_spec->min = vm_edit.min;
+        out_spec->max = vm_edit.max;
+        lv_snprintf(out_spec->label, sizeof(out_spec->label), "%s", vm_edit.label);
+        return true;
+    }
+
+    if (strcmp(clean_title, "DATE") == 0)
     {
         out_spec->kind = SUBMENU_SETTING_DATETIME_FIELD;
         out_spec->decimals = 0;
@@ -1821,6 +2008,9 @@ static const char *submenu_title_for_menu_id(menu_id_t menu_id)
     case MENU_ALERTS_SETUP: return "ALERTS SETUP";
     case MENU_DISPLAY:      return "DISPLAY";
     case MENU_DATE_CLOCK:   return "DATE & CLOCK";
+    case MENU_TIME_ADJUST:  return "TIME";
+    case MENU_DATE_ADJUST:  return "DATE";
+    case MENU_DATE_FORMAT:  return "DATE FORMAT";
     default:                return menu_defs_title(menu_id);
     }
 }
@@ -1923,6 +2113,13 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
     case MENU_ITEM_DISPLAY_UNITS:    item_index = 0U; break;
     case MENU_ITEM_DISPLAY_LOG_RATE: item_index = 2U; break;
     case MENU_ITEM_DISPLAY_BLUETOOTH:item_index = 3U; break;
+    case MENU_ITEM_DATETIME_24H:     item_index = 2U; break;
+    case MENU_ITEM_DATE_FORMAT_MM_DD_YY:
+        item_index = 0U;
+        break;
+    case MENU_ITEM_DATE_FORMAT_DD_MM_YY:
+        item_index = 1U;
+        break;
     default:
         return false;
     }
@@ -1991,6 +2188,39 @@ bool submenu_edit_spec_from_ids(menu_id_t current_menu,
         break;
     default:
     {
+        if (current_menu == MENU_TIME_ADJUST)
+        {
+            if (item_id == MENU_ITEM_DATE_HOUR)
+            {
+                item_index = 0U;
+                break;
+            }
+            if (item_id == MENU_ITEM_DATE_MINUTE)
+            {
+                item_index = 1U;
+                break;
+            }
+            return false;
+        }
+        if (current_menu == MENU_DATE_ADJUST)
+        {
+            if (item_id == MENU_ITEM_DATE_YEAR)
+            {
+                item_index = 0U;
+                break;
+            }
+            if (item_id == MENU_ITEM_DATE_MONTH)
+            {
+                item_index = 1U;
+                break;
+            }
+            if (item_id == MENU_ITEM_DATE_DAY)
+            {
+                item_index = 2U;
+                break;
+            }
+            return false;
+        }
         int8_t field = date_field_from_item_id(item_id);
         if (field < 0)
         {

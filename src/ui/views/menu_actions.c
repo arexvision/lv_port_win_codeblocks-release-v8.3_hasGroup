@@ -98,6 +98,10 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
     case SUBMENU_SETTING_DATETIME_ACTION:
         ui_on_datetime_action((uint8_t)setting->value);
         break;
+    case SUBMENU_SETTING_TIME_24H:
+    case SUBMENU_SETTING_DATE_FORMAT:
+        screen_refresh_setup_menu();
+        break;
     case SUBMENU_SETTING_LOG_RATE:
         ui_on_log_rate_set((uint8_t)setting->value);
         break;
@@ -361,8 +365,18 @@ bool menu_actions_handle_select(uint8_t row_index,
     {
         submenu_apply_setting(setting.kind, setting.arg, setting.value);
         dispatch_setting_callback(&setting);
-        out_action->type = (setting.kind == SUBMENU_SETTING_OC_TECH_SAVE)
-                           ? MENU_ACTION_CLOSE : MENU_ACTION_REFRESH;
+        if (setting.kind == SUBMENU_SETTING_DATE_FORMAT)
+        {
+            out_action->type = MENU_ACTION_BACK;
+        }
+        else if (setting.kind == SUBMENU_SETTING_OC_TECH_SAVE)
+        {
+            out_action->type = MENU_ACTION_CLOSE;
+        }
+        else
+        {
+            out_action->type = MENU_ACTION_REFRESH;
+        }
         return true;
     }
 

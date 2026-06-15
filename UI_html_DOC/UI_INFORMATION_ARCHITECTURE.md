@@ -394,21 +394,40 @@
     - `METRIC`
     - `IMPERIAL`
   - `DATE & CLOCK`
-    - `YEAR`
-      - min：`2000`
-      - max：`2099`
-    - `MONTH`
-      - min：`1`
-      - max：`12`
-    - `DAY`
-      - min：`1`
-      - max：`31`
-    - `HOUR`
-      - min：`0`
-      - max：`23`
-    - `MINUTE`
-      - min：`0`
-      - max：`59`
+    - `TIME`
+      - 副标题：当前时间
+      - 24-hour ON：`17:07`
+      - 24-hour OFF：`5:07 PM`
+      - 点击进入 `TIME` 调节页
+      - `HOUR`
+        - min：`0`
+        - max：`23`
+      - `MINUTE`
+        - min：`0`
+        - max：`59`
+    - `DATE`
+      - 副标题：当前日期
+      - 点击进入 `DATE` 调节页
+      - `YEAR`
+        - min：`2000`
+        - max：`2099`
+      - `MONTH`
+        - min：`1`
+        - max：`12`
+      - `DAY`
+        - min：`1`
+        - max：`31`
+    - `24-hour`
+      - 行为：ON/OFF 切换
+      - ON：24 小时制
+      - OFF：12 小时制 AM/PM
+      - 修改后刷新 `TIME` 摘要
+    - `Date format`
+      - 副标题：当前格式样例
+      - 点击进入 `DATE FORMAT` 单选页
+      - `mm/dd/yyyy`
+      - `dd.mm.yyyy`
+      - 选中后保存并返回 `DATE & CLOCK`
   - `LOG RATE`
     - `2s`
     - `5s`
@@ -438,7 +457,8 @@
   - `DEPTH ALARM`
   - `TIME ALARM`
   - `NDL ALARM`
-  - `DATE & CLOCK` 字段
+  - `TIME` 字段
+  - `DATE` 字段
 - `TEXT MODAL`
   - 默认文本提示
 

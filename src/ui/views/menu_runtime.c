@@ -408,13 +408,43 @@ static void build_rows(void)
     {
         static const menu_item_id_t ids[] =
         {
-            MENU_ITEM_DATE_YEAR,
-            MENU_ITEM_DATE_MONTH,
-            MENU_ITEM_DATE_DAY,
+            MENU_ITEM_DATETIME_TIME,
+            MENU_ITEM_DATETIME_DATE,
+            MENU_ITEM_DATETIME_24H,
+            MENU_ITEM_DATETIME_DATE_FORMAT,
+        };
+        build_nested_by_title("DATE & CLOCK", ids, NULL);
+        break;
+    }
+    case MENU_TIME_ADJUST:
+    {
+        static const menu_item_id_t ids[] =
+        {
             MENU_ITEM_DATE_HOUR,
             MENU_ITEM_DATE_MINUTE,
         };
-        build_nested_by_title("DATE & CLOCK", ids, NULL);
+        build_nested_by_title("TIME", ids, NULL);
+        break;
+    }
+    case MENU_DATE_ADJUST:
+    {
+        static const menu_item_id_t ids[] =
+        {
+            MENU_ITEM_DATE_YEAR,
+            MENU_ITEM_DATE_MONTH,
+            MENU_ITEM_DATE_DAY,
+        };
+        build_nested_by_title("DATE", ids, NULL);
+        break;
+    }
+    case MENU_DATE_FORMAT:
+    {
+        static const menu_item_id_t ids[] =
+        {
+            MENU_ITEM_DATE_FORMAT_MM_DD_YY,
+            MENU_ITEM_DATE_FORMAT_DD_MM_YY,
+        };
+        build_nested_by_title("DATE FORMAT", ids, NULL);
         break;
     }
     case MENU_LIGHT_RED:
