@@ -384,6 +384,7 @@ void card_deco_create(lv_obj_t *parent)
     int text_h    = 16;
     int bar_max_h = chart_h - text_h;
     int exact_col_w = chart_w / 16;
+    int tissue_grid_w = exact_col_w * 16;
 
     for (int i = 0; i < 16; i++)
     {
@@ -418,7 +419,7 @@ void card_deco_create(lv_obj_t *parent)
 
     s_mvalue_line = lv_obj_create(chart_container);
     lv_obj_remove_style_all(s_mvalue_line);
-    lv_obj_set_size(s_mvalue_line, chart_w, 2);
+    lv_obj_set_size(s_mvalue_line, tissue_grid_w, 2);
     lv_obj_set_pos(s_mvalue_line, 0, bar_max_h / 2);
     lv_obj_set_style_bg_color(s_mvalue_line, GREEN, 0);
     lv_obj_set_style_bg_opa(s_mvalue_line, LV_OPA_COVER, 0);
