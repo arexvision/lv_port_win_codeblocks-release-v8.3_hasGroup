@@ -13,6 +13,8 @@
 
 #define ALARM_L1_ANIM_MS    220U
 #define ALARM_L1_SLIDE_PX   16
+#define ALARM_TARGET_USE_OVERLAY  1U  /* 告警边框用覆盖层绘制，避免改父组件边框导致内容抖动 */
+#define ALARM_TARGET_OVERLAY_TAG  ((uintptr_t)0xA11A0001U)  /* 告警目标覆盖层标记 */
 
 static lv_obj_t *s_alarm_banner;
 static lv_obj_t *s_alarm_banner_lbl;
@@ -247,9 +249,6 @@ static void alarm_view_set_text_color_recursive(lv_obj_t *obj, lv_color_t color)
         alarm_view_set_text_color_recursive(lv_obj_get_child(obj, i), color);
     }
 }
-
-#define ALARM_TARGET_USE_OVERLAY  1U  /* 告警边框用覆盖层绘制，避免改父组件边框导致内容抖动 */
-#define ALARM_TARGET_OVERLAY_TAG  ((uintptr_t)0xA11A0001U)  /* 告警目标覆盖层标记 */
 
 #if ALARM_TARGET_USE_OVERLAY
 static lv_obj_t *alarm_view_find_target_overlay(lv_obj_t *obj)
