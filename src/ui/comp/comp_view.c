@@ -728,13 +728,15 @@ static void tissue_chart_draw_cb(lv_event_t *e)
 
     for (uint8_t i = 0U; i < 16U; i++)
     {
-        uint8_t pct = (h->widget_id == COMP_TISSUE_RAW_4012) ?
-                      vm->tissue_raw_pct[i] :
-                      vm->tissue_gf_pct[i];
-        uint8_t draw_max_pct = (h->widget_id == COMP_TISSUE_GF_4012) ? 120U : 100U;
-        if (pct > draw_max_pct)
+        int draw_pct = (h->widget_id == COMP_TISSUE_RAW_4012) ? (int)vm->tissue_raw_pct[i] : (int)vm->tissue_gf_pct[i];
+        int draw_max_pct = (h->widget_id == COMP_TISSUE_GF_4012) ? 120 : 100;
+        if (draw_pct < 0)
         {
-            pct = draw_max_pct;
+            draw_pct = 0;
+        }
+        if (draw_pct > draw_max_pct)
+        {
+            draw_pct = draw_max_pct;
         }
 
         int x1 = area->x1 + (int)i * (bar_w + gap);
@@ -745,9 +747,9 @@ static void tissue_chart_draw_cb(lv_event_t *e)
         rect_dsc.bg_opa = LV_OPA_COVER;
         lv_draw_rect(draw_ctx, &rect_dsc, &bg);
 
-        if (pct > 0U)
+        if (draw_pct > 0)
         {
-            int fill_h = (total_h * (int)pct) / (int)draw_max_pct;
+            int fill_h = (total_h * draw_pct) / draw_max_pct;
             if (fill_h < 1)
             {
                 fill_h = 1;

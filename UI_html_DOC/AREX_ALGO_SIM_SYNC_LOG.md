@@ -13,6 +13,34 @@
 
 原则：只要算法层已经提供计算接口，模拟器和主工程都必须调用算法接口，不在 UI 或模拟器里重复实现公式。
 
+## 未发布 UI 口径调整
+
+### 16 组织仓全物理态图表
+
+改动：
+
+- DECO 卡片 16 组织仓柱状图从 `relative_gf_percent[16]` 改为使用 `absolute_gf_percent[16]`。
+- PC 适配层不再把 `absolute_gf_percent` 负值截成 0，data bus 的 `tissue_raw_pct[16]` 改为有符号百分比，并额外同步 `current_target_gf` 的百分比值给 UI。
+- 主图表 Y 轴按 `-100..120` 绘制，0% 基准线、动态 GF 虚线和 100% M 值线三条横线同时显示。
+- 柱子以 0% 横线为原点：负值向下画，正值向上画；超过 GF 线的段为黄色，超过 100% 的段为红色闪烁，并在 120% 绘制封顶。
+
+原因：
+
+- `relative_gf_percent` 已经叠加当前 GF 保守度，适合表达“是否突破当前 target GF”，但不能同时表达欠饱和负值、0% 环境水压线、动态 GF 线和 100% 绝对 M 值线。
+- `absolute_gf_percent` 是绝对生理百分比，可以在同一个坐标系里同时容纳欠饱和、当前 GF 限制和 M 值极限。
+
+旧口径和新口径差异：
+
+- 旧口径：DECO 主图使用 `tissue_gf_pct`，图表只画 `0..120` 的单向向上柱，负值在进入 `uint8_t` 时变成 0，100 表示当前 target GF。
+- 新口径：DECO 主图使用有符号 `tissue_raw_pct`，图表画 `-100..120` 的上下双向柱，0 表示 `P_tissue = P_amb`，动态 GF 线来自 `current_target_gf`，100 表示绝对 M 值。
+- `relative_gf_percent` / `tissue_gf_pct` 保留给旧小组件和信息概览兼容，不再驱动 DECO 主图。
+
+验证方式：
+
+- 构造或接入算法返回负数 `absolute_gf_percent` 时，DECO 主图柱子必须从 0% 横线向下生长，不能消失为 0。
+- 构造 `absolute_gf_percent` 位于 `0..current_target_gf`、`current_target_gf..100`、`100..120` 三个区间时，柱段颜色应分别为绿色、黄色、红色闪烁。
+- 修改 GF 设置或算法返回的 `current_target_gf` 后，动态 GF 虚线位置应随 VM 刷新移动。
+
 ## 0.0.18 -> 0.0.19
 
 ### 算法包变化

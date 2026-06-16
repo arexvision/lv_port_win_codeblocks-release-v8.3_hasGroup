@@ -23,36 +23,25 @@
 #define DECO_ROW3_Y     (CARD_TITLE_H + 114)
 #define GRID_X              16
 
-/* Tissue bars use relative GF after configured conservatism:
- * - 0 is the ambient-pressure baseline
- * - 100 is the current target GF danger line
- * - draw height is clamped to 0..120 so over-limit bars can extend above 100
- */
-#define TISSUE_DANGER_PCT   100
-#define TISSUE_BAR_MAX_PCT  120
+#define TISSUE_DRAW_MIN_PCT      (-100)  /* 绘制下界：欠饱和 */
+#define TISSUE_DRAW_MAX_PCT      120     /* 绘制上界：过 M 值封顶 */
+#define TISSUE_BASELINE_PCT      0       /* 环境水压基准线 */
+#define TISSUE_MVALUE_PCT        100     /* 绝对 M 值线 */
+#define TISSUE_TARGET_FALLBACK   85      /* target GF 缺省绘制线 */
 
 /* HTML --flash-speed default 0.3s → 300ms half-period for flashInvert */
 #define TISSUE_FLASH_MS     300
 
-static lv_obj_t *s_bars[16];
+static lv_obj_t *s_tissue_chart;
 static lv_obj_t *s_lbl_gf99;
 static lv_obj_t *s_lbl_surf_gf;
 static lv_obj_t *s_lbl_cns;
 static lv_obj_t *s_lbl_otu;
 static lv_obj_t *s_lbl_gf_setting;
-static lv_obj_t *s_mvalue_line;
-static lv_obj_t *s_mvalue_label;
 
 static lv_timer_t *s_tissue_flash_timer;
 static bool        s_tissue_flash_phase;
 static ui_vm_deco_t s_deco_vm_cache;
-static int16_t     s_tissue_fill_h_cache[16];
-static lv_color_t  s_tissue_color_cache[16];
-static bool        s_tissue_draw_cache_valid[16];
-static int16_t     s_mvalue_line_y_cache = -1;
-static uint8_t     s_mvalue_line_pct_cache;
-static bool        s_mvalue_visible_cache;
-static bool        s_mvalue_visible_cache_valid;
 static bool        s_surf_gf_alert_cache;
 static bool        s_surf_gf_style_cache_valid;
 
@@ -102,7 +91,7 @@ static bool any_tissue_danger(void)
 {
     for (int i = 0; i < 16; i++)
     {
-        if (s_deco_vm_cache.tissue_gf_pct[i] >= TISSUE_DANGER_PCT) return true;
+        if (s_deco_vm_cache.tissue_raw_pct[i] > TISSUE_MVALUE_PCT) return true;
     }
     return false;
 }
@@ -110,30 +99,13 @@ static bool any_tissue_danger(void)
 static void tissue_danger_flash_cb(lv_timer_t *t)
 {
     (void)t;
-    if (!deco_page_refresh_visible())
+    if (!deco_page_refresh_visible() || !deco_obj_is_valid(&s_tissue_chart))
     {
         return;
     }
 
     s_tissue_flash_phase = !s_tissue_flash_phase;
-    for (int i = 0; i < 16; i++)
-    {
-        if (s_deco_vm_cache.tissue_gf_pct[i] >= TISSUE_DANGER_PCT)
-        {
-            // 危险时在 亮绿 和 暗绿空槽 之间闪烁
-            lv_color_t c = s_tissue_flash_phase ? GREEN : DARK;
-            if (!deco_obj_is_valid(&s_bars[i]))
-            {
-                continue;
-            }
-
-            lv_obj_t *bar_fill = lv_obj_get_child(s_bars[i], 0);
-            if (bar_fill)
-            {
-                lv_obj_set_style_bg_color(bar_fill, c, 0);
-            }
-        }
-    }
+    lv_obj_invalidate(s_tissue_chart);
 }
 
 static void tissue_flash_ensure(void)
@@ -142,7 +114,7 @@ static void tissue_flash_ensure(void)
     {
         if (!s_tissue_flash_timer)
         {
-            s_tissue_flash_phase = false;
+            s_tissue_flash_phase = true;
             s_tissue_flash_timer = lv_timer_create(tissue_danger_flash_cb, TISSUE_FLASH_MS, NULL);
         }
     }
@@ -156,18 +128,6 @@ static void tissue_flash_ensure(void)
     }
 }
 
-static lv_color_t tissue_fill_color(uint8_t pct)
-{
-    if (pct >= TISSUE_DANGER_PCT)
-        return s_tissue_flash_phase ? GREEN : DARK;
-    return GREEN;
-}
-
-static uint8_t card_deco_mvalue_line_pct(void)
-{
-    return TISSUE_DANGER_PCT;
-}
-
 static bool card_deco_tissue_chart_active(void)
 {
     if (s_deco_vm_cache.chart_active != 0U)
@@ -177,7 +137,7 @@ static bool card_deco_tissue_chart_active(void)
 
     for (uint8_t i = 0U; i < 16U; i++)
     {
-        if (s_deco_vm_cache.tissue_raw_pct[i] > 0U ||
+        if (s_deco_vm_cache.tissue_raw_pct[i] != 0 ||
             s_deco_vm_cache.tissue_gf_pct[i] > 0U)
         {
             return true;
@@ -187,60 +147,155 @@ static bool card_deco_tissue_chart_active(void)
     return false;
 }
 
-static void card_deco_update_mvalue_line(bool chart_active)
+static int tissue_draw_pct_for_range(int pct)
 {
-    if (!deco_obj_is_valid(&s_mvalue_line) || !deco_obj_is_valid(&s_mvalue_label))
+    if (pct < TISSUE_DRAW_MIN_PCT)
+    {
+        return TISSUE_DRAW_MIN_PCT;
+    }
+    if (pct > TISSUE_DRAW_MAX_PCT)
+    {
+        return TISSUE_DRAW_MAX_PCT;
+    }
+    return pct;
+}
+
+static lv_coord_t tissue_y_for_pct(const lv_area_t *plot, int pct)
+{
+    int draw_pct = tissue_draw_pct_for_range(pct);
+    int range = TISSUE_DRAW_MAX_PCT - TISSUE_DRAW_MIN_PCT;
+    int plot_h = lv_area_get_height(plot) - 1;
+    return plot->y2 - (lv_coord_t)(((draw_pct - TISSUE_DRAW_MIN_PCT) * plot_h) / range);
+}
+
+static int tissue_target_gf_draw_pct(void)
+{
+    float target = s_deco_vm_cache.tissue_target_gf_pct;
+    int pct;
+
+    if (target <= 0.0f)
+    {
+        return TISSUE_TARGET_FALLBACK;
+    }
+
+    pct = (int)(target + 0.5f);
+    if (pct < TISSUE_BASELINE_PCT)
+    {
+        pct = TISSUE_BASELINE_PCT;
+    }
+    if (pct > TISSUE_DRAW_MAX_PCT)
+    {
+        pct = TISSUE_DRAW_MAX_PCT;
+    }
+    return pct;
+}
+
+static void tissue_draw_line(lv_draw_ctx_t *draw_ctx, const lv_area_t *plot, int pct,
+                             lv_color_t color, lv_opa_t opa, lv_coord_t width,
+                             lv_coord_t dash_width, lv_coord_t dash_gap)
+{
+    lv_draw_line_dsc_t line_dsc;
+    lv_draw_line_dsc_init(&line_dsc);
+    line_dsc.color = color;
+    line_dsc.opa = opa;
+    line_dsc.width = width;
+    line_dsc.dash_width = dash_width;
+    line_dsc.dash_gap = dash_gap;
+
+    lv_coord_t y = tissue_y_for_pct(plot, pct);
+    lv_point_t pts[2] = {{plot->x1, y}, {plot->x2, y}};
+    lv_draw_line(draw_ctx, &line_dsc, &pts[0], &pts[1]);
+}
+
+static void tissue_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t *rect_dsc,
+                                    lv_coord_t x1, lv_coord_t x2, const lv_area_t *plot,
+                                    int low_pct, int high_pct, lv_color_t color)
+{
+    int draw_low = tissue_draw_pct_for_range(low_pct);
+    int draw_high = tissue_draw_pct_for_range(high_pct);
+    lv_coord_t y_top;
+    lv_coord_t y_bot;
+    lv_area_t fill;
+
+    if (draw_high <= draw_low)
     {
         return;
     }
 
-    if (!chart_active)
+    y_top = tissue_y_for_pct(plot, draw_high);
+    y_bot = tissue_y_for_pct(plot, draw_low);
+    if (y_bot < y_top)
     {
-        if (!s_mvalue_visible_cache_valid || s_mvalue_visible_cache)
+        return;
+    }
+
+    fill.x1 = x1;
+    fill.x2 = x2;
+    fill.y1 = y_top;
+    fill.y2 = y_bot;
+    rect_dsc->bg_color = color;
+    rect_dsc->bg_opa = LV_OPA_COVER;
+    lv_draw_rect(draw_ctx, rect_dsc, &fill);
+}
+
+static void tissue_chart_draw_cb(lv_event_t *e)
+{
+    lv_obj_t *obj = lv_event_get_target(e);
+    lv_draw_ctx_t *draw_ctx = lv_event_get_draw_ctx(e);
+    lv_area_t *area = &obj->coords;
+    bool chart_active = card_deco_tissue_chart_active();
+    int text_h = 16;
+    int exact_col_w = lv_area_get_width(area) / 16;
+    int tissue_grid_w = exact_col_w * 16;
+    int target_pct = tissue_target_gf_draw_pct();
+    lv_area_t plot = {area->x1, area->y1, area->x1 + tissue_grid_w - 1, area->y2 - text_h};
+
+    lv_draw_rect_dsc_t rect_dsc;
+    lv_draw_rect_dsc_init(&rect_dsc);
+    rect_dsc.radius = 0;
+
+    lv_draw_label_dsc_t label_dsc;
+    lv_draw_label_dsc_init(&label_dsc);
+    label_dsc.font = get_font(FONT_ID_SMALL);
+    label_dsc.color = LIGHT;
+    label_dsc.align = LV_TEXT_ALIGN_CENTER;
+
+    for (int i = 0; i < 16; i++)
+    {
+        int exact_x = (int)area->x1 + i * exact_col_w;
+        int bar_w = exact_col_w - 4;
+        lv_coord_t x1 = (lv_coord_t)(exact_x + 2);
+        lv_coord_t x2 = (lv_coord_t)(x1 + bar_w - 1);
+        lv_area_t bg = {x1, plot.y1, x2, plot.y2};
+        int value_pct = chart_active ? (int)s_deco_vm_cache.tissue_raw_pct[i] : 0;
+        int draw_pct = tissue_draw_pct_for_range(value_pct);
+
+        rect_dsc.bg_color = DARK;
+        rect_dsc.bg_opa = LV_OPA_COVER;
+        lv_draw_rect(draw_ctx, &rect_dsc, &bg);
+
+        if (draw_pct < TISSUE_BASELINE_PCT)
         {
-            lv_obj_add_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_add_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
-            s_mvalue_visible_cache = false;
-            s_mvalue_visible_cache_valid = true;
+            tissue_draw_bar_segment(draw_ctx, &rect_dsc, x1, x2, &plot, draw_pct, TISSUE_BASELINE_PCT, lv_color_make(0x00, 0x99, 0x88));
         }
-        return;
-    }
-    if (!s_mvalue_visible_cache_valid || !s_mvalue_visible_cache)
-    {
-        lv_obj_clear_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
-        s_mvalue_visible_cache = true;
-        s_mvalue_visible_cache_valid = true;
+        else if (draw_pct > TISSUE_BASELINE_PCT)
+        {
+            int green_top = (draw_pct < target_pct) ? draw_pct : target_pct;
+            int yellow_top = (draw_pct < TISSUE_MVALUE_PCT) ? draw_pct : TISSUE_MVALUE_PCT;
+            if (green_top > TISSUE_BASELINE_PCT) tissue_draw_bar_segment(draw_ctx, &rect_dsc, x1, x2, &plot, TISSUE_BASELINE_PCT, green_top, GREEN);
+            if (yellow_top > target_pct) tissue_draw_bar_segment(draw_ctx, &rect_dsc, x1, x2, &plot, target_pct, yellow_top, lv_color_make(0xFF, 0xD0, 0x00));
+            if (draw_pct > TISSUE_MVALUE_PCT && s_tissue_flash_phase) tissue_draw_bar_segment(draw_ctx, &rect_dsc, x1, x2, &plot, TISSUE_MVALUE_PCT, draw_pct, lv_color_make(0xFF, 0x20, 0x20));
+        }
+
+        char buf[4];
+        (void)snprintf(buf, sizeof(buf), "%d", i + 1);
+        lv_area_t t_area = {(lv_coord_t)exact_x, (lv_coord_t)(plot.y2 + 1), (lv_coord_t)(exact_x + exact_col_w - 1), area->y2};
+        lv_draw_label(draw_ctx, &label_dsc, &t_area, buf, NULL);
     }
 
-    if (!deco_obj_is_valid(&s_bars[0]))
-    {
-        return;
-    }
-
-    int bar_max_h = (int)lv_obj_get_height(s_bars[0]);
-    int line_y = bar_max_h;
-    uint8_t line_pct = card_deco_mvalue_line_pct();
-
-    line_y -= ((int)line_pct * bar_max_h) / TISSUE_BAR_MAX_PCT;
-    if (line_y < 0)
-    {
-        line_y = 0;
-    }
-    if (line_y > bar_max_h - 2)
-    {
-        line_y = bar_max_h - 2;
-    }
-
-    if (s_mvalue_line_y_cache != (int16_t)line_y)
-    {
-        lv_obj_set_y(s_mvalue_line, line_y);
-        s_mvalue_line_y_cache = (int16_t)line_y;
-    }
-    if (s_mvalue_line_pct_cache != line_pct)
-    {
-        s_mvalue_line_pct_cache = line_pct;
-    }
+    tissue_draw_line(draw_ctx, &plot, TISSUE_BASELINE_PCT, GREEN, LV_OPA_COVER, 2, 0, 0);
+    tissue_draw_line(draw_ctx, &plot, target_pct, lv_color_make(0xFF, 0xD0, 0x00), LV_OPA_COVER, 1, 4, 4);
+    tissue_draw_line(draw_ctx, &plot, TISSUE_MVALUE_PCT, lv_color_make(0xFF, 0x20, 0x20), LV_OPA_COVER, 2, 0, 0);
 }
 
 static void surf_gf_apply_style(void)
@@ -325,11 +380,7 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 
 void card_deco_create(lv_obj_t *parent)
 {
-    memset(s_tissue_draw_cache_valid, 0, sizeof(s_tissue_draw_cache_valid));
-    s_mvalue_line_y_cache = -1;
-    s_mvalue_line_pct_cache = 0xFFU;
-    s_mvalue_visible_cache = false;
-    s_mvalue_visible_cache_valid = false;
+    s_tissue_chart = NULL;
     s_surf_gf_alert_cache = false;
     s_surf_gf_style_cache_valid = false;
 
@@ -369,66 +420,18 @@ void card_deco_create(lv_obj_t *parent)
 
     int chart_w = right_canvas_w - 40;     /* 增加左右安全边距防截断 */
 
-    lv_obj_t *chart_container = lv_obj_create(parent);
-    lv_obj_remove_style_all(chart_container);
-    lv_obj_set_size(chart_container, chart_w, chart_h);
-    lv_obj_align(chart_container, LV_ALIGN_BOTTOM_MID, 0, chart_bottom);
+    s_tissue_chart = lv_obj_create(parent);
+    lv_obj_remove_style_all(s_tissue_chart);
+    lv_obj_set_size(s_tissue_chart, chart_w, chart_h);
+    lv_obj_align(s_tissue_chart, LV_ALIGN_BOTTOM_MID, 0, chart_bottom);
+    lv_obj_add_event_cb(s_tissue_chart, tissue_chart_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
 
     /* 缩短标题，给 16 组织仓图留出完整宽度。 */
     lv_obj_t *sec_lbl = lv_label_create(parent);
     lv_obj_set_style_text_font(sec_lbl, get_font(FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(sec_lbl, LIGHT, 0);
     lv_label_set_text(sec_lbl, "TISSUE SATURATION"); // 删掉了冗长的 (16 COMPARTMENTS)
-    lv_obj_align_to(sec_lbl, chart_container, LV_ALIGN_OUT_TOP_LEFT, 0, -10);
-
-    int text_h    = 16;
-    int bar_max_h = chart_h - text_h;
-    int exact_col_w = chart_w / 16;
-    int tissue_grid_w = exact_col_w * 16;
-
-    for (int i = 0; i < 16; i++)
-    {
-        int exact_x = i * exact_col_w;
-        int bar_w   = exact_col_w - 4;
-
-        lv_obj_t *bar_bg = lv_obj_create(chart_container);
-        lv_obj_remove_style_all(bar_bg);
-        lv_obj_set_style_bg_color(bar_bg, DARK, 0);
-        lv_obj_set_style_bg_opa(bar_bg, LV_OPA_COVER, 0);
-        lv_obj_set_size(bar_bg, bar_w, bar_max_h);
-        lv_obj_set_pos(bar_bg, exact_x + 2, 0);
-
-        lv_obj_t *bar_fill = lv_obj_create(bar_bg);
-        lv_obj_remove_style_all(bar_fill);
-        lv_obj_set_style_bg_color(bar_fill, GREEN, 0);
-        lv_obj_set_style_bg_opa(bar_fill, LV_OPA_COVER, 0);
-        // 初始化时给最小高度，具体数据由 update 注入
-        lv_obj_set_size(bar_fill, LV_PCT(100), 2);
-        lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
-
-        lv_obj_t *num_lbl = lv_label_create(chart_container);
-        lv_label_set_text_fmt(num_lbl, "%d", i + 1);
-        lv_obj_set_style_text_font(num_lbl, get_font(FONT_ID_SMALL), 0);
-        lv_obj_set_style_text_color(num_lbl, LIGHT, 0);
-        lv_obj_set_size(num_lbl, exact_col_w, text_h);
-        lv_obj_set_pos(num_lbl, exact_x, bar_max_h);
-        lv_obj_set_style_text_align(num_lbl, LV_TEXT_ALIGN_CENTER, 0);
-
-        s_bars[i] = bar_bg;
-    }
-
-    s_mvalue_line = lv_obj_create(chart_container);
-    lv_obj_remove_style_all(s_mvalue_line);
-    lv_obj_set_size(s_mvalue_line, tissue_grid_w, 2);
-    lv_obj_set_pos(s_mvalue_line, 0, bar_max_h / 2);
-    lv_obj_set_style_bg_color(s_mvalue_line, GREEN, 0);
-    lv_obj_set_style_bg_opa(s_mvalue_line, LV_OPA_COVER, 0);
-
-    s_mvalue_label = lv_label_create(chart_container);
-    lv_obj_set_style_text_font(s_mvalue_label, get_font(FONT_ID_SMALL), 0);
-    lv_obj_set_style_text_color(s_mvalue_label, GREEN, 0);
-    lv_obj_set_style_bg_opa(s_mvalue_label, LV_OPA_COVER, 0);
-    lv_obj_set_style_bg_color(s_mvalue_label, BLACK, 0);
+    lv_obj_align_to(sec_lbl, s_tissue_chart, LV_ALIGN_OUT_TOP_LEFT, 0, -10);
 
     card_deco_update();
 }
@@ -453,8 +456,6 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
     {
         return;
     }
-
-    bool chart_active = card_deco_tissue_chart_active();
 
     if (deco_obj_is_valid(&s_lbl_gf_setting))
     {
@@ -482,63 +483,9 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
         deco_label_set_text_if_changed(s_lbl_otu, s_deco_vm_cache.otu);
     }
 
-    card_deco_update_mvalue_line(chart_active);
-
     tissue_flash_ensure();
-
-    for (int i = 0; i < 16; i++)
+    if (deco_obj_is_valid(&s_tissue_chart))
     {
-        uint8_t pct = s_deco_vm_cache.tissue_gf_pct[i];
-        if (!deco_obj_is_valid(&s_bars[i]))
-        {
-            continue;
-        }
-
-        lv_obj_t *bar_fill = lv_obj_get_child(s_bars[i], 0);
-        if (bar_fill)
-        {
-            int bar_max_h = (int)lv_obj_get_height(s_bars[i]);
-            int fill_h = 0;
-            uint8_t draw_pct = pct;
-
-            if (!chart_active)
-            {
-                draw_pct = 0U;
-            }
-            if (draw_pct > TISSUE_BAR_MAX_PCT)
-            {
-                draw_pct = TISSUE_BAR_MAX_PCT;
-            }
-
-            if (draw_pct > 0U)
-            {
-                fill_h = ((int)draw_pct * bar_max_h) / TISSUE_BAR_MAX_PCT;
-                if (fill_h < 2)
-                {
-                    fill_h = 2;
-                }
-                if (fill_h > bar_max_h)
-                {
-                    fill_h = bar_max_h;
-                }
-            }
-
-            if (!s_tissue_draw_cache_valid[i] ||
-                s_tissue_fill_h_cache[i] != (int16_t)fill_h)
-            {
-                lv_obj_set_size(bar_fill, LV_PCT(100), fill_h);
-                lv_obj_align(bar_fill, LV_ALIGN_BOTTOM_MID, 0, 0);
-                s_tissue_fill_h_cache[i] = (int16_t)fill_h;
-            }
-
-            lv_color_t fill_color = tissue_fill_color(pct);
-            if (!s_tissue_draw_cache_valid[i] ||
-                lv_color_to32(s_tissue_color_cache[i]) != lv_color_to32(fill_color))
-            {
-                lv_obj_set_style_bg_color(bar_fill, fill_color, 0);
-                s_tissue_color_cache[i] = fill_color;
-            }
-            s_tissue_draw_cache_valid[i] = true;
-        }
+        lv_obj_invalidate(s_tissue_chart);
     }
 }

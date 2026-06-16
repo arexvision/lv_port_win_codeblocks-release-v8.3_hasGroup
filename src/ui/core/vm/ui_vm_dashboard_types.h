@@ -50,8 +50,9 @@ typedef struct
     char surf_gf[16];
     char cns[16];
     char otu[16];
-    uint8_t tissue_raw_pct[16];
+    int16_t tissue_raw_pct[16];
     uint8_t tissue_gf_pct[16];
+    float tissue_target_gf_pct;
     uint8_t gf_low;
     uint8_t gf_high;
     uint8_t chart_active;

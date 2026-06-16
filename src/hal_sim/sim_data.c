@@ -777,7 +777,7 @@ static void sim_tick_cb(lv_timer_t *t)
     sim_update_gas_derived(current_depth_m);
 
     {
-        static const uint8_t s_tissue_raw[16] = {
+        static const int16_t s_tissue_raw[16] = {
             20, 30, 40, 50, 60, 65, 70, 72,
             74, 76, 78, 80, 82, 85, 88, 90
         };
@@ -789,10 +789,10 @@ static void sim_tick_cb(lv_timer_t *t)
         }
         for (uint8_t i = 0U; i < 16U; i++)
         {
-            uint16_t gf_pct = (uint16_t)s_tissue_raw[i] * 100U / gf_high;
+            uint16_t gf_pct = (s_tissue_raw[i] > 0) ? ((uint16_t)s_tissue_raw[i] * 100U / gf_high) : 0U;
             tissue_gf[i] = (gf_pct > 200U) ? 200U : (uint8_t)gf_pct;
         }
-        bus_set_tissue_loads(s_tissue_raw, tissue_gf);
+        bus_set_tissue_loads(s_tissue_raw, tissue_gf, (float)gf_high);
     }
 
     sim_alert_tick();

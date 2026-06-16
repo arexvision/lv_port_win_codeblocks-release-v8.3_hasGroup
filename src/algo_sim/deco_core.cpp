@@ -101,6 +101,21 @@ static uint8_t round_u8_pct(float value)
     return (uint8_t)(value + 0.5f);
 }
 
+static int16_t round_i16_pct(float value)
+{
+    if (!isfinite(value)) return 0;
+    if (value <= -32768.0f) return -32768;
+    if (value >= 32767.0f) return 32767;
+    return (int16_t)((value >= 0.0f) ? (value + 0.5f) : (value - 0.5f));
+}
+
+static float target_gf_percent_from_core(float current_target_gf)
+{
+    if (!isfinite(current_target_gf) || current_target_gf <= 0.0f) return (float)s_gf_high_pct;
+    if (current_target_gf <= 1.0f) return current_target_gf * 100.0f;
+    return current_target_gf;
+}
+
 static void reset_stop_progress(void)
 {
     (void)memset(&s_stop_progress, 0, sizeof(s_stop_progress));
@@ -424,20 +439,19 @@ static bool ensure_initialized(void)
 static void sync_tissue_data(void)
 {
     ArexDecoTissueGradientMetrics gradients;
-    uint8_t tissue_raw[AREX_DECO_COMPARTMENT_COUNT];
+    int16_t tissue_raw[AREX_DECO_COMPARTMENT_COUNT];
     uint8_t tissue_gf[AREX_DECO_COMPARTMENT_COUNT];
 
     if (arex_deco_calculate_tissue_gradients(&s_state, &gradients) != AREX_DECO_STATUS_OK) return;
 
     for (uint8_t i = 0U; i < AREX_DECO_COMPARTMENT_COUNT; i++)
     {
-        tissue_raw[i] = round_u8_pct(gradients.absolute_gf_percent[i]);
+        tissue_raw[i] = round_i16_pct(gradients.absolute_gf_percent[i]);
         tissue_gf[i] = round_u8_pct(gradients.relative_gf_percent[i]);
-        if (tissue_raw[i] > 200U) tissue_raw[i] = 200U;
         if (tissue_gf[i] > 200U) tissue_gf[i] = 200U;
     }
 
-    bus_set_tissue_loads(tissue_raw, tissue_gf);
+    bus_set_tissue_loads(tissue_raw, tissue_gf, target_gf_percent_from_core(gradients.current_target_gf));
 }
 
 static void sync_gas_data(void)

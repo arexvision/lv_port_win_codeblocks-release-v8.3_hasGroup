@@ -993,9 +993,10 @@ void bus_set_surf_gf(float surf_gf)
  *   - 真机 RT-Thread: 触发底层 cpsr 关中断，耗时 < 0.1us
  * ========================================================= */
 
-/* 16 组织舱负荷数组写入（RAW/GF 各 16 字节，必须包临界区） */
-void bus_set_tissue_loads(const uint8_t tissue_raw_pct[16],
-                          const uint8_t tissue_gf_pct[16])
+/* 16 组织舱负荷数组写入（RAW 为有符号 absolute GF，必须包临界区） */
+void bus_set_tissue_loads(const int16_t tissue_raw_pct[16],
+                          const uint8_t tissue_gf_pct[16],
+                          float tissue_target_gf_pct)
 {
     if (tissue_raw_pct == NULL || tissue_gf_pct == NULL)
     {
@@ -1003,15 +1004,17 @@ void bus_set_tissue_loads(const uint8_t tissue_raw_pct[16],
     }
 
     rt_base_t level = rt_hw_interrupt_disable();
-    if ((memcmp(g_sensor_data.tissue_raw_pct, tissue_raw_pct, 16) == 0) &&
-        (memcmp(g_sensor_data.tissue_gf_pct, tissue_gf_pct, 16) == 0))
+    if ((memcmp(g_sensor_data.tissue_raw_pct, tissue_raw_pct, sizeof(g_sensor_data.tissue_raw_pct)) == 0) &&
+        (memcmp(g_sensor_data.tissue_gf_pct, tissue_gf_pct, sizeof(g_sensor_data.tissue_gf_pct)) == 0) &&
+        (fabsf(g_sensor_data.tissue_target_gf_pct - tissue_target_gf_pct) <= 0.1f))
     {
         rt_hw_interrupt_enable(level);
         return;
     }
 
-    memcpy(g_sensor_data.tissue_raw_pct, tissue_raw_pct, 16);
-    memcpy(g_sensor_data.tissue_gf_pct, tissue_gf_pct, 16);
+    memcpy(g_sensor_data.tissue_raw_pct, tissue_raw_pct, sizeof(g_sensor_data.tissue_raw_pct));
+    memcpy(g_sensor_data.tissue_gf_pct, tissue_gf_pct, sizeof(g_sensor_data.tissue_gf_pct));
+    g_sensor_data.tissue_target_gf_pct = tissue_target_gf_pct;
     g_sensor_data.dirty_mask |= DIRTY_TISSUE_TOX;
     rt_hw_interrupt_enable(level);
 }
@@ -2441,7 +2444,7 @@ uint16_t bus_get_otu(void)
     return g_sensor_data.otu;
 }
 
-uint8_t bus_get_tissue_raw_pct(uint8_t index)
+int16_t bus_get_tissue_raw_pct(uint8_t index)
 {
     if (index >= 16U)
     {
@@ -2459,6 +2462,11 @@ uint8_t bus_get_tissue_gf_pct(uint8_t index)
     }
 
     return g_sensor_data.tissue_gf_pct[index];
+}
+
+float bus_get_tissue_target_gf_pct(void)
+{
+    return g_sensor_data.tissue_target_gf_pct;
 }
 
 uint8_t bus_get_pod_count(void)

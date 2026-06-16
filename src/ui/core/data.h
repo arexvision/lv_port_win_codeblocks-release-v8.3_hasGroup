@@ -141,8 +141,9 @@ void bus_set_fps(uint16_t fps);
 void bus_set_sensor_status(const char *status);
 /* --- 临界区保护的数组写入接口 --- */
 /* 16 组织舱负荷数组（>32bit，必须包临界区防止数据撕裂） */
-void bus_set_tissue_loads(const uint8_t tissue_raw_pct[16],
-                          const uint8_t tissue_gf_pct[16]);
+void bus_set_tissue_loads(const int16_t tissue_raw_pct[16],
+                          const uint8_t tissue_gf_pct[16],
+                          float tissue_target_gf_pct);
 /* 完整减压站序列（>32bit，必须包临界区） */
 void bus_set_deco_plan(const deco_stop_t *stops, uint8_t count);
 
@@ -312,8 +313,9 @@ float bus_get_gf99(void);
 float bus_get_surf_gf(void);
 uint8_t bus_get_cns_pct(void);
 uint16_t bus_get_otu(void);
-uint8_t bus_get_tissue_raw_pct(uint8_t index);
+int16_t bus_get_tissue_raw_pct(uint8_t index);
 uint8_t bus_get_tissue_gf_pct(uint8_t index);
+float bus_get_tissue_target_gf_pct(void);
 uint8_t bus_get_pod_count(void);
 float bus_get_pod_bar(uint8_t pod_idx);
 float bus_get_tts(void);

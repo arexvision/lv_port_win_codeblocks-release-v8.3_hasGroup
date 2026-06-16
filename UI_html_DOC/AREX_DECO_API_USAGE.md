@@ -332,20 +332,21 @@ display_stop = last_stop_m + ceil((raw_stop_m - last_stop_m) / deco_step_m) * de
 - `absolute_gf_percent[16]`：相对绝对 M-value 的 GF 百分比，进入 data bus 的 `tissue_raw_pct[16]`。
 - `relative_gf_percent[16]`：相对当前 target GF limit 的百分比，进入 data bus 的 `tissue_gf_pct[16]`。
 
-当前 DECO 卡片上的 16 组织仓柱状图使用 `relative_gf_percent[16]` / `tissue_gf_pct[16]`。前端渲染规则：
+当前 DECO 卡片上的 16 组织仓柱状图使用 `absolute_gf_percent[16]` / 有符号 `tissue_raw_pct[16]`。适配层不得把 `absolute_gf_percent` 的负值截成 0，必须把欠饱和和过饱和都送到 VM。前端渲染规则：
 
 ```c
-ui_bar_value[i] = clamp((int)tissue_gf_pct[i], 0, 120);
+draw_pct[i] = clamp((int)tissue_raw_pct[i], -100, 120);
 ```
 
 显示语义：
 
-- 0 是当前环境压力下的底线，不画欠饱和负值。
-- 100 是当前 target GF danger line。
-- 100 以上继续画到 120 的封顶高度，并触发危险闪烁。
-- 参考线固定在 100/120 高度，不显示 `GF HIGH` 或 `M-VALUE` 文案。
+- Y 轴为 `-100..120`，0% 是当前环境压力基准线，柱子从 0% 线开始上下双向生长。
+- 负值代表欠饱和，从 0% 向下画，使用暗绿/青绿色。
+- 正值未超过 `current_target_gf` 时从 0% 向上画，使用亮绿色。
+- 超过 `current_target_gf` 的正值段使用黄色；超过 100% M 值线的部分使用红色闪烁。
+- 图表必须画 0% 实线、`current_target_gf` 动态虚线和 100% M 值实线，超过 120% 的显示段在绘制层封顶。
 
-自定义组件 `TISSUE(GF)` 使用同一 0..120 绘制量程；`TISSUE(RAW)` 仍然显示 `absolute_gf_percent` / `tissue_raw_pct`，保持 0..100 绘制量程。
+自定义组件 `TISSUE(GF)` 仍使用 `relative_gf_percent` / `tissue_gf_pct` 的 0..120 概览量程；紧凑型 `TISSUE(RAW)` 使用 `absolute_gf_percent` / `tissue_raw_pct`，但只在绘制层把负值按 0 处理并保持 0..100 概览量程。
 
 ## 当前潜水计划页的用法
 
