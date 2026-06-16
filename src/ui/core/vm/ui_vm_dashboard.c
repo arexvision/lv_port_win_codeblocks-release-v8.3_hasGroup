@@ -255,11 +255,18 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
         vm->chart_active = ((bus_get_depth() > 0.3f) || (bus_get_dive_time_s() > 0U)) ? 1U : 0U;
         vm->surf_gf_alert = (bus_get_surf_gf() > 100.0f) ? 1U : 0U;
         vm->tissue_target_gf_pct = bus_get_tissue_target_gf_pct();
+        vm->tissue_pi_permille = bus_get_tissue_pi_permille();
+        vm->tissue_ambient_pressure_bar = bus_get_tissue_ambient_pressure_bar();
+        vm->tissue_inspired_n2_bar = bus_get_tissue_inspired_n2_bar();
+        vm->tissue_normalized_valid = bus_get_tissue_normalized_valid() ? 1U : 0U;
         vm->right_canvas_w = ui_content_w_get();
         for (uint8_t i = 0U; i < 16U; i++)
         {
             vm->tissue_raw_pct[i] = bus_get_tissue_raw_pct(i);
             vm->tissue_gf_pct[i] = bus_get_tissue_gf_pct(i);
+            vm->tissue_bar_permille[i] = bus_get_tissue_bar_permille(i);
+            vm->tissue_n2_bar[i] = bus_get_tissue_n2_bar(i);
+            vm->tissue_m_value_bar[i] = bus_get_tissue_m_value_bar(i);
         }
         return;
     }
@@ -274,9 +281,16 @@ void ui_vm_deco_update(ui_vm_deco_t *vm,
     vm->chart_active = ((sensor->depth > 0.3f) || (sensor->dive_time_s > 0U)) ? 1U : 0U;
     vm->surf_gf_alert = (sensor->surf_gf > 100.0f) ? 1U : 0U;
     vm->tissue_target_gf_pct = sensor->tissue_target_gf_pct;
+    vm->tissue_pi_permille = sensor->tissue_pi_permille;
+    vm->tissue_ambient_pressure_bar = sensor->tissue_ambient_pressure_bar;
+    vm->tissue_inspired_n2_bar = sensor->tissue_inspired_n2_bar;
+    vm->tissue_normalized_valid = sensor->tissue_normalized_valid ? 1U : 0U;
     vm->right_canvas_w = vm_content_w_from_config(config);
     (void)memcpy(vm->tissue_raw_pct, sensor->tissue_raw_pct, sizeof(vm->tissue_raw_pct));
     (void)memcpy(vm->tissue_gf_pct, sensor->tissue_gf_pct, sizeof(vm->tissue_gf_pct));
+    (void)memcpy(vm->tissue_bar_permille, sensor->tissue_bar_permille, sizeof(vm->tissue_bar_permille));
+    (void)memcpy(vm->tissue_n2_bar, sensor->tissue_n2_bar, sizeof(vm->tissue_n2_bar));
+    (void)memcpy(vm->tissue_m_value_bar, sensor->tissue_m_value_bar, sizeof(vm->tissue_m_value_bar));
 }
 
 void ui_vm_depth_update(ui_vm_depth_t *vm, const sensor_data_t *sensor)

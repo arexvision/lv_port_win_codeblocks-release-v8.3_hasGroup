@@ -327,30 +327,7 @@ display_stop = last_stop_m + ceil((raw_stop_m - last_stop_m) / deco_step_m) * de
 
 ## 16 组织仓柱状图口径
 
-算法接口 `arex_deco_calculate_tissue_gradients()` 输出两组 16 仓百分比：
-
-- `absolute_gf_percent[16]`：相对绝对 M-value 的 GF 百分比，进入 data bus 的 `tissue_raw_pct[16]`。
-- `relative_gf_percent[16]`：相对当前 target GF limit 的百分比，进入 data bus 的 `tissue_gf_pct[16]`。
-
-当前 DECO 卡片上的 16 组织仓柱状图使用 `absolute_gf_percent[16]` / 有符号 `tissue_raw_pct[16]`。适配层不得把 `absolute_gf_percent` 的负值截成 0，必须把欠饱和和过饱和都送到 VM。前端渲染规则：
-
-```c
-draw_pct[i] = clamp((int)tissue_raw_pct[i], -100, 120);
-```
-
-显示语义：
-
-- Y 轴为 `-100..120`，0% 是当前环境压力基准线，柱子从 0% 线开始上下双向生长。
-- 负值代表欠饱和，从 0% 向下画，使用暗绿/青绿色。
-- 正值未超过 `current_target_gf` 时从 0% 向上画，使用亮绿色。
-- 超过 `current_target_gf` 的正值段使用黄色；超过 100% M 值线的部分使用红色闪烁。
-- 图表必须画 0% 实线、`current_target_gf` 动态虚线和 100% M 值实线，超过 120% 的显示段在绘制层封顶。
-
-自定义组件 `TISSUE(GF)` 仍使用 `relative_gf_percent` / `tissue_gf_pct` 的 0..120 概览量程；紧凑型 `TISSUE(RAW)` 使用 `absolute_gf_percent` / `tissue_raw_pct`，但只在绘制层把负值按 0 处理并保持 0..100 概览量程。
-
-### 归一化组织图测试载荷
-
-当前算法 API 尚未直接返回 `P_amb`、`P_I`、`PN2_i`、`M_i` 四类物理量。为了先验证新组织图 UI，PC 适配层额外写入一份独立测试载荷：
+当前 DECO 卡片主图使用归一化组织图载荷：
 
 - `tissue_bar_permille[16]`：0~1000 的组织条长度，400 表示环境压力线，900 表示 M 值线。
 - `tissue_pi_permille`：吸入氮气分压虚线位置，同样使用 0~1000 坐标。
@@ -361,7 +338,13 @@ draw_pct[i] = clamp((int)tissue_raw_pct[i], -100, 120);
 
 注意：core 支持 Trimix，组织条长度实际按总惰性气体压力 `PN2 + PHe` 归一化；`tissue_n2_bar[16]` 只是调试/展示字段，UI 试验应直接使用 `tissue_bar_permille[16]` 作为条长。
 
-这组字段只用于 UI 试验，不替代现有 `tissue_raw_pct[16]` / `tissue_gf_pct[16]`。正式算法接口提供后，应删除适配层反推 M 值的临时逻辑。
+前端显示语义：
+
+- 主图是横向 16 条组织条，背景固定分成 `0~400`、`400~900`、`900~1000` 三段。
+- 400 竖线是环境压力线，900 竖线是 M 值线，PI 竖向虚线来自 `tissue_pi_permille`。
+- 每条组织条直接使用 `tissue_bar_permille[i]` 作为条长；超过 900 的部分使用红色闪烁。
+
+`tissue_raw_pct[16]` / `tissue_gf_pct[16]` 仍保留给自定义组件和信息概览兼容，不再驱动 DECO 主图。正式算法接口提供后，应删除适配层反推 M 值的临时逻辑。
 
 ## 当前潜水计划页的用法
 
