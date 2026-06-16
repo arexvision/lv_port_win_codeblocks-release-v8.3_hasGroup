@@ -443,6 +443,16 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     case COMP_NOFLY_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%02u:%02u", (unsigned)(bus_get_nofly_time_min() / 60U), (unsigned)(bus_get_nofly_time_min() % 60U));
         break;
+    case COMP_TTS_AT_5MIN_0806:
+    case COMP_TTS_DELTA_5MIN_0806:
+    case COMP_NDL_UP_3M_0806:
+    case COMP_NDL_DOWN_3M_0806:
+    case COMP_NDL_DELTA_3M_0806:
+    case COMP_GTR_0806:
+    case COMP_RMV_0806:
+    case COMP_SAC_0806:
+        (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        break;
     case COMP_ACCEL_2406:
         (void)snprintf(vm->text, sizeof(vm->text), "%+.2f %+.2f %+.2f", (double)bus_get_accel_x_g(), (double)bus_get_accel_y_g(), (double)bus_get_accel_z_g());
         break;

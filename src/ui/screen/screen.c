@@ -617,6 +617,11 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         case COMP_STOP_DEPTH_0806:
         case COMP_STOP_TIME_1606:
         case COMP_CEILING_0806:
+        case COMP_TTS_AT_5MIN_0806:
+        case COMP_TTS_DELTA_5MIN_0806:
+        case COMP_NDL_UP_3M_0806:
+        case COMP_NDL_DOWN_3M_0806:
+        case COMP_NDL_DELTA_3M_0806:
             mask |= DIRTY_DECO_STATUS;
             break;
         case COMP_GAS_1606:
@@ -626,6 +631,9 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         case COMP_GAS_DENS_0806:
         case COMP_FIO2_0806:
         case COMP_POD_0806:
+        case COMP_GTR_0806:
+        case COMP_RMV_0806:
+        case COMP_SAC_0806:
             mask |= DIRTY_GAS_SUPPLY;
             break;
         case COMP_SYS_1606:

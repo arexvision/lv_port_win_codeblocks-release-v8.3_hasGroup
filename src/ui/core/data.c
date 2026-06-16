@@ -275,6 +275,14 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
         { COMP_HEADING_0806, 4, 1 },
         { COMP_GAS_1606, 0, 2 },
         { COMP_DIVE_TIME_1606, 2, 2 },
+        { COMP_TTS_AT_5MIN_0806, 0, 3 },
+        { COMP_TTS_DELTA_5MIN_0806, 1, 3 },
+        { COMP_NDL_UP_3M_0806, 2, 3 },
+        { COMP_NDL_DOWN_3M_0806, 3, 3 },
+        { COMP_NDL_DELTA_3M_0806, 4, 3 },
+        { COMP_GTR_0806, 0, 4 },
+        { COMP_RMV_0806, 1, 4 },
+        { COMP_SAC_0806, 2, 4 },
     };
     static const grid_widget_t side_sensor[] =
     {
@@ -307,6 +315,14 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
         { COMP_HEADING_0806, 4, 1 },
         { COMP_GAS_1606, 0, 2 },
         { COMP_DIVE_TIME_1606, 2, 2 },
+        { COMP_TTS_AT_5MIN_0806, 4, 2 },
+        { COMP_TTS_DELTA_5MIN_0806, 5, 2 },
+        { COMP_NDL_UP_3M_0806, 6, 2 },
+        { COMP_NDL_DOWN_3M_0806, 0, 3 },
+        { COMP_NDL_DELTA_3M_0806, 1, 3 },
+        { COMP_GTR_0806, 2, 3 },
+        { COMP_RMV_0806, 3, 3 },
+        { COMP_SAC_0806, 4, 3 },
     };
     static const grid_widget_t top_sensor[] =
     {

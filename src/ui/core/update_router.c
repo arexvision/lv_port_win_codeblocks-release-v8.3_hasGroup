@@ -67,6 +67,11 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_STOP_DEPTH_0806:
     case COMP_STOP_TIME_1606:
     case COMP_CEILING_0806:
+    case COMP_TTS_AT_5MIN_0806:
+    case COMP_TTS_DELTA_5MIN_0806:
+    case COMP_NDL_UP_3M_0806:
+    case COMP_NDL_DOWN_3M_0806:
+    case COMP_NDL_DELTA_3M_0806:
         return DIRTY_DECO_STATUS;
     case COMP_GAS_1606:
     case COMP_PPO2_0806:
@@ -75,6 +80,9 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_GAS_DENS_0806:
     case COMP_FIO2_0806:
     case COMP_POD_0806:
+    case COMP_GTR_0806:
+    case COMP_RMV_0806:
+    case COMP_SAC_0806:
         return DIRTY_GAS_SUPPLY;
     case COMP_SYS_1606:
     case COMP_TEMP_0806:

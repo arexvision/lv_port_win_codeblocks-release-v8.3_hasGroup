@@ -402,6 +402,14 @@ void comp_sync_data(comp_id_t w_id)
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
+    case COMP_TTS_AT_5MIN_0806:
+    case COMP_TTS_DELTA_5MIN_0806:
+    case COMP_NDL_UP_3M_0806:
+    case COMP_NDL_DOWN_3M_0806:
+    case COMP_NDL_DELTA_3M_0806:
+        comp_sync_text_from_vm(w_id, 0U);
+        break;
+
     case COMP_ASCENT_0806:
     case COMP_ASCENT_0812:
         comp_sync_text_from_vm(w_id, 0U);
@@ -463,6 +471,12 @@ void comp_sync_data(comp_id_t w_id)
         break;
 
     case COMP_FIO2_0806:
+        comp_sync_text_from_vm(w_id, 0U);
+        break;
+
+    case COMP_GTR_0806:
+    case COMP_RMV_0806:
+    case COMP_SAC_0806:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 

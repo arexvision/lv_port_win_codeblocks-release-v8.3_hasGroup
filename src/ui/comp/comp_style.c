@@ -493,6 +493,94 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -5, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
+        .widget_id = COMP_TTS_AT_5MIN_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_MEDIUM,
+        .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "TTS+5",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_TTS_DELTA_5MIN_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_MEDIUM,
+        .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "TTS D",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_NDL_UP_3M_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_MEDIUM,
+        .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "NDL+3",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_NDL_DOWN_3M_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_MEDIUM,
+        .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "NDL-3",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_NDL_DELTA_3M_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_MEDIUM,
+        .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "NDL D",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_GTR_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_MEDIUM,
+        .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "GTR",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_RMV_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_MEDIUM,
+        .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "RMV",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_SAC_0806,
+        .span_w = 1, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_MEDIUM,
+        .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "SAC",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
         .widget_id = COMP_ACCEL_2406,
         .span_w = 3, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,

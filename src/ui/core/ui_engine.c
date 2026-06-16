@@ -203,7 +203,7 @@ void sys_config_defaults(sys_config_t *cfg)
      */
     /* custom_cards[0] 保留默认自定义卡片内容，custom_cards[1] 是传感器预览。 */
     cfg->custom_card_count = 2;
-    cfg->custom_cards[0].widget_count = 10;
+    cfg->custom_cards[0].widget_count = 18;
     cfg->custom_cards[1].widget_count = 16;
     (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "ALARM TARGETS");
     (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "SENSOR PREVIEW");
@@ -247,6 +247,38 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
     {
         COMP_TIME_1606, 2, 2
+    };
+    cfg->custom_cards[0].widgets[10] = (grid_widget_t)
+    {
+        COMP_TTS_AT_5MIN_0806, 0, 3
+    };
+    cfg->custom_cards[0].widgets[11] = (grid_widget_t)
+    {
+        COMP_TTS_DELTA_5MIN_0806, 1, 3
+    };
+    cfg->custom_cards[0].widgets[12] = (grid_widget_t)
+    {
+        COMP_NDL_UP_3M_0806, 2, 3
+    };
+    cfg->custom_cards[0].widgets[13] = (grid_widget_t)
+    {
+        COMP_NDL_DOWN_3M_0806, 3, 3
+    };
+    cfg->custom_cards[0].widgets[14] = (grid_widget_t)
+    {
+        COMP_NDL_DELTA_3M_0806, 4, 3
+    };
+    cfg->custom_cards[0].widgets[15] = (grid_widget_t)
+    {
+        COMP_GTR_0806, 0, 4
+    };
+    cfg->custom_cards[0].widgets[16] = (grid_widget_t)
+    {
+        COMP_RMV_0806, 1, 4
+    };
+    cfg->custom_cards[0].widgets[17] = (grid_widget_t)
+    {
+        COMP_SAC_0806, 2, 4
     };
 
     

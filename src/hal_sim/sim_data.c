@@ -376,6 +376,14 @@ static void test_set_ui_layout(uint8_t phase)
             { COMP_HEADING_0806,   1, 4 },
             { COMP_GAS_1606,       2, 0 },
             { COMP_DIVE_TIME_1606, 2, 2 },
+            { COMP_TTS_AT_5MIN_0806, 3, 0 },
+            { COMP_TTS_DELTA_5MIN_0806, 3, 1 },
+            { COMP_NDL_UP_3M_0806, 3, 2 },
+            { COMP_NDL_DOWN_3M_0806, 3, 3 },
+            { COMP_NDL_DELTA_3M_0806, 3, 4 },
+            { COMP_GTR_0806,       4, 0 },
+            { COMP_RMV_0806,       4, 1 },
+            { COMP_SAC_0806,       4, 2 },
         };
         uint8_t top_custom[][3] = {
             { COMP_DEPTH_1606,     0, 0 },
@@ -388,6 +396,14 @@ static void test_set_ui_layout(uint8_t phase)
             { COMP_HEADING_0806,   1, 4 },
             { COMP_GAS_1606,       2, 0 },
             { COMP_DIVE_TIME_1606, 2, 2 },
+            { COMP_TTS_AT_5MIN_0806, 2, 4 },
+            { COMP_TTS_DELTA_5MIN_0806, 2, 5 },
+            { COMP_NDL_UP_3M_0806, 2, 6 },
+            { COMP_NDL_DOWN_3M_0806, 3, 0 },
+            { COMP_NDL_DELTA_3M_0806, 3, 1 },
+            { COMP_GTR_0806,       3, 2 },
+            { COMP_RMV_0806,       3, 3 },
+            { COMP_SAC_0806,       3, 4 },
         };
         const bool horizontal = !ui_layout_is_vertical_split();
         const uint8_t (*fixed)[3] = horizontal ? top_def : side_def;

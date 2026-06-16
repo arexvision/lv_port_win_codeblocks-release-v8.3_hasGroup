@@ -673,6 +673,14 @@ static void debug_layout_fill_custom(ble_ui_sync_payload_t *payload, bool gas_la
         { COMP_HEADING_0806,   1, 4 },
         { COMP_GAS_1606,       2, 0 },
         { COMP_DIVE_TIME_1606, 2, 2 },
+        { COMP_TTS_AT_5MIN_0806, 3, 0 },
+        { COMP_TTS_DELTA_5MIN_0806, 3, 1 },
+        { COMP_NDL_UP_3M_0806, 3, 2 },
+        { COMP_NDL_DOWN_3M_0806, 3, 3 },
+        { COMP_NDL_DELTA_3M_0806, 3, 4 },
+        { COMP_GTR_0806,       4, 0 },
+        { COMP_RMV_0806,       4, 1 },
+        { COMP_SAC_0806,       4, 2 },
     };
     static const uint8_t side_gas[][3] =
     {
@@ -682,6 +690,9 @@ static void debug_layout_fill_custom(ble_ui_sync_payload_t *payload, bool gas_la
         { COMP_FIO2_0806,      0, 4 },
         { COMP_GAS_MIX_1606,   1, 0 },
         { COMP_GAS_DENS_0806,  1, 2 },
+        { COMP_GTR_0806,       2, 0 },
+        { COMP_RMV_0806,       2, 1 },
+        { COMP_SAC_0806,       2, 2 },
     };
     static const uint8_t top_default[][3] =
     {
@@ -695,6 +706,14 @@ static void debug_layout_fill_custom(ble_ui_sync_payload_t *payload, bool gas_la
         { COMP_HEADING_0806,   1, 4 },
         { COMP_GAS_1606,       2, 0 },
         { COMP_DIVE_TIME_1606, 2, 2 },
+        { COMP_TTS_AT_5MIN_0806, 2, 4 },
+        { COMP_TTS_DELTA_5MIN_0806, 2, 5 },
+        { COMP_NDL_UP_3M_0806, 2, 6 },
+        { COMP_NDL_DOWN_3M_0806, 3, 0 },
+        { COMP_NDL_DELTA_3M_0806, 3, 1 },
+        { COMP_GTR_0806,       3, 2 },
+        { COMP_RMV_0806,       3, 3 },
+        { COMP_SAC_0806,       3, 4 },
     };
     static const uint8_t top_gas[][3] =
     {
@@ -704,6 +723,9 @@ static void debug_layout_fill_custom(ble_ui_sync_payload_t *payload, bool gas_la
         { COMP_FIO2_0806,      4, 0 },
         { COMP_GAS_MIX_1606,   0, 1 },
         { COMP_GAS_DENS_0806,  2, 1 },
+        { COMP_GTR_0806,       0, 2 },
+        { COMP_RMV_0806,       1, 2 },
+        { COMP_SAC_0806,       2, 2 },
     };
     const bool horizontal = !ui_layout_is_vertical_split();
     const uint8_t (*items)[3] = horizontal ? (gas_layout ? top_gas : top_default)
