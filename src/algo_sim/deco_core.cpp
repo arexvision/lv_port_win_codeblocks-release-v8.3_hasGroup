@@ -21,6 +21,7 @@ extern "C" {
 #define GAS_DENSITY_HE_G_L 0.179f
 #define DECO_SCHEDULE_DEBUG_PRINT_MS 1000U
 #define DECO_SCHEDULE_DEBUG_MAX_STOPS 6U
+#define DECO_PLAN_CALL_DEBUG 1U               /* 打印每次 step/plan 调用结果 */
 #define DECO_HIDE_SWITCH_ONLY_STOPS 1U        /* 隐藏 planner 返回的纯切气预测站 */
 #define DECO_CEILING_ACTIVE_M 0.01f           /* ceiling 大于该值即认为有实时减压义务 */
 #define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
@@ -151,6 +152,57 @@ static bool deco_stop_zone_active(float current_depth_m, float stop_depth_m)
 static bool safety_stop_zone_active(float current_depth_m)
 {
     return current_depth_m >= SAFETY_STOP_ZONE_SHALLOW_M && current_depth_m <= SAFETY_STOP_ZONE_DEEP_M;
+}
+
+static const char *deco_status_name(int status)
+{
+    switch (status)
+    {
+    case AREX_DECO_STATUS_OK:
+        return "OK";
+    case AREX_DECO_STATUS_INVALID_ARGUMENT:
+        return "INVALID_ARGUMENT";
+    case AREX_DECO_STATUS_UNSUPPORTED_VERSION:
+        return "UNSUPPORTED_VERSION";
+    case AREX_DECO_STATUS_INSUFFICIENT_CAPACITY:
+        return "INSUFFICIENT_CAPACITY";
+    case AREX_DECO_STATUS_INVALID_STATE:
+        return "INVALID_STATE";
+    case AREX_DECO_STATUS_NOT_IMPLEMENTED:
+        return "NOT_IMPLEMENTED";
+    default:
+        return "NA";
+    }
+}
+
+static void debug_print_plan_call(const char *tag, int step_status, int plan_status, const ArexDecoSchedule *schedule)
+{
+#if DECO_PLAN_CALL_DEBUG
+    uint32_t ndl_s = (s_metrics.ndl_seconds > 0) ? (uint32_t)s_metrics.ndl_seconds : 0U;
+    uint16_t ndl_min = (ndl_s > 0U) ? round_up_minutes(ndl_s) : 0U;
+    uint8_t stop_count = (plan_status == AREX_DECO_STATUS_OK && schedule != NULL) ? schedule->stop_count : 0U;
+    uint8_t cv = (plan_status == AREX_DECO_STATUS_OK && schedule != NULL) ? schedule->ceiling_violated : 0U;
+    uint32_t tts_s = (plan_status == AREX_DECO_STATUS_OK && schedule != NULL) ? schedule->tts_seconds : 0U;
+
+    rt_kprintf("[AREX_CALL] %s depth=%.1fm step=%s(%d) plan=%s(%d) ndl=%lus/%umin ceiling=%.2fm stops=%u tts=%lus cv=%u\n",
+               tag ? tag : "plan",
+               s_state.current_depth_m,
+               deco_status_name(step_status),
+               step_status,
+               deco_status_name((int)plan_status),
+               plan_status,
+               (unsigned long)ndl_s,
+               (unsigned)ndl_min,
+               s_metrics.ceiling_depth_m,
+               (unsigned)stop_count,
+               (unsigned long)tts_s,
+               (unsigned)cv);
+#else
+    (void)tag;
+    (void)step_status;
+    (void)plan_status;
+    (void)schedule;
+#endif
 }
 
 static void debug_print_schedule(const ArexDecoSchedule *schedule)
@@ -529,6 +581,7 @@ static void refresh_current_outputs(void)
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
     ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
     ArexDecoStatus gas_status = arex_deco_recommend_gas(&s_state, &gas_rec);
+    debug_print_plan_call("refresh", -1, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
     sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
@@ -686,6 +739,7 @@ bool deco_core_rtc_offline(uint32_t seconds)
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
     ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
     ArexDecoStatus gas_status = arex_deco_recommend_gas(&s_state, &gas_rec);
+    debug_print_plan_call("rtc_offline", AREX_DECO_STATUS_OK, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
     sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
@@ -711,8 +765,10 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     input.duration_seconds = delta_time_s;
     input.gas_index = s_state.gas_plan.active_gas_index;
 
-    if (arex_deco_step(&s_state, &input, &next_state, &s_metrics) != AREX_DECO_STATUS_OK)
+    ArexDecoStatus step_status = arex_deco_step(&s_state, &input, &next_state, &s_metrics);
+    if (step_status != AREX_DECO_STATUS_OK)
     {
+        debug_print_plan_call("tick", (int)step_status, -1, NULL);
         rt_kprintf("[DECO] step failed, resetting core\n");
         deco_core_reset();
         return;
@@ -726,6 +782,7 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
     ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
     ArexDecoStatus gas_status = arex_deco_recommend_gas(&s_state, &gas_rec);
+    debug_print_plan_call("tick", (int)step_status, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK)
     {
         debug_print_schedule(&schedule);
