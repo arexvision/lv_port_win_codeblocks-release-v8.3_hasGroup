@@ -342,6 +342,7 @@ display_stop = last_stop_m + ceil((raw_stop_m - last_stop_m) / deco_step_m) * de
 
 - 主图是竖向 16 根组织柱，背景固定分成 `0~400`、`400~900`、`900~1000` 三段。
 - 400 横线是环境压力线，900 横线是 M 值线，PI 横向虚线来自 `tissue_pi_permille`。
+- `PI`、`AMB`、`M` 文字标签由 `card_deco.c` 顶部宏控制；宏只影响文字显示，不影响归一化计算和参考线。
 - 每根组织柱直接使用 `tissue_bar_permille[i]` 作为高度；超过 900 的部分使用红色闪烁。
 
 `tissue_raw_pct[16]` / `tissue_gf_pct[16]` 仍保留给自定义组件和信息概览兼容，不再驱动 DECO 主图。正式算法接口提供后，应删除适配层反推 M 值的临时逻辑。

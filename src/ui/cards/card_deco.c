@@ -27,8 +27,11 @@
 #define TISSUE_UI_PAMB_PERMILLE  400     /* 环境压力固定线 */
 #define TISSUE_UI_MVALUE_PERMILLE 900    /* M 值固定线 */
 #define TISSUE_UI_MAX_PERMILLE   1000    /* 归一化条长上限 */
-#define TISSUE_SCALE_LABEL_W     34      /* 右侧刻度标签宽度 */
+#define TISSUE_SCALE_LABEL_W     54      /* 右侧刻度标签宽度 */
 #define TISSUE_LABEL_MIN_GAP     14      /* 刻度文字最小间距 */
+#define TISSUE_SHOW_PI_LABEL     1       /* 显示 PI 标签 */
+#define TISSUE_SHOW_AMB_LABEL    1       /* 显示 AMB 标签 */
+#define TISSUE_SHOW_M_LABEL      1       /* 显示 M 标签 */
 
 /* HTML --flash-speed default 0.3s → 300ms half-period for flashInvert */
 #define TISSUE_FLASH_MS     300
@@ -277,11 +280,17 @@ static void tissue_chart_draw_cb(lv_event_t *e)
         if (tissue_label_far_enough(&plot, s_deco_vm_cache.tissue_pi_permille, TISSUE_UI_PAMB_PERMILLE) &&
             tissue_label_far_enough(&plot, s_deco_vm_cache.tissue_pi_permille, TISSUE_UI_MVALUE_PERMILLE))
         {
+#if TISSUE_SHOW_PI_LABEL
             tissue_draw_scale_label(draw_ctx, &label_dsc, area, &plot, s_deco_vm_cache.tissue_pi_permille, "PI");
+#endif
         }
     }
+#if TISSUE_SHOW_AMB_LABEL
     tissue_draw_scale_label(draw_ctx, &label_dsc, area, &plot, TISSUE_UI_PAMB_PERMILLE, "AMB");
+#endif
+#if TISSUE_SHOW_M_LABEL
     tissue_draw_scale_label(draw_ctx, &label_dsc, area, &plot, TISSUE_UI_MVALUE_PERMILLE, "M");
+#endif
 }
 
 static void surf_gf_apply_style(void)
