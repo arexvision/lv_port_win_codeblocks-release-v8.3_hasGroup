@@ -170,14 +170,14 @@ static int tissue_draw_permille_for_range(int permille)
     return permille;
 }
 
-static lv_coord_t tissue_x_for_permille(const lv_area_t *plot, int permille)
+static lv_coord_t tissue_y_for_permille(const lv_area_t *plot, int permille)
 {
     int draw_permille = tissue_draw_permille_for_range(permille);
-    int plot_w = lv_area_get_width(plot) - 1;
-    return plot->x1 + (lv_coord_t)((draw_permille * plot_w) / TISSUE_UI_MAX_PERMILLE);
+    int plot_h = lv_area_get_height(plot) - 1;
+    return plot->y2 - (lv_coord_t)((draw_permille * plot_h) / TISSUE_UI_MAX_PERMILLE);
 }
 
-static void tissue_draw_vertical_line(lv_draw_ctx_t *draw_ctx, const lv_area_t *plot, int permille, lv_color_t color, lv_opa_t opa, lv_coord_t width, lv_coord_t dash_width, lv_coord_t dash_gap)
+static void tissue_draw_horizontal_line(lv_draw_ctx_t *draw_ctx, const lv_area_t *plot, int permille, lv_color_t color, lv_opa_t opa, lv_coord_t width, lv_coord_t dash_width, lv_coord_t dash_gap)
 {
     lv_draw_line_dsc_t line_dsc;
     lv_draw_line_dsc_init(&line_dsc);
@@ -187,8 +187,8 @@ static void tissue_draw_vertical_line(lv_draw_ctx_t *draw_ctx, const lv_area_t *
     line_dsc.dash_width = dash_width;
     line_dsc.dash_gap = dash_gap;
 
-    lv_coord_t x = tissue_x_for_permille(plot, permille);
-    lv_point_t pts[2] = {{x, plot->y1}, {x, plot->y2}};
+    lv_coord_t y = tissue_y_for_permille(plot, permille);
+    lv_point_t pts[2] = {{plot->x1, y}, {plot->x2, y}};
     lv_draw_line(draw_ctx, &line_dsc, &pts[0], &pts[1]);
 }
 
@@ -205,19 +205,21 @@ static void tissue_draw_rect(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t *rect_d
     lv_draw_rect(draw_ctx, rect_dsc, &fill);
 }
 
-static void tissue_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t *rect_dsc, const lv_area_t *plot, lv_coord_t y1, lv_coord_t y2, int low_permille, int high_permille, lv_color_t color, lv_opa_t opa)
+static void tissue_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t *rect_dsc, const lv_area_t *plot, lv_coord_t x1, lv_coord_t x2, int low_permille, int high_permille, lv_color_t color, lv_opa_t opa)
 {
     int draw_low = tissue_draw_permille_for_range(low_permille);
     int draw_high = tissue_draw_permille_for_range(high_permille);
     if (draw_high <= draw_low) return;
-    tissue_draw_rect(draw_ctx, rect_dsc, tissue_x_for_permille(plot, draw_low), y1, tissue_x_for_permille(plot, draw_high), y2, color, opa);
+    tissue_draw_rect(draw_ctx, rect_dsc, x1, tissue_y_for_permille(plot, draw_high), x2, tissue_y_for_permille(plot, draw_low), color, opa);
 }
 
 static void tissue_draw_scale_label(lv_draw_ctx_t *draw_ctx, lv_draw_label_dsc_t *label_dsc, const lv_area_t *area, const lv_area_t *plot, int permille, const char *text)
 {
-    lv_coord_t x = tissue_x_for_permille(plot, permille);
-    lv_area_t t_area = {(lv_coord_t)(x - 24), (lv_coord_t)(plot->y2 + 1), (lv_coord_t)(x + 24), area->y2};
+    lv_coord_t y = tissue_y_for_permille(plot, permille);
+    lv_area_t t_area = {area->x1, (lv_coord_t)(y - 8), (lv_coord_t)(plot->x1 - 2), (lv_coord_t)(y + 8)};
+    label_dsc->align = LV_TEXT_ALIGN_RIGHT;
     lv_draw_label(draw_ctx, label_dsc, &t_area, text, NULL);
+    label_dsc->align = LV_TEXT_ALIGN_CENTER;
 }
 
 static void tissue_chart_draw_cb(lv_event_t *e)
@@ -226,8 +228,8 @@ static void tissue_chart_draw_cb(lv_event_t *e)
     lv_draw_ctx_t *draw_ctx = lv_event_get_draw_ctx(e);
     lv_area_t *area = &obj->coords;
     bool chart_active = card_deco_tissue_chart_active();
-    int plot_h;
-    lv_area_t plot = {area->x1, area->y1, area->x2, (lv_coord_t)(area->y2 - TISSUE_LABEL_H)};
+    int plot_w;
+    lv_area_t plot = {(lv_coord_t)(area->x1 + 34), area->y1, area->x2, (lv_coord_t)(area->y2 - TISSUE_LABEL_H)};
 
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
@@ -239,30 +241,30 @@ static void tissue_chart_draw_cb(lv_event_t *e)
     label_dsc.color = LIGHT;
     label_dsc.align = LV_TEXT_ALIGN_CENTER;
 
-    tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, plot.y1, plot.y2, 0, TISSUE_UI_PAMB_PERMILLE, lv_color_make(0x00, 0x22, 0x00), LV_OPA_COVER);
-    tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, plot.y1, plot.y2, TISSUE_UI_PAMB_PERMILLE, TISSUE_UI_MVALUE_PERMILLE, lv_color_make(0x26, 0x22, 0x00), LV_OPA_COVER);
-    tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, plot.y1, plot.y2, TISSUE_UI_MVALUE_PERMILLE, TISSUE_UI_MAX_PERMILLE, lv_color_make(0x28, 0x00, 0x00), LV_OPA_COVER);
+    tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, plot.x1, plot.x2, 0, TISSUE_UI_PAMB_PERMILLE, lv_color_make(0x00, 0x22, 0x00), LV_OPA_COVER);
+    tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, plot.x1, plot.x2, TISSUE_UI_PAMB_PERMILLE, TISSUE_UI_MVALUE_PERMILLE, lv_color_make(0x26, 0x22, 0x00), LV_OPA_COVER);
+    tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, plot.x1, plot.x2, TISSUE_UI_MVALUE_PERMILLE, TISSUE_UI_MAX_PERMILLE, lv_color_make(0x28, 0x00, 0x00), LV_OPA_COVER);
 
-    plot_h = lv_area_get_height(&plot);
+    plot_w = lv_area_get_width(&plot);
     for (int i = 0; i < TISSUE_COMPARTMENT_COUNT; i++)
     {
-        lv_coord_t row_y1 = plot.y1 + (lv_coord_t)((i * plot_h) / TISSUE_COMPARTMENT_COUNT);
-        lv_coord_t row_y2 = plot.y1 + (lv_coord_t)((((i + 1) * plot_h) / TISSUE_COMPARTMENT_COUNT) - 1);
-        lv_coord_t bar_y1 = (lv_coord_t)(row_y1 + 1);
-        lv_coord_t bar_y2 = (lv_coord_t)(row_y2 - 1);
+        lv_coord_t col_x1 = plot.x1 + (lv_coord_t)((i * plot_w) / TISSUE_COMPARTMENT_COUNT);
+        lv_coord_t col_x2 = plot.x1 + (lv_coord_t)((((i + 1) * plot_w) / TISSUE_COMPARTMENT_COUNT) - 1);
+        lv_coord_t bar_x1 = (lv_coord_t)(col_x1 + 2);
+        lv_coord_t bar_x2 = (lv_coord_t)(col_x2 - 2);
         int value_permille = (chart_active && s_deco_vm_cache.tissue_normalized_valid != 0U) ? (int)s_deco_vm_cache.tissue_bar_permille[i] : 0;
-        if (bar_y2 < bar_y1) bar_y2 = bar_y1;
-        tissue_draw_rect(draw_ctx, &rect_dsc, plot.x1, row_y2, plot.x2, row_y2, DARK, LV_OPA_COVER);
-        tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, bar_y1, bar_y2, 0, value_permille < TISSUE_UI_PAMB_PERMILLE ? value_permille : TISSUE_UI_PAMB_PERMILLE, GREEN, LV_OPA_COVER);
-        if (value_permille > TISSUE_UI_PAMB_PERMILLE) tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, bar_y1, bar_y2, TISSUE_UI_PAMB_PERMILLE, value_permille < TISSUE_UI_MVALUE_PERMILLE ? value_permille : TISSUE_UI_MVALUE_PERMILLE, lv_color_make(0xFF, 0xD0, 0x00), LV_OPA_COVER);
-        if (value_permille > TISSUE_UI_MVALUE_PERMILLE && s_tissue_flash_phase) tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, bar_y1, bar_y2, TISSUE_UI_MVALUE_PERMILLE, value_permille, lv_color_make(0xFF, 0x20, 0x20), LV_OPA_COVER);
+        if (bar_x2 < bar_x1) bar_x2 = bar_x1;
+        tissue_draw_rect(draw_ctx, &rect_dsc, col_x2, plot.y1, col_x2, plot.y2, DARK, LV_OPA_COVER);
+        tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, bar_x1, bar_x2, 0, value_permille < TISSUE_UI_PAMB_PERMILLE ? value_permille : TISSUE_UI_PAMB_PERMILLE, GREEN, LV_OPA_COVER);
+        if (value_permille > TISSUE_UI_PAMB_PERMILLE) tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, bar_x1, bar_x2, TISSUE_UI_PAMB_PERMILLE, value_permille < TISSUE_UI_MVALUE_PERMILLE ? value_permille : TISSUE_UI_MVALUE_PERMILLE, lv_color_make(0xFF, 0xD0, 0x00), LV_OPA_COVER);
+        if (value_permille > TISSUE_UI_MVALUE_PERMILLE && s_tissue_flash_phase) tissue_draw_bar_segment(draw_ctx, &rect_dsc, &plot, bar_x1, bar_x2, TISSUE_UI_MVALUE_PERMILLE, value_permille, lv_color_make(0xFF, 0x20, 0x20), LV_OPA_COVER);
     }
 
-    tissue_draw_vertical_line(draw_ctx, &plot, TISSUE_UI_PAMB_PERMILLE, GREEN, LV_OPA_COVER, 2, 0, 0);
-    tissue_draw_vertical_line(draw_ctx, &plot, TISSUE_UI_MVALUE_PERMILLE, lv_color_make(0xFF, 0x20, 0x20), LV_OPA_COVER, 2, 0, 0);
+    tissue_draw_horizontal_line(draw_ctx, &plot, TISSUE_UI_PAMB_PERMILLE, GREEN, LV_OPA_COVER, 2, 0, 0);
+    tissue_draw_horizontal_line(draw_ctx, &plot, TISSUE_UI_MVALUE_PERMILLE, lv_color_make(0xFF, 0x20, 0x20), LV_OPA_COVER, 2, 0, 0);
     if (s_deco_vm_cache.tissue_normalized_valid != 0U)
     {
-        tissue_draw_vertical_line(draw_ctx, &plot, s_deco_vm_cache.tissue_pi_permille, LIGHT, LV_OPA_COVER, 1, 3, 3);
+        tissue_draw_horizontal_line(draw_ctx, &plot, s_deco_vm_cache.tissue_pi_permille, LIGHT, LV_OPA_COVER, 1, 3, 3);
         tissue_draw_scale_label(draw_ctx, &label_dsc, area, &plot, s_deco_vm_cache.tissue_pi_permille, "PI");
     }
     tissue_draw_scale_label(draw_ctx, &label_dsc, area, &plot, TISSUE_UI_PAMB_PERMILLE, "PAMB");
