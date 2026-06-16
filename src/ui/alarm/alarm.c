@@ -104,6 +104,17 @@ static uint32_t alarm_now(void)
     return lv_tick_get();
 }
 
+static bool alarm_target_equivalent(comp_id_t visible, comp_id_t target)
+{
+    if (visible == target)
+    {
+        return true;
+    }
+
+    return (target == COMP_DEPTH_1606 && visible == COMP_DEPTH_1612) ||
+           (target == COMP_DEPTH_1612 && visible == COMP_DEPTH_1606);
+}
+
 static bool alarm_target_is_visible(comp_id_t target)
 {
     if (target == COMP_EMPTY)
@@ -112,7 +123,7 @@ static bool alarm_target_is_visible(comp_id_t target)
     }
     for (uint8_t i = 0U; i < s_visible_target_count; i++)
     {
-        if (s_visible_targets[i] == target)
+        if (alarm_target_equivalent(s_visible_targets[i], target))
         {
             return true;
         }
