@@ -248,6 +248,74 @@ static void alarm_view_set_text_color_recursive(lv_obj_t *obj, lv_color_t color)
     }
 }
 
+#define ALARM_TARGET_OVERLAY_TAG  ((uintptr_t)0xA11A0001U)  /* 告警目标覆盖层标记 */
+
+static lv_obj_t *alarm_view_find_target_overlay(lv_obj_t *obj)
+{
+    if (!obj)
+    {
+        return NULL;
+    }
+
+    int16_t child_count = lv_obj_get_child_cnt(obj);
+    for (int16_t i = 0; i < child_count; i++)
+    {
+        lv_obj_t *child = lv_obj_get_child(obj, i);
+        if ((uintptr_t)lv_obj_get_user_data(child) == ALARM_TARGET_OVERLAY_TAG)
+        {
+            return child;
+        }
+    }
+
+    return NULL;
+}
+
+static lv_obj_t *alarm_view_ensure_target_overlay(lv_obj_t *obj)
+{
+    lv_obj_t *overlay = alarm_view_find_target_overlay(obj);
+    if (overlay)
+    {
+        return overlay;
+    }
+
+    overlay = lv_obj_create(obj);
+    lv_obj_remove_style_all(overlay);
+    lv_obj_set_user_data(overlay, (void *)ALARM_TARGET_OVERLAY_TAG);
+    lv_obj_set_size(overlay, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_bg_opa(overlay, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_radius(overlay, 0, 0);
+    lv_obj_clear_flag(overlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(overlay, LV_OBJ_FLAG_CLICKABLE);
+    return overlay;
+}
+
+static void alarm_view_set_target_overlay(lv_obj_t *obj, lv_color_t color, uint8_t border_width)
+{
+    lv_obj_t *overlay = alarm_view_ensure_target_overlay(obj);
+    if (!overlay)
+    {
+        return;
+    }
+
+    lv_obj_set_size(overlay, LV_PCT(100), LV_PCT(100));
+    lv_obj_align(overlay, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_border_color(overlay, color, 0);
+    lv_obj_set_style_border_width(overlay, border_width, 0);
+    lv_obj_set_style_border_opa(overlay, LV_OPA_COVER, 0);
+    lv_obj_clear_flag(overlay, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(overlay);
+}
+
+static void alarm_view_hide_target_overlay(lv_obj_t *obj)
+{
+    lv_obj_t *overlay = alarm_view_find_target_overlay(obj);
+    if (overlay)
+    {
+        lv_obj_add_flag(overlay, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
 static void alarm_view_restore_widget_style(lv_obj_t *obj);
 
 static void alarm_view_apply_widget_style(lv_obj_t *obj,
@@ -264,8 +332,7 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
         {
             lv_obj_set_style_bg_color(obj, alarm_color, 0);
             lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(obj, alarm_color, 0);
-            lv_obj_set_style_border_width(obj, 2, 0);
+            alarm_view_set_target_overlay(obj, alarm_color, 2U);
             text_color = BLACK;
         }
         else
@@ -278,8 +345,7 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
     {
         lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
         lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(obj, alarm_color, 0);
-        lv_obj_set_style_border_width(obj, phase_on ? 2 : 1, 0);
+        alarm_view_set_target_overlay(obj, alarm_color, phase_on ? 2U : 1U);
         text_color = GREEN;
     }
     else
@@ -301,6 +367,7 @@ static void alarm_view_restore_widget_style(lv_obj_t *obj)
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(obj, DARK, 0);
     lv_obj_set_style_border_width(obj, DEBUG_BORDERS ? 1 : 0, 0);
+    alarm_view_hide_target_overlay(obj);
     alarm_view_set_text_color_recursive(obj, GREEN);
 }
 
