@@ -1,4 +1,4 @@
-/*
+/*******************************************************************************
  * 文件: src/app_ui/ui/fonts/lv_font_ordinar_20.c
  * 作用: 该文件为字体资源或字体声明文件，主要承载 LVGL 字库数据与对外字体入口，通常由工具生成或由资源配置统一维护。
  * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
@@ -8,7 +8,7 @@
 /*******************************************************************************
  * Size: 20 px
  * Bpp: 4
- * Opts: --font D:/Work_PRO/A_GYK/font/Linotype Ordinar W01 Regular.ttf -r 0x20-0x7E -r 0x00B0 --font C:/Windows/Fonts/seguisym.ttf -r 0x25B2 -r 0x25BC --size 20 --bpp 4 --format lvgl --no-compress --lv-font-name lv_font_ordinar_20 -o src/ui/fonts/lv_font_ordinar_20.c
+ * Opts: --font D:/Work_PRO/A_GYK/font/Linotype Ordinar W01 Regular.ttf -r 0x20-0x7E -r 0x00B0 --font C:/Windows/Fonts/seguisym.ttf -r 0x25B2 -r 0x25B3 -r 0x25BC --size 20 --bpp 4 --format lvgl --no-compress --lv-font-name lv_font_ordinar_20 -o src/ui/fonts/lv_font_ordinar_20.c
  ******************************************************************************/
 
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
@@ -899,6 +899,23 @@ static LV_ATTRIBUTE_LARGE_CONST const uint8_t glyph_bitmap[] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xf9, 0x0, 0xef,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf2,
 
+    /* U+25B3 "△" */
+    0x0, 0x0, 0x0, 0x0, 0x80, 0x0, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x3f, 0x70, 0x0, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0xc, 0xce, 0x10, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x5, 0xe0, 0xc9, 0x0,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0xe6, 0x3, 0xf2,
+    0x0, 0x0, 0x0, 0x0, 0x0, 0x7d, 0x0, 0xa,
+    0xb0, 0x0, 0x0, 0x0, 0x0, 0x1f, 0x40, 0x0,
+    0x1f, 0x30, 0x0, 0x0, 0x0, 0x9, 0xc0, 0x0,
+    0x0, 0x8c, 0x0, 0x0, 0x0, 0x2, 0xf3, 0x0,
+    0x0, 0x0, 0xe5, 0x0, 0x0, 0x0, 0xba, 0x0,
+    0x0, 0x0, 0x6, 0xe0, 0x0, 0x0, 0x4f, 0x10,
+    0x0, 0x0, 0x0, 0xd, 0x70, 0x0, 0xc, 0x80,
+    0x0, 0x0, 0x0, 0x0, 0x4f, 0x10, 0x6, 0xf4,
+    0x33, 0x33, 0x33, 0x33, 0x33, 0xd9, 0x0, 0xef,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf2,
+
     /* U+25BC "▼" */
     0xe, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0x20, 0x6f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -1021,7 +1038,8 @@ static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {
     {.bitmap_index = 5031, .adv_w = 224, .box_w = 12, .box_h = 3, .ofs_x = 1, .ofs_y = 4},
     {.bitmap_index = 5049, .adv_w = 108, .box_w = 7, .box_h = 5, .ofs_x = 0, .ofs_y = 11},
     {.bitmap_index = 5067, .adv_w = 276, .box_w = 17, .box_h = 14, .ofs_x = 0, .ofs_y = 0},
-    {.bitmap_index = 5186, .adv_w = 276, .box_w = 17, .box_h = 14, .ofs_x = 0, .ofs_y = 0}
+    {.bitmap_index = 5186, .adv_w = 276, .box_w = 17, .box_h = 14, .ofs_x = 0, .ofs_y = 0},
+    {.bitmap_index = 5305, .adv_w = 276, .box_w = 17, .box_h = 14, .ofs_x = 0, .ofs_y = 0}
 };
 
 /*---------------------
@@ -1029,7 +1047,7 @@ static const lv_font_fmt_txt_glyph_dsc_t glyph_dsc[] = {
  *--------------------*/
 
 static const uint16_t unicode_list_1[] = {
-    0x0, 0x2502, 0x250c
+    0x0, 0x2502, 0x2503, 0x250c
 };
 
 /*Collect the unicode lists and glyph_id offsets*/
@@ -1041,7 +1059,7 @@ static const lv_font_fmt_txt_cmap_t cmaps[] =
     },
     {
         .range_start = 176, .range_length = 9485, .glyph_id_start = 96,
-        .unicode_list = unicode_list_1, .glyph_id_ofs_list = NULL, .list_length = 3, .type = LV_FONT_FMT_TXT_CMAP_SPARSE_TINY
+        .unicode_list = unicode_list_1, .glyph_id_ofs_list = NULL, .list_length = 4, .type = LV_FONT_FMT_TXT_CMAP_SPARSE_TINY
     }
 };
 
@@ -1334,4 +1352,3 @@ lv_font_t lv_font_ordinar_20 = {
 
 
 #endif /*#if LV_FONT_ORDINAR_20*/
-
