@@ -220,11 +220,13 @@ static bool alarm_view_target_match(uintptr_t raw, comp_id_t target)
     {
         return true;
     }
+#if ALARM_TARGET_MATCH_DEPTH_1612
     if ((target == COMP_DEPTH_1606 && raw == (uintptr_t)COMP_DEPTH_1612) ||
         (target == COMP_DEPTH_1612 && raw == (uintptr_t)COMP_DEPTH_1606))
     {
         return true;
     }
+#endif
     if (target == COMP_POD_0806)
     {
         return (raw % 1000U) == (uintptr_t)COMP_POD_0806;

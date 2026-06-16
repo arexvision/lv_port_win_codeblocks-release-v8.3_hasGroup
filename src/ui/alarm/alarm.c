@@ -111,8 +111,12 @@ static bool alarm_target_equivalent(comp_id_t visible, comp_id_t target)
         return true;
     }
 
+#if ALARM_TARGET_MATCH_DEPTH_1612
     return (target == COMP_DEPTH_1606 && visible == COMP_DEPTH_1612) ||
            (target == COMP_DEPTH_1612 && visible == COMP_DEPTH_1606);
+#else
+    return false;
+#endif
 }
 
 static bool alarm_target_is_visible(comp_id_t target)
