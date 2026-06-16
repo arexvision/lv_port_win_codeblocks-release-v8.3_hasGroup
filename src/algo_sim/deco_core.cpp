@@ -153,13 +153,6 @@ static bool safety_stop_zone_active(float current_depth_m)
     return current_depth_m >= SAFETY_STOP_ZONE_SHALLOW_M && current_depth_m <= SAFETY_STOP_ZONE_DEEP_M;
 }
 
-static bool safety_stop_fallback_active(void)
-{
-    return s_state.config.safety_stop_enabled != 0U &&
-           s_state.max_depth_m > AREX_DECO_SAFETY_STOP_TRIGGER_DEPTH_M &&
-           s_state.current_depth_m >= SAFETY_STOP_ZONE_SHALLOW_M;
-}
-
 static void debug_print_schedule(const ArexDecoSchedule *schedule)
 {
     uint32_t now_ms = rt_tick_get();
@@ -497,14 +490,6 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
         stop_type = STOP_SAFETY;
         in_stop_zone = safety_stop_zone_active(s_state.current_depth_m);
     }
-    else if (ndl_min <= 0 && safety_stop_fallback_active())
-    {
-        stop_type = STOP_SAFETY;
-        stop_depth_m = AREX_DECO_SAFETY_STOP_DEPTH_M;
-        stop_left_s = (s_state.config.safety_stop_seconds > 65535U) ? 65535U : (uint16_t)s_state.config.safety_stop_seconds;
-        in_stop_zone = safety_stop_zone_active(s_state.current_depth_m);
-    }
-
     stop_total_s = sync_stop_progress_total(stop_type, stop_depth_m, stop_left_s, in_stop_zone);
     bus_update_deco(ndl_min, stop_type, stop_depth_m, stop_total_s, stop_left_s, in_stop_zone);
     if (stop_type == STOP_NONE)

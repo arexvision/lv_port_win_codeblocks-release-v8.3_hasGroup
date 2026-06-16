@@ -64,6 +64,26 @@
 - 不再出现纯切气预测站渲染成 `DECO xxm 0:00`。
 - 对于包含切气 penalty 的真实停站，runtime 主倒计时与 TTS/planner 保持同一 planning 口径。
 
+#### Safety Stop 显示归属
+
+旧口径：
+
+- PC 适配层除了消费算法 `schedule.stops[]`，还保留了一段本地 fallback：
+  `safety_stop_enabled && max_depth > 10m && current_depth >= safety zone && ndl <= 0`。
+- 这会让右上角 SAFE 显示混合“算法计划”和“适配层自判定”，不利于判断算法侧安全停留状态机是否完整。
+
+新口径：
+
+- 删除 `safety_stop_fallback_active()` 本地补偿。
+- 右上角 `STOP_SAFETY` 只来自 `arex_deco_plan()` 返回的第一个有效 runtime stop，且当前没有强制 ceiling。
+- 安全停留触发深度、停留深度、开关和时长继续由算法配置/常量负责：
+  `AREX_DECO_SAFETY_STOP_TRIGGER_DEPTH_M`、`AREX_DECO_SAFETY_STOP_DEPTH_M`、`safety_stop_enabled`、`safety_stop_seconds`。
+
+影响：
+
+- 模拟器可以直接验证算法侧是否稳定返回安全停留，不再被 UI/适配层 fallback 掩盖。
+- 如果 fast `goto/speed` 场景下 SAFE 短暂退回 NDL，说明该帧算法 schedule 未返回有效 safety stop；后续应和算法侧确认是否需要 core 内部 latch/state，而不是在 UI 侧复刻。
+
 ### 工程和库同步
 
 - 更新 AREX 头文件、`mingw64` 静态库、`sf32` 静态库和算法文档到 `0.0.19`。
