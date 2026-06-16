@@ -27,7 +27,8 @@
 #define TISSUE_UI_PAMB_PERMILLE  400     /* 环境压力固定线 */
 #define TISSUE_UI_MVALUE_PERMILLE 900    /* M 值固定线 */
 #define TISSUE_UI_MAX_PERMILLE   1000    /* 归一化条长上限 */
-#define TISSUE_LABEL_H           14      /* 图表底部标签高度 */
+#define TISSUE_SCALE_LABEL_W     34      /* 右侧刻度标签宽度 */
+#define TISSUE_LABEL_MIN_GAP     14      /* 刻度文字最小间距 */
 
 /* HTML --flash-speed default 0.3s → 300ms half-period for flashInvert */
 #define TISSUE_FLASH_MS     300
@@ -216,10 +217,18 @@ static void tissue_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t 
 static void tissue_draw_scale_label(lv_draw_ctx_t *draw_ctx, lv_draw_label_dsc_t *label_dsc, const lv_area_t *area, const lv_area_t *plot, int permille, const char *text)
 {
     lv_coord_t y = tissue_y_for_permille(plot, permille);
-    lv_area_t t_area = {area->x1, (lv_coord_t)(y - 8), (lv_coord_t)(plot->x1 - 2), (lv_coord_t)(y + 8)};
-    label_dsc->align = LV_TEXT_ALIGN_RIGHT;
+    lv_area_t t_area = {(lv_coord_t)(plot->x2 + 3), (lv_coord_t)(y - 8), area->x2, (lv_coord_t)(y + 8)};
+    label_dsc->align = LV_TEXT_ALIGN_LEFT;
     lv_draw_label(draw_ctx, label_dsc, &t_area, text, NULL);
     label_dsc->align = LV_TEXT_ALIGN_CENTER;
+}
+
+static bool tissue_label_far_enough(const lv_area_t *plot, int a_permille, int b_permille)
+{
+    lv_coord_t a_y = tissue_y_for_permille(plot, a_permille);
+    lv_coord_t b_y = tissue_y_for_permille(plot, b_permille);
+    lv_coord_t diff = (a_y > b_y) ? (a_y - b_y) : (b_y - a_y);
+    return diff >= TISSUE_LABEL_MIN_GAP;
 }
 
 static void tissue_chart_draw_cb(lv_event_t *e)
@@ -229,7 +238,7 @@ static void tissue_chart_draw_cb(lv_event_t *e)
     lv_area_t *area = &obj->coords;
     bool chart_active = card_deco_tissue_chart_active();
     int plot_w;
-    lv_area_t plot = {(lv_coord_t)(area->x1 + 34), area->y1, area->x2, (lv_coord_t)(area->y2 - TISSUE_LABEL_H)};
+    lv_area_t plot = {area->x1, area->y1, (lv_coord_t)(area->x2 - TISSUE_SCALE_LABEL_W), area->y2};
 
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
@@ -265,9 +274,13 @@ static void tissue_chart_draw_cb(lv_event_t *e)
     if (s_deco_vm_cache.tissue_normalized_valid != 0U)
     {
         tissue_draw_horizontal_line(draw_ctx, &plot, s_deco_vm_cache.tissue_pi_permille, LIGHT, LV_OPA_COVER, 1, 3, 3);
-        tissue_draw_scale_label(draw_ctx, &label_dsc, area, &plot, s_deco_vm_cache.tissue_pi_permille, "PI");
+        if (tissue_label_far_enough(&plot, s_deco_vm_cache.tissue_pi_permille, TISSUE_UI_PAMB_PERMILLE) &&
+            tissue_label_far_enough(&plot, s_deco_vm_cache.tissue_pi_permille, TISSUE_UI_MVALUE_PERMILLE))
+        {
+            tissue_draw_scale_label(draw_ctx, &label_dsc, area, &plot, s_deco_vm_cache.tissue_pi_permille, "PI");
+        }
     }
-    tissue_draw_scale_label(draw_ctx, &label_dsc, area, &plot, TISSUE_UI_PAMB_PERMILLE, "PAMB");
+    tissue_draw_scale_label(draw_ctx, &label_dsc, area, &plot, TISSUE_UI_PAMB_PERMILLE, "AMB");
     tissue_draw_scale_label(draw_ctx, &label_dsc, area, &plot, TISSUE_UI_MVALUE_PERMILLE, "M");
 }
 
