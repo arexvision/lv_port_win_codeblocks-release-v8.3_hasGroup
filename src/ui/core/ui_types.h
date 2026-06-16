@@ -194,6 +194,13 @@ typedef struct
     int16_t  tissue_raw_pct[16];
     uint8_t  tissue_gf_pct[16];
     float   tissue_target_gf_pct;
+    uint16_t tissue_bar_permille[16];
+    uint16_t tissue_pi_permille;
+    float   tissue_ambient_pressure_bar;
+    float   tissue_inspired_n2_bar;
+    float   tissue_n2_bar[16];
+    float   tissue_m_value_bar[16];
+    bool    tissue_normalized_valid;
     uint8_t  cns_pct;
     uint16_t otu;
     bool    deco_violation;

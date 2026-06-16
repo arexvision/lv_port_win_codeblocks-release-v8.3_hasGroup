@@ -348,6 +348,21 @@ draw_pct[i] = clamp((int)tissue_raw_pct[i], -100, 120);
 
 自定义组件 `TISSUE(GF)` 仍使用 `relative_gf_percent` / `tissue_gf_pct` 的 0..120 概览量程；紧凑型 `TISSUE(RAW)` 使用 `absolute_gf_percent` / `tissue_raw_pct`，但只在绘制层把负值按 0 处理并保持 0..100 概览量程。
 
+### 归一化组织图测试载荷
+
+当前算法 API 尚未直接返回 `P_amb`、`P_I`、`PN2_i`、`M_i` 四类物理量。为了先验证新组织图 UI，PC 适配层额外写入一份独立测试载荷：
+
+- `tissue_bar_permille[16]`：0~1000 的组织条长度，400 表示环境压力线，900 表示 M 值线。
+- `tissue_pi_permille`：吸入氮气分压虚线位置，同样使用 0~1000 坐标。
+- `tissue_ambient_pressure_bar`：当前环境压力。
+- `tissue_inspired_n2_bar`：当前吸入氮气分压。
+- `tissue_n2_bar[16]`：16 仓氮气分压。
+- `tissue_m_value_bar[16]`：16 仓 M 值；当前由 `absolute_gf_percent` 临时反推。
+
+注意：core 支持 Trimix，组织条长度实际按总惰性气体压力 `PN2 + PHe` 归一化；`tissue_n2_bar[16]` 只是调试/展示字段，UI 试验应直接使用 `tissue_bar_permille[16]` 作为条长。
+
+这组字段只用于 UI 试验，不替代现有 `tissue_raw_pct[16]` / `tissue_gf_pct[16]`。正式算法接口提供后，应删除适配层反推 M 值的临时逻辑。
+
 ## 当前潜水计划页的用法
 
 `deco_core_plan_calculate()` 是给 PLAN 页面使用的离线计划计算，不是实时潜水状态。

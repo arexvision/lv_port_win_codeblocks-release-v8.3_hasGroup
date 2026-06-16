@@ -27,6 +27,10 @@ extern "C" {
 #define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
 #define SAFETY_STOP_ZONE_SHALLOW_M 2.4f       /* 安停区浅侧边界 */
 #define SAFETY_STOP_ZONE_DEEP_M 6.1f          /* 安停区深侧边界 */
+#define TISSUE_UI_PAMB_ANCHOR_PERMILLE 400.0f /* 归一化组织图环境压力锚点 */
+#define TISSUE_UI_MVALUE_ANCHOR_PERMILLE 900.0f /* 归一化组织图 M 值锚点 */
+#define TISSUE_UI_MAX_PERMILLE 1000.0f        /* 归一化组织图绘制上限 */
+#define TISSUE_UI_RECON_EPS 0.0001f           /* M 值反推除零保护 */
 
 static ArexDecoDiveState s_state;
 static ArexDecoRuntimeMetrics s_metrics;
@@ -107,6 +111,13 @@ static int16_t round_i16_pct(float value)
     if (value <= -32768.0f) return -32768;
     if (value >= 32767.0f) return 32767;
     return (int16_t)((value >= 0.0f) ? (value + 0.5f) : (value - 0.5f));
+}
+
+static uint16_t round_u16_permille(float value)
+{
+    if (!isfinite(value) || value <= 0.0f) return 0U;
+    if (value >= TISSUE_UI_MAX_PERMILLE) return (uint16_t)TISSUE_UI_MAX_PERMILLE;
+    return (uint16_t)(value + 0.5f);
 }
 
 static float target_gf_percent_from_core(float current_target_gf)
@@ -441,17 +452,51 @@ static void sync_tissue_data(void)
     ArexDecoTissueGradientMetrics gradients;
     int16_t tissue_raw[AREX_DECO_COMPARTMENT_COUNT];
     uint8_t tissue_gf[AREX_DECO_COMPARTMENT_COUNT];
+    uint16_t tissue_bar_permille[AREX_DECO_COMPARTMENT_COUNT];
+    float tissue_n2_bar[AREX_DECO_COMPARTMENT_COUNT];
+    float tissue_m_value_bar[AREX_DECO_COMPARTMENT_COUNT];
 
     if (arex_deco_calculate_tissue_gradients(&s_state, &gradients) != AREX_DECO_STATUS_OK) return;
+
+    float ambient_pressure_bar = pressure_bar_at_depth(&s_state.config, s_state.current_depth_m);
+    int8_t active_idx = s_state.gas_plan.active_gas_index;
+    if (active_idx < 0 || active_idx >= (int8_t)s_state.gas_plan.gas_count) active_idx = 0;
+    float n2_fraction = (active_idx >= 0 && active_idx < (int8_t)s_state.gas_plan.gas_count) ? s_state.gas_plan.gases[active_idx].nitrogen_fraction : 0.0f;
+    float dry_pressure_bar = ambient_pressure_bar - s_state.config.water_vapor_pressure_bar;
+    if (!isfinite(dry_pressure_bar) || dry_pressure_bar < 0.0f) dry_pressure_bar = 0.0f;
+    float inspired_n2_bar = dry_pressure_bar * n2_fraction;
+    uint16_t pi_permille = (ambient_pressure_bar > TISSUE_UI_RECON_EPS) ? round_u16_permille((inspired_n2_bar / ambient_pressure_bar) * TISSUE_UI_PAMB_ANCHOR_PERMILLE) : 0U;
 
     for (uint8_t i = 0U; i < AREX_DECO_COMPARTMENT_COUNT; i++)
     {
         tissue_raw[i] = round_i16_pct(gradients.absolute_gf_percent[i]);
         tissue_gf[i] = round_u8_pct(gradients.relative_gf_percent[i]);
         if (tissue_gf[i] > 200U) tissue_gf[i] = 200U;
+
+        tissue_n2_bar[i] = s_state.tissue.nitrogen_bar[i];
+        float tissue_total_inert_bar = s_state.tissue.nitrogen_bar[i] + s_state.tissue.helium_bar[i];
+        float absolute_gf = gradients.absolute_gf_percent[i];
+        tissue_m_value_bar[i] = ambient_pressure_bar;
+        if (isfinite(absolute_gf) && fabsf(absolute_gf) > TISSUE_UI_RECON_EPS) tissue_m_value_bar[i] = ambient_pressure_bar + ((tissue_total_inert_bar - ambient_pressure_bar) * 100.0f / absolute_gf);
+        if (!isfinite(tissue_m_value_bar[i]) || tissue_m_value_bar[i] < ambient_pressure_bar) tissue_m_value_bar[i] = ambient_pressure_bar;
+
+        if (ambient_pressure_bar <= TISSUE_UI_RECON_EPS)
+        {
+            tissue_bar_permille[i] = 0U;
+        }
+        else if (tissue_total_inert_bar <= ambient_pressure_bar)
+        {
+            tissue_bar_permille[i] = round_u16_permille((tissue_total_inert_bar / ambient_pressure_bar) * TISSUE_UI_PAMB_ANCHOR_PERMILLE);
+        }
+        else
+        {
+            float over_limit_ratio = isfinite(absolute_gf) ? (absolute_gf / 100.0f) : 0.0f;
+            tissue_bar_permille[i] = round_u16_permille(TISSUE_UI_PAMB_ANCHOR_PERMILLE + over_limit_ratio * (TISSUE_UI_MVALUE_ANCHOR_PERMILLE - TISSUE_UI_PAMB_ANCHOR_PERMILLE));
+        }
     }
 
     bus_set_tissue_loads(tissue_raw, tissue_gf, target_gf_percent_from_core(gradients.current_target_gf));
+    bus_set_tissue_normalized_payload(tissue_bar_permille, pi_permille, ambient_pressure_bar, inspired_n2_bar, tissue_n2_bar, tissue_m_value_bar);
 }
 
 static void sync_gas_data(void)

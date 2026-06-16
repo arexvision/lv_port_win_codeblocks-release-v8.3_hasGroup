@@ -15,6 +15,31 @@
 
 ## 未发布 UI 口径调整
 
+### 归一化组织图测试载荷
+
+改动：
+
+- PC 适配层在同步 `absolute_gf_percent[16]` / `relative_gf_percent[16]` 的同时，额外写入一份归一化组织图测试载荷：`tissue_bar_permille[16]`、`tissue_pi_permille`、`tissue_ambient_pressure_bar`、`tissue_inspired_n2_bar`、`tissue_n2_bar[16]`、`tissue_m_value_bar[16]`。
+- `tissue_bar_permille[16]` 使用 0~1000 坐标，400 表示环境压力线，900 表示 M 值线。
+- `tissue_bar_permille[16]` 按总惰性气体压力 `PN2 + PHe` 计算；`tissue_n2_bar[16]` 只是氮气分压调试字段，Trimix 下不能单独拿它重算组织条长度。
+- 当前算法 API 未直接返回每仓 M 值，PC 适配层临时使用 `absolute_gf_percent[i] = ((P_tissue - P_amb) / (M_amb - P_amb)) * 100` 反推 `M_amb`。
+
+原因：
+
+- 新组织图方案需要先验证“静态环境压力线 + 静态 M 值线 + 动态组织条长度”的 UI 表达，但算法团队暂时无法立即扩展正式 API。
+- 临时载荷不覆盖现有 `tissue_raw_pct[16]` / `tissue_gf_pct[16]`，因此不会改变当前 DECO 卡片和旧小组件显示。
+
+旧口径和新口径差异：
+
+- 旧口径：UI 只能消费 `tissue_raw_pct[16]` / `tissue_gf_pct[16]` 这类百分比字段。
+- 新增测试口径：UI 可以读取独立的 0~1000 归一化字段做横向条图试验；M 值字段是 PC 适配层临时反推结果，不等同于算法正式 API。
+
+验证方式：
+
+- 调用 `bus_get_tissue_normalized_valid()` 应在算法同步后返回 true。
+- `bus_get_tissue_bar_permille(i)` 应位于 0~1000；组织压力等于环境压力附近时应接近 400，达到 M 值附近时应接近 900。
+- 后续算法层提供正式 `P_amb/P_I/PN2_i/M_i` 或归一化 payload 接口后，应删除 PC 适配层反推逻辑，改为直接消费算法输出。
+
 ### 16 组织仓全物理态图表
 
 改动：

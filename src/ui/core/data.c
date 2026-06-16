@@ -1115,6 +1115,37 @@ void bus_set_tissue_loads(const int16_t tissue_raw_pct[16],
     rt_hw_interrupt_enable(level);
 }
 
+void bus_set_tissue_normalized_payload(const uint16_t tissue_bar_permille[16], uint16_t pi_permille, float ambient_pressure_bar, float inspired_n2_bar, const float tissue_n2_bar[16], const float tissue_m_value_bar[16])
+{
+    if (tissue_bar_permille == NULL || tissue_n2_bar == NULL || tissue_m_value_bar == NULL)
+    {
+        return;
+    }
+
+    rt_base_t level = rt_hw_interrupt_disable();
+    if ((memcmp(g_sensor_data.tissue_bar_permille, tissue_bar_permille, sizeof(g_sensor_data.tissue_bar_permille)) == 0) &&
+        (memcmp(g_sensor_data.tissue_n2_bar, tissue_n2_bar, sizeof(g_sensor_data.tissue_n2_bar)) == 0) &&
+        (memcmp(g_sensor_data.tissue_m_value_bar, tissue_m_value_bar, sizeof(g_sensor_data.tissue_m_value_bar)) == 0) &&
+        (g_sensor_data.tissue_pi_permille == pi_permille) &&
+        (fabsf(g_sensor_data.tissue_ambient_pressure_bar - ambient_pressure_bar) <= 0.0001f) &&
+        (fabsf(g_sensor_data.tissue_inspired_n2_bar - inspired_n2_bar) <= 0.0001f) &&
+        g_sensor_data.tissue_normalized_valid)
+    {
+        rt_hw_interrupt_enable(level);
+        return;
+    }
+
+    memcpy(g_sensor_data.tissue_bar_permille, tissue_bar_permille, sizeof(g_sensor_data.tissue_bar_permille));
+    memcpy(g_sensor_data.tissue_n2_bar, tissue_n2_bar, sizeof(g_sensor_data.tissue_n2_bar));
+    memcpy(g_sensor_data.tissue_m_value_bar, tissue_m_value_bar, sizeof(g_sensor_data.tissue_m_value_bar));
+    g_sensor_data.tissue_pi_permille = pi_permille;
+    g_sensor_data.tissue_ambient_pressure_bar = ambient_pressure_bar;
+    g_sensor_data.tissue_inspired_n2_bar = inspired_n2_bar;
+    g_sensor_data.tissue_normalized_valid = true;
+    g_sensor_data.dirty_mask |= DIRTY_TISSUE_TOX;
+    rt_hw_interrupt_enable(level);
+}
+
 /* 完整减压站序列写入（可变长度，必须包临界区） */
 void bus_set_deco_plan(const deco_stop_t *stops, uint8_t count)
 {
@@ -2563,6 +2594,56 @@ uint8_t bus_get_tissue_gf_pct(uint8_t index)
 float bus_get_tissue_target_gf_pct(void)
 {
     return g_sensor_data.tissue_target_gf_pct;
+}
+
+bool bus_get_tissue_normalized_valid(void)
+{
+    return g_sensor_data.tissue_normalized_valid;
+}
+
+uint16_t bus_get_tissue_bar_permille(uint8_t index)
+{
+    if (index >= 16U)
+    {
+        return 0U;
+    }
+
+    return g_sensor_data.tissue_bar_permille[index];
+}
+
+uint16_t bus_get_tissue_pi_permille(void)
+{
+    return g_sensor_data.tissue_pi_permille;
+}
+
+float bus_get_tissue_ambient_pressure_bar(void)
+{
+    return g_sensor_data.tissue_ambient_pressure_bar;
+}
+
+float bus_get_tissue_inspired_n2_bar(void)
+{
+    return g_sensor_data.tissue_inspired_n2_bar;
+}
+
+float bus_get_tissue_n2_bar(uint8_t index)
+{
+    if (index >= 16U)
+    {
+        return 0.0f;
+    }
+
+    return g_sensor_data.tissue_n2_bar[index];
+}
+
+float bus_get_tissue_m_value_bar(uint8_t index)
+{
+    if (index >= 16U)
+    {
+        return 0.0f;
+    }
+
+    return g_sensor_data.tissue_m_value_bar[index];
 }
 
 uint8_t bus_get_pod_count(void)
