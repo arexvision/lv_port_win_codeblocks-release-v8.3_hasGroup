@@ -248,8 +248,10 @@ static void alarm_view_set_text_color_recursive(lv_obj_t *obj, lv_color_t color)
     }
 }
 
+#define ALARM_TARGET_USE_OVERLAY  1U  /* 告警边框用覆盖层绘制，避免改父组件边框导致内容抖动 */
 #define ALARM_TARGET_OVERLAY_TAG  ((uintptr_t)0xA11A0001U)  /* 告警目标覆盖层标记 */
 
+#if ALARM_TARGET_USE_OVERLAY
 static lv_obj_t *alarm_view_find_target_overlay(lv_obj_t *obj)
 {
     if (!obj)
@@ -315,6 +317,7 @@ static void alarm_view_hide_target_overlay(lv_obj_t *obj)
         lv_obj_add_flag(overlay, LV_OBJ_FLAG_HIDDEN);
     }
 }
+#endif
 
 static void alarm_view_restore_widget_style(lv_obj_t *obj);
 
@@ -332,7 +335,12 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
         {
             lv_obj_set_style_bg_color(obj, alarm_color, 0);
             lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+#if ALARM_TARGET_USE_OVERLAY
             alarm_view_set_target_overlay(obj, alarm_color, 2U);
+#else
+            lv_obj_set_style_border_color(obj, alarm_color, 0);
+            lv_obj_set_style_border_width(obj, 2, 0);
+#endif
             text_color = BLACK;
         }
         else
@@ -345,7 +353,12 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
     {
         lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
         lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+#if ALARM_TARGET_USE_OVERLAY
         alarm_view_set_target_overlay(obj, alarm_color, phase_on ? 2U : 1U);
+#else
+        lv_obj_set_style_border_color(obj, alarm_color, 0);
+        lv_obj_set_style_border_width(obj, phase_on ? 2 : 1, 0);
+#endif
         text_color = GREEN;
     }
     else
@@ -367,7 +380,9 @@ static void alarm_view_restore_widget_style(lv_obj_t *obj)
     lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(obj, DARK, 0);
     lv_obj_set_style_border_width(obj, DEBUG_BORDERS ? 1 : 0, 0);
+#if ALARM_TARGET_USE_OVERLAY
     alarm_view_hide_target_overlay(obj);
+#endif
     alarm_view_set_text_color_recursive(obj, GREEN);
 }
 
