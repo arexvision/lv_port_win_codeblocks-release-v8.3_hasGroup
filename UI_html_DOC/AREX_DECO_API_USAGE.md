@@ -236,6 +236,8 @@ stop_type = (s_metrics.ceiling_depth_m > 0.01f) ? STOP_DECO : STOP_SAFETY;
 
 当前适配层不再自行补安全停留 fallback。也就是说，右上角 `SAFE Xm` 必须来自算法 `arex_deco_plan()` 返回的有效 `schedule.stops[]`；适配层不会再用 `max_depth/current_depth/ndl` 自己判断“应该显示安全停留”。安全停留的触发阈值和固定深度使用算法侧宏 `AREX_DECO_SAFETY_STOP_TRIGGER_DEPTH_M` / `AREX_DECO_SAFETY_STOP_DEPTH_M`，开关和时长使用 `ArexDecoConfig.safety_stop_enabled` / `safety_stop_seconds`。
 
+如果 `arex_deco_step()` 成功但 `arex_deco_plan()` 返回非 OK，适配层不得把它当作 `stops=0` 同步到 UI。此时只同步组织仓、毒性、GF、ceiling、nofly、gas 等非 schedule 数据；TTS、右上角当前停站和实时轨迹停站列表保持上一帧有效 plan 输出。`plan` 失败表示本轮 schedule 不可用，不等价于“没有安全停留/没有减压站”。
+
 0.0.19 后，`schedule.ceiling_violated` 也会直接驱动 `CEILING BROKEN` 告警。这个告警不能只依赖 `stop_count` 或 `tts_seconds`，因为算法明确说明存在“计划为空但当前深度已经浅于 ceiling”的风险场景。
 
 ### 2. 停留进度条

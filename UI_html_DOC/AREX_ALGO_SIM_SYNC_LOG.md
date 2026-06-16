@@ -84,6 +84,24 @@
 - 模拟器可以直接验证算法侧是否稳定返回安全停留，不再被 UI/适配层 fallback 掩盖。
 - 如果 fast `goto/speed` 场景下 SAFE 短暂退回 NDL，说明该帧算法 schedule 未返回有效 safety stop；后续应和算法侧确认是否需要 core 内部 latch/state，而不是在 UI 侧复刻。
 
+#### Plan 失败时的 UI 同步
+
+旧口径：
+
+- `arex_deco_plan()` 失败时，适配层把 `NULL schedule` 传入 `sync_core_data()`。
+- 这会把 TTS、右上角 SAFE/DECO 当前站、实时轨迹停站列表清空，造成 fast `goto/speed` 场景下短暂退回普通 NDL 样式。
+
+新口径：
+
+- `arex_deco_step()` 成功但 `arex_deco_plan()` 返回非 OK 时，认为组织状态已经推进，但本轮 schedule 不可用。
+- 适配层只同步组织仓、CNS/OTU、GF、ceiling、nofly、gas 等非 schedule 数据。
+- TTS、当前停站、实时轨迹停站列表和 `ceiling_violated` 告警保持上一帧有效 plan 的输出，不用空计划覆盖。
+
+影响：
+
+- `plan=INVALID_STATE` 不再被误显示为“无停站/无安全停留”。
+- 日志中的 `[AREX_CALL]` 会继续打印 step/plan 状态、NDL、ceiling、stops、TTS，用于和算法侧定位 plan 失败原因。
+
 ### 工程和库同步
 
 - 更新 AREX 头文件、`mingw64` 静态库、`sf32` 静态库和算法文档到 `0.0.19`。

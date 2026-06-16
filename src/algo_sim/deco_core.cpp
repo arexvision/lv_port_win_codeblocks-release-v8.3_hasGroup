@@ -582,6 +582,23 @@ static void sync_core_data(const ArexDecoSchedule *schedule)
     sync_deco_plan_data(schedule);
 }
 
+static void sync_core_data_without_plan(void)
+{
+    uint32_t nofly_seconds = 0U;
+
+    sync_tissue_data();
+    bus_set_cns(round_u8_pct(s_state.oxygen_exposure.cns_percent));
+    bus_set_otu(round_u16_float(s_state.oxygen_exposure.otu));
+    bus_set_gf99(s_metrics.gf99_percent);
+    bus_set_surf_gf(s_metrics.surface_gf_percent);
+    bus_set_ceiling(s_metrics.ceiling_depth_m);
+    if (arex_deco_nofly(&s_state, &nofly_seconds) == AREX_DECO_STATUS_OK)
+    {
+        bus_set_nofly_time(round_up_minutes(nofly_seconds));
+    }
+    sync_gas_data();
+}
+
 static void refresh_current_outputs(void)
 {
     ArexDecoSchedule schedule;
@@ -594,7 +611,8 @@ static void refresh_current_outputs(void)
     debug_print_plan_call("refresh", -1, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
-    sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
+    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule);
+    else sync_core_data_without_plan();
 }
 
 static void handle_pending_gas_switch(float depth_m)
@@ -752,7 +770,8 @@ bool deco_core_rtc_offline(uint32_t seconds)
     debug_print_plan_call("rtc_offline", AREX_DECO_STATUS_OK, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
-    sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
+    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule);
+    else sync_core_data_without_plan();
     rt_kprintf("[RTC_OFFLINE] surface sleep %lus with AIR\n", (unsigned long)seconds);
     return true;
 }
@@ -798,7 +817,8 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
         debug_print_schedule(&schedule);
     }
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
-    sync_core_data((plan_status == AREX_DECO_STATUS_OK) ? &schedule : NULL);
+    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule);
+    else sync_core_data_without_plan();
 }
 
 static uint16_t gas_qty_l(float depth_m, uint32_t seconds, float rmv_lpm, const ArexDecoConfig *config)
