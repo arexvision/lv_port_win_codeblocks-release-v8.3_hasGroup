@@ -595,7 +595,7 @@ void data_init(void)
     s_deco_stop_count = 0U;
 }
 
-void bus_set_depth(float depth_m)
+static void bus_set_depth_internal(float depth_m, bool force)
 {
     /* 深度数值显示继续保留轻量防抖，避免数字末位来回跳 */
     /* 架构约束：
@@ -604,11 +604,21 @@ void bus_set_depth(float depth_m)
      * 3. 不能再把显示防抖后的深度变化误当成统计采样，否则串口直打 10m
      *    会被大量表面/噪声样本稀释，最终出现 AVG DEPTH=0.2m 这类假值。
      * 上升率仍由 bus_set_ascent_rate() 单独输入，避免不同采样周期下互相污染。 */
-    if (fabsf(g_sensor_data.depth - depth_m) > DEPTH_DISPLAY_DEBOUNCE_M)
+    if (force || fabsf(g_sensor_data.depth - depth_m) > DEPTH_DISPLAY_DEBOUNCE_M)
     {
         g_sensor_data.depth = depth_m;
         bus_mark_dirty(DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS);
     }
+}
+
+void bus_set_depth(float depth_m)
+{
+    bus_set_depth_internal(depth_m, false);
+}
+
+void bus_set_depth_force(float depth_m)
+{
+    bus_set_depth_internal(depth_m, true);
 }
 
 void bus_set_dive_profile_stats(float max_depth_m, float avg_depth_m)

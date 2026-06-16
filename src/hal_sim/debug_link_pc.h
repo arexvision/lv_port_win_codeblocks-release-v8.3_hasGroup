@@ -15,7 +15,7 @@ void debug_link_pc_set_rtc_offline_handler(debug_link_pc_rtc_offline_fn handler)
 bool debug_link_pc_manual_mode(void);
 bool debug_link_pc_consume_connect_event(void);
 uint16_t debug_link_pc_time_scale(void);
-bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m);
+bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bool *out_reached);
 
 #ifdef __cplusplus
 }
@@ -1762,7 +1762,7 @@ bool debug_link_pc_manual_mode(void)
     return s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET;
 }
 
-bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m)
+bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bool *out_reached)
 {
     float target_depth_m;
     float delta_m;
@@ -1773,12 +1773,20 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m)
     {
         return false;
     }
+    if (out_reached)
+    {
+        *out_reached = false;
+    }
 
     target_depth_m = s_debug_link.depth_goto_target_m;
     delta_m = target_depth_m - current_depth_m;
     if (delta_m > -DEBUG_DEPTH_GOTO_EPSILON_M && delta_m < DEBUG_DEPTH_GOTO_EPSILON_M)
     {
         *out_depth_m = target_depth_m;
+        if (out_reached)
+        {
+            *out_reached = true;
+        }
         debug_depth_goto_cancel();
         return true;
     }
@@ -1800,6 +1808,10 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m)
             (step_m < 0.0f && next_depth_m <= target_depth_m))
     {
         next_depth_m = target_depth_m;
+        if (out_reached)
+        {
+            *out_reached = true;
+        }
         debug_depth_goto_cancel();
     }
     if (next_depth_m < 0.0f)
@@ -1849,10 +1861,11 @@ uint16_t debug_link_pc_time_scale(void)
     return 1U;
 }
 
-bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m)
+bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bool *out_reached)
 {
     (void)current_depth_m;
     (void)out_depth_m;
+    (void)out_reached;
     return false;
 }
 

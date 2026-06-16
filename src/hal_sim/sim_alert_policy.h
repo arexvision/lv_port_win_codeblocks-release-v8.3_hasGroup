@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define SIM_ALERT_STOP_DONE_LEFT_THRESHOLD_S 1U
+
 typedef struct
 {
     uint16_t depth_alarm_m;
@@ -59,6 +61,8 @@ static bool s_sim_alert_algo_lock_active;
 static bool s_sim_alert_stop_was_active;
 static stop_type_t s_sim_alert_last_stop_type = STOP_NONE;
 static float s_sim_alert_last_stop_depth_m;
+static uint16_t s_sim_alert_last_stop_left_s;
+static bool s_sim_alert_last_stop_in_zone;
 static uint32_t s_sim_alert_stop_done_until_ms;
 static bool s_sim_alert_safety_info_was_in_zone;
 static uint32_t s_sim_alert_safety_info_until_ms;
@@ -115,6 +119,8 @@ static void sim_alert_reset_runtime(void)
     s_sim_alert_stop_was_active = false;
     s_sim_alert_last_stop_type = STOP_NONE;
     s_sim_alert_last_stop_depth_m = 0.0f;
+    s_sim_alert_last_stop_left_s = 0U;
+    s_sim_alert_last_stop_in_zone = false;
     s_sim_alert_stop_done_until_ms = 0U;
     s_sim_alert_safety_info_was_in_zone = false;
     s_sim_alert_safety_info_until_ms = 0U;
@@ -281,11 +287,15 @@ static bool sim_alert_update_stop_done(uint32_t now_ms)
 {
     const bool stop_active = g_sensor_data.stop_type != STOP_NONE &&
                              g_sensor_data.stop_time_left_s > 0U;
-    const bool stop_finished =
+    const bool prev_stop_completed =
         s_sim_alert_stop_was_active &&
+        s_sim_alert_last_stop_in_zone &&
+        s_sim_alert_last_stop_left_s <= SIM_ALERT_STOP_DONE_LEFT_THRESHOLD_S;
+    const bool stop_finished =
+        prev_stop_completed &&
         !stop_active;
     const bool deco_station_done =
-        s_sim_alert_stop_was_active &&
+        prev_stop_completed &&
         stop_active &&
         s_sim_alert_last_stop_type == STOP_DECO &&
         g_sensor_data.stop_type == STOP_DECO &&
@@ -300,11 +310,15 @@ static bool sim_alert_update_stop_done(uint32_t now_ms)
     {
         s_sim_alert_last_stop_type = g_sensor_data.stop_type;
         s_sim_alert_last_stop_depth_m = g_sensor_data.stop_depth_m;
+        s_sim_alert_last_stop_left_s = g_sensor_data.stop_time_left_s;
+        s_sim_alert_last_stop_in_zone = g_sensor_data.in_stop_zone;
     }
     else
     {
         s_sim_alert_last_stop_type = STOP_NONE;
         s_sim_alert_last_stop_depth_m = 0.0f;
+        s_sim_alert_last_stop_left_s = 0U;
+        s_sim_alert_last_stop_in_zone = false;
     }
     s_sim_alert_stop_was_active = stop_active;
 

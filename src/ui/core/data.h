@@ -99,6 +99,7 @@ void data_init(void);
 
 /* --- 传感器数据写入接口 --- */
 void bus_set_depth(float depth_m);               /* 防抖阈值 0.05m */
+void bus_set_depth_force(float depth_m);         /* 强制刷新深度，供调试/终点校准使用 */
 void bus_set_dive_profile_stats(float max_depth_m, float avg_depth_m);
 void bus_set_ascent_rate(float rate_mpm);        /* 正=上升，负=下潜，0=停止 */
 void bus_set_tts(uint16_t tts_min);
