@@ -499,7 +499,7 @@ static const comp_style_t g_widget_styles[] =
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
-        .title = "△+5",
+        .title = "@+5",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
@@ -510,7 +510,7 @@ static const comp_style_t g_widget_styles[] =
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
-        .title = "TTS D",
+        .title = "△+5",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
@@ -521,7 +521,7 @@ static const comp_style_t g_widget_styles[] =
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
-        .title = "NDL+3",
+        .title = "NDL↑3",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
@@ -532,7 +532,7 @@ static const comp_style_t g_widget_styles[] =
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
-        .title = "NDL-3",
+        .title = "NDL↓3",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
@@ -543,7 +543,7 @@ static const comp_style_t g_widget_styles[] =
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
         .unit = NULL,
-        .title = "NDL D",
+        .title = "NDL△3",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
