@@ -712,6 +712,86 @@ void bus_set_tts(uint16_t tts_min)
     }
 }
 
+void bus_set_tts_at_5min(uint16_t tts_min)
+{
+    if (!g_sensor_data.tts_at_5min_valid || g_sensor_data.tts_at_5min_min != tts_min)
+    {
+        g_sensor_data.tts_at_5min_valid = true;
+        g_sensor_data.tts_at_5min_min = tts_min;
+        bus_mark_dirty(DIRTY_DECO_STATUS);
+    }
+}
+
+void bus_set_tts_delta_5min(int16_t delta_min)
+{
+    if (!g_sensor_data.tts_delta_5min_valid || g_sensor_data.tts_delta_5min_min != delta_min)
+    {
+        g_sensor_data.tts_delta_5min_valid = true;
+        g_sensor_data.tts_delta_5min_min = delta_min;
+        bus_mark_dirty(DIRTY_DECO_STATUS);
+    }
+}
+
+void bus_set_ndl_up_3m(int16_t ndl_min)
+{
+    if (!g_sensor_data.ndl_up_3m_valid || g_sensor_data.ndl_up_3m_min != ndl_min)
+    {
+        g_sensor_data.ndl_up_3m_valid = true;
+        g_sensor_data.ndl_up_3m_min = ndl_min;
+        bus_mark_dirty(DIRTY_DECO_STATUS);
+    }
+}
+
+void bus_set_ndl_down_3m(int16_t ndl_min)
+{
+    if (!g_sensor_data.ndl_down_3m_valid || g_sensor_data.ndl_down_3m_min != ndl_min)
+    {
+        g_sensor_data.ndl_down_3m_valid = true;
+        g_sensor_data.ndl_down_3m_min = ndl_min;
+        bus_mark_dirty(DIRTY_DECO_STATUS);
+    }
+}
+
+void bus_set_ndl_delta_3m(int16_t delta_min)
+{
+    if (!g_sensor_data.ndl_delta_3m_valid || g_sensor_data.ndl_delta_3m_min != delta_min)
+    {
+        g_sensor_data.ndl_delta_3m_valid = true;
+        g_sensor_data.ndl_delta_3m_min = delta_min;
+        bus_mark_dirty(DIRTY_DECO_STATUS);
+    }
+}
+
+void bus_set_gtr(uint16_t gtr_min)
+{
+    if (!g_sensor_data.gtr_valid || g_sensor_data.gtr_min != gtr_min)
+    {
+        g_sensor_data.gtr_valid = true;
+        g_sensor_data.gtr_min = gtr_min;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
+    }
+}
+
+void bus_set_rmv(float rmv_lpm)
+{
+    if (!g_sensor_data.rmv_valid || fabsf(g_sensor_data.rmv_lpm - rmv_lpm) > 0.05f)
+    {
+        g_sensor_data.rmv_valid = true;
+        g_sensor_data.rmv_lpm = rmv_lpm;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
+    }
+}
+
+void bus_set_sac_rate(float sac_lpm)
+{
+    if (!g_sensor_data.sac_valid || fabsf(g_sensor_data.sac_rate - sac_lpm) > 0.05f)
+    {
+        g_sensor_data.sac_valid = true;
+        g_sensor_data.sac_rate = sac_lpm;
+        bus_mark_dirty(DIRTY_GAS_SUPPLY);
+    }
+}
+
 void bus_set_pod(uint8_t pod_idx, float bar)
 {
     if (pod_idx == 0 && g_sensor_data.pod1_bar != bar)
@@ -2500,9 +2580,56 @@ float bus_get_tts(void)
     return (float)g_sensor_data.tts;
 }
 
+bool bus_get_tts_at_5min(uint16_t *out_min)
+{
+    if (out_min != NULL) *out_min = g_sensor_data.tts_at_5min_min;
+    return g_sensor_data.tts_at_5min_valid;
+}
+
+bool bus_get_tts_delta_5min(int16_t *out_min)
+{
+    if (out_min != NULL) *out_min = g_sensor_data.tts_delta_5min_min;
+    return g_sensor_data.tts_delta_5min_valid;
+}
+
+bool bus_get_ndl_up_3m(int16_t *out_min)
+{
+    if (out_min != NULL) *out_min = g_sensor_data.ndl_up_3m_min;
+    return g_sensor_data.ndl_up_3m_valid;
+}
+
+bool bus_get_ndl_down_3m(int16_t *out_min)
+{
+    if (out_min != NULL) *out_min = g_sensor_data.ndl_down_3m_min;
+    return g_sensor_data.ndl_down_3m_valid;
+}
+
+bool bus_get_ndl_delta_3m(int16_t *out_min)
+{
+    if (out_min != NULL) *out_min = g_sensor_data.ndl_delta_3m_min;
+    return g_sensor_data.ndl_delta_3m_valid;
+}
+
+bool bus_get_gtr(uint16_t *out_min)
+{
+    if (out_min != NULL) *out_min = g_sensor_data.gtr_min;
+    return g_sensor_data.gtr_valid;
+}
+
+bool bus_get_rmv(float *out_lpm)
+{
+    if (out_lpm != NULL) *out_lpm = g_sensor_data.rmv_lpm;
+    return g_sensor_data.rmv_valid;
+}
+
 float bus_get_sac_rate(void)
 {
     return g_sensor_data.sac_rate;
+}
+
+bool bus_get_sac_rate_valid(void)
+{
+    return g_sensor_data.sac_valid;
 }
 
 uint8_t bus_get_last_deco_stop(void)

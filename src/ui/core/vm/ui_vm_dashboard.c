@@ -444,14 +444,57 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%02u:%02u", (unsigned)(bus_get_nofly_time_min() / 60U), (unsigned)(bus_get_nofly_time_min() % 60U));
         break;
     case COMP_TTS_AT_5MIN_0806:
+    {
+        uint16_t value;
+        if (bus_get_tts_at_5min(&value)) (void)snprintf(vm->text, sizeof(vm->text), "%u", (unsigned)value);
+        else (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        break;
+    }
     case COMP_TTS_DELTA_5MIN_0806:
+    {
+        int16_t value;
+        if (bus_get_tts_delta_5min(&value)) (void)snprintf(vm->text, sizeof(vm->text), "%+d", (int)value);
+        else (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        break;
+    }
     case COMP_NDL_UP_3M_0806:
+    {
+        int16_t value;
+        if (bus_get_ndl_up_3m(&value)) (void)snprintf(vm->text, sizeof(vm->text), "%d", (int)value);
+        else (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        break;
+    }
     case COMP_NDL_DOWN_3M_0806:
+    {
+        int16_t value;
+        if (bus_get_ndl_down_3m(&value)) (void)snprintf(vm->text, sizeof(vm->text), "%d", (int)value);
+        else (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        break;
+    }
     case COMP_NDL_DELTA_3M_0806:
+    {
+        int16_t value;
+        if (bus_get_ndl_delta_3m(&value)) (void)snprintf(vm->text, sizeof(vm->text), "%+d", (int)value);
+        else (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        break;
+    }
     case COMP_GTR_0806:
+    {
+        uint16_t value;
+        if (bus_get_gtr(&value)) (void)snprintf(vm->text, sizeof(vm->text), "%u", (unsigned)value);
+        else (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        break;
+    }
     case COMP_RMV_0806:
+    {
+        float value;
+        if (bus_get_rmv(&value)) (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)value);
+        else (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        break;
+    }
     case COMP_SAC_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
+        if (bus_get_sac_rate_valid()) (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_sac_rate());
+        else (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
         break;
     case COMP_ACCEL_2406:
         (void)snprintf(vm->text, sizeof(vm->text), "%+.2f %+.2f %+.2f", (double)bus_get_accel_x_g(), (double)bus_get_accel_y_g(), (double)bus_get_accel_z_g());
