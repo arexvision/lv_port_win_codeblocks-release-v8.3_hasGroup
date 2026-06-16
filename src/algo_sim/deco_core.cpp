@@ -39,6 +39,7 @@ static uint8_t s_final_deco_stop_depth_m = 3U;
 static uint8_t s_salinity_mode;
 static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
 static uint32_t s_schedule_debug_last_print_ms;
+static uint32_t s_plan_call_debug_last_print_ms;
 
 typedef struct
 {
@@ -178,11 +179,20 @@ static const char *deco_status_name(int status)
 static void debug_print_plan_call(const char *tag, int step_status, int plan_status, const ArexDecoSchedule *schedule)
 {
 #if DECO_PLAN_CALL_DEBUG
+    uint32_t now_ms = rt_tick_get();
+    bool failed = (step_status != -1 && step_status != AREX_DECO_STATUS_OK) ||
+                  (plan_status != -1 && plan_status != AREX_DECO_STATUS_OK);
     uint32_t ndl_s = (s_metrics.ndl_seconds > 0) ? (uint32_t)s_metrics.ndl_seconds : 0U;
     uint16_t ndl_min = (ndl_s > 0U) ? round_up_minutes(ndl_s) : 0U;
     uint8_t stop_count = (plan_status == AREX_DECO_STATUS_OK && schedule != NULL) ? schedule->stop_count : 0U;
     uint8_t cv = (plan_status == AREX_DECO_STATUS_OK && schedule != NULL) ? schedule->ceiling_violated : 0U;
     uint32_t tts_s = (plan_status == AREX_DECO_STATUS_OK && schedule != NULL) ? schedule->tts_seconds : 0U;
+
+    if (!failed && (uint32_t)(now_ms - s_plan_call_debug_last_print_ms) < DECO_SCHEDULE_DEBUG_PRINT_MS)
+    {
+        return;
+    }
+    s_plan_call_debug_last_print_ms = now_ms;
 
     rt_kprintf("[AREX_CALL] %s depth=%.1fm step=%s(%d) plan=%s(%d) ndl=%lus/%umin ceiling=%.2fm stops=%u tts=%lus cv=%u\n",
                tag ? tag : "plan",
