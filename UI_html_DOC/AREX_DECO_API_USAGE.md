@@ -325,6 +325,28 @@ display_stop = last_stop_m + ceil((raw_stop_m - last_stop_m) / deco_step_m) * de
 
 更稳的方案是让算法库直接输出离散站点，因为停站深度和停留时间是耦合的。UI 适配层只消费结果，不再二次猜测。
 
+## 16 组织仓柱状图口径
+
+算法接口 `arex_deco_calculate_tissue_gradients()` 输出两组 16 仓百分比：
+
+- `absolute_gf_percent[16]`：相对绝对 M-value 的 GF 百分比，进入 data bus 的 `tissue_raw_pct[16]`。
+- `relative_gf_percent[16]`：相对当前 target GF limit 的百分比，进入 data bus 的 `tissue_gf_pct[16]`。
+
+当前 DECO 卡片上的 16 组织仓柱状图使用 `relative_gf_percent[16]` / `tissue_gf_pct[16]`。前端渲染规则：
+
+```c
+ui_bar_value[i] = clamp((int)tissue_gf_pct[i], 0, 120);
+```
+
+显示语义：
+
+- 0 是当前环境压力下的底线，不画欠饱和负值。
+- 100 是当前 target GF danger line。
+- 100 以上继续画到 120 的封顶高度，并触发危险闪烁。
+- 参考线固定在 100/120 高度，不显示 `GF HIGH` 或 `M-VALUE` 文案。
+
+自定义组件 `TISSUE(GF)` 使用同一 0..120 绘制量程；`TISSUE(RAW)` 仍然显示 `absolute_gf_percent` / `tissue_raw_pct`，保持 0..100 绘制量程。
+
 ## 当前潜水计划页的用法
 
 `deco_core_plan_calculate()` 是给 PLAN 页面使用的离线计划计算，不是实时潜水状态。

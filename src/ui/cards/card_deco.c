@@ -23,12 +23,13 @@
 #define DECO_ROW3_Y     (CARD_TITLE_H + 114)
 #define GRID_X              16
 
-/* Tissue bars use ambient-relative per-compartment load against the raw M-value:
- * - 0..100 maps directly to bar height
- * - GF High is drawn as the stop/reference line
- * - >=100 means the current-depth raw M-value line is reached
+/* Tissue bars use relative GF after configured conservatism:
+ * - 0 is the ambient-pressure baseline
+ * - 100 is the current target GF danger line
+ * - draw height is clamped to 0..120 so over-limit bars can extend above 100
  */
 #define TISSUE_DANGER_PCT   100
+#define TISSUE_BAR_MAX_PCT  120
 
 /* HTML --flash-speed default 0.3s → 300ms half-period for flashInvert */
 #define TISSUE_FLASH_MS     300
@@ -97,24 +98,11 @@ static void deco_label_set_text_if_changed(lv_obj_t *label, const char *text)
     lv_label_set_text(label, text);
 }
 
-static void deco_label_set_text_fmt_if_changed(lv_obj_t *label, const char *fmt, uint8_t value)
-{
-    char buf[24];
-
-    if (label == NULL || fmt == NULL)
-    {
-        return;
-    }
-
-    (void)snprintf(buf, sizeof(buf), fmt, (unsigned)value);
-    deco_label_set_text_if_changed(label, buf);
-}
-
 static bool any_tissue_danger(void)
 {
     for (int i = 0; i < 16; i++)
     {
-        if (s_deco_vm_cache.tissue_raw_pct[i] >= TISSUE_DANGER_PCT) return true;
+        if (s_deco_vm_cache.tissue_gf_pct[i] >= TISSUE_DANGER_PCT) return true;
     }
     return false;
 }
@@ -130,7 +118,7 @@ static void tissue_danger_flash_cb(lv_timer_t *t)
     s_tissue_flash_phase = !s_tissue_flash_phase;
     for (int i = 0; i < 16; i++)
     {
-        if (s_deco_vm_cache.tissue_raw_pct[i] >= TISSUE_DANGER_PCT)
+        if (s_deco_vm_cache.tissue_gf_pct[i] >= TISSUE_DANGER_PCT)
         {
             // 危险时在 亮绿 和 暗绿空槽 之间闪烁
             lv_color_t c = s_tissue_flash_phase ? GREEN : DARK;
@@ -168,23 +156,16 @@ static void tissue_flash_ensure(void)
     }
 }
 
-static lv_color_t tissue_fill_color(uint8_t pct, uint8_t gf_high)
+static lv_color_t tissue_fill_color(uint8_t pct)
 {
     if (pct >= TISSUE_DANGER_PCT)
         return s_tissue_flash_phase ? GREEN : DARK;
-    if (pct >= gf_high)
-        return LIGHT;
     return GREEN;
 }
 
 static uint8_t card_deco_mvalue_line_pct(void)
 {
-    uint8_t line_pct = s_deco_vm_cache.gf_high;
-    if (line_pct > 100U)
-    {
-        line_pct = 100U;
-    }
-    return line_pct;
+    return TISSUE_DANGER_PCT;
 }
 
 static bool card_deco_tissue_chart_active(void)
@@ -227,7 +208,7 @@ static void card_deco_update_mvalue_line(bool chart_active)
     if (!s_mvalue_visible_cache_valid || !s_mvalue_visible_cache)
     {
         lv_obj_clear_flag(s_mvalue_line, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_mvalue_label, LV_OBJ_FLAG_HIDDEN);
         s_mvalue_visible_cache = true;
         s_mvalue_visible_cache_valid = true;
     }
@@ -241,7 +222,7 @@ static void card_deco_update_mvalue_line(bool chart_active)
     int line_y = bar_max_h;
     uint8_t line_pct = card_deco_mvalue_line_pct();
 
-    line_y -= ((int)line_pct * bar_max_h) / 100;
+    line_y -= ((int)line_pct * bar_max_h) / TISSUE_BAR_MAX_PCT;
     if (line_y < 0)
     {
         line_y = 0;
@@ -255,13 +236,10 @@ static void card_deco_update_mvalue_line(bool chart_active)
     {
         lv_obj_set_y(s_mvalue_line, line_y);
         s_mvalue_line_y_cache = (int16_t)line_y;
-        lv_obj_align_to(s_mvalue_label, s_mvalue_line, LV_ALIGN_OUT_TOP_RIGHT, -4, -2);
     }
     if (s_mvalue_line_pct_cache != line_pct)
     {
-        deco_label_set_text_fmt_if_changed(s_mvalue_label, "M-VALUE %u%%", line_pct);
         s_mvalue_line_pct_cache = line_pct;
-        lv_obj_align_to(s_mvalue_label, s_mvalue_line, LV_ALIGN_OUT_TOP_RIGHT, -4, -2);
     }
 }
 
@@ -396,7 +374,7 @@ void card_deco_create(lv_obj_t *parent)
     lv_obj_set_size(chart_container, chart_w, chart_h);
     lv_obj_align(chart_container, LV_ALIGN_BOTTOM_MID, 0, chart_bottom);
 
-    /* 🚨 核心修复 1: 缩短标题，防止和右侧的 M-VALUE 撞车！ */
+    /* 缩短标题，给 16 组织仓图留出完整宽度。 */
     lv_obj_t *sec_lbl = lv_label_create(parent);
     lv_obj_set_style_text_font(sec_lbl, get_font(FONT_ID_SMALL), 0);
     lv_obj_set_style_text_color(sec_lbl, LIGHT, 0);
@@ -475,7 +453,6 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
         return;
     }
 
-    uint8_t line_pct = card_deco_mvalue_line_pct();
     bool chart_active = card_deco_tissue_chart_active();
 
     if (deco_obj_is_valid(&s_lbl_gf_setting))
@@ -510,7 +487,7 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
 
     for (int i = 0; i < 16; i++)
     {
-        uint8_t pct = s_deco_vm_cache.tissue_raw_pct[i];
+        uint8_t pct = s_deco_vm_cache.tissue_gf_pct[i];
         if (!deco_obj_is_valid(&s_bars[i]))
         {
             continue;
@@ -527,14 +504,14 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
             {
                 draw_pct = 0U;
             }
-            if (draw_pct > 100U)
+            if (draw_pct > TISSUE_BAR_MAX_PCT)
             {
-                draw_pct = 100U;
+                draw_pct = TISSUE_BAR_MAX_PCT;
             }
 
             if (draw_pct > 0U)
             {
-                fill_h = ((int)draw_pct * bar_max_h) / 100;
+                fill_h = ((int)draw_pct * bar_max_h) / TISSUE_BAR_MAX_PCT;
                 if (fill_h < 2)
                 {
                     fill_h = 2;
@@ -553,7 +530,7 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
                 s_tissue_fill_h_cache[i] = (int16_t)fill_h;
             }
 
-            lv_color_t fill_color = tissue_fill_color(pct, line_pct);
+            lv_color_t fill_color = tissue_fill_color(pct);
             if (!s_tissue_draw_cache_valid[i] ||
                 lv_color_to32(s_tissue_color_cache[i]) != lv_color_to32(fill_color))
             {
