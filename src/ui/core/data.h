@@ -152,7 +152,15 @@ void bus_set_sensor_status(const char *status);
 void bus_set_tissue_loads(const int16_t tissue_raw_pct[16],
                           const uint8_t tissue_gf_pct[16],
                           float tissue_target_gf_pct);
-void bus_set_tissue_normalized_payload(const uint16_t tissue_bar_permille[16], uint16_t pi_permille, float ambient_pressure_bar, float inspired_n2_bar, const float tissue_n2_bar[16], const float tissue_m_value_bar[16]);
+void bus_set_tissue_normalized_payload(const uint16_t tissue_bar_permille[16],
+                                       uint16_t pi_permille,
+                                       float ambient_pressure_bar,
+                                       float inspired_n2_bar,
+                                       float inspired_he_bar,
+                                       const float tissue_n2_bar[16],
+                                       const float tissue_he_bar[16],
+                                       const float tissue_m_value_bar[16],
+                                       const float tissue_m_gf_bar[16]);
 /* 完整减压站序列（>32bit，必须包临界区） */
 void bus_set_deco_plan(const deco_stop_t *stops, uint8_t count);
 
@@ -333,8 +341,11 @@ uint16_t bus_get_tissue_bar_permille(uint8_t index);
 uint16_t bus_get_tissue_pi_permille(void);
 float bus_get_tissue_ambient_pressure_bar(void);
 float bus_get_tissue_inspired_n2_bar(void);
+float bus_get_tissue_inspired_he_bar(void);
 float bus_get_tissue_n2_bar(uint8_t index);
+float bus_get_tissue_he_bar(uint8_t index);
 float bus_get_tissue_m_value_bar(uint8_t index);
+float bus_get_tissue_m_gf_bar(uint8_t index);
 uint8_t bus_get_pod_count(void);
 float bus_get_pod_bar(uint8_t pod_idx);
 float bus_get_tts(void);

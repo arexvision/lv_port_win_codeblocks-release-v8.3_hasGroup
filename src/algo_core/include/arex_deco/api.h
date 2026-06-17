@@ -55,9 +55,9 @@ ArexDecoStatus arex_deco_nofly(
     const ArexDecoDiveState* state,
     uint32_t* nofly_seconds);
 
-ArexDecoStatus arex_deco_calculate_tissue_gradients(
+ArexDecoStatus arex_deco_calculate_tissue_pressures(
     const ArexDecoDiveState* state,
-    ArexDecoTissueGradientMetrics* gradients);
+    ArexDecoTissuePressureMetrics* metrics);
 
 ArexDecoStatus arex_deco_forecast_tts_hold(
     const ArexDecoDiveState* state,

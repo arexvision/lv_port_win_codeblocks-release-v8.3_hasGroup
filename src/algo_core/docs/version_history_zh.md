@@ -26,6 +26,35 @@
 - smoke test
 - 文档
 
+## 0.0.23
+
+### 摘要
+
+本次版本将组织舱查询接口从 UI 百分比指标替换为压力域物理真值输出，
+用于支持 RAW 与 GF 两种 tissue graph。core 只输出当前环境压力、肺泡吸入
+惰性气体分压、16 仓组织分压、原始 M 值、GF 调整后的 M 值和当前有效 GF，
+显示归一化由 UI 完成。
+
+### 行为与 ABI 变更
+
+- 删除 `ArexDecoTissueGradientMetrics` 和 `arex_deco_calculate_tissue_gradients()`。
+- 新增 `ArexDecoTissuePressureMetrics` 和 `arex_deco_calculate_tissue_pressures()`。
+- `ArexDecoTissuePressureMetrics` 包含 `api_version`、`ambient_pressure_bar`、
+  `inspired_n2_bar`、`inspired_he_bar`、16 仓 `tissue_n2_bar` /
+  `tissue_he_bar`、16 仓 `tissue_m_value_bar` / `tissue_m_gf_bar`、
+  `current_gf_target` 和 `reserved[24]`。
+- `tissue_m_value_bar` 使用当前组织 N2/He 分压加权得到的 combined a/b；
+  `tissue_m_gf_bar = P_amb + (M_i - P_amb) * current_gf_target`。
+- 全局统一肺泡吸入惰性气体分压 dry pressure 口径为
+  `max(P_amb - water_vapor_pressure_bar, 0)`。
+- 查询接口会校验 active gas、tissue state、M 值有限性和约束；失败返回
+  `AREX_DECO_STATUS_INVALID_ARGUMENT` 或 `AREX_DECO_STATUS_INVALID_STATE`，
+  且不写出半成品。
+- WASM 导出替换为 `_arex_deco_calculate_tissue_pressures()` 和
+  `_arex_deco_wasm_sizeof_tissue_pressure_metrics()`。
+- `ArexDecoTissuePressureMetrics` 大小为 `304` 字节；API patch 版本升至
+  `0.0.23`。
+
 ## 0.0.22
 
 ### 摘要

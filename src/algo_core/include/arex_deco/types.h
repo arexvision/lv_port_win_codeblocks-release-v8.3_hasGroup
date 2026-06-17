@@ -140,15 +140,18 @@ typedef struct ArexDecoRuntimeMetrics {
     uint8_t reserved[27];
 } ArexDecoRuntimeMetrics;
 
-typedef struct ArexDecoTissueGradientMetrics {
-    // Absolute GF percentages at the current ambient pressure. Values are
-    // already in percent units, e.g. 70.0f means 70%.
-    float absolute_gf_percent[AREX_DECO_COMPARTMENT_COUNT];
-    // Percentages relative to the current target GF limit. Values are already
-    // in percent units and must not be multiplied by 100 by callers.
-    float relative_gf_percent[AREX_DECO_COMPARTMENT_COUNT];
-    float current_target_gf;
-} ArexDecoTissueGradientMetrics;
+typedef struct ArexDecoTissuePressureMetrics {
+    ArexDecoVersion api_version;
+    float ambient_pressure_bar;
+    float inspired_n2_bar;
+    float inspired_he_bar;
+    float tissue_n2_bar[AREX_DECO_COMPARTMENT_COUNT];
+    float tissue_he_bar[AREX_DECO_COMPARTMENT_COUNT];
+    float tissue_m_value_bar[AREX_DECO_COMPARTMENT_COUNT];
+    float tissue_m_gf_bar[AREX_DECO_COMPARTMENT_COUNT];
+    float current_gf_target;
+    uint8_t reserved[24];
+} ArexDecoTissuePressureMetrics;
 
 typedef struct ArexDecoGasRecommendation {
     ArexDecoVersion api_version;

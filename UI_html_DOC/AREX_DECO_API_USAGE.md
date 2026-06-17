@@ -331,13 +331,16 @@ display_stop = last_stop_m + ceil((raw_stop_m - last_stop_m) / deco_step_m) * de
 当前 DECO 卡片主图使用归一化组织图载荷：
 
 - `tissue_bar_permille[16]`：0~1000 的组织条长度，400 表示环境压力线，900 表示 M 值线。
-- `tissue_pi_permille`：吸入氮气分压虚线位置，同样使用 0~1000 坐标。
+- `tissue_pi_permille`：吸入总惰性气体分压虚线位置，同样使用 0~1000 坐标。
 - `tissue_ambient_pressure_bar`：当前环境压力。
 - `tissue_inspired_n2_bar`：当前吸入氮气分压。
+- `tissue_inspired_he_bar`：当前吸入氦气分压。
 - `tissue_n2_bar[16]`：16 仓氮气分压。
-- `tissue_m_value_bar[16]`：16 仓 M 值；当前由 `absolute_gf_percent` 临时反推。
+- `tissue_he_bar[16]`：16 仓氦气分压。
+- `tissue_m_value_bar[16]`：16 仓 combined a/b M 值，来自 `arex_deco_calculate_tissue_pressures()`。
+- `tissue_m_gf_bar[16]`：16 仓当前 GF 红线压力，来自 `arex_deco_calculate_tissue_pressures()`。
 
-注意：core 支持 Trimix，组织条长度实际按总惰性气体压力 `PN2 + PHe` 归一化；`tissue_n2_bar[16]` 只是调试/展示字段，UI 试验应直接使用 `tissue_bar_permille[16]` 作为条长。
+注意：core 支持 Trimix，组织条长度和 Leading Tissue 选择都按总惰性气体压力 `PN2 + PHe`；不得只用 `tissue_n2_bar[16]` 重算风险。
 
 前端显示语义：
 
@@ -346,7 +349,7 @@ display_stop = last_stop_m + ceil((raw_stop_m - last_stop_m) / deco_step_m) * de
 - `PI`、`PAMB`、`M` 文字标签由 `card_deco.c` 绘制；文字只用于标注，不影响归一化计算和参考线。
 - 每根组织条直接使用 `tissue_bar_permille[i]` 作为长度；400 以下安全段使用 `LV_OPA_40`；400~900 排氮段按接近 M 值的比例在 `LV_OPA_50..LV_OPA_100` 之间线性映射；超过 900 的部分使用纯绿满亮闪烁。
 
-`tissue_raw_pct[16]` / `tissue_gf_pct[16]` 仍保留给自定义组件和信息概览兼容，不再驱动 DECO 主图。正式算法接口提供后，应删除适配层反推 M 值的临时逻辑。
+`tissue_raw_pct[16]` / `tissue_gf_pct[16]` 仍保留给自定义组件和信息概览兼容，不再驱动 DECO 主图。0.0.23 起，适配层不再反推 M 值，而是直接消费 `arex_deco_calculate_tissue_pressures()`。
 
 ## 当前潜水计划页的用法
 

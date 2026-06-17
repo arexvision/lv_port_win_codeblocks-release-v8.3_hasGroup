@@ -1116,9 +1116,17 @@ void bus_set_tissue_loads(const int16_t tissue_raw_pct[16],
     rt_hw_interrupt_enable(level);
 }
 
-void bus_set_tissue_normalized_payload(const uint16_t tissue_bar_permille[16], uint16_t pi_permille, float ambient_pressure_bar, float inspired_n2_bar, const float tissue_n2_bar[16], const float tissue_m_value_bar[16])
+void bus_set_tissue_normalized_payload(const uint16_t tissue_bar_permille[16],
+                                       uint16_t pi_permille,
+                                       float ambient_pressure_bar,
+                                       float inspired_n2_bar,
+                                       float inspired_he_bar,
+                                       const float tissue_n2_bar[16],
+                                       const float tissue_he_bar[16],
+                                       const float tissue_m_value_bar[16],
+                                       const float tissue_m_gf_bar[16])
 {
-    if (tissue_bar_permille == NULL || tissue_n2_bar == NULL || tissue_m_value_bar == NULL)
+    if (tissue_bar_permille == NULL || tissue_n2_bar == NULL || tissue_he_bar == NULL || tissue_m_value_bar == NULL || tissue_m_gf_bar == NULL)
     {
         return;
     }
@@ -1126,10 +1134,13 @@ void bus_set_tissue_normalized_payload(const uint16_t tissue_bar_permille[16], u
     rt_base_t level = rt_hw_interrupt_disable();
     if ((memcmp(g_sensor_data.tissue_bar_permille, tissue_bar_permille, sizeof(g_sensor_data.tissue_bar_permille)) == 0) &&
         (memcmp(g_sensor_data.tissue_n2_bar, tissue_n2_bar, sizeof(g_sensor_data.tissue_n2_bar)) == 0) &&
+        (memcmp(g_sensor_data.tissue_he_bar, tissue_he_bar, sizeof(g_sensor_data.tissue_he_bar)) == 0) &&
         (memcmp(g_sensor_data.tissue_m_value_bar, tissue_m_value_bar, sizeof(g_sensor_data.tissue_m_value_bar)) == 0) &&
+        (memcmp(g_sensor_data.tissue_m_gf_bar, tissue_m_gf_bar, sizeof(g_sensor_data.tissue_m_gf_bar)) == 0) &&
         (g_sensor_data.tissue_pi_permille == pi_permille) &&
         (fabsf(g_sensor_data.tissue_ambient_pressure_bar - ambient_pressure_bar) <= 0.0001f) &&
         (fabsf(g_sensor_data.tissue_inspired_n2_bar - inspired_n2_bar) <= 0.0001f) &&
+        (fabsf(g_sensor_data.tissue_inspired_he_bar - inspired_he_bar) <= 0.0001f) &&
         g_sensor_data.tissue_normalized_valid)
     {
         rt_hw_interrupt_enable(level);
@@ -1138,10 +1149,13 @@ void bus_set_tissue_normalized_payload(const uint16_t tissue_bar_permille[16], u
 
     memcpy(g_sensor_data.tissue_bar_permille, tissue_bar_permille, sizeof(g_sensor_data.tissue_bar_permille));
     memcpy(g_sensor_data.tissue_n2_bar, tissue_n2_bar, sizeof(g_sensor_data.tissue_n2_bar));
+    memcpy(g_sensor_data.tissue_he_bar, tissue_he_bar, sizeof(g_sensor_data.tissue_he_bar));
     memcpy(g_sensor_data.tissue_m_value_bar, tissue_m_value_bar, sizeof(g_sensor_data.tissue_m_value_bar));
+    memcpy(g_sensor_data.tissue_m_gf_bar, tissue_m_gf_bar, sizeof(g_sensor_data.tissue_m_gf_bar));
     g_sensor_data.tissue_pi_permille = pi_permille;
     g_sensor_data.tissue_ambient_pressure_bar = ambient_pressure_bar;
     g_sensor_data.tissue_inspired_n2_bar = inspired_n2_bar;
+    g_sensor_data.tissue_inspired_he_bar = inspired_he_bar;
     g_sensor_data.tissue_normalized_valid = true;
     g_sensor_data.dirty_mask |= DIRTY_TISSUE_TOX;
     rt_hw_interrupt_enable(level);
@@ -2658,6 +2672,11 @@ float bus_get_tissue_inspired_n2_bar(void)
     return g_sensor_data.tissue_inspired_n2_bar;
 }
 
+float bus_get_tissue_inspired_he_bar(void)
+{
+    return g_sensor_data.tissue_inspired_he_bar;
+}
+
 float bus_get_tissue_n2_bar(uint8_t index)
 {
     if (index >= 16U)
@@ -2668,6 +2687,16 @@ float bus_get_tissue_n2_bar(uint8_t index)
     return g_sensor_data.tissue_n2_bar[index];
 }
 
+float bus_get_tissue_he_bar(uint8_t index)
+{
+    if (index >= 16U)
+    {
+        return 0.0f;
+    }
+
+    return g_sensor_data.tissue_he_bar[index];
+}
+
 float bus_get_tissue_m_value_bar(uint8_t index)
 {
     if (index >= 16U)
@@ -2676,6 +2705,16 @@ float bus_get_tissue_m_value_bar(uint8_t index)
     }
 
     return g_sensor_data.tissue_m_value_bar[index];
+}
+
+float bus_get_tissue_m_gf_bar(uint8_t index)
+{
+    if (index >= 16U)
+    {
+        return 0.0f;
+    }
+
+    return g_sensor_data.tissue_m_gf_bar[index];
 }
 
 uint8_t bus_get_pod_count(void)

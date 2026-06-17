@@ -15,6 +15,35 @@
 
 ## 未发布 UI 口径调整
 
+### AREX Deco Core 0.0.23 接入
+
+改动：
+
+- 接受算法包 API 版本 `0.0.23`，同步头文件、文档、`mingw64` / `sf32` 静态库和 artifact report。
+- `sync_tissue_data()` 删除对已废弃 `arex_deco_calculate_tissue_gradients()` / `ArexDecoTissueGradientMetrics` 的依赖，改为调用 `arex_deco_calculate_tissue_pressures()`。
+- 组织图物理字段直接读取 `ArexDecoTissuePressureMetrics`：`ambient_pressure_bar`、`inspired_n2_bar`、`inspired_he_bar`、`tissue_n2_bar[16]`、`tissue_he_bar[16]`、`tissue_m_value_bar[16]`、`tissue_m_gf_bar[16]` 和 `current_gf_target`。
+- data bus 和 DECO VM 扩展保存 He 分压与 GF 调整后的 M 值；旧 `tissue_n2_bar`、`tissue_m_value_bar` getter 保留兼容。
+- `tissue_bar_permille[16]` 和 `tissue_pi_permille` 改为按总惰性气体压力 `PN2 + PHe` / `PInspiredN2 + PInspiredHe` 映射。
+- `tissue_raw_pct[16]` 在适配层由 pressure metrics 计算绝对 GF；`tissue_gf_pct[16]` 由 `tissue_m_gf_bar` 计算当前 GF 红线相对百分比。
+- 自定义 `TISSUE(GF)` / `TISSUE(RAW)` 的 Leading Tissue 选择改为使用 `PN2 + PHe` 和算法返回的 combined M 值，不再只看 `PN2`。
+
+原因：
+
+- 算法团队已采纳前端提出的“由 core 提供物理压力真值，UI 自己做映射”方案；0.0.23 已直接输出 M 值、GF M 值和吸入/组织惰性气体分压。
+- 旧版本用 `absolute_gf_percent` 反推 `M_i` 在 GF 接近 0、负值或 Trimix 场景下不稳，且会让 UI/适配层承担算法模型细节。
+
+旧口径和新口径差异：
+
+- 旧口径：适配层从 `absolute_gf_percent` 反推 `M_i`，`PI` 只记录 N2，Leading Tissue 临时按 `PN2` 计算。
+- 新口径：适配层直接消费 `ArexDecoTissuePressureMetrics`，归一化和 leading 选择均按总惰性气体压力 `PN2 + PHe`，M 值来自算法返回的 combined a/b 结果。
+
+验证方式：
+
+- `rg "calculate_tissue_gradients|TissueGradient" src` 不应再命中适配层调用。
+- `g++ -fsyntax-only ... src/algo_sim/deco_core.cpp` 应通过 0.0.23 头文件签名检查。
+- Trimix 气体下，DECO 主图条长、`TISSUE(GF)` 和 `TISSUE(RAW)` 的主导组织选择必须考虑 He 分压。
+- `tissue_bar_permille[i]` 仍保持 `0..1000`；`P_tissue == P_amb` 附近约为 400，`P_tissue == M_i` 附近约为 900。
+
 ### AREX Deco Core 0.0.22 接入
 
 改动：
@@ -68,17 +97,19 @@
 
 ### 自定义 Tissue 小组件切换到 Leading Tissue
 
+状态：0.0.23 后已升级为使用 `PN2 + PHe` 和 `arex_deco_calculate_tissue_pressures()` 返回的 combined M 值；下方保留最初切换到 Leading Tissue 时的历史背景。
+
 改动：
 
 - `COMP_TISSUE_GF_4012` 和 `COMP_TISSUE_RAW_4012` 从 16 根小柱临时切换为单条 Leading Tissue 显示。
-- UI 侧临时读取 `tissue_ambient_pressure_bar`、`tissue_n2_bar[16]`、`tissue_m_value_bar[16]`，遍历 16 个组织计算 `GF_i = ((PN2_i - P_amb) / (M_i - P_amb)) * 100`，选出最大值作为主导组织。
+- UI 侧读取 `tissue_ambient_pressure_bar`、`tissue_n2_bar[16]`、`tissue_he_bar[16]`、`tissue_m_value_bar[16]`，遍历 16 个组织计算 `GF_i = (((PN2_i + PHe_i) - P_amb) / (M_i - P_amb)) * 100`，选出最大值作为主导组织。
 - `TISSUE(GF)` 显示 `GF_max` 的 0..100 水平条，达到或超过 100 时满亮绿色闪烁。
 - `TISSUE(RAW)` 显示主导组织 `PN2` 的 0..6.0 bar 物理压力条，并绘制 `P_amb` 与 `M_idx` 参考线。
 
 原因：
 
 - 这两个自定义组件需要表达“当前最危险组织”的浓缩状态，而不是重复显示 DECO 主图的 16 组织全景。
-- 算法库当前还没有直接返回小组件所需的 `leading_compartment / leading_gf_percent / leading_pn2_bar / leading_m_value_bar`，因此先在 UI 层做临时提取。
+- 算法库当前还没有直接返回小组件所需的 `leading_compartment / leading_gf_percent / leading_tissue_inert_bar / leading_m_value_bar` summary，因此仍在 UI 层做提取，但输入物理量已来自 0.0.23 正式 pressure metrics。
 
 旧口径和新口径差异：
 
@@ -120,14 +151,16 @@
 - 组织条超过 900 的部分应进入纯绿满亮闪烁。
 - 完整公式、接口和临时反推限制见 `UI_html_DOC/16组织仓归一化视图计算说明.md`。
 
-### 归一化组织图测试载荷
+### 归一化组织图测试载荷（0.0.23 前历史口径）
+
+状态：本节记录 0.0.23 前的临时载荷方案。0.0.23 起，适配层已经直接调用 `arex_deco_calculate_tissue_pressures()`，不再从 `absolute_gf_percent` 反推 M 值。
 
 改动：
 
 - PC 适配层在同步 `absolute_gf_percent[16]` / `relative_gf_percent[16]` 的同时，额外写入一份归一化组织图测试载荷：`tissue_bar_permille[16]`、`tissue_pi_permille`、`tissue_ambient_pressure_bar`、`tissue_inspired_n2_bar`、`tissue_n2_bar[16]`、`tissue_m_value_bar[16]`。
 - `tissue_bar_permille[16]` 使用 0~1000 坐标，400 表示环境压力线，900 表示 M 值线。
 - `tissue_bar_permille[16]` 按总惰性气体压力 `PN2 + PHe` 计算；`tissue_n2_bar[16]` 只是氮气分压调试字段，Trimix 下不能单独拿它重算组织条长度。
-- 当前算法 API 未直接返回每仓 M 值，PC 适配层临时使用 `absolute_gf_percent[i] = ((P_tissue - P_amb) / (M_amb - P_amb)) * 100` 反推 `M_amb`。
+- 当时算法 API 未直接返回每仓 M 值，PC 适配层临时使用 `absolute_gf_percent[i] = ((P_tissue - P_amb) / (M_amb - P_amb)) * 100` 反推 `M_amb`。该逻辑已在 0.0.23 接入时删除。
 
 原因：
 
@@ -137,13 +170,13 @@
 旧口径和新口径差异：
 
 - 旧口径：UI 只能消费 `tissue_raw_pct[16]` / `tissue_gf_pct[16]` 这类百分比字段。
-- 新增测试口径：UI 可以读取独立的 0~1000 归一化字段做组织图试验；M 值字段是 PC 适配层临时反推结果，不等同于算法正式 API。
+- 当时新增测试口径：UI 可以读取独立的 0~1000 归一化字段做组织图试验；M 值字段是 PC 适配层临时反推结果，不等同于算法正式 API。0.0.23 起 M 值来自算法正式 API。
 
 验证方式：
 
 - 调用 `bus_get_tissue_normalized_valid()` 应在算法同步后返回 true。
 - `bus_get_tissue_bar_permille(i)` 应位于 0~1000；组织压力等于环境压力附近时应接近 400，达到 M 值附近时应接近 900。
-- 后续算法层提供正式 `P_amb/P_I/PN2_i/M_i` 或归一化 payload 接口后，应删除 PC 适配层反推逻辑，改为直接消费算法输出。
+- 0.0.23 已提供正式 `P_amb/P_I/PN2_i/PHe_i/M_i/M_GF_i` 接口，PC 适配层已删除反推逻辑并改为直接消费算法输出。
 
 ### 16 组织仓全物理态图表（历史口径）
 

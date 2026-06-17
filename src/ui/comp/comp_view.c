@@ -70,7 +70,7 @@ typedef struct
 {
     uint8_t idx;
     float gf_pct;
-    float pn2_bar;
+    float tissue_inert_bar;
     float pamb_bar;
     float m_value_bar;
     bool valid;
@@ -806,34 +806,34 @@ static void tissue_leading_from_vm(const ui_vm_deco_t *vm, tissue_leading_t *lea
     }
 
     float best_gf = -1.0f;
-    float best_pn2 = -1.0f;
+    float best_tissue_inert = -1.0f;
     for (uint8_t i = 0U; i < TISSUE_LEAD_COUNT; i++)
     {
-        float pn2 = vm->tissue_n2_bar[i];
+        float tissue_inert = vm->tissue_n2_bar[i] + vm->tissue_he_bar[i];
         float m_value = vm->tissue_m_value_bar[i];
-        if (!isfinite(pn2) || pn2 < 0.0f)
+        if (!isfinite(tissue_inert) || tissue_inert < 0.0f)
         {
             continue;
         }
 
         float gf = 0.0f;
-        if (pn2 > vm->tissue_ambient_pressure_bar)
+        if (tissue_inert > vm->tissue_ambient_pressure_bar)
         {
             float denom = m_value - vm->tissue_ambient_pressure_bar;
-            gf = (isfinite(denom) && denom > TISSUE_LEAD_EPSILON_BAR) ? ((pn2 - vm->tissue_ambient_pressure_bar) * 100.0f / denom) : 100.0f;
+            gf = (isfinite(denom) && denom > TISSUE_LEAD_EPSILON_BAR) ? ((tissue_inert - vm->tissue_ambient_pressure_bar) * 100.0f / denom) : 100.0f;
             if (!isfinite(gf) || gf < 0.0f)
             {
                 gf = 0.0f;
             }
         }
 
-        if (gf > best_gf || (fabsf(gf - best_gf) <= 0.001f && pn2 > best_pn2))
+        if (gf > best_gf || (fabsf(gf - best_gf) <= 0.001f && tissue_inert > best_tissue_inert))
         {
             best_gf = gf;
-            best_pn2 = pn2;
+            best_tissue_inert = tissue_inert;
             lead->idx = i;
             lead->gf_pct = gf;
-            lead->pn2_bar = pn2;
+            lead->tissue_inert_bar = tissue_inert;
             lead->pamb_bar = vm->tissue_ambient_pressure_bar;
             lead->m_value_bar = (isfinite(m_value) && m_value > 0.0f) ? m_value : vm->tissue_ambient_pressure_bar;
             lead->valid = true;
@@ -956,7 +956,7 @@ static void tissue_draw_raw_lead(lv_draw_ctx_t *draw_ctx, const lv_area_t *area,
         return;
     }
 
-    lv_coord_t x_pn2 = tissue_raw_x_for_bar(area, lead->pn2_bar);
+    lv_coord_t x_pn2 = tissue_raw_x_for_bar(area, lead->tissue_inert_bar);
     lv_coord_t x_pamb = tissue_raw_x_for_bar(area, lead->pamb_bar);
     lv_coord_t x_mval = tissue_raw_x_for_bar(area, lead->m_value_bar);
     lv_coord_t dark_x2 = (x_pn2 < x_pamb) ? x_pn2 : x_pamb;
