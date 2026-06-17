@@ -15,6 +15,32 @@
 
 ## 未发布 UI 口径调整
 
+### 自定义 Tissue 小组件回归 16 组织仓全景
+
+改动：
+
+- `COMP_TISSUE_RAW_4012` / `COMP_TISSUE_GF_4012` 不再显示单条 Leading Tissue，改为和 DECO 主图一致的横向 16 行组织仓。
+- RAW 小组件直接读取 `tissue_bar_permille[16]`；400 线表示环境压力，900 线表示 M 值。
+- GF 小组件使用现有 `tissue_gf_pct[16]` 生成条长：400 以下沿用 RAW 的环境压力以下映射；超过环境压力后按 `400 + tissue_gf_pct[i] / 100 * (900 - 400)` 映射。900 线表示当前 target GF 红线。
+- 两个小组件都绘制 400、900 和 `tissue_pi_permille` 三条竖向参考线，但小组件不显示底部 `PI/PAMB/M` 字母标签。
+
+原因：
+
+- 产品侧决定让两个自定义 Tissue 小组件回到 16 组织仓全景，而不是浓缩为单条主导组织。
+- `tissue_gf_pct[16]` 已由适配层按 `tissue_m_gf_bar` 计算，直接代表相对当前 GF 红线的百分比；UI 只负责把它映射到 400-900 坐标。
+- RAW/GF 两个小组件可能同时显示，因此不能把 data bus 中唯一的 `tissue_bar_permille[16]` 改成随视图模式变化；RAW 继续读原字段，GF 在绘制侧使用 `tissue_gf_pct[16]` 单独映射。
+
+旧口径和新口径差异：
+
+- 旧口径：`COMP_TISSUE_GF_4012` 和 `COMP_TISSUE_RAW_4012` 显示 Leading Tissue 单条水平条。
+- 新口径：两个小组件都显示 16 行组织仓；RAW 的 900 是 M 值，GF 的 900 是 target GF。
+
+验证方式：
+
+- 自定义页同时放置 `TISSUE(GF)` 和 `TISSUE(RAW)` 时，两者都应显示 16 条横向组织仓。
+- RAW 小组件条长应与 DECO 主图的 `tissue_bar_permille[16]` 口径一致，但不显示底部字母。
+- GF 小组件在 `tissue_gf_pct[i] == 100` 时对应条应到达 900 参考线；超过 900 的部分应随既有 timer 满亮闪烁。
+
 ### AREX Deco Core 0.0.23 接入
 
 改动：
@@ -25,7 +51,7 @@
 - data bus 和 DECO VM 扩展保存 He 分压与 GF 调整后的 M 值；旧 `tissue_n2_bar`、`tissue_m_value_bar` getter 保留兼容。
 - `tissue_bar_permille[16]` 和 `tissue_pi_permille` 改为按总惰性气体压力 `PN2 + PHe` / `PInspiredN2 + PInspiredHe` 映射。
 - `tissue_raw_pct[16]` 在适配层由 pressure metrics 计算绝对 GF；`tissue_gf_pct[16]` 由 `tissue_m_gf_bar` 计算当前 GF 红线相对百分比。
-- 自定义 `TISSUE(GF)` / `TISSUE(RAW)` 的 Leading Tissue 选择改为使用 `PN2 + PHe` 和算法返回的 combined M 值，不再只看 `PN2`。
+- 当时自定义 `TISSUE(GF)` / `TISSUE(RAW)` 的 Leading Tissue 选择改为使用 `PN2 + PHe` 和算法返回的 combined M 值，不再只看 `PN2`；后续已按上方未发布 UI 口径回归 16 组织仓全景。
 
 原因：
 
@@ -97,7 +123,7 @@
 
 ### 自定义 Tissue 小组件切换到 Leading Tissue
 
-状态：0.0.23 后已升级为使用 `PN2 + PHe` 和 `arex_deco_calculate_tissue_pressures()` 返回的 combined M 值；下方保留最初切换到 Leading Tissue 时的历史背景。
+状态：历史方案，已被“自定义 Tissue 小组件回归 16 组织仓全景”取代；下方保留最初切换到 Leading Tissue 时的历史背景。
 
 改动：
 

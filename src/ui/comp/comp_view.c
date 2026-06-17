@@ -36,16 +36,16 @@ LV_IMG_DECLARE(sudo_down_level2);
 #define MAX_SYS_WIDGETS            MAX_WIDGET_RENDER_INSTANCES
 #define COMP_VALUE_HANDLE_ID_MAX   64U
 #define TISSUE_LEAD_COUNT          16U
-#define TISSUE_RAW_MAX_BAR         6.0f
-#define TISSUE_LEAD_EPSILON_BAR    0.0001f
 #define TISSUE_LEAD_BLINK_MS       450U
+#define TISSUE_CHART_PAMB_PERMILLE 400
+#define TISSUE_CHART_LIMIT_PERMILLE 900
+#define TISSUE_CHART_MAX_PERMILLE 1000
+#define TISSUE_CHART_OPA_SAFE      LV_OPA_40
+#define TISSUE_CHART_OPA_OVER_MIN  LV_OPA_50
+#define TISSUE_CHART_OPA_OVER_MAX  LV_OPA_100
+#define TISSUE_CHART_OPA_PI        LV_OPA_40
 
 #define TISSUE_LEAD_COLOR_BG       BLACK
-#define TISSUE_LEAD_COLOR_TRACK    lv_color_make(0x00, 0x33, 0x00)
-#define TISSUE_LEAD_COLOR_SAFE     lv_color_make(0x00, 0x4C, 0x00)
-#define TISSUE_LEAD_COLOR_ACTIVE   lv_color_make(0x00, 0xCC, 0x00)
-#define TISSUE_LEAD_COLOR_DANGER   lv_color_make(0x00, 0xFF, 0x00)
-#define TISSUE_LEAD_COLOR_REF      lv_color_make(0x00, 0x7F, 0x00)
 
 typedef struct
 {
@@ -65,16 +65,6 @@ typedef struct
     comp_id_t widget_id;
     ui_vm_deco_t vm;
 } tissue_handle_t;
-
-typedef struct
-{
-    uint8_t idx;
-    float gf_pct;
-    float tissue_inert_bar;
-    float pamb_bar;
-    float m_value_bar;
-    bool valid;
-} tissue_leading_t;
 
 typedef struct
 {
@@ -765,25 +755,6 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
     }
 }
 
-static lv_coord_t tissue_raw_x_for_bar(const lv_area_t *area, float value_bar)
-{
-    if (!isfinite(value_bar) || value_bar < 0.0f)
-    {
-        value_bar = 0.0f;
-    }
-    if (value_bar > TISSUE_RAW_MAX_BAR)
-    {
-        value_bar = TISSUE_RAW_MAX_BAR;
-    }
-
-    lv_coord_t w = (lv_coord_t)lv_area_get_width(area);
-    if (w <= 1)
-    {
-        return area->x1;
-    }
-    return (lv_coord_t)(area->x1 + (lv_coord_t)((value_bar / TISSUE_RAW_MAX_BAR) * (float)(w - 1)));
-}
-
 static void tissue_draw_rect_area(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t *rect_dsc, lv_coord_t x1, lv_coord_t y1, lv_coord_t x2, lv_coord_t y2, lv_color_t color, lv_opa_t opa)
 {
     if (x2 < x1 || y2 < y1)
@@ -797,59 +768,65 @@ static void tissue_draw_rect_area(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t *r
     lv_draw_rect(draw_ctx, rect_dsc, &fill);
 }
 
-static void tissue_leading_from_vm(const ui_vm_deco_t *vm, tissue_leading_t *lead)
+static int tissue_chart_draw_permille(int permille)
 {
-    memset(lead, 0, sizeof(*lead));
-    if (vm == NULL || vm->tissue_normalized_valid == 0U || !isfinite(vm->tissue_ambient_pressure_bar) || vm->tissue_ambient_pressure_bar <= TISSUE_LEAD_EPSILON_BAR)
+    if (permille < 0)
     {
-        return;
+        return 0;
     }
-
-    float best_gf = -1.0f;
-    float best_tissue_inert = -1.0f;
-    for (uint8_t i = 0U; i < TISSUE_LEAD_COUNT; i++)
+    if (permille > TISSUE_CHART_MAX_PERMILLE)
     {
-        float tissue_inert = vm->tissue_n2_bar[i] + vm->tissue_he_bar[i];
-        float m_value = vm->tissue_m_value_bar[i];
-        if (!isfinite(tissue_inert) || tissue_inert < 0.0f)
-        {
-            continue;
-        }
-
-        float gf = 0.0f;
-        if (tissue_inert > vm->tissue_ambient_pressure_bar)
-        {
-            float denom = m_value - vm->tissue_ambient_pressure_bar;
-            gf = (isfinite(denom) && denom > TISSUE_LEAD_EPSILON_BAR) ? ((tissue_inert - vm->tissue_ambient_pressure_bar) * 100.0f / denom) : 100.0f;
-            if (!isfinite(gf) || gf < 0.0f)
-            {
-                gf = 0.0f;
-            }
-        }
-
-        if (gf > best_gf || (fabsf(gf - best_gf) <= 0.001f && tissue_inert > best_tissue_inert))
-        {
-            best_gf = gf;
-            best_tissue_inert = tissue_inert;
-            lead->idx = i;
-            lead->gf_pct = gf;
-            lead->tissue_inert_bar = tissue_inert;
-            lead->pamb_bar = vm->tissue_ambient_pressure_bar;
-            lead->m_value_bar = (isfinite(m_value) && m_value > 0.0f) ? m_value : vm->tissue_ambient_pressure_bar;
-            lead->valid = true;
-        }
+        return TISSUE_CHART_MAX_PERMILLE;
     }
+    return permille;
+}
+
+static lv_coord_t tissue_chart_x_for_permille(const lv_area_t *area, int permille)
+{
+    int draw_permille = tissue_chart_draw_permille(permille);
+    lv_coord_t w = (lv_coord_t)lv_area_get_width(area);
+    if (w <= 1) return area->x1;
+    return (lv_coord_t)(area->x1 + (lv_coord_t)((draw_permille * (int)(w - 1)) / TISSUE_CHART_MAX_PERMILLE));
+}
+
+static uint16_t tissue_chart_raw_permille(const ui_vm_deco_t *vm, uint8_t index)
+{
+    if (vm == NULL || index >= TISSUE_LEAD_COUNT || vm->tissue_normalized_valid == 0U) return 0U;
+    return vm->tissue_bar_permille[index];
+}
+
+static uint16_t tissue_chart_gf_permille(const ui_vm_deco_t *vm, uint8_t index)
+{
+    uint16_t raw_permille = tissue_chart_raw_permille(vm, index);
+    if (raw_permille <= TISSUE_CHART_PAMB_PERMILLE) return raw_permille;
+    return (uint16_t)(TISSUE_CHART_PAMB_PERMILLE + ((uint16_t)vm->tissue_gf_pct[index] * (TISSUE_CHART_LIMIT_PERMILLE - TISSUE_CHART_PAMB_PERMILLE)) / 100U);
+}
+
+static uint16_t tissue_chart_permille_for_widget(const ui_vm_deco_t *vm, comp_id_t widget_id, uint8_t index)
+{
+    if (widget_id == COMP_TISSUE_GF_4012) return tissue_chart_gf_permille(vm, index);
+    return tissue_chart_raw_permille(vm, index);
 }
 
 static bool tissue_handle_danger(const tissue_handle_t *h)
 {
-    tissue_leading_t lead;
-    if (h == NULL || h->widget_id != COMP_TISSUE_GF_4012)
+    if (h == NULL || (h->widget_id != COMP_TISSUE_GF_4012 && h->widget_id != COMP_TISSUE_RAW_4012))
     {
         return false;
     }
-    tissue_leading_from_vm(&h->vm, &lead);
-    return lead.valid && lead.gf_pct >= 100.0f;
+    if (h->vm.tissue_normalized_valid == 0U)
+    {
+        return false;
+    }
+
+    for (uint8_t i = 0U; i < TISSUE_LEAD_COUNT; i++)
+    {
+        if (tissue_chart_permille_for_widget(&h->vm, h->widget_id, i) >= TISSUE_CHART_LIMIT_PERMILLE)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 static bool tissue_any_danger(void)
@@ -905,79 +882,72 @@ static void tissue_blink_sync(void)
     }
 }
 
-static void tissue_draw_gf_lead(lv_draw_ctx_t *draw_ctx, const lv_area_t *area, const tissue_leading_t *lead)
+static lv_opa_t tissue_chart_opa_for_over_permille(int permille)
 {
-    lv_draw_rect_dsc_t rect_dsc;
-    lv_draw_rect_dsc_init(&rect_dsc);
-    rect_dsc.radius = 0;
-
-    tissue_draw_rect_area(draw_ctx, &rect_dsc, area->x1, area->y1, area->x2, area->y2, TISSUE_LEAD_COLOR_BG, LV_OPA_COVER);
-    tissue_draw_rect_area(draw_ctx, &rect_dsc, area->x1, area->y1, area->x2, area->y2, TISSUE_LEAD_COLOR_TRACK, LV_OPA_COVER);
-
-    if (lead == NULL || !lead->valid)
-    {
-        return;
-    }
-
-    float draw_gf = lead->gf_pct;
-    if (draw_gf < 0.0f)
-    {
-        draw_gf = 0.0f;
-    }
-    if (draw_gf > 100.0f)
-    {
-        draw_gf = 100.0f;
-    }
-
-    lv_coord_t w = (lv_coord_t)lv_area_get_width(area);
-    lv_coord_t fill_w = (lv_coord_t)((draw_gf / 100.0f) * (float)w);
-    if (fill_w <= 0)
-    {
-        return;
-    }
-
-    lv_color_t fill_color = (lead->gf_pct >= 100.0f) ? TISSUE_LEAD_COLOR_DANGER : TISSUE_LEAD_COLOR_ACTIVE;
-    if (lead->gf_pct >= 100.0f && !s_tissue_blink_phase)
-    {
-        return;
-    }
-    tissue_draw_rect_area(draw_ctx, &rect_dsc, area->x1, area->y1, (lv_coord_t)(area->x1 + fill_w - 1), area->y2, fill_color, LV_OPA_COVER);
+    int draw_permille = tissue_chart_draw_permille(permille);
+    int over_permille;
+    int opa_span;
+    if (draw_permille <= TISSUE_CHART_PAMB_PERMILLE) return TISSUE_CHART_OPA_OVER_MIN;
+    if (draw_permille >= TISSUE_CHART_LIMIT_PERMILLE) return TISSUE_CHART_OPA_OVER_MAX;
+    over_permille = draw_permille - TISSUE_CHART_PAMB_PERMILLE;
+    opa_span = TISSUE_CHART_OPA_OVER_MAX - TISSUE_CHART_OPA_OVER_MIN;
+    return (lv_opa_t)(TISSUE_CHART_OPA_OVER_MIN + (over_permille * opa_span) / (TISSUE_CHART_LIMIT_PERMILLE - TISSUE_CHART_PAMB_PERMILLE));
 }
 
-static void tissue_draw_raw_lead(lv_draw_ctx_t *draw_ctx, const lv_area_t *area, const tissue_leading_t *lead)
+static void tissue_chart_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t *rect_dsc, const lv_area_t *area, lv_coord_t y1, lv_coord_t y2, int low_permille, int high_permille, lv_color_t color, lv_opa_t opa)
+{
+    int draw_low = tissue_chart_draw_permille(low_permille);
+    int draw_high = tissue_chart_draw_permille(high_permille);
+    if (draw_high <= draw_low) return;
+    tissue_draw_rect_area(draw_ctx, rect_dsc, tissue_chart_x_for_permille(area, draw_low), y1, tissue_chart_x_for_permille(area, draw_high), y2, color, opa);
+}
+
+static void tissue_chart_draw_vertical_line(lv_draw_ctx_t *draw_ctx, const lv_area_t *area, int permille, lv_color_t color, lv_opa_t opa, lv_coord_t width, lv_coord_t dash_width, lv_coord_t dash_gap)
+{
+    lv_draw_line_dsc_t line_dsc;
+    lv_draw_line_dsc_init(&line_dsc);
+    line_dsc.color = color;
+    line_dsc.opa = opa;
+    line_dsc.width = width;
+    line_dsc.dash_width = dash_width;
+    line_dsc.dash_gap = dash_gap;
+
+    lv_coord_t x = tissue_chart_x_for_permille(area, permille);
+    lv_point_t pts[2] = { { x, area->y1 }, { x, area->y2 } };
+    lv_draw_line(draw_ctx, &line_dsc, &pts[0], &pts[1]);
+}
+
+static void tissue_draw_normalized_chart(lv_draw_ctx_t *draw_ctx, const lv_area_t *area, const tissue_handle_t *h)
 {
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
     rect_dsc.radius = 0;
 
     tissue_draw_rect_area(draw_ctx, &rect_dsc, area->x1, area->y1, area->x2, area->y2, TISSUE_LEAD_COLOR_BG, LV_OPA_COVER);
-    if (lead == NULL || !lead->valid)
+    if (h == NULL || h->vm.tissue_normalized_valid == 0U)
     {
         return;
     }
 
-    lv_coord_t x_pn2 = tissue_raw_x_for_bar(area, lead->tissue_inert_bar);
-    lv_coord_t x_pamb = tissue_raw_x_for_bar(area, lead->pamb_bar);
-    lv_coord_t x_mval = tissue_raw_x_for_bar(area, lead->m_value_bar);
-    lv_coord_t dark_x2 = (x_pn2 < x_pamb) ? x_pn2 : x_pamb;
-
-    tissue_draw_rect_area(draw_ctx, &rect_dsc, area->x1, area->y1, dark_x2, area->y2, TISSUE_LEAD_COLOR_SAFE, LV_OPA_COVER);
-    if (x_pn2 > x_pamb)
+    int plot_h = lv_area_get_height(area);
+    for (uint8_t i = 0U; i < TISSUE_LEAD_COUNT; i++)
     {
-        tissue_draw_rect_area(draw_ctx, &rect_dsc, (lv_coord_t)(x_pamb + 1), area->y1, x_pn2, area->y2, TISSUE_LEAD_COLOR_DANGER, LV_OPA_COVER);
+        lv_coord_t row_y1 = area->y1 + (lv_coord_t)((i * plot_h) / TISSUE_LEAD_COUNT);
+        lv_coord_t row_y2 = area->y1 + (lv_coord_t)((((i + 1U) * plot_h) / TISSUE_LEAD_COUNT) - 1);
+        lv_coord_t bar_y1 = (lv_coord_t)(row_y1 + 1);
+        lv_coord_t bar_y2 = (lv_coord_t)(row_y2 - 1);
+        int value_permille = (int)tissue_chart_permille_for_widget(&h->vm, h->widget_id, i);
+
+        if (bar_y2 < bar_y1) bar_y2 = bar_y1;
+        tissue_draw_rect_area(draw_ctx, &rect_dsc, area->x1, row_y2, area->x2, row_y2, GREEN, LV_OPA_20);
+        tissue_chart_draw_bar_segment(draw_ctx, &rect_dsc, area, bar_y1, bar_y2, 0, value_permille < TISSUE_CHART_PAMB_PERMILLE ? value_permille : TISSUE_CHART_PAMB_PERMILLE, GREEN, TISSUE_CHART_OPA_SAFE);
+        if (value_permille > TISSUE_CHART_PAMB_PERMILLE) tissue_chart_draw_bar_segment(draw_ctx, &rect_dsc, area, bar_y1, bar_y2, TISSUE_CHART_PAMB_PERMILLE, value_permille < TISSUE_CHART_LIMIT_PERMILLE ? value_permille : TISSUE_CHART_LIMIT_PERMILLE, GREEN, tissue_chart_opa_for_over_permille(value_permille));
+        if (value_permille > TISSUE_CHART_LIMIT_PERMILLE && s_tissue_blink_phase) tissue_chart_draw_bar_segment(draw_ctx, &rect_dsc, area, bar_y1, bar_y2, TISSUE_CHART_LIMIT_PERMILLE, value_permille, GREEN, TISSUE_CHART_OPA_OVER_MAX);
     }
 
-    lv_draw_line_dsc_t line_dsc;
-    lv_draw_line_dsc_init(&line_dsc);
-    line_dsc.color = TISSUE_LEAD_COLOR_REF;
-    line_dsc.width = 1;
-    line_dsc.opa = LV_OPA_COVER;
-    lv_point_t pamb_pts[2] = { { x_pamb, area->y1 }, { x_pamb, area->y2 } };
-    lv_draw_line(draw_ctx, &line_dsc, &pamb_pts[0], &pamb_pts[1]);
-
-    line_dsc.color = TISSUE_LEAD_COLOR_DANGER;
-    lv_point_t m_pts[2] = { { x_mval, area->y1 }, { x_mval, area->y2 } };
-    lv_draw_line(draw_ctx, &line_dsc, &m_pts[0], &m_pts[1]);
+    tissue_chart_draw_vertical_line(draw_ctx, area, TISSUE_CHART_PAMB_PERMILLE, GREEN, TISSUE_CHART_OPA_SAFE, 2, 0, 0);
+    tissue_chart_draw_vertical_line(draw_ctx, area, TISSUE_CHART_LIMIT_PERMILLE, GREEN, TISSUE_CHART_OPA_OVER_MAX, 2, 0, 0);
+    tissue_chart_draw_vertical_line(draw_ctx, area, h->vm.tissue_pi_permille, GREEN, TISSUE_CHART_OPA_PI, 1, 3, 3);
 }
 
 static void tissue_chart_draw_cb(lv_event_t *e)
@@ -993,10 +963,7 @@ static void tissue_chart_draw_cb(lv_event_t *e)
         return;
     }
 
-    tissue_leading_t lead;
-    tissue_leading_from_vm(vm, &lead);
-    if (h->widget_id == COMP_TISSUE_GF_4012) tissue_draw_gf_lead(draw_ctx, area, &lead);
-    else tissue_draw_raw_lead(draw_ctx, area, &lead);
+    tissue_draw_normalized_chart(draw_ctx, area, h);
 }
 
 /* =========================================================

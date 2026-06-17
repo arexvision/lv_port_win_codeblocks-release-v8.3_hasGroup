@@ -340,7 +340,7 @@ display_stop = last_stop_m + ceil((raw_stop_m - last_stop_m) / deco_step_m) * de
 - `tissue_m_value_bar[16]`：16 仓 combined a/b M 值，来自 `arex_deco_calculate_tissue_pressures()`。
 - `tissue_m_gf_bar[16]`：16 仓当前 GF 红线压力，来自 `arex_deco_calculate_tissue_pressures()`。
 
-注意：core 支持 Trimix，组织条长度和 Leading Tissue 选择都按总惰性气体压力 `PN2 + PHe`；不得只用 `tissue_n2_bar[16]` 重算风险。
+注意：core 支持 Trimix，组织条长度和 GF 映射都按总惰性气体压力 `PN2 + PHe`；不得只用 `tissue_n2_bar[16]` 重算风险。
 
 前端显示语义：
 
@@ -349,7 +349,11 @@ display_stop = last_stop_m + ceil((raw_stop_m - last_stop_m) / deco_step_m) * de
 - `PI`、`PAMB`、`M` 文字标签由 `card_deco.c` 绘制；文字只用于标注，不影响归一化计算和参考线。
 - 每根组织条直接使用 `tissue_bar_permille[i]` 作为长度；400 以下安全段使用 `LV_OPA_40`；400~900 排氮段按接近 M 值的比例在 `LV_OPA_50..LV_OPA_100` 之间线性映射；超过 900 的部分使用纯绿满亮闪烁。
 
-`tissue_raw_pct[16]` / `tissue_gf_pct[16]` 仍保留给自定义组件和信息概览兼容，不再驱动 DECO 主图。0.0.23 起，适配层不再反推 M 值，而是直接消费 `arex_deco_calculate_tissue_pressures()`。
+自定义 Tissue 小组件：
+
+- `COMP_TISSUE_RAW_4012` 显示同一套 16 行横向组织仓，条长直接读取 `tissue_bar_permille[16]`。小组件画 400、900 和 PI 参考线，但不画底部 `PI/PAMB/M` 字母。
+- `COMP_TISSUE_GF_4012` 也显示 16 行横向组织仓，但 900 线语义切换为当前 target GF 红线。条长在超过 400 后使用 `tissue_gf_pct[i]` 映射：`400 + tissue_gf_pct[i] / 100 * 500`。
+- `tissue_raw_pct[16]` / `tissue_gf_pct[16]` 仍保留给自定义组件和信息概览兼容，不驱动 DECO 主图。0.0.23 起，适配层不再反推 M 值，而是直接消费 `arex_deco_calculate_tissue_pressures()`。
 
 ## 当前潜水计划页的用法
 
