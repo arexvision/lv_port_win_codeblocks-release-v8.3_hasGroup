@@ -15,6 +15,34 @@
 
 ## 未发布 UI 口径调整
 
+### AREX Deco Core 0.0.22 接入
+
+改动：
+
+- 接受算法包 API 版本 `0.0.22`，新增结构体和函数来自算法层头文件与静态库。
+- 实时气体密度删除 PC 适配层 O2/N2/He 常量公式，改为调用 `arex_deco_calculate_gas_density()`；温度使用 `deco_core_tick()` 传入水温转 Kelvin，`compressibility_z = 1.0f`。
+- `TTS @ +5min` 和 `TTS Δ +5min` 改为调用 `arex_deco_forecast_tts_hold(..., 300s, ...)`，按 5 秒低频刷新。
+- `NDL↑3` / `NDL↓3` 改为调用 `arex_deco_forecast_ndl_excursion(..., 3.0m, ...)`。
+- 兼容旧 ID 的 `NDL△3` 改为动态紧凑显示：上升时显示 up 3m 预测 NDL，下降时显示 down 3m 预测 NDL，静止或预测失败时保留上一帧；初始化默认 0。
+- 右上角 `SAFE` 改为调用 `arex_deco_safety_stop()`，使用 core 返回的 `required/counting/remaining_seconds/phase`，不再从 `schedule.stops[]` 推断 runtime safety stop。
+
+原因：
+
+- 0.0.22 已经把 gas density、应急预测和 runtime safety stop 状态变成算法层 API；本仓库规则要求算法已有接口时，主工程必须直接消费接口，不在 UI/适配层复刻公式。
+- `arex_deco_plan()` 中的 safety stop 仍是“从当前状态开始升水”的未来预测项，适合 TTS/计划/气量，不适合作为主界面正在执行的安全停留倒计时状态机。
+
+旧口径和新口径差异：
+
+- 旧口径：gas density 用本地气体常量线性公式；SAFE 来自 planner schedule 中第一个非强制 stop；TTS/NDL 预测字段多数没有算法来源。
+- 新口径：gas density、TTS hold、NDL excursion、runtime safety stop 均来自 AREX core API；预测 API 失败时不清空显示，而是保留上一帧值，初始值为 0。
+
+验证方式：
+
+- `rg "GAS_DENSITY_|SAFETY_STOP_ZONE|safety_stop_zone_active" src/algo_sim/deco_core.cpp` 不应再命中旧本地公式/区间。
+- `g++ -fsyntax-only ... src/algo_sim/deco_core.cpp` 应通过新 API 签名检查。
+- 下潜超过 10m 后回到 3-6m，`SAFE` 倒计时应随 `arex_deco_safety_stop()` 的 `remaining_seconds/counting` 变化；进入强制减压后 core 返回 suppressed，UI 显示 `DECO`。
+- TTS hold 预测约每 5 秒刷新一次；NDL 动态紧凑值只在上升/下降方向明确时更新，静止时保留上一帧。
+
 ### DECO 主图回归横向归一化组织条
 
 改动：
@@ -207,14 +235,14 @@
 新口径：
 
 - 删除 `safety_stop_fallback_active()` 本地补偿。
-- 右上角 `STOP_SAFETY` 只来自 `arex_deco_plan()` 返回的第一个有效 runtime stop，且当前没有强制 ceiling。
-- 安全停留触发深度、停留深度、开关和时长继续由算法配置/常量负责：
-  `AREX_DECO_SAFETY_STOP_TRIGGER_DEPTH_M`、`AREX_DECO_SAFETY_STOP_DEPTH_M`、`safety_stop_enabled`、`safety_stop_seconds`。
+- 0.0.22 起，右上角 `STOP_SAFETY` 来自 `arex_deco_safety_stop()` 的 runtime 状态，不再来自 `arex_deco_plan().stops[]`。
+- `arex_deco_plan()` 中的 safety stop 仍保留给 TTS、计划路径和气量估算，不再承担主界面倒计时状态机语义。
+- 安全停留触发深度、目标深度、计时区间、missed 阈值、开关和时长继续由算法配置/常量负责。
 
 影响：
 
-- 模拟器可以直接验证算法侧是否稳定返回安全停留，不再被 UI/适配层 fallback 掩盖。
-- 如果 fast `goto/speed` 场景下 SAFE 短暂退回 NDL，说明该帧算法 schedule 未返回有效 safety stop；后续应和算法侧确认是否需要 core 内部 latch/state，而不是在 UI 侧复刻。
+- 模拟器直接验证算法侧 runtime safety stop 状态，不再被 UI/适配层 fallback 或 planner 预测语义掩盖。
+- fast `goto/speed` 场景下，SAFE 是否保持、暂停、missed 或 complete 以 `arex_deco_safety_stop()` 输出为准。
 
 #### Plan 失败时的 UI 同步
 

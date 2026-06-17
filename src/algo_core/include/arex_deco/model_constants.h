@@ -10,6 +10,9 @@ extern "C" {
 // remain core rules expressed in meters.
 #define AREX_DECO_SAFETY_STOP_TRIGGER_DEPTH_M 10.0f
 #define AREX_DECO_SAFETY_STOP_DEPTH_M 5.0f
+#define AREX_DECO_SAFETY_STOP_ZONE_MIN_DEPTH_M 3.0f
+#define AREX_DECO_SAFETY_STOP_ZONE_MAX_DEPTH_M 6.0f
+#define AREX_DECO_SAFETY_STOP_TOO_SHALLOW_DEPTH_M 2.0f
 
 // Decompression schedule output constraints. The planner emits second-level
 // durations and does not round positive stops to whole minutes.
@@ -19,6 +22,10 @@ extern "C" {
 // Physical gas constants.
 #define AREX_DECO_AIR_OXYGEN_FRACTION 0.21f
 #define AREX_DECO_AIR_NITROGEN_FRACTION 0.79f
+#define AREX_DECO_MOLAR_MASS_O2_G_PER_MOL 31.9988f
+#define AREX_DECO_MOLAR_MASS_HE_G_PER_MOL 4.0026f
+#define AREX_DECO_MOLAR_MASS_N2_G_PER_MOL 28.0134f
+#define AREX_DECO_UNIVERSAL_GAS_CONSTANT_J_PER_MOL_K 8.314462f
 
 // Mechanism-level ppO2 hard ceiling. validate_gas() rejects values above this.
 #define AREX_DECO_MAX_ALLOWABLE_PPO2_BAR 2.0f

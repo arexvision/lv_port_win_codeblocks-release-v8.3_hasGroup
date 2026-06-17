@@ -1,6 +1,6 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.19`。
+本文档描述当前 core API。当前 API 版本为 `0.0.22`。
 
 ## 适用场景
 
@@ -15,7 +15,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 19`
+- `AREX_DECO_API_VERSION_PATCH = 22`
 
 固定容量：
 
@@ -296,6 +296,69 @@ CNS 衰减（0.0.3 起）：
 | `end_of_dive_exposure` | `ArexDecoOxygenExposure` | - | 若严格按此计划升水，出水时预测累计 CNS / OTU |
 | `stops[40]` | `ArexDecoStop[]` | - | 固定容量停站数组 |
 
+### `ArexDecoTtsForecast`
+
+TTS hold 预测输出。
+
+| 字段 | 类型 | 单位 | 说明 |
+|---|---|---:|---|
+| `api_version` | `ArexDecoVersion` | - | API 版本 |
+| `hold_seconds` | `uint32_t` | s | 虚拟定深停留秒数 |
+| `current_tts_seconds` | `uint32_t` | s | 当前状态下的 TTS |
+| `tts_at_hold_seconds` | `uint32_t` | s | 当前深度、当前 active gas 继续停留 `hold_seconds` 后的预测 TTS |
+| `tts_delta_hold_seconds` | `int32_t` | s | `tts_at_hold_seconds - current_tts_seconds` |
+
+### `ArexDecoNdlExcursionForecast`
+
+NDL 深度试探预测输出。
+
+| 字段 | 类型 | 单位 | 说明 |
+|---|---|---:|---|
+| `api_version` | `ArexDecoVersion` | - | API 版本 |
+| `delta_depth_m` | `float` | m | 上下试探深度 |
+| `current_ndl_seconds` | `int32_t` | s | 当前深度、当前 active gas 下的 NDL |
+| `ndl_up_seconds` | `int32_t` | s | 立即上移 `delta_depth_m` 后的 NDL；深度钳制到 0 m |
+| `ndl_down_seconds` | `int32_t` | s | 立即下移 `delta_depth_m` 后的 NDL |
+
+`NDL Δ 3M / 10FT` 是产品显示层语义：固件可根据当前页面模式在
+`ndl_up_seconds` 和 `ndl_down_seconds` 之间选择或自行计算相对当前 NDL 的变化量。
+core 不返回第三个 delta 字段，避免把 UI 表达固化为算法 ABI。
+
+### `ArexDecoSafetyStopStatus`
+
+安全停留 runtime 状态输出。该结构描述“当前真实状态下安全停留是否需要、是否正在
+计时、剩余多少秒”，不替代 `arex_deco_plan()` 的 TTS / 预测路径用途。
+
+`phase` 取值：
+
+| 值 | 说明 |
+|---:|---|
+| `0` | `NOT_REQUIRED`，未触发或安全停留关闭 |
+| `1` | `PENDING`，预留阶段；当前实现用 `PAUSED_TOO_DEEP` / `PAUSED_TOO_SHALLOW` 表达未计时原因 |
+| `2` | `COUNTING`，位于有效区间并正在计时 |
+| `3` | `PAUSED_TOO_DEEP`，深于有效区间，暂停计时 |
+| `4` | `PAUSED_TOO_SHALLOW`，浅于有效区间但未到 missed 阈值，暂停计时 |
+| `5` | `MISSED_TOO_SHALLOW`，浅于 missed 阈值；本次安全停留终止，不再继续倒计时 |
+| `6` | `COMPLETE`，安全停留已完成 |
+| `7` | `SUPPRESSED_BY_DECO`，当前已有 GF-high 强制减压 ceiling，安全停留被强制减压义务覆盖 |
+
+| 字段 | 类型 | 单位 | 说明 |
+|---|---|---:|---|
+| `api_version` | `ArexDecoVersion` | - | API 版本 |
+| `required` | `uint8_t` | - | 1 表示当前仍需执行安全停留 |
+| `counting` | `uint8_t` | - | 1 表示本状态处于有效计时区间 |
+| `phase` | `ArexDecoSafetyStopPhase` | - | 当前安全停留阶段 |
+| `completed` | `uint8_t` | - | 1 表示本次安全停留已完成 |
+| `missed` | `uint8_t` | - | 1 表示本次安全停留已因过浅 missed |
+| `target_depth_m` | `float` | m | 目标安全停留深度，当前固定 5 m |
+| `zone_min_depth_m` | `float` | m | 有效计时区间最浅深度，当前固定 3 m |
+| `zone_max_depth_m` | `float` | m | 有效计时区间最深深度，当前固定 6 m |
+| `too_shallow_depth_m` | `float` | m | missed too shallow 阈值，当前固定 2 m |
+| `trigger_depth_m` | `float` | m | 触发最大深度阈值，当前固定 10 m |
+| `required_seconds` | `uint32_t` | s | 配置的安全停留总时长 |
+| `elapsed_seconds` | `uint32_t` | s | 已在有效区间累计计时的秒数 |
+| `remaining_seconds` | `uint32_t` | s | 剩余秒数 |
+
 ## C API
 
 ### `arex_deco_get_api_version`
@@ -402,6 +465,21 @@ ArexDecoStatus arex_deco_calculate_gas_mod(
 `gas.max_depth_m <= MOD`。调用方可以先用它获得 MOD，再把 `max_depth_m` 或产品层
 切换深度设置为不超过该值。
 
+### `arex_deco_calculate_gas_density`
+
+```c
+ArexDecoStatus arex_deco_calculate_gas_density(
+    const ArexDecoConfig* config,
+    const ArexDecoGas* gas,
+    float depth_m,
+    float temperature_kelvin,
+    float compressibility_z,
+    float* density_g_per_l);
+```
+
+按实际气体状态方程计算当前深度的气体密度，单位为 `g/L`。`temperature_kelvin`
+和 `compressibility_z` 由调用方传入；core 只返回物理数值，不做预警分类。
+
 ### `arex_deco_step`
 
 ```c
@@ -490,6 +568,14 @@ Planner 行为：
   `ceiling_violated == 0`。
 - 单站时长上限 6 h（0.0.3 起）。若该上限内仍无法满足 ceiling 约束，返回 `AREX_DECO_STATUS_INVALID_STATE`。
 
+安全停留边界：
+
+- `arex_deco_plan()` 中的安全停留站仍是“如果现在开始上升”的预测计划项，用于
+  TTS / 气量 / 路径估算。
+- Runtime 倒计时、有效区间、过浅暂停和完成状态应读取 `arex_deco_safety_stop()`。
+- 是否存在强制减压义务由 core 内部按 GF-high ceiling 判断；调用方不需要自行用
+  NDL / ceiling 判断安全停留是否应显示或计时。
+
 纯切气预测站：
 
 - 当某站 `hold_seconds == 0 && switch_penalty_seconds > 0` 时，该站在物理上不需要额外脱气停留，只是 planner 对未来同深度切气动作的预测锚点。
@@ -513,6 +599,39 @@ Planning 与 Runtime 语义：
 - 如果需要停留，Core 将该停站时间输出为整数秒。例如 12 s 会输出为 12 s，而不会在核心算法层抬到 60 s。
 - Core 会用该秒级停留时间继续推进组织舱和氧暴露，再计算后续更浅停站。
 - 因此 `tts_seconds`、后续停站时间、气体使用估算和跨语言移植结果都必须基于“求解 -> 秒级 strict-ceil -> 重算”的闭环，不能在 core 层额外套用分钟级取整。
+
+### `arex_deco_safety_stop`
+
+```c
+ArexDecoStatus arex_deco_safety_stop(
+    const ArexDecoDiveState* state,
+    ArexDecoSafetyStopStatus* safety_stop);
+```
+
+读取当前安全停留 runtime 状态。
+
+该接口不推进组织舱，也不修改 `state`。安全停留累计计时由 `arex_deco_step()` 在
+真实时间推进时更新；固件应在每次 tick 后调用本接口读取状态。core 会在内部判断
+当前是否存在 GF-high 强制减压 ceiling；若存在，`phase` 返回
+`SUPPRESSED_BY_DECO`，调用方不需要自行判断是否为免减压状态。
+
+输入：
+
+- `state`：当前完整潜水状态
+
+输出：
+
+- `safety_stop`：安全停留执行状态
+
+当前固定策略：
+
+- 触发阈值：最大深度深于 10 m
+- 目标深度：5 m
+- 有效计时区间：3-6 m
+- 过浅 missed 阈值：浅于 2 m
+- 计时时长：`state->config.safety_stop_seconds`
+- 一旦浅于 missed 阈值，本次安全停留进入 `MISSED_TOO_SHALLOW` 终态；即使随后重新下潜到有效区间，也不会恢复倒计时。
+- 若本次潜水已经产生过强制减压义务（`was_deco_dive == 1`）或当前存在 GF-high ceiling，安全停留由 core 报告为 `SUPPRESSED_BY_DECO`。
 
 ### `arex_deco_recommend_gas`
 
@@ -596,6 +715,38 @@ ArexDecoStatus arex_deco_calculate_tissue_gradients(
 - `state->config` 必须通过 `arex_deco_validate_config()`。
 - `state->current_depth_m` 必须为有限非负深度。
 
+### `arex_deco_forecast_tts_hold`
+
+```c
+ArexDecoStatus arex_deco_forecast_tts_hold(
+    const ArexDecoDiveState* state,
+    uint32_t hold_seconds,
+    ArexDecoTtsForecast* forecast);
+```
+
+生成 TTS hold 动态应急预测。使用当前 active gas 在当前深度前向积分
+`hold_seconds` 后重新规划，并返回当前 TTS、预测 TTS 和 delta。前向积分会同时推进
+惰性气体 tissue 和 CNS / OTU 氧暴露，避免漏算 hold 段对后续
+`end_of_dive_exposure` 的影响。
+
+该接口计算开销高：为了得到当前 TTS 和 hold 后 TTS，会执行当前计划和未来计划两次
+planner 路径。宿主固件不应把它放进 1 Hz 或更高频的主实时 tick；建议后台低频刷新，
+例如每 5 秒一次，或仅在用户打开应急预测页面时刷新。
+
+### `arex_deco_forecast_ndl_excursion`
+
+```c
+ArexDecoStatus arex_deco_forecast_ndl_excursion(
+    const ArexDecoDiveState* state,
+    float delta_depth_m,
+    ArexDecoNdlExcursionForecast* forecast);
+```
+
+生成 NDL 深度试探预测。该接口不调用 planner，适合比 TTS hold 更高频刷新。
+NDL ±delta 永远使用当前 active gas；上移深度钳制到 0 m；下移深度不因 MOD
+超限而被 core 拦截。若当前已有 ceiling，所有 NDL 字段返回 0。`delta_depth_m`
+若在 0 的数值容差内略小于 0 会被钳制为 0；明显负值返回 invalid argument。
+
 ## 嵌入式数值与 ABI 注意事项
 
 ### 浮点精度策略
@@ -629,6 +780,9 @@ ArexDecoStatus arex_deco_calculate_tissue_gradients(
 | `ArexDecoGasRecommendation` | 44 |
 | `ArexDecoStop` | 36 |
 | `ArexDecoSchedule` | 1500 |
+| `ArexDecoTtsForecast` | 48 |
+| `ArexDecoNdlExcursionForecast` | 48 |
+| `ArexDecoSafetyStopStatus` | 64 |
 
 所有大小由 `core/src/arex_deco_abi_checks.cpp` 的 `static_assert` 强制保证。0.0.3 → 0.0.4 无 ABI 字节大小变化，只有字段语义/名称变更（`in_deco` → `was_deco_dive`）和函数签名变更。
 
@@ -746,9 +900,16 @@ WASM 构建导出的是同一套 C ABI 符号，外加版本和 sizeof helper。
 | `_arex_deco_wasm_sizeof_gas_recommendation()` | `ArexDecoGasRecommendation` 字节大小 |
 | `_arex_deco_wasm_sizeof_stop()` | `ArexDecoStop` 字节大小 |
 | `_arex_deco_wasm_sizeof_schedule()` | `ArexDecoSchedule` 字节大小 |
+| `_arex_deco_wasm_sizeof_tts_forecast()` | `ArexDecoTtsForecast` 字节大小 |
+| `_arex_deco_wasm_sizeof_ndl_excursion_forecast()` | `ArexDecoNdlExcursionForecast` 字节大小 |
+| `_arex_deco_wasm_sizeof_safety_stop_status()` | `ArexDecoSafetyStopStatus` 字节大小 |
 | `_arex_deco_calculate_gas_mod()` | 按 core 口径计算气体 MOD |
+| `_arex_deco_calculate_gas_density()` | 按 core 口径计算实时气体密度 |
 | `_arex_deco_recommend_gas()` | 当前深度的最佳安全可用气体推荐 |
 | `_arex_deco_calculate_tissue_gradients()` | 计算当前环境压力下 16 仓 absolute / relative GF 百分比 |
+| `_arex_deco_forecast_tts_hold()` | 计算 TTS hold 动态应急预测 |
+| `_arex_deco_forecast_ndl_excursion()` | 计算 NDL 深度试探预测 |
+| `_arex_deco_safety_stop()` | 读取安全停留 runtime 状态 |
 
 ### WASM 调用规则
 

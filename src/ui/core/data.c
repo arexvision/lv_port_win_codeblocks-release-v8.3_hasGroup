@@ -752,12 +752,12 @@ void bus_set_ndl_down_3m(int16_t ndl_min)
     }
 }
 
-void bus_set_ndl_delta_3m(int16_t delta_min)
+void bus_set_ndl_delta_3m(int16_t ndl_min)
 {
-    if (!g_sensor_data.ndl_delta_3m_valid || g_sensor_data.ndl_delta_3m_min != delta_min)
+    if (!g_sensor_data.ndl_delta_3m_valid || g_sensor_data.ndl_delta_3m_min != ndl_min)
     {
         g_sensor_data.ndl_delta_3m_valid = true;
-        g_sensor_data.ndl_delta_3m_min = delta_min;
+        g_sensor_data.ndl_delta_3m_min = ndl_min;
         bus_mark_dirty(DIRTY_DECO_STATUS);
     }
 }

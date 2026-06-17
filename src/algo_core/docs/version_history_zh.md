@@ -26,6 +26,86 @@
 - smoke test
 - 文档
 
+## 0.0.22
+
+### 摘要
+
+本次版本新增安全停留 runtime 状态接口，把“是否需要安全停留、是否在有效区间
+计时、是否过浅、剩余秒数”等产品执行语义从主 `arex_deco_plan()` 预测停站中
+解耦出来，同时保留 core 内部对强制减压义务的判断。
+
+### 行为与 ABI 变更
+
+- 新增 `ArexDecoSafetyStopPhase` 和 `ArexDecoSafetyStopStatus`。
+- 新增 `arex_deco_safety_stop()`，输出安全停留状态、目标深度、有效区间、
+  过浅阈值、触发深度、已计时秒数和剩余秒数。
+- `ArexDecoDiveState` 使用原 reserved 空间新增安全停留执行状态字段：
+  `safety_stop_required`、`safety_stop_completed`、`safety_stop_missed` 和
+  `safety_stop_elapsed_seconds`。`ArexDecoDiveState` 总大小保持 `600` 字节。
+- 安全停留有效计时区间为 `3-6 m`；目标深度仍为 `5 m`；浅于 `2 m` 视为
+  missed too shallow。上述阈值作为 core 固定策略常量暴露。
+- 跨越有效区间的长 step 只按线性深度段中实际落在 `3-6 m` 的时间计入安全
+  停留；浅于 `2 m` 后本次安全停留进入终态，不再恢复计时。
+- `arex_deco_step()` 负责推进安全停留执行状态；调用方不需要、也不应该自行用
+  NDL / ceiling 猜测是否为免减压安全停留。若当前组织状态已有 GF-high 强制减压
+  ceiling，或本次潜水曾经产生过强制减压义务，安全停留状态由 core 报告为
+  `SUPPRESSED_BY_DECO`。
+- `arex_deco_plan()` 中原有的预测安全停留输出保持不变；它仍用于 TTS/计划路径
+  估算，不再承担 runtime 倒计时状态机语义。
+- WASM 导出新增 `_arex_deco_safety_stop()` 和
+  `_arex_deco_wasm_sizeof_safety_stop_status()`。
+- ABI 字节布局有兼容性语义变化；API patch 版本升至 `0.0.22`。
+
+## 0.0.21
+
+### 摘要
+
+本次版本修复固件实时调用中一个 planner 可见问题：快速下降接近
+NDL 5-7 分钟窗口时 `arex_deco_plan()` 短暂返回
+`AREX_DECO_STATUS_INVALID_STATE`。
+
+### 行为与 ABI 变更
+
+- `arex_deco_step()` 更新 `max_depth_m` 时会确保它不小于本次 step 输出的
+  `current_depth_m`，避免快速下降时浮点换算让 `current_depth_m` 短暂大于
+  `max_depth_m`，从而被 `arex_deco_plan()` 的状态一致性校验误判为
+  `AREX_DECO_STATUS_INVALID_STATE`。
+- 安全停留倒计时/有效区间语义本次不继续耦合到 `ArexDecoSchedule.stops`；
+  后续版本应以独立 runtime 状态接口定义 `3-6 m` 等有效区间、过浅暂停和剩余
+  秒数等产品语义。
+- ABI 字节布局无变化；由于 step 可观察行为变化，API patch 版本升至 `0.0.21`。
+
+## 0.0.20
+
+### 摘要
+
+本次版本新增气体密度计算 API 和 TTS / NDL 应急预测 API。
+
+### 行为与 ABI 变更
+
+- 新增 `arex_deco_calculate_gas_density()`，按当前 core 压力模型、气体三元组、
+  温度和压缩因子计算实时气体密度，单位为 `g/L`。core 只返回物理数值，不做
+  黄色 / 红色预警分类。
+- 新增 `ArexDecoTtsForecast`，大小为 `48` 字节；新增
+  `arex_deco_forecast_tts_hold()`，返回当前 TTS、指定 hold 秒数后的预测 TTS
+  和 TTS delta。
+- 新增 `ArexDecoNdlExcursionForecast`，大小为 `48` 字节；新增
+  `arex_deco_forecast_ndl_excursion()`，返回当前 NDL、上移/下移指定米数后的
+  NDL。`NDL Δ 3M / 10FT` 属于固件显示层语义，不作为 core ABI 字段返回。
+- TTS hold 预测在栈上复制 tissue，使用当前 active gas 在当前深度前向积分
+  `hold_seconds`，并同时推进 CNS / OTU 氧暴露，再复用 planner 计算预测 TTS。
+  该接口会执行当前计划和未来计划两次 planner 路径，属于高开销 API，集成方应低频
+  刷新，避免放入主实时 tick。
+- NDL excursion 预测不调用 planner；永远使用当前 active gas；上移深度钳制到
+  `0m`；下移深度不因 MOD 超限而被 core 拦截；当前已有 ceiling 时所有 NDL
+  预测均返回 `0`。`delta_depth_m` 在 0 的数值容差内略小于 0 时钳制为 0，明显
+  负值返回 invalid argument。
+- WASM 导出新增 `_arex_deco_calculate_gas_density()`、
+  `_arex_deco_forecast_tts_hold()`、`_arex_deco_forecast_ndl_excursion()`、
+  `_arex_deco_wasm_sizeof_tts_forecast()` 和
+  `_arex_deco_wasm_sizeof_ndl_excursion_forecast()`。
+- API patch 版本升至 `0.0.20`。
+
 ## 0.0.19
 
 ### 摘要

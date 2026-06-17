@@ -107,7 +107,7 @@ void bus_set_tts_at_5min(uint16_t tts_min);
 void bus_set_tts_delta_5min(int16_t delta_min);
 void bus_set_ndl_up_3m(int16_t ndl_min);
 void bus_set_ndl_down_3m(int16_t ndl_min);
-void bus_set_ndl_delta_3m(int16_t delta_min);
+void bus_set_ndl_delta_3m(int16_t ndl_min);     /* 兼容旧 ID：动态显示上升/下降 3m 预测 NDL */
 void bus_set_gtr(uint16_t gtr_min);
 void bus_set_rmv(float rmv_lpm);
 void bus_set_sac_rate(float sac_lpm);
@@ -339,7 +339,7 @@ bool bus_get_tts_at_5min(uint16_t *out_min);
 bool bus_get_tts_delta_5min(int16_t *out_min);
 bool bus_get_ndl_up_3m(int16_t *out_min);
 bool bus_get_ndl_down_3m(int16_t *out_min);
-bool bus_get_ndl_delta_3m(int16_t *out_min);
+bool bus_get_ndl_delta_3m(int16_t *out_min);    /* 兼容旧 ID：返回动态上升/下降 3m 预测 NDL */
 bool bus_get_gtr(uint16_t *out_min);
 bool bus_get_rmv(float *out_lpm);
 float bus_get_sac_rate(void);

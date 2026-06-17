@@ -23,6 +23,17 @@ typedef enum ArexDecoGasRole {
     AREX_DECO_GAS_ROLE_UNKNOWN = 255
 } ArexDecoGasRole;
 
+typedef enum ArexDecoSafetyStopPhase {
+    AREX_DECO_SAFETY_STOP_PHASE_NOT_REQUIRED = 0,
+    AREX_DECO_SAFETY_STOP_PHASE_PENDING = 1,
+    AREX_DECO_SAFETY_STOP_PHASE_COUNTING = 2,
+    AREX_DECO_SAFETY_STOP_PHASE_PAUSED_TOO_DEEP = 3,
+    AREX_DECO_SAFETY_STOP_PHASE_PAUSED_TOO_SHALLOW = 4,
+    AREX_DECO_SAFETY_STOP_PHASE_MISSED_TOO_SHALLOW = 5,
+    AREX_DECO_SAFETY_STOP_PHASE_COMPLETE = 6,
+    AREX_DECO_SAFETY_STOP_PHASE_SUPPRESSED_BY_DECO = 7
+} ArexDecoSafetyStopPhase;
+
 typedef struct ArexDecoAscentRate {
     float rate_75_percent_m_per_min;
     float rate_50_percent_m_per_min;
@@ -94,7 +105,11 @@ typedef struct ArexDecoDiveState {
     // 此字段服务的是过去式语义（影响 nofly 等下限），不要用作 UI 实时
     // "DECO NOW" 指示——实时义务请读 ArexDecoRuntimeMetrics.ceiling_depth_m。
     uint8_t was_deco_dive;
-    uint8_t reserved[27];
+    uint8_t safety_stop_required;
+    uint8_t safety_stop_completed;
+    uint8_t safety_stop_missed;
+    uint32_t safety_stop_elapsed_seconds;
+    uint8_t reserved[20];
 } ArexDecoDiveState;
 
 typedef struct ArexDecoStepInput {
@@ -172,6 +187,43 @@ typedef struct ArexDecoSchedule {
     ArexDecoOxygenExposure end_of_dive_exposure;
     ArexDecoStop stops[AREX_DECO_MAX_DECO_STOP_COUNT];
 } ArexDecoSchedule;
+
+typedef struct ArexDecoTtsForecast {
+    ArexDecoVersion api_version;
+    uint32_t hold_seconds;
+    uint32_t current_tts_seconds;
+    uint32_t tts_at_hold_seconds;
+    int32_t tts_delta_hold_seconds;
+    uint8_t reserved[24];
+} ArexDecoTtsForecast;
+
+typedef struct ArexDecoNdlExcursionForecast {
+    ArexDecoVersion api_version;
+    float delta_depth_m;
+    int32_t current_ndl_seconds;
+    int32_t ndl_up_seconds;
+    int32_t ndl_down_seconds;
+    uint8_t reserved[24];
+} ArexDecoNdlExcursionForecast;
+
+typedef struct ArexDecoSafetyStopStatus {
+    ArexDecoVersion api_version;
+    uint8_t required;
+    uint8_t counting;
+    ArexDecoSafetyStopPhase phase;
+    uint8_t completed;
+    uint8_t missed;
+    uint8_t reserved_flags[2];
+    float target_depth_m;
+    float zone_min_depth_m;
+    float zone_max_depth_m;
+    float too_shallow_depth_m;
+    float trigger_depth_m;
+    uint32_t required_seconds;
+    uint32_t elapsed_seconds;
+    uint32_t remaining_seconds;
+    uint8_t reserved[16];
+} ArexDecoSafetyStopStatus;
 
 #ifdef __cplusplus
 }

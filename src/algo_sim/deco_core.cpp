@@ -16,17 +16,18 @@ extern "C" {
 
 #define PLAN_MAX_ROWS DIVE_PLAN_RESULT_MAX_ROWS
 #define PLAN_DESCENT_RATE_MPM 18.0f
-#define GAS_DENSITY_O2_G_L 1.428f
-#define GAS_DENSITY_N2_G_L 1.251f
-#define GAS_DENSITY_HE_G_L 0.179f
 #define DECO_SCHEDULE_DEBUG_PRINT_MS 1000U
 #define DECO_SCHEDULE_DEBUG_MAX_STOPS 6U
 #define DECO_PLAN_CALL_DEBUG 1U               /* 打印每次 step/plan 调用结果 */
 #define DECO_HIDE_SWITCH_ONLY_STOPS 1U        /* 隐藏 planner 返回的纯切气预测站 */
 #define DECO_CEILING_ACTIVE_M 0.01f           /* ceiling 大于该值即认为有实时减压义务 */
 #define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
-#define SAFETY_STOP_ZONE_SHALLOW_M 2.4f       /* 安停区浅侧边界 */
-#define SAFETY_STOP_ZONE_DEEP_M 6.1f          /* 安停区深侧边界 */
+#define DECO_GAS_DENSITY_COMPRESSIBILITY_Z 1.0f /* 真实气体压缩因子，当前按理想气体 */
+#define DECO_TEMPERATURE_KELVIN_OFFSET 273.15f /* 摄氏度转 Kelvin */
+#define DECO_FORECAST_TTS_HOLD_SECONDS 300U   /* TTS hold 预测 5 分钟 */
+#define DECO_FORECAST_TTS_INTERVAL_S 5U       /* TTS forecast 低频刷新间隔 */
+#define DECO_NDL_EXCURSION_DELTA_M 3.0f       /* NDL 上/下 3m 试探 */
+#define DECO_NDL_DYNAMIC_RATE_THRESHOLD_MPM UI_ASCENT_RATE_STILL_DEADBAND_MPM /* 动态 NDL3 方向阈值 */
 #define TISSUE_UI_PAMB_ANCHOR_PERMILLE 400.0f /* 归一化组织图环境压力锚点 */
 #define TISSUE_UI_MVALUE_ANCHOR_PERMILLE 900.0f /* 归一化组织图 M 值锚点 */
 #define TISSUE_UI_MAX_PERMILLE 1000.0f        /* 归一化组织图绘制上限 */
@@ -44,6 +45,9 @@ static uint8_t s_salinity_mode;
 static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
 static uint32_t s_schedule_debug_last_print_ms;
 static uint32_t s_plan_call_debug_last_print_ms;
+static float s_temperature_c;
+static bool s_temperature_valid;
+static uint32_t s_tts_forecast_elapsed_s = DECO_FORECAST_TTS_INTERVAL_S;
 
 typedef struct
 {
@@ -89,6 +93,23 @@ static uint16_t round_up_minutes(uint32_t seconds)
     if (seconds == 0U) return 0U;
     if (seconds >= 3932100U) return 65535U;
     return (uint16_t)((seconds + 59U) / 60U);
+}
+
+static int16_t round_i16_minutes_from_seconds(int32_t seconds)
+{
+    int32_t minutes;
+    if (seconds == 0) return 0;
+    if (seconds > 0) minutes = (seconds + 59) / 60;
+    else minutes = -(((-seconds) + 59) / 60);
+    if (minutes > 32767) return 32767;
+    if (minutes < -32768) return -32768;
+    return (int16_t)minutes;
+}
+
+static int16_t ndl_minutes_from_seconds(int32_t seconds)
+{
+    if (seconds <= 0) return 0;
+    return round_i16_minutes_from_seconds(seconds);
 }
 
 static uint16_t round_u16_float(float value)
@@ -174,11 +195,6 @@ static uint16_t sync_stop_progress_total(stop_type_t type, float depth_m, uint16
 static bool deco_stop_zone_active(float current_depth_m, float stop_depth_m)
 {
     return current_depth_m <= (stop_depth_m + DECO_STOP_ZONE_DEEP_MARGIN_M);
-}
-
-static bool safety_stop_zone_active(float current_depth_m)
-{
-    return current_depth_m >= SAFETY_STOP_ZONE_SHALLOW_M && current_depth_m <= SAFETY_STOP_ZONE_DEEP_M;
 }
 
 static const char *deco_status_name(int status)
@@ -443,6 +459,11 @@ static bool ensure_initialized(void)
     apply_current_ui_config();
     (void)arex_deco_reset_tissue_to_surface(&s_state.config, &s_state.gas_plan.gases[s_state.gas_plan.active_gas_index], &s_state.tissue);
     s_initialized = true;
+    bus_set_tts_at_5min(0U);
+    bus_set_tts_delta_5min(0);
+    bus_set_ndl_up_3m(0);
+    bus_set_ndl_down_3m(0);
+    bus_set_ndl_delta_3m(0);
     rt_kprintf("Arex deco core initialized (GF: %u/%u)\n", (unsigned)s_gf_low_pct, (unsigned)s_gf_high_pct);
     return true;
 }
@@ -513,9 +534,20 @@ static void sync_gas_data(void)
     bus_set_fio2(active_gas->oxygen_fraction * 100.0f);
     bus_set_mod(core_mod_depth_for_gas(&s_state.config, active_gas));
 
-    float n2_fraction = active_gas->nitrogen_fraction;
-    float gas_density = (active_gas->oxygen_fraction * GAS_DENSITY_O2_G_L + n2_fraction * GAS_DENSITY_N2_G_L + active_gas->helium_fraction * GAS_DENSITY_HE_G_L) * pressure_bar / s_state.config.surface_pressure_bar;
-    bus_set_gas_density(gas_density);
+    float gas_density = 0.0f;
+    float temperature_kelvin = s_temperature_c + DECO_TEMPERATURE_KELVIN_OFFSET;
+    if (s_temperature_valid &&
+        isfinite(temperature_kelvin) &&
+        temperature_kelvin > 0.0f &&
+        arex_deco_calculate_gas_density(&s_state.config, active_gas, s_state.current_depth_m, temperature_kelvin, DECO_GAS_DENSITY_COMPRESSIBILITY_Z, &gas_density) == AREX_DECO_STATUS_OK &&
+        isfinite(gas_density))
+    {
+        bus_set_gas_density(gas_density);
+    }
+    else
+    {
+        bus_set_gas_density(0.0f);
+    }
 
     for (uint8_t i = 0U; i < s_state.gas_plan.gas_count && i < GAS_COUNT; i++)
     {
@@ -579,6 +611,7 @@ static const ArexDecoStop *first_runtime_stop(const ArexDecoSchedule *schedule)
 
 static void sync_stop_data(const ArexDecoSchedule *schedule)
 {
+    ArexDecoSafetyStopStatus safety_stop;
     int16_t ndl_min = 0;
     stop_type_t stop_type = STOP_NONE;
     float stop_depth_m = 0.0f;
@@ -594,6 +627,7 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
 
     const ArexDecoStop *runtime_stop = first_runtime_stop(schedule);
 
+    (void)memset(&safety_stop, 0, sizeof(safety_stop));
     if (runtime_stop != NULL && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M)
     {
         uint32_t runtime_s = stop_runtime_seconds(runtime_stop);
@@ -602,21 +636,58 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
         stop_left_s = (runtime_s > 65535U) ? 65535U : (uint16_t)runtime_s;
         in_stop_zone = deco_stop_zone_active(s_state.current_depth_m, stop_depth_m);
         ndl_min = 0;
+        stop_total_s = sync_stop_progress_total(stop_type, stop_depth_m, stop_left_s, in_stop_zone);
     }
-    else if (runtime_stop != NULL)
+    else if (arex_deco_safety_stop(&s_state, &safety_stop) == AREX_DECO_STATUS_OK &&
+             safety_stop.required != 0U &&
+             safety_stop.completed == 0U &&
+             safety_stop.missed == 0U &&
+             safety_stop.phase != AREX_DECO_SAFETY_STOP_PHASE_SUPPRESSED_BY_DECO)
     {
-        uint32_t runtime_s = stop_runtime_seconds(runtime_stop);
-        stop_depth_m = runtime_stop->depth_m;
-        stop_left_s = (runtime_s > 65535U) ? 65535U : (uint16_t)runtime_s;
         stop_type = STOP_SAFETY;
-        in_stop_zone = safety_stop_zone_active(s_state.current_depth_m);
+        stop_depth_m = safety_stop.target_depth_m;
+        stop_total_s = (safety_stop.required_seconds > 65535U) ? 65535U : (uint16_t)safety_stop.required_seconds;
+        stop_left_s = (safety_stop.remaining_seconds > 65535U) ? 65535U : (uint16_t)safety_stop.remaining_seconds;
+        in_stop_zone = safety_stop.counting != 0U;
     }
-    stop_total_s = sync_stop_progress_total(stop_type, stop_depth_m, stop_left_s, in_stop_zone);
+    else
+    {
+        reset_stop_progress();
+    }
     bus_update_deco(ndl_min, stop_type, stop_depth_m, stop_total_s, stop_left_s, in_stop_zone);
     if (stop_type == STOP_NONE)
     {
         uint8_t bar = (ndl_min <= 0) ? 0U : (uint8_t)((ndl_min > 99 ? 99 : ndl_min) * 100 / 99);
         bus_set_ndl_bar_pct(bar);
+    }
+}
+
+static void sync_forecast_data(void)
+{
+    ArexDecoNdlExcursionForecast ndl_forecast;
+
+    (void)memset(&ndl_forecast, 0, sizeof(ndl_forecast));
+    if (arex_deco_forecast_ndl_excursion(&s_state, DECO_NDL_EXCURSION_DELTA_M, &ndl_forecast) == AREX_DECO_STATUS_OK)
+    {
+        int16_t ndl_up_min = ndl_minutes_from_seconds(ndl_forecast.ndl_up_seconds);
+        int16_t ndl_down_min = ndl_minutes_from_seconds(ndl_forecast.ndl_down_seconds);
+        float rate_mpm = bus_get_ascent_rate();
+        bus_set_ndl_up_3m(ndl_up_min);
+        bus_set_ndl_down_3m(ndl_down_min);
+        if (rate_mpm > DECO_NDL_DYNAMIC_RATE_THRESHOLD_MPM) bus_set_ndl_delta_3m(ndl_up_min);
+        else if (rate_mpm < -DECO_NDL_DYNAMIC_RATE_THRESHOLD_MPM) bus_set_ndl_delta_3m(ndl_down_min);
+    }
+
+    if (s_tts_forecast_elapsed_s >= DECO_FORECAST_TTS_INTERVAL_S)
+    {
+        ArexDecoTtsForecast tts_forecast;
+        (void)memset(&tts_forecast, 0, sizeof(tts_forecast));
+        s_tts_forecast_elapsed_s = 0U;
+        if (arex_deco_forecast_tts_hold(&s_state, DECO_FORECAST_TTS_HOLD_SECONDS, &tts_forecast) == AREX_DECO_STATUS_OK)
+        {
+            bus_set_tts_at_5min(round_up_minutes(tts_forecast.tts_at_hold_seconds));
+            bus_set_tts_delta_5min(round_i16_minutes_from_seconds(tts_forecast.tts_delta_hold_seconds));
+        }
     }
 }
 
@@ -637,6 +708,7 @@ static void sync_core_data(const ArexDecoSchedule *schedule)
         bus_set_nofly_time(round_up_minutes(nofly_seconds));
     }
     sync_gas_data();
+    sync_forecast_data();
     sync_stop_data(schedule);
     sync_deco_plan_data(schedule);
 }
@@ -656,6 +728,7 @@ static void sync_core_data_without_plan(void)
         bus_set_nofly_time(round_up_minutes(nofly_seconds));
     }
     sync_gas_data();
+    sync_forecast_data();
 }
 
 static void refresh_current_outputs(void)
@@ -712,6 +785,8 @@ void deco_core_reset(void)
 {
     s_initialized = false;
     reset_stop_progress();
+    s_temperature_valid = false;
+    s_tts_forecast_elapsed_s = DECO_FORECAST_TTS_INTERVAL_S;
     (void)ensure_initialized();
 }
 
@@ -837,7 +912,8 @@ bool deco_core_rtc_offline(uint32_t seconds)
 
 void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
 {
-    (void)temperature_c;
+    s_temperature_c = temperature_c;
+    s_temperature_valid = isfinite(temperature_c) && temperature_c > -DECO_TEMPERATURE_KELVIN_OFFSET;
     if (!ensure_initialized()) return;
     if (delta_time_s == 0U) delta_time_s = 1U;
     if (depth_m < 0.0f) depth_m = 0.0f;
@@ -863,6 +939,11 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     }
 
     s_state = next_state;
+    if (s_tts_forecast_elapsed_s < DECO_FORECAST_TTS_INTERVAL_S)
+    {
+        uint32_t next_elapsed = s_tts_forecast_elapsed_s + delta_time_s;
+        s_tts_forecast_elapsed_s = (next_elapsed > DECO_FORECAST_TTS_INTERVAL_S) ? DECO_FORECAST_TTS_INTERVAL_S : next_elapsed;
+    }
 
     ArexDecoSchedule schedule;
     ArexDecoGasRecommendation gas_rec;

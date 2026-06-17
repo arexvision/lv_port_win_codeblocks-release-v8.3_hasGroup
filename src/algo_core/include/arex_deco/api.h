@@ -22,6 +22,13 @@ ArexDecoStatus arex_deco_calculate_gas_mod(
     const ArexDecoConfig* config,
     const ArexDecoGas* gas,
     float* mod_m);
+ArexDecoStatus arex_deco_calculate_gas_density(
+    const ArexDecoConfig* config,
+    const ArexDecoGas* gas,
+    float depth_m,
+    float temperature_kelvin,
+    float compressibility_z,
+    float* density_g_per_l);
 
 ArexDecoStatus arex_deco_step(
     const ArexDecoDiveState* state,
@@ -51,6 +58,20 @@ ArexDecoStatus arex_deco_nofly(
 ArexDecoStatus arex_deco_calculate_tissue_gradients(
     const ArexDecoDiveState* state,
     ArexDecoTissueGradientMetrics* gradients);
+
+ArexDecoStatus arex_deco_forecast_tts_hold(
+    const ArexDecoDiveState* state,
+    uint32_t hold_seconds,
+    ArexDecoTtsForecast* forecast);
+
+ArexDecoStatus arex_deco_forecast_ndl_excursion(
+    const ArexDecoDiveState* state,
+    float delta_depth_m,
+    ArexDecoNdlExcursionForecast* forecast);
+
+ArexDecoStatus arex_deco_safety_stop(
+    const ArexDecoDiveState* state,
+    ArexDecoSafetyStopStatus* safety_stop);
 
 #ifdef __cplusplus
 }

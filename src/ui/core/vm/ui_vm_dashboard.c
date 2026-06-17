@@ -488,7 +488,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     case COMP_NDL_DELTA_3M_0806:
     {
         int16_t value;
-        if (bus_get_ndl_delta_3m(&value)) (void)snprintf(vm->text, sizeof(vm->text), "%+d", (int)value);
+        if (bus_get_ndl_delta_3m(&value)) (void)snprintf(vm->text, sizeof(vm->text), "%d", (int)value);
         else (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
         break;
     }

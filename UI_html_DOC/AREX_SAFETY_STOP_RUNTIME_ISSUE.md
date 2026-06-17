@@ -1,10 +1,14 @@
 # AREX Safety Stop Runtime Issue
 
+## Status
+
+已收口。AREX Deco Core `0.0.22` 新增 `arex_deco_safety_stop()` 和 `ArexDecoSafetyStopStatus`，用于输出安全停留 runtime 状态。PC 适配层已改为用该接口驱动右上角 `SAFE` 倒计时、有效区间和 suppressed/missed/complete 状态；`arex_deco_plan()` 中的 safety stop 只保留给 TTS、计划路径和气量估算。
+
 ## Purpose
 
-本文档用于给算法工程师同步当前 PC 模拟器发现的 safety stop 显示问题。重点不是 UI 样式，而是 `arex_deco_plan()` 输出的“未来计划”能否承担主界面“当前正在执行的安全停留状态”。
+本文档保留此前给算法工程师同步的 safety stop 显示问题复盘。重点不是 UI 样式，而是说明为什么 `arex_deco_plan()` 输出的“未来计划”不应承担主界面“当前正在执行的安全停留状态”。
 
-## Current UI Call Chain
+## Historical UI Call Chain
 
 当前 PC 模拟器每个算法 tick 的主链路如下：
 
@@ -36,7 +40,7 @@ STOP_SAFETY -> SAFE Xm + countdown
 STOP_DECO   -> DECO Xm + countdown
 ```
 
-## Current Adapter Logic
+## Historical Adapter Logic
 
 `sync_stop_data()` 当前只从算法 schedule 中取第一个有效 runtime stop：
 
@@ -61,7 +65,7 @@ safety_stop_enabled
 && ndl <= 0
 ```
 
-这段 fallback 已经删除。现在右上角 `SAFE` 只来自算法 `schedule.stops[]`，以便验证算法侧是否能独立提供稳定的安全停留状态。
+这段 fallback 在当时已经删除；0.0.22 接入前，右上角 `SAFE` 曾只来自算法 `schedule.stops[]`，以便验证算法侧是否能独立提供稳定的安全停留状态。0.0.22 接入后，当前实现改为读取 `arex_deco_safety_stop()`。
 
 ## Algorithm Safety Stop Fields
 

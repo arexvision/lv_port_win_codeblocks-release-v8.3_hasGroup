@@ -195,7 +195,7 @@ typedef enum
     COMP_TTS_DELTA_5MIN_0806 = 55, /* 5分钟TTS差值 */
     COMP_NDL_UP_3M_0806   = 56,  /* 上升3米预测NDL */
     COMP_NDL_DOWN_3M_0806 = 57,  /* 下降3米预测NDL */
-    COMP_NDL_DELTA_3M_0806 = 58, /* 3米NDL差值 */
+    COMP_NDL_DELTA_3M_0806 = 58, /* 动态3米NDL预测 */
     COMP_GTR_0806         = 59,  /* 剩余气体时间 */
     COMP_RMV_0806         = 60,  /* 呼吸分钟通气量 */
     COMP_SAC_0806         = 61   /* 水面耗气率 */
