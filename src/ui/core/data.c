@@ -1828,6 +1828,17 @@ void bus_set_time_24h_enabled(bool enabled)
     }
 }
 
+void bus_set_units_mode(uint8_t units)
+{
+    uint8_t value = (units == UI_UNITS_IMPERIAL) ? UI_UNITS_IMPERIAL : UI_UNITS_METRIC;
+    if (g_sys_config.units_mode != value)
+    {
+        g_sys_config.units_mode = value;
+        bus_mark_dirty(DIRTY_SYSTEM | DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS |
+                       DIRTY_GAS_SUPPLY | DIRTY_PLAN | DIRTY_LOGBOOK);
+    }
+}
+
 void bus_set_temperature_unit(uint8_t unit)
 {
     uint8_t value = (unit == UI_TEMP_UNIT_F) ? UI_TEMP_UNIT_F : UI_TEMP_UNIT_C;
@@ -2756,6 +2767,26 @@ uint8_t bus_get_log_rate(void)
 bool bus_get_time_24h_enabled(void)
 {
     return g_sys_config.time_24h_enabled != 0U;
+}
+
+uint8_t bus_get_units_mode(void)
+{
+    return (g_sys_config.units_mode == UI_UNITS_IMPERIAL) ? UI_UNITS_IMPERIAL : UI_UNITS_METRIC;
+}
+
+const char *bus_get_depth_unit_label(void)
+{
+    return ui_depth_unit_label(bus_get_units_mode());
+}
+
+const char *bus_get_depth_units_label(void)
+{
+    return ui_depth_units_label(bus_get_units_mode());
+}
+
+float bus_get_depth_display(float depth_m)
+{
+    return ui_depth_display_from_m(depth_m, bus_get_units_mode());
 }
 
 uint8_t bus_get_temperature_unit(void)

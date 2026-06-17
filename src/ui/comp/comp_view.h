@@ -23,6 +23,7 @@ void comp_value_handle_register_depth_part(comp_id_t id, bool decimal_part, lv_o
 bool comp_value_handle_set_text(comp_id_t id, const char *text);
 bool comp_value_handle_set_value(comp_id_t id, float value);
 bool comp_value_handle_sync_pod(void);
+void comp_refresh_depth_unit_labels(void);
 
 /* 根据组件 ID 创建对应的可视对象，并按布局参数放置到父容器内。 */
 lv_obj_t *render_widget_by_id(lv_obj_t *parent,

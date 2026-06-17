@@ -178,9 +178,10 @@ void ui_vm_modal_gas_update(ui_vm_modal_gas_t *vm, uint8_t gas_cursor)
     depth_m = bus_get_depth();
     (void)snprintf(vm->body,
                    sizeof(vm->body),
-                   "%s\nMOD: %.0fm",
+                   "%s\nMOD: %.0f%s",
                    (gas_name != NULL) ? gas_name : "--",
-                   (double)mod_m);
+                   (double)bus_get_depth_display(mod_m),
+                   bus_get_depth_unit_label());
 
     if (depth_m > mod_m)
     {
@@ -297,7 +298,11 @@ void ui_vm_alerts_menu_update(ui_vm_simple_menu_t *vm,
     }
 
     (void)memset(vm, 0, sizeof(*vm));
-    (void)snprintf(vm->items[0], sizeof(vm->items[0]), "DEPTH ALARM: %um", (unsigned)depth_alarm_m);
+    (void)snprintf(vm->items[0],
+                   sizeof(vm->items[0]),
+                   "DEPTH ALARM: %.0f%s",
+                   (double)bus_get_depth_display((float)depth_alarm_m),
+                   bus_get_depth_unit_label());
     (void)snprintf(vm->items[1], sizeof(vm->items[1]), "TIME ALARM: %umin", (unsigned)time_alarm_min);
     (void)snprintf(vm->items[2], sizeof(vm->items[2]), "LOW NDL ALARM: %umin", (unsigned)ndl_alarm_min);
     vm->count = 3U;

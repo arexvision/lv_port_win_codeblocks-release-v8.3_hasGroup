@@ -322,9 +322,10 @@ WEAK_CALLBACK
 void ui_on_units_set(uint8_t units)
 {
 #ifdef PC_SIMULATOR
-    s_units_mode = units;
+    s_units_mode = (units == UI_UNITS_IMPERIAL) ? UI_UNITS_IMPERIAL : UI_UNITS_METRIC;
 #endif
-    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Units: %s\n", units == 1 ? "IMPERIAL" : "METRIC");
+    bus_set_units_mode(units);
+    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Units: %s\n", units == UI_UNITS_IMPERIAL ? "IMPERIAL" : "METRIC");
 }
 
 WEAK_CALLBACK
@@ -437,6 +438,7 @@ void ui_on_reset_defaults(void)
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     bus_set_time_24h_enabled(true);
+    bus_set_units_mode(UI_UNITS_DEFAULT);
     bus_set_temperature_unit(UI_TEMP_UNIT_DEFAULT);
     bus_set_sys_time(0U, 0U, 0U);
     bus_set_depth_alarm_m(40U);
@@ -461,7 +463,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->time_alarm_min = bus_get_time_alarm_min();
     out_snapshot->ndl_alarm_min = bus_get_ndl_alarm_min();
 #ifdef PC_SIMULATOR
-    out_snapshot->units_mode = s_units_mode;
+    out_snapshot->units_mode = bus_get_units_mode();
     out_snapshot->temperature_unit = s_temperature_unit;
     out_snapshot->log_rate_s = bus_get_log_rate();
     out_snapshot->time_24h_enabled = bus_get_time_24h_enabled() ? 1U : 0U;
@@ -493,7 +495,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->datetime_hour = (uint8_t)bus_get_sys_time_h();
     out_snapshot->datetime_minute = (uint8_t)bus_get_sys_time_m();
 #else
-    out_snapshot->units_mode = 0U;
+    out_snapshot->units_mode = bus_get_units_mode();
     out_snapshot->temperature_unit = bus_get_temperature_unit();
     out_snapshot->log_rate_s = bus_get_log_rate();
     out_snapshot->time_24h_enabled = bus_get_time_24h_enabled() ? 1U : 0U;

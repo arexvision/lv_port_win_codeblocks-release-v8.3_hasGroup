@@ -238,19 +238,20 @@ static void logbook_draw_summary(lv_obj_t *parent, uint16_t w, uint16_t h)
     (void)snprintf(buf, sizeof(buf), "DIVE#%u     %s", (unsigned)s_logbook_entry.meta.log_no, date);
     logbook_label(parent, buf, FONT_ID_TITLE, LIGHT, 8, 10, (uint16_t)(w - 16U), 30, LV_TEXT_ALIGN_LEFT);
 
-    logbook_label(parent, "0m", FONT_ID_TITLE, LIGHT, 8, 48, 42, 24, LV_TEXT_ALIGN_LEFT);
+    (void)snprintf(buf, sizeof(buf), "0%s", bus_get_depth_unit_label());
+    logbook_label(parent, buf, FONT_ID_TITLE, LIGHT, 8, 48, 42, 24, LV_TEXT_ALIGN_LEFT);
     lv_obj_t *chart = lv_obj_create(parent);
     lv_obj_remove_style_all(chart);
     lv_obj_set_pos(chart, 50, 48);
     lv_obj_set_size(chart, (uint16_t)(w - 70U), chart_h);
     lv_obj_add_event_cb(chart, logbook_chart_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
-    (void)snprintf(buf, sizeof(buf), "%.0fm", (double)s_logbook_entry.max_depth_m);
+    (void)snprintf(buf, sizeof(buf), "%.0f%s", (double)bus_get_depth_display(s_logbook_entry.max_depth_m), bus_get_depth_unit_label());
     logbook_label(parent, buf, FONT_ID_TITLE, LIGHT, 8, axis_y, 56, 24, LV_TEXT_ALIGN_LEFT);
     logbook_label(parent, dive_time, FONT_ID_TITLE, LIGHT, (int16_t)(w - 110), axis_y, 100, 24, LV_TEXT_ALIGN_RIGHT);
 
-    (void)snprintf(buf, sizeof(buf), "MAX %.1fm", (double)s_logbook_entry.max_depth_m);
+    (void)snprintf(buf, sizeof(buf), "MAX %.1f%s", (double)bus_get_depth_display(s_logbook_entry.max_depth_m), bus_get_depth_unit_label());
     logbook_label(parent, buf, stats_font, LIGHT, 20, stats_y1, 180, stats_h, LV_TEXT_ALIGN_LEFT);
-    (void)snprintf(buf, sizeof(buf), "AVG %.1fm", (double)s_logbook_entry.avg_depth_m);
+    (void)snprintf(buf, sizeof(buf), "AVG %.1f%s", (double)bus_get_depth_display(s_logbook_entry.avg_depth_m), bus_get_depth_unit_label());
     logbook_label(parent, buf, stats_font, LIGHT, 20, stats_y2, 180, stats_h, LV_TEXT_ALIGN_LEFT);
     (void)snprintf(buf, sizeof(buf), "START %02u:%02u", (unsigned)s_logbook_entry.meta.start_h, (unsigned)s_logbook_entry.meta.start_m);
     logbook_label(parent, buf, stats_font, LIGHT, 230, stats_y1, 200, stats_h, LV_TEXT_ALIGN_LEFT);

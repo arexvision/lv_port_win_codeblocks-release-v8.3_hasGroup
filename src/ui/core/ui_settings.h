@@ -33,6 +33,11 @@ extern "C" {
 #define UI_TEMP_UNIT_F         1U
 #define UI_TEMP_UNIT_DEFAULT   UI_TEMP_UNIT_C
 
+#define UI_UNITS_METRIC        0U
+#define UI_UNITS_IMPERIAL      1U
+#define UI_UNITS_DEFAULT       UI_UNITS_METRIC
+#define UI_METERS_TO_FEET      3.28084f
+
 #define UI_ASCENT_RATE_DISPLAY_EPSILON_MPM  0.2f
 #define UI_ASCENT_RATE_SAMPLE_PERIOD_MS     2000UL
 #define UI_ASCENT_RATE_STALE_TIMEOUT_MS     3000UL
@@ -141,6 +146,21 @@ static inline const char *ui_temp_unit_label(uint8_t unit)
 static inline float ui_temp_display_from_c(float temp_c, uint8_t unit)
 {
     return (unit == UI_TEMP_UNIT_F) ? (temp_c * 9.0f / 5.0f + 32.0f) : temp_c;
+}
+
+static inline const char *ui_depth_unit_label(uint8_t units_mode)
+{
+    return (units_mode == UI_UNITS_IMPERIAL) ? "ft" : "m";
+}
+
+static inline const char *ui_depth_units_label(uint8_t units_mode)
+{
+    return (units_mode == UI_UNITS_IMPERIAL) ? "feet" : "meters";
+}
+
+static inline float ui_depth_display_from_m(float depth_m, uint8_t units_mode)
+{
+    return (units_mode == UI_UNITS_IMPERIAL) ? (depth_m * UI_METERS_TO_FEET) : depth_m;
 }
 
 #ifdef __cplusplus

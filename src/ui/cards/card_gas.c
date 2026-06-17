@@ -198,7 +198,9 @@ void card_gas_create(lv_obj_t *parent)
         lv_obj_set_style_text_color(s_lbl_mod[i], LIGHT, 0);
         lv_obj_set_style_text_font(s_lbl_mod[i], get_font(FONT_ID_SMALL), 0);
         char buf[20];
-        snprintf(buf, sizeof(buf), "MOD %dm", GAS_MOD_M[i]);
+        snprintf(buf, sizeof(buf), "MOD %.0f%s",
+                 (double)bus_get_depth_display((float)GAS_MOD_M[i]),
+                 bus_get_depth_unit_label());
         lv_label_set_text(s_lbl_mod[i], buf);
         lv_obj_set_size(s_lbl_mod[i], LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_set_style_text_align(s_lbl_mod[i], LV_TEXT_ALIGN_RIGHT, 0);

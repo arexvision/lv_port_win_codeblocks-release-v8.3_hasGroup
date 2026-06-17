@@ -98,8 +98,8 @@ void ui_vm_info_lines_update(ui_vm_info_lines_t *vm, uint8_t info_group_index)
 
         vm_format_duration(dive_time, sizeof(dive_time), last_dive.dive_time_s);
         (void)snprintf(vm->lines[0], sizeof(vm->lines[0]), "LOG #%04u  %02u-%02u-%04u", (unsigned)last_dive.meta.log_no, (unsigned)last_dive.meta.day, (unsigned)last_dive.meta.month, (unsigned)last_dive.meta.year);
-        (void)snprintf(vm->lines[1], sizeof(vm->lines[1]), "MAX DEPTH: %.1fm", (double)last_dive.max_depth_m);
-        (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "AVG DEPTH: %.1fm", (double)last_dive.avg_depth_m);
+        (void)snprintf(vm->lines[1], sizeof(vm->lines[1]), "MAX DEPTH: %.1f%s", (double)bus_get_depth_display(last_dive.max_depth_m), bus_get_depth_unit_label());
+        (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "AVG DEPTH: %.1f%s", (double)bus_get_depth_display(last_dive.avg_depth_m), bus_get_depth_unit_label());
         (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "DIVE TIME: %s", dive_time);
         (void)snprintf(vm->lines[4], sizeof(vm->lines[4]), "SURFACE: %s", surface_time);
         vm->count = 5U;
@@ -145,10 +145,11 @@ void ui_vm_info_lines_update(ui_vm_info_lines_t *vm, uint8_t info_group_index)
                        (unsigned)bus_get_gas_mix_he());
         (void)snprintf(vm->lines[2],
                        sizeof(vm->lines[2]),
-                       "MOD: %.0fm",
-                       (double)(((active_idx < GAS_COUNT) && (bus_get_gas_slot_mod_m(active_idx) > 0.0f))
+                       "MOD: %.0f%s",
+                       (double)bus_get_depth_display(((active_idx < GAS_COUNT) && (bus_get_gas_slot_mod_m(active_idx) > 0.0f))
                                     ? bus_get_gas_slot_mod_m(active_idx)
-                                    : bus_get_mod_m()));
+                                    : bus_get_mod_m()),
+                       bus_get_depth_unit_label());
         (void)snprintf(vm->lines[3],
                        sizeof(vm->lines[3]),
                        "PPO2: %.2f",

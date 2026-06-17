@@ -312,8 +312,9 @@ static void plan_chart_draw_cb(lv_event_t *e)
             lv_draw_rect(draw_ctx, &deco_node, &c_area);
 
             char d_buf[16];
-            snprintf(d_buf, sizeof(d_buf), "%dm %d'",
-                     (int)vm->deco_stops[i].depth_m,
+            snprintf(d_buf, sizeof(d_buf), "%.0f%s %d'",
+                     (double)bus_get_depth_display(vm->deco_stops[i].depth_m),
+                     bus_get_depth_unit_label(),
                      (int)vm->deco_stops[i].stay_min);
             lv_area_t d_txt = {circle_x - 20, p2.y - 20, circle_x + 20, p2.y - 4};
             txt_dsc.opa = LV_OPA_COVER;

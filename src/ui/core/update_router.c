@@ -57,12 +57,13 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
         return DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS;
     case COMP_DEPTH_1612:
     case COMP_DEPTH_1606:
+        return DIRTY_DIVE_PROFILE | DIRTY_SYSTEM;
     case COMP_DIVE_TIME_1606:
     case COMP_ASCENT_0806:
     case COMP_ASCENT_0812:
     case COMP_DEPTH_MAX_0806:
     case COMP_DEPTH_AVG_0806:
-        return DIRTY_DIVE_PROFILE;
+        return DIRTY_DIVE_PROFILE | DIRTY_SYSTEM;
     case COMP_TTS_0806:
     case COMP_STOP_DEPTH_0806:
     case COMP_STOP_TIME_1606:
@@ -72,7 +73,7 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_NDL_UP_3M_0806:
     case COMP_NDL_DOWN_3M_0806:
     case COMP_NDL_DELTA_3M_0806:
-        return DIRTY_DECO_STATUS;
+        return DIRTY_DECO_STATUS | DIRTY_SYSTEM;
     case COMP_GAS_1606:
     case COMP_PPO2_0806:
     case COMP_MOD_0806:
@@ -83,7 +84,7 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_GTR_0806:
     case COMP_RMV_0806:
     case COMP_SAC_0806:
-        return DIRTY_GAS_SUPPLY;
+        return DIRTY_GAS_SUPPLY | DIRTY_SYSTEM;
     case COMP_SYS_1606:
     case COMP_TEMP_0806:
     case COMP_TIME_1606:

@@ -217,6 +217,8 @@ static uint8_t s_sys_handle_count;
 static comp_value_handle_t s_value_handles[MAX_WIDGET_RENDER_INSTANCES];
 static uint16_t s_value_handle_heads[COMP_VALUE_HANDLE_ID_MAX];
 static uint16_t s_value_handle_count;
+static lv_obj_t *s_depth_unit_labels[MAX_WIDGET_RENDER_INSTANCES];
+static uint16_t s_depth_unit_label_count;
 
 static bool ui_obj_is_valid(lv_obj_t **obj_ref)
 {
@@ -251,6 +253,29 @@ static void comp_view_label_set_text_if_changed(lv_obj_t *label, const char *tex
     }
 
     lv_label_set_text(label, text);
+}
+
+static void comp_depth_unit_label_register(lv_obj_t *label)
+{
+    if (label == NULL || s_depth_unit_label_count >= (uint16_t)(sizeof(s_depth_unit_labels) / sizeof(s_depth_unit_labels[0])))
+    {
+        return;
+    }
+
+    s_depth_unit_labels[s_depth_unit_label_count++] = label;
+}
+
+void comp_refresh_depth_unit_labels(void)
+{
+    const char *unit = bus_get_depth_unit_label();
+
+    for (uint16_t i = 0U; i < s_depth_unit_label_count; i++)
+    {
+        if (ui_obj_is_valid(&s_depth_unit_labels[i]))
+        {
+            comp_view_label_set_text_if_changed(s_depth_unit_labels[i], unit);
+        }
+    }
 }
 
 static bool comp_view_obj_set_hidden_if_changed(lv_obj_t *obj, bool hidden)
@@ -448,7 +473,11 @@ static void comp_value_format_text(comp_id_t id, float value, char *buf, size_t 
         return;
     }
 
-    if (id == COMP_TEMP_0806 || id == COMP_DEPTH_1606)
+    if (id == COMP_DEPTH_1606)
+    {
+        (void)snprintf(buf, buf_size, "%.1f", (double)bus_get_depth_display(value));
+    }
+    else if (id == COMP_TEMP_0806)
     {
         (void)snprintf(buf, buf_size, "%.1f", (double)value);
     }
@@ -512,8 +541,9 @@ bool comp_value_handle_set_value(comp_id_t id, float value)
 
     if (id == COMP_DEPTH_1606 || id == COMP_DEPTH_1612)
     {
-        int di = (int)value;
-        float decimal_part = fabsf(value - (float)di);
+        float display_value = bus_get_depth_display(value);
+        int di = (int)display_value;
+        float decimal_part = fabsf(display_value - (float)di);
         int dd = (int)(decimal_part * 10.0f + 0.5f);
 
         if (dd > 9)
@@ -538,7 +568,7 @@ bool comp_value_handle_set_value(comp_id_t id, float value)
             }
             else if (h->part == COMP_VALUE_HANDLE_PART_FULL)
             {
-                comp_value_format_text(id, value, buf, sizeof(buf));
+                (void)snprintf(buf, sizeof(buf), "%.1f", (double)display_value);
                 touched = comp_value_handle_apply_text(h, buf) || touched;
             }
 
@@ -625,6 +655,8 @@ void reset_widget_render_state(void)
     s_tissue_handle_count = 0;
     memset(s_sys_handles, 0, sizeof(s_sys_handles));
     s_sys_handle_count = 0;
+    memset(s_depth_unit_labels, 0, sizeof(s_depth_unit_labels));
+    s_depth_unit_label_count = 0;
     comp_value_handle_reset();
 
     reset_pod_render_sequence();
@@ -1128,7 +1160,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         if (style->elements & ELEM_UNIT)
         {
             lv_obj_t *unit_lbl = lv_label_create(obj);
-            lv_label_set_text(unit_lbl, style->unit ? style->unit : "");
+            lv_label_set_text(unit_lbl, bus_get_depth_unit_label());
+            comp_depth_unit_label_register(unit_lbl);
             // 单位固定用小号字
             lv_obj_set_style_text_font(unit_lbl, get_font(FONT_ID_SMALL), 0);
             lv_obj_set_style_text_color(unit_lbl, LIGHT, 0);
@@ -1321,7 +1354,11 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     if ((style->elements & ELEM_UNIT) && style->unit && (style->unit[0] != '\0'))
     {
         lv_obj_t *unit_lbl = lv_label_create(obj);
-        lv_label_set_text(unit_lbl, style->unit);
+        lv_label_set_text(unit_lbl, strcmp(style->unit, "m") == 0 ? bus_get_depth_unit_label() : style->unit);
+        if (strcmp(style->unit, "m") == 0)
+        {
+            comp_depth_unit_label_register(unit_lbl);
+        }
         lv_obj_set_style_text_font(unit_lbl, get_font(FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(unit_lbl, LIGHT, 0);
         if ((style->elements & ELEM_VALUE) && (val_lbl != NULL))
@@ -1547,7 +1584,10 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             comp_view_obj_set_hidden_if_changed(h->title_top, false);
             comp_view_obj_set_hidden_if_changed(h->sub_bot, false);
 
-            comp_view_label_set_text_fmt_if_changed(h->title_top, "SAFE %dm", (int)vm->stop_depth_m);
+            comp_view_label_set_text_fmt_if_changed(h->title_top,
+                                                    "SAFE %d%s",
+                                                    (int)bus_get_depth_display(vm->stop_depth_m),
+                                                    bus_get_depth_unit_label());
             if (layout_changed)
             {
                 lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
@@ -1585,7 +1625,10 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             comp_view_obj_set_hidden_if_changed(h->title_top, false);
             comp_view_obj_set_hidden_if_changed(h->sub_bot, true);
 
-            comp_view_label_set_text_fmt_if_changed(h->title_top, "DECO %dm", (int)vm->stop_depth_m);
+            comp_view_label_set_text_fmt_if_changed(h->title_top,
+                                                    "DECO %d%s",
+                                                    (int)bus_get_depth_display(vm->stop_depth_m),
+                                                    bus_get_depth_unit_label());
             if (layout_changed)
             {
                 lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,

@@ -147,9 +147,10 @@ static void comp_set_value_in_container(lv_obj_t *container, void *ctx)
 
         if (id == COMP_DEPTH_1612 && child_tag == (uintptr_t)id)
         {
+            float display_value = bus_get_depth_display(value);
             /* 大深度组件把整数和小数拆成两个 label 分开更新。 */
-            int di = (int)value;
-            float decimal_part = fabsf(value - di);
+            int di = (int)display_value;
+            float decimal_part = fabsf(display_value - di);
             int dd = (int)(decimal_part * 10 + 0.5f);
             lv_obj_t *part0;
             lv_obj_t *part1;
@@ -165,6 +166,11 @@ static void comp_set_value_in_container(lv_obj_t *container, void *ctx)
             if (part1 && lv_obj_is_valid(part1) && lv_obj_check_type(part1, &lv_label_class))
             {
                 comp_label_set_text_fmt_if_changed(part1, ".%d", dd);
+            }
+            lv_obj_t *unit = lv_obj_get_child(child, 2);
+            if (unit && lv_obj_is_valid(unit) && lv_obj_check_type(unit, &lv_label_class))
+            {
+                comp_label_set_text_if_changed(unit, bus_get_depth_unit_label());
             }
             continue;
         }
@@ -182,7 +188,11 @@ static void comp_set_value_in_container(lv_obj_t *container, void *ctx)
                     if (lv_obj_check_type(sub, &lv_label_class))
                     {
                         char buf[32];
-                        if (id == COMP_TEMP_0806 || id == COMP_DEPTH_1606)
+                        if (id == COMP_DEPTH_1606)
+                        {
+                            snprintf(buf, sizeof(buf), "%.1f", (double)bus_get_depth_display(value));
+                        }
+                        else if (id == COMP_TEMP_0806)
                         {
                             snprintf(buf, sizeof(buf), "%.1f", (double)value);
                         }
@@ -347,6 +357,7 @@ void comp_sync_data(comp_id_t w_id)
     /* 它是组件层的最后一道适配层：
      * 上游 screen 只知道“某个 widget 要刷新”，
      * 具体是直接写数值、走 VM 文本、还是调用专用刷新函数，在这里统一决策。 */
+    comp_refresh_depth_unit_labels();
     switch (w_id)
     {
     /* =========================================================

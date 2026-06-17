@@ -39,6 +39,8 @@ static uint16_t vm_content_w_from_config(const sys_config_t *config)
 
 static void vm_format_mod_text(char *buf, size_t buf_size, float mod_m)
 {
+    float display_depth;
+
     if (buf == NULL || buf_size == 0U)
     {
         return;
@@ -50,14 +52,15 @@ static void vm_format_mod_text(char *buf, size_t buf_size, float mod_m)
         return;
     }
 
-    float nearest_meter = floorf(mod_m + 0.5f);
-    if (fabsf(mod_m - nearest_meter) < 0.05f)
+    display_depth = bus_get_depth_display(mod_m);
+    float nearest_unit = floorf(display_depth + 0.5f);
+    if (fabsf(display_depth - nearest_unit) < 0.05f)
     {
-        (void)snprintf(buf, buf_size, "MOD %.0fm", (double)mod_m);
+        (void)snprintf(buf, buf_size, "MOD %.0f%s", (double)display_depth, bus_get_depth_unit_label());
     }
     else
     {
-        (void)snprintf(buf, buf_size, "MOD %.1fm", (double)mod_m);
+        (void)snprintf(buf, buf_size, "MOD %.1f%s", (double)display_depth, bus_get_depth_unit_label());
     }
 }
 
@@ -305,6 +308,7 @@ void ui_vm_depth_update(ui_vm_depth_t *vm, const sensor_data_t *sensor)
     (void)memset(vm, 0, sizeof(*vm));
 
     depth = (sensor == NULL) ? bus_get_depth() : sensor->depth;
+    depth = bus_get_depth_display(depth);
     vm_split_decimal_1(depth, &vm->int_part, &vm->dec_part);
     (void)snprintf(vm->text,
                    sizeof(vm->text),
@@ -538,7 +542,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%s", bus_get_sensor_status());
         break;
     case COMP_STOP_DEPTH_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_stop_depth_m());
+        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_stop_depth_m()));
         break;
     case COMP_STOP_TIME_1606:
     {
@@ -566,10 +570,10 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%u/%u",(unsigned)bus_get_gf_low(),(unsigned)bus_get_gf_high());
         break;
     case COMP_MOD_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_mod_m());
+        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_mod_m()));
         break;
     case COMP_CEILING_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_ceiling_m());
+        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_ceiling_m()));
         break;
     case COMP_GAS_MIX_1606:
         (void)snprintf(vm->text,sizeof(vm->text),"%u/%u",(unsigned)bus_get_gas_mix_o2(),(unsigned)bus_get_gas_mix_he());
@@ -584,10 +588,10 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%.0f",(double)bus_get_pod_bar((pod_index > 1U) ? 1U : 0U));
         break;
     case COMP_DEPTH_MAX_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_max_depth());
+        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_max_depth()));
         break;
     case COMP_DEPTH_AVG_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_avg_depth());
+        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_avg_depth()));
         break;
     case COMP_TEMP_0806:
         (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_temperature_display(bus_get_temperature()));

@@ -164,8 +164,9 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
                    (unsigned)vm->gf_high);
     (void)snprintf(vm->ready_last_stop_text,
                    sizeof(vm->ready_last_stop_text),
-                   "Last Stop:       %um",
-                   (unsigned)vm->last_stop_depth_m);
+                   "Last Stop:       %.0f%s",
+                   (double)bus_get_depth_display((float)vm->last_stop_depth_m),
+                   bus_get_depth_unit_label());
     (void)snprintf(vm->ready_start_cns_text,
                    sizeof(vm->ready_start_cns_text),
                    "%s",
@@ -247,7 +248,11 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
         row = snapshot.rows[row_index];
 
         vm->rows[i].valid = 1U;
-        (void)snprintf(vm->rows[i].depth_text, sizeof(vm->rows[i].depth_text), "%dm", (int)row.depth_m);
+        (void)snprintf(vm->rows[i].depth_text,
+                       sizeof(vm->rows[i].depth_text),
+                       "%.0f%s",
+                       (double)bus_get_depth_display(row.depth_m),
+                       bus_get_depth_unit_label());
         (void)snprintf(vm->rows[i].time_text,
                        sizeof(vm->rows[i].time_text),
                        "%s",
