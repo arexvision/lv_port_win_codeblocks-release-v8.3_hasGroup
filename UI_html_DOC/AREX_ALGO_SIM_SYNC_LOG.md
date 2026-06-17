@@ -15,6 +15,33 @@
 
 ## 未发布 UI 口径调整
 
+### 自定义 Tissue 小组件切换到 Leading Tissue
+
+改动：
+
+- `COMP_TISSUE_GF_4012` 和 `COMP_TISSUE_RAW_4012` 从 16 根小柱临时切换为单条 Leading Tissue 显示。
+- UI 侧临时读取 `tissue_ambient_pressure_bar`、`tissue_n2_bar[16]`、`tissue_m_value_bar[16]`，遍历 16 个组织计算 `GF_i = ((PN2_i - P_amb) / (M_i - P_amb)) * 100`，选出最大值作为主导组织。
+- `TISSUE(GF)` 显示 `GF_max` 的 0..100 水平条，达到或超过 100 时满亮绿色闪烁。
+- `TISSUE(RAW)` 显示主导组织 `PN2` 的 0..6.0 bar 物理压力条，并绘制 `P_amb` 与 `M_idx` 参考线。
+
+原因：
+
+- 这两个自定义组件需要表达“当前最危险组织”的浓缩状态，而不是重复显示 DECO 主图的 16 组织全景。
+- 算法库当前还没有直接返回小组件所需的 `leading_compartment / leading_gf_percent / leading_pn2_bar / leading_m_value_bar`，因此先在 UI 层做临时提取。
+
+旧口径和新口径差异：
+
+- 旧口径：两个组件分别按 `tissue_gf_pct[16]` / `tissue_raw_pct[16]` 绘制 16 根小柱。
+- 新口径：两个组件只显示主导组织的一条水平条；主导组织提取暂由 UI 使用现有 VM 物理字段完成。
+- DECO 主图不受影响，仍继续使用 `tissue_bar_permille[16]` 显示 16 根归一化组织柱。
+
+验证方式：
+
+- 自定义页里的 `TISSUE(GF)` 应显示单条水平 GF 进度，不再显示 16 根小柱。
+- 自定义页里的 `TISSUE(RAW)` 应显示一条 0..6.0 bar 压力条，并能看到 `P_amb` 与 `M` 竖线。
+- 当主导组织 GF 达到 100 及以上时，`TISSUE(GF)` 应满亮绿色闪烁。
+- 给算法工程师的正式字段建议见 `UI_html_DOC/16组织仓归一化视图算法沟通版.md`。
+
 ### DECO 主图切换到归一化组织图
 
 改动：
