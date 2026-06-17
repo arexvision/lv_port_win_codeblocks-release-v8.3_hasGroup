@@ -27,7 +27,7 @@
 #define TISSUE_UI_PAMB_PERMILLE  400     /* 环境压力固定线 */
 #define TISSUE_UI_MVALUE_PERMILLE 900    /* M 值固定线 */
 #define TISSUE_UI_MAX_PERMILLE   1000    /* 归一化条长上限 */
-#define TISSUE_LABEL_H           14      /* 图表底部标签高度 */
+#define TISSUE_LABEL_H           18      /* 图表底部标签高度 */
 #define TISSUE_OPA_SAFE          LV_OPA_40  /* 安全段与 Pamb 线亮度 */
 #define TISSUE_OPA_OVER_MIN      LV_OPA_50  /* 刚突破 Pamb 的排氮段亮度 */
 #define TISSUE_OPA_OVER_MAX      LV_OPA_100 /* 接近/超过 M 值的满亮 */
@@ -375,7 +375,7 @@ void card_deco_create(lv_obj_t *parent)
     int row2_y = DECO_ROW2_Y;
     int row3_y = DECO_ROW3_Y;
     int chart_h = 120;
-    int chart_bottom = -15;
+    int chart_bottom = -24;
 
     if (!ui_layout_is_vertical_split())
     {
@@ -383,7 +383,7 @@ void card_deco_create(lv_obj_t *parent)
         row2_y = CARD_TITLE_H + 45;
         row3_y = CARD_TITLE_H + 82;
         chart_h = (content_h > 250) ? 82 : 70;
-        chart_bottom = -8;
+        chart_bottom = -20;
     }
 
     make_grid_row(parent, row1_y,
