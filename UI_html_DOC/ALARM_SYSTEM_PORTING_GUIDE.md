@@ -164,13 +164,13 @@ alarm_init();
 void dive_alarm_update(void)
 {
     alarm_set_active(ALARM_ID_CRIT_ASCENT_RATE, ascent_rate_mpm >= 10.0f);
-    alarm_set_active(ALARM_ID_WARN_NDL_LOW, stop_type == STOP_NONE && ndl_min >= 0 && ndl_min < 5);
+    alarm_set_active(ALARM_ID_WARN_NDL_LOW, ndl_alarm_min > 0 && stop_type == STOP_NONE && ndl_min > 0 && ndl_min <= ndl_alarm_min);
     alarm_set_active(ALARM_ID_WARN_BATTERY_LOW, battery_pct < 20.0f && battery_pct >= 5.0f);
     alarm_set_active(ALARM_ID_CRIT_BATTERY_DEAD, battery_pct < 5.0f);
 }
 ```
 
-这些阈值只是示例。最终阈值应该来自算法、系统设置或平台配置，不放在 UI bus setter 里。
+这些阈值只是示例。最终阈值应该来自算法、系统设置或平台配置，不放在 UI bus setter 里。`ndl_alarm_min == 0` 视为关闭低 NDL 警告。
 
 ### 3. 事件型提示
 

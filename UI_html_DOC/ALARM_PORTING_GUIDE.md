@@ -205,7 +205,7 @@ void device_runtime_tick(void)
     bus_set_ppo2(active_slot, ppo2);
 
     alarm_set_active(ALARM_ID_WARN_DEPTH_LIMIT, depth_m >= depth_limit_m);
-    alarm_set_active(ALARM_ID_WARN_NDL_LOW, ndl_min >= 0 && ndl_min < ndl_warn_min);
+    alarm_set_active(ALARM_ID_WARN_NDL_LOW, ndl_warn_min > 0 && stop_type == STOP_NONE && ndl_min > 0 && ndl_min <= ndl_warn_min);
     alarm_set_active(ALARM_ID_CRIT_PO2_MAX, ppo2 > 1.6f);
 }
 ```
