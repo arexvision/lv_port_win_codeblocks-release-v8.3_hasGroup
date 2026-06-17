@@ -106,6 +106,14 @@ static int16_t round_i16_minutes_from_seconds(int32_t seconds)
     return (int16_t)minutes;
 }
 
+static int16_t display_delta_minutes(uint16_t future_min, uint16_t current_min)
+{
+    int32_t delta = (int32_t)future_min - (int32_t)current_min;
+    if (delta > 32767) return 32767;
+    if (delta < -32768) return -32768;
+    return (int16_t)delta;
+}
+
 static int16_t ndl_minutes_from_seconds(int32_t seconds)
 {
     if (seconds <= 0) return 0;
@@ -706,8 +714,10 @@ static void sync_forecast_data(void)
         s_tts_forecast_elapsed_s = 0U;
         if (arex_deco_forecast_tts_hold(&s_state, DECO_FORECAST_TTS_HOLD_SECONDS, &tts_forecast) == AREX_DECO_STATUS_OK)
         {
-            bus_set_tts_at_5min(round_up_minutes(tts_forecast.tts_at_hold_seconds));
-            bus_set_tts_delta_5min(round_i16_minutes_from_seconds(tts_forecast.tts_delta_hold_seconds));
+            uint16_t current_min = round_up_minutes(tts_forecast.current_tts_seconds);
+            uint16_t at_min = round_up_minutes(tts_forecast.tts_at_hold_seconds);
+            bus_set_tts_at_5min(at_min);
+            bus_set_tts_delta_5min(display_delta_minutes(at_min, current_min));
         }
     }
 }

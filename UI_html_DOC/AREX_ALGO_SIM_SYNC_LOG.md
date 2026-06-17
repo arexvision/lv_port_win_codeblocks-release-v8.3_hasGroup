@@ -15,6 +15,29 @@
 
 ## 未发布 UI 口径调整
 
+### TTS 5 分钟预测显示差值改为视觉可加
+
+改动：
+
+- `TTS @ +5min` 继续使用 `arex_deco_forecast_tts_hold()` 返回的 `tts_at_hold_seconds`，按 UI 当前 TTS 一样的 `round_up_minutes()` 转成显示分钟。
+- `TTS Δ +5min` 不再直接把 `tts_delta_hold_seconds` 单独转分钟，而是显示为 `round_up_minutes(tts_at_hold_seconds) - round_up_minutes(current_tts_seconds)`。
+
+原因：
+
+- Core 的 `tts_delta_hold_seconds` 是秒级严格相减，算法测试保证 `delta = future - current`。
+- UI 当前只显示整数分钟。如果 current、future、delta 三个秒级值分别取整，用户会用屏幕上的整数分钟做减法，看到 `@+5 - TTS` 和 `△+5` 不一致。
+- 本次只调整分钟级显示口径，不改变算法秒级字段语义。
+
+旧口径和新口径差异：
+
+- 旧口径：`TTS Δ +5min = round_display(tts_delta_hold_seconds)`。
+- 新口径：`TTS Δ +5min = round_display(tts_at_hold_seconds) - round_display(current_tts_seconds)`。
+
+验证方式：
+
+- 构造 `current_tts_seconds = 389`、`tts_at_hold_seconds = 690` 时，当前 TTS 显示 7、`@+5` 显示 12，`△+5` 应显示 `+5`。
+- `TTS @ +5min` 和当前 TTS 的显示分钟相减，应等于 `TTS Δ +5min`。
+
 ### 自定义 Tissue 小组件回归 16 组织仓全景
 
 改动：
