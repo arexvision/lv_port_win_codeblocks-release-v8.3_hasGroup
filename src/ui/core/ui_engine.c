@@ -194,9 +194,9 @@ void sys_config_defaults(sys_config_t *cfg)
     /* ========== [A] 自定义网格：默认展示全部组件模块 ========== */
     static const char *module_titles[] =
     {
-        "CORE LARGE", "DECO LIMITS", "DIVE STATS", "SENSORS", "TISSUE GF", "TISSUE RAW"
+        "CORE LARGE", "DECO LIMITS", "DIVE STATS", "SENSORS", "TISSUES"
     };
-    static const uint8_t module_counts[] = { 14U, 15U, 12U, 15U, 1U, 1U };
+    static const uint8_t module_counts[] = { 14U, 15U, 12U, 15U, 2U };
     static const grid_widget_t module_cards[][MAX_5F_WIDGETS] =
     {
         {
@@ -227,10 +227,7 @@ void sys_config_defaults(sys_config_t *cfg)
             { COMP_TMAG_2406, 0, 4 }, { COMP_SENSOR_STAT_1606, 3, 4 }, { COMP_ATTITUDE_2406, 0, 5 },
         },
         {
-            { COMP_TISSUE_GF_4012, 0, 0 },
-        },
-        {
-            { COMP_TISSUE_RAW_4012, 0, 0 },
+            { COMP_TISSUE_GF_4012, 0, 0 }, { COMP_TISSUE_RAW_4012, 0, 2 },
         },
     };
 
