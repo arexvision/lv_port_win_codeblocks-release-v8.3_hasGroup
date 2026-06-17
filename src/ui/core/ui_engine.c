@@ -302,7 +302,12 @@ void sys_config_defaults(sys_config_t *cfg)
      */
     memset(cfg->card_order, PAGE_ID_UNUSED, sizeof(cfg->card_order));
     cfg->card_order[PAGE_POS_INFO]   = PAGE_ID_INFO;//菜单，不算卡
-    for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < PAGE_POS_DYNAMIC_FIRST + cfg->custom_card_count; pos++) cfg->card_order[pos] = PAGE_ID_CUSTOM_GRID;
+    cfg->card_order[PAGE_POS_1]      = PAGE_ID_BLANK;
+    cfg->card_order[PAGE_POS_2]      = PAGE_ID_COMPASS;
+    cfg->card_order[PAGE_POS_3]      = PAGE_ID_DECO;
+    cfg->card_order[PAGE_POS_4]      = PAGE_ID_PLAN;
+    cfg->card_order[PAGE_POS_5]      = PAGE_ID_GAS;
+    for (uint8_t pos = PAGE_POS_6; pos < PAGE_POS_6 + cfg->custom_card_count; pos++) cfg->card_order[pos] = PAGE_ID_CUSTOM_GRID;
     cfg->card_order[PAGE_POS_SETUP]  = PAGE_ID_SETUP;//菜单，不算卡
 
     /* ========== [A] 卡片槽位映射 ==========
@@ -311,7 +316,7 @@ void sys_config_defaults(sys_config_t *cfg)
      * ĬϣһCUSTOM_GRID Ƭӳcustom_cards[0]
      */
     memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
-    for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < PAGE_POS_DYNAMIC_FIRST + cfg->custom_card_count; pos++) cfg->custom_card_slot[pos] = (uint8_t)(pos - PAGE_POS_DYNAMIC_FIRST);
+    for (uint8_t pos = PAGE_POS_6; pos < PAGE_POS_6 + cfg->custom_card_count; pos++) cfg->custom_card_slot[pos] = (uint8_t)(pos - PAGE_POS_6);
 
     /* ========== [A] 用户设置默认========== */
     cfg->mod_ppo2       = 1.4f;
