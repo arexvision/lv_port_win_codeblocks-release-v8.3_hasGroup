@@ -11,6 +11,7 @@
 #include "../core/data.h"
 #include "../screen/screen.h"
 #include "menu_actions.h"
+#include "submenu_model.h"
 #include "menu_runtime.h"
 #include "../core/vm/ui_vm_plan_view.h"
 #include "../core/vm/ui_vm_system_view.h"
@@ -51,6 +52,7 @@ static uint16_t s_logbook_point_count;
 static bool s_logbook_valid = false;
 
 static void screen_handle_logbook_select(void);
+static void refresh_current_submenu_page(uint8_t keep_idx);
 
 static void logbook_points_release(void)
 {
@@ -1353,6 +1355,24 @@ void screen_refresh_info_submenu_if_open(void)
     }
 
     refresh_info_submenu_page(ui_state_get_sub_menu_idx());
+}
+
+void screen_refresh_settings_submenu_if_open(void)
+{
+    if (!s_submenu_title || !s_submenu_list)
+    {
+        return;
+    }
+    if ((ui_state_get_state() != UI_SUB_MENU) ||
+        (ui_state_get_sub_parent() != UI_SETUP))
+    {
+        return;
+    }
+
+    /* APP 或其它业务入口只更新 bus/user settings；UI 在自己的刷新节拍内
+     * 重新同步菜单模型缓存并重绘当前页，避免 app_ui 反向依赖上层业务。 */
+    submenu_sync_persisted_settings();
+    refresh_current_submenu_page(ui_state_get_sub_menu_idx());
 }
 
 bool screen_handle_dive_plan_rotate(int8_t dir)

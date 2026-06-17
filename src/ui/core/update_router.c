@@ -478,6 +478,11 @@ void ui_update_router_dispatch(dirty_mask_t mask)
     {
         uint32_t start_ms = lv_tick_get();
         screen_refresh_info_submenu_if_open();
+        if (mask & DIRTY_SYSTEM)
+        {
+            screen_refresh_setup_menu();
+            screen_refresh_settings_submenu_if_open();
+        }
         info_ms += lv_tick_get() - start_ms;
     }
 

@@ -151,6 +151,7 @@ void submenu_sync_persisted_settings(void)
     s_temperature_unit = (snapshot.temperature_unit == UI_TEMP_UNIT_F) ? UI_TEMP_UNIT_F : UI_TEMP_UNIT_C;
     s_log_rate_s = snapshot.log_rate_s;
     s_time_24h_enabled = snapshot.time_24h_enabled ? 1U : 0U;
+    s_date_format = (snapshot.date_format > 1U) ? 1U : snapshot.date_format;
     s_bluetooth_enabled = snapshot.bluetooth_enabled;
     s_dive_mode = (snapshot.dive_mode > 3U) ? 0U : snapshot.dive_mode;
     s_air_ppo2 = gas_ppo2_or_default(snapshot.air_ppo2);

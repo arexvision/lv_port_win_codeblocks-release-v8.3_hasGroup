@@ -324,6 +324,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->log_rate_s     = UI_LOG_RATE_DEFAULT_S;
     cfg->time_24h_enabled = 1U;
     cfg->units_mode = UI_UNITS_DEFAULT;
+    cfg->date_format = 1U;
     cfg->temperature_unit = UI_TEMP_UNIT_DEFAULT;
     cfg->safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
     cfg->altitude_level = 0;

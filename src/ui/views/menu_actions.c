@@ -107,6 +107,7 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
         screen_refresh_setup_menu();
         break;
     case SUBMENU_SETTING_DATE_FORMAT:
+        ui_on_date_format_set((uint8_t)setting->value);
         screen_refresh_setup_menu();
         break;
     case SUBMENU_SETTING_LOG_RATE:

@@ -7,6 +7,7 @@
 
 #include "callbacks.h"
 #include "data.h"
+#include "ui_settings.h"
 #include "../../config/build/ui_debug_flags.h"
 #include <stdio.h>
 
@@ -385,6 +386,14 @@ void ui_on_time_24h_set(bool enabled)
 }
 
 WEAK_CALLBACK
+void ui_on_date_format_set(uint8_t format)
+{
+    bus_set_date_format(format);
+    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Date format: %s\n", format == 0U ? "MM.DD.YY" : "DD.MM.YY");
+}
+
+
+WEAK_CALLBACK
 void ui_on_log_rate_set(uint8_t seconds)
 {
     bus_set_log_rate(seconds);
@@ -439,6 +448,7 @@ void ui_on_reset_defaults(void)
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     bus_set_time_24h_enabled(true);
     bus_set_units_mode(UI_UNITS_DEFAULT);
+    bus_set_date_format(1U);
     bus_set_temperature_unit(UI_TEMP_UNIT_DEFAULT);
     bus_set_sys_time(0U, 0U, 0U);
     bus_set_depth_alarm_m(40U);
@@ -467,6 +477,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->temperature_unit = s_temperature_unit;
     out_snapshot->log_rate_s = bus_get_log_rate();
     out_snapshot->time_24h_enabled = bus_get_time_24h_enabled() ? 1U : 0U;
+    out_snapshot->date_format = bus_get_date_format();
     out_snapshot->bluetooth_enabled = s_bluetooth_enabled;
     out_snapshot->dive_mode = s_dive_mode;
     out_snapshot->air_ppo2 = s_air_ppo2;
@@ -499,6 +510,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->temperature_unit = bus_get_temperature_unit();
     out_snapshot->log_rate_s = bus_get_log_rate();
     out_snapshot->time_24h_enabled = bus_get_time_24h_enabled() ? 1U : 0U;
+    out_snapshot->date_format = bus_get_date_format();
     out_snapshot->bluetooth_enabled = 0U;
     out_snapshot->dive_mode = 0U;
     out_snapshot->air_ppo2 = 1.4f;

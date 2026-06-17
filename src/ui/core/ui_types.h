@@ -79,6 +79,7 @@ typedef struct
     uint8_t log_rate_s;
     uint8_t time_24h_enabled;
     uint8_t units_mode;
+    uint8_t date_format;
     uint8_t temperature_unit;
     uint8_t safety_stop_mode;
     uint8_t altitude_level;

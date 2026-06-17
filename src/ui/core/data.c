@@ -1839,6 +1839,16 @@ void bus_set_units_mode(uint8_t units)
     }
 }
 
+void bus_set_date_format(uint8_t format)
+{
+    uint8_t value = (format == 0U) ? 0U : 1U;
+    if (g_sys_config.date_format != value)
+    {
+        g_sys_config.date_format = value;
+        bus_mark_dirty(DIRTY_SYSTEM);
+    }
+}
+
 void bus_set_temperature_unit(uint8_t unit)
 {
     uint8_t value = (unit == UI_TEMP_UNIT_F) ? UI_TEMP_UNIT_F : UI_TEMP_UNIT_C;
@@ -2787,6 +2797,11 @@ const char *bus_get_depth_units_label(void)
 float bus_get_depth_display(float depth_m)
 {
     return ui_depth_display_from_m(depth_m, bus_get_units_mode());
+}
+
+uint8_t bus_get_date_format(void)
+{
+    return (g_sys_config.date_format == 0U) ? 0U : 1U;
 }
 
 uint8_t bus_get_temperature_unit(void)

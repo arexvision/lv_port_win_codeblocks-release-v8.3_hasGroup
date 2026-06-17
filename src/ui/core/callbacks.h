@@ -34,6 +34,7 @@ typedef struct
     uint8_t temperature_unit;
     uint8_t log_rate_s;
     uint8_t time_24h_enabled;
+    uint8_t date_format;
     uint8_t bluetooth_enabled;
     uint8_t dive_mode;
     float air_ppo2;
@@ -92,6 +93,7 @@ void ui_on_temperature_unit_set(uint8_t unit);
 void ui_on_datetime_field_set(uint8_t field, uint16_t value);
 void ui_on_datetime_action(uint8_t action);
 void ui_on_time_24h_set(bool enabled);
+void ui_on_date_format_set(uint8_t format);
 void ui_on_log_rate_set(uint8_t seconds);
 void ui_on_bluetooth_set(bool enabled);
 void ui_on_reset_defaults(void);
