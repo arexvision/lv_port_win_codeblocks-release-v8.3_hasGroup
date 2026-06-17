@@ -164,7 +164,7 @@ alarm_init();
 void dive_alarm_update(void)
 {
     alarm_set_active(ALARM_ID_CRIT_ASCENT_RATE, ascent_rate_mpm >= 10.0f);
-    alarm_set_active(ALARM_ID_WARN_NDL_LOW, ndl_alarm_min > 0 && stop_type == STOP_NONE && ndl_min > 0 && ndl_min <= ndl_alarm_min);
+    alarm_set_active(ALARM_ID_WARN_NDL_LOW, ndl_alarm_min > 0 && (stop_type == STOP_NONE || stop_type == STOP_SAFETY) && ndl_min > 0 && ndl_min <= ndl_alarm_min);
     alarm_set_active(ALARM_ID_WARN_BATTERY_LOW, battery_pct < 20.0f && battery_pct >= 5.0f);
     alarm_set_active(ALARM_ID_CRIT_BATTERY_DEAD, battery_pct < 5.0f);
 }

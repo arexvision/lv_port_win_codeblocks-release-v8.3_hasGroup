@@ -621,8 +621,9 @@ static const ArexDecoStop *first_runtime_stop(const ArexDecoSchedule *schedule)
 static void sync_ndl_low_alarm(int16_t ndl_min, stop_type_t stop_type)
 {
     uint16_t threshold_min = bus_get_ndl_alarm_min();
+    bool ndl_context = stop_type == STOP_NONE || stop_type == STOP_SAFETY;
     bool active = threshold_min > 0U &&
-                  stop_type == STOP_NONE &&
+                  ndl_context &&
                   ndl_min > 0 &&
                   ndl_min <= (int16_t)threshold_min;
     (void)alarm_set_active(ALARM_ID_WARN_NDL_LOW, active);
