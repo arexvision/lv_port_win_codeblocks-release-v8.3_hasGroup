@@ -33,9 +33,7 @@ static float sim_default_air_mod_m(void)
 #define SIM_LAYOUT_SWITCH_TICKS 5U
 #define SIM_DIVE_ENTRY_DEPTH_M 1.2f
 #define SIM_SURFACE_DEPTH_M 0.8f
-#define SIM_TEMP_MIN_C 20.0f
-#define SIM_TEMP_MAX_C 60.0f
-#define SIM_TEMP_STEP_C 1.0f
+#define SIM_TEMP_C 99.9f
 #ifndef SIM_SURFACE_CONFIRM_S
 #define SIM_SURFACE_CONFIRM_S 5U
 #endif
@@ -90,7 +88,7 @@ static sim_state_t s_sim = {
     .start_cns_pct = 0,
     .otu = 0,
     .battery_pct = 85.0f,
-    .temperature_c = SIM_TEMP_MIN_C,
+    .temperature_c = SIM_TEMP_C,
     .layout_tick = 0,
     .layout_phase = 0,
     .phase_tick = 0,
@@ -134,11 +132,7 @@ static void sim_update_mlx_diagnostics(uint32_t tick_s)
 
 static void sim_update_temperature(void)
 {
-    s_sim.temperature_c += SIM_TEMP_STEP_C;
-    if (s_sim.temperature_c > SIM_TEMP_MAX_C) {
-        s_sim.temperature_c = SIM_TEMP_MIN_C;
-    }
-
+    s_sim.temperature_c = SIM_TEMP_C;
     bus_set_temperature(s_sim.temperature_c);
     bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
     bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
@@ -248,7 +242,7 @@ static void sim_reset_for_tcp_debug(void)
 {
     memset(&s_sim, 0, sizeof(s_sim));
     s_sim.battery_pct = 86.0f;
-    s_sim.temperature_c = SIM_TEMP_MIN_C;
+    s_sim.temperature_c = SIM_TEMP_C;
     s_sim.next_log_no = 1U;
     s_sim.start_h = 10U;
     s_sim.start_m = 55U;
