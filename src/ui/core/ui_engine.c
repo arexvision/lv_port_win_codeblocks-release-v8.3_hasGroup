@@ -191,161 +191,57 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->gap_u       = 0;   /* 组件块内部间距预留 */
     cfg->panel_gap_u = 2;   /* 固定栏与内容区内部 GAP: 2U=20px */
 
-    /* ========== [A] 自定义网格：side=5列 x 6行，top/bottom=7列 x 4行 ==========
-     *
-     *  默认 ALARM TARGETS 布局示意（5列 x 6行）
-     *  col:  0  1  2  3  4
-     *  row0: [DEPTH 1606] [PPO2] [BATT] [POD]
-     *  row1: [NDL   1606] [CNS ] [OTU ] [HDG]
-     *  row2: [GAS   1606] [DIVE TIME 1606]
-     *
-     *  简洁位置配置：widget_id + x/y 三字段，span_w/h MCU 样式表自动推
-     */
-    /* custom_cards[0] 保留默认自定义卡片内容，custom_cards[1] 是传感器预览。 */
-    cfg->custom_card_count = 2;
-    cfg->custom_cards[0].widget_count = 18;
-    cfg->custom_cards[1].widget_count = 16;
-    (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "ALARM TARGETS");
-    (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "SENSOR PREVIEW");
-    /* 下面这些 widget 配置决定默认 side 自定义卡片的格子内容和位置。 */
-    cfg->custom_cards[0].widgets[0]  = (grid_widget_t)
+    /* ========== [A] 自定义网格：默认展示全部组件模块 ========== */
+    static const char *module_titles[] =
     {
-        COMP_DEPTH_1606, 0, 0
+        "CORE LARGE", "DECO LIMITS", "DIVE STATS", "SENSORS", "TISSUE GF", "TISSUE RAW"
     };
-    cfg->custom_cards[0].widgets[1]  = (grid_widget_t)
+    static const uint8_t module_counts[] = { 14U, 15U, 12U, 15U, 1U, 1U };
+    static const grid_widget_t module_cards[][MAX_5F_WIDGETS] =
     {
-        COMP_PPO2_0806, 2, 0
-    };
-    cfg->custom_cards[0].widgets[2]  = (grid_widget_t)
-    {
-        COMP_BATTERY_0806, 3, 0
-    };
-    cfg->custom_cards[0].widgets[3]  = (grid_widget_t)
-    {
-        COMP_POD_0806, 4, 0
-    };
-    cfg->custom_cards[0].widgets[4]  = (grid_widget_t)
-    {
-        COMP_NDL_STOP_1606, 0, 1
-    };
-    cfg->custom_cards[0].widgets[5]  = (grid_widget_t)
-    {
-        COMP_CNS_0806, 2, 1
-    };
-    cfg->custom_cards[0].widgets[6]  = (grid_widget_t)
-    {
-        COMP_OTU_0806, 3, 1
-    };
-    cfg->custom_cards[0].widgets[7]  = (grid_widget_t)
-    {
-        COMP_HEADING_0806, 4, 1
-    };
-    cfg->custom_cards[0].widgets[8]  = (grid_widget_t)
-    {
-        COMP_GAS_1606, 0, 2
-    };
-    cfg->custom_cards[0].widgets[9]  = (grid_widget_t)
-    {
-        COMP_TIME_1606, 2, 2
-    };
-    cfg->custom_cards[0].widgets[10] = (grid_widget_t)
-    {
-        COMP_TTS_AT_5MIN_0806, 0, 3
-    };
-    cfg->custom_cards[0].widgets[11] = (grid_widget_t)
-    {
-        COMP_TTS_DELTA_5MIN_0806, 1, 3
-    };
-    cfg->custom_cards[0].widgets[12] = (grid_widget_t)
-    {
-        COMP_NDL_UP_3M_0806, 2, 3
-    };
-    cfg->custom_cards[0].widgets[13] = (grid_widget_t)
-    {
-        COMP_NDL_DOWN_3M_0806, 3, 3
-    };
-    cfg->custom_cards[0].widgets[14] = (grid_widget_t)
-    {
-        COMP_NDL_DELTA_3M_0806, 4, 3
-    };
-    cfg->custom_cards[0].widgets[15] = (grid_widget_t)
-    {
-        COMP_GTR_0806, 0, 4
-    };
-    cfg->custom_cards[0].widgets[16] = (grid_widget_t)
-    {
-        COMP_RMV_0806, 1, 4
-    };
-    cfg->custom_cards[0].widgets[17] = (grid_widget_t)
-    {
-        COMP_SAC_0806, 2, 4
+        {
+            { COMP_DEPTH_1612, 0, 0 }, { COMP_COMPASS_1612, 2, 0 }, { COMP_ASCENT_0812, 4, 0 },
+            { COMP_NDL_STOP_1606, 0, 2 }, { COMP_DIVE_TIME_1606, 2, 2 }, { COMP_TEMP_0806, 4, 2 },
+            { COMP_DEPTH_1606, 0, 3 }, { COMP_GAS_1606, 2, 3 }, { COMP_BATTERY_0806, 4, 3 },
+            { COMP_TIME_1606, 0, 4 }, { COMP_SYS_1606, 2, 4 }, { COMP_ASCENT_0806, 4, 4 },
+            { COMP_POD_0806, 0, 5 }, { COMP_HEADING_0806, 1, 5 },
+        },
+        {
+            { COMP_STOP_TIME_1606, 0, 0 }, { COMP_GAS_MIX_1606, 2, 0 }, { COMP_STOP_DEPTH_0806, 4, 0 },
+            { COMP_TTS_0806, 0, 1 }, { COMP_PPO2_0806, 1, 1 }, { COMP_SURF_GF_0806, 2, 1 },
+            { COMP_GF99_0806, 3, 1 }, { COMP_CNS_0806, 4, 1 }, { COMP_OTU_0806, 0, 2 },
+            { COMP_GF_0806, 1, 2 }, { COMP_MOD_0806, 2, 2 }, { COMP_CEILING_0806, 3, 2 },
+            { COMP_GAS_DENS_0806, 4, 2 }, { COMP_FIO2_0806, 0, 3 }, { COMP_NOFLY_0806, 1, 3 },
+        },
+        {
+            { COMP_DEPTH_MAX_0806, 0, 0 }, { COMP_DEPTH_AVG_0806, 1, 0 }, { COMP_TEMP_MIN_0806, 2, 0 },
+            { COMP_TEMP_AVG_0806, 3, 0 }, { COMP_TTS_AT_5MIN_0806, 4, 0 }, { COMP_TTS_DELTA_5MIN_0806, 0, 1 },
+            { COMP_NDL_UP_3M_0806, 1, 1 }, { COMP_NDL_DOWN_3M_0806, 2, 1 }, { COMP_NDL_DELTA_3M_0806, 3, 1 },
+            { COMP_GTR_0806, 4, 1 }, { COMP_RMV_0806, 0, 2 }, { COMP_SAC_0806, 1, 2 },
+        },
+        {
+            { COMP_ACCEL_2406, 0, 0 }, { COMP_BATT_V_0806, 3, 0 }, { COMP_PRESSURE_0806, 4, 0 },
+            { COMP_GYRO_2406, 0, 1 }, { COMP_CPU_0806, 3, 1 }, { COMP_FPS_0806, 4, 1 },
+            { COMP_MAG_2406, 0, 2 }, { COMP_BLE_RSSI_0806, 3, 2 }, { COMP_CHARGE_0806, 4, 2 },
+            { COMP_MLX_2406, 0, 3 }, { COMP_BATT_TEMP_0806, 3, 3 }, { COMP_PRJ_TEMP_0806, 4, 3 },
+            { COMP_TMAG_2406, 0, 4 }, { COMP_SENSOR_STAT_1606, 3, 4 }, { COMP_ATTITUDE_2406, 0, 5 },
+        },
+        {
+            { COMP_TISSUE_GF_4012, 0, 0 },
+        },
+        {
+            { COMP_TISSUE_RAW_4012, 0, 0 },
+        },
     };
 
-    
-    cfg->custom_cards[1].widgets[0] = (grid_widget_t)
+    (void)memset(cfg->custom_cards, 0, sizeof(cfg->custom_cards));
+    cfg->custom_card_count = (uint8_t)(sizeof(module_counts) / sizeof(module_counts[0]));
+    for (uint8_t card_idx = 0U; card_idx < cfg->custom_card_count; card_idx++)
     {
-        COMP_ACCEL_2406,       0, 0
-    };
-    cfg->custom_cards[1].widgets[1] = (grid_widget_t)
-    {
-        COMP_BATT_V_0806,      3, 0
-    };
-    cfg->custom_cards[1].widgets[2] = (grid_widget_t)
-    {
-        COMP_PRESSURE_0806,    4, 0
-    };
-    cfg->custom_cards[1].widgets[3] = (grid_widget_t)
-    {
-        COMP_GYRO_2406,        0, 1
-    };
-    cfg->custom_cards[1].widgets[4] = (grid_widget_t)
-    {
-        COMP_CPU_0806,         3, 1
-    };
-    cfg->custom_cards[1].widgets[5] = (grid_widget_t)
-    {
-        COMP_FPS_0806,         4, 1
-    };
-    cfg->custom_cards[1].widgets[6] = (grid_widget_t)
-    {
-        COMP_MAG_2406,         0, 2
-    };
-    cfg->custom_cards[1].widgets[7] = (grid_widget_t)
-    {
-        COMP_BLE_RSSI_0806,    3, 2
-    };
-    cfg->custom_cards[1].widgets[8] = (grid_widget_t)
-    {
-        COMP_CHARGE_0806,      4, 2
-    };
-    cfg->custom_cards[1].widgets[9] = (grid_widget_t)
-    {
-        COMP_MLX_2406,         0, 3
-    };
-    cfg->custom_cards[1].widgets[10] = (grid_widget_t)
-    {
-        COMP_BATT_TEMP_0806,   3, 3
-    };
-    cfg->custom_cards[1].widgets[11] = (grid_widget_t)
-    {
-        COMP_PRJ_TEMP_0806,    4, 3
-    };
-    cfg->custom_cards[1].widgets[12] = (grid_widget_t)
-    {
-        COMP_TMAG_2406,        0, 4
-    };
-    cfg->custom_cards[1].widgets[13] = (grid_widget_t)
-    {
-        COMP_NOFLY_0806,       3, 4
-    };
-    cfg->custom_cards[1].widgets[14] = (grid_widget_t)
-    {
-        COMP_ATTITUDE_2406,    0, 5
-    };
-    cfg->custom_cards[1].widgets[15] = (grid_widget_t)
-    {
-        COMP_SENSOR_STAT_1606, 3, 5
-    };
+        cfg->custom_cards[card_idx].widget_count = module_counts[card_idx];
+        (void)snprintf(cfg->custom_cards[card_idx].title, sizeof(cfg->custom_cards[card_idx].title), "%s", module_titles[card_idx]);
+        for (uint8_t i = 0U; i < module_counts[card_idx]; i++) cfg->custom_cards[card_idx].widgets[i] = module_cards[card_idx][i];
+    }
     /* ========== [A] 默认 side 固定栏 2x7 网格 (160x420) ==========
      * 160x420 区域 = 280px) x 760px)，由 render_left_anchor_grid() 渲染
      *
@@ -406,14 +302,7 @@ void sys_config_defaults(sys_config_t *cfg)
      */
     memset(cfg->card_order, PAGE_ID_UNUSED, sizeof(cfg->card_order));
     cfg->card_order[PAGE_POS_INFO]   = PAGE_ID_INFO;//菜单，不算卡
-    cfg->card_order[PAGE_POS_1]      = PAGE_ID_BLANK;
-    cfg->card_order[PAGE_POS_2]      = PAGE_ID_COMPASS;
-    cfg->card_order[PAGE_POS_3]      = PAGE_ID_DECO;
-    cfg->card_order[PAGE_POS_4]      = PAGE_ID_PLAN;
-    cfg->card_order[PAGE_POS_5]      = PAGE_ID_GAS;
-    cfg->card_order[PAGE_POS_6]      = PAGE_ID_CUSTOM_GRID;
-    cfg->card_order[PAGE_POS_7]      = PAGE_ID_CUSTOM_GRID;
-    /* PAGE_POS_8 ~ PAGE_POS_12 保持 PAGE_ID_UNUSED */
+    for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < PAGE_POS_DYNAMIC_FIRST + cfg->custom_card_count; pos++) cfg->card_order[pos] = PAGE_ID_CUSTOM_GRID;
     cfg->card_order[PAGE_POS_SETUP]  = PAGE_ID_SETUP;//菜单，不算卡
 
     /* ========== [A] 卡片槽位映射 ==========
@@ -422,8 +311,7 @@ void sys_config_defaults(sys_config_t *cfg)
      * ĬϣһCUSTOM_GRID Ƭӳcustom_cards[0]
      */
     memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
-    cfg->custom_card_slot[PAGE_POS_6] = 0;  /* 默认 CUSTOM_GRID 映射 custom_cards[0] */
-    cfg->custom_card_slot[PAGE_POS_7] = 1;  /* 传感器预览 CUSTOM_GRID 映射 custom_cards[1] */
+    for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < PAGE_POS_DYNAMIC_FIRST + cfg->custom_card_count; pos++) cfg->custom_card_slot[pos] = (uint8_t)(pos - PAGE_POS_DYNAMIC_FIRST);
 
     /* ========== [A] 用户设置默认========== */
     cfg->mod_ppo2       = 1.4f;
