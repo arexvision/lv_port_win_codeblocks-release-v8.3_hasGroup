@@ -386,7 +386,7 @@ static void sim_alert_tick(void)
                              ndl_alarm_min > 0U &&
                              g_sensor_data.ndl >= 0 &&
                              g_sensor_data.ndl <= (int16_t)ndl_alarm_min &&
-                             g_sensor_data.stop_type == STOP_NONE);
+                             (g_sensor_data.stop_type == STOP_NONE || g_sensor_data.stop_type == STOP_SAFETY));
     }
     sim_alert_apply_auto(ALARM_ID_WARN_CNS_HIGH,
                          g_sensor_data.cns_pct >= s_sim_alert_config.cns_warn_pct);
