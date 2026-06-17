@@ -85,6 +85,10 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
     case SUBMENU_SETTING_UNITS:
         ui_on_units_set((uint8_t)setting->value);
         break;
+    case SUBMENU_SETTING_TEMP_UNIT:
+        ui_on_temperature_unit_set((uint8_t)setting->value);
+        screen_refresh_left_panel();
+        break;
     case SUBMENU_SETTING_DATETIME_FIELD:
     {
         uint16_t field_value = setting->value;

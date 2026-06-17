@@ -176,9 +176,9 @@ void ui_vm_info_lines_update(ui_vm_info_lines_t *vm, uint8_t info_group_index)
         vm_format_pressure(vm->lines[0], sizeof(vm->lines[0]), "POD 1", bus_get_pod1_bar());
         vm_format_pressure(vm->lines[1], sizeof(vm->lines[1]), "POD 2", bus_get_pod2_bar());
         (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "BATTERY: %.0f%%", (double)battery_pct);
-        (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "TEMP: %.1fC", (double)bus_get_temperature());
+        (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "TEMP: %.1f%s", (double)bus_get_temperature_display(bus_get_temperature()), bus_get_temperature_unit_label());
 
-        (void)snprintf(vm->lines[4], sizeof(vm->lines[4]), "BAT/PRJ: %.1f/%.1fC", (double)bus_get_bat_temperature(), (double)bus_get_prj_temperature());
+        (void)snprintf(vm->lines[4], sizeof(vm->lines[4]), "BAT/PRJ: %.1f/%.1f%s", (double)bus_get_temperature_display(bus_get_bat_temperature()), (double)bus_get_temperature_display(bus_get_prj_temperature()), bus_get_temperature_unit_label());
         vm->count = 5U;
         break;
     }

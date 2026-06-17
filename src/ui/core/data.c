@@ -7,6 +7,7 @@
 
 #include "data.h"
 #include "callbacks.h"
+#include "ui_settings.h"
 #include "../../config/build/ui_build_flags.h"
 #include "../../config/build/ui_debug_flags.h"
 #include <math.h>
@@ -1827,6 +1828,16 @@ void bus_set_time_24h_enabled(bool enabled)
     }
 }
 
+void bus_set_temperature_unit(uint8_t unit)
+{
+    uint8_t value = (unit == UI_TEMP_UNIT_F) ? UI_TEMP_UNIT_F : UI_TEMP_UNIT_C;
+    if (g_sys_config.temperature_unit != value)
+    {
+        g_sys_config.temperature_unit = value;
+        bus_mark_dirty(DIRTY_SYSTEM);
+    }
+}
+
 void bus_set_safety_stop_mode(uint8_t mode)
 {
     if (g_sys_config.safety_stop_mode != mode)
@@ -2745,6 +2756,21 @@ uint8_t bus_get_log_rate(void)
 bool bus_get_time_24h_enabled(void)
 {
     return g_sys_config.time_24h_enabled != 0U;
+}
+
+uint8_t bus_get_temperature_unit(void)
+{
+    return (g_sys_config.temperature_unit == UI_TEMP_UNIT_F) ? UI_TEMP_UNIT_F : UI_TEMP_UNIT_C;
+}
+
+const char *bus_get_temperature_unit_label(void)
+{
+    return ui_temp_unit_label(bus_get_temperature_unit());
+}
+
+float bus_get_temperature_display(float temp_c)
+{
+    return ui_temp_display_from_c(temp_c, bus_get_temperature_unit());
 }
 
 uint8_t bus_get_safety_stop_mode(void)

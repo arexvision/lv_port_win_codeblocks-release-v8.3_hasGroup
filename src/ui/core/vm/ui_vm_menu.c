@@ -10,6 +10,7 @@
 #include "ui_vm_system_view.h"
 #include "../../views/submenu_model.h"
 #include "../data.h"
+#include "../ui_settings.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -346,6 +347,7 @@ void ui_vm_ai_menu_update(ui_vm_simple_menu_t *vm,
 
 void ui_vm_display_menu_update(ui_vm_simple_menu_t *vm,
                                uint8_t units_mode,
+                               uint8_t temperature_unit,
                                uint8_t log_rate_s,
                                uint8_t bluetooth_enabled)
 {
@@ -356,11 +358,12 @@ void ui_vm_display_menu_update(ui_vm_simple_menu_t *vm,
 
     (void)memset(vm, 0, sizeof(*vm));
     (void)snprintf(vm->items[0], sizeof(vm->items[0]), "UNITS: %s", vm_units_label(units_mode));
-    (void)snprintf(vm->items[1], sizeof(vm->items[1]), "%s", "Time/date");
-    (void)snprintf(vm->items[2], sizeof(vm->items[2]), "LOG RATE: %us", (unsigned)log_rate_s);
-    (void)snprintf(vm->items[3], sizeof(vm->items[3]), "BLUETOOTH: %s", vm_bluetooth_label(bluetooth_enabled));
-    (void)snprintf(vm->items[4], sizeof(vm->items[4]), "%s", "RESET DEFAULTS");
-    vm->count = 5U;
+    (void)snprintf(vm->items[1], sizeof(vm->items[1]), "TEMP: %s", ui_temp_unit_label(temperature_unit));
+    (void)snprintf(vm->items[2], sizeof(vm->items[2]), "%s", "Time/date");
+    (void)snprintf(vm->items[3], sizeof(vm->items[3]), "LOG RATE: %us", (unsigned)log_rate_s);
+    (void)snprintf(vm->items[4], sizeof(vm->items[4]), "BLUETOOTH: %s", vm_bluetooth_label(bluetooth_enabled));
+    (void)snprintf(vm->items[5], sizeof(vm->items[5]), "%s", "RESET DEFAULTS");
+    vm->count = 6U;
 }
 
 void ui_vm_datetime_menu_update(ui_vm_simple_menu_t *vm,

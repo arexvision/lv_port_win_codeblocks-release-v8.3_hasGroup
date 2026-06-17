@@ -396,6 +396,7 @@ static void build_rows(void)
         static const menu_item_id_t ids[] =
         {
             MENU_ITEM_DISPLAY_UNITS,
+            MENU_ITEM_DISPLAY_TEMP_UNIT,
             MENU_ITEM_DISPLAY_DATE_CLOCK,
             MENU_ITEM_DISPLAY_LOG_RATE,
             MENU_ITEM_DISPLAY_BLUETOOTH,

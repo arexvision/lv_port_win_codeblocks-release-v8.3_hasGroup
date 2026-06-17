@@ -31,6 +31,7 @@ typedef struct
     uint16_t time_alarm_min;
     uint16_t ndl_alarm_min;
     uint8_t units_mode;
+    uint8_t temperature_unit;
     uint8_t log_rate_s;
     uint8_t time_24h_enabled;
     uint8_t bluetooth_enabled;
@@ -87,6 +88,7 @@ void ui_on_time_alarm_set(uint16_t minutes);
 void ui_on_ndl_alarm_set(uint16_t minutes);
 void ui_on_vibration_test(void);
 void ui_on_units_set(uint8_t units);
+void ui_on_temperature_unit_set(uint8_t unit);
 void ui_on_datetime_field_set(uint8_t field, uint16_t value);
 void ui_on_datetime_action(uint8_t action);
 void ui_on_time_24h_set(bool enabled);

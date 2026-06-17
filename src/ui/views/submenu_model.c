@@ -119,6 +119,7 @@ static uint16_t s_depth_alarm_m = 40;
 static uint16_t s_time_alarm_min = 60;
 static uint8_t s_ndl_alarm_min = 5;
 static uint8_t s_units_mode = 0;         /* 0=METRIC, 1=IMPERIAL */
+static uint8_t s_temperature_unit = UI_TEMP_UNIT_DEFAULT;
 static uint8_t s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
 static uint8_t s_bluetooth_enabled = 0;  /* 0=OFF, 1=ON */
 static uint8_t s_time_24h_enabled = 1;   /* 1=24-hour, 0=12-hour AM/PM */
@@ -147,6 +148,7 @@ void submenu_sync_persisted_settings(void)
     s_time_alarm_min = snapshot.time_alarm_min;
     s_ndl_alarm_min = (uint8_t)snapshot.ndl_alarm_min;
     s_units_mode = snapshot.units_mode;
+    s_temperature_unit = (snapshot.temperature_unit == UI_TEMP_UNIT_F) ? UI_TEMP_UNIT_F : UI_TEMP_UNIT_C;
     s_log_rate_s = snapshot.log_rate_s;
     s_time_24h_enabled = snapshot.time_24h_enabled ? 1U : 0U;
     s_bluetooth_enabled = snapshot.bluetooth_enabled;
@@ -776,6 +778,9 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
     case SUBMENU_SETTING_UNITS:
         s_units_mode = (value > 1) ? 0 : (uint8_t)value;
         break;
+    case SUBMENU_SETTING_TEMP_UNIT:
+        s_temperature_unit = (value == UI_TEMP_UNIT_F) ? UI_TEMP_UNIT_F : UI_TEMP_UNIT_C;
+        break;
     case SUBMENU_SETTING_DATETIME_FIELD:
         submenu_commit_datetime_field(arg, value);
         break;
@@ -793,6 +798,7 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         break;
     case SUBMENU_SETTING_RESET_DEFAULTS:
         s_units_mode = 0;
+        s_temperature_unit = UI_TEMP_UNIT_DEFAULT;
         s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
         s_bluetooth_enabled = 0;
         s_time_24h_enabled = 1U;
@@ -1245,7 +1251,7 @@ static const char **build_nested_display_sys(uint8_t *out_count)
     ui_vm_simple_menu_t vm;
 
     submenu_sync_persisted_settings();
-    ui_vm_display_menu_update(&vm, s_units_mode, s_log_rate_s, s_bluetooth_enabled);
+    ui_vm_display_menu_update(&vm, s_units_mode, s_temperature_unit, s_log_rate_s, s_bluetooth_enabled);
     return copy_simple_menu_items(&vm, out_count);
 }
 
@@ -1508,7 +1514,7 @@ const char **submenu_child_items_for(const char *current_title,
         normalize_menu_key(item_text, key, sizeof(key));
         if (strcmp(clean_current_title ? clean_current_title : "", "DISPLAY") == 0)
         {
-            if (item_index == 1)
+            if (item_index == 2)
             {
                 lv_snprintf(key, sizeof(key), "%s", "DATE & CLOCK");
             }
@@ -1596,7 +1602,7 @@ bool submenu_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 4)
+    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 5)
     {
         out_setting->kind = SUBMENU_SETTING_RESET_DEFAULTS;
         out_setting->value = 0;
@@ -1690,7 +1696,14 @@ bool submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 2)
+    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 1)
+    {
+        out_setting->kind = SUBMENU_SETTING_TEMP_UNIT;
+        out_setting->value = (s_temperature_unit == UI_TEMP_UNIT_F) ? UI_TEMP_UNIT_C : UI_TEMP_UNIT_F;
+        return true;
+    }
+
+    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 3)
     {
         s_log_rate_s = bus_get_log_rate();
         out_setting->kind = SUBMENU_SETTING_LOG_RATE;
@@ -1698,7 +1711,7 @@ bool submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 3)
+    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 4)
     {
         out_setting->kind = SUBMENU_SETTING_BLUETOOTH;
         out_setting->value = s_bluetooth_enabled ? 0 : 1;
@@ -2072,7 +2085,7 @@ bool submenu_setting_from_ids(menu_id_t current_menu,
         item_text = "CONFIRM & ACTIVATE";
         break;
     case MENU_ITEM_DISPLAY_RESET:
-        item_index = 4U;
+        item_index = 5U;
         item_text = "RESET DEFAULTS";
         break;
     default:
@@ -2108,8 +2121,9 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
     case MENU_ITEM_AI_TANK_1:        item_index = 1U; break;
     case MENU_ITEM_AI_GTR:           item_index = 2U; break;
     case MENU_ITEM_DISPLAY_UNITS:    item_index = 0U; break;
-    case MENU_ITEM_DISPLAY_LOG_RATE: item_index = 2U; break;
-    case MENU_ITEM_DISPLAY_BLUETOOTH:item_index = 3U; break;
+    case MENU_ITEM_DISPLAY_TEMP_UNIT: item_index = 1U; break;
+    case MENU_ITEM_DISPLAY_LOG_RATE: item_index = 3U; break;
+    case MENU_ITEM_DISPLAY_BLUETOOTH:item_index = 4U; break;
     case MENU_ITEM_DATETIME_24H:     item_index = 2U; break;
     case MENU_ITEM_DATE_FORMAT_MM_DD_YY:
         item_index = 0U;

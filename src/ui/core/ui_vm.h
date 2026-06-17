@@ -57,6 +57,7 @@ void ui_vm_alerts_menu_update(ui_vm_simple_menu_t *vm,
                               uint8_t ndl_alarm_min);
 void ui_vm_display_menu_update(ui_vm_simple_menu_t *vm,
                                uint8_t units_mode,
+                               uint8_t temperature_unit,
                                uint8_t log_rate_s,
                                uint8_t bluetooth_enabled);
 void ui_vm_datetime_menu_update(ui_vm_simple_menu_t *vm,

@@ -33,6 +33,7 @@ static uint8_t s_oc_tech_o2_pct[5] = { 18U, 21U, 35U, 50U, 100U };
 static uint8_t s_oc_tech_he_pct[5] = { 45U, 35U, 25U, 0U, 0U };
 static float s_oc_tech_ppo2[5] = { 1.4f, 1.4f, 1.4f, 1.4f, 1.4f };
 static uint8_t s_units_mode = 0U;
+static uint8_t s_temperature_unit = UI_TEMP_UNIT_DEFAULT;
 static uint8_t s_bluetooth_enabled = 0U;
 static uint16_t s_datetime_year = 2026U;
 static uint8_t s_datetime_month = 1U;
@@ -327,6 +328,16 @@ void ui_on_units_set(uint8_t units)
 }
 
 WEAK_CALLBACK
+void ui_on_temperature_unit_set(uint8_t unit)
+{
+#ifdef PC_SIMULATOR
+    s_temperature_unit = (unit == UI_TEMP_UNIT_F) ? UI_TEMP_UNIT_F : UI_TEMP_UNIT_C;
+#endif
+    bus_set_temperature_unit(unit);
+    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Temp unit: %s\n", ui_temp_unit_label(unit));
+}
+
+WEAK_CALLBACK
 void ui_on_datetime_field_set(uint8_t field, uint16_t value)
 {
     static const char *labels[] = { "YEAR", "MONTH", "DAY", "HOUR", "MINUTE" };
@@ -414,6 +425,7 @@ void ui_on_reset_defaults(void)
     s_oc_tech_he_pct[4] = 0U;
     for (uint8_t i = 0U; i < 5U; i++) s_oc_tech_ppo2[i] = 1.4f;
     s_units_mode = 0U;
+    s_temperature_unit = UI_TEMP_UNIT_DEFAULT;
     s_bluetooth_enabled = 0U;
     s_datetime_year = 2026U;
     s_datetime_month = 1U;
@@ -425,6 +437,7 @@ void ui_on_reset_defaults(void)
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     bus_set_time_24h_enabled(true);
+    bus_set_temperature_unit(UI_TEMP_UNIT_DEFAULT);
     bus_set_sys_time(0U, 0U, 0U);
     bus_set_depth_alarm_m(40U);
     bus_set_time_alarm_min(60U);
@@ -449,6 +462,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->ndl_alarm_min = bus_get_ndl_alarm_min();
 #ifdef PC_SIMULATOR
     out_snapshot->units_mode = s_units_mode;
+    out_snapshot->temperature_unit = s_temperature_unit;
     out_snapshot->log_rate_s = bus_get_log_rate();
     out_snapshot->time_24h_enabled = bus_get_time_24h_enabled() ? 1U : 0U;
     out_snapshot->bluetooth_enabled = s_bluetooth_enabled;
@@ -480,6 +494,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->datetime_minute = (uint8_t)bus_get_sys_time_m();
 #else
     out_snapshot->units_mode = 0U;
+    out_snapshot->temperature_unit = bus_get_temperature_unit();
     out_snapshot->log_rate_s = bus_get_log_rate();
     out_snapshot->time_24h_enabled = bus_get_time_24h_enabled() ? 1U : 0U;
     out_snapshot->bluetooth_enabled = 0U;

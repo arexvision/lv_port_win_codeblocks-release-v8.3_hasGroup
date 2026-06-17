@@ -443,10 +443,10 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%.2f", (double)bus_get_battery_voltage());
         break;
     case COMP_BATT_TEMP_0806:
-        (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_bat_temperature());
+        (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_temperature_display(bus_get_bat_temperature()));
         break;
     case COMP_PRJ_TEMP_0806:
-        (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_prj_temperature());
+        (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_temperature_display(bus_get_prj_temperature()));
         break;
     case COMP_CHARGE_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%s", bus_get_charge_state() == 1U ? "CHG" : bus_get_charge_state() == 2U ? "ON" : "OFF");
@@ -590,7 +590,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_avg_depth());
         break;
     case COMP_TEMP_0806:
-        (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_temperature());
+        (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_temperature_display(bus_get_temperature()));
         break;
 
     case COMP_BATTERY_0806:
@@ -598,10 +598,10 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         break;
 
     case COMP_TEMP_MIN_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_min_temp());
+        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_temperature_display(bus_get_min_temp()));
         break;
     case COMP_TEMP_AVG_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_avg_temp());
+        (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_temperature_display(bus_get_avg_temp()));
         break;
     default:
         break;

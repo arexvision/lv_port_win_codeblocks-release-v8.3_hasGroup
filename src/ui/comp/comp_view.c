@@ -1226,13 +1226,10 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_set_style_text_color(temp_lbl, GREEN, 0);
         lv_obj_align(temp_lbl, LV_ALIGN_RIGHT_MID, -4, 0);
         if (SHOW_PLACEHOLDER_ON_INIT)
-            lv_label_set_text(temp_lbl, "-- C");
+            lv_label_set_text_fmt(temp_lbl, "-- %s", bus_get_temperature_unit_label());
         else
         {
-            float temp_c = bus_get_temperature();
-            int16_t temp_int = (int16_t)temp_c;
-            uint8_t temp_dec = (uint8_t)(fabsf(temp_c - (float)temp_int) * 10.0f);
-            lv_label_set_text_fmt(temp_lbl, "%d.%u C", (int)temp_int, (unsigned)temp_dec);
+            lv_label_set_text_fmt(temp_lbl, "%.1f %s", (double)bus_get_temperature_display(bus_get_temperature()), bus_get_temperature_unit_label());
         }
 
         if (sys_handle != NULL)
@@ -1648,10 +1645,7 @@ void comp_refresh_sys(dirty_mask_t dirty_mask)
 
         if (screen_obj_refresh_visible(h->temp_lbl))
         {
-            float temp_c = bus_get_temperature();
-            int16_t temp_int = (int16_t)temp_c;
-            uint8_t temp_dec = (uint8_t)(fabsf(temp_c - (float)temp_int) * 10.0f);
-            comp_view_label_set_text_fmt_if_changed(h->temp_lbl, "%d.%u C", (int)temp_int, (unsigned)temp_dec);
+            comp_view_label_set_text_fmt_if_changed(h->temp_lbl, "%.1f %s", (double)bus_get_temperature_display(bus_get_temperature()), bus_get_temperature_unit_label());
         }
     }
 }
