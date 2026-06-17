@@ -89,7 +89,7 @@ static const char *vm_plan_row_time_text(const dive_plan_row_t *row, char *buf, 
 
 static void vm_plan_format_depth_text(char *buf, size_t buf_size, float depth_m)
 {
-    (void)snprintf(buf, buf_size, "%.0f%s", (double)bus_get_depth_display(depth_m), bus_get_depth_unit_label());
+    (void)snprintf(buf, buf_size, "%.0f", (double)bus_get_depth_display(depth_m));
 }
 
 void ui_vm_dive_plan_inputs_update(ui_vm_dive_plan_inputs_t *vm)
@@ -169,9 +169,8 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
                    (unsigned)vm->gf_high);
     (void)snprintf(vm->ready_last_stop_text,
                    sizeof(vm->ready_last_stop_text),
-                   "Last Stop:       %.0f%s",
-                   (double)bus_get_depth_display((float)vm->last_stop_depth_m),
-                   bus_get_depth_unit_label());
+                   "Last Stop:       %.0f",
+                   (double)bus_get_depth_display((float)vm->last_stop_depth_m));
     (void)snprintf(vm->ready_start_cns_text,
                    sizeof(vm->ready_start_cns_text),
                    "%s",
@@ -228,13 +227,13 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
     {
         input_value = (uint16_t)(snapshot.depth_m + 0.5f);
         (void)snprintf(vm->input_prompt, sizeof(vm->input_prompt), "%s", "Enter Bottom Depth");
-        (void)snprintf(vm->input_unit, sizeof(vm->input_unit), "in %s", bus_get_depth_units_label());
+        (void)snprintf(vm->input_unit, sizeof(vm->input_unit), "%s", "");
     }
 
     if (page == (uint8_t)DIVE_PLAN_PAGE_DEPTH)
     {
-        (void)snprintf(vm->input_min_text, sizeof(vm->input_min_text), "MIN: %.0f%s", (double)bus_get_depth_display((float)input_min), bus_get_depth_unit_label());
-        (void)snprintf(vm->input_max_text, sizeof(vm->input_max_text), "MAX: %.0f%s", (double)bus_get_depth_display((float)input_max), bus_get_depth_unit_label());
+        (void)snprintf(vm->input_min_text, sizeof(vm->input_min_text), "MIN: %.0f", (double)bus_get_depth_display((float)input_min));
+        (void)snprintf(vm->input_max_text, sizeof(vm->input_max_text), "MAX: %.0f", (double)bus_get_depth_display((float)input_max));
     }
     else
     {
@@ -261,11 +260,7 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
         row = snapshot.rows[row_index];
 
         vm->rows[i].valid = 1U;
-        (void)snprintf(vm->rows[i].depth_text,
-                       sizeof(vm->rows[i].depth_text),
-                       "%.0f%s",
-                       (double)bus_get_depth_display(row.depth_m),
-                       bus_get_depth_unit_label());
+        (void)snprintf(vm->rows[i].depth_text, sizeof(vm->rows[i].depth_text), "%.0f", (double)bus_get_depth_display(row.depth_m));
         (void)snprintf(vm->rows[i].time_text,
                        sizeof(vm->rows[i].time_text),
                        "%s",
