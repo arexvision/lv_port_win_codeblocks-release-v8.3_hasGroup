@@ -87,6 +87,11 @@ static const char *vm_plan_row_time_text(const dive_plan_row_t *row, char *buf, 
     return buf;
 }
 
+static void vm_plan_format_depth_text(char *buf, size_t buf_size, float depth_m)
+{
+    (void)snprintf(buf, buf_size, "%.0f%s", (double)bus_get_depth_display(depth_m), bus_get_depth_unit_label());
+}
+
 void ui_vm_dive_plan_inputs_update(ui_vm_dive_plan_inputs_t *vm)
 {
     uint8_t gas_count;
@@ -154,7 +159,7 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
     vm->result_rows_per_page = submenu_dive_plan_get_result_rows_per_page();
     vm->result_summary_page = snapshot.result_summary_page;
 
-    (void)snprintf(vm->depth_value, sizeof(vm->depth_value), "%u", (unsigned)(snapshot.depth_m + 0.5f));
+    vm_plan_format_depth_text(vm->depth_value, sizeof(vm->depth_value), snapshot.depth_m);
     (void)snprintf(vm->time_value, sizeof(vm->time_value), "%u", (unsigned)snapshot.time_min);
     (void)snprintf(vm->rmv_value, sizeof(vm->rmv_value), "%u", (unsigned)(snapshot.rmv_lpm + 0.5f));
     (void)snprintf(vm->ready_gf_text,
@@ -223,11 +228,19 @@ void ui_vm_dive_plan_view_update(ui_vm_dive_plan_view_t *vm)
     {
         input_value = (uint16_t)(snapshot.depth_m + 0.5f);
         (void)snprintf(vm->input_prompt, sizeof(vm->input_prompt), "%s", "Enter Bottom Depth");
-        (void)snprintf(vm->input_unit, sizeof(vm->input_unit), "%s", "in meters");
+        (void)snprintf(vm->input_unit, sizeof(vm->input_unit), "in %s", bus_get_depth_units_label());
     }
 
-    (void)snprintf(vm->input_min_text, sizeof(vm->input_min_text), "MIN: %u", (unsigned)input_min);
-    (void)snprintf(vm->input_max_text, sizeof(vm->input_max_text), "MAX: %u", (unsigned)input_max);
+    if (page == (uint8_t)DIVE_PLAN_PAGE_DEPTH)
+    {
+        (void)snprintf(vm->input_min_text, sizeof(vm->input_min_text), "MIN: %.0f%s", (double)bus_get_depth_display((float)input_min), bus_get_depth_unit_label());
+        (void)snprintf(vm->input_max_text, sizeof(vm->input_max_text), "MAX: %.0f%s", (double)bus_get_depth_display((float)input_max), bus_get_depth_unit_label());
+    }
+    else
+    {
+        (void)snprintf(vm->input_min_text, sizeof(vm->input_min_text), "MIN: %u", (unsigned)input_min);
+        (void)snprintf(vm->input_max_text, sizeof(vm->input_max_text), "MAX: %u", (unsigned)input_max);
+    }
     (void)input_value;
 
     if (vm->result_summary_page != 0U)

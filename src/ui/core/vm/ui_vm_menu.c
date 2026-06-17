@@ -35,9 +35,9 @@ static const char *vm_safety_stop_label(uint8_t value)
     return ui_safety_stop_label(value);
 }
 
-static const char *vm_last_deco_label(uint8_t value)
+static void vm_format_depth_compact(char *buf, size_t buf_size, float depth_m)
 {
-    return (value != 0U) ? "6M" : "3M";
+    (void)snprintf(buf, buf_size, "%.0f%s", (double)bus_get_depth_display(depth_m), bus_get_depth_unit_label());
 }
 
 static const char *vm_altitude_label(uint8_t value)
@@ -250,20 +250,23 @@ void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
                                   uint8_t safety_stop_mode,
                                   uint8_t altitude_level)
 {
+    char safety_depth[12];
+    char last_deco_depth[12];
+
     if (vm == NULL)
     {
         return;
     }
 
     (void)memset(vm, 0, sizeof(*vm));
+    vm_format_depth_compact(safety_depth, sizeof(safety_depth), 5.0f);
+    vm_format_depth_compact(last_deco_depth, sizeof(last_deco_depth), (bus_get_last_deco_stop() == 6U) ? 6.0f : 3.0f);
 
     (void)snprintf(vm->items[0], sizeof(vm->items[0]), "SALINITY: %s", vm_salinity_label(salinity_mode));
     (void)snprintf(vm->items[1], sizeof(vm->items[1]), "MOD PO2: %.1f", (double)bus_get_mod_ppo2());
-    (void)snprintf(vm->items[2], sizeof(vm->items[2]), "SAFETY STOP: %s", vm_safety_stop_label(safety_stop_mode));
-    (void)snprintf(vm->items[3],
-                   sizeof(vm->items[3]),
-                   "LAST DECO: %s",
-                   vm_last_deco_label(bus_get_last_deco_stop() == 6U ? 1U : 0U));
+    if (safety_stop_mode == UI_SAFETY_STOP_OFF) (void)snprintf(vm->items[2], sizeof(vm->items[2]), "SAFETY STOP: %s", vm_safety_stop_label(safety_stop_mode));
+    else (void)snprintf(vm->items[2], sizeof(vm->items[2]), "SAFETY STOP: %s @ %s", vm_safety_stop_label(safety_stop_mode), safety_depth);
+    (void)snprintf(vm->items[3], sizeof(vm->items[3]), "LAST DECO: %s", last_deco_depth);
     (void)snprintf(vm->items[4], sizeof(vm->items[4]), "ALTITUDE: %s", vm_altitude_label(altitude_level));
     vm->count = 5U;
 }

@@ -8,6 +8,7 @@
 #include "screen_edit.h"
 #include "screen_internal.h"
 #include "../core/callbacks.h"
+#include "../core/data.h"
 #include "../core/ui_state.h"
 #include "../core/ui_runtime.h"
 #include "../core/ui_vm.h"
@@ -19,6 +20,11 @@ lv_timer_t *s_edit_flash_timer = NULL;
 lv_obj_t   *s_edit_flash_badge = NULL;
 lv_obj_t   *s_edit_flash_val_lbl = NULL;
 bool        s_edit_flash_on = false;
+
+static bool edit_kind_is_depth(submenu_setting_kind_t kind)
+{
+    return kind == SUBMENU_SETTING_PLAN_DEPTH || kind == SUBMENU_SETTING_DEPTH_ALARM;
+}
 
 static void edit_flash_timer_cb(lv_timer_t *t)
 {
@@ -66,6 +72,10 @@ static void format_edit_value_text(char *buf, size_t buf_size, submenu_setting_k
         unsigned int v = (unsigned int)(value + 0.5f);
         snprintf(buf, buf_size, (arg == 0) ? "%04u" : "%02u", v);
     }
+    else if (edit_kind_is_depth(kind))
+    {
+        snprintf(buf, buf_size, "%.0f%s", (double)bus_get_depth_display(value), bus_get_depth_unit_label());
+    }
     else if (decimals == 0)
     {
         snprintf(buf, buf_size, "%.0f", (double)value);
@@ -80,7 +90,7 @@ static void format_edit_committed_text(char *buf, size_t buf_size, submenu_setti
 {
     switch (kind)
     {
-    case SUBMENU_SETTING_PLAN_DEPTH: snprintf(buf, buf_size, "DEPTH: %.0fm", (double)value); break;
+    case SUBMENU_SETTING_PLAN_DEPTH: snprintf(buf, buf_size, "DEPTH: %.0f%s", (double)bus_get_depth_display(value), bus_get_depth_unit_label()); break;
     case SUBMENU_SETTING_PLAN_TIME: snprintf(buf, buf_size, "TIME: %.0fmin", (double)value); break;
     case SUBMENU_SETTING_PLAN_RMV: snprintf(buf, buf_size, "RMV: %.0fL/min", (double)value); break;
     case SUBMENU_SETTING_MOD_PPO2: snprintf(buf, buf_size, "MOD PO2: %.1f", (double)value); break;
@@ -88,7 +98,7 @@ static void format_edit_committed_text(char *buf, size_t buf_size, submenu_setti
     case SUBMENU_SETTING_NITROX_O2: snprintf(buf, buf_size, "O2: %.0f%%", (double)value); break;
     case SUBMENU_SETTING_3GAS_O2: snprintf(buf, buf_size, "GAS %u: %.0f%%", (unsigned)(arg + 1U), (double)value); break;
     case SUBMENU_SETTING_OC_TECH_GAS: snprintf(buf, buf_size, "%s PERCENT: %.0f%%", (arg % 2U) ? "HE" : "O2", (double)value); break;
-    case SUBMENU_SETTING_DEPTH_ALARM: snprintf(buf, buf_size, "DEPTH ALARM: %.0fm", (double)value); break;
+    case SUBMENU_SETTING_DEPTH_ALARM: snprintf(buf, buf_size, "DEPTH ALARM: %.0f%s", (double)bus_get_depth_display(value), bus_get_depth_unit_label()); break;
     case SUBMENU_SETTING_TIME_ALARM: snprintf(buf, buf_size, "TIME ALARM: %.0fmin", (double)value); break;
     case SUBMENU_SETTING_NDL_ALARM: snprintf(buf, buf_size, "LOW NDL ALARM: %.0fmin", (double)value); break;
     case SUBMENU_SETTING_DATETIME_FIELD:
