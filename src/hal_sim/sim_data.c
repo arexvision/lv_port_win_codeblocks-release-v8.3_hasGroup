@@ -33,6 +33,9 @@ static float sim_default_air_mod_m(void)
 #define SIM_LAYOUT_SWITCH_TICKS 5U
 #define SIM_DIVE_ENTRY_DEPTH_M 1.2f
 #define SIM_SURFACE_DEPTH_M 0.8f
+#define SIM_TEMP_MIN_C 20.0f
+#define SIM_TEMP_MAX_C 60.0f
+#define SIM_TEMP_STEP_C 1.0f
 #ifndef SIM_SURFACE_CONFIRM_S
 #define SIM_SURFACE_CONFIRM_S 5U
 #endif
@@ -58,7 +61,6 @@ typedef struct
     uint16_t otu;
     float battery_pct;
     float temperature_c;
-    float temp_offset;
     uint16_t layout_tick;
     uint8_t layout_phase;
     uint16_t phase_tick;
@@ -88,8 +90,7 @@ static sim_state_t s_sim = {
     .start_cns_pct = 0,
     .otu = 0,
     .battery_pct = 85.0f,
-    .temperature_c = 25.0f,
-    .temp_offset = 0.0f,
+    .temperature_c = SIM_TEMP_MIN_C,
     .layout_tick = 0,
     .layout_phase = 0,
     .phase_tick = 0,
@@ -129,6 +130,18 @@ static void sim_update_mlx_diagnostics(uint32_t tick_s)
     bus_set_mlx(120.0f + phase,
                 -80.0f + (phase * 0.5f),
                 35.0f - (phase * 0.25f));
+}
+
+static void sim_update_temperature(void)
+{
+    s_sim.temperature_c += SIM_TEMP_STEP_C;
+    if (s_sim.temperature_c > SIM_TEMP_MAX_C) {
+        s_sim.temperature_c = SIM_TEMP_MIN_C;
+    }
+
+    bus_set_temperature(s_sim.temperature_c);
+    bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
+    bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
 }
 
 static void sim_update_runtime_metrics(uint16_t time_scale)
@@ -235,7 +248,7 @@ static void sim_reset_for_tcp_debug(void)
 {
     memset(&s_sim, 0, sizeof(s_sim));
     s_sim.battery_pct = 86.0f;
-    s_sim.temperature_c = 25.0f;
+    s_sim.temperature_c = SIM_TEMP_MIN_C;
     s_sim.next_log_no = 1U;
     s_sim.start_h = 10U;
     s_sim.start_m = 55U;
@@ -711,14 +724,7 @@ static void sim_tick_cb(lv_timer_t *t)
             s_sim.battery_pct += 1.2f;
             bus_set_battery(s_sim.battery_pct);
 
-            s_sim.temp_offset += 1.0f;
-            if (s_sim.temp_offset > 5.0f) {
-                s_sim.temp_offset = -5.0f;
-            }
-            s_sim.temperature_c = 25.0f + s_sim.temp_offset;
-            bus_set_temperature(s_sim.temperature_c);
-            bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
-            bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+            sim_update_temperature();
             sim_update_mlx_diagnostics(s_sim.dive_time_s);
             sim_update_runtime_metrics(time_scale);
 
@@ -757,14 +763,7 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.battery_pct += 1.2f;
     bus_set_battery(s_sim.battery_pct);
 
-    s_sim.temp_offset += 1.0f;
-    if (s_sim.temp_offset > 5.0f) {
-        s_sim.temp_offset = -5.0f;
-    }
-    s_sim.temperature_c = 25.0f + s_sim.temp_offset;
-    bus_set_temperature(s_sim.temperature_c);
-    bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
-    bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+    sim_update_temperature();
     sim_update_mlx_diagnostics(s_sim.dive_time_s);
 
     if (current_depth_m > 12.0f) {
