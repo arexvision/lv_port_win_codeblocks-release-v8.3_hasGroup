@@ -191,7 +191,7 @@ uint32_t switch_penalty_seconds;
 5. `switch_penalty_seconds` 是 planner 预测用的同深度切气延迟。
 6. `ceiling_violated == 1` 表示 plan 时当前深度已经浅于 GF-high ceiling；即使 `stops/tts` 为 0，产品层也必须提示违规风险。
 
-DIVE PLAN 结果页需要注意：`arex_deco_plan()` 不返回上升段数组。PC 适配层为了列表可读性，会把 `tts_seconds - sum(stops[].duration_seconds)` 拆成到下一可见停站的 `asc` 展示行；这些行不是算法停站，不能用于 runtime stop 判断。最终到 `0m` 的升水段不作为 `0m asc` 行显示，但仍计入 Runtime 和 Gas 汇总。
+DIVE PLAN 结果页需要注意：`arex_deco_plan()` 不返回上升段数组。PC 适配层为了列表可读性，只显示“计划底部深度到第一个可见停站”的 `asc` 展示行；该行不是算法停站，不能用于 runtime stop 判断。后续停站之间和最终到 `0m` 的升水段不作为 `asc` 行显示，但仍计入 Runtime 和 Gas 汇总。
 
 ## 当前项目的实时输出链路
 

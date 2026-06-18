@@ -1118,6 +1118,7 @@ bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv
     uint32_t used_ascent_s = 0U;
     float ascent_distance_m = plan_ascent_display_distance_m(depth_m, &schedule);
     float ascent_from_depth_m = depth_m;
+    bool first_ascent_handled = false;
     (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_BOTTOM, (int16_t)(depth_m + 0.5f), bottom_time_min, round_up_minutes(run_s), bottom_gas, bottom_gas_l);
 
     for (uint8_t i = 0U; i < schedule.stop_count && out_snapshot->entry_count < PLAN_MAX_ROWS; i++)
@@ -1135,10 +1136,11 @@ bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv
             uint16_t ascent_l = gas_qty_l((ascent_from_depth_m + stop->depth_m) * 0.5f, segment_s, rmv_lpm, &plan_state.config);
             run_s += segment_s;
             total_ascent_l = (uint16_t)(total_ascent_l + ascent_l);
-            if (out_snapshot->entry_count + 1U < PLAN_MAX_ROWS)
+            if (!first_ascent_handled && segment_s > 0U && out_snapshot->entry_count + 1U < PLAN_MAX_ROWS)
             {
                 (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_ASCENT, (int16_t)(stop->depth_m + 0.5f), round_up_minutes(segment_s), round_up_minutes(run_s), ascent_gas, ascent_l);
             }
+            first_ascent_handled = true;
             ascent_from_depth_m = stop->depth_m;
         }
 

@@ -487,13 +487,13 @@
 新口径：
 
 - 算法接口语义不变：`arex_deco_plan()` 仍只返回 `schedule.stops[]` 和 `tts_seconds`。
-- UI/PC 适配层将总上升时间按深度段拆到“当前深度 -> 下一可见停站”之前，生成 `DIVE_PLAN_ROW_ASCENT` 展示行；例如 `40m` bottom 后会出现到 `15m` 首停的 `asc` 行。
-- 最终升水到 `0m` 的段落不再显示为单独 `0m asc` 行，但仍计入 `total_runtime_min` 和 `total_gas_l`。
+- UI/PC 适配层只把“计划底部深度 -> 第一个可见停站”的上升段生成为 `DIVE_PLAN_ROW_ASCENT`；例如 `40m` bottom 后会出现到 `15m` 首停的 `asc` 行。
+- 后续停站之间的移动和最终升水到 `0m` 不再显示为单独 `asc` 行，但仍计入 `total_runtime_min` 和 `total_gas_l`。
 - 上升段只是结果页展示项，不回写为算法停站，也不参与 runtime DECO/SAFE 当前站判断。
 
 验证：
 
-- 40 m / 25 min 示例中，结果页不再出现最后一行 `0 asc`。
+- 40 m / 25 min 示例中，结果页不再出现最后一行 `0 asc`，也不出现各减压站之间的额外 `asc` 行。
 - 若首个算法停站为 15 m，则 bottom 行后应有一条 `15 / asc` 展示行，然后才是 `15 / <停留分钟>` 的停站行。
 - 结果页 summary 的 Runtime 应继续等于 `descent + bottom + schedule.tts_seconds`，不会因为隐藏 `0m asc` 行而少算最后升水时间。
 
