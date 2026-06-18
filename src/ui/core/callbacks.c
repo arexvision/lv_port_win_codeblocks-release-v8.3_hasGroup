@@ -30,9 +30,11 @@ static uint8_t s_nitrox_o2_pct = 32U;
 static float s_nitrox_ppo2 = 1.4f;
 static uint8_t s_three_gas_o2_pct[3] = { 21U, 32U, 100U };
 static float s_three_gas_ppo2[3] = { 1.4f, 1.4f, 1.4f };
+static uint8_t s_three_gas_active[3] = { 1U, 1U, 1U };
 static uint8_t s_oc_tech_o2_pct[5] = { 18U, 21U, 35U, 50U, 100U };
 static uint8_t s_oc_tech_he_pct[5] = { 45U, 35U, 25U, 0U, 0U };
 static float s_oc_tech_ppo2[5] = { 1.4f, 1.4f, 1.4f, 1.4f, 1.4f };
+static uint8_t s_oc_tech_active[5] = { 1U, 1U, 1U, 1U, 1U };
 static uint8_t s_units_mode = 0U;
 static uint8_t s_temperature_unit = UI_TEMP_UNIT_DEFAULT;
 static uint8_t s_bluetooth_enabled = 0U;
@@ -137,6 +139,7 @@ void ui_on_altitude_range_set(uint8_t level)
     };
     const char *label = (level < (sizeof(labels) / sizeof(labels[0]))) ? labels[level] : "UNKNOWN";
     bus_set_altitude_level(level);
+    (void)label;
     UI_CALLBACK_TRACE("[DIVE_SETUP] Altitude: %s\n", label);
 }
 
@@ -233,6 +236,20 @@ void ui_on_three_gas_ppo2_set(uint8_t slot, float ppo2)
 }
 
 WEAK_CALLBACK
+void ui_on_three_gas_active_set(uint8_t slot, bool active)
+{
+#ifdef PC_SIMULATOR
+    if (slot < (sizeof(s_three_gas_active) / sizeof(s_three_gas_active[0])))
+    {
+        s_three_gas_active[slot] = active ? 1U : 0U;
+    }
+#else
+    (void)slot;
+    (void)active;
+#endif
+}
+
+WEAK_CALLBACK
 void ui_on_oc_tech_gas_set(uint8_t slot, uint8_t o2_pct, uint8_t he_pct)
 {
 #ifdef PC_SIMULATOR
@@ -259,6 +276,20 @@ void ui_on_oc_tech_ppo2_set(uint8_t slot, float ppo2)
 #else
     (void)slot;
     (void)ppo2;
+#endif
+}
+
+WEAK_CALLBACK
+void ui_on_oc_tech_active_set(uint8_t slot, bool active)
+{
+#ifdef PC_SIMULATOR
+    if (slot < (sizeof(s_oc_tech_active) / sizeof(s_oc_tech_active[0])))
+    {
+        s_oc_tech_active[slot] = active ? 1U : 0U;
+    }
+#else
+    (void)slot;
+    (void)active;
 #endif
 }
 
@@ -423,6 +454,9 @@ void ui_on_reset_defaults(void)
     s_three_gas_ppo2[0] = 1.4f;
     s_three_gas_ppo2[1] = 1.4f;
     s_three_gas_ppo2[2] = 1.4f;
+    s_three_gas_active[0] = 1U;
+    s_three_gas_active[1] = 1U;
+    s_three_gas_active[2] = 1U;
     s_oc_tech_o2_pct[0] = 18U;
     s_oc_tech_o2_pct[1] = 21U;
     s_oc_tech_o2_pct[2] = 35U;
@@ -434,6 +468,7 @@ void ui_on_reset_defaults(void)
     s_oc_tech_he_pct[3] = 0U;
     s_oc_tech_he_pct[4] = 0U;
     for (uint8_t i = 0U; i < 5U; i++) s_oc_tech_ppo2[i] = 1.4f;
+    for (uint8_t i = 0U; i < 5U; i++) s_oc_tech_active[i] = 1U;
     s_units_mode = 0U;
     s_temperature_unit = UI_TEMP_UNIT_DEFAULT;
     s_bluetooth_enabled = 0U;
@@ -489,6 +524,9 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->three_gas_ppo2[0] = s_three_gas_ppo2[0];
     out_snapshot->three_gas_ppo2[1] = s_three_gas_ppo2[1];
     out_snapshot->three_gas_ppo2[2] = s_three_gas_ppo2[2];
+    out_snapshot->three_gas_active[0] = s_three_gas_active[0];
+    out_snapshot->three_gas_active[1] = s_three_gas_active[1];
+    out_snapshot->three_gas_active[2] = s_three_gas_active[2];
     out_snapshot->oc_tech_o2_pct[0] = s_oc_tech_o2_pct[0];
     out_snapshot->oc_tech_o2_pct[1] = s_oc_tech_o2_pct[1];
     out_snapshot->oc_tech_o2_pct[2] = s_oc_tech_o2_pct[2];
@@ -500,6 +538,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->oc_tech_he_pct[3] = s_oc_tech_he_pct[3];
     out_snapshot->oc_tech_he_pct[4] = s_oc_tech_he_pct[4];
     for (uint8_t i = 0U; i < 5U; i++) out_snapshot->oc_tech_ppo2[i] = s_oc_tech_ppo2[i];
+    for (uint8_t i = 0U; i < 5U; i++) out_snapshot->oc_tech_active[i] = s_oc_tech_active[i];
     out_snapshot->datetime_year = s_datetime_year;
     out_snapshot->datetime_month = s_datetime_month;
     out_snapshot->datetime_day = s_datetime_day;
@@ -522,6 +561,9 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->three_gas_ppo2[0] = 1.4f;
     out_snapshot->three_gas_ppo2[1] = 1.4f;
     out_snapshot->three_gas_ppo2[2] = 1.4f;
+    out_snapshot->three_gas_active[0] = 1U;
+    out_snapshot->three_gas_active[1] = 1U;
+    out_snapshot->three_gas_active[2] = 1U;
     out_snapshot->oc_tech_o2_pct[0] = 18U;
     out_snapshot->oc_tech_o2_pct[1] = 21U;
     out_snapshot->oc_tech_o2_pct[2] = 35U;
@@ -533,6 +575,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->oc_tech_he_pct[3] = 0U;
     out_snapshot->oc_tech_he_pct[4] = 0U;
     for (uint8_t i = 0U; i < 5U; i++) out_snapshot->oc_tech_ppo2[i] = 1.4f;
+    for (uint8_t i = 0U; i < 5U; i++) out_snapshot->oc_tech_active[i] = 1U;
     out_snapshot->datetime_year = 2026U;
     out_snapshot->datetime_month = 1U;
     out_snapshot->datetime_day = 1U;

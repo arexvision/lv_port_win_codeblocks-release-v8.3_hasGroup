@@ -416,7 +416,8 @@ void ui_vm_nitrox_menu_update(ui_vm_simple_menu_t *vm, uint8_t nitrox_o2_pct)
 }
 
 void ui_vm_three_gas_menu_update(ui_vm_simple_menu_t *vm,
-                                 const uint8_t three_gas_o2_pct[3])
+                                 const uint8_t three_gas_o2_pct[3],
+                                 const uint8_t three_gas_active[3])
 {
     if (vm == NULL)
     {
@@ -427,7 +428,12 @@ void ui_vm_three_gas_menu_update(ui_vm_simple_menu_t *vm,
     for (uint8_t i = 0U; i < 3U; i++)
     {
         const uint8_t value = (three_gas_o2_pct != NULL) ? three_gas_o2_pct[i] : 0U;
-        if (value == 21U)
+        const bool active = (three_gas_active == NULL) || (three_gas_active[i] != 0U);
+        if (!active)
+        {
+            (void)snprintf(vm->items[i], sizeof(vm->items[i]), "G%u: OFF", (unsigned)(i + 1U));
+        }
+        else if (value == 21U)
         {
             (void)snprintf(vm->items[i], sizeof(vm->items[i]), "G%u: AIR", (unsigned)(i + 1U));
         }
@@ -446,7 +452,8 @@ void ui_vm_three_gas_menu_update(ui_vm_simple_menu_t *vm,
 
 void ui_vm_oc_tech_menu_update(ui_vm_simple_menu_t *vm,
                                const uint8_t o2_pct[5],
-                               const uint8_t he_pct[5])
+                               const uint8_t he_pct[5],
+                               const uint8_t active[5])
 {
     if (vm == NULL)
     {
@@ -458,13 +465,14 @@ void ui_vm_oc_tech_menu_update(ui_vm_simple_menu_t *vm,
     {
         uint8_t o2 = (o2_pct != NULL) ? o2_pct[i] : 0U;
         uint8_t he = (he_pct != NULL) ? he_pct[i] : 0U;
+        bool slot_active = (active == NULL) || (active[i] != 0U);
 
         if (((uint16_t)o2 + (uint16_t)he) > 100U)
         {
             he = (o2 < 100U) ? (uint8_t)(100U - o2) : 0U;
         }
 
-        if (o2 == 0U)
+        if (!slot_active || o2 == 0U)
         {
             (void)snprintf(vm->items[i], sizeof(vm->items[i]), "G%u: OFF", (unsigned)(i + 1U));
         }

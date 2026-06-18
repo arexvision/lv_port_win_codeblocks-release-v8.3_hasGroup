@@ -44,10 +44,12 @@ void ui_vm_datetime_menu_update(ui_vm_simple_menu_t *vm,
                                 uint8_t minute);
 void ui_vm_nitrox_menu_update(ui_vm_simple_menu_t *vm, uint8_t nitrox_o2_pct);
 void ui_vm_three_gas_menu_update(ui_vm_simple_menu_t *vm,
-                                 const uint8_t three_gas_o2_pct[3]);
+                                 const uint8_t three_gas_o2_pct[3],
+                                 const uint8_t three_gas_active[3]);
 void ui_vm_oc_tech_menu_update(ui_vm_simple_menu_t *vm,
                                const uint8_t o2_pct[5],
-                               const uint8_t he_pct[5]);
+                               const uint8_t he_pct[5],
+                               const uint8_t active[5]);
 void ui_vm_edit_mod_ppo2_update(ui_vm_edit_spec_t *vm);
 void ui_vm_edit_nitrox_o2_update(ui_vm_edit_spec_t *vm, uint8_t value);
 void ui_vm_edit_three_gas_o2_update(ui_vm_edit_spec_t *vm, uint8_t item_index, uint8_t value);

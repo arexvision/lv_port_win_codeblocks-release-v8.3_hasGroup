@@ -455,6 +455,26 @@
 - `AIR / NITROX / 3 GAS / OC Tech` 中每个气体单独设置的 PO2 会同时影响 MOD 展示、算法 gas plan 的 `max_ppo2_bar` 和切气/计划口径。
 - `DIVE SETUP / MOD PO2` 保留为旧路径和未配置槽的 fallback，不覆盖已配置气体槽自己的 PO2。
 
+#### 多气体 ACTIVE / 删除槽
+
+旧口径：
+
+- `3 GAS` 固定提交 3 个气体槽到 data bus 和算法 gas plan。
+- `OC Tech` 只通过 `o2 == 0` 隐式跳过气体槽；用户无法在保留 O2/He/PO2 配置的情况下临时删除某个气体。
+
+新口径：
+
+- `3 GAS` 和 `OC Tech` 的气体详情页新增 `ACTIVE: ON/OFF` 行；`AIR` / `NITROX` 不显示该行。
+- `ACTIVE: OFF` 只从运行 gas profile 中移除该槽，不清空 O2/He/PO2 配置；再次切回 ON 后继续使用原配置。
+- `apply_three_gas_mode_gases()` / `apply_oc_tech_mode_gases()` 只把 active 槽压缩写入 `bus_set_gas_slot()` 和 `bus_set_gas_slot_count()`，因此 AREX gas plan、推荐气体、切气列表和 DIVE PLAN 都只消费 active 后的气体集合。
+- 新增真机移植回调 `ui_on_three_gas_active_set()` / `ui_on_oc_tech_active_set()`；PC 默认实现把 active 状态写入设置快照，真机侧需要等价持久化。
+
+验证：
+
+- 进入 `MODE SETUP / 3 GAS / Gx` 或 `MODE SETUP / OC Tech / Gx`，能看到 `ACTIVE: ON/OFF` 并可按 ENTER 切换。
+- 关闭某个槽后返回上一级列表显示 `Gx: OFF`；保存后 GAS SWITCH、推荐气体和 DIVE PLAN 不再包含该槽。
+- 重新打开 ACTIVE 后，原 O2/He/PO2 配置仍保留，保存后重新进入算法 gas plan。
+
 #### 算法配置变更后的即时刷新
 
 旧口径：
