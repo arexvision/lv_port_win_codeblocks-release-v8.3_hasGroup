@@ -37,14 +37,14 @@ static void vm_format_duration(char *out, size_t out_size, uint32_t total_s)
     }
 }
 
-static void vm_format_pressure(char *out, size_t out_size, const char *label, float bar)
+static void vm_format_pressure(char *out, size_t out_size, const char *label, float bar, bool valid)
 {
     if ((out == NULL) || (out_size == 0U))
     {
         return;
     }
 
-    if (bar <= 0.1f)
+    if (!valid)
     {
         (void)snprintf(out, out_size, "%s: -- BAR", (label != NULL) ? label : "--");
     }
@@ -181,8 +181,8 @@ void ui_vm_info_lines_update(ui_vm_info_lines_t *vm, uint8_t info_group_index)
         {
         }
 
-        vm_format_pressure(vm->lines[0], sizeof(vm->lines[0]), "POD 1", bus_get_pod1_bar());
-        vm_format_pressure(vm->lines[1], sizeof(vm->lines[1]), "POD 2", bus_get_pod2_bar());
+        vm_format_pressure(vm->lines[0], sizeof(vm->lines[0]), "POD 1", bus_get_pod1_bar(), bus_get_pod1_valid());
+        vm_format_pressure(vm->lines[1], sizeof(vm->lines[1]), "POD 2", bus_get_pod2_bar(), bus_get_pod2_valid());
         (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "BATTERY: %.0f%%", (double)battery_pct);
         (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "TEMP: %.1f%s", (double)bus_get_temperature_display(bus_get_temperature()), bus_get_temperature_unit_label());
 

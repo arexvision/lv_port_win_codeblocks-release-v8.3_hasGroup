@@ -591,8 +591,12 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%u%%", (unsigned)bus_get_gas_slot_o2_pct(bus_get_gas_active_idx()));
         break;
     case COMP_POD_0806:
-        (void)snprintf(vm->text,sizeof(vm->text),"%.0f",(double)bus_get_pod_bar((pod_index > 1U) ? 1U : 0U));
+    {
+        uint8_t idx = (pod_index > 1U) ? 1U : 0U;
+        if (bus_get_pod_valid(idx)) (void)snprintf(vm->text, sizeof(vm->text), "%.0f", (double)bus_get_pod_bar(idx));
+        else (void)snprintf(vm->text, sizeof(vm->text), "%s", "--");
         break;
+    }
     case COMP_DEPTH_MAX_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_max_depth()));
         break;

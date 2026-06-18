@@ -177,6 +177,8 @@ typedef struct
     uint8_t next_stop_min;
     float   pod1_bar;
     float   pod2_bar;
+    bool    pod1_valid;
+    bool    pod2_valid;
     uint8_t cylinder_count;
     float   sac_rate;
     float   max_depth;

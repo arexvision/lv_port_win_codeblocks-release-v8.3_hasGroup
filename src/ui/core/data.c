@@ -795,13 +795,15 @@ void bus_set_sac_rate(float sac_lpm)
 
 void bus_set_pod(uint8_t pod_idx, float bar)
 {
-    if (pod_idx == 0 && g_sensor_data.pod1_bar != bar)
+    if (pod_idx == 0 && (!g_sensor_data.pod1_valid || g_sensor_data.pod1_bar != bar))
     {
+        g_sensor_data.pod1_valid = true;
         g_sensor_data.pod1_bar = bar;
         bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
-    else if (pod_idx == 1 && g_sensor_data.pod2_bar != bar)
+    else if (pod_idx == 1 && (!g_sensor_data.pod2_valid || g_sensor_data.pod2_bar != bar))
     {
+        g_sensor_data.pod2_valid = true;
         g_sensor_data.pod2_bar = bar;
         bus_mark_dirty(DIRTY_GAS_SUPPLY);
     }
@@ -2281,6 +2283,16 @@ float bus_get_pod2_bar(void)
     return g_sensor_data.pod2_bar;
 }
 
+bool bus_get_pod1_valid(void)
+{
+    return g_sensor_data.pod1_valid;
+}
+
+bool bus_get_pod2_valid(void)
+{
+    return g_sensor_data.pod2_valid;
+}
+
 float bus_get_temperature(void)
 {
     return g_sensor_data.temperature_c;
@@ -2732,6 +2744,11 @@ float bus_get_tissue_m_gf_bar(uint8_t index)
 uint8_t bus_get_pod_count(void)
 {
     return g_sensor_data.gas_slot_count;
+}
+
+bool bus_get_pod_valid(uint8_t pod_idx)
+{
+    return (pod_idx == 0U) ? g_sensor_data.pod1_valid : g_sensor_data.pod2_valid;
 }
 
 float bus_get_pod_bar(uint8_t pod_idx)
