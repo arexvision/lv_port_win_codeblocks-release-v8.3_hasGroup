@@ -251,6 +251,9 @@ typedef struct
     uint8_t start_cns_pct;
     uint8_t end_cns_pct;
     float avg_sac_l_min;
+    uint8_t recovered;
+    uint8_t abnormal_end;
+    uint16_t reserved0;
     char mode[12];
     char deco_model[16];
     char tank_start[LOGBOOK_TANK_COUNT][8];

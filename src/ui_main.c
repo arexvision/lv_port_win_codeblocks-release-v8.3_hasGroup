@@ -1,12 +1,15 @@
+#include "config/build/rescue_build_flags.h"
+#include "error_screen/error_screen.h"
+#include "lvgl/lvgl.h"
+#include "ui_main.h"
+
+#if !ERROR_SCREEN_FORCE_SHOW
 #include "ui/core/ui_engine.h"
 #include "ui/core/ui_state.h"
 #include "ui/screen/screen.h"
 #include "ui/core/ui_dirty.h"
 #include "config/build/ui_build_flags.h"
-#include "error_screen/error_screen.h"
-#include "lvgl/lvgl.h"
 #include "ui_test/ui_test.h"
-#include "ui_main.h"
 
 #ifdef PC_SIMULATOR
 #include "hal_sim/input_pc.h"
@@ -14,7 +17,9 @@
 #else
 #include "startup_gif.h"
 #endif
+#endif
 
+#if !ERROR_SCREEN_FORCE_SHOW
 static lv_timer_t *s_update_task_timer;  /* UI 数据消费定时器 */
 
 static void ui_bootstrap_force_first_paint(void)
@@ -25,15 +30,23 @@ static void ui_bootstrap_force_first_paint(void)
      * g_sys_config 建树；这里不能再人为补一个 DIRTY_UI_LAYOUT，否则刚建好的
      * 对象树会立即再走一次整屏重建，放大半初始化窗口的重入风险。
      *
-     * 首刷只补数据域，让左侧 widget、当前页文本和基础状态在没有传感器首帧时
-     * 也先显示出来。
+     * 开机第一帧只刷新左侧固定栏和当前可见页订阅的数据域。DIRTY_DATA_ALL
+     * 会把离屏 PLAN/GAS/TISSUE/LOGBOOK 等重活一次性压入启动窗口，容易与
+     * 启动动画共同放大 LCD 行刷压力。
      */
-    bus_requeue_dirty(DIRTY_DATA_ALL);
+    dirty_mask_t first_mask = DIRTY_WIDGET_REFRESH_MASK |
+                              screen_visible_page_dirty_mask(PAGE_POS_DYNAMIC_FIRST);
+    bus_requeue_dirty(first_mask);
     ui_update_task(NULL);
 }
+#endif
 
 void UI_main(void)
 {
+#if ERROR_SCREEN_FORCE_SHOW
+    error_screen_set_boot_error(true);
+    (void)error_screen_try_start();
+#else
     ui_init();
     if (error_screen_try_start())
     {
@@ -69,4 +82,5 @@ void UI_main(void)
     #ifdef PC_SIMULATOR
     sim_data_start();
     #endif
+#endif
 }

@@ -403,7 +403,8 @@ void ui_update_router_dispatch(dirty_mask_t mask)
     }
 
     if ((mask & DIRTY_DIVE_PROFILE) &&
-        (ui_router_widget_visible(COMP_ASCENT_0806, &visible_ctx) ||
+        (ui_router_widget_visible(COMP_DEPTH_1612, &visible_ctx) ||
+         ui_router_widget_visible(COMP_ASCENT_0806, &visible_ctx) ||
          ui_router_widget_visible(COMP_ASCENT_0812, &visible_ctx)))
     {
         uint32_t start_ms = lv_tick_get();

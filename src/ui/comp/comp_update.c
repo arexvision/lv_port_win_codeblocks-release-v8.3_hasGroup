@@ -366,7 +366,22 @@ void comp_sync_data(comp_id_t w_id)
     case COMP_NDL_STOP_1606:
     case COMP_TISSUE_GF_4012:
     case COMP_TISSUE_RAW_4012:
-        /* 这些是包含动多元素的复杂状态机，已ui_update_task 有专属刷新逻辑 */
+        /*
+         * 这些复杂组件在页面运行时会走专属刷新链路。
+         * 这里补一次完整同步，确保布局重建/初次进入时不会残留占位态，
+         * 也避免外部只触发全量刷新时看起来像“数据源未绑定”。
+         */
+        if (w_id == COMP_NDL_STOP_1606)
+        {
+            comp_refresh_ndl_stop(DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS);
+        }
+        else
+        {
+            ui_vm_deco_t deco_vm;
+
+            ui_vm_deco_update(&deco_vm, NULL, NULL);
+            comp_refresh_tissue_widgets(&deco_vm, DIRTY_TISSUE_TOX);
+        }
         break;
 
     case COMP_SYS_1606:

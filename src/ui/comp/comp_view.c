@@ -1087,6 +1087,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         // 字体从字典读取（font_id = HUGE 58px
         lv_obj_set_style_text_font(int_lbl, get_font(style->font_id), 0);
         lv_obj_set_style_text_color(int_lbl, GREEN, 0);
+        lv_label_set_long_mode(int_lbl, LV_LABEL_LONG_CLIP);
 
         // 绝杀技：必须设CONTENT！这样无论变"6" 还是 "45"
         // Label 的右边缘都会死死包住个位数，绝不留一丝缝隙！
@@ -1105,6 +1106,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         // 字体从字典读取（title_font_id = MEDIUM 28px，小数比整数小）
         lv_obj_set_style_text_font(dec_lbl, get_font(style->title_font_id), 0);
         lv_obj_set_style_text_color(dec_lbl, GREEN, 0);
+        lv_label_set_long_mode(dec_lbl, LV_LABEL_LONG_CLIP);
         lv_obj_set_size(dec_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
         // 因为整数的右边缘(个位被焊死了，小数挂在它右边，自然就永远贴紧个位数！
@@ -1122,6 +1124,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             // 单位固定用小号字
             lv_obj_set_style_text_font(unit_lbl, get_font(FONT_ID_SMALL), 0);
             lv_obj_set_style_text_color(unit_lbl, LIGHT, 0);
+            lv_label_set_long_mode(unit_lbl, LV_LABEL_LONG_CLIP);
             lv_obj_set_size(unit_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align_to(unit_lbl, dec_lbl, LV_ALIGN_OUT_BOTTOM_MID, s->unit_offset_x, s->unit_offset_y);
         }
@@ -1202,6 +1205,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_t *batt_lbl = lv_label_create(obj);
         lv_obj_set_style_text_font(batt_lbl, get_font(FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(batt_lbl, GREEN, 0);
+        lv_label_set_long_mode(batt_lbl, LV_LABEL_LONG_CLIP);
         lv_obj_align(batt_lbl, LV_ALIGN_LEFT_MID, 4, 0);
         if (SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text(batt_lbl, "--%");
@@ -1214,6 +1218,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         lv_obj_t *temp_lbl = lv_label_create(obj);
         lv_obj_set_style_text_font(temp_lbl, get_font(FONT_ID_MEDIUM), 0);
         lv_obj_set_style_text_color(temp_lbl, GREEN, 0);
+        lv_label_set_long_mode(temp_lbl, LV_LABEL_LONG_CLIP);
         lv_obj_align(temp_lbl, LV_ALIGN_RIGHT_MID, -4, 0);
         if (SHOW_PLACEHOLDER_ON_INIT)
             lv_label_set_text_fmt(temp_lbl, "-- %s", bus_get_temperature_unit_label());
@@ -1271,6 +1276,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         val_lbl = lv_label_create(obj);
         lv_obj_set_style_text_font(val_lbl, get_font(val_font_id), 0);
         lv_obj_set_style_text_color(val_lbl, GREEN, 0);
+        lv_label_set_long_mode(val_lbl, LV_LABEL_LONG_CLIP);
 
         if (SHOW_PLACEHOLDER_ON_INIT)
         {
@@ -1318,6 +1324,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         lv_obj_set_style_text_font(unit_lbl, get_font(FONT_ID_SMALL), 0);
         lv_obj_set_style_text_color(unit_lbl, LIGHT, 0);
+        lv_label_set_long_mode(unit_lbl, LV_LABEL_LONG_CLIP);
         if ((style->elements & ELEM_VALUE) && (val_lbl != NULL))
         {
             /* 单位贴在组件内部右侧，数值再贴到单位左侧，避免单位被右边框裁掉。 */

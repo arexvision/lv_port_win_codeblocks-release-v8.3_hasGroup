@@ -97,7 +97,14 @@ void ui_vm_info_lines_update(ui_vm_info_lines_t *vm, uint8_t info_group_index)
         }
 
         vm_format_duration(dive_time, sizeof(dive_time), last_dive.dive_time_s);
-        (void)snprintf(vm->lines[0], sizeof(vm->lines[0]), "LOG #%04u  %02u-%02u-%04u", (unsigned)last_dive.meta.log_no, (unsigned)last_dive.meta.day, (unsigned)last_dive.meta.month, (unsigned)last_dive.meta.year);
+        (void)snprintf(vm->lines[0],
+                       sizeof(vm->lines[0]),
+                       "%s #%04u  %02u-%02u-%04u",
+                       (last_dive.recovered || last_dive.abnormal_end) ? "REC" : "LOG",
+                       (unsigned)last_dive.meta.log_no,
+                       (unsigned)last_dive.meta.day,
+                       (unsigned)last_dive.meta.month,
+                       (unsigned)last_dive.meta.year);
         (void)snprintf(vm->lines[1], sizeof(vm->lines[1]), "MAX DEPTH: %.1f%s", (double)bus_get_depth_display(last_dive.max_depth_m), bus_get_depth_unit_label());
         (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "AVG DEPTH: %.1f%s", (double)bus_get_depth_display(last_dive.avg_depth_m), bus_get_depth_unit_label());
         (void)snprintf(vm->lines[3], sizeof(vm->lines[3]), "DIVE TIME: %s", dive_time);

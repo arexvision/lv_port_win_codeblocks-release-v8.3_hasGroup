@@ -46,7 +46,7 @@ static uint16_t s_deco_stop_count;
 static logbook_entry_t s_logbook_entries[MAX_LOGBOOK_ENTRIES];
 static dive_pt_t s_logbook_samples[MAX_LOGBOOK_ENTRIES][MAX_DIVE_LOG];
 static uint16_t s_logbook_sample_counts[MAX_LOGBOOK_ENTRIES];
-static uint8_t s_logbook_count;
+static uint16_t s_logbook_count;
 #endif
 static logbook_entry_t s_last_dive_snapshot;
 
@@ -1673,7 +1673,7 @@ void bus_toggle_split_outward(void)
     bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
-void bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
+void bus_set_ui_offset_no_dirty(int16_t offset_x, int16_t offset_y)
 {
     if (g_sys_config.offset_x == offset_x && g_sys_config.offset_y == offset_y)
     {
@@ -1682,6 +1682,18 @@ void bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
 
     g_sys_config.offset_x = offset_x;
     g_sys_config.offset_y = offset_y;
+}
+
+void bus_set_ui_offset(int16_t offset_x, int16_t offset_y)
+{
+    int16_t old_offset_x = g_sys_config.offset_x;
+    int16_t old_offset_y = g_sys_config.offset_y;
+
+    bus_set_ui_offset_no_dirty(offset_x, offset_y);
+    if (old_offset_x == g_sys_config.offset_x && old_offset_y == g_sys_config.offset_y)
+    {
+        return;
+    }
     bus_mark_dirty(DIRTY_UI_LAYOUT);
 }
 
@@ -3049,12 +3061,12 @@ void dive_log_reset(void)
 }
 
 #ifdef PC_SIMULATOR
-uint8_t logbook_backend_count(void)
+uint16_t logbook_backend_count(void)
 {
     return s_logbook_count;
 }
 
-bool logbook_backend_get_summary(uint8_t index, logbook_entry_t *out_entry)
+bool logbook_backend_get_summary(uint16_t index, logbook_entry_t *out_entry)
 {
     if ((out_entry == NULL) || (index >= s_logbook_count))
     {
@@ -3065,12 +3077,12 @@ bool logbook_backend_get_summary(uint8_t index, logbook_entry_t *out_entry)
     return out_entry->valid;
 }
 
-bool logbook_backend_get_detail(uint8_t index, logbook_entry_t *out_entry)
+bool logbook_backend_get_detail(uint16_t index, logbook_entry_t *out_entry)
 {
     return logbook_backend_get_summary(index, out_entry);
 }
 
-bool logbook_backend_get_samples(uint8_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count)
+bool logbook_backend_get_samples(uint16_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count)
 {
     uint16_t count;
 
@@ -3099,7 +3111,7 @@ bool logbook_backend_get_samples(uint8_t index, dive_pt_t *out_points, uint16_t 
     return true;
 }
 
-bool logbook_backend_acquire_samples(uint8_t index, const dive_pt_t **out_points, uint16_t *out_count)
+bool logbook_backend_acquire_samples(uint16_t index, const dive_pt_t **out_points, uint16_t *out_count)
 {
     dive_pt_t *points;
 
@@ -3131,7 +3143,7 @@ void logbook_backend_release_samples(const dive_pt_t *points)
     free((void *)points);
 }
 
-bool logbook_backend_update_meta(uint8_t index, const logbook_meta_t *meta)
+bool logbook_backend_update_meta(uint16_t index, const logbook_meta_t *meta)
 {
     if ((meta == NULL) || (index >= s_logbook_count))
     {
@@ -3147,7 +3159,7 @@ bool logbook_backend_update_meta(uint8_t index, const logbook_meta_t *meta)
     return true;
 }
 
-bool logbook_backend_delete(uint8_t index)
+bool logbook_backend_delete(uint16_t index)
 {
     if (index >= s_logbook_count)
     {
@@ -3156,7 +3168,7 @@ bool logbook_backend_delete(uint8_t index)
 
     if (index + 1U < s_logbook_count)
     {
-        uint8_t tail_count = (uint8_t)(s_logbook_count - index - 1U);
+        uint16_t tail_count = (uint16_t)(s_logbook_count - index - 1U);
         (void)memmove(&s_logbook_entries[index], &s_logbook_entries[index + 1U], tail_count * sizeof(s_logbook_entries[0]));
         (void)memmove(&s_logbook_sample_counts[index], &s_logbook_sample_counts[index + 1U], tail_count * sizeof(s_logbook_sample_counts[0]));
         (void)memmove(&s_logbook_samples[index], &s_logbook_samples[index + 1U], tail_count * sizeof(s_logbook_samples[0]));
@@ -3177,7 +3189,7 @@ bool logbook_backend_delete(uint8_t index)
 
 bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const dive_pt_t *points, uint16_t point_count)
 {
-    uint8_t index;
+    uint16_t index;
 
     if (entry == NULL)
     {
@@ -3225,13 +3237,13 @@ bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry)
 }
 #else
 __attribute__((weak))
-uint8_t logbook_backend_count(void)
+uint16_t logbook_backend_count(void)
 {
     return 0U;
 }
 
 __attribute__((weak))
-bool logbook_backend_get_summary(uint8_t index, logbook_entry_t *out_entry)
+bool logbook_backend_get_summary(uint16_t index, logbook_entry_t *out_entry)
 {
     (void)index;
     (void)out_entry;
@@ -3239,13 +3251,13 @@ bool logbook_backend_get_summary(uint8_t index, logbook_entry_t *out_entry)
 }
 
 __attribute__((weak))
-bool logbook_backend_get_detail(uint8_t index, logbook_entry_t *out_entry)
+bool logbook_backend_get_detail(uint16_t index, logbook_entry_t *out_entry)
 {
     return logbook_backend_get_summary(index, out_entry);
 }
 
 __attribute__((weak))
-bool logbook_backend_get_samples(uint8_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count)
+bool logbook_backend_get_samples(uint16_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count)
 {
     (void)index;
     (void)out_points;
@@ -3278,7 +3290,7 @@ static bool logbook_backend_heap_ensure(void)
 }
 
 __attribute__((weak))
-bool logbook_backend_acquire_samples(uint8_t index, const dive_pt_t **out_points, uint16_t *out_count)
+bool logbook_backend_acquire_samples(uint16_t index, const dive_pt_t **out_points, uint16_t *out_count)
 {
     dive_pt_t *points;
 
@@ -3321,7 +3333,7 @@ void logbook_backend_release_samples(const dive_pt_t *points)
 }
 
 __attribute__((weak))
-bool logbook_backend_update_meta(uint8_t index, const logbook_meta_t *meta)
+bool logbook_backend_update_meta(uint16_t index, const logbook_meta_t *meta)
 {
     (void)index;
     (void)meta;
@@ -3329,7 +3341,7 @@ bool logbook_backend_update_meta(uint8_t index, const logbook_meta_t *meta)
 }
 
 __attribute__((weak))
-bool logbook_backend_delete(uint8_t index)
+bool logbook_backend_delete(uint16_t index)
 {
     (void)index;
     return false;

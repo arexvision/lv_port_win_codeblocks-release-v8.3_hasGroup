@@ -391,14 +391,14 @@ bool bus_get_deco_stop(uint8_t index, deco_stop_t *out_stop);
 
 /* --- Logbook / Last Dive backend --- */
 /* Logbook backend：PC 模拟器使用内存 demo；嵌入式请用 SD/PSRAM 后端覆盖这些 weak API。 */
-uint8_t logbook_backend_count(void);
-bool logbook_backend_get_summary(uint8_t index, logbook_entry_t *out_entry);
-bool logbook_backend_get_detail(uint8_t index, logbook_entry_t *out_entry);
-bool logbook_backend_get_samples(uint8_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count);
-bool logbook_backend_acquire_samples(uint8_t index, const dive_pt_t **out_points, uint16_t *out_count);
+uint16_t logbook_backend_count(void);
+bool logbook_backend_get_summary(uint16_t index, logbook_entry_t *out_entry);
+bool logbook_backend_get_detail(uint16_t index, logbook_entry_t *out_entry);
+bool logbook_backend_get_samples(uint16_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count);
+bool logbook_backend_acquire_samples(uint16_t index, const dive_pt_t **out_points, uint16_t *out_count);
 void logbook_backend_release_samples(const dive_pt_t *points);
-bool logbook_backend_update_meta(uint8_t index, const logbook_meta_t *meta);
-bool logbook_backend_delete(uint8_t index);
+bool logbook_backend_update_meta(uint16_t index, const logbook_meta_t *meta);
+bool logbook_backend_delete(uint16_t index);
 bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const dive_pt_t *points, uint16_t point_count);
 bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry);
 
@@ -410,6 +410,7 @@ void dive_log_reset(void);
 /* --- BLE 布局同步接口（由 BLE 任务调用） --- */
 void bus_set_ui_layout(const ble_ui_sync_payload_t *payload);
 void bus_set_layout_mode(theme_t theme, order_t order);
+void bus_set_ui_offset_no_dirty(int16_t offset_x, int16_t offset_y);
 
 /* 原子取走当前脏标记：UI 消费本帧 mask，新写入的 dirty 留给下一帧 */
 dirty_mask_t bus_take_dirty(void);

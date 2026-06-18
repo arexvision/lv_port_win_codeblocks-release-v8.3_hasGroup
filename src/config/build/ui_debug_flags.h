@@ -13,7 +13,7 @@
  *
  * 当前分类：
  * - *_TRACE_ENABLED：细粒度调试日志，通常只在定位具体 UI 逻辑时短时打开；
- * - UI_SCROLL_PROFILE_* / UI_CLICK_PROFILE_*：纯性能定位日志，默认关闭，问题定位完成后不能长期打开；
+ * - UI_SCROLL_PROFILE_* / UI_CLICK_PROFILE_* / UI_LOGBOOK_PROFILE_*：纯性能定位日志，默认关闭，问题定位完成后不能长期打开；
  *
  * 0/1 总规则：
  * - 0：编译期关闭，不输出对应测试/诊断日志；
@@ -81,6 +81,21 @@
  * - 只影响统计口径，不影响点击功能。
  */
 #define UI_CLICK_SLOW_MS 80U
+
+/* Logbook UI 绘制/加载路径性能定位日志。
+ *
+ * 谁使用：
+ * - src/app_ui/ui/views/submenu_view.c。
+ *
+ * 打开后输出：
+ * - [UI_LOGBOOK_PROFILE]：load_current/points_load/populate 等 UI 侧耗时。
+ *
+ * 默认必须关闭：
+ * - 这是定位 DiveLog UI 打开瞬间 CPU 峰值的临时打点；
+ * - 打开后会伴随页面进入、旋转、选中输出串口日志；
+ * - 定位完成后保持 0，避免调试日志反向影响传感器调度。
+ */
+#define UI_LOGBOOK_PROFILE_ENABLED 0
 
 #if UI_CALLBACK_TRACE_ENABLED
 #define UI_CALLBACK_TRACE(...) rt_kprintf(__VA_ARGS__)
