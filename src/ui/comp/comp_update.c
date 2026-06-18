@@ -511,6 +511,13 @@ void comp_sync_data(comp_id_t w_id)
      * ========================================================= */
     case COMP_HEADING_0806:
     case COMP_COMPASS_1612:
+        comp_sync_text_from_vm(w_id, 0U);
+        if (w_id == COMP_COMPASS_1612)
+        {
+            comp_refresh_compass_widgets();
+        }
+        break;
+
     case COMP_GYRO_2406:
     case COMP_BATT_V_0806:
     case COMP_BATT_TEMP_0806:

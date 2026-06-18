@@ -34,7 +34,10 @@ LV_IMG_DECLARE(sudo_down_level2);
 #define MAX_NDL_ICONS              (LEFT_MAX_WIDGETS + MAX_CUSTOM_CARDS)
 #define MAX_TISSUE_WIDGETS         (MAX_CUSTOM_CARDS * 3U)
 #define MAX_SYS_WIDGETS            MAX_WIDGET_RENDER_INSTANCES
+#define MAX_COMPASS_WIDGETS        MAX_WIDGET_RENDER_INSTANCES
 #define COMP_VALUE_HANDLE_ID_MAX   64U
+#define COMPASS_DIAL_TICK_COUNT    12U
+#define COMPASS_PI                 3.14159265f
 #define TISSUE_LEAD_COUNT          16U
 #define TISSUE_LEAD_BLINK_MS       450U
 #define TISSUE_CHART_PAMB_PERMILLE 400
@@ -73,6 +76,11 @@ typedef struct
     lv_obj_t *batt_lbl;
     lv_obj_t *temp_lbl;
 } sys_handle_t;
+
+typedef struct
+{
+    lv_obj_t *dial;
+} compass_handle_t;
 
 typedef struct
 {
@@ -206,6 +214,8 @@ static uint8_t s_pod_render_count = 0;  /* POD 渲染计数*/
  * ========================================================= */
 static sys_handle_t s_sys_handles[MAX_SYS_WIDGETS];
 static uint8_t s_sys_handle_count;
+static compass_handle_t s_compass_handles[MAX_COMPASS_WIDGETS];
+static uint8_t s_compass_handle_count;
 static comp_value_handle_t s_value_handles[MAX_WIDGET_RENDER_INSTANCES];
 static uint16_t s_value_handle_heads[COMP_VALUE_HANDLE_ID_MAX];
 static uint16_t s_value_handle_count;
@@ -310,6 +320,133 @@ static void comp_view_label_set_text_fmt_if_changed(lv_obj_t *label, const char 
     (void)vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
     comp_view_label_set_text_if_changed(label, buf);
+}
+
+static int16_t compass_round_coord(float value)
+{
+    return (int16_t)((value >= 0.0f) ? (value + 0.5f) : (value - 0.5f));
+}
+
+static void compass_point_from_angle(int16_t cx, int16_t cy, float angle_deg, int16_t radius, lv_point_t *out)
+{
+    float rad;
+
+    if (out == NULL)
+    {
+        return;
+    }
+
+    rad = (angle_deg - 90.0f) * (COMPASS_PI / 180.0f);
+    out->x = (lv_coord_t)(cx + compass_round_coord(cosf(rad) * (float)radius));
+    out->y = (lv_coord_t)(cy + compass_round_coord(sinf(rad) * (float)radius));
+}
+
+static void compass_dial_draw_label(lv_draw_ctx_t *draw_ctx, const char *text, int16_t cx, int16_t cy, float angle_deg, int16_t radius)
+{
+    lv_point_t p;
+    lv_area_t label_area;
+    lv_draw_label_dsc_t label_dsc;
+
+    compass_point_from_angle(cx, cy, angle_deg, radius, &p);
+    label_area.x1 = p.x - 12;
+    label_area.y1 = p.y - 8;
+    label_area.x2 = p.x + 12;
+    label_area.y2 = p.y + 8;
+
+    lv_draw_label_dsc_init(&label_dsc);
+    label_dsc.color = GREEN;
+    label_dsc.font = get_font(FONT_ID_SMALL);
+    label_dsc.align = LV_TEXT_ALIGN_CENTER;
+    label_dsc.opa = LV_OPA_COVER;
+    lv_draw_label(draw_ctx, &label_dsc, &label_area, text, NULL);
+}
+
+static void compass_dial_draw_cb(lv_event_t *e)
+{
+    lv_obj_t *obj = lv_event_get_target(e);
+    lv_draw_ctx_t *draw_ctx = lv_event_get_draw_ctx(e);
+    lv_area_t *area = &obj->coords;
+    int16_t w = (int16_t)lv_area_get_width(area);
+    int16_t h = (int16_t)lv_area_get_height(area);
+    int16_t cx = (int16_t)(area->x1 + w / 2);
+    int16_t cy = (int16_t)(area->y1 + h / 2);
+    int16_t radius = (w < h) ? (int16_t)(w / 2 - 5) : (int16_t)(h / 2 - 5);
+    uint16_t heading = bus_get_heading() % 360U;
+
+    if (radius < 16)
+    {
+        return;
+    }
+
+    lv_draw_rect_dsc_t rect_dsc;
+    lv_draw_rect_dsc_init(&rect_dsc);
+    rect_dsc.bg_color = lv_color_make(0x00, 0x00, 0x00);
+    rect_dsc.bg_opa = LV_OPA_COVER;
+    lv_draw_rect(draw_ctx, &rect_dsc, area);
+
+    lv_area_t ring_area = {cx - radius, cy - radius, cx + radius, cy + radius};
+    lv_draw_rect_dsc_init(&rect_dsc);
+    rect_dsc.bg_opa = LV_OPA_TRANSP;
+    rect_dsc.border_color = GREEN;
+    rect_dsc.border_opa = LV_OPA_50;
+    rect_dsc.border_width = 1;
+    rect_dsc.radius = LV_RADIUS_CIRCLE;
+    lv_draw_rect(draw_ctx, &rect_dsc, &ring_area);
+
+    lv_draw_line_dsc_t line_dsc;
+    lv_draw_line_dsc_init(&line_dsc);
+    line_dsc.color = GREEN;
+    line_dsc.opa = LV_OPA_COVER;
+
+    for (uint8_t i = 0U; i < COMPASS_DIAL_TICK_COUNT; i++)
+    {
+        float angle = (float)i * 30.0f;
+        bool major = (i % 3U) == 0U;
+        lv_point_t p1;
+        lv_point_t p2;
+
+        line_dsc.width = major ? 2 : 1;
+        line_dsc.opa = major ? LV_OPA_COVER : LV_OPA_50;
+        compass_point_from_angle(cx, cy, angle, (int16_t)(radius - (major ? 8 : 5)), &p1);
+        compass_point_from_angle(cx, cy, angle, radius, &p2);
+        lv_draw_line(draw_ctx, &line_dsc, &p1, &p2);
+    }
+
+    compass_dial_draw_label(draw_ctx, "N", cx, cy, 0.0f, (int16_t)(radius - 18));
+    compass_dial_draw_label(draw_ctx, "E", cx, cy, 90.0f, (int16_t)(radius - 18));
+    compass_dial_draw_label(draw_ctx, "S", cx, cy, 180.0f, (int16_t)(radius - 18));
+    compass_dial_draw_label(draw_ctx, "W", cx, cy, 270.0f, (int16_t)(radius - 18));
+
+    line_dsc.color = GREEN;
+    line_dsc.width = 3;
+    line_dsc.opa = LV_OPA_COVER;
+    lv_point_t center = {cx, cy};
+    lv_point_t needle_tip;
+    compass_point_from_angle(cx, cy, (float)heading, (int16_t)(radius - 12), &needle_tip);
+    lv_draw_line(draw_ctx, &line_dsc, &center, &needle_tip);
+
+    if (bus_is_heading_locked())
+    {
+        float target_rel = (float)((int)bus_get_heading_target() - (int)heading);
+        lv_point_t marker_inner;
+        lv_point_t marker_outer;
+
+        while (target_rel > 180.0f) target_rel -= 360.0f;
+        while (target_rel < -180.0f) target_rel += 360.0f;
+
+        line_dsc.width = 2;
+        line_dsc.opa = LV_OPA_COVER;
+        compass_point_from_angle(cx, cy, target_rel, (int16_t)(radius - 10), &marker_inner);
+        compass_point_from_angle(cx, cy, target_rel, radius, &marker_outer);
+        lv_draw_line(draw_ctx, &line_dsc, &marker_inner, &marker_outer);
+    }
+
+    lv_draw_rect_dsc_init(&rect_dsc);
+    rect_dsc.bg_color = GREEN;
+    rect_dsc.bg_opa = LV_OPA_COVER;
+    rect_dsc.radius = LV_RADIUS_CIRCLE;
+    lv_area_t dot_area = {cx - 3, cy - 3, cx + 3, cy + 3};
+    lv_draw_rect(draw_ctx, &rect_dsc, &dot_area);
 }
 
 void comp_value_handle_reset(void)
@@ -647,6 +784,8 @@ void reset_widget_render_state(void)
     s_tissue_handle_count = 0;
     memset(s_sys_handles, 0, sizeof(s_sys_handles));
     s_sys_handle_count = 0;
+    memset(s_compass_handles, 0, sizeof(s_compass_handles));
+    s_compass_handle_count = 0;
     memset(s_depth_unit_labels, 0, sizeof(s_depth_unit_labels));
     s_depth_unit_label_count = 0;
     comp_value_handle_reset();
@@ -1363,7 +1502,22 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         else if (w_id == COMP_COMPASS_1612)
         {
-            /* COMPASS_1612 (2x2)：卷tape 在早期分支里，ELEM_BAR 标记spec.compass 驱动 */
+            if (s_compass_handle_count < MAX_COMPASS_WIDGETS)
+            {
+                compass_handle_t *h = &s_compass_handles[s_compass_handle_count++];
+                memset(h, 0, sizeof(*h));
+
+                h->dial = lv_obj_create(obj);
+                lv_obj_remove_style_all(h->dial);
+                lv_obj_set_size(h->dial, abs_w - 18U, abs_h - 34U);
+                lv_obj_align(h->dial, LV_ALIGN_TOP_MID, 0, 8);
+                lv_obj_add_event_cb(h->dial, compass_dial_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
+
+                if (val_lbl != NULL)
+                {
+                    lv_obj_align(val_lbl, LV_ALIGN_BOTTOM_MID, 0, -2);
+                }
+            }
         }
         else if (w_id == COMP_TISSUE_GF_4012 || w_id == COMP_TISSUE_RAW_4012)
         {
@@ -1412,6 +1566,18 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
     }
 
     return obj;
+}
+
+void comp_refresh_compass_widgets(void)
+{
+    for (uint8_t i = 0U; i < s_compass_handle_count; i++)
+    {
+        compass_handle_t *h = &s_compass_handles[i];
+        if (ui_obj_is_valid(&h->dial) && screen_obj_refresh_visible(h->dial))
+        {
+            lv_obj_invalidate(h->dial);
+        }
+    }
 }
 
 void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, dirty_mask_t dirty_mask)

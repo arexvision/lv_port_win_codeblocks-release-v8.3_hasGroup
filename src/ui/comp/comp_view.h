@@ -39,6 +39,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
 void comp_refresh_ndl_stop(dirty_mask_t dirty_mask);
 void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm);
 void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, dirty_mask_t dirty_mask);
+void comp_refresh_compass_widgets(void);
 
 #ifdef __cplusplus
 }
