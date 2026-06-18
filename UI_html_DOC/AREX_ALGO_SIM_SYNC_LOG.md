@@ -455,6 +455,48 @@
 - `AIR / NITROX / 3 GAS / OC Tech` 中每个气体单独设置的 PO2 会同时影响 MOD 展示、算法 gas plan 的 `max_ppo2_bar` 和切气/计划口径。
 - `DIVE SETUP / MOD PO2` 保留为旧路径和未配置槽的 fallback，不覆盖已配置气体槽自己的 PO2。
 
+#### 实时 PPO2 显示口径
+
+旧口径：
+
+- AREX 适配层 `sync_gas_data()` 已经使用 `oxygen_fraction * pressure_bar`，单位是物理 `bar`。
+- PC demo 旧路径使用 `1.0 + depth/10.0` 近似环境压，没有包含默认水面压 `1.01325 bar`。
+- 真机移植侧若把 `pressure_mbar / 1013.25f` 的 ATA 归一值直接写入 `bus_set_ppo2()`，会和 UI 的 `bar` 显示、PPO2 告警阈值、算法 `*_ppo2_bar` 字段混用。
+
+新口径：
+
+- `ppo2[]` 数据总线单位固定为物理 `bar`，公式为 `FO2 * pressure_mbar / 1000.0f`。
+- 新增 `bus_calculate_ppo2_bar(o2_pct, pressure_mbar)` 作为 UI/data 层统一入口；PC demo 的实时 PPO2 改用该入口。
+- AREX 主路径继续使用算法配置中的 `surface_pressure_bar + depth / water_meters_per_bar` 后乘以 `oxygen_fraction`，不重复计算。
+- 真机侧桥接压力传感器时，应把传感器绝对压力 mbar 传入上述公式后再调用 `bus_set_ppo2()`；不得把 ATA 归一值写入实时 PPO2 bus。
+
+验证：
+
+- 岸上 AIR：`0.21 * 1013.25 / 1000 = 0.2128 bar`，UI 四舍五入显示约 `0.21`。
+- 默认 10 m AIR：`0.21 * (1013.25 + 1000) / 1000 = 0.4228 bar`，UI 显示约 `0.42`。
+- 若同一输入得到约 `0.21 ATA` / `0.42 ATA` 以外的比例，先检查真机桥接是否仍在使用 `/1013.25` 后写入 `bus_set_ppo2()`。
+
+#### DIVE PLAN 上升段展示
+
+旧口径：
+
+- `deco_core_plan_calculate()` 调用 `arex_deco_plan()` 后，先把 `schedule.stops[]` 逐条显示为停站，再把 `tts_seconds - sum(stop.duration_seconds)` 汇总成最后一条 `0m / asc`。
+- 这个 `0m asc` 不是算法返回的停站，而是 UI 适配层为了补足 Runtime 自己追加的展示行。
+- 因为所有上升时间被塞到末尾，从底部深度到首停深度的上升段不会出现在列表中，例如 `40m -> 15m` 缺少一条 `asc`。
+
+新口径：
+
+- 算法接口语义不变：`arex_deco_plan()` 仍只返回 `schedule.stops[]` 和 `tts_seconds`。
+- UI/PC 适配层将总上升时间按深度段拆到“当前深度 -> 下一可见停站”之前，生成 `DIVE_PLAN_ROW_ASCENT` 展示行；例如 `40m` bottom 后会出现到 `15m` 首停的 `asc` 行。
+- 最终升水到 `0m` 的段落不再显示为单独 `0m asc` 行，但仍计入 `total_runtime_min` 和 `total_gas_l`。
+- 上升段只是结果页展示项，不回写为算法停站，也不参与 runtime DECO/SAFE 当前站判断。
+
+验证：
+
+- 40 m / 25 min 示例中，结果页不再出现最后一行 `0 asc`。
+- 若首个算法停站为 15 m，则 bottom 行后应有一条 `15 / asc` 展示行，然后才是 `15 / <停留分钟>` 的停站行。
+- 结果页 summary 的 Runtime 应继续等于 `descent + bottom + schedule.tts_seconds`，不会因为隐藏 `0m asc` 行而少算最后升水时间。
+
 #### 多气体 ACTIVE / 删除槽
 
 旧口径：

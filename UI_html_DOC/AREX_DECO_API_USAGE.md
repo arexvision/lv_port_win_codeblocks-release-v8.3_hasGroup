@@ -109,6 +109,8 @@ typedef struct ArexDecoGas {
 
 如果 UI 没有有效气体，适配层会退回 `arex_deco_make_default_gas_plan()`，即默认空气。
 
+实时 PPO2 显示值不等同于气体配置 `max_ppo2_bar`。`bus_set_ppo2()` 的单位固定为物理 `bar`；有压力传感器 mbar 时使用 `bus_calculate_ppo2_bar(o2_pct, pressure_mbar)`，即 `FO2 * pressure_mbar / 1000.0f`。AREX 适配层当前已经按 `oxygen_fraction * pressure_bar` 写入实时 PPO2，真机桥接不得把 `pressure_mbar / 1013.25f` 的 ATA 归一值写入同一个 bus 字段。
+
 ### 4. 状态推进 `arex_deco_step()`
 
 实时潜水中最重要的 API 是：
@@ -188,6 +190,8 @@ uint32_t switch_penalty_seconds;
 4. `hold_seconds` 是物理停留时间，不包含切气 penalty。
 5. `switch_penalty_seconds` 是 planner 预测用的同深度切气延迟。
 6. `ceiling_violated == 1` 表示 plan 时当前深度已经浅于 GF-high ceiling；即使 `stops/tts` 为 0，产品层也必须提示违规风险。
+
+DIVE PLAN 结果页需要注意：`arex_deco_plan()` 不返回上升段数组。PC 适配层为了列表可读性，会把 `tts_seconds - sum(stops[].duration_seconds)` 拆成到下一可见停站的 `asc` 展示行；这些行不是算法停站，不能用于 runtime stop 判断。最终到 `0m` 的升水段不作为 `0m asc` 行显示，但仍计入 Runtime 和 Gas 汇总。
 
 ## 当前项目的实时输出链路
 

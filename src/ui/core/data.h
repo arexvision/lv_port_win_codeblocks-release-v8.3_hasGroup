@@ -214,6 +214,7 @@ void bus_set_depth_alarm_m(uint16_t depth_m);
 void bus_set_time_alarm_min(uint16_t minutes);
 void bus_set_ndl_alarm_min(uint16_t minutes);
 float bus_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2);
+float bus_calculate_ppo2_bar(uint8_t o2_pct, float pressure_mbar);
 
 /* --- 技术潜水参数接口 --- */
 void bus_set_mod(float mod_m);

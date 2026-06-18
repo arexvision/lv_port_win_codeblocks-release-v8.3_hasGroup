@@ -34,6 +34,8 @@ static float sim_default_air_mod_m(void)
 #define SIM_DIVE_ENTRY_DEPTH_M 1.2f
 #define SIM_SURFACE_DEPTH_M 0.8f
 #define SIM_TEMP_C 99.9f
+#define SIM_SURFACE_PRESSURE_MBAR 1013.25f
+#define SIM_WATER_METERS_PER_BAR 10.0f
 #ifndef SIM_SURFACE_CONFIRM_S
 #define SIM_SURFACE_CONFIRM_S 5U
 #endif
@@ -101,11 +103,9 @@ static sim_state_t s_sim = {
 
 static float sim_calc_ppo2(uint8_t o2_pct, float depth_m)
 {
-    float ambient_bar = 1.0f + (depth_m / 10.0f);
-    if (ambient_bar < 1.0f) {
-        ambient_bar = 1.0f;
-    }
-    return ((float)o2_pct / 100.0f) * ambient_bar;
+    float pressure_depth_m = (depth_m > 0.0f) ? depth_m : 0.0f;
+    float pressure_mbar = SIM_SURFACE_PRESSURE_MBAR + (pressure_depth_m / SIM_WATER_METERS_PER_BAR) * 1000.0f;
+    return bus_calculate_ppo2_bar(o2_pct, pressure_mbar);
 }
 
 static void sim_update_gas_derived(float depth_m)

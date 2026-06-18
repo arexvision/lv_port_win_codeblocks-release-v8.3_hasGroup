@@ -999,6 +999,53 @@ static uint16_t gas_qty_l(float depth_m, uint32_t seconds, float rmv_lpm, const 
     return round_u16_float(rmv_lpm * pressure * minutes);
 }
 
+static uint32_t plan_stop_duration_sum_s(const ArexDecoSchedule *schedule)
+{
+    uint32_t stop_s = 0U;
+    if (schedule == NULL) return 0U;
+    for (uint8_t i = 0U; i < schedule->stop_count; i++) stop_s += schedule->stops[i].duration_seconds;
+    return stop_s;
+}
+
+static float plan_ascent_display_distance_m(float start_depth_m, const ArexDecoSchedule *schedule)
+{
+    float distance_m = 0.0f;
+    float from_depth_m = start_depth_m;
+    if (schedule == NULL) return (start_depth_m > 0.0f) ? start_depth_m : 0.0f;
+
+    for (uint8_t i = 0U; i < schedule->stop_count; i++)
+    {
+        const ArexDecoStop *stop = &schedule->stops[i];
+        if (stop_runtime_seconds(stop) == 0U) continue;
+        if (stop->depth_m < from_depth_m)
+        {
+            distance_m += from_depth_m - stop->depth_m;
+            from_depth_m = stop->depth_m;
+        }
+    }
+    if (from_depth_m > 0.0f) distance_m += from_depth_m;
+    return distance_m;
+}
+
+static uint32_t plan_ascent_segment_s(float from_depth_m,
+                                      float to_depth_m,
+                                      uint32_t total_ascent_s,
+                                      float total_distance_m,
+                                      uint32_t *used_ascent_s)
+{
+    uint32_t used_s = (used_ascent_s != NULL) ? *used_ascent_s : 0U;
+    uint32_t remain_s = (total_ascent_s > used_s) ? (total_ascent_s - used_s) : 0U;
+    uint32_t segment_s;
+    float distance_m = from_depth_m - to_depth_m;
+
+    if (remain_s == 0U || total_distance_m <= 0.0f || distance_m <= 0.0f) return 0U;
+
+    segment_s = (uint32_t)(((float)total_ascent_s * distance_m / total_distance_m) + 0.5f);
+    if (segment_s > remain_s) segment_s = remain_s;
+    if (used_ascent_s != NULL) *used_ascent_s = used_s + segment_s;
+    return segment_s;
+}
+
 static uint8_t append_plan_row(dive_plan_result_snapshot_t *snapshot, dive_plan_row_type_t type,
                                int16_t depth_m, uint16_t time_min, uint16_t run_min,
                                const ArexDecoGas *gas, uint16_t gas_l)
@@ -1062,8 +1109,15 @@ bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv
 
     uint32_t run_s = descent_s + (uint32_t)bottom_time_min * 60U;
     uint16_t total_deco_l = 0U;
+    uint16_t total_ascent_l = 0U;
     const ArexDecoGas *bottom_gas = &plan_state.gas_plan.gases[plan_state.gas_plan.active_gas_index];
+    const ArexDecoGas *ascent_gas = bottom_gas;
     uint16_t bottom_gas_l = gas_qty_l(depth_m, input.duration_seconds, rmv_lpm, &plan_state.config);
+    uint32_t total_stop_s = plan_stop_duration_sum_s(&schedule);
+    uint32_t total_ascent_s = (schedule.tts_seconds > total_stop_s) ? (schedule.tts_seconds - total_stop_s) : 0U;
+    uint32_t used_ascent_s = 0U;
+    float ascent_distance_m = plan_ascent_display_distance_m(depth_m, &schedule);
+    float ascent_from_depth_m = depth_m;
     (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_BOTTOM, (int16_t)(depth_m + 0.5f), bottom_time_min, round_up_minutes(run_s), bottom_gas, bottom_gas_l);
 
     for (uint8_t i = 0U; i < schedule.stop_count && out_snapshot->entry_count < PLAN_MAX_ROWS; i++)
@@ -1074,29 +1128,40 @@ bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv
         if (gas_idx < 0 || gas_idx >= (int8_t)plan_state.gas_plan.gas_count) gas_idx = plan_state.gas_plan.active_gas_index;
         const ArexDecoGas *gas = &plan_state.gas_plan.gases[gas_idx];
         uint16_t stop_gas_l = gas_qty_l(stop->depth_m, stop->duration_seconds, rmv_lpm, &plan_state.config);
+
+        if (runtime_s > 0U && stop->depth_m < ascent_from_depth_m)
+        {
+            uint32_t segment_s = plan_ascent_segment_s(ascent_from_depth_m, stop->depth_m, total_ascent_s, ascent_distance_m, &used_ascent_s);
+            uint16_t ascent_l = gas_qty_l((ascent_from_depth_m + stop->depth_m) * 0.5f, segment_s, rmv_lpm, &plan_state.config);
+            run_s += segment_s;
+            total_ascent_l = (uint16_t)(total_ascent_l + ascent_l);
+            if (out_snapshot->entry_count + 1U < PLAN_MAX_ROWS)
+            {
+                (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_ASCENT, (int16_t)(stop->depth_m + 0.5f), round_up_minutes(segment_s), round_up_minutes(run_s), ascent_gas, ascent_l);
+            }
+            ascent_from_depth_m = stop->depth_m;
+        }
+
         run_s += stop->duration_seconds;
         total_deco_l = (uint16_t)(total_deco_l + stop_gas_l);
         if (runtime_s == 0U) continue;
         (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_DECO_STOP, (int16_t)(stop->depth_m + 0.5f), round_up_minutes(runtime_s), round_up_minutes(run_s), gas, stop_gas_l);
+        ascent_gas = gas;
     }
 
     uint32_t total_runtime_s = descent_s + (uint32_t)bottom_time_min * 60U + schedule.tts_seconds;
-    uint32_t ascent_s = schedule.tts_seconds;
-    if (schedule.stop_count > 0U)
+    if (total_ascent_s > used_ascent_s)
     {
-        uint32_t stop_s = 0U;
-        for (uint8_t i = 0U; i < schedule.stop_count; i++) stop_s += schedule.stops[i].duration_seconds;
-        ascent_s = (schedule.tts_seconds > stop_s) ? (schedule.tts_seconds - stop_s) : 0U;
+        uint32_t surface_ascent_s = total_ascent_s - used_ascent_s;
+        total_ascent_l = (uint16_t)(total_ascent_l + gas_qty_l(ascent_from_depth_m * 0.5f, surface_ascent_s, rmv_lpm, &plan_state.config));
     }
-    uint16_t ascent_gas_l = gas_qty_l(depth_m * 0.5f, ascent_s, rmv_lpm, &plan_state.config);
-    (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_ASCENT, 0, round_up_minutes(ascent_s), round_up_minutes(total_runtime_s), bottom_gas, ascent_gas_l);
 
     out_snapshot->valid = 1U;
     out_snapshot->page = 0U;
     out_snapshot->total_runtime_min = round_up_minutes(total_runtime_s);
     out_snapshot->total_deco_min = 0U;
     for (uint8_t i = 0U; i < schedule.stop_count; i++) out_snapshot->total_deco_min = (uint16_t)(out_snapshot->total_deco_min + round_up_minutes(schedule.stops[i].duration_seconds));
-    out_snapshot->total_gas_l = (uint16_t)(bottom_gas_l + total_deco_l + ascent_gas_l);
+    out_snapshot->total_gas_l = (uint16_t)(bottom_gas_l + total_deco_l + total_ascent_l);
     out_snapshot->cns_pct = round_u16_float(schedule.end_of_dive_exposure.cns_percent);
     out_snapshot->otu = round_u16_float(schedule.end_of_dive_exposure.otu);
     out_snapshot->total_pages = (uint8_t)((out_snapshot->entry_count + 7U) / 8U);

@@ -438,6 +438,13 @@ float bus_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2)
 #endif
 }
 
+float bus_calculate_ppo2_bar(uint8_t o2_pct, float pressure_mbar)
+{
+    float pressure_bar = pressure_mbar / 1000.0f;
+    if (pressure_bar < 0.0f) pressure_bar = 0.0f;
+    return ((float)o2_pct / 100.0f) * pressure_bar;
+}
+
 static float bus_default_air_mod_m(void)
 {
     float mod_m = bus_calculate_gas_mod(21U, 0U, 1.4f);
