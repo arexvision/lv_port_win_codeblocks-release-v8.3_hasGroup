@@ -108,6 +108,12 @@ static float sim_calc_ppo2(uint8_t o2_pct, float depth_m)
     return bus_calculate_ppo2_bar(o2_pct, pressure_mbar);
 }
 
+static void sim_update_heading_auto(void)
+{
+    s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
+    bus_set_heading(s_sim.heading_deg);
+}
+
 static void sim_update_gas_derived(float depth_m)
 {
     uint8_t active_idx = bus_get_gas_active_idx();
@@ -695,6 +701,7 @@ static void sim_tick_cb(lv_timer_t *t)
             bool goto_reached = false;
             s_sim.runtime_tick_s++;
             current_depth_m = g_sensor_data.depth;
+            sim_update_heading_auto();
             if (debug_link_pc_depth_goto_step(current_depth_m, &current_depth_m, &goto_reached)) {
                 if (goto_reached) {
                     bus_set_depth_force(current_depth_m);
@@ -737,8 +744,7 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.runtime_tick_s++;
     sim_update_runtime_metrics(1U);
 
-    s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
-    bus_set_heading(s_sim.heading_deg);
+    sim_update_heading_auto();
 
     sim_update_depth_script();
     sim_update_deco_state();
