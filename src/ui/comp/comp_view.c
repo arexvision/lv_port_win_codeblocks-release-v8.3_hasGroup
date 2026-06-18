@@ -1509,14 +1509,9 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
                 h->dial = lv_obj_create(obj);
                 lv_obj_remove_style_all(h->dial);
-                lv_obj_set_size(h->dial, abs_w - 18U, abs_h - 34U);
-                lv_obj_align(h->dial, LV_ALIGN_TOP_MID, 0, 8);
+                lv_obj_set_size(h->dial, abs_w - 12U, abs_h - 12U);
+                lv_obj_align(h->dial, LV_ALIGN_CENTER, 0, 0);
                 lv_obj_add_event_cb(h->dial, compass_dial_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
-
-                if (val_lbl != NULL)
-                {
-                    lv_obj_align(val_lbl, LV_ALIGN_BOTTOM_MID, 0, -2);
-                }
             }
         }
         else if (w_id == COMP_TISSUE_GF_4012 || w_id == COMP_TISSUE_RAW_4012)
