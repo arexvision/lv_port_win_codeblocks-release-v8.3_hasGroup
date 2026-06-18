@@ -37,7 +37,6 @@ LV_IMG_DECLARE(sudo_down_level2);
 #define MAX_COMPASS_WIDGETS        MAX_WIDGET_RENDER_INSTANCES
 #define COMP_VALUE_HANDLE_ID_MAX   64U
 #define COMPASS_DIAL_TICK_COUNT    12U
-#define COMPASS_PI                 3.14159265f
 #define TISSUE_LEAD_COUNT          16U
 #define TISSUE_LEAD_BLINK_MS       450U
 #define TISSUE_CHART_PAMB_PERMILLE 400
@@ -322,26 +321,32 @@ static void comp_view_label_set_text_fmt_if_changed(lv_obj_t *label, const char 
     comp_view_label_set_text_if_changed(label, buf);
 }
 
-static int16_t compass_round_coord(float value)
+static int16_t compass_normalize_angle(int16_t angle)
 {
-    return (int16_t)((value >= 0.0f) ? (value + 0.5f) : (value - 0.5f));
+    angle %= 360;
+    if (angle < 0) angle = (int16_t)(angle + 360);
+    return angle;
 }
 
-static void compass_point_from_angle(int16_t cx, int16_t cy, float angle_deg, int16_t radius, lv_point_t *out)
+static void compass_point_from_angle(int16_t cx, int16_t cy, int16_t angle_deg, int16_t radius, lv_point_t *out)
 {
-    float rad;
+    int16_t angle;
+    int32_t x;
+    int32_t y;
 
     if (out == NULL)
     {
         return;
     }
 
-    rad = (angle_deg - 90.0f) * (COMPASS_PI / 180.0f);
-    out->x = (lv_coord_t)(cx + compass_round_coord(cosf(rad) * (float)radius));
-    out->y = (lv_coord_t)(cy + compass_round_coord(sinf(rad) * (float)radius));
+    angle = compass_normalize_angle(angle_deg);
+    x = (int32_t)radius * (int32_t)lv_trigo_sin(angle);
+    y = (int32_t)radius * (int32_t)lv_trigo_sin((int16_t)(angle + 90));
+    out->x = (lv_coord_t)(cx + (lv_coord_t)(x >> LV_TRIGO_SHIFT));
+    out->y = (lv_coord_t)(cy - (lv_coord_t)(y >> LV_TRIGO_SHIFT));
 }
 
-static void compass_dial_draw_label(lv_draw_ctx_t *draw_ctx, const char *text, int16_t cx, int16_t cy, float angle_deg, int16_t radius)
+static void compass_dial_draw_label(lv_draw_ctx_t *draw_ctx, const char *text, int16_t cx, int16_t cy, int16_t angle_deg, int16_t radius)
 {
     lv_point_t p;
     lv_area_t label_area;
@@ -400,7 +405,7 @@ static void compass_dial_draw_cb(lv_event_t *e)
 
     for (uint8_t i = 0U; i < COMPASS_DIAL_TICK_COUNT; i++)
     {
-        float angle = (float)i * 30.0f;
+        int16_t angle = (int16_t)(i * 30U);
         bool major = (i % 3U) == 0U;
         lv_point_t p1;
         lv_point_t p2;
@@ -412,27 +417,27 @@ static void compass_dial_draw_cb(lv_event_t *e)
         lv_draw_line(draw_ctx, &line_dsc, &p1, &p2);
     }
 
-    compass_dial_draw_label(draw_ctx, "N", cx, cy, 0.0f, (int16_t)(radius - 18));
-    compass_dial_draw_label(draw_ctx, "E", cx, cy, 90.0f, (int16_t)(radius - 18));
-    compass_dial_draw_label(draw_ctx, "S", cx, cy, 180.0f, (int16_t)(radius - 18));
-    compass_dial_draw_label(draw_ctx, "W", cx, cy, 270.0f, (int16_t)(radius - 18));
+    compass_dial_draw_label(draw_ctx, "N", cx, cy, 0, (int16_t)(radius - 18));
+    compass_dial_draw_label(draw_ctx, "E", cx, cy, 90, (int16_t)(radius - 18));
+    compass_dial_draw_label(draw_ctx, "S", cx, cy, 180, (int16_t)(radius - 18));
+    compass_dial_draw_label(draw_ctx, "W", cx, cy, 270, (int16_t)(radius - 18));
 
     line_dsc.color = GREEN;
     line_dsc.width = 3;
     line_dsc.opa = LV_OPA_COVER;
     lv_point_t center = {cx, cy};
     lv_point_t needle_tip;
-    compass_point_from_angle(cx, cy, (float)heading, (int16_t)(radius - 12), &needle_tip);
+    compass_point_from_angle(cx, cy, (int16_t)heading, (int16_t)(radius - 12), &needle_tip);
     lv_draw_line(draw_ctx, &line_dsc, &center, &needle_tip);
 
     if (bus_is_heading_locked())
     {
-        float target_rel = (float)((int)bus_get_heading_target() - (int)heading);
+        int16_t target_rel = (int16_t)((int)bus_get_heading_target() - (int)heading);
         lv_point_t marker_inner;
         lv_point_t marker_outer;
 
-        while (target_rel > 180.0f) target_rel -= 360.0f;
-        while (target_rel < -180.0f) target_rel += 360.0f;
+        while (target_rel > 180) target_rel = (int16_t)(target_rel - 360);
+        while (target_rel < -180) target_rel = (int16_t)(target_rel + 360);
 
         line_dsc.width = 2;
         line_dsc.opa = LV_OPA_COVER;
