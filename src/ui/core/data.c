@@ -893,6 +893,20 @@ void bus_set_surface_time(uint32_t surface_s)
     }
 }
 
+void bus_set_dive_lifecycle_phase(dive_lifecycle_phase_t phase)
+{
+    if (phase > DIVE_LIFECYCLE_SURFACING_PENDING)
+    {
+        phase = DIVE_LIFECYCLE_SURFACE_CONFIRMED;
+    }
+
+    if (g_sensor_data.dive_lifecycle_phase != phase)
+    {
+        g_sensor_data.dive_lifecycle_phase = phase;
+        bus_mark_dirty(DIRTY_DIVE_PROFILE);
+    }
+}
+
 void bus_set_ppo2(uint8_t sensor_idx, float ppo2_val)
 {
     if (sensor_idx < GAS_COUNT && g_sensor_data.ppo2[sensor_idx] != ppo2_val)
@@ -2283,6 +2297,11 @@ uint32_t bus_get_dive_time_s(void)
 uint32_t bus_get_surface_time_s(void)
 {
     return g_sensor_data.surface_time_s;
+}
+
+dive_lifecycle_phase_t bus_get_dive_lifecycle_phase(void)
+{
+    return g_sensor_data.dive_lifecycle_phase;
 }
 
 float bus_get_battery_pct(void)

@@ -147,9 +147,17 @@ static uint16_t sim_heading_speed_dps(void)
 
 static void sim_lifecycle_set_state(sim_lifecycle_state_t state)
 {
+    static const dive_lifecycle_phase_t phase_map[] = {
+        DIVE_LIFECYCLE_SURFACE_CONFIRMED,
+        DIVE_LIFECYCLE_ENTRY_PENDING,
+        DIVE_LIFECYCLE_ACTIVE,
+        DIVE_LIFECYCLE_SURFACING_PENDING
+    };
+
     s_sim.lifecycle_state = state;
     s_sim.in_dive = (state == SIM_LIFE_DIVING) || (state == SIM_LIFE_SURFACING_PENDING);
     s_sim.surfacing_pending = (state == SIM_LIFE_SURFACING_PENDING);
+    bus_set_dive_lifecycle_phase(phase_map[state]);
     deco_core_set_surface_confirmed((state == SIM_LIFE_SURFACE_CONFIRMED) || (state == SIM_LIFE_ENTRY_PENDING));
 }
 

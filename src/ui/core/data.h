@@ -118,6 +118,7 @@ void bus_set_sys_time(uint8_t hour, uint8_t minute, uint8_t second);
 void bus_set_heading(uint16_t heading_deg);
 void bus_set_dive_time(uint32_t dive_s);
 void bus_set_surface_time(uint32_t surface_s);
+void bus_set_dive_lifecycle_phase(dive_lifecycle_phase_t phase);
 void bus_set_ppo2(uint8_t sensor_idx, float ppo2_val); /* sensor_idx: 0~4 */
 void bus_set_gas(uint8_t gas_idx, const char *gas_name);
 void bus_set_recommended_gas_idx(int8_t gas_idx);
@@ -273,6 +274,7 @@ float bus_get_max_depth(void);
 float bus_get_avg_depth(void);
 uint32_t bus_get_dive_time_s(void);
 uint32_t bus_get_surface_time_s(void);
+dive_lifecycle_phase_t bus_get_dive_lifecycle_phase(void);
 float bus_get_battery_pct(void);
 float bus_get_pod1_bar(void);
 float bus_get_pod2_bar(void);

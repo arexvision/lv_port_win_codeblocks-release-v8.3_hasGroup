@@ -96,6 +96,14 @@ typedef enum
     STOP_DECO
 } stop_type_t;
 
+typedef enum
+{
+    DIVE_LIFECYCLE_SURFACE_CONFIRMED = 0,
+    DIVE_LIFECYCLE_ENTRY_PENDING,
+    DIVE_LIFECYCLE_ACTIVE,
+    DIVE_LIFECYCLE_SURFACING_PENDING
+} dive_lifecycle_phase_t;
+
 typedef struct
 {
     float   depth;
@@ -125,6 +133,7 @@ typedef struct
     bool     sac_valid;
     uint32_t dive_time_s;
     uint32_t surface_time_s;
+    dive_lifecycle_phase_t dive_lifecycle_phase;
     char    gas_name[16];
     uint8_t gas_active_idx;
     int8_t  gas_recommended_idx;

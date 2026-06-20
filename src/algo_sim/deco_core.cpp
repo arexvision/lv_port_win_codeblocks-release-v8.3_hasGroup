@@ -28,6 +28,7 @@ extern "C" {
 #define DECO_FORECAST_TTS_INTERVAL_S 5U       /* TTS forecast 低频刷新间隔 */
 #define DECO_NDL_EXCURSION_DELTA_M 3.0f       /* NDL 上/下 3m 试探 */
 #define DECO_NDL_DYNAMIC_RATE_THRESHOLD_MPM UI_ASCENT_RATE_STILL_DEADBAND_MPM /* 动态 NDL3 方向阈值 */
+#define DECO_GAS_SWITCH_ASCENT_MIN_MPM 1.0f   /* BETTER GAS 明显上升门控 */
 #define TISSUE_UI_PAMB_ANCHOR_PERMILLE 400.0f /* 归一化组织图环境压力锚点 */
 #define TISSUE_UI_MVALUE_ANCHOR_PERMILLE 900.0f /* 归一化组织图 M 值锚点 */
 #define TISSUE_UI_MAX_PERMILLE 1000.0f        /* 归一化组织图绘制上限 */
@@ -581,11 +582,20 @@ static void sync_gas_data(void)
     }
 }
 
-static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec)
+static const ArexDecoStop *first_runtime_stop(const ArexDecoSchedule *schedule);
+
+static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec, const ArexDecoSchedule *schedule)
 {
     int8_t recommended_idx = -1;
+    dive_lifecycle_phase_t phase = bus_get_dive_lifecycle_phase();
+    bool lifecycle_allows_prompt = phase == DIVE_LIFECYCLE_ACTIVE || phase == DIVE_LIFECYCLE_SURFACING_PENDING;
+    bool deco_context = (first_runtime_stop(schedule) != NULL && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M) ||
+                        s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M ||
+                        (schedule != NULL && schedule->tts_seconds > 0U);
+    bool ascent_context = bus_get_ascent_rate() > DECO_GAS_SWITCH_ASCENT_MIN_MPM;
 
-    if (bus_get_dive_time_s() > 0U &&
+    if (lifecycle_allows_prompt &&
+        (deco_context || ascent_context) &&
         gas_rec != NULL &&
         gas_rec->available &&
         gas_rec->recommended_gas_index >= 0 &&
@@ -800,7 +810,7 @@ static void refresh_current_outputs(void)
     ArexDecoStatus gas_status = s_surface_confirmed ? AREX_DECO_STATUS_INVALID_STATE : arex_deco_recommend_gas(plan_state, &gas_rec);
     debug_print_plan_call("refresh", -1, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
-    sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
+    sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule);
     else sync_core_data_without_plan();
 }
@@ -964,7 +974,7 @@ bool deco_core_rtc_offline(uint32_t seconds)
     ArexDecoStatus plan_status = arex_deco_plan(&plan_state, &schedule, NULL);
     debug_print_plan_call("rtc_offline", AREX_DECO_STATUS_OK, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
-    sync_gas_recommendation(NULL);
+    sync_gas_recommendation(NULL, NULL);
     if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule);
     else sync_core_data_without_plan();
     rt_kprintf("[RTC_OFFLINE] surface sleep %lus with AIR\n", (unsigned long)seconds);
@@ -1037,7 +1047,7 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     {
         debug_print_schedule(&schedule);
     }
-    sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
+    sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule);
     else sync_core_data_without_plan();
 }
