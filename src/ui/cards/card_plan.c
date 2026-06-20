@@ -286,6 +286,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
         float cur_t_sec = current_t_sec;
         float draw_d = current_d;
         lv_point_t p1 = now_p;
+        bool show_stop_time = (bus_get_stop_type() == STOP_SAFETY) || (PLAN_TRACK_DECO_STOP_TIME_LABELS_ENABLED != 0);
+        lv_coord_t stop_label_x = (lv_coord_t)x_axis_left + PLAN_TRACK_STOP_LABEL_LEFT_OFFSET_PX;
 
         for (uint8_t i = 0U; i < vm->deco_stop_count; i++)
         {
@@ -312,11 +314,9 @@ static void plan_chart_draw_cb(lv_event_t *e)
             lv_draw_rect(draw_ctx, &deco_node, &c_area);
 
             char d_buf[16];
-            snprintf(d_buf, sizeof(d_buf), "%.0f%s %d'",
-                     (double)bus_get_depth_display(vm->deco_stops[i].depth_m),
-                     bus_get_depth_unit_label(),
-                     (int)vm->deco_stops[i].stay_min);
-            lv_area_t d_txt = {circle_x - 20, p2.y - 20, circle_x + 20, p2.y - 4};
+            if (show_stop_time) snprintf(d_buf, sizeof(d_buf), "%.0f%s %d'", (double)bus_get_depth_display(vm->deco_stops[i].depth_m), bus_get_depth_unit_label(), (int)vm->deco_stops[i].stay_min);
+            else snprintf(d_buf, sizeof(d_buf), "%.0f%s", (double)bus_get_depth_display(vm->deco_stops[i].depth_m), bus_get_depth_unit_label());
+            lv_area_t d_txt = {stop_label_x, p2.y - 20, stop_label_x + 82, p2.y - 4};
             txt_dsc.opa = LV_OPA_COVER;
             lv_draw_label(draw_ctx, &txt_dsc, &d_txt, d_buf, NULL);
             txt_dsc.opa = 191;
