@@ -188,6 +188,7 @@ static uint8_t logbook_picker_focus_back(void);
 static uint8_t logbook_picker_focus_next(void);
 static uint8_t logbook_picker_focus_count(void);
 static void logbook_picker_focus_default(void);
+static void logbook_picker_sync_focus(void);
 static void submenu_populate_current(void);
 static void logbook_picker_stop_loader(void);
 static void logbook_picker_start_loader(uint16_t page_index, bool prefetch);
@@ -965,6 +966,36 @@ static void logbook_picker_prepare_page(uint16_t page_index)
     }
 }
 
+static void logbook_picker_restore_focus(uint16_t index)
+{
+    if (s_logbook_snapshot_count == 0U || s_logbook_page_count == 0U)
+    {
+        s_logbook_page_index = 0U;
+        s_logbook_picker_focus = 0U;
+        s_logbook_focus = 0U;
+        return;
+    }
+
+    if (index >= s_logbook_snapshot_count)
+    {
+        index = (uint16_t)(s_logbook_snapshot_count - 1U);
+    }
+
+    s_logbook_page_index = (uint16_t)(index / LOGBOOK_PICKER_VISIBLE_ROWS);
+    if (s_logbook_page_index >= s_logbook_page_count)
+    {
+        s_logbook_page_index = (uint16_t)(s_logbook_page_count - 1U);
+    }
+
+    logbook_picker_prepare_page(s_logbook_page_index);
+    s_logbook_picker_focus = (uint8_t)(index - s_logbook_page_index * LOGBOOK_PICKER_VISIBLE_ROWS);
+    if (s_logbook_picker_focus >= s_logbook_picker_visible && s_logbook_picker_visible > 0U)
+    {
+        s_logbook_picker_focus = (uint8_t)(s_logbook_picker_visible - 1U);
+    }
+    logbook_picker_sync_focus();
+}
+
 static bool logbook_picker_page_has_missing(uint16_t page_index)
 {
     if ((s_logbook_snapshot_entries == NULL) || (page_index >= s_logbook_page_count))
@@ -1460,6 +1491,24 @@ static void logbook_apply_row_style(lv_obj_t *row, lv_obj_t *left_lbl, lv_obj_t 
     }
 }
 
+static void logbook_apply_nav_button_style(lv_obj_t *btn, lv_obj_t *lbl, bool focused)
+{
+    if (btn != NULL)
+    {
+        lv_obj_set_style_bg_color(btn, BLACK, 0);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_color(btn, focused ? GREEN : DARK, 0);
+        lv_obj_set_style_border_width(btn, focused ? INNER_BORDER_W + 2 : INNER_BORDER_W, 0);
+        lv_obj_set_style_radius(btn, 0, 0);
+    }
+    if (lbl != NULL)
+    {
+        lv_obj_set_style_text_font(lbl, get_font(focused ? FONT_ID_MEDIUM : FONT_ID_TITLE), 0);
+        lv_obj_set_style_text_color(lbl, focused ? LIGHT : GREEN, 0);
+        lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+    }
+}
+
 static void logbook_draw_row(lv_obj_t *parent, const char *left, const char *right, uint8_t focus_id,
                              int16_t x, int16_t y, uint16_t w, uint16_t h)
 {
@@ -1563,7 +1612,7 @@ static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
     int16_t row_start_y = compact ? 54 : 62;
     int16_t row_gap = compact ? 36 : 42;
     uint16_t row_h = compact ? 32U : 36U;
-    const uint16_t button_w = compact ? 92U : 96U;
+    const uint16_t button_w = 92U;
     const uint16_t button_h = 34U;
     const int16_t footer_margin = compact ? 16 : 18;
     const int16_t button_y = (int16_t)((h > (button_h + 22U)) ? (h - button_h - 10U) : (h - button_h));
@@ -1711,8 +1760,8 @@ static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
         if (has_next) lv_obj_clear_flag(s_logbook_picker_next, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_add_flag(s_logbook_picker_next, LV_OBJ_FLAG_HIDDEN);
     }
-    if (has_back) logbook_apply_row_style(s_logbook_picker_back, s_logbook_picker_back_lbl, NULL, (s_logbook_picker_focus == logbook_picker_focus_back()), button_h);
-    if (has_next) logbook_apply_row_style(s_logbook_picker_next, s_logbook_picker_next_lbl, NULL, (s_logbook_picker_focus == logbook_picker_focus_next()), button_h);
+    if (has_back) logbook_apply_nav_button_style(s_logbook_picker_back, s_logbook_picker_back_lbl, (s_logbook_picker_focus == logbook_picker_focus_back()));
+    if (has_next) logbook_apply_nav_button_style(s_logbook_picker_next, s_logbook_picker_next_lbl, (s_logbook_picker_focus == logbook_picker_focus_next()));
 
     (void)h;
 }
@@ -2889,6 +2938,16 @@ bool screen_handle_logbook_back(void)
         !submenu_is_logbook_visible())
     {
         return false;
+    }
+
+    if (s_logbook_page != LOGBOOK_PAGE_PICK)
+    {
+        logbook_detail_stop_loader();
+        logbook_points_release();
+        s_logbook_page = LOGBOOK_PAGE_PICK;
+        logbook_picker_restore_focus(s_logbook_index);
+        submenu_populate_current();
+        return true;
     }
 
     screen_close_submenu();
