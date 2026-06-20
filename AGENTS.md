@@ -54,10 +54,6 @@ DIVE PLAN is not PC-only. The UI should call the neutral `dive_plan_backend_calc
 
 If the algorithm layer provides a calculation interface for a value, the main project must call that interface instead of duplicating the formula locally. This includes values such as MOD, gas recommendation, decompression stop timing, tissue/GF metrics, no-fly time, and similar algorithm-owned outputs. Local fallback formulas are only acceptable when the algorithm layer genuinely has no API for that value and the boundary contract is documented.
 
-`UI_html_DOC/规则书.md` 是本仓库固定“规则书”。用户说“写规则里面”或“写到规则里”时，默认就是更新这个文件，同时按内容同步相关专题文档。任何涉及算法计算口径、算法字段语义、算法输入输出映射、模拟器与真机计算同步的改动，都必须同步更新规则书或规则书指向的专题文档。优先更新 `UI_html_DOC/AREX_ALGO_SIM_SYNC_LOG.md`；如果改动影响 API 调用链、推荐气体、停站/计划、组织仓/GF、MOD、nofly、RTC 离线补偿等专题文档，也要同步更新对应专题文档。提交代码前检查文档是否说明了“改了什么、为什么改、旧口径和新口径差异、验证方式”。
-
-`src/ui/core/callbacks.c` 中的弱回调是 PC 模拟器默认实现，也是移植到真机侧时业务层需要覆盖或等价实现的重要接口。任何菜单/设置项如果会影响算法输入、派生计算、持久化配置或真机平台状态，不能只改 PC 默认回调；必须在规则书中记录真机侧需要同步实现的回调、数据流和验证点。
-
 ## Git / Commit
 
 本仓库的 commit message 默认使用中文；只有用户明确要求时，才使用其他语言。
