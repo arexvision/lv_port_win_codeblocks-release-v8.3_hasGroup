@@ -20,6 +20,8 @@
 #endif
 
 static lv_timer_t *s_sim_timer;
+static lv_timer_t *s_heading_timer;
+static uint32_t s_heading_accum_mdeg;
 
 static void sim_fill_logbook_tanks(logbook_entry_t *entry);
 
@@ -39,6 +41,7 @@ static float sim_default_air_mod_m(void)
 #ifndef SIM_SURFACE_CONFIRM_S
 #define SIM_SURFACE_CONFIRM_S 5U
 #endif
+#define SIM_HEADING_TIMER_MS 10U /* 指南针模拟刷新周期 */
 
 typedef struct
 {
@@ -116,6 +119,40 @@ static void sim_update_heading_auto(uint16_t step_deg)
     }
     s_sim.heading_deg = (uint16_t)((bus_get_heading() + step_deg) % 360U);
     bus_set_heading(s_sim.heading_deg);
+}
+
+static uint16_t sim_heading_speed_dps(void)
+{
+#if TCP_ALGO_DEBUG
+    if (debug_link_pc_manual_mode())
+    {
+        return debug_link_pc_heading_speed_dps();
+    }
+#endif
+    return 1U;
+}
+
+static void sim_heading_tick_cb(lv_timer_t *t)
+{
+    uint16_t speed_dps;
+    uint32_t step_deg;
+
+    (void)t;
+
+    speed_dps = sim_heading_speed_dps();
+    if (speed_dps == 0U)
+    {
+        s_heading_accum_mdeg = 0U;
+        return;
+    }
+
+    s_heading_accum_mdeg += (uint32_t)speed_dps * SIM_HEADING_TIMER_MS;
+    step_deg = s_heading_accum_mdeg / 1000U;
+    s_heading_accum_mdeg %= 1000U;
+    if (step_deg > 0U)
+    {
+        sim_update_heading_auto((uint16_t)(step_deg % 360U));
+    }
 }
 
 static void sim_update_gas_derived(float depth_m)
@@ -701,7 +738,6 @@ static void sim_tick_cb(lv_timer_t *t)
 
     {
         uint16_t time_scale = debug_link_pc_time_scale();
-        sim_update_heading_auto(debug_link_pc_heading_speed_dps());
         for (uint16_t tick = 0; tick < time_scale; tick++) {
             bool goto_reached = false;
             s_sim.runtime_tick_s++;
@@ -747,8 +783,6 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.layout_tick = (uint16_t)((s_sim.layout_tick + 1U) % SIM_LAYOUT_SWITCH_TICKS);
     s_sim.runtime_tick_s++;
     sim_update_runtime_metrics(1U);
-
-    sim_update_heading_auto(1U);
 
     sim_update_depth_script();
     sim_update_deco_state();
@@ -835,5 +869,6 @@ void sim_data_start(void)
 #endif
 
     s_sim_timer = lv_timer_create(sim_tick_cb, 1000, NULL);
+    s_heading_timer = lv_timer_create(sim_heading_tick_cb, SIM_HEADING_TIMER_MS, NULL);
 
 }
