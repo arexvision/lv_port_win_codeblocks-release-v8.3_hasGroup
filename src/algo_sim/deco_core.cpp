@@ -587,10 +587,9 @@ static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec, co
 {
     int8_t recommended_idx = -1;
     dive_lifecycle_phase_t phase = bus_get_dive_lifecycle_phase();
+    const ArexDecoStop *runtime_stop = first_runtime_stop(schedule);
     bool lifecycle_allows_prompt = phase == DIVE_LIFECYCLE_ACTIVE || phase == DIVE_LIFECYCLE_SURFACING_PENDING;
-    bool deco_context = (first_runtime_stop(schedule) != NULL && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M) ||
-                        s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M ||
-                        (schedule != NULL && schedule->tts_seconds > 0U);
+    bool deco_context = runtime_stop != NULL && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M;
 
     if (lifecycle_allows_prompt &&
         deco_context &&
