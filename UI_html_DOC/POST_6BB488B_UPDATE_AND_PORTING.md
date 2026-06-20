@@ -47,7 +47,7 @@
   - `ENTRY_PENDING`
   - `DIVE_ACTIVE`
   - `SURFACING_PENDING`
-- 入水确认：`depth >= 1.2m` 连续 `3` 个模拟秒后进入 `DIVE_ACTIVE`。
+- 入水确认：`depth >= 0.5m` 连续 `3` 个模拟秒后进入 `DIVE_ACTIVE`。
 - 出水确认：`depth <= 0.2m` 连续 `30` 个模拟秒后进入 `SURFACE_CONFIRMED`。
 - `speed` 会同步加速入水/出水确认计时，因为生命周期 tick 按模拟秒执行。
 - `SURFACE_CONFIRMED` 和 `ENTRY_PENDING` 下，算法适配层按 `0m + AIR` 推进。

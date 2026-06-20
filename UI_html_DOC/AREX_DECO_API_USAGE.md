@@ -147,7 +147,7 @@ input.duration_seconds = delta_time_s;
 input.gas_index = 0; /* AIR */
 ```
 
-这个状态来自平台/模拟器显式调用 `deco_core_set_surface_confirmed(true)`。PC 模拟器在已确认水面和入水确认中都保持该状态；只有 `depth >= 1.2m` 连续 `3` 个模拟秒确认进入潜水后，才切回真实深度和当前 active gas。出水确认规则是 `depth <= 0.2m` 连续 `30` 个模拟秒；真机侧应由自己的生命周期状态机确认后再调用等价接口。
+这个状态来自平台/模拟器显式调用 `deco_core_set_surface_confirmed(true)`。PC 模拟器在已确认水面和入水确认中都保持该状态；只有 `depth >= 0.5m` 连续 `3` 个模拟秒确认进入潜水后，才切回真实深度和当前 active gas。出水确认规则是 `depth <= 0.2m` 连续 `30` 个模拟秒；真机侧应由自己的生命周期状态机确认后再调用等价接口。
 
 `arex_deco_step()` 输出：
 

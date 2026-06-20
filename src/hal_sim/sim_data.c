@@ -34,7 +34,7 @@ static float sim_default_air_mod_m(void)
 
 #define SIM_LAYOUT_PHASE_COUNT 4U
 #define SIM_LAYOUT_SWITCH_TICKS 5U
-#define SIM_DIVE_ENTRY_DEPTH_M 1.2f       /* 入水确认深度 */
+#define SIM_DIVE_ENTRY_DEPTH_M 0.5f       /* 入水确认深度 */
 #define SIM_DIVE_ENTRY_CONFIRM_S 3U       /* 入水确认秒数 */
 #define SIM_SURFACE_DEPTH_M 0.2f          /* 出水确认深度 */
 #define SIM_TEMP_C 99.9f
