@@ -33,15 +33,24 @@ static float sim_default_air_mod_m(void)
 
 #define SIM_LAYOUT_PHASE_COUNT 4U
 #define SIM_LAYOUT_SWITCH_TICKS 5U
-#define SIM_DIVE_ENTRY_DEPTH_M 1.2f
-#define SIM_SURFACE_DEPTH_M 0.8f
+#define SIM_DIVE_ENTRY_DEPTH_M 1.2f       /* 入水确认深度 */
+#define SIM_DIVE_ENTRY_CONFIRM_S 3U       /* 入水确认秒数 */
+#define SIM_SURFACE_DEPTH_M 0.2f          /* 出水确认深度 */
 #define SIM_TEMP_C 99.9f
 #define SIM_SURFACE_PRESSURE_MBAR 1013.25f
 #define SIM_WATER_METERS_PER_BAR 10.0f
 #ifndef SIM_SURFACE_CONFIRM_S
-#define SIM_SURFACE_CONFIRM_S 5U
+#define SIM_SURFACE_CONFIRM_S 30U         /* 出水确认秒数 */
 #endif
 #define SIM_HEADING_TIMER_MS 10U /* 指南针模拟刷新周期 */
+
+typedef enum
+{
+    SIM_LIFE_SURFACE_CONFIRMED = 0,
+    SIM_LIFE_ENTRY_PENDING,
+    SIM_LIFE_DIVING,
+    SIM_LIFE_SURFACING_PENDING
+} sim_lifecycle_state_t;
 
 typedef struct
 {
@@ -49,6 +58,7 @@ typedef struct
     uint32_t dive_time_s;
     uint32_t surface_time_s;
     uint32_t runtime_tick_s;
+    uint32_t entry_pending_s;
     uint32_t surface_pending_s;
     uint32_t last_surface_interval_s;
     float depth_m;
@@ -70,6 +80,7 @@ typedef struct
     uint8_t depth_phase;
     float rate_sample_depth_m;
     bool rate_sample_valid;
+    sim_lifecycle_state_t lifecycle_state;
     bool in_dive;
     bool surfacing_pending;
 } sim_state_t;
@@ -79,6 +90,7 @@ static sim_state_t s_sim = {
     .dive_time_s = 0,
     .surface_time_s = 0,
     .runtime_tick_s = 0,
+    .entry_pending_s = 0,
     .surface_pending_s = 0,
     .last_surface_interval_s = 0,
     .depth_m = 0.0f,
@@ -100,6 +112,7 @@ static sim_state_t s_sim = {
     .depth_phase = 0,
     .rate_sample_depth_m = 0.0f,
     .rate_sample_valid = false,
+    .lifecycle_state = SIM_LIFE_SURFACE_CONFIRMED,
     .in_dive = false,
     .surfacing_pending = false,
 };
@@ -130,6 +143,14 @@ static uint16_t sim_heading_speed_dps(void)
     }
 #endif
     return 1U;
+}
+
+static void sim_lifecycle_set_state(sim_lifecycle_state_t state)
+{
+    s_sim.lifecycle_state = state;
+    s_sim.in_dive = (state == SIM_LIFE_DIVING) || (state == SIM_LIFE_SURFACING_PENDING);
+    s_sim.surfacing_pending = (state == SIM_LIFE_SURFACING_PENDING);
+    deco_core_set_surface_confirmed((state == SIM_LIFE_SURFACE_CONFIRMED) || (state == SIM_LIFE_ENTRY_PENDING));
 }
 
 static void sim_heading_tick_cb(lv_timer_t *t)
@@ -310,6 +331,7 @@ static void sim_reset_for_tcp_debug(void)
     sim_seed_tcp_algo_defaults();
     sim_seed_logbook_demo_if_empty();
     deco_core_reset();
+    sim_lifecycle_set_state(SIM_LIFE_SURFACE_CONFIRMED);
 
     bus_requeue_dirty(DIRTY_DATA_ALL);
 }
@@ -321,7 +343,7 @@ static bool sim_apply_rtc_offline(uint32_t seconds, char *err_buf, uint16_t err_
         if (err_buf && err_buf_size > 0U) (void)snprintf(err_buf, err_buf_size, "%s", "usage: rtc_offline <seconds>");
         return false;
     }
-    if (bus_get_depth() > 0.30f || s_sim.in_dive || s_sim.surfacing_pending)
+    if (s_sim.lifecycle_state != SIM_LIFE_SURFACE_CONFIRMED)
     {
         if (err_buf && err_buf_size > 0U) (void)snprintf(err_buf, err_buf_size, "%s", "rtc_offline requires confirmed surface state");
         return false;
@@ -333,6 +355,7 @@ static bool sim_apply_rtc_offline(uint32_t seconds, char *err_buf, uint16_t err_
     }
 
     s_sim.depth_m = 0.0f;
+    s_sim.entry_pending_s = 0U;
     s_sim.surface_pending_s = 0U;
     s_sim.surface_time_s += seconds;
     s_sim.rate_sample_valid = false;
@@ -595,8 +618,8 @@ static void sim_start_dive(float depth_m)
     uint16_t h = bus_get_sys_time_h();
     uint16_t m = bus_get_sys_time_m();
 
-    s_sim.in_dive = true;
-    s_sim.surfacing_pending = false;
+    sim_lifecycle_set_state(SIM_LIFE_DIVING);
+    s_sim.entry_pending_s = 0U;
     s_sim.surface_pending_s = 0U;
     s_sim.last_surface_interval_s = s_sim.surface_time_s;
     s_sim.dive_time_s = 0U;
@@ -664,8 +687,8 @@ static void sim_finalize_dive(void)
     sim_fill_logbook_tanks(&entry);
     (void)logbook_backend_append_finalized_dive(&entry, points, count);
 
-    s_sim.in_dive = false;
-    s_sim.surfacing_pending = false;
+    sim_lifecycle_set_state(SIM_LIFE_SURFACE_CONFIRMED);
+    s_sim.entry_pending_s = 0U;
     s_sim.surface_pending_s = 0U;
     s_sim.dive_time_s = 0U;
     s_sim.surface_time_s = 0U;
@@ -679,11 +702,14 @@ static void sim_finalize_dive(void)
 
 static void sim_lifecycle_tick(float depth_m)
 {
-    if (!s_sim.in_dive)
+    bool dive_tick = false;
+
+    if (s_sim.lifecycle_state == SIM_LIFE_SURFACE_CONFIRMED)
     {
         if (depth_m >= SIM_DIVE_ENTRY_DEPTH_M)
         {
-            sim_start_dive(depth_m);
+            s_sim.entry_pending_s = 0U;
+            sim_lifecycle_set_state(SIM_LIFE_ENTRY_PENDING);
         }
         else
         {
@@ -693,6 +719,38 @@ static void sim_lifecycle_tick(float depth_m)
             return;
         }
     }
+
+    if (s_sim.lifecycle_state == SIM_LIFE_ENTRY_PENDING)
+    {
+        if (depth_m >= SIM_DIVE_ENTRY_DEPTH_M)
+        {
+            if (s_sim.entry_pending_s < SIM_DIVE_ENTRY_CONFIRM_S) s_sim.entry_pending_s++;
+            if (s_sim.entry_pending_s >= SIM_DIVE_ENTRY_CONFIRM_S)
+            {
+                sim_start_dive(depth_m);
+                dive_tick = true;
+            }
+            else
+            {
+                s_sim.surface_time_s++;
+                bus_set_surface_time(s_sim.surface_time_s);
+                bus_set_dive_time(0U);
+                return;
+            }
+        }
+        else
+        {
+            s_sim.entry_pending_s = 0U;
+            sim_lifecycle_set_state(SIM_LIFE_SURFACE_CONFIRMED);
+            s_sim.surface_time_s++;
+            bus_set_surface_time(s_sim.surface_time_s);
+            bus_set_dive_time(0U);
+            return;
+        }
+    }
+
+    if ((s_sim.lifecycle_state == SIM_LIFE_DIVING) || (s_sim.lifecycle_state == SIM_LIFE_SURFACING_PENDING)) dive_tick = true;
+    if (!dive_tick) return;
 
     s_sim.dive_time_s++;
     bus_set_dive_time(s_sim.dive_time_s);
@@ -707,7 +765,11 @@ static void sim_lifecycle_tick(float depth_m)
 
     if (depth_m <= SIM_SURFACE_DEPTH_M)
     {
-        s_sim.surfacing_pending = true;
+        if (s_sim.lifecycle_state != SIM_LIFE_SURFACING_PENDING)
+        {
+            s_sim.surface_pending_s = 0U;
+            sim_lifecycle_set_state(SIM_LIFE_SURFACING_PENDING);
+        }
         s_sim.surface_pending_s++;
         if (s_sim.surface_pending_s >= SIM_SURFACE_CONFIRM_S)
         {
@@ -716,7 +778,7 @@ static void sim_lifecycle_tick(float depth_m)
     }
     else
     {
-        s_sim.surfacing_pending = false;
+        if (s_sim.lifecycle_state == SIM_LIFE_SURFACING_PENDING) sim_lifecycle_set_state(SIM_LIFE_DIVING);
         s_sim.surface_pending_s = 0U;
     }
 }

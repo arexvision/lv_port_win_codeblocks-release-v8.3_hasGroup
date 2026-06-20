@@ -633,3 +633,26 @@
 - AREX `0.0.18` 静态库最小链接测试通过。
 
 CodeBlocks Debug target 仍应作为最终确认方式。
+
+## 水面生命周期与 AIR 恢复口径
+
+问题：
+
+- 旧 PC 模拟器只用 `in_dive/surfacing_pending` 两个布尔值管理生命周期，出水确认阈值是 `0.8m / 5s`。
+- 已经出水后，实时 `deco_core_tick()` 和紧随其后的 `arex_deco_plan()` 仍使用 UI 当前 active gas；如果用户选了多气体，水面组织恢复和 plan 会继续按多气体口径计算。
+- `rtc_offline` 虽然步进时临时用了 AIR，但随后又恢复原 gas plan 后再 plan，口径不够一致。
+
+新口径：
+
+- PC 模拟器改为四态生命周期：已确认水面、入水确认中、潜水中、出水确认中。
+- 入水确认：`depth >= 1.2m` 连续 `3` 个模拟秒；入水确认中仍按水面 AIR，不提前推进正式潜水状态。
+- 出水确认：`depth <= 0.2m` 连续 `30` 个模拟秒。
+- 生命周期状态机通过 `deco_core_set_surface_confirmed()` 显式告诉算法适配层是否已确认水面。
+- 已确认水面时，实时 step、plan 和 `rtc_offline` 都用临时 `0m + AIR` 算法状态；UI 当前气体选择和 gas slots 不被改写。
+- `rtc_offline` 只允许在已确认水面状态执行，输入算法的深度固定为 `0m`。
+
+验证重点：
+
+- 多气体模式下出水确认前，算法仍按潜水中 active gas 推进；确认出水后，step/plan 切到 `0m + AIR`。
+- `speed 30` 时，30 个模拟秒的出水确认约 1 个真实秒完成。
+- 确认出水后 UI 气体标签不应被自动改成 AIR，只有算法恢复计算使用 AIR。

@@ -47,6 +47,7 @@ static uint32_t s_schedule_debug_last_print_ms;
 static uint32_t s_plan_call_debug_last_print_ms;
 static float s_temperature_c;
 static bool s_temperature_valid;
+static bool s_surface_confirmed = true;
 static uint32_t s_tts_forecast_elapsed_s = DECO_FORECAST_TTS_INTERVAL_S;
 
 typedef struct
@@ -459,13 +460,21 @@ static void apply_current_ui_config(void)
 
 static bool ensure_initialized(void)
 {
+    ArexDecoGasPlan surface_gas_plan;
+    const ArexDecoGas *surface_gas;
+
     if (s_initialized) return true;
     if (!check_api_version_once()) return false;
 
     if (arex_deco_make_initial_dive_state(&s_state) != AREX_DECO_STATUS_OK) return false;
     (void)memset(&s_metrics, 0, sizeof(s_metrics));
     apply_current_ui_config();
-    (void)arex_deco_reset_tissue_to_surface(&s_state.config, &s_state.gas_plan.gases[s_state.gas_plan.active_gas_index], &s_state.tissue);
+    surface_gas = &s_state.gas_plan.gases[s_state.gas_plan.active_gas_index];
+    if (s_surface_confirmed && arex_deco_make_default_gas_plan(&s_state.config, &surface_gas_plan) == AREX_DECO_STATUS_OK)
+    {
+        surface_gas = &surface_gas_plan.gases[0];
+    }
+    (void)arex_deco_reset_tissue_to_surface(&s_state.config, surface_gas, &s_state.tissue);
     s_initialized = true;
     bus_set_tts_at_5min(0U);
     bus_set_tts_delta_5min(0);
@@ -767,15 +776,28 @@ static void sync_core_data_without_plan(void)
     sync_forecast_data();
 }
 
+static bool make_surface_air_state(const ArexDecoDiveState *source, ArexDecoDiveState *surface_state)
+{
+    if (source == NULL || surface_state == NULL) return false;
+    *surface_state = *source;
+    if (arex_deco_make_default_gas_plan(&surface_state->config, &surface_state->gas_plan) != AREX_DECO_STATUS_OK) return false;
+    surface_state->gas_plan.active_gas_index = 0;
+    surface_state->current_depth_m = 0.0f;
+    return true;
+}
+
 static void refresh_current_outputs(void)
 {
     ArexDecoSchedule schedule;
     ArexDecoGasRecommendation gas_rec;
+    ArexDecoDiveState surface_state;
+    const ArexDecoDiveState *plan_state = &s_state;
 
     (void)memset(&schedule, 0, sizeof(schedule));
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
-    ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
-    ArexDecoStatus gas_status = arex_deco_recommend_gas(&s_state, &gas_rec);
+    if (s_surface_confirmed && make_surface_air_state(&s_state, &surface_state)) plan_state = &surface_state;
+    ArexDecoStatus plan_status = arex_deco_plan(plan_state, &schedule, NULL);
+    ArexDecoStatus gas_status = s_surface_confirmed ? AREX_DECO_STATUS_INVALID_STATE : arex_deco_recommend_gas(plan_state, &gas_rec);
     debug_print_plan_call("refresh", -1, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
@@ -824,6 +846,12 @@ void deco_core_reset(void)
     s_temperature_valid = false;
     s_tts_forecast_elapsed_s = DECO_FORECAST_TTS_INTERVAL_S;
     (void)ensure_initialized();
+}
+
+void deco_core_set_surface_confirmed(bool confirmed)
+{
+    s_surface_confirmed = confirmed;
+    if (confirmed && s_initialized) s_state.current_depth_m = 0.0f;
 }
 
 void deco_core_set_final_stop_depth(uint8_t depth_m)
@@ -905,20 +933,18 @@ bool deco_core_rtc_offline(uint32_t seconds)
 {
     ArexDecoDiveState step_state;
     ArexDecoDiveState next_state;
+    ArexDecoDiveState plan_state;
     ArexDecoGasPlan original_gas_plan;
-    ArexDecoGasRecommendation gas_rec;
     ArexDecoSchedule schedule;
     ArexDecoStepInput input;
 
     if (!ensure_initialized()) return false;
     if (seconds == 0U) return false;
-    if (s_state.current_depth_m > 0.30f) return false;
+    if (!s_surface_confirmed) return false;
 
     original_gas_plan = s_state.gas_plan;
     step_state = s_state;
-    if (arex_deco_make_default_gas_plan(&step_state.config, &step_state.gas_plan) != AREX_DECO_STATUS_OK) return false;
-    step_state.gas_plan.active_gas_index = 0;
-    step_state.current_depth_m = 0.0f;
+    if (!make_surface_air_state(&s_state, &step_state)) return false;
 
     (void)memset(&input, 0, sizeof(input));
     input.api_version = arex_deco_get_api_version();
@@ -933,13 +959,12 @@ bool deco_core_rtc_offline(uint32_t seconds)
     next_state.current_depth_m = 0.0f;
     s_state = next_state;
 
+    if (!make_surface_air_state(&s_state, &plan_state)) return false;
     (void)memset(&schedule, 0, sizeof(schedule));
-    (void)memset(&gas_rec, 0, sizeof(gas_rec));
-    ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
-    ArexDecoStatus gas_status = arex_deco_recommend_gas(&s_state, &gas_rec);
+    ArexDecoStatus plan_status = arex_deco_plan(&plan_state, &schedule, NULL);
     debug_print_plan_call("rtc_offline", AREX_DECO_STATUS_OK, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
-    sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL);
+    sync_gas_recommendation(NULL);
     if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule);
     else sync_core_data_without_plan();
     rt_kprintf("[RTC_OFFLINE] surface sleep %lus with AIR\n", (unsigned long)seconds);
@@ -948,6 +973,7 @@ bool deco_core_rtc_offline(uint32_t seconds)
 
 void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
 {
+    ArexDecoDiveState step_state;
     s_temperature_c = temperature_c;
     s_temperature_valid = isfinite(temperature_c) && temperature_c > -DECO_TEMPERATURE_KELVIN_OFFSET;
     if (!ensure_initialized()) return;
@@ -960,12 +986,23 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     ArexDecoDiveState next_state;
     (void)memset(&input, 0, sizeof(input));
     input.api_version = arex_deco_get_api_version();
-    input.start_depth_m = s_state.current_depth_m;
-    input.end_depth_m = depth_m;
     input.duration_seconds = delta_time_s;
-    input.gas_index = s_state.gas_plan.active_gas_index;
+    if (s_surface_confirmed)
+    {
+        if (!make_surface_air_state(&s_state, &step_state)) return;
+        input.start_depth_m = 0.0f;
+        input.end_depth_m = 0.0f;
+        input.gas_index = 0;
+    }
+    else
+    {
+        step_state = s_state;
+        input.start_depth_m = s_state.current_depth_m;
+        input.end_depth_m = depth_m;
+        input.gas_index = s_state.gas_plan.active_gas_index;
+    }
 
-    ArexDecoStatus step_status = arex_deco_step(&s_state, &input, &next_state, &s_metrics);
+    ArexDecoStatus step_status = arex_deco_step(&step_state, &input, &next_state, &s_metrics);
     if (step_status != AREX_DECO_STATUS_OK)
     {
         debug_print_plan_call("tick", (int)step_status, -1, NULL);
@@ -974,6 +1011,11 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
         return;
     }
 
+    if (s_surface_confirmed)
+    {
+        next_state.gas_plan = s_state.gas_plan;
+        next_state.current_depth_m = 0.0f;
+    }
     s_state = next_state;
     if (s_tts_forecast_elapsed_s < DECO_FORECAST_TTS_INTERVAL_S)
     {
@@ -983,10 +1025,13 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
 
     ArexDecoSchedule schedule;
     ArexDecoGasRecommendation gas_rec;
+    ArexDecoDiveState plan_state;
+    const ArexDecoDiveState *plan_source = &s_state;
     (void)memset(&schedule, 0, sizeof(schedule));
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
-    ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
-    ArexDecoStatus gas_status = arex_deco_recommend_gas(&s_state, &gas_rec);
+    if (s_surface_confirmed && make_surface_air_state(&s_state, &plan_state)) plan_source = &plan_state;
+    ArexDecoStatus plan_status = arex_deco_plan(plan_source, &schedule, NULL);
+    ArexDecoStatus gas_status = s_surface_confirmed ? AREX_DECO_STATUS_INVALID_STATE : arex_deco_recommend_gas(plan_source, &gas_rec);
     debug_print_plan_call("tick", (int)step_status, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK)
     {

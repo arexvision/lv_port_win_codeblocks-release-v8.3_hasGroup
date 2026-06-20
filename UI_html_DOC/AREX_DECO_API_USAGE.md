@@ -21,6 +21,8 @@ Arex 算法库提供的是一个“状态推进 + 当前状态重新规划”的
 
 所以 UI 右上角的 `NDL / SAFE / DECO` 并不是 UI 自己算的，而是 `deco_core.cpp` 把算法输出转成 `bus_update_deco()` 后显示出来的。
 
+例外：平台/模拟器确认已经出水后，适配层不再把 UI 当前选择气体传给算法恢复计算，而是临时构造 `0m + AIR` 状态用于 `step/plan/rtc_offline`。这不会改写 UI 的当前气体选择，只是保证水面组织恢复始终按空气呼吸计算。
+
 ## API 分层
 
 ### 1. 构造与校验
@@ -38,7 +40,9 @@ arex_deco_reset_tissue_to_surface(const ArexDecoConfig *config, const ArexDecoGa
 
 1. `arex_deco_make_initial_dive_state(&s_state)` 创建初始潜水状态。
 2. `apply_current_ui_config()` 把 UI 设置转换成算法 config 和 gas plan。
-3. `arex_deco_reset_tissue_to_surface()` 把组织舱初始化到水面空气/当前气体平衡状态。
+3. `arex_deco_reset_tissue_to_surface()` 把组织舱初始化到水面平衡状态。
+
+确认水面状态下，初始化组织舱也按默认 AIR 平衡；只有未确认水面、正在潜水时才继续使用当前 active gas 作为运行气体。
 
 初始化后的全局状态保存在 `deco_core.cpp` 的：
 
@@ -134,6 +138,17 @@ input.gas_index = s_state.gas_plan.active_gas_index;
 
 当前项目在 `deco_core_tick(depth_m, temperature_c, delta_time_s)` 里调用它。PC 模拟器 TCP 倍速时，本质是每个真实 tick 里循环多次 `deco_core_tick(..., 1U)`，所以算法时间、深度移动、组织舱推进都会同步快进。
 
+确认水面后，`deco_core_tick()` 的输入会被适配层改成：
+
+```c
+input.start_depth_m = 0.0f;
+input.end_depth_m = 0.0f;
+input.duration_seconds = delta_time_s;
+input.gas_index = 0; /* AIR */
+```
+
+这个状态来自平台/模拟器显式调用 `deco_core_set_surface_confirmed(true)`。PC 模拟器在已确认水面和入水确认中都保持该状态；只有 `depth >= 1.2m` 连续 `3` 个模拟秒确认进入潜水后，才切回真实深度和当前 active gas。出水确认规则是 `depth <= 0.2m` 连续 `30` 个模拟秒；真机侧应由自己的生命周期状态机确认后再调用等价接口。
+
 `arex_deco_step()` 输出：
 
 - `next_state`：新的潜水状态，包含组织舱、当前深度、elapsed time、氧暴露等。
@@ -160,6 +175,8 @@ s_state = next_state;
 ArexDecoSchedule schedule;
 ArexDecoStatus plan_status = arex_deco_plan(&s_state, &schedule, NULL);
 ```
+
+确认水面后，`plan` 不直接使用带有 UI active gas 的 `s_state`。适配层会复制一份临时状态，把深度设为 `0m`、gas plan 设为默认 AIR，再调用 `arex_deco_plan()`。这样用户即使在 UI 中保留多气体配置，水面恢复和后续计划输出也不会被多气体 active gas 污染。
 
 `ArexDecoSchedule` 主要字段：
 

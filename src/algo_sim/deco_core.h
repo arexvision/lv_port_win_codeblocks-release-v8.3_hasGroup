@@ -11,6 +11,7 @@ extern "C" {
 
 void deco_core_init(void);
 void deco_core_reset(void);
+void deco_core_set_surface_confirmed(bool confirmed);
 void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s);
 void deco_core_set_gf(uint8_t gf_low_pct, uint8_t gf_high_pct);
 void deco_core_set_final_stop_depth(uint8_t depth_m);
