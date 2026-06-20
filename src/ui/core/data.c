@@ -770,6 +770,16 @@ void bus_set_ndl_delta_3m(int16_t ndl_min)
     }
 }
 
+void bus_clear_ndl_delta_3m(void)
+{
+    if (g_sensor_data.ndl_delta_3m_valid)
+    {
+        g_sensor_data.ndl_delta_3m_valid = false;
+        g_sensor_data.ndl_delta_3m_min = 0;
+        bus_mark_dirty(DIRTY_DECO_STATUS);
+    }
+}
+
 void bus_set_gtr(uint16_t gtr_min)
 {
     if (!g_sensor_data.gtr_valid || g_sensor_data.gtr_min != gtr_min)

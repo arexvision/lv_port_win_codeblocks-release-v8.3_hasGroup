@@ -118,12 +118,13 @@
 - 实时气体密度删除 PC 适配层 O2/N2/He 常量公式，改为调用 `arex_deco_calculate_gas_density()`；温度使用 `deco_core_tick()` 传入水温转 Kelvin，`compressibility_z = 1.0f`。
 - `TTS @ +5min` 和 `TTS Δ +5min` 改为调用 `arex_deco_forecast_tts_hold(..., 300s, ...)`，按 5 秒低频刷新。
 - `NDL↑3` / `NDL↓3` 改为调用 `arex_deco_forecast_ndl_excursion(..., 3.0m, ...)`。
-- 兼容旧 ID 的 `NDL△3` 改为动态紧凑显示：上升时显示 up 3m 预测 NDL，下降时显示 down 3m 预测 NDL，静止或预测失败时保留上一帧；初始化默认 0。
+- 兼容旧 ID 的 `NDL△3` 改为动态紧凑显示：上升时显示 up 3m 预测 NDL，下降时显示 down 3m 预测 NDL；该值不是算法输出指标，静止或预测失败时显示 `--`。
 - 右上角 `SAFE` 改为调用 `arex_deco_safety_stop()`，使用 core 返回的 `required/counting/remaining_seconds/phase`，不再从 `schedule.stops[]` 推断 runtime safety stop。
 
 原因：
 
 - 0.0.22 已经把 gas density、应急预测和 runtime safety stop 状态变成算法层 API；本仓库规则要求算法已有接口时，主工程必须直接消费接口，不在 UI/适配层复刻公式。
+- Garmin 官方文档里 `NDL Δ 3M` 表示“按当前升/降方向得到的 3m NDL 预测”，不是数学差值；算法侧只需要输出 up/down 预测，固件侧负责方向选择。
 - `arex_deco_plan()` 中的 safety stop 仍是“从当前状态开始升水”的未来预测项，适合 TTS/计划/气量，不适合作为主界面正在执行的安全停留倒计时状态机。
 
 旧口径和新口径差异：

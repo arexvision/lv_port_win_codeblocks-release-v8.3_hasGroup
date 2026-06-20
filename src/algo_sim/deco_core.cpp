@@ -471,7 +471,7 @@ static bool ensure_initialized(void)
     bus_set_tts_delta_5min(0);
     bus_set_ndl_up_3m(0);
     bus_set_ndl_down_3m(0);
-    bus_set_ndl_delta_3m(0);
+    bus_clear_ndl_delta_3m();
     rt_kprintf("Arex deco core initialized (GF: %u/%u)\n", (unsigned)s_gf_low_pct, (unsigned)s_gf_high_pct);
     return true;
 }
@@ -705,6 +705,11 @@ static void sync_forecast_data(void)
         bus_set_ndl_down_3m(ndl_down_min);
         if (rate_mpm > DECO_NDL_DYNAMIC_RATE_THRESHOLD_MPM) bus_set_ndl_delta_3m(ndl_up_min);
         else if (rate_mpm < -DECO_NDL_DYNAMIC_RATE_THRESHOLD_MPM) bus_set_ndl_delta_3m(ndl_down_min);
+        else bus_clear_ndl_delta_3m();
+    }
+    else
+    {
+        bus_clear_ndl_delta_3m();
     }
 
     if (s_tts_forecast_elapsed_s >= DECO_FORECAST_TTS_INTERVAL_S)

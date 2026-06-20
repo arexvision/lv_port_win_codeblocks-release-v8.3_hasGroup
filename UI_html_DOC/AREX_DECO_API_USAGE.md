@@ -384,7 +384,7 @@ display_stop = last_stop_m + ceil((raw_stop_m - last_stop_m) / deco_step_m) * de
 5. 当前 `sync_stop_data()` 只在强制减压场景取第一个非纯切气预测的 runtime stop 做右上角 `DECO`；免减压安全停留显示读取 `arex_deco_safety_stop()`。
 6. 当前适配层没有检查 `schedule.truncated`，如果未来有超长/容量不足计划，需要补 UI 提示。
 7. 当前适配层会消费 `schedule.ceiling_violated`，用于触发 `CEILING BROKEN`；真机侧也需要同步该语义。
-8. `TTS @ +5min` / `TTS Δ +5min` 使用 `arex_deco_forecast_tts_hold()`，按 5 秒低频刷新；`TTS Δ +5min` 的分钟显示不直接取整 `tts_delta_hold_seconds`，而是使用 `round_up_minutes(tts_at_hold_seconds) - round_up_minutes(current_tts_seconds)`，保证屏幕上的整数分钟视觉可加。`NDL↑3` / `NDL↓3` 使用 `arex_deco_forecast_ndl_excursion()`。动态紧凑 `NDL3` 根据上升率选择 up/down 预测，预测失败或方向静止时保留上一帧，初始化默认 0。
+8. `TTS @ +5min` / `TTS Δ +5min` 使用 `arex_deco_forecast_tts_hold()`，按 5 秒低频刷新；`TTS Δ +5min` 的分钟显示不直接取整 `tts_delta_hold_seconds`，而是使用 `round_up_minutes(tts_at_hold_seconds) - round_up_minutes(current_tts_seconds)`，保证屏幕上的整数分钟视觉可加。`NDL↑3` / `NDL↓3` 使用 `arex_deco_forecast_ndl_excursion()`。动态紧凑 `NDL△3` 参考 Garmin 语义，是固件侧按当前升降方向选择 `NDL↑3` 或 `NDL↓3` 的省空间显示项，不是算法输出指标；预测失败或方向静止时显示 `--`。
 
 ## 建议后续确认项
 
