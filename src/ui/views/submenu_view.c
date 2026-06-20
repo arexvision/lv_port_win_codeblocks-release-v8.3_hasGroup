@@ -91,6 +91,10 @@ static lv_obj_t *s_logbook_picker_next = NULL;
 static lv_obj_t *s_logbook_picker_next_lbl = NULL;
 static bool s_logbook_valid = false;
 static bool s_logbook_points_loaded = false;
+static const dive_pt_t *s_logbook_prefetch_points = NULL;
+static uint16_t s_logbook_prefetch_index = 0xFFFFU;
+static uint16_t s_logbook_prefetch_point_count = 0U;
+static bool s_logbook_prefetch_ready = false;
 
 #ifndef PC_SIMULATOR
 enum
@@ -98,12 +102,16 @@ enum
     LOGBOOK_DETAIL_THREAD_STACK_SIZE = 4096U,
     LOGBOOK_DETAIL_THREAD_PRIORITY = 15U,
     LOGBOOK_DETAIL_THREAD_TICK = 10U,
+    LOGBOOK_PREFETCH_THREAD_STACK_SIZE = 3072U,
+    LOGBOOK_PREFETCH_THREAD_PRIORITY = 16U,
+    LOGBOOK_PREFETCH_THREAD_TICK = 10U,
 };
 
 typedef struct
 {
     uint32_t id;
     uint16_t index;
+    bool load_points;
 } logbook_detail_request_t;
 
 typedef struct
@@ -117,6 +125,12 @@ typedef struct
     uint16_t point_count;
 } logbook_detail_result_t;
 
+typedef struct
+{
+    uint32_t id;
+    uint16_t index;
+} logbook_prefetch_request_t;
+
 static volatile bool s_logbook_detail_async_running = false;
 static volatile bool s_logbook_detail_async_done = false;
 static volatile uint32_t s_logbook_detail_async_generation = 0U;
@@ -125,6 +139,12 @@ static logbook_detail_result_t s_logbook_detail_async_result;
 static rt_thread_t s_logbook_detail_thread = RT_NULL;
 static rt_sem_t s_logbook_detail_sem = RT_NULL;
 static rt_mutex_t s_logbook_detail_mutex = RT_NULL;
+static volatile bool s_logbook_prefetch_running = false;
+static volatile uint32_t s_logbook_prefetch_generation = 0U;
+static logbook_prefetch_request_t s_logbook_prefetch_request;
+static rt_thread_t s_logbook_prefetch_thread = RT_NULL;
+static rt_sem_t s_logbook_prefetch_sem = RT_NULL;
+static rt_mutex_t s_logbook_prefetch_mutex = RT_NULL;
 #endif
 
 #if UI_LOGBOOK_PROFILE_ENABLED
@@ -157,6 +177,7 @@ static void refresh_current_submenu_page(uint8_t keep_idx);
 static void logbook_picker_cache_invalidate(void);
 static bool logbook_picker_snapshot_refresh(void);
 static void logbook_picker_bind_current_page(void);
+static void logbook_picker_load_page_sync(uint16_t page_index);
 static void logbook_picker_item_from_entry(logbook_picker_item_t *dst, const logbook_entry_t *src);
 static void logbook_entry_from_picker_item(logbook_entry_t *dst, const logbook_picker_item_t *src);
 static void logbook_entry_make_pending(logbook_entry_t *dst, uint16_t index);
@@ -167,8 +188,13 @@ static uint8_t logbook_picker_focus_count(void);
 static void logbook_picker_focus_default(void);
 static void submenu_populate_current(void);
 static void logbook_picker_stop_loader(void);
+static void logbook_picker_start_loader(uint16_t page_index, bool prefetch);
 static void logbook_detail_stop_loader(void);
 static void logbook_detail_start_loader(uint16_t index);
+static void logbook_prefetch_cancel(void);
+static void logbook_prefetch_start(uint16_t index);
+static bool logbook_prefetch_take(uint16_t index);
+static bool logbook_prefetch_take_wait(uint16_t index, uint32_t timeout_ms);
 static void logbook_picker_view_reset(void);
 static void logbook_picker_load_timer_cb(lv_timer_t *timer);
 static void logbook_detail_load_timer_cb(lv_timer_t *timer);
@@ -185,6 +211,18 @@ static void logbook_points_release(void)
     s_logbook_points = NULL;
     s_logbook_point_count = 0U;
     s_logbook_points_loaded = false;
+}
+
+static void logbook_prefetch_release_ready(void)
+{
+    if (s_logbook_prefetch_ready && s_logbook_prefetch_points != NULL)
+    {
+        logbook_backend_release_samples(s_logbook_prefetch_points);
+    }
+    s_logbook_prefetch_points = NULL;
+    s_logbook_prefetch_point_count = 0U;
+    s_logbook_prefetch_index = 0xFFFFU;
+    s_logbook_prefetch_ready = false;
 }
 
 #ifndef PC_SIMULATOR
@@ -235,7 +273,7 @@ static void logbook_detail_async_worker(void *parameter)
         logbook_detail_async_unlock();
 
         success = logbook_backend_get_detail(request.index, &entry);
-        if (success && entry.valid)
+        if (success && entry.valid && request.load_points)
         {
             has_points = logbook_backend_acquire_samples(request.index, &points, &point_count);
             if (!has_points)
@@ -339,6 +377,7 @@ static bool logbook_detail_async_start(uint16_t index)
 
     s_logbook_detail_async_request.id = s_logbook_detail_async_generation;
     s_logbook_detail_async_request.index = index;
+    s_logbook_detail_async_request.load_points = !s_logbook_points_loaded;
     s_logbook_detail_async_result.id = s_logbook_detail_async_generation;
     s_logbook_detail_async_result.index = index;
     s_logbook_detail_async_result.success = false;
@@ -408,6 +447,265 @@ static void logbook_detail_async_cancel(void)
 }
 #endif
 
+#ifndef PC_SIMULATOR
+static bool logbook_prefetch_lock(void)
+{
+    return (s_logbook_prefetch_mutex != RT_NULL) &&
+           (rt_mutex_take(s_logbook_prefetch_mutex, rt_tick_from_millisecond(20U)) == RT_EOK);
+}
+
+static bool logbook_prefetch_lock_wait(void)
+{
+    return (s_logbook_prefetch_mutex != RT_NULL) &&
+           (rt_mutex_take(s_logbook_prefetch_mutex, RT_WAITING_FOREVER) == RT_EOK);
+}
+
+static void logbook_prefetch_unlock(void)
+{
+    if (s_logbook_prefetch_mutex != RT_NULL)
+    {
+        rt_mutex_release(s_logbook_prefetch_mutex);
+    }
+}
+
+static void logbook_prefetch_worker(void *parameter)
+{
+    (void)parameter;
+
+    while (1)
+    {
+        if (s_logbook_prefetch_sem == RT_NULL ||
+            rt_sem_take(s_logbook_prefetch_sem, RT_WAITING_FOREVER) != RT_EOK)
+        {
+            continue;
+        }
+
+        logbook_prefetch_request_t request;
+        const dive_pt_t *points = NULL;
+        uint16_t point_count = 0U;
+        bool ok;
+        uint32_t profile_start_ms;
+
+        if (!logbook_prefetch_lock_wait())
+        {
+            continue;
+        }
+        request = s_logbook_prefetch_request;
+        logbook_prefetch_unlock();
+
+        profile_start_ms = logbook_profile_begin();
+        ok = logbook_backend_acquire_samples(request.index, &points, &point_count);
+        logbook_profile_end("prefetch_points", profile_start_ms);
+        if (!ok)
+        {
+            points = NULL;
+            point_count = 0U;
+        }
+
+        if (!logbook_prefetch_lock_wait())
+        {
+            if (points != NULL)
+            {
+                logbook_backend_release_samples(points);
+            }
+            continue;
+        }
+
+        if (request.id == s_logbook_prefetch_request.id &&
+            request.index == s_logbook_prefetch_request.index)
+        {
+            logbook_prefetch_release_ready();
+            s_logbook_prefetch_index = request.index;
+            s_logbook_prefetch_points = points;
+            s_logbook_prefetch_point_count = point_count;
+            s_logbook_prefetch_ready = ok && (points != NULL) && (point_count > 0U);
+            s_logbook_prefetch_running = false;
+        }
+        else if (points != NULL)
+        {
+            logbook_backend_release_samples(points);
+        }
+        logbook_prefetch_unlock();
+    }
+}
+
+static bool logbook_prefetch_ensure_worker(void)
+{
+    if (s_logbook_prefetch_mutex == RT_NULL)
+    {
+        s_logbook_prefetch_mutex = rt_mutex_create("lpfM", RT_IPC_FLAG_FIFO);
+        if (s_logbook_prefetch_mutex == RT_NULL)
+        {
+            return false;
+        }
+    }
+
+    if (s_logbook_prefetch_sem == RT_NULL)
+    {
+        s_logbook_prefetch_sem = rt_sem_create("lpfS", 0U, RT_IPC_FLAG_FIFO);
+        if (s_logbook_prefetch_sem == RT_NULL)
+        {
+            return false;
+        }
+    }
+
+    if (s_logbook_prefetch_thread != RT_NULL)
+    {
+        return true;
+    }
+
+    s_logbook_prefetch_thread = rt_thread_create("lpf",
+                                                 logbook_prefetch_worker,
+                                                 RT_NULL,
+                                                 LOGBOOK_PREFETCH_THREAD_STACK_SIZE,
+                                                 LOGBOOK_PREFETCH_THREAD_PRIORITY,
+                                                 LOGBOOK_PREFETCH_THREAD_TICK);
+    if (s_logbook_prefetch_thread == RT_NULL)
+    {
+        return false;
+    }
+
+    rt_thread_startup(s_logbook_prefetch_thread);
+    return true;
+}
+
+static void logbook_prefetch_cancel(void)
+{
+    if (!logbook_prefetch_lock())
+    {
+        return;
+    }
+
+    s_logbook_prefetch_generation++;
+    if (s_logbook_prefetch_generation == 0U)
+    {
+        s_logbook_prefetch_generation = 1U;
+    }
+    s_logbook_prefetch_running = false;
+    logbook_prefetch_release_ready();
+    logbook_prefetch_unlock();
+}
+
+static void logbook_prefetch_start(uint16_t index)
+{
+    if (index >= s_logbook_snapshot_count)
+    {
+        return;
+    }
+    if (!logbook_prefetch_ensure_worker() || !logbook_prefetch_lock())
+    {
+        return;
+    }
+    if (s_logbook_prefetch_ready && s_logbook_prefetch_index == index)
+    {
+        logbook_prefetch_unlock();
+        return;
+    }
+    if (s_logbook_prefetch_running && s_logbook_prefetch_request.index == index)
+    {
+        logbook_prefetch_unlock();
+        return;
+    }
+
+    s_logbook_prefetch_generation++;
+    if (s_logbook_prefetch_generation == 0U)
+    {
+        s_logbook_prefetch_generation = 1U;
+    }
+    logbook_prefetch_release_ready();
+    s_logbook_prefetch_request.id = s_logbook_prefetch_generation;
+    s_logbook_prefetch_request.index = index;
+    s_logbook_prefetch_running = true;
+    logbook_prefetch_unlock();
+
+    if (rt_sem_release(s_logbook_prefetch_sem) != RT_EOK && logbook_prefetch_lock())
+    {
+        s_logbook_prefetch_running = false;
+        logbook_prefetch_unlock();
+    }
+}
+
+static bool logbook_prefetch_take(uint16_t index)
+{
+    bool taken = false;
+
+    if (!logbook_prefetch_lock())
+    {
+        return false;
+    }
+
+    if (s_logbook_prefetch_ready &&
+        s_logbook_prefetch_index == index &&
+        s_logbook_prefetch_points != NULL)
+    {
+        s_logbook_points = s_logbook_prefetch_points;
+        s_logbook_point_count = s_logbook_prefetch_point_count;
+        s_logbook_points_loaded = true;
+        s_logbook_prefetch_points = NULL;
+        s_logbook_prefetch_point_count = 0U;
+        s_logbook_prefetch_index = 0xFFFFU;
+        s_logbook_prefetch_ready = false;
+        taken = true;
+    }
+    logbook_prefetch_unlock();
+    return taken;
+}
+
+static bool logbook_prefetch_take_wait(uint16_t index, uint32_t timeout_ms)
+{
+    const uint32_t start_ms = rt_tick_get_millisecond();
+
+    do
+    {
+        bool running = false;
+
+        if (logbook_prefetch_take(index))
+        {
+            return true;
+        }
+
+        if (!logbook_prefetch_lock())
+        {
+            return false;
+        }
+        running = s_logbook_prefetch_running;
+        logbook_prefetch_unlock();
+
+        if (!running)
+        {
+            return false;
+        }
+
+        rt_thread_mdelay(10);
+    } while ((uint32_t)(rt_tick_get_millisecond() - start_ms) < timeout_ms);
+
+    return logbook_prefetch_take(index);
+}
+#else
+static void logbook_prefetch_cancel(void)
+{
+    logbook_prefetch_release_ready();
+}
+
+static void logbook_prefetch_start(uint16_t index)
+{
+    (void)index;
+}
+
+static bool logbook_prefetch_take(uint16_t index)
+{
+    (void)index;
+    return false;
+}
+
+static bool logbook_prefetch_take_wait(uint16_t index, uint32_t timeout_ms)
+{
+    (void)index;
+    (void)timeout_ms;
+    return false;
+}
+#endif
+
 static void logbook_picker_cache_invalidate(void)
 {
     if (s_logbook_snapshot_entries != NULL)
@@ -425,6 +723,7 @@ static void logbook_picker_cache_invalidate(void)
     s_logbook_picker_focus = 0U;
     s_logbook_index = 0U;
     s_logbook_focus = 0U;
+    logbook_prefetch_cancel();
 }
 
 static bool logbook_picker_cache_reserve(uint16_t count)
@@ -624,15 +923,13 @@ static void logbook_picker_prepare_page(uint16_t page_index)
     }
 
     logbook_picker_stop_loader();
+    logbook_picker_load_page_sync(page_index);
     logbook_picker_bind_current_page();
 
-    /* 当前页摘要来自 SD 文件，单条读取可达数十毫秒。打开 DiveLog 时不能在
-     * LVGL 输入路径同步读完整页，否则 5 条日志会直接堆成可感知卡顿。 */
-    s_logbook_load_page = page_index;
-    s_logbook_load_offset = 0U;
-    s_logbook_load_prefetch = false;
-    s_logbook_load_page_dirty = false;
-    s_logbook_load_timer = lv_timer_create(logbook_picker_load_timer_cb, 1U, NULL);
+    if ((page_index + 1U) < s_logbook_page_count)
+    {
+        logbook_picker_start_loader((uint16_t)(page_index + 1U), true);
+    }
 }
 
 static bool logbook_picker_page_has_missing(uint16_t page_index)
@@ -699,6 +996,43 @@ static void logbook_picker_release_objects(void)
     if (s_logbook_picker_view_ready)
     {
         logbook_picker_view_reset();
+    }
+}
+
+static void logbook_picker_load_page_sync(uint16_t page_index)
+{
+    if ((s_logbook_snapshot_entries == NULL) || (page_index >= s_logbook_page_count))
+    {
+        return;
+    }
+
+    const uint16_t start = (uint16_t)(page_index * LOGBOOK_PICKER_VISIBLE_ROWS);
+    if (start >= s_logbook_snapshot_count)
+    {
+        return;
+    }
+
+    uint16_t page_remain = (uint16_t)(s_logbook_snapshot_count - start);
+    if (page_remain > LOGBOOK_PICKER_VISIBLE_ROWS)
+    {
+        page_remain = LOGBOOK_PICKER_VISIBLE_ROWS;
+    }
+
+    /* 当前可见页必须一次性补齐后再绘制，避免进入 DiveLog 时 5 行列表逐条露出。
+     * 后续页仍走 timer 预取，首屏只同步读取最多 5 条 summary，卡顿面可控。 */
+    for (uint16_t i = 0U; i < page_remain; ++i)
+    {
+        const uint16_t index = (uint16_t)(start + i);
+        if (s_logbook_snapshot_entries[index].valid)
+        {
+            continue;
+        }
+
+        logbook_entry_t entry;
+        if (logbook_backend_get_summary(index, &entry))
+        {
+            logbook_picker_item_from_entry(&s_logbook_snapshot_entries[index], &entry);
+        }
     }
 }
 
@@ -957,6 +1291,7 @@ static void logbook_load_current(void)
 
     s_logbook_valid = false;
     logbook_points_release();
+    logbook_prefetch_cancel();
     s_logbook_valid = logbook_picker_snapshot_refresh();
     if (s_logbook_valid)
     {
@@ -979,6 +1314,7 @@ static void logbook_reset_state(void)
     s_logbook_index = 0U;
     logbook_picker_stop_loader();
     logbook_detail_stop_loader();
+    logbook_prefetch_cancel();
     logbook_picker_cache_invalidate();
     logbook_load_current();
 }
@@ -1441,6 +1777,13 @@ static void submenu_populate_logbook(void)
         logbook_draw_picker(s_submenu_list, w, h);
         ui_state_set_sub_item_count(logbook_picker_focus_count());
         ui_state_set_sub_menu_idx(s_logbook_picker_focus);
+        if (s_logbook_picker_focus < s_logbook_picker_visible)
+        {
+            const uint16_t prefetch_index =
+                (uint16_t)(s_logbook_page_index * LOGBOOK_PICKER_VISIBLE_ROWS +
+                           logbook_picker_focus_to_index(s_logbook_picker_focus, s_logbook_picker_visible));
+            logbook_prefetch_start(prefetch_index);
+        }
         break;
     case LOGBOOK_PAGE_DETAIL_1:
         logbook_draw_detail_1(s_submenu_list, w, h);
@@ -2562,6 +2905,15 @@ static void screen_handle_logbook_select(void)
         s_logbook_focus = s_logbook_index;
         s_logbook_page = LOGBOOK_PAGE_SUMMARY;
         s_logbook_focus = 0U;
+        /* Summary 首屏只依赖 picker summary 和 profile 点。profile 若仍放在 detail
+         * 异步线程后面，会等 get_detail 诊断读取完成后才出现路径图，用户会看到图和数据延迟补出。 */
+        if (s_logbook_valid)
+        {
+            if (!logbook_prefetch_take_wait(s_logbook_index, 240U))
+            {
+                (void)logbook_points_load(s_logbook_index);
+            }
+        }
         submenu_populate_current();
         logbook_detail_start_loader(s_logbook_index);
         break;
