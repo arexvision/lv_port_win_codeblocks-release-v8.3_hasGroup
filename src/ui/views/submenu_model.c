@@ -1187,7 +1187,7 @@ static const char **build_nested_oc_tech_edit(uint8_t slot, uint8_t *out_count)
         s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
         n++;
     }
-    snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "MOD: %.0f%s", (double)bus_get_depth_display(mod_m), bus_get_depth_unit_label());
+    snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "MOD: %.1f%s", (double)bus_get_depth_display(mod_m), bus_get_depth_unit_label());
     s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
     n++;
     s_nested_oc_tech_edit[n++] = (s_gas_edit_mode <= 1U) ? "CONFIRM" : "SAVE GAS CONFIG";
