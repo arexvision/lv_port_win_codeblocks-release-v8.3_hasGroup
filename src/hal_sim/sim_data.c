@@ -250,47 +250,55 @@ static void sim_seed_original_defaults(void)
 static void sim_seed_logbook_demo_if_empty(void)
 {
     logbook_entry_t entry;
-    static const dive_pt_t points[] =
-    {
-        {0.0f, 0.0f},
-        {60.0f, 8.0f},
-        {180.0f, 18.0f},
-        {420.0f, 24.0f},
-        {900.0f, 22.0f},
-        {1500.0f, 14.0f},
-        {2100.0f, 6.0f},
-        {2400.0f, 0.0f},
-    };
 
     if (logbook_backend_count() > 0U)
     {
         return;
     }
 
-    (void)memset(&entry, 0, sizeof(entry));
-    entry.valid = true;
-    entry.meta.log_no = 1U;
-    entry.meta.year = 2025U;
-    entry.meta.month = 12U;
-    entry.meta.day = 31U;
-    entry.meta.start_h = 10U;
-    entry.meta.start_m = 55U;
-    entry.meta.end_h = 11U;
-    entry.meta.end_m = 35U;
-    entry.dive_time_s = 2400U;
-    entry.surface_interval_s = 42U * 3600U + 24U * 60U;
-    entry.max_depth_m = 24.0f;
-    entry.avg_depth_m = 15.6f;
-    entry.surface_mbar = 1013.0f;
-    entry.start_cns_pct = 0U;
-    entry.end_cns_pct = 8U;
-    entry.avg_sac_l_min = 12.4f;
-    (void)snprintf(entry.mode, sizeof(entry.mode), "Air");
-    (void)snprintf(entry.deco_model, sizeof(entry.deco_model), "GF 30/70");
-    sim_fill_logbook_tanks(&entry);
-    (void)snprintf(entry.tank_start[0], sizeof(entry.tank_start[0]), "200");
-    (void)snprintf(entry.tank_end[0], sizeof(entry.tank_end[0]), "82");
-    (void)logbook_backend_append_finalized_dive(&entry, points, (uint16_t)(sizeof(points) / sizeof(points[0])));
+    for (uint8_t i = 0U; i < 11U; i++)
+    {
+        float max_depth = 18.0f + (float)((i * 3U) % 18U);
+        uint32_t dive_time_s = 1800U + (uint32_t)i * 180U;
+        dive_pt_t points[] =
+        {
+            {0.0f, 0.0f},
+            {60.0f, max_depth * 0.35f},
+            {180.0f, max_depth * 0.75f},
+            {420.0f, max_depth},
+            {900.0f, max_depth * 0.90f},
+            {1500.0f, max_depth * 0.58f},
+            {2100.0f, 6.0f},
+            {(float)dive_time_s, 0.0f},
+        };
+
+        (void)memset(&entry, 0, sizeof(entry));
+        entry.valid = true;
+        entry.meta.log_no = (uint16_t)(i + 1U);
+        entry.meta.year = 2025U;
+        entry.meta.month = (uint8_t)(12U - (i / 4U));
+        entry.meta.day = (uint8_t)(31U - i);
+        entry.meta.start_h = (uint8_t)(10U + (i % 5U));
+        entry.meta.start_m = (uint8_t)((55U + i * 7U) % 60U);
+        uint16_t start_total_min = (uint16_t)(entry.meta.start_h * 60U + entry.meta.start_m);
+        uint16_t end_total_min = (uint16_t)(start_total_min + dive_time_s / 60U);
+        entry.meta.end_h = (uint8_t)((end_total_min / 60U) % 24U);
+        entry.meta.end_m = (uint8_t)(end_total_min % 60U);
+        entry.dive_time_s = dive_time_s;
+        entry.surface_interval_s = (42U * 3600U + 24U * 60U) + (uint32_t)i * 1800U;
+        entry.max_depth_m = max_depth;
+        entry.avg_depth_m = max_depth * 0.65f;
+        entry.surface_mbar = 1013.0f;
+        entry.start_cns_pct = (uint8_t)(i % 4U);
+        entry.end_cns_pct = (uint8_t)(8U + i);
+        entry.avg_sac_l_min = 11.5f + (float)(i % 4U) * 0.7f;
+        (void)snprintf(entry.mode, sizeof(entry.mode), "%s", (i % 3U == 0U) ? "Nitrox" : "Air");
+        (void)snprintf(entry.deco_model, sizeof(entry.deco_model), "%s", "GF 30/70");
+        sim_fill_logbook_tanks(&entry);
+        (void)snprintf(entry.tank_start[0], sizeof(entry.tank_start[0]), "%u", (unsigned)(200U - i));
+        (void)snprintf(entry.tank_end[0], sizeof(entry.tank_end[0]), "%u", (unsigned)(82U - (i % 6U) * 3U));
+        (void)logbook_backend_append_finalized_dive(&entry, points, (uint16_t)(sizeof(points) / sizeof(points[0])));
+    }
 }
 
 #if TCP_ALGO_DEBUG
