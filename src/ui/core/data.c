@@ -772,12 +772,7 @@ void bus_set_ndl_delta_3m(int16_t ndl_min)
 
 void bus_clear_ndl_delta_3m(void)
 {
-    if (g_sensor_data.ndl_delta_3m_valid)
-    {
-        g_sensor_data.ndl_delta_3m_valid = false;
-        g_sensor_data.ndl_delta_3m_min = 0;
-        bus_mark_dirty(DIRTY_DECO_STATUS);
-    }
+    /* 方向不明确时不写入新值，也不清掉旧值；上电初始 invalid 时仍显示 "--"。 */
 }
 
 void bus_set_gtr(uint16_t gtr_min)

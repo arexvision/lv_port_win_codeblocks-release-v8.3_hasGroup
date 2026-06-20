@@ -108,7 +108,7 @@ void bus_set_tts_delta_5min(int16_t delta_min);
 void bus_set_ndl_up_3m(int16_t ndl_min);
 void bus_set_ndl_down_3m(int16_t ndl_min);
 void bus_set_ndl_delta_3m(int16_t ndl_min);     /* 兼容旧 ID：动态显示上升/下降 3m 预测 NDL */
-void bus_clear_ndl_delta_3m(void);              /* 方向不明确时隐藏动态 3m NDL */
+void bus_clear_ndl_delta_3m(void);              /* 兼容旧接口：不再清空，保留最近一次动态 3m NDL */
 void bus_set_gtr(uint16_t gtr_min);
 void bus_set_rmv(float rmv_lpm);
 void bus_set_sac_rate(float sac_lpm);
