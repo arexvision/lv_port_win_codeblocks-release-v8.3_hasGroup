@@ -350,7 +350,7 @@ static void build_rows(void)
     }
     case MENU_OC_TECH_EDIT:
     {
-        menu_item_id_t ids[5];
+        menu_item_id_t ids[6];
         uint8_t id_count = submenu_gas_edit_item_ids(ids, (uint8_t)(sizeof(ids) / sizeof(ids[0])));
         (void)id_count;
         build_nested_by_title(s_oc_tech_edit_title, ids, NULL);

@@ -92,8 +92,8 @@ static const char *s_nested_date_format[3];
 static const char *s_nested_nitrox[3];
 static const char *s_nested_three_gas[6];
 static const char *s_nested_oc_tech[8];
-static char s_oc_tech_edit_str[5][28];
-static const char *s_nested_oc_tech_edit[6];
+static char s_oc_tech_edit_str[6][28];
+static const char *s_nested_oc_tech_edit[7];
 
 static uint8_t s_salinity_mode = 0;      /* 0=FRESH, 1=SALT, 2=EN13319 */
 static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
@@ -1182,6 +1182,10 @@ static const char **build_nested_oc_tech_edit(uint8_t slot, uint8_t *out_count)
     n++;
     if (s_gas_edit_mode > 1U)
     {
+        float mod_m = gas_mod_for_mix(s_gas_edit_draft_o2_pct, s_gas_edit_draft_he_pct, s_gas_edit_draft_ppo2);
+        snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "MOD: %.0f%s", (double)bus_get_depth_display(mod_m), bus_get_depth_unit_label());
+        s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
+        n++;
         snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "ACTIVE: %s", s_gas_edit_draft_active ? "ON" : "OFF");
         s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
         n++;
@@ -2302,6 +2306,7 @@ uint8_t submenu_gas_edit_item_ids(menu_item_id_t *out_ids, uint8_t max_count)
     if (s_gas_edit_mode != 0U && n < max_count) out_ids[n++] = MENU_ITEM_OC_TECH_EDIT_O2;
     if (s_gas_edit_mode == 3U && n < max_count) out_ids[n++] = MENU_ITEM_OC_TECH_EDIT_HE;
     if (n < max_count) out_ids[n++] = MENU_ITEM_GAS_EDIT_PPO2;
+    if (s_gas_edit_mode > 1U && n < max_count) out_ids[n++] = MENU_ITEM_GAS_EDIT_MOD;
     if (s_gas_edit_mode > 1U && n < max_count) out_ids[n++] = MENU_ITEM_GAS_EDIT_ACTIVE;
     if (n < max_count) out_ids[n++] = MENU_ITEM_OC_TECH_EDIT_SAVE;
     return n;
