@@ -77,6 +77,7 @@ static uint8_t s_logbook_load_offset = 0U;
 static bool s_logbook_load_prefetch = false;
 static bool s_logbook_load_page_dirty = false;
 static uint16_t s_logbook_detail_index = 0U;
+static uint16_t s_logbook_detail_display_index = 0U;
 static bool s_logbook_detail_loading = false;
 static bool s_logbook_picker_view_ready = false;
 static lv_obj_t *s_logbook_picker_title = NULL;
@@ -111,6 +112,7 @@ typedef struct
 {
     uint32_t id;
     uint16_t index;
+    uint16_t display_index;
     bool load_points;
 } logbook_detail_request_t;
 
@@ -118,6 +120,7 @@ typedef struct
 {
     uint32_t id;
     uint16_t index;
+    uint16_t display_index;
     bool success;
     bool has_points;
     logbook_entry_t entry;
@@ -129,6 +132,7 @@ typedef struct
 {
     uint32_t id;
     uint16_t index;
+    uint16_t display_index;
 } logbook_prefetch_request_t;
 
 static volatile bool s_logbook_detail_async_running = false;
@@ -178,6 +182,7 @@ static void logbook_picker_cache_invalidate(void);
 static bool logbook_picker_snapshot_refresh(void);
 static void logbook_picker_bind_current_page(void);
 static void logbook_picker_load_page_sync(uint16_t page_index);
+static uint16_t logbook_display_to_backend_index(uint16_t display_index);
 static void logbook_picker_item_from_entry(logbook_picker_item_t *dst, const logbook_entry_t *src);
 static void logbook_entry_from_picker_item(logbook_entry_t *dst, const logbook_picker_item_t *src);
 static void logbook_entry_make_pending(logbook_entry_t *dst, uint16_t index);
@@ -300,6 +305,7 @@ static void logbook_detail_async_worker(void *parameter)
         {
             s_logbook_detail_async_result.id = request.id;
             s_logbook_detail_async_result.index = request.index;
+            s_logbook_detail_async_result.display_index = request.display_index;
             s_logbook_detail_async_result.success = success;
             s_logbook_detail_async_result.has_points = has_points;
             s_logbook_detail_async_result.entry = entry;
@@ -380,9 +386,11 @@ static bool logbook_detail_async_start(uint16_t index)
 
     s_logbook_detail_async_request.id = s_logbook_detail_async_generation;
     s_logbook_detail_async_request.index = index;
+    s_logbook_detail_async_request.display_index = s_logbook_detail_display_index;
     s_logbook_detail_async_request.load_points = !s_logbook_points_loaded;
     s_logbook_detail_async_result.id = s_logbook_detail_async_generation;
     s_logbook_detail_async_result.index = index;
+    s_logbook_detail_async_result.display_index = s_logbook_detail_display_index;
     s_logbook_detail_async_result.success = false;
     s_logbook_detail_async_result.has_points = false;
     s_logbook_detail_async_result.points = NULL;
@@ -518,7 +526,7 @@ static void logbook_prefetch_worker(void *parameter)
             request.index == s_logbook_prefetch_request.index)
         {
             logbook_prefetch_release_ready();
-            s_logbook_prefetch_index = request.index;
+            s_logbook_prefetch_index = request.display_index;
             s_logbook_prefetch_points = points;
             s_logbook_prefetch_point_count = point_count;
             s_logbook_prefetch_ready = ok && (points != NULL) && (point_count > 0U);
@@ -591,10 +599,13 @@ static void logbook_prefetch_cancel(void)
 
 static void logbook_prefetch_start(uint16_t index)
 {
+    uint16_t backend_index;
+
     if (index >= s_logbook_snapshot_count)
     {
         return;
     }
+    backend_index = logbook_display_to_backend_index(index);
     if (!logbook_prefetch_ensure_worker() || !logbook_prefetch_lock())
     {
         return;
@@ -604,7 +615,7 @@ static void logbook_prefetch_start(uint16_t index)
         logbook_prefetch_unlock();
         return;
     }
-    if (s_logbook_prefetch_running && s_logbook_prefetch_request.index == index)
+    if (s_logbook_prefetch_running && s_logbook_prefetch_request.display_index == index)
     {
         logbook_prefetch_unlock();
         return;
@@ -617,7 +628,8 @@ static void logbook_prefetch_start(uint16_t index)
     }
     logbook_prefetch_release_ready();
     s_logbook_prefetch_request.id = s_logbook_prefetch_generation;
-    s_logbook_prefetch_request.index = index;
+    s_logbook_prefetch_request.index = backend_index;
+    s_logbook_prefetch_request.display_index = index;
     s_logbook_prefetch_running = true;
     logbook_prefetch_unlock();
 
@@ -726,6 +738,8 @@ static void logbook_picker_cache_invalidate(void)
     s_logbook_picker_focus = 0U;
     s_logbook_index = 0U;
     s_logbook_focus = 0U;
+    s_logbook_detail_display_index = 0U;
+    s_logbook_detail_index = 0U;
     logbook_prefetch_cancel();
 }
 
@@ -771,6 +785,15 @@ static bool logbook_picker_cache_reserve(uint16_t count)
     return true;
 }
 
+static uint16_t logbook_display_to_backend_index(uint16_t display_index)
+{
+    if ((s_logbook_snapshot_count == 0U) || (display_index >= s_logbook_snapshot_count))
+    {
+        return display_index;
+    }
+    return (uint16_t)(s_logbook_snapshot_count - 1U - display_index);
+}
+
 static void logbook_picker_item_from_entry(logbook_picker_item_t *dst, const logbook_entry_t *src)
 {
     if ((dst == NULL) || (src == NULL))
@@ -807,7 +830,8 @@ static void logbook_entry_make_pending(logbook_entry_t *dst, uint16_t index)
 
     (void)memset(dst, 0, sizeof(*dst));
     dst->valid = true;
-    dst->meta.log_no = (uint16_t)(index + 1U);
+    dst->meta.log_no = logbook_display_to_backend_index(index);
+    dst->meta.log_no++;
     (void)snprintf(dst->mode, sizeof(dst->mode), "--");
     (void)snprintf(dst->deco_model, sizeof(dst->deco_model), "--");
 }
@@ -936,11 +960,14 @@ static void logbook_detail_stop_loader(void)
 
 static void logbook_detail_start_loader(uint16_t index)
 {
+    uint16_t backend_index = logbook_display_to_backend_index(index);
+
     logbook_detail_stop_loader();
-    s_logbook_detail_index = index;
+    s_logbook_detail_display_index = index;
+    s_logbook_detail_index = backend_index;
     s_logbook_detail_loading = true;
 #ifndef PC_SIMULATOR
-    if (!logbook_detail_async_start(index))
+    if (!logbook_detail_async_start(backend_index))
     {
         s_logbook_detail_loading = false;
         return;
@@ -1093,7 +1120,7 @@ static void logbook_picker_load_page_sync(uint16_t page_index)
         }
 
         logbook_entry_t entry;
-        if (logbook_backend_get_summary(index, &entry))
+        if (logbook_backend_get_summary(logbook_display_to_backend_index(index), &entry))
         {
             logbook_picker_item_from_entry(&s_logbook_snapshot_entries[index], &entry);
         }
@@ -1216,7 +1243,7 @@ static void logbook_picker_load_timer_cb(lv_timer_t *timer)
     if (!s_logbook_snapshot_entries[index].valid)
     {
         logbook_entry_t entry;
-        if (logbook_backend_get_summary(index, &entry))
+        if (logbook_backend_get_summary(logbook_display_to_backend_index(index), &entry))
         {
             logbook_picker_item_from_entry(&s_logbook_snapshot_entries[index], &entry);
             if (!s_logbook_load_prefetch && (s_logbook_load_page == s_logbook_page_index))
@@ -1281,7 +1308,7 @@ static void logbook_detail_load_timer_cb(lv_timer_t *timer)
     logbook_detail_stop_loader();
     if (menu_runtime_is_logbook() &&
         s_logbook_page != LOGBOOK_PAGE_PICK &&
-        s_logbook_index == s_logbook_detail_index)
+        s_logbook_index == s_logbook_detail_display_index)
     {
         submenu_populate_current();
     }
@@ -1294,7 +1321,7 @@ static void logbook_detail_load_timer_cb(lv_timer_t *timer)
     logbook_detail_stop_loader();
     if (menu_runtime_is_logbook() &&
         s_logbook_page != LOGBOOK_PAGE_PICK &&
-        s_logbook_index == s_logbook_detail_index)
+        s_logbook_index == s_logbook_detail_display_index)
     {
         submenu_populate_current();
     }
@@ -3018,7 +3045,7 @@ static void screen_handle_logbook_select(void)
         {
             if (!logbook_prefetch_take_wait(s_logbook_index, 240U))
             {
-                (void)logbook_points_load(s_logbook_index);
+                (void)logbook_points_load(logbook_display_to_backend_index(s_logbook_index));
             }
         }
         submenu_populate_current();

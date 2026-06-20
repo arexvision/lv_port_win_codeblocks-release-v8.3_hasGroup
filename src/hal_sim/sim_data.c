@@ -24,6 +24,7 @@ static lv_timer_t *s_heading_timer;
 static uint32_t s_heading_accum_mdeg;
 
 static void sim_fill_logbook_tanks(logbook_entry_t *entry);
+static void sim_raise_next_log_no_from_logbook(void);
 
 static float sim_default_air_mod_m(void)
 {
@@ -253,13 +254,15 @@ static void sim_seed_logbook_demo_if_empty(void)
 
     if (logbook_backend_count() > 0U)
     {
+        sim_raise_next_log_no_from_logbook();
         return;
     }
 
     for (uint8_t i = 0U; i < 11U; i++)
     {
-        float max_depth = 18.0f + (float)((i * 3U) % 18U);
-        uint32_t dive_time_s = 1800U + (uint32_t)i * 180U;
+        uint8_t age = (uint8_t)(10U - i);
+        float max_depth = 18.0f + (float)((age * 3U) % 18U);
+        uint32_t dive_time_s = 1800U + (uint32_t)age * 180U;
         dive_pt_t points[] =
         {
             {0.0f, 0.0f},
@@ -276,29 +279,30 @@ static void sim_seed_logbook_demo_if_empty(void)
         entry.valid = true;
         entry.meta.log_no = (uint16_t)(i + 1U);
         entry.meta.year = 2025U;
-        entry.meta.month = (uint8_t)(12U - (i / 4U));
-        entry.meta.day = (uint8_t)(31U - i);
-        entry.meta.start_h = (uint8_t)(10U + (i % 5U));
-        entry.meta.start_m = (uint8_t)((55U + i * 7U) % 60U);
+        entry.meta.month = (uint8_t)(12U - (age / 4U));
+        entry.meta.day = (uint8_t)(31U - age);
+        entry.meta.start_h = (uint8_t)(10U + (age % 5U));
+        entry.meta.start_m = (uint8_t)((55U + age * 7U) % 60U);
         uint16_t start_total_min = (uint16_t)(entry.meta.start_h * 60U + entry.meta.start_m);
         uint16_t end_total_min = (uint16_t)(start_total_min + dive_time_s / 60U);
         entry.meta.end_h = (uint8_t)((end_total_min / 60U) % 24U);
         entry.meta.end_m = (uint8_t)(end_total_min % 60U);
         entry.dive_time_s = dive_time_s;
-        entry.surface_interval_s = (42U * 3600U + 24U * 60U) + (uint32_t)i * 1800U;
+        entry.surface_interval_s = (42U * 3600U + 24U * 60U) + (uint32_t)age * 1800U;
         entry.max_depth_m = max_depth;
         entry.avg_depth_m = max_depth * 0.65f;
         entry.surface_mbar = 1013.0f;
-        entry.start_cns_pct = (uint8_t)(i % 4U);
-        entry.end_cns_pct = (uint8_t)(8U + i);
-        entry.avg_sac_l_min = 11.5f + (float)(i % 4U) * 0.7f;
-        (void)snprintf(entry.mode, sizeof(entry.mode), "%s", (i % 3U == 0U) ? "Nitrox" : "Air");
+        entry.start_cns_pct = (uint8_t)(age % 4U);
+        entry.end_cns_pct = (uint8_t)(8U + age);
+        entry.avg_sac_l_min = 11.5f + (float)(age % 4U) * 0.7f;
+        (void)snprintf(entry.mode, sizeof(entry.mode), "%s", (age % 3U == 0U) ? "Nitrox" : "Air");
         (void)snprintf(entry.deco_model, sizeof(entry.deco_model), "%s", "GF 30/70");
         sim_fill_logbook_tanks(&entry);
-        (void)snprintf(entry.tank_start[0], sizeof(entry.tank_start[0]), "%u", (unsigned)(200U - i));
-        (void)snprintf(entry.tank_end[0], sizeof(entry.tank_end[0]), "%u", (unsigned)(82U - (i % 6U) * 3U));
+        (void)snprintf(entry.tank_start[0], sizeof(entry.tank_start[0]), "%u", (unsigned)(200U - age));
+        (void)snprintf(entry.tank_end[0], sizeof(entry.tank_end[0]), "%u", (unsigned)(82U - (age % 6U) * 3U));
         (void)logbook_backend_append_finalized_dive(&entry, points, (uint16_t)(sizeof(points) / sizeof(points[0])));
     }
+    sim_raise_next_log_no_from_logbook();
 }
 
 #if TCP_ALGO_DEBUG
@@ -661,6 +665,30 @@ static void sim_fill_logbook_tanks(logbook_entry_t *entry)
     }
 }
 
+static void sim_raise_next_log_no_from_logbook(void)
+{
+    uint16_t count = logbook_backend_count();
+    uint16_t max_log_no = 0U;
+
+    for (uint16_t i = 0U; i < count; i++)
+    {
+        logbook_entry_t entry;
+        if (logbook_backend_get_summary(i, &entry) && entry.valid && entry.meta.log_no > max_log_no)
+        {
+            max_log_no = entry.meta.log_no;
+        }
+    }
+
+    if (s_sim.next_log_no == 0U)
+    {
+        s_sim.next_log_no = 1U;
+    }
+    if (s_sim.next_log_no <= max_log_no)
+    {
+        s_sim.next_log_no = (uint16_t)(max_log_no + 1U);
+    }
+}
+
 static void sim_finalize_dive(void)
 {
     logbook_entry_t entry;
@@ -679,6 +707,7 @@ static void sim_finalize_dive(void)
         (void)bus_get_dive_log_point(i, &points[i]);
     }
 
+    sim_raise_next_log_no_from_logbook();
     entry.valid = true;
     entry.meta.log_no = s_sim.next_log_no++;
     entry.meta.year = 2025U;
