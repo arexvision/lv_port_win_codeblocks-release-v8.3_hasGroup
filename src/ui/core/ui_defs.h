@@ -28,7 +28,8 @@ extern "C" {
 #define CARD_TITLE_H              60      /* 卡片/菜单标题区高度 */
 #define DECO_REFRESH_MS           1000    /* DECO 卡片刷新周期，单位 ms */
 #define PLAN_TRACK_DECO_STOP_TIME_LABELS_ENABLED  0  /* 减压站标签停留时间开关 */
-#define PLAN_TRACK_STOP_LABEL_LEFT_OFFSET_PX      4  /* 停站标签距图表左边距离 */
+#define PLAN_TRACK_STOP_LABEL_W_PX                72  /* 停站标签最大宽度 */
+#define PLAN_TRACK_STOP_LABEL_GAP_PX              6  /* 停站标签距节点距离 */
 #define PLAN_TRACK_NOW_DOT_RADIUS_PX              6  /* NOW 当前点半径 */
 #define PLAN_TRACK_NOW_LABEL_GAP_PX               8  /* NOW 当前点到文字框距离 */
 #define PLAN_TRACK_NOW_LABEL_PAD_X_PX             4  /* NOW 文字框横向内边距 */
