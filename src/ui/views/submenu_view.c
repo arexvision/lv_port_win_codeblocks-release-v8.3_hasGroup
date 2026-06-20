@@ -1532,6 +1532,9 @@ static void logbook_apply_nav_button_style(lv_obj_t *btn, lv_obj_t *lbl, bool fo
     {
         lv_obj_set_style_text_font(lbl, get_font(focused ? FONT_ID_MEDIUM : FONT_ID_TITLE), 0);
         lv_obj_set_style_text_color(lbl, focused ? LIGHT : GREEN, 0);
+        lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
+        lv_label_set_long_mode(lbl, LV_LABEL_LONG_CLIP);
         lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
     }
 }
