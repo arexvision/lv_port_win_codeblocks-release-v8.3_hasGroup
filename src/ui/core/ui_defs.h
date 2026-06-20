@@ -29,6 +29,10 @@ extern "C" {
 #define DECO_REFRESH_MS           1000    /* DECO 卡片刷新周期，单位 ms */
 #define PLAN_TRACK_DECO_STOP_TIME_LABELS_ENABLED  0  /* 减压站标签停留时间开关 */
 #define PLAN_TRACK_STOP_LABEL_LEFT_OFFSET_PX      4  /* 停站标签距图表左边距离 */
+#define PLAN_TRACK_NOW_DOT_RADIUS_PX              6  /* NOW 当前点半径 */
+#define PLAN_TRACK_NOW_LABEL_GAP_PX               8  /* NOW 当前点到文字框距离 */
+#define PLAN_TRACK_NOW_LABEL_PAD_X_PX             4  /* NOW 文字框横向内边距 */
+#define PLAN_TRACK_NOW_LABEL_PAD_Y_PX             2  /* NOW 文字框纵向内边距 */
 
 #define GREEN  lv_color_make(0x00, 0xFF, 0x00)  /* 主荧光绿 */
 #define LIGHT  lv_color_make(0x55, 0xFF, 0x55)  /* 高亮文字色 */

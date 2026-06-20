@@ -251,32 +251,29 @@ static void plan_chart_draw_cb(lv_event_t *e)
     now_dsc.radius = LV_RADIUS_CIRCLE;
     now_dsc.bg_color = GREEN;
     now_dsc.bg_opa = LV_OPA_COVER;
-    lv_area_t now_area = {now_p.x - 6, now_p.y - 6, now_p.x + 6, now_p.y + 6};
+    lv_area_t now_area = {now_p.x - PLAN_TRACK_NOW_DOT_RADIUS_PX, now_p.y - PLAN_TRACK_NOW_DOT_RADIUS_PX, now_p.x + PLAN_TRACK_NOW_DOT_RADIUS_PX, now_p.y + PLAN_TRACK_NOW_DOT_RADIUS_PX};
     lv_draw_rect(draw_ctx, &now_dsc, &now_area);
 
     lv_point_t now_text_size;
-    lv_txt_get_size(&now_text_size, "NOW", txt_dsc.font, txt_dsc.letter_space,
-                    txt_dsc.line_space, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    lv_txt_get_size(&now_text_size, "NOW", txt_dsc.font, txt_dsc.letter_space, txt_dsc.line_space, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
 
     lv_draw_rect_dsc_t now_bg;
     lv_draw_rect_dsc_init(&now_bg);
     now_bg.bg_color = GREEN;
     now_bg.bg_opa = LV_OPA_COVER;
-    lv_coord_t now_bg_pad_x = 6;
-    lv_coord_t now_bg_pad_y = 4;
-    lv_area_t now_bg_area =
-    {
-        now_p.x + 10,
-        now_p.y - (now_text_size.y / 2) - now_bg_pad_y,
-        now_p.x + 10 + now_text_size.x + now_bg_pad_x * 2,
-        now_p.y + (now_text_size.y / 2) + now_bg_pad_y
-    };
+    lv_coord_t now_bg_x1 = now_p.x + PLAN_TRACK_NOW_DOT_RADIUS_PX + PLAN_TRACK_NOW_LABEL_GAP_PX;
+    lv_coord_t now_bg_w = now_text_size.x + PLAN_TRACK_NOW_LABEL_PAD_X_PX * 2;
+    lv_coord_t now_bg_h = now_text_size.y + PLAN_TRACK_NOW_LABEL_PAD_Y_PX * 2;
+    lv_area_t now_bg_area = {now_bg_x1, now_p.y - now_bg_h / 2, now_bg_x1 + now_bg_w, now_p.y - now_bg_h / 2 + now_bg_h};
     lv_draw_rect(draw_ctx, &now_bg, &now_bg_area);
 
     txt_dsc.color = BLACK;
     txt_dsc.opa = LV_OPA_COVER;
-    lv_draw_label(draw_ctx, &txt_dsc, &now_bg_area, "NOW", NULL);
+    txt_dsc.align = LV_TEXT_ALIGN_CENTER;
+    lv_area_t now_txt_area = {now_bg_area.x1 + PLAN_TRACK_NOW_LABEL_PAD_X_PX, now_bg_area.y1 + (now_bg_h - now_text_size.y) / 2, now_bg_area.x2 - PLAN_TRACK_NOW_LABEL_PAD_X_PX, now_bg_area.y1 + (now_bg_h - now_text_size.y) / 2 + now_text_size.y};
+    lv_draw_label(draw_ctx, &txt_dsc, &now_txt_area, "NOW", NULL);
     txt_dsc.color = GREEN;
+    txt_dsc.align = LV_TEXT_ALIGN_LEFT;
 
     if (vm->deco_stop_count > 0U)
     {
