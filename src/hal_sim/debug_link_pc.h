@@ -15,6 +15,7 @@ void debug_link_pc_set_rtc_offline_handler(debug_link_pc_rtc_offline_fn handler)
 bool debug_link_pc_manual_mode(void);
 bool debug_link_pc_consume_connect_event(void);
 uint16_t debug_link_pc_time_scale(void);
+uint16_t debug_link_pc_heading_speed_dps(void);
 bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bool *out_reached);
 
 #ifdef __cplusplus
@@ -54,6 +55,7 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bo
 #define DEBUG_DEPTH_GOTO_MIN_MPM 0.1f
 #define DEBUG_DEPTH_GOTO_MAX_MPM 120.0f
 #define DEBUG_DEPTH_GOTO_EPSILON_M 0.01f
+#define DEBUG_HEADING_SPEED_MAX_DPS 3600U      /* 指南针模拟最大度/秒 */
 #define DEBUG_RTC_VALID_AFTER_EPOCH 1577836800LL
 #define DEBUG_RTC_OFFLINE_MAX_SECONDS (30UL * 24UL * 60UL * 60UL)
 
@@ -82,6 +84,7 @@ typedef struct
     char rx_buf[DEBUG_RX_BUF_SIZE];
     uint16_t rx_len;
     uint16_t time_scale;
+    uint16_t heading_speed_dps;
     uint32_t sample_time_s;
     bool depth_rate_valid;
     float depth_rate_last_m;
@@ -111,6 +114,7 @@ static debug_link_pc_t s_debug_link =
     .listener = INVALID_SOCKET,
     .client = INVALID_SOCKET,
     .time_scale = 1,
+    .heading_speed_dps = 1,
 };
 
 static uint16_t debug_swap16(uint16_t value)
@@ -584,7 +588,7 @@ static void debug_send_help(void)
     debug_send_raw(
         "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
-        "  help | state | back [2] | manual on|off | auto on|off | speed <1..120>\r\n"
+        "  help | state | back [2] | manual on|off | auto on|off | speed <1..120> | heading_speed <0..3600>\r\n"
         "  depth <m> | goto <m> [m_min]|stop | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
         "  rtc_offline <seconds> | rtc_sleep_mark | rtc_sleep_apply | rtc_sleep_status\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
@@ -603,11 +607,12 @@ static void debug_send_help(void)
 static void debug_send_state(void)
 {
     debug_sendf(
-        "STATE tcp=%u depth_manual=%u manual=%u speed=%u goto=%u target=%.1f goto_rate=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
+        "STATE tcp=%u depth_manual=%u manual=%u speed=%u heading_speed=%u goto=%u target=%.1f goto_rate=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
         (unsigned)debug_link_pc_time_scale(),
+        (unsigned)debug_link_pc_heading_speed_dps(),
         s_debug_link.depth_goto_active ? 1U : 0U,
         (double)s_debug_link.depth_goto_target_m,
         (double)s_debug_link.depth_goto_rate_mpm,
@@ -1026,6 +1031,20 @@ static void debug_exec_line(char *line)
         }
         s_debug_link.time_scale = (uint16_t)speed;
         debug_sendf("OK speed %u\r\n", (unsigned)s_debug_link.time_scale);
+        return;
+    }
+
+    if (debug_streq(cmd, "heading_speed") || debug_streq(cmd, "hspeed"))
+    {
+        int speed;
+        if (!debug_parse_int(debug_next_token(&cursor), &speed) ||
+                speed < 0 || speed > (int)DEBUG_HEADING_SPEED_MAX_DPS)
+        {
+            debug_send_raw("ERR usage: heading_speed <0..3600>\r\n");
+            return;
+        }
+        s_debug_link.heading_speed_dps = (uint16_t)speed;
+        debug_sendf("OK heading_speed %u\r\n", (unsigned)s_debug_link.heading_speed_dps);
         return;
     }
 
@@ -1857,6 +1876,11 @@ uint16_t debug_link_pc_time_scale(void)
     return s_debug_link.time_scale > 0U ? s_debug_link.time_scale : 1U;
 }
 
+uint16_t debug_link_pc_heading_speed_dps(void)
+{
+    return s_debug_link.heading_speed_dps;
+}
+
 #else
 
 void debug_link_pc_start(void)
@@ -1879,6 +1903,11 @@ bool debug_link_pc_consume_connect_event(void)
 }
 
 uint16_t debug_link_pc_time_scale(void)
+{
+    return 1U;
+}
+
+uint16_t debug_link_pc_heading_speed_dps(void)
 {
     return 1U;
 }

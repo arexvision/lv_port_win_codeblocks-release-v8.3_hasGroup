@@ -108,9 +108,13 @@ static float sim_calc_ppo2(uint8_t o2_pct, float depth_m)
     return bus_calculate_ppo2_bar(o2_pct, pressure_mbar);
 }
 
-static void sim_update_heading_auto(void)
+static void sim_update_heading_auto(uint16_t step_deg)
 {
-    s_sim.heading_deg = (uint16_t)((s_sim.heading_deg + 1U) % 360U);
+    if (step_deg == 0U)
+    {
+        return;
+    }
+    s_sim.heading_deg = (uint16_t)((bus_get_heading() + step_deg) % 360U);
     bus_set_heading(s_sim.heading_deg);
 }
 
@@ -697,7 +701,7 @@ static void sim_tick_cb(lv_timer_t *t)
 
     {
         uint16_t time_scale = debug_link_pc_time_scale();
-        sim_update_heading_auto();
+        sim_update_heading_auto(debug_link_pc_heading_speed_dps());
         for (uint16_t tick = 0; tick < time_scale; tick++) {
             bool goto_reached = false;
             s_sim.runtime_tick_s++;
@@ -744,7 +748,7 @@ static void sim_tick_cb(lv_timer_t *t)
     s_sim.runtime_tick_s++;
     sim_update_runtime_metrics(1U);
 
-    sim_update_heading_auto();
+    sim_update_heading_auto(1U);
 
     sim_update_depth_script();
     sim_update_deco_state();
