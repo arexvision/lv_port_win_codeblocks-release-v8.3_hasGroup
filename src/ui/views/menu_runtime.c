@@ -351,9 +351,15 @@ static void build_rows(void)
     case MENU_OC_TECH_EDIT:
     {
         menu_item_id_t ids[6];
+        menu_row_type_t types[6];
+        for (uint8_t i = 0U; i < (uint8_t)(sizeof(ids) / sizeof(ids[0])); i++)
+        {
+            ids[i] = MENU_ITEM_READONLY;
+            types[i] = MENU_ROW_READONLY;
+        }
         uint8_t id_count = submenu_gas_edit_item_ids(ids, (uint8_t)(sizeof(ids) / sizeof(ids[0])));
-        (void)id_count;
-        build_nested_by_title(s_oc_tech_edit_title, ids, NULL);
+        for (uint8_t i = 0U; i < id_count; i++) types[i] = (ids[i] == MENU_ITEM_GAS_EDIT_MOD) ? MENU_ROW_READONLY : MENU_ROW_NORMAL;
+        build_nested_by_title(s_oc_tech_edit_title, ids, types);
         break;
     }
     case MENU_DIVE_SETUP:

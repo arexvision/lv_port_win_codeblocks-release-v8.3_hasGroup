@@ -1163,6 +1163,7 @@ static const char **build_nested_oc_tech(uint8_t *out_count)
 static const char **build_nested_oc_tech_edit(uint8_t slot, uint8_t *out_count)
 {
     uint8_t n = 0U;
+    float mod_m = gas_mod_for_mix(s_gas_edit_draft_o2_pct, s_gas_edit_draft_he_pct, s_gas_edit_draft_ppo2);
     (void)slot;
 
     if (s_gas_edit_mode != 0U)
@@ -1182,14 +1183,13 @@ static const char **build_nested_oc_tech_edit(uint8_t slot, uint8_t *out_count)
     n++;
     if (s_gas_edit_mode > 1U)
     {
-        float mod_m = gas_mod_for_mix(s_gas_edit_draft_o2_pct, s_gas_edit_draft_he_pct, s_gas_edit_draft_ppo2);
-        snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "MOD: %.0f%s", (double)bus_get_depth_display(mod_m), bus_get_depth_unit_label());
-        s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
-        n++;
         snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "ACTIVE: %s", s_gas_edit_draft_active ? "ON" : "OFF");
         s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
         n++;
     }
+    snprintf(s_oc_tech_edit_str[n], sizeof(s_oc_tech_edit_str[n]), "MOD: %.0f%s", (double)bus_get_depth_display(mod_m), bus_get_depth_unit_label());
+    s_nested_oc_tech_edit[n] = s_oc_tech_edit_str[n];
+    n++;
     s_nested_oc_tech_edit[n++] = (s_gas_edit_mode <= 1U) ? "CONFIRM" : "SAVE GAS CONFIG";
     s_nested_oc_tech_edit[n] = NULL;
     if (out_count)
@@ -1633,8 +1633,8 @@ bool submenu_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if ((strcmp(clean_title, "AIR GAS") == 0 && item_index == 1U) ||
-        (strcmp(clean_title, "NITROX GAS") == 0 && item_index == 2U))
+    if ((strcmp(clean_title, "AIR GAS") == 0 && item_index == 2U) ||
+        (strcmp(clean_title, "NITROX GAS") == 0 && item_index == 3U))
     {
         out_setting->kind = SUBMENU_SETTING_OC_TECH_SAVE;
         out_setting->arg = s_gas_edit_slot;
@@ -1773,8 +1773,8 @@ bool submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if ((strstr(clean_title, "3 GAS") != NULL && item_index == 2U) ||
-        (strstr(clean_title, "TX") != NULL && item_index == 3U))
+    if ((strstr(clean_title, "3 GAS") != NULL && item_index == 4U) ||
+        (strstr(clean_title, "TX") != NULL && item_index == 5U))
     {
         out_setting->kind = SUBMENU_SETTING_OC_TECH_SAVE;
         out_setting->arg = s_gas_edit_slot;
@@ -2306,8 +2306,8 @@ uint8_t submenu_gas_edit_item_ids(menu_item_id_t *out_ids, uint8_t max_count)
     if (s_gas_edit_mode != 0U && n < max_count) out_ids[n++] = MENU_ITEM_OC_TECH_EDIT_O2;
     if (s_gas_edit_mode == 3U && n < max_count) out_ids[n++] = MENU_ITEM_OC_TECH_EDIT_HE;
     if (n < max_count) out_ids[n++] = MENU_ITEM_GAS_EDIT_PPO2;
-    if (s_gas_edit_mode > 1U && n < max_count) out_ids[n++] = MENU_ITEM_GAS_EDIT_MOD;
     if (s_gas_edit_mode > 1U && n < max_count) out_ids[n++] = MENU_ITEM_GAS_EDIT_ACTIVE;
+    if (n < max_count) out_ids[n++] = MENU_ITEM_GAS_EDIT_MOD;
     if (n < max_count) out_ids[n++] = MENU_ITEM_OC_TECH_EDIT_SAVE;
     return n;
 }
