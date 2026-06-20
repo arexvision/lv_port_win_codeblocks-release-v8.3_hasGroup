@@ -28,7 +28,6 @@ extern "C" {
 #define DECO_FORECAST_TTS_INTERVAL_S 5U       /* TTS forecast 低频刷新间隔 */
 #define DECO_NDL_EXCURSION_DELTA_M 3.0f       /* NDL 上/下 3m 试探 */
 #define DECO_NDL_DYNAMIC_RATE_THRESHOLD_MPM UI_ASCENT_RATE_STILL_DEADBAND_MPM /* 动态 NDL3 方向阈值 */
-#define DECO_GAS_SWITCH_ASCENT_MIN_MPM 1.0f   /* BETTER GAS 明显上升门控 */
 #define TISSUE_UI_PAMB_ANCHOR_PERMILLE 400.0f /* 归一化组织图环境压力锚点 */
 #define TISSUE_UI_MVALUE_ANCHOR_PERMILLE 900.0f /* 归一化组织图 M 值锚点 */
 #define TISSUE_UI_MAX_PERMILLE 1000.0f        /* 归一化组织图绘制上限 */
@@ -592,10 +591,9 @@ static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec, co
     bool deco_context = (first_runtime_stop(schedule) != NULL && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M) ||
                         s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M ||
                         (schedule != NULL && schedule->tts_seconds > 0U);
-    bool ascent_context = bus_get_ascent_rate() > DECO_GAS_SWITCH_ASCENT_MIN_MPM;
 
     if (lifecycle_allows_prompt &&
-        (deco_context || ascent_context) &&
+        deco_context &&
         gas_rec != NULL &&
         gas_rec->available &&
         gas_rec->recommended_gas_index >= 0 &&

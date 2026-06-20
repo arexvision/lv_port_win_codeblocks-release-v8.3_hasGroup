@@ -78,28 +78,26 @@
   - `DIVE_LIFECYCLE_SURFACING_PENDING`
 - PC 模拟器状态机每次切换状态都会同步写入 `bus_set_dive_lifecycle_phase()`。
 - `BETTER GAS` 只有在 phase 为 `DIVE_LIFECYCLE_ACTIVE` 或 `DIVE_LIFECYCLE_SURFACING_PENDING` 时才可能提示。
-- 除生命周期外，还必须满足以下任一业务场景：
+- 除生命周期外，还必须已经存在减压相关业务场景：
   - 当前 `stop_type == STOP_DECO`
   - `ceiling_m > 0.01m`
   - `TTS > 0`
-  - 明显上升：`ascent_rate > DECO_GAS_SWITCH_ASCENT_MIN_MPM`
-- `DECO_GAS_SWITCH_ASCENT_MIN_MPM` 默认 `1.0 m/min`。
 - 不满足门控时，适配层写 `recommended_gas_idx = -1` 并清除 `INFO_GAS_SWITCH`。
 
 真机侧适配：
 
 - 真机平台需要写入同一个 lifecycle phase，供算法适配、告警和后续 UI 逻辑共用。
 - 真机不能继续用 `dive_time_s > 0` 作为 `BETTER GAS` 的唯一提示条件。
-- 算法库仍只负责输出推荐气体；是否提示潜水员由产品层按 lifecycle phase、减压义务和上升趋势判断。
-- 如果真机有自己的上升率滤波，写入 `bus_set_ascent_rate()` 的值应保持“正数=上升”的语义。
+- 算法库仍只负责输出推荐气体；是否提示潜水员由产品层按 lifecycle phase 和减压义务判断。
+- 上升/下降状态仍保留给其它 UI 或算法辅助逻辑使用，但不再单独触发 `BETTER GAS`。
 
 ## 验证清单
 
 - `heading_speed 10`：heading 在 1 秒内连续变化约 10 度，`speed` 不再影响 heading。
 - `speed 30`：PC 出水确认的 30 个模拟秒约 1 个真实秒完成。
 - 多气体模式下刚入水：`ENTRY_PENDING` 不弹 `BETTER GAS`。
-- 刚进入 `DIVE_ACTIVE` 且无减压、无明显上升：不弹 `BETTER GAS`。
+- 刚进入 `DIVE_ACTIVE` 且无减压：不弹 `BETTER GAS`。
 - `STOP_DECO` / ceiling / TTS 存在且算法推荐有效：弹 `BETTER GAS`。
-- 上升率超过 `1.0 m/min` 且算法推荐有效：弹 `BETTER GAS`。
+- 只有上升率变化但没有减压义务：不弹 `BETTER GAS`。
 - 回到 `SURFACE_CONFIRMED`：推荐气体清空，`BETTER GAS` 消失。
 - `rtc_offline`：只有确认水面后允许执行，并按 `0m + AIR` 计算。
