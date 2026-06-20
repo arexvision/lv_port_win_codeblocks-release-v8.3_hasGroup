@@ -155,9 +155,32 @@ void ui_vm_plan_chart_update(ui_vm_plan_chart_t *vm)
         (void)bus_get_dive_log_point(i, &vm->dive_log[i]);
     }
 
-    for (uint8_t i = 0U; i < deco_stop_count; i++)
+    if (bus_get_stop_type() == STOP_SAFETY && bus_get_stop_depth_m() > 0.0f)
     {
-        (void)bus_get_deco_stop(i, &vm->deco_stops[i]);
+        uint16_t safety_s = bus_get_in_stop_zone() ? bus_get_stop_time_left_s() : bus_get_stop_time_total_s();
+        if (safety_s == 0U)
+        {
+            safety_s = bus_get_stop_time_total_s();
+        }
+        if (safety_s > 0U)
+        {
+            vm->deco_stop_count = 1U;
+            vm->deco_stops[0].depth_m = bus_get_stop_depth_m();
+            vm->deco_stops[0].stay_min = (float)safety_s / 60.0f;
+            deco_stop_count = 1U;
+        }
+        else
+        {
+            vm->deco_stop_count = 0U;
+            deco_stop_count = 0U;
+        }
+    }
+    else
+    {
+        for (uint8_t i = 0U; i < deco_stop_count; i++)
+        {
+            (void)bus_get_deco_stop(i, &vm->deco_stops[i]);
+        }
     }
 
     vm->predicted_total_time_s = vm_plan_predicted_total_time(vm->current_time_s,
