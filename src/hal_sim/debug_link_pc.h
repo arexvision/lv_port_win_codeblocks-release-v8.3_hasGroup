@@ -589,7 +589,7 @@ static void debug_send_help(void)
         "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back [2] | manual on|off | auto on|off | speed <1..120> | heading_speed <0..3600>\r\n"
-        "  depth <m> | goto <m> [m_min]|stop | sample <time_s> <depth_m> | rate <m_min> | time <s> | surface <s>\r\n"
+        "  depth <m> | goto <m> [m_min]|stop | sample <time_s> <depth_m> | rate <m_min> | time <s>\r\n"
         "  rtc_offline <seconds> | rtc_sleep_mark | rtc_sleep_apply | rtc_sleep_status\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
         "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
@@ -1159,19 +1159,6 @@ static void debug_exec_line(char *line)
         bus_set_dive_time((uint32_t)time_s);
         s_debug_link.sample_time_s = (uint32_t)time_s;
         debug_sendf("OK time %d\r\n", time_s);
-        return;
-    }
-
-    if (debug_streq(cmd, "surface"))
-    {
-        int time_s;
-        if (!debug_parse_int(debug_next_token(&cursor), &time_s) || time_s < 0)
-        {
-            debug_send_raw("ERR usage: surface <seconds>\r\n");
-            return;
-        }
-        bus_set_surface_time((uint32_t)time_s);
-        debug_sendf("OK surface %d\r\n", time_s);
         return;
     }
 

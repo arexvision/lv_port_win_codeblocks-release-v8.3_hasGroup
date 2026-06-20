@@ -651,6 +651,7 @@ CodeBlocks Debug target 仍应作为最终确认方式。
 - 已确认水面时，实时 step、plan 和 `rtc_offline` 都用临时 `0m + AIR` 算法状态；UI 当前气体选择和 gas slots 不被改写。
 - 已确认水面时，`sync_tissue_data()` 也必须使用同一份临时 `0m + AIR` 状态调用 `arex_deco_calculate_tissue_pressures()`；否则 DECO 组织图的 `tissue_pi_permille` 会继续跟随 UI 当前 active gas，和水面恢复口径不一致。
 - `rtc_offline` 只允许在已确认水面状态执行，输入算法的深度固定为 `0m`。
+- PC TCP 调试不再提供旧 `surface <seconds>` 命令；水面离线恢复统一使用 `rtc_offline <seconds>`，避免只改 UI 水面计时而不推进算法组织恢复。
 
 验证重点：
 
