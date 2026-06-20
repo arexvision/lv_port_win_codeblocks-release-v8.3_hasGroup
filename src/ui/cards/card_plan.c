@@ -264,7 +264,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
     lv_coord_t now_bg_x1 = now_p.x + PLAN_TRACK_NOW_DOT_RADIUS_PX + PLAN_TRACK_NOW_LABEL_GAP_PX;
     lv_coord_t now_bg_w = now_text_size.x + PLAN_TRACK_NOW_LABEL_PAD_X_PX * 2;
     lv_coord_t now_bg_h = now_text_size.y + PLAN_TRACK_NOW_LABEL_PAD_Y_PX * 2;
-    lv_area_t now_bg_area = {now_bg_x1, now_p.y - now_bg_h / 2, now_bg_x1 + now_bg_w, now_p.y - now_bg_h / 2 + now_bg_h};
+    lv_coord_t now_bg_y1 = now_p.y - now_bg_h / 2 + PLAN_TRACK_NOW_LABEL_OFFSET_Y_PX;
+    lv_area_t now_bg_area = {now_bg_x1, now_bg_y1, now_bg_x1 + now_bg_w, now_bg_y1 + now_bg_h};
     lv_draw_rect(draw_ctx, &now_bg, &now_bg_area);
 
     txt_dsc.color = BLACK;
