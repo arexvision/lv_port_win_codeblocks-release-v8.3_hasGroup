@@ -3067,6 +3067,11 @@ static void refresh_current_submenu_page(uint8_t keep_idx)
     s_submenu_selection_scroll_silent = prev_silent;
 }
 
+void screen_refresh_current_submenu(void)
+{
+    refresh_current_submenu_page(ui_state_get_sub_menu_idx());
+}
+
 void screen_handle_submenu_select(uint8_t item_idx)
 {
     menu_action_t action;

@@ -26,6 +26,11 @@ static bool edit_kind_is_depth(submenu_setting_kind_t kind)
     return kind == SUBMENU_SETTING_PLAN_DEPTH || kind == SUBMENU_SETTING_DEPTH_ALARM;
 }
 
+static bool edit_kind_refreshes_submenu(submenu_setting_kind_t kind)
+{
+    return kind == SUBMENU_SETTING_OC_TECH_GAS || kind == SUBMENU_SETTING_GAS_EDIT_PPO2;
+}
+
 static void edit_flash_timer_cb(lv_timer_t *t)
 {
     (void)t;
@@ -235,6 +240,9 @@ void screen_begin_edit_value(uint8_t item_idx, const submenu_edit_spec_t *spec)
 
 void screen_commit_edit_value(void)
 {
+    submenu_setting_kind_t kind = ui_state_get_edit_setting_kind();
+    uint8_t arg = ui_state_get_edit_setting_arg();
+    float value = ui_state_get_edit_value();
     lv_obj_t *submenu_list = submenu_view_get_list();
     if (!submenu_list)
     {
@@ -254,14 +262,21 @@ void screen_commit_edit_value(void)
     if (lbl)
     {
         char buf[32];
-        format_edit_committed_text(buf, sizeof(buf), ui_state_get_edit_setting_kind(), ui_state_get_edit_setting_arg(), ui_state_get_edit_value());
+        format_edit_committed_text(buf, sizeof(buf), kind, arg, value);
         lv_label_set_text(lbl, buf);
         lv_obj_set_style_text_color(lbl, GREEN, 0);
     }
-    submenu_apply_edit_value(ui_state_get_edit_setting_kind(), ui_state_get_edit_setting_arg(), ui_state_get_edit_value());
-    dispatch_edit_setting_callback(ui_state_get_edit_setting_kind(), ui_state_get_edit_setting_arg(), ui_state_get_edit_value());
+    submenu_apply_edit_value(kind, arg, value);
+    dispatch_edit_setting_callback(kind, arg, value);
     ui_state_set_edit_active(false);
-    screen_set_submenu_selection(ui_state_get_sub_menu_idx());
+    if (edit_kind_refreshes_submenu(kind))
+    {
+        screen_refresh_current_submenu();
+    }
+    else
+    {
+        screen_set_submenu_selection(ui_state_get_sub_menu_idx());
+    }
 }
 
 void screen_cancel_edit_value(void)

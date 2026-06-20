@@ -105,6 +105,7 @@ void    screen_set_setup_selection(uint8_t idx);
 uint8_t screen_setup_item_count(void);
 
 void screen_set_submenu_selection(uint8_t idx);
+void screen_refresh_current_submenu(void);
 
 /* =========================================
    Gas menu
