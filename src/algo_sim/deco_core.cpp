@@ -485,7 +485,7 @@ static bool ensure_initialized(void)
     return true;
 }
 
-static void sync_tissue_data(void)
+static void sync_tissue_data(const ArexDecoDiveState *output_state)
 {
     ArexDecoTissuePressureMetrics pressures;
     int16_t tissue_raw[AREX_DECO_COMPARTMENT_COUNT];
@@ -496,7 +496,8 @@ static void sync_tissue_data(void)
     float tissue_m_value_bar[AREX_DECO_COMPARTMENT_COUNT];
     float tissue_m_gf_bar[AREX_DECO_COMPARTMENT_COUNT];
 
-    if (arex_deco_calculate_tissue_pressures(&s_state, &pressures) != AREX_DECO_STATUS_OK) return;
+    if (output_state == NULL) output_state = &s_state;
+    if (arex_deco_calculate_tissue_pressures(output_state, &pressures) != AREX_DECO_STATUS_OK) return;
 
     float ambient_pressure_bar = pressures.ambient_pressure_bar;
     float inspired_inert_bar = pressures.inspired_n2_bar + pressures.inspired_he_bar;
@@ -743,11 +744,11 @@ static void sync_forecast_data(void)
     }
 }
 
-static void sync_core_data(const ArexDecoSchedule *schedule)
+static void sync_core_data(const ArexDecoSchedule *schedule, const ArexDecoDiveState *output_state)
 {
     uint32_t nofly_seconds = 0U;
 
-    sync_tissue_data();
+    sync_tissue_data(output_state);
     bus_set_cns(round_u8_pct(s_state.oxygen_exposure.cns_percent));
     bus_set_otu(round_u16_float(s_state.oxygen_exposure.otu));
     bus_set_gf99(s_metrics.gf99_percent);
@@ -765,11 +766,11 @@ static void sync_core_data(const ArexDecoSchedule *schedule)
     sync_deco_plan_data(schedule);
 }
 
-static void sync_core_data_without_plan(void)
+static void sync_core_data_without_plan(const ArexDecoDiveState *output_state)
 {
     uint32_t nofly_seconds = 0U;
 
-    sync_tissue_data();
+    sync_tissue_data(output_state);
     bus_set_cns(round_u8_pct(s_state.oxygen_exposure.cns_percent));
     bus_set_otu(round_u16_float(s_state.oxygen_exposure.otu));
     bus_set_gf99(s_metrics.gf99_percent);
@@ -808,8 +809,8 @@ static void refresh_current_outputs(void)
     debug_print_plan_call("refresh", -1, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &schedule);
-    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule);
-    else sync_core_data_without_plan();
+    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, plan_state);
+    else sync_core_data_without_plan(plan_state);
 }
 
 static void handle_pending_gas_switch(float depth_m)
@@ -972,8 +973,8 @@ bool deco_core_rtc_offline(uint32_t seconds)
     debug_print_plan_call("rtc_offline", AREX_DECO_STATUS_OK, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
     sync_gas_recommendation(NULL, NULL);
-    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule);
-    else sync_core_data_without_plan();
+    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, &plan_state);
+    else sync_core_data_without_plan(&plan_state);
     rt_kprintf("[RTC_OFFLINE] surface sleep %lus with AIR\n", (unsigned long)seconds);
     return true;
 }
@@ -1045,8 +1046,8 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
         debug_print_schedule(&schedule);
     }
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &schedule);
-    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule);
-    else sync_core_data_without_plan();
+    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, plan_source);
+    else sync_core_data_without_plan(plan_source);
 }
 
 static uint16_t gas_qty_l(float depth_m, uint32_t seconds, float rmv_lpm, const ArexDecoConfig *config)

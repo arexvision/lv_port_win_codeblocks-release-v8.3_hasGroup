@@ -649,6 +649,7 @@ CodeBlocks Debug target 仍应作为最终确认方式。
 - 出水确认：`depth <= 0.2m` 连续 `30` 个模拟秒。
 - 生命周期状态机通过 `deco_core_set_surface_confirmed()` 显式告诉算法适配层是否已确认水面。
 - 已确认水面时，实时 step、plan 和 `rtc_offline` 都用临时 `0m + AIR` 算法状态；UI 当前气体选择和 gas slots 不被改写。
+- 已确认水面时，`sync_tissue_data()` 也必须使用同一份临时 `0m + AIR` 状态调用 `arex_deco_calculate_tissue_pressures()`；否则 DECO 组织图的 `tissue_pi_permille` 会继续跟随 UI 当前 active gas，和水面恢复口径不一致。
 - `rtc_offline` 只允许在已确认水面状态执行，输入算法的深度固定为 `0m`。
 
 验证重点：
@@ -656,3 +657,4 @@ CodeBlocks Debug target 仍应作为最终确认方式。
 - 多气体模式下出水确认前，算法仍按潜水中 active gas 推进；确认出水后，step/plan 切到 `0m + AIR`。
 - `speed 30` 时，30 个模拟秒的出水确认约 1 个真实秒完成。
 - 确认出水后 UI 气体标签不应被自动改成 AIR，只有算法恢复计算使用 AIR。
+- 确认出水后修改当前气体 O2/He 时，DECO 组织图 PI 虚线不应变化；重新入水并进入潜水中后才恢复跟随真实 active gas。
