@@ -50,6 +50,20 @@ static bool s_temperature_valid;
 static bool s_surface_confirmed = true;
 static uint32_t s_tts_forecast_elapsed_s = DECO_FORECAST_TTS_INTERVAL_S;
 static uint32_t s_runtime_ignored_gas_mask;
+static uint8_t s_algo_gas_source_slots[AREX_DECO_MAX_GAS_COUNT];
+
+static uint8_t algo_gas_source_slot(uint8_t gas_idx)
+{
+    if (gas_idx >= AREX_DECO_MAX_GAS_COUNT) return 0xFFU;
+    return s_algo_gas_source_slots[gas_idx];
+}
+
+static const char *algo_gas_source_name(uint8_t gas_idx)
+{
+    uint8_t source_slot = algo_gas_source_slot(gas_idx);
+    if (source_slot >= GAS_COUNT) return "--";
+    return bus_get_gas_slot_name(source_slot);
+}
 
 typedef struct
 {
@@ -294,13 +308,18 @@ static void debug_print_schedule(const ArexDecoSchedule *schedule)
     for (uint8_t i = 0U; i < print_count; i++)
     {
         const ArexDecoStop *stop = &schedule->stops[i];
-        rt_kprintf(" | #%u %.2fm dur=%lus hold=%lus sw=%lus gas=%d gf=%.2f",
+        int8_t gas_idx = stop->gas_index;
+        uint8_t source_slot = (gas_idx >= 0) ? algo_gas_source_slot((uint8_t)gas_idx) : 0xFFU;
+        const char *source_name = (gas_idx >= 0) ? algo_gas_source_name((uint8_t)gas_idx) : "--";
+        rt_kprintf(" | #%u %.2fm dur=%lus hold=%lus sw=%lus gas=%d(slot%u %s) gf=%.2f",
                    (unsigned)(i + 1U),
                    (double)stop->depth_m,
                    (unsigned long)stop->duration_seconds,
                    (unsigned long)stop->hold_seconds,
                    (unsigned long)stop->switch_penalty_seconds,
-                   (int)stop->gas_index,
+                   (int)gas_idx,
+                   (unsigned)source_slot,
+                   source_name,
                    (double)stop->target_gf);
     }
     if (schedule->stop_count > print_count) rt_kprintf(" | ...");
@@ -445,6 +464,7 @@ static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan 
 
     (void)memset(gas_plan, 0, sizeof(*gas_plan));
     (void)memset(source_slots, 0xFF, sizeof(source_slots));
+    (void)memset(s_algo_gas_source_slots, 0xFF, sizeof(s_algo_gas_source_slots));
     gas_plan->api_version = arex_deco_get_api_version();
     if (source_count > GAS_COUNT) source_count = GAS_COUNT;
 
@@ -475,6 +495,7 @@ static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan 
             active_idx = (int8_t)valid_count;
         }
         source_slots[valid_count] = i;
+        s_algo_gas_source_slots[valid_count] = i;
         valid_count++;
     }
 
@@ -482,6 +503,7 @@ static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan 
     {
         if (arex_deco_make_default_gas_plan(config, gas_plan) != AREX_DECO_STATUS_OK) return false;
         gas_plan->active_gas_index = 0;
+        s_algo_gas_source_slots[0] = 0xFFU;
         debug_print_gas_plan_map(gas_plan, NULL);
         return true;
     }
