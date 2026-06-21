@@ -354,6 +354,48 @@ static void format_gas_name(const ArexDecoGas *gas, char *name_buf, size_t name_
     }
 }
 
+static void debug_print_gas_plan_map(const ArexDecoGasPlan *gas_plan, const uint8_t *source_slots)
+{
+    if (gas_plan == NULL) return;
+
+    rt_kprintf("[DECO_GAS_MAP] count=%u active=%d ignored=0x%lx",
+               (unsigned)gas_plan->gas_count,
+               (int)gas_plan->active_gas_index,
+               (unsigned long)s_runtime_ignored_gas_mask);
+    for (uint8_t i = 0U; i < gas_plan->gas_count && i < AREX_DECO_MAX_GAS_COUNT; i++)
+    {
+        const ArexDecoGas *gas = &gas_plan->gases[i];
+        uint8_t source_slot = (source_slots != NULL) ? source_slots[i] : 0xFFU;
+        char name[16];
+        format_gas_name(gas, name, sizeof(name));
+        if (source_slot != 0xFFU)
+        {
+            const char *slot_name = bus_get_gas_slot_name(source_slot);
+            rt_kprintf(" | idx%u<-slot%u %s %u/%u mod=%.1fm maxpo2=%.2f en=%u",
+                       (unsigned)i,
+                       (unsigned)source_slot,
+                       (slot_name != NULL && slot_name[0] != '\0') ? slot_name : name,
+                       (unsigned)round_u8_pct(gas->oxygen_fraction * 100.0f),
+                       (unsigned)round_u8_pct(gas->helium_fraction * 100.0f),
+                       (double)gas->max_depth_m,
+                       (double)gas->max_ppo2_bar,
+                       (unsigned)gas->enabled);
+        }
+        else
+        {
+            rt_kprintf(" | idx%u<-default %s %u/%u mod=%.1fm maxpo2=%.2f en=%u",
+                       (unsigned)i,
+                       name,
+                       (unsigned)round_u8_pct(gas->oxygen_fraction * 100.0f),
+                       (unsigned)round_u8_pct(gas->helium_fraction * 100.0f),
+                       (double)gas->max_depth_m,
+                       (double)gas->max_ppo2_bar,
+                       (unsigned)gas->enabled);
+        }
+    }
+    rt_kprintf("\n");
+}
+
 static uint32_t safety_stop_seconds_from_mode(uint8_t mode, uint8_t *enabled)
 {
     *enabled = (mode == UI_SAFETY_STOP_OFF) ? 0U : 1U;
@@ -399,8 +441,10 @@ static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan 
     uint8_t source_count = bus_get_gas_slot_count();
     uint8_t valid_count = 0U;
     int8_t active_idx = 0;
+    uint8_t source_slots[AREX_DECO_MAX_GAS_COUNT];
 
     (void)memset(gas_plan, 0, sizeof(*gas_plan));
+    (void)memset(source_slots, 0xFF, sizeof(source_slots));
     gas_plan->api_version = arex_deco_get_api_version();
     if (source_count > GAS_COUNT) source_count = GAS_COUNT;
 
@@ -430,6 +474,7 @@ static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan 
         {
             active_idx = (int8_t)valid_count;
         }
+        source_slots[valid_count] = i;
         valid_count++;
     }
 
@@ -437,11 +482,13 @@ static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan 
     {
         if (arex_deco_make_default_gas_plan(config, gas_plan) != AREX_DECO_STATUS_OK) return false;
         gas_plan->active_gas_index = 0;
+        debug_print_gas_plan_map(gas_plan, NULL);
         return true;
     }
 
     gas_plan->gas_count = valid_count;
     gas_plan->active_gas_index = (active_idx >= 0 && active_idx < (int8_t)valid_count) ? active_idx : 0;
+    debug_print_gas_plan_map(gas_plan, source_slots);
     return true;
 }
 
