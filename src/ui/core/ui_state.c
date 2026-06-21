@@ -28,6 +28,7 @@ static ui_ctx_t s_ui;
 /* 这些命令变量不直接驱动 UI，而是作为 UI 层向算法层提交动作请求的“缓冲区”。
  * 这样做的好处是可以把“界面触发”和“算法执行”解耦，避免在点击/旋转回调里直接做耗时计算。 */
 static gas_switch_cmd_t g_gas_switch_cmd = {false, 0};
+static gas_ignore_cmd_t g_gas_ignore_cmd = {false, 0};
 /* 罗盘校准命令：UI 只负责发起/撤销请求，真正的校准流程由底层状态机推进。 */
 static compass_cal_cmd_t g_compass_cal_cmd = {false, COMPASS_CAL_CMD_NONE};
 /* 校准界面的状态镜像，供 UI 决定是否显示校准中、等待确认或空闲提示。 */
@@ -772,6 +773,27 @@ bool has_pending_gas_switch(uint8_t *out_gas_idx)
 void clear_gas_switch_cmd(void)
 {
     g_gas_switch_cmd.pending = false;
+}
+
+void request_gas_ignore(uint8_t gas_idx)
+{
+    g_gas_ignore_cmd.pending = true;
+    g_gas_ignore_cmd.gas_idx = gas_idx;
+}
+
+bool has_pending_gas_ignore(uint8_t *out_gas_idx)
+{
+    if (g_gas_ignore_cmd.pending && out_gas_idx != NULL)
+    {
+        *out_gas_idx = g_gas_ignore_cmd.gas_idx;
+        return true;
+    }
+    return false;
+}
+
+void clear_gas_ignore_cmd(void)
+{
+    g_gas_ignore_cmd.pending = false;
 }
 
 void request_compass_calibration_start(void)

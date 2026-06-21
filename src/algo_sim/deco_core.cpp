@@ -49,6 +49,7 @@ static float s_temperature_c;
 static bool s_temperature_valid;
 static bool s_surface_confirmed = true;
 static uint32_t s_tts_forecast_elapsed_s = DECO_FORECAST_TTS_INTERVAL_S;
+static uint32_t s_runtime_ignored_gas_mask;
 
 typedef struct
 {
@@ -444,6 +445,57 @@ static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan 
     return true;
 }
 
+static uint32_t gas_index_mask(uint8_t gas_idx)
+{
+    return (gas_idx < 32U) ? (1UL << gas_idx) : 0U;
+}
+
+static void runtime_ignore_gas(uint8_t gas_idx)
+{
+    uint32_t mask = gas_index_mask(gas_idx);
+    if (mask == 0U || gas_idx >= s_state.gas_plan.gas_count) return;
+    if (gas_idx == (uint8_t)s_state.gas_plan.active_gas_index) return;
+    if ((s_runtime_ignored_gas_mask & mask) == 0U)
+    {
+        s_runtime_ignored_gas_mask |= mask;
+        bus_set_recommended_gas_idx(-1);
+        rt_kprintf("[DECO_GAS] ignore gas=%u for runtime planner\n", (unsigned)gas_idx);
+    }
+}
+
+static void runtime_restore_gas(uint8_t gas_idx)
+{
+    uint32_t mask = gas_index_mask(gas_idx);
+    if (mask == 0U) return;
+    if ((s_runtime_ignored_gas_mask & mask) != 0U)
+    {
+        s_runtime_ignored_gas_mask &= ~mask;
+        rt_kprintf("[DECO_GAS] restore gas=%u for runtime planner\n", (unsigned)gas_idx);
+    }
+}
+
+static void runtime_clear_ignored_gases(void)
+{
+    if (s_runtime_ignored_gas_mask != 0U)
+    {
+        s_runtime_ignored_gas_mask = 0U;
+        rt_kprintf("[DECO_GAS] clear runtime ignored gases\n");
+    }
+}
+
+static void apply_runtime_ignored_gases(ArexDecoDiveState *state)
+{
+    if (state == NULL || s_runtime_ignored_gas_mask == 0U) return;
+    for (uint8_t i = 0U; i < state->gas_plan.gas_count && i < AREX_DECO_MAX_GAS_COUNT; i++)
+    {
+        if ((s_runtime_ignored_gas_mask & gas_index_mask(i)) != 0U &&
+            (int8_t)i != state->gas_plan.active_gas_index)
+        {
+            state->gas_plan.gases[i].enabled = 0U;
+        }
+    }
+}
+
 static void apply_current_ui_config(void)
 {
     ArexDecoConfig config;
@@ -799,13 +851,19 @@ static void refresh_current_outputs(void)
     ArexDecoSchedule schedule;
     ArexDecoGasRecommendation gas_rec;
     ArexDecoDiveState surface_state;
+    ArexDecoDiveState planner_state;
+    ArexDecoDiveState gas_rec_state;
     const ArexDecoDiveState *plan_state = &s_state;
 
     (void)memset(&schedule, 0, sizeof(schedule));
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
     if (s_surface_confirmed && make_surface_air_state(&s_state, &surface_state)) plan_state = &surface_state;
-    ArexDecoStatus plan_status = arex_deco_plan(plan_state, &schedule, NULL);
-    ArexDecoStatus gas_status = s_surface_confirmed ? AREX_DECO_STATUS_INVALID_STATE : arex_deco_recommend_gas(plan_state, &gas_rec);
+    planner_state = *plan_state;
+    apply_runtime_ignored_gases(&planner_state);
+    gas_rec_state = s_state;
+    apply_runtime_ignored_gases(&gas_rec_state);
+    ArexDecoStatus plan_status = arex_deco_plan(&planner_state, &schedule, NULL);
+    ArexDecoStatus gas_status = s_surface_confirmed ? AREX_DECO_STATUS_INVALID_STATE : arex_deco_recommend_gas(&gas_rec_state, &gas_rec);
     debug_print_plan_call("refresh", -1, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &schedule);
@@ -824,6 +882,7 @@ static void handle_pending_gas_switch(float depth_m)
 
     if (target_gas_idx < s_state.gas_plan.gas_count)
     {
+        runtime_restore_gas(target_gas_idx);
         ArexDecoGas *gas = &s_state.gas_plan.gases[target_gas_idx];
         if (gas->enabled != 0U && s_state.current_depth_m <= gas->max_depth_m + 0.1f)
         {
@@ -842,6 +901,14 @@ static void handle_pending_gas_switch(float depth_m)
     clear_gas_switch_cmd();
 }
 
+static void handle_pending_gas_ignore(void)
+{
+    uint8_t target_gas_idx = 0U;
+    if (!has_pending_gas_ignore(&target_gas_idx)) return;
+    runtime_ignore_gas(target_gas_idx);
+    clear_gas_ignore_cmd();
+}
+
 void deco_core_init(void)
 {
     (void)ensure_initialized();
@@ -850,6 +917,8 @@ void deco_core_init(void)
 void deco_core_reset(void)
 {
     s_initialized = false;
+    s_runtime_ignored_gas_mask = 0U;
+    clear_gas_ignore_cmd();
     reset_stop_progress();
     s_temperature_valid = false;
     s_tts_forecast_elapsed_s = DECO_FORECAST_TTS_INTERVAL_S;
@@ -859,6 +928,11 @@ void deco_core_reset(void)
 void deco_core_set_surface_confirmed(bool confirmed)
 {
     s_surface_confirmed = confirmed;
+    if (confirmed)
+    {
+        runtime_clear_ignored_gases();
+        clear_gas_ignore_cmd();
+    }
     if (confirmed && s_initialized) s_state.current_depth_m = 0.0f;
 }
 
@@ -913,6 +987,8 @@ void deco_core_apply_gases_from_ui(void)
 {
     if (ensure_initialized())
     {
+        runtime_clear_ignored_gases();
+        clear_gas_ignore_cmd();
         apply_current_ui_config();
         refresh_current_outputs();
     }
@@ -989,6 +1065,7 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     if (depth_m < 0.0f) depth_m = 0.0f;
 
     handle_pending_gas_switch(depth_m);
+    handle_pending_gas_ignore();
 
     ArexDecoStepInput input;
     ArexDecoDiveState next_state;
@@ -1034,12 +1111,18 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     ArexDecoSchedule schedule;
     ArexDecoGasRecommendation gas_rec;
     ArexDecoDiveState plan_state;
+    ArexDecoDiveState planner_state;
+    ArexDecoDiveState gas_rec_state;
     const ArexDecoDiveState *plan_source = &s_state;
     (void)memset(&schedule, 0, sizeof(schedule));
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
     if (s_surface_confirmed && make_surface_air_state(&s_state, &plan_state)) plan_source = &plan_state;
-    ArexDecoStatus plan_status = arex_deco_plan(plan_source, &schedule, NULL);
-    ArexDecoStatus gas_status = s_surface_confirmed ? AREX_DECO_STATUS_INVALID_STATE : arex_deco_recommend_gas(plan_source, &gas_rec);
+    planner_state = *plan_source;
+    apply_runtime_ignored_gases(&planner_state);
+    gas_rec_state = s_state;
+    apply_runtime_ignored_gases(&gas_rec_state);
+    ArexDecoStatus plan_status = arex_deco_plan(&planner_state, &schedule, NULL);
+    ArexDecoStatus gas_status = s_surface_confirmed ? AREX_DECO_STATUS_INVALID_STATE : arex_deco_recommend_gas(&gas_rec_state, &gas_rec);
     debug_print_plan_call("tick", (int)step_status, plan_status, &schedule);
     if (plan_status == AREX_DECO_STATUS_OK)
     {

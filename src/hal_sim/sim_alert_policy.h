@@ -343,12 +343,21 @@ static void sim_alert_apply_auto(alarm_id_t id, bool active)
     (void)alarm_set_active(id, active);
 }
 
+static float sim_alert_active_gas_max_ppo2(uint8_t active_gas)
+{
+    float max_ppo2 = 0.0f;
+    if (active_gas < GAS_COUNT) max_ppo2 = g_sensor_data.gas_slot_max_ppo2[active_gas];
+    if (!sim_alert_finite(max_ppo2) || max_ppo2 <= 0.0f) max_ppo2 = bus_get_mod_ppo2();
+    return max_ppo2;
+}
+
 static void sim_alert_tick(void)
 {
     const uint32_t now_ms = lv_tick_get();
     const uint8_t battery_pct = sim_alert_clamp_pct(g_sensor_data.battery_pct);
     const uint8_t active_gas = g_sensor_data.gas_active_idx < GAS_COUNT ? g_sensor_data.gas_active_idx : 0U;
     float active_ppo2 = g_sensor_data.ppo2[active_gas];
+    const float active_max_ppo2 = sim_alert_active_gas_max_ppo2(active_gas);
     const bool has_ppo2 = sim_alert_finite(active_ppo2) && active_ppo2 > 0.0f;
     const bool ceiling_broken = sim_alert_ceiling_broken();
     const bool safety_active = g_sensor_data.stop_type == STOP_SAFETY &&
@@ -379,12 +388,13 @@ static void sim_alert_tick(void)
     sim_alert_apply_auto(ALARM_ID_WARN_PO2_ELEVATED,
                          has_ppo2 &&
                          active_ppo2 >= s_sim_alert_config.ppo2_warn &&
+                         active_ppo2 >= active_max_ppo2 &&
                          active_ppo2 < s_sim_alert_config.ppo2_critical);
     {
         uint16_t ndl_alarm_min = bus_get_ndl_alarm_min();
         sim_alert_apply_auto(ALARM_ID_WARN_NDL_LOW,
                              ndl_alarm_min > 0U &&
-                             g_sensor_data.ndl >= 0 &&
+                             g_sensor_data.ndl > 0 &&
                              g_sensor_data.ndl <= (int16_t)ndl_alarm_min &&
                              (g_sensor_data.stop_type == STOP_NONE || g_sensor_data.stop_type == STOP_SAFETY));
     }

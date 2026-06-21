@@ -57,6 +57,12 @@ typedef struct
     uint8_t gas_idx;    /* 目标气体索引 0-3 */
 } gas_switch_cmd_t;
 
+typedef struct
+{
+    bool pending;       /* 是否有待处理的忽略命令 */
+    uint8_t gas_idx;    /* 需要从本次 runtime 计划中排除的气体索引 */
+} gas_ignore_cmd_t;
+
 typedef enum
 {
     COMPASS_CAL_CMD_NONE = 0,
@@ -216,6 +222,11 @@ bool has_pending_gas_switch(uint8_t *out_gas_idx);
 
 /* 清除气体切换命令（算法适配层处理后调用） */
 void clear_gas_switch_cmd(void);
+
+/* 请求本次 runtime 忽略某路推荐气体（错过推荐深度后由告警层投递）。 */
+void request_gas_ignore(uint8_t gas_idx);
+bool has_pending_gas_ignore(uint8_t *out_gas_idx);
+void clear_gas_ignore_cmd(void);
 
 /* 罗盘校准命令（UI -> 传感器任务） */
 void request_compass_calibration_start(void);

@@ -91,6 +91,7 @@ static uint32_t s_seq;
 static int16_t s_display_key = -2;
 static int8_t s_gas_switch_prompt_idx = -1;
 static float s_gas_switch_prompt_depth_m;
+static float s_gas_switch_prompt_mod_m;
 static bool s_gas_switch_depth_hidden;
 
 static void alarm_mark_dirty(void)
@@ -150,6 +151,7 @@ static void alarm_gas_switch_reset(void)
 {
     s_gas_switch_prompt_idx = -1;
     s_gas_switch_prompt_depth_m = 0.0f;
+    s_gas_switch_prompt_mod_m = 0.0f;
     s_gas_switch_depth_hidden = false;
 }
 
@@ -166,7 +168,16 @@ static bool alarm_gas_switch_accept_active(void)
     {
         s_gas_switch_prompt_idx = recommended_idx;
         s_gas_switch_prompt_depth_m = bus_get_depth();
+        s_gas_switch_prompt_mod_m = bus_get_gas_slot_mod_m((uint8_t)recommended_idx);
         s_gas_switch_depth_hidden = false;
+    }
+    else if (s_gas_switch_depth_hidden)
+    {
+        float hide_base_m = (s_gas_switch_prompt_mod_m > 0.0f) ? s_gas_switch_prompt_mod_m : s_gas_switch_prompt_depth_m;
+        if (bus_get_depth() > hide_base_m - ALARM_GAS_SWITCH_PROMPT_EXIT_DELTA_M)
+        {
+            s_gas_switch_depth_hidden = false;
+        }
     }
 
     return !s_gas_switch_depth_hidden;
@@ -578,10 +589,12 @@ void alarm_tick(uint32_t now_ms)
         }
     }
 
+    float gas_switch_hide_base_m = (s_gas_switch_prompt_mod_m > 0.0f) ? s_gas_switch_prompt_mod_m : s_gas_switch_prompt_depth_m;
     if (s_alarm_states[ALARM_ID_INFO_GAS_SWITCH].active &&
         s_gas_switch_prompt_idx >= 0 &&
-        bus_get_depth() < (s_gas_switch_prompt_depth_m - ALARM_GAS_SWITCH_PROMPT_EXIT_DELTA_M))
+        bus_get_depth() <= (gas_switch_hide_base_m - ALARM_GAS_SWITCH_PROMPT_EXIT_DELTA_M))
     {
+        request_gas_ignore((uint8_t)s_gas_switch_prompt_idx);
         alarm_state_reset(&s_alarm_states[ALARM_ID_INFO_GAS_SWITCH]);
         s_gas_switch_depth_hidden = true;
         changed = true;
