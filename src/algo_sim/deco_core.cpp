@@ -19,8 +19,8 @@ extern "C" {
 #define DECO_SCHEDULE_DEBUG_PRINT_MS 1000U
 #define DECO_SCHEDULE_DEBUG_MAX_STOPS 6U
 #define DECO_PLAN_CALL_DEBUG 1U               /* 打印每次 step/plan 调用结果 */
-#define DECO_GAS_SWITCH_PENALTY_SECONDS 0U    /* 传给 core 的切气惩罚时间 */
-#define DECO_HIDE_SWITCH_ONLY_STOPS (DECO_GAS_SWITCH_PENALTY_SECONDS > 0U) /* 隐藏纯切气预测站 */
+#define DECO_GAS_SWITCH_PENALTY_SECONDS 60U   /* 传给 core 的切气惩罚时间 */
+#define DECO_HIDE_SWITCH_ONLY_STOPS (DECO_GAS_SWITCH_PENALTY_SECONDS > 0U) /* UI 使用 hold 时间并隐藏纯切气预测站 */
 #define DECO_CEILING_ACTIVE_M 0.01f           /* ceiling 大于该值即认为有实时减压义务 */
 #define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
 #define DECO_GAS_DENSITY_COMPRESSIBILITY_Z 1.0f /* 真实气体压缩因子，当前按理想气体 */
@@ -386,8 +386,10 @@ static uint32_t stop_runtime_seconds(const ArexDecoStop *stop)
     if (stop == NULL) return 0U;
 #if DECO_HIDE_SWITCH_ONLY_STOPS
     if (stop_is_switch_only(stop)) return 0U;
-#endif
+    return stop->hold_seconds;
+#else
     return stop->duration_seconds;
+#endif
 }
 
 static void format_gas_name(const ArexDecoGas *gas, char *name_buf, size_t name_buf_size)

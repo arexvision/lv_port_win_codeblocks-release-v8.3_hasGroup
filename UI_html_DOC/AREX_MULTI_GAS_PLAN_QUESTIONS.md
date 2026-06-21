@@ -108,15 +108,13 @@
 - plan 仍然认为 O2 是未来可用气体。
 - 3m 站没有实际 hold，只剩 `sw=60s` 切气惩罚。
 
-产品层之前用 `DECO_HIDE_SWITCH_ONLY_STOPS` 隐藏纯切气预测站，避免 UI 显示一个没有真实 hold 的减压站。后来确认算法配置中已有 `gas_switch_penalty_seconds`，因此当前更合理的做法是直接传：
+产品层可以用 `DECO_HIDE_SWITCH_ONLY_STOPS` 隐藏纯切气预测站，避免 UI 显示一个没有真实 hold 的减压站。后来确认算法配置中已有 `gas_switch_penalty_seconds`，因此目前采用的策略是：算法侧仍传入 60s 切气惩罚，但 UI 的 NDL/DECO 倒计时链路使用算法返回的 `hold_seconds`，纯切气站 `hold=0 sw=60` 不进入 UI 显示。
 
 ```c
-config->gas_switch_penalty_seconds = 0U;
+config->gas_switch_penalty_seconds = 60U;
 ```
 
-这样算法本身不再产生 `sw=60s`，UI 不需要额外把 `duration` 改成 `hold`。
-
-当前分支已按这个方向处理：`DECO_GAS_SWITCH_PENALTY_SECONDS = 0U`，并写入 `ArexDecoConfig.gas_switch_penalty_seconds`。
+当前分支已按这个方向处理：`DECO_GAS_SWITCH_PENALTY_SECONDS = 60U`，并写入 `ArexDecoConfig.gas_switch_penalty_seconds`；`stop_runtime_seconds()` 在该宏开启时返回 `hold_seconds`，并过滤纯切气站。
 
 ### 3.2 日志 B：当前仍是 AIR，但 plan 站点已经使用 O2
 
@@ -307,7 +305,7 @@ O2 100% ... mod=4.0m maxpo2=1.40
 
 建议：
 
-- 如果 UI 不希望显示切气站，优先通过算法配置关闭 penalty，而不是 UI 私自把 duration 改成 hold。
+- 如果 UI 不希望显示切气站，有两种实现路线：一是通过算法配置关闭 penalty；二是保留 penalty 给计划/TTS 语义，但 UI 主倒计时只显示 `hold_seconds` 并过滤纯切气站。
 - 如果未来需要显示“切气耗时”，应在 UI 上明确标注，不应混入减压 hold 倒计时。
 
 ## 6. 当前最核心的语义问题
@@ -393,7 +391,7 @@ mod=4.0m maxpo2=1.40
 4. 优化计划页或切气收益提示可使用 full gas plan。
 5. 如果用户错过或拒绝推荐气体，产品层将该 gas 标记 ignored，并从后续 plan 输入中禁用。
 6. 如果用户手动切到 previously ignored gas，则恢复该 gas。
-7. `gas_switch_penalty_seconds` 当前建议设为 0，避免纯切气站混入减压时间。
+7. `gas_switch_penalty_seconds` 当前设为 60，但 UI 主倒计时使用 `hold_seconds`，避免纯切气站混入 NDL/DECO 时间。
 
 这个方向的核心是：主 UI 永远展示“按当前用户实际选择行为”的安全语义；更优气体作为推荐信息，不偷偷改变主倒计时。
 
