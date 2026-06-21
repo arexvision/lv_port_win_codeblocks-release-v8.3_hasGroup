@@ -19,7 +19,7 @@ extern "C" {
 #define ALARM_TARGET_MAX  12
 #define ALARM_VISIBLE_TARGET_MAX 64
 #define ALARM_GAS_SWITCH_PROMPT_EXIT_DELTA_M 1.0f
-#define ALARM_TARGET_MATCH_DEPTH_1612  0U  /* 深度告警是否同时命中 DEPTH_1612；未确认前关闭 */
+#define ALARM_TARGET_MATCH_DEPTH_1612  1U  /* 深度告警同时命中 DEPTH_1606/DEPTH_1612 */
 
 /* 告警 ID 按 CRIT/WARN/INFO 分组，顺序会影响展示优先级和轮播行为。 */
 typedef enum
