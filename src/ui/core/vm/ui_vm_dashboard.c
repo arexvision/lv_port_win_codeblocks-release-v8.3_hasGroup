@@ -104,7 +104,7 @@ static void vm_format_stop_time(char *buf, size_t buf_size, uint16_t seconds)
     }
 
 #if UI_NDL_STOP_TIME_MINUTE_ONLY
-    (void)snprintf(buf, buf_size, "%u", (unsigned)vm_stop_time_display_minutes(seconds));
+    (void)snprintf(buf, buf_size, "%umin", (unsigned)vm_stop_time_display_minutes(seconds));
 #else
     (void)snprintf(buf, buf_size, "%02u:%02u", (unsigned)(seconds / 60U), (unsigned)(seconds % 60U));
 #endif

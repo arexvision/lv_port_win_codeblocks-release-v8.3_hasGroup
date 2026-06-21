@@ -329,7 +329,7 @@ static uint16_t comp_ndl_stop_display_minutes(uint16_t seconds)
 static void comp_ndl_stop_set_time_text(lv_obj_t *label, uint16_t seconds)
 {
 #if UI_NDL_STOP_TIME_MINUTE_ONLY
-    comp_view_label_set_text_fmt_if_changed(label, "%u", (unsigned)comp_ndl_stop_display_minutes(seconds));
+    comp_view_label_set_text_fmt_if_changed(label, "%umin", (unsigned)comp_ndl_stop_display_minutes(seconds));
 #else
     comp_view_label_set_text_fmt_if_changed(label, "%u:%02u", (unsigned)(seconds / 60U), (unsigned)(seconds % 60U));
 #endif
