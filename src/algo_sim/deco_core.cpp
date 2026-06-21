@@ -19,7 +19,8 @@ extern "C" {
 #define DECO_SCHEDULE_DEBUG_PRINT_MS 1000U
 #define DECO_SCHEDULE_DEBUG_MAX_STOPS 6U
 #define DECO_PLAN_CALL_DEBUG 1U               /* 打印每次 step/plan 调用结果 */
-#define DECO_HIDE_SWITCH_ONLY_STOPS 1U        /* 隐藏 planner 返回的纯切气预测站 */
+#define DECO_GAS_SWITCH_PENALTY_SECONDS 0U    /* 传给 core 的切气惩罚时间 */
+#define DECO_HIDE_SWITCH_ONLY_STOPS (DECO_GAS_SWITCH_PENALTY_SECONDS > 0U) /* 隐藏纯切气预测站 */
 #define DECO_CEILING_ACTIVE_M 0.01f           /* ceiling 大于该值即认为有实时减压义务 */
 #define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
 #define DECO_GAS_DENSITY_COMPRESSIBILITY_Z 1.0f /* 真实气体压缩因子，当前按理想气体 */
@@ -485,6 +486,7 @@ static void fill_config_from_ui(ArexDecoConfig *config)
     config->water_meters_per_bar = (config->water_type == AREX_DECO_WATER_FRESH) ? AREX_DECO_DEFAULT_FRESH_WATER_METERS_PER_BAR : AREX_DECO_DEFAULT_SALT_WATER_METERS_PER_BAR;
     config->safety_stop_seconds = safety_stop_seconds_from_mode(s_safety_stop_mode, &safety_enabled);
     config->safety_stop_enabled = safety_enabled;
+    config->gas_switch_penalty_seconds = DECO_GAS_SWITCH_PENALTY_SECONDS;
 }
 
 static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan *gas_plan)
