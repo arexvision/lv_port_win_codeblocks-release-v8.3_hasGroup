@@ -321,6 +321,20 @@ static void comp_view_label_set_text_fmt_if_changed(lv_obj_t *label, const char 
     comp_view_label_set_text_if_changed(label, buf);
 }
 
+static uint16_t comp_ndl_stop_display_minutes(uint16_t seconds)
+{
+    return (uint16_t)((seconds + 59U) / 60U);
+}
+
+static void comp_ndl_stop_set_time_text(lv_obj_t *label, uint16_t seconds)
+{
+#if UI_NDL_STOP_TIME_MINUTE_ONLY
+    comp_view_label_set_text_fmt_if_changed(label, "%u", (unsigned)comp_ndl_stop_display_minutes(seconds));
+#else
+    comp_view_label_set_text_fmt_if_changed(label, "%u:%02u", (unsigned)(seconds / 60U), (unsigned)(seconds % 60U));
+#endif
+}
+
 static int16_t compass_normalize_angle(int16_t angle)
 {
     angle %= 360;
@@ -1737,13 +1751,11 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                 lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16);
             }
 
-            int m = vm->stop_time_left_s / 60;
-            int s = vm->stop_time_left_s % 60;
             if (layout_changed)
             {
                 lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
             }
-            comp_view_label_set_text_fmt_if_changed(h->main_val, "%d:%02d", m, s);
+            comp_ndl_stop_set_time_text(h->main_val, vm->stop_time_left_s);
             if (layout_changed)
             {
                 lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
@@ -1765,13 +1777,11 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                              comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
             }
 
-            int m = vm->stop_time_left_s / 60;
-            int s = vm->stop_time_left_s % 60;
             if (layout_changed)
             {
                 lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
             }
-            comp_view_label_set_text_fmt_if_changed(h->main_val, "%d:%02d", m, s);
+            comp_ndl_stop_set_time_text(h->main_val, vm->stop_time_left_s);
             if (layout_changed)
             {
                 lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);

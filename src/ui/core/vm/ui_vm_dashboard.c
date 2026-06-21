@@ -91,6 +91,25 @@ static void vm_format_sys_time(char *buf, size_t buf_size)
     (void)snprintf(buf, buf_size, "%u:%02u %s", (unsigned)hour12, (unsigned)minute, suffix);
 }
 
+static uint16_t vm_stop_time_display_minutes(uint16_t seconds)
+{
+    return (uint16_t)((seconds + 59U) / 60U);
+}
+
+static void vm_format_stop_time(char *buf, size_t buf_size, uint16_t seconds)
+{
+    if (buf == NULL || buf_size == 0U)
+    {
+        return;
+    }
+
+#if UI_NDL_STOP_TIME_MINUTE_ONLY
+    (void)snprintf(buf, buf_size, "%u", (unsigned)vm_stop_time_display_minutes(seconds));
+#else
+    (void)snprintf(buf, buf_size, "%02u:%02u", (unsigned)(seconds / 60U), (unsigned)(seconds % 60U));
+#endif
+}
+
 static void vm_split_decimal_1(float value, int16_t *int_part, uint8_t *dec_part)
 {
     int16_t local_int;
@@ -554,7 +573,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     {
         ui_vm_ndl_stop_t ndl_vm;
         ui_vm_ndl_stop_update(&ndl_vm, NULL);
-        (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)(ndl_vm.stop_time_left_s / 60U),(unsigned)(ndl_vm.stop_time_left_s % 60U));
+        vm_format_stop_time(vm->text, sizeof(vm->text), ndl_vm.stop_time_left_s);
         break;
     }
     case COMP_PPO2_0806:
