@@ -222,6 +222,7 @@ static bool sim_alert_update_ascent_critical(uint32_t now_ms)
 {
     const bool is_diving = g_sensor_data.depth > 0.8f || g_sensor_data.dive_time_s > 0U;
     float rate_mpm = g_sensor_data.ascent_rate;
+    float displayed_rate_mpm;
     (void)now_ms;
 
     if (!is_diving || !sim_alert_finite(g_sensor_data.depth) || !sim_alert_finite(rate_mpm))
@@ -229,7 +230,8 @@ static bool sim_alert_update_ascent_critical(uint32_t now_ms)
         return false;
     }
 
-    return rate_mpm > s_sim_alert_config.ascent_rate_critical_mpm;
+    displayed_rate_mpm = floorf(rate_mpm * 10.0f + 0.5f) / 10.0f;
+    return displayed_rate_mpm > s_sim_alert_config.ascent_rate_critical_mpm;
 }
 
 static bool sim_alert_ceiling_broken(void)
