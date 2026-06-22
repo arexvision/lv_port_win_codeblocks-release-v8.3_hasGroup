@@ -7,6 +7,7 @@
 
 #include "../core/ui_engine.h"
 #include "../core/data.h"
+#include "../core/ui_settings.h"
 #include "../core/vm/ui_vm_dashboard.h"
 #include "../screen/screen.h"
 #include "comp_view.h"
@@ -614,6 +615,35 @@ static bool comp_value_handle_apply_text(comp_value_handle_t *h, const char *tex
     return true;
 }
 
+static bool comp_depth_1612_integer_only(void)
+{
+    return bus_get_units_mode() == UI_UNITS_IMPERIAL;
+}
+
+static int comp_depth_display_int(float display_value, bool integer_only)
+{
+    if (integer_only)
+    {
+        return (int)((display_value >= 0.0f) ? (display_value + 0.5f) : (display_value - 0.5f));
+    }
+
+    return (int)display_value;
+}
+
+static int comp_depth_display_decimal(float display_value)
+{
+    int di = (int)display_value;
+    float decimal_part = fabsf(display_value - (float)di);
+    int dd = (int)(decimal_part * 10.0f + 0.5f);
+
+    if (dd > 9)
+    {
+        dd = 9;
+    }
+
+    return dd;
+}
+
 static void comp_value_format_text(comp_id_t id, float value, char *buf, size_t buf_size)
 {
     if (buf == NULL || buf_size == 0U)
@@ -690,14 +720,9 @@ bool comp_value_handle_set_value(comp_id_t id, float value)
     if (id == COMP_DEPTH_1606 || id == COMP_DEPTH_1612)
     {
         float display_value = bus_get_depth_display(value);
-        int di = (int)display_value;
-        float decimal_part = fabsf(display_value - (float)di);
-        int dd = (int)(decimal_part * 10.0f + 0.5f);
-
-        if (dd > 9)
-        {
-            dd = 9;
-        }
+        bool integer_only = (id == COMP_DEPTH_1612) && comp_depth_1612_integer_only();
+        int di = comp_depth_display_int(display_value, integer_only);
+        int dd = comp_depth_display_decimal(display_value);
 
         idx = s_value_handle_heads[(uint8_t)id];
         while (idx != UINT16_MAX && idx < s_value_handle_count)
@@ -711,12 +736,20 @@ bool comp_value_handle_set_value(comp_id_t id, float value)
             }
             else if (h->part == COMP_VALUE_HANDLE_PART_DEPTH_DEC)
             {
-                (void)snprintf(buf, sizeof(buf), ".%d", dd);
-                touched = comp_value_handle_apply_text(h, buf) || touched;
+                if (integer_only)
+                {
+                    touched = comp_value_handle_apply_text(h, "") || touched;
+                }
+                else
+                {
+                    (void)snprintf(buf, sizeof(buf), ".%d", dd);
+                    touched = comp_value_handle_apply_text(h, buf) || touched;
+                }
             }
             else if (h->part == COMP_VALUE_HANDLE_PART_FULL)
             {
-                (void)snprintf(buf, sizeof(buf), "%.1f", (double)display_value);
+                if (integer_only) (void)snprintf(buf, sizeof(buf), "%d", di);
+                else (void)snprintf(buf, sizeof(buf), "%.1f", (double)display_value);
                 touched = comp_value_handle_apply_text(h, buf) || touched;
             }
 
@@ -1233,6 +1266,9 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
          * 整数、小数、单位、速率图标都不是标准“标题+数值”模型能覆盖的。 */
         const style_depth_t *s = &style->spec.depth;
         ui_vm_depth_t depth_vm;
+        bool depth_integer_only = comp_depth_1612_integer_only();
+        float depth_display = bus_get_depth_display(bus_get_depth());
+        int depth_int = comp_depth_display_int(depth_display, depth_integer_only);
 
         ui_vm_depth_update(&depth_vm, NULL);
 
@@ -1241,7 +1277,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
          * ========================================== */
         lv_obj_t *int_lbl = lv_label_create(obj);
         if (SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(int_lbl, "--");
-        else lv_label_set_text_fmt(int_lbl, "%d", (int)depth_vm.int_part);
+        else lv_label_set_text_fmt(int_lbl, "%d", depth_integer_only ? depth_int : (int)depth_vm.int_part);
         // 字体从字典读取（font_id = HUGE 58px
         lv_obj_set_style_text_font(int_lbl, get_font(style->font_id), 0);
         lv_obj_set_style_text_color(int_lbl, GREEN, 0);
@@ -1260,6 +1296,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
          * ========================================== */
         lv_obj_t *dec_lbl = lv_label_create(obj);
         if (SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
+        else if (depth_integer_only) lv_label_set_text(dec_lbl, "");
         else lv_label_set_text_fmt(dec_lbl, ".%u", (unsigned)depth_vm.dec_part);
         // 字体从字典读取（title_font_id = MEDIUM 28px，小数比整数小）
         lv_obj_set_style_text_font(dec_lbl, get_font(style->title_font_id), 0);

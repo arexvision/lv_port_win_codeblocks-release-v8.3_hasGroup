@@ -6,6 +6,7 @@
  */
 
 #include "../core/data.h"
+#include "../core/ui_settings.h"
 #include "../core/vm/ui_vm_dashboard_types.h"
 #include "../core/vm/ui_vm_dashboard.h"
 #include "../screen/screen.h"
@@ -70,6 +71,35 @@ static void comp_for_each_refresh_container(comp_refresh_container_cb_t cb, void
 
         cb(container, ctx);
     }
+}
+
+static bool comp_depth_1612_integer_only(void)
+{
+    return bus_get_units_mode() == UI_UNITS_IMPERIAL;
+}
+
+static int comp_depth_display_int(float display_value, bool integer_only)
+{
+    if (integer_only)
+    {
+        return (int)((display_value >= 0.0f) ? (display_value + 0.5f) : (display_value - 0.5f));
+    }
+
+    return (int)display_value;
+}
+
+static int comp_depth_display_decimal(float display_value)
+{
+    int di = (int)display_value;
+    float decimal_part = fabsf(display_value - (float)di);
+    int dd = (int)(decimal_part * 10.0f + 0.5f);
+
+    if (dd > 9)
+    {
+        dd = 9;
+    }
+
+    return dd;
 }
 
 static void comp_label_set_text_if_changed(lv_obj_t *label, const char *text)
@@ -149,13 +179,11 @@ static void comp_set_value_in_container(lv_obj_t *container, void *ctx)
         {
             float display_value = bus_get_depth_display(value);
             /* 大深度组件把整数和小数拆成两个 label 分开更新。 */
-            int di = (int)display_value;
-            float decimal_part = fabsf(display_value - di);
-            int dd = (int)(decimal_part * 10 + 0.5f);
+            bool integer_only = comp_depth_1612_integer_only();
+            int di = comp_depth_display_int(display_value, integer_only);
+            int dd = comp_depth_display_decimal(display_value);
             lv_obj_t *part0;
             lv_obj_t *part1;
-
-            if (dd > 9) dd = 9;
 
             part0 = lv_obj_get_child(child, 0);
             part1 = lv_obj_get_child(child, 1);
@@ -165,7 +193,8 @@ static void comp_set_value_in_container(lv_obj_t *container, void *ctx)
             }
             if (part1 && lv_obj_is_valid(part1) && lv_obj_check_type(part1, &lv_label_class))
             {
-                comp_label_set_text_fmt_if_changed(part1, ".%d", dd);
+                if (integer_only) comp_label_set_text_if_changed(part1, "");
+                else comp_label_set_text_fmt_if_changed(part1, ".%d", dd);
             }
             lv_obj_t *unit = lv_obj_get_child(child, 2);
             if (unit && lv_obj_is_valid(unit) && lv_obj_check_type(unit, &lv_label_class))
