@@ -28,7 +28,7 @@ static const comp_style_t g_widget_styles[] =
         .title = "DEPTH",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_TEXT_ALIGN_LEFT,
         .spec.depth = {
-            .int_offset_x = -80, .int_offset_y = 10, .int_align = LV_ALIGN_RIGHT_MID,
+            .int_offset_x = -66, .int_offset_y = 10, .int_align = LV_ALIGN_RIGHT_MID,
             .dec_offset_x = 2,  .dec_offset_y = -30,
             .unit_offset_x = 0, .unit_offset_y = 2,
             .icon_offset_x = -10, .icon_offset_y = 0, .icon_align = LV_ALIGN_RIGHT_MID
