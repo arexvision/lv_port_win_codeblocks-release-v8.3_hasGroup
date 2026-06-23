@@ -1273,6 +1273,25 @@ void bus_set_temperature(float temp_c)
     }
 }
 
+void bus_set_dive_temperature_stats(float min_temp_c, float avg_temp_c, float max_temp_c)
+{
+    if (!isfinite(min_temp_c)) min_temp_c = 0.0f;
+    if (!isfinite(avg_temp_c)) avg_temp_c = min_temp_c;
+    if (!isfinite(max_temp_c)) max_temp_c = min_temp_c;
+
+    if (fabsf(g_sensor_data.min_temp - min_temp_c) > 0.1f ||
+        fabsf(g_sensor_data.avg_temp - avg_temp_c) > 0.1f ||
+        fabsf(g_sensor_data.max_temp - max_temp_c) > 0.1f)
+    {
+        g_sensor_data.min_temp = min_temp_c;
+        g_sensor_data.avg_temp = avg_temp_c;
+        g_sensor_data.max_temp = max_temp_c;
+        _temp_sum = avg_temp_c;
+        _temp_sample_count = (avg_temp_c == 0.0f && min_temp_c == 0.0f && max_temp_c == 0.0f) ? 0U : 1U;
+        bus_mark_dirty(DIRTY_DIVE_PROFILE | DIRTY_SYSTEM);
+    }
+}
+
 void bus_set_bat_temperature(float temp_c)
 {
     if (fabsf(g_sensor_data.bat_temperature_c - temp_c) > 0.1f)

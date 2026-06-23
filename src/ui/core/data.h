@@ -133,6 +133,7 @@ void bus_set_otu(uint16_t otu_val);
 void bus_set_gf99(float gf99);
 void bus_set_surf_gf(float surf_gf);
 void bus_set_temperature(float temp_c);
+void bus_set_dive_temperature_stats(float min_temp_c, float avg_temp_c, float max_temp_c);
 void bus_set_bat_temperature(float temp_c);
 void bus_set_prj_temperature(float temp_c);
 void bus_set_battery_voltage(float voltage_v);

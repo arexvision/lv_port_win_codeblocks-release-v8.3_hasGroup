@@ -37,6 +37,23 @@ static uint16_t vm_content_w_from_config(const sys_config_t *config)
            : 0U;
 }
 
+static bool vm_lifecycle_uses_selected_gas(void)
+{
+    dive_lifecycle_phase_t phase = bus_get_dive_lifecycle_phase();
+    return (phase == DIVE_LIFECYCLE_ACTIVE) ||
+           (phase == DIVE_LIFECYCLE_SURFACING_PENDING);
+}
+
+static float vm_surface_air_ppo2(void)
+{
+    float pressure_mbar = bus_get_ambient_pressure();
+    if (!isfinite(pressure_mbar) || pressure_mbar <= 0.0f)
+    {
+        pressure_mbar = 1013.25f;
+    }
+    return 0.21f * (pressure_mbar / 1013.25f);
+}
+
 static void vm_format_mod_text(char *buf, size_t buf_size, float mod_m)
 {
     float display_depth;
@@ -577,7 +594,12 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         break;
     }
     case COMP_PPO2_0806:
-        (void)snprintf(vm->text,sizeof(vm->text),"%.2f",(double)bus_get_gas_slot_ppo2(bus_get_gas_active_idx()));
+        (void)snprintf(vm->text,
+                       sizeof(vm->text),
+                       "%.2f",
+                       (double)(vm_lifecycle_uses_selected_gas()
+                                    ? bus_get_gas_slot_ppo2(bus_get_gas_active_idx())
+                                    : vm_surface_air_ppo2()));
         break;
     case COMP_SURF_GF_0806:
         (void)snprintf(vm->text, sizeof(vm->text), "%.0f%%", (double)bus_get_surf_gf());
@@ -607,7 +629,12 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%.2f", (double)bus_get_gas_density());
         break;
     case COMP_FIO2_0806:
-        (void)snprintf(vm->text, sizeof(vm->text), "%u%%", (unsigned)bus_get_gas_slot_o2_pct(bus_get_gas_active_idx()));
+        (void)snprintf(vm->text,
+                       sizeof(vm->text),
+                       "%u%%",
+                       (unsigned)(vm_lifecycle_uses_selected_gas()
+                                      ? bus_get_gas_slot_o2_pct(bus_get_gas_active_idx())
+                                      : 21U));
         break;
     case COMP_POD_0806:
     {
