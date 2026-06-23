@@ -49,7 +49,6 @@ static uint32_t s_plan_call_debug_last_print_ms;
 static float s_temperature_c;
 static bool s_temperature_valid;
 static bool s_surface_confirmed = true;
-static bool s_nofly_armed;
 static uint32_t s_tts_forecast_elapsed_s = DECO_FORECAST_TTS_INTERVAL_S;
 static uint32_t s_runtime_ignored_gas_mask;
 static uint8_t s_algo_gas_source_slots[AREX_DECO_MAX_GAS_COUNT];
@@ -902,24 +901,10 @@ static void sync_forecast_data(void)
     }
 }
 
-static void sync_nofly_data(void)
+static void sync_core_data(const ArexDecoSchedule *schedule, const ArexDecoDiveState *output_state)
 {
     uint32_t nofly_seconds = 0U;
 
-    if (!s_nofly_armed)
-    {
-        bus_set_nofly_time(0U);
-        return;
-    }
-
-    if (arex_deco_nofly(&s_state, &nofly_seconds) == AREX_DECO_STATUS_OK)
-    {
-        bus_set_nofly_time(round_up_minutes(nofly_seconds));
-    }
-}
-
-static void sync_core_data(const ArexDecoSchedule *schedule, const ArexDecoDiveState *output_state)
-{
     sync_tissue_data(output_state);
     bus_set_cns(round_u8_pct(s_state.oxygen_exposure.cns_percent));
     bus_set_otu(round_u16_float(s_state.oxygen_exposure.otu));
@@ -928,7 +913,10 @@ static void sync_core_data(const ArexDecoSchedule *schedule, const ArexDecoDiveS
     bus_set_ceiling(s_metrics.ceiling_depth_m);
     (void)alarm_set_active(ALARM_ID_CRIT_CEIL_BROKEN, schedule != NULL && schedule->ceiling_violated != 0U);
     bus_set_tts(schedule != NULL ? round_up_minutes(schedule->tts_seconds) : 0U);
-    sync_nofly_data();
+    if (arex_deco_nofly(&s_state, &nofly_seconds) == AREX_DECO_STATUS_OK)
+    {
+        bus_set_nofly_time(round_up_minutes(nofly_seconds));
+    }
     sync_gas_data();
     sync_forecast_data();
     sync_stop_data(schedule);
@@ -937,13 +925,18 @@ static void sync_core_data(const ArexDecoSchedule *schedule, const ArexDecoDiveS
 
 static void sync_core_data_without_plan(const ArexDecoDiveState *output_state)
 {
+    uint32_t nofly_seconds = 0U;
+
     sync_tissue_data(output_state);
     bus_set_cns(round_u8_pct(s_state.oxygen_exposure.cns_percent));
     bus_set_otu(round_u16_float(s_state.oxygen_exposure.otu));
     bus_set_gf99(s_metrics.gf99_percent);
     bus_set_surf_gf(s_metrics.surface_gf_percent);
     bus_set_ceiling(s_metrics.ceiling_depth_m);
-    sync_nofly_data();
+    if (arex_deco_nofly(&s_state, &nofly_seconds) == AREX_DECO_STATUS_OK)
+    {
+        bus_set_nofly_time(round_up_minutes(nofly_seconds));
+    }
     sync_gas_data();
     sync_forecast_data();
 }
@@ -1030,7 +1023,6 @@ void deco_core_reset(void)
 {
     s_initialized = false;
     s_runtime_ignored_gas_mask = 0U;
-    s_nofly_armed = false;
     clear_gas_ignore_cmd();
     reset_stop_progress();
     s_temperature_valid = false;
@@ -1041,7 +1033,6 @@ void deco_core_reset(void)
 void deco_core_set_surface_confirmed(bool confirmed)
 {
     s_surface_confirmed = confirmed;
-    if (!confirmed) s_nofly_armed = true;
     if (confirmed)
     {
         runtime_clear_ignored_gases();
@@ -1177,7 +1168,6 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     if (!ensure_initialized()) return;
     if (delta_time_s == 0U) delta_time_s = 1U;
     if (depth_m < 0.0f) depth_m = 0.0f;
-    if (!s_surface_confirmed) s_nofly_armed = true;
 
     handle_pending_gas_switch(depth_m);
     handle_pending_gas_ignore();
