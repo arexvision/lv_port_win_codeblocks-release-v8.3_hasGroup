@@ -15,6 +15,24 @@
 
 ## 未发布 UI 口径调整
 
+### NOFLY 未潜水阶段显示门控
+
+改动：
+
+- 适配层继续调用 `arex_deco_nofly()` 作为唯一禁飞计算来源。
+- 但只有确认进入过一次潜水后，才把算法返回的 no-fly 写入 data bus。
+- 上电、刚连接 TCP、`SURFACE_CONFIRMED` / `ENTRY_PENDING` 且尚未进入过潜水时，`COMP_NOFLY_0806` 保持 `00:00`。
+
+原因：
+
+- Core 的 no-deco 最小禁飞策略是 12h，适用于已经发生过一次 no-deco dive 之后。
+- 未潜水时显示 `12:00` 会误导用户，以为设备刚开机就存在禁飞义务。
+
+验证方式：
+
+- TCP 刚连接且未入水：`NOFLY` 显示 `00:00`。
+- 进入 `DIVE_ACTIVE` 后再回到水面：`NOFLY` 由 `arex_deco_nofly()` 返回值接管。
+
 ### 16 组织仓颜色回归绿色亮度阶梯
 
 改动：
