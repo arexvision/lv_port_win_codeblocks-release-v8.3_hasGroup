@@ -31,6 +31,7 @@ LV_IMG_DECLARE(sudo_down_level1);
 LV_IMG_DECLARE(sudo_down_level2);
 
 #define MAX_WIDGET_RENDER_INSTANCES (LEFT_MAX_WIDGETS + (MAX_CUSTOM_CARDS * MAX_5F_WIDGETS))
+#define MAX_VALUE_HANDLES          (MAX_WIDGET_RENDER_INSTANCES * 2U)
 #define MAX_ASCENT_ICONS           MAX_WIDGET_RENDER_INSTANCES
 #define MAX_NDL_ICONS              (LEFT_MAX_WIDGETS + MAX_CUSTOM_CARDS)
 #define MAX_TISSUE_WIDGETS         (MAX_CUSTOM_CARDS * 3U)
@@ -43,6 +44,7 @@ LV_IMG_DECLARE(sudo_down_level2);
 #define TISSUE_CHART_PAMB_PERMILLE 400
 #define TISSUE_CHART_LIMIT_PERMILLE 900
 #define TISSUE_CHART_MAX_PERMILLE 1000
+#define DEPTH_1612_DECIMAL_ANCHOR_TEXT ".0"
 #define TISSUE_CHART_COLOR_BG      lv_color_make(0x00, 0x00, 0x00) /* 纯黑背景 */
 #define TISSUE_CHART_COLOR_PI      lv_color_make(0x00, 0x33, 0x00) /* PI 虚线 20% */
 #define TISSUE_CHART_COLOR_SAFE    lv_color_make(0x00, 0x4C, 0x00) /* 安全区 30% */
@@ -216,7 +218,8 @@ static sys_handle_t s_sys_handles[MAX_SYS_WIDGETS] __attribute__((section(".psra
 static uint8_t s_sys_handle_count;
 static compass_handle_t s_compass_handles[MAX_COMPASS_WIDGETS] __attribute__((section(".psram_bss")));
 static uint8_t s_compass_handle_count;
-static comp_value_handle_t s_value_handles[MAX_WIDGET_RENDER_INSTANCES] __attribute__((section(".psram_bss")));
+/* 1612 深度大卡使用“整数+小数”两个 label，句柄池按双句柄上限预留。 */
+static comp_value_handle_t s_value_handles[MAX_VALUE_HANDLES] __attribute__((section(".psram_bss")));
 static uint16_t s_value_handle_heads[COMP_VALUE_HANDLE_ID_MAX];
 static uint16_t s_value_handle_count;
 static lv_obj_t *s_depth_unit_labels[MAX_WIDGET_RENDER_INSTANCES] __attribute__((section(".psram_bss")));
@@ -739,11 +742,19 @@ bool comp_value_handle_set_value(comp_id_t id, float value)
             {
                 if (integer_only)
                 {
-                    touched = comp_value_handle_apply_text(h, "") || touched;
+                    if (comp_value_handle_label_valid(h))
+                    {
+                        lv_obj_set_style_text_opa(h->label, LV_OPA_TRANSP, 0);
+                    }
+                    touched = comp_value_handle_apply_text(h, DEPTH_1612_DECIMAL_ANCHOR_TEXT) || touched;
                 }
                 else
                 {
                     (void)snprintf(buf, sizeof(buf), ".%d", dd);
+                    if (comp_value_handle_label_valid(h))
+                    {
+                        lv_obj_set_style_text_opa(h->label, LV_OPA_COVER, 0);
+                    }
                     touched = comp_value_handle_apply_text(h, buf) || touched;
                 }
             }
@@ -1296,12 +1307,13 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
          * 2. 中号小数 -> 紧贴整数的右边界
          * ========================================== */
         lv_obj_t *dec_lbl = lv_label_create(obj);
-        if (SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
-        else if (depth_integer_only) lv_label_set_text(dec_lbl, "");
+        if (depth_integer_only) lv_label_set_text(dec_lbl, DEPTH_1612_DECIMAL_ANCHOR_TEXT);
+        else if (SHOW_PLACEHOLDER_ON_INIT) lv_label_set_text(dec_lbl, ".-");
         else lv_label_set_text_fmt(dec_lbl, ".%u", (unsigned)depth_vm.dec_part);
         // 字体从字典读取（title_font_id = MEDIUM 28px，小数比整数小）
         lv_obj_set_style_text_font(dec_lbl, get_font(style->title_font_id), 0);
         lv_obj_set_style_text_color(dec_lbl, GREEN, 0);
+        lv_obj_set_style_text_opa(dec_lbl, depth_integer_only ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
         lv_label_set_long_mode(dec_lbl, LV_LABEL_LONG_CLIP);
         lv_obj_set_size(dec_lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 
