@@ -71,10 +71,11 @@
 - `ArexDecoDiveState` 使用原 reserved 空间新增安全停留执行状态字段：
   `safety_stop_required`、`safety_stop_completed`、`safety_stop_missed` 和
   `safety_stop_elapsed_seconds`。`ArexDecoDiveState` 总大小保持 `600` 字节。
-- 安全停留有效计时区间为 `3-6 m`；目标深度仍为 `5 m`；浅于 `2 m` 视为
+- 安全停留有效计时区间为 `2.9-6 m`；目标深度仍为 `5 m`；浅于 `2 m` 视为
   missed too shallow。上述阈值作为 core 固定策略常量暴露。
-- 跨越有效区间的长 step 只按线性深度段中实际落在 `3-6 m` 的时间计入安全
-  停留；浅于 `2 m` 后本次安全停留进入终态，不再恢复计时。
+- 跨越有效区间的长 step 只按线性深度段中实际落在 `2.9-6 m` 的时间计入安全
+  停留；浅于 `2 m` 后本次安全停留进入终态，不再恢复计时；若重新下潜深于
+  `10 m`，安全停留计时会重置并重新要求完整停留。
 - `arex_deco_step()` 负责推进安全停留执行状态；调用方不需要、也不应该自行用
   NDL / ceiling 猜测是否为免减压安全停留。若当前组织状态已有 GF-high 强制减压
   ceiling，或本次潜水曾经产生过强制减压义务，安全停留状态由 core 报告为
@@ -100,7 +101,7 @@ NDL 5-7 分钟窗口时 `arex_deco_plan()` 短暂返回
   `max_depth_m`，从而被 `arex_deco_plan()` 的状态一致性校验误判为
   `AREX_DECO_STATUS_INVALID_STATE`。
 - 安全停留倒计时/有效区间语义本次不继续耦合到 `ArexDecoSchedule.stops`；
-  后续版本应以独立 runtime 状态接口定义 `3-6 m` 等有效区间、过浅暂停和剩余
+  后续版本应以独立 runtime 状态接口定义有效计时区间、过浅暂停和剩余
   秒数等产品语义。
 - ABI 字节布局无变化；由于 step 可观察行为变化，API patch 版本升至 `0.0.21`。
 

@@ -351,7 +351,7 @@ core 不返回第三个 delta 字段，避免把 UI 表达固化为算法 ABI。
 | `completed` | `uint8_t` | - | 1 表示本次安全停留已完成 |
 | `missed` | `uint8_t` | - | 1 表示本次安全停留已因过浅 missed |
 | `target_depth_m` | `float` | m | 目标安全停留深度，当前固定 5 m |
-| `zone_min_depth_m` | `float` | m | 有效计时区间最浅深度，当前固定 3 m |
+| `zone_min_depth_m` | `float` | m | 有效计时区间最浅深度，当前固定 2.9 m |
 | `zone_max_depth_m` | `float` | m | 有效计时区间最深深度，当前固定 6 m |
 | `too_shallow_depth_m` | `float` | m | missed too shallow 阈值，当前固定 2 m |
 | `trigger_depth_m` | `float` | m | 触发最大深度阈值，当前固定 10 m |
@@ -627,10 +627,11 @@ ArexDecoStatus arex_deco_safety_stop(
 
 - 触发阈值：最大深度深于 10 m
 - 目标深度：5 m
-- 有效计时区间：3-6 m
+- 有效计时区间：2.9-6 m
 - 过浅 missed 阈值：浅于 2 m
 - 计时时长：`state->config.safety_stop_seconds`
 - 一旦浅于 missed 阈值，本次安全停留进入 `MISSED_TOO_SHALLOW` 终态；即使随后重新下潜到有效区间，也不会恢复倒计时。
+- 若重新下潜深于触发深度 10 m，安全停留执行状态会重置，并重新要求完整安全停留。
 - 若本次潜水已经产生过强制减压义务（`was_deco_dive == 1`）或当前存在 GF-high ceiling，安全停留由 core 报告为 `SUPPRESSED_BY_DECO`。
 
 ### `arex_deco_recommend_gas`
