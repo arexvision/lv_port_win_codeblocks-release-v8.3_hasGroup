@@ -14,6 +14,9 @@
 
 #define ALARM_L1_ANIM_MS    220U
 #define ALARM_L1_SLIDE_PX   16
+#define ALARM_WARN_BORDER_W_ON   3U
+#define ALARM_WARN_BORDER_W_OFF  1U
+#define ALARM_WARN_BANNER_BORDER_W  3U
 #define ALARM_TARGET_USE_OVERLAY  1U  /* 告警边框用覆盖层绘制，避免改父组件边框导致内容抖动 */
 #define ALARM_TARGET_OVERLAY_TAG  ((uintptr_t)0xA11A0001U)  /* 告警目标覆盖层标记 */
 #define LOW_POWER_SHUTDOWN_OVERLAY_W 220
@@ -462,10 +465,10 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
         lv_obj_set_style_bg_color(obj, alarm_view_dim_green(15), 0);
         lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
 #if ALARM_TARGET_USE_OVERLAY
-        alarm_view_set_target_overlay(obj, alarm_color, phase_on ? 2U : 1U);
+        alarm_view_set_target_overlay(obj, alarm_color, phase_on ? ALARM_WARN_BORDER_W_ON : ALARM_WARN_BORDER_W_OFF);
 #else
         lv_obj_set_style_border_color(obj, alarm_color, 0);
-        lv_obj_set_style_border_width(obj, phase_on ? 2 : 1, 0);
+        lv_obj_set_style_border_width(obj, phase_on ? ALARM_WARN_BORDER_W_ON : ALARM_WARN_BORDER_W_OFF, 0);
 #endif
         text_color = GREEN;
     }
@@ -728,7 +731,7 @@ void alarm_view_tick(const alarm_view_context_t *ctx)
                 lv_obj_set_style_bg_color(s_alarm_banner, alarm_view_dim_green(20), 0);
                 lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
                 lv_obj_set_style_border_color(s_alarm_banner, alarm_color, 0);
-                lv_obj_set_style_border_width(s_alarm_banner, 2, 0);
+                lv_obj_set_style_border_width(s_alarm_banner, ALARM_WARN_BANNER_BORDER_W, 0);
                 lv_obj_set_style_text_color(s_alarm_banner_lbl, alarm_color, 0);
             }
             else
