@@ -112,12 +112,12 @@ enum
  * 支持屏幕上多NDL 模块（左侧锚1 + 5F 多个
  * 三种状 NDL常/ Safety停留 / Deco停留
  * ============================================================ */
-static lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS];
+static lv_obj_t *s_img_ascent_rate[MAX_ASCENT_ICONS] __attribute__((section(".psram_bss")));
 static uint8_t  s_ascent_icon_count = 0;
-static ndl_handle_t s_ndl_handles[MAX_NDL_ICONS];
+static ndl_handle_t s_ndl_handles[MAX_NDL_ICONS] __attribute__((section(".psram_bss")));
 static uint8_t      s_ndl_handle_count = 0;
-static ui_vm_ndl_stop_t s_ndl_draw_vm[MAX_NDL_ICONS];
-static tissue_handle_t s_tissue_handles[MAX_TISSUE_WIDGETS];
+static ui_vm_ndl_stop_t s_ndl_draw_vm[MAX_NDL_ICONS] __attribute__((section(".psram_bss")));
+static tissue_handle_t s_tissue_handles[MAX_TISSUE_WIDGETS] __attribute__((section(".psram_bss")));
 static uint8_t s_tissue_handle_count;
 static lv_timer_t *s_tissue_blink_timer;
 static bool s_tissue_blink_phase = true;
@@ -212,14 +212,14 @@ static uint8_t s_pod_render_count = 0;  /* POD 渲染计数*/
  * COMP_SYS_1606，单指针会被最后一个离屏实例覆盖，导致可见实例不刷新。
  * 句柄表按实例保存，刷新时再用 screen_obj_refresh_visible() 裁剪到当前屏。
  * ========================================================= */
-static sys_handle_t s_sys_handles[MAX_SYS_WIDGETS];
+static sys_handle_t s_sys_handles[MAX_SYS_WIDGETS] __attribute__((section(".psram_bss")));
 static uint8_t s_sys_handle_count;
-static compass_handle_t s_compass_handles[MAX_COMPASS_WIDGETS];
+static compass_handle_t s_compass_handles[MAX_COMPASS_WIDGETS] __attribute__((section(".psram_bss")));
 static uint8_t s_compass_handle_count;
-static comp_value_handle_t s_value_handles[MAX_WIDGET_RENDER_INSTANCES];
+static comp_value_handle_t s_value_handles[MAX_WIDGET_RENDER_INSTANCES] __attribute__((section(".psram_bss")));
 static uint16_t s_value_handle_heads[COMP_VALUE_HANDLE_ID_MAX];
 static uint16_t s_value_handle_count;
-static lv_obj_t *s_depth_unit_labels[MAX_WIDGET_RENDER_INSTANCES];
+static lv_obj_t *s_depth_unit_labels[MAX_WIDGET_RENDER_INSTANCES] __attribute__((section(".psram_bss")));
 static uint16_t s_depth_unit_label_count;
 
 static bool ui_obj_is_valid(lv_obj_t **obj_ref)

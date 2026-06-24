@@ -11,7 +11,7 @@
 
 #define CHART_PAD 10
 
-static ui_vm_plan_chart_t s_plan_chart_vm;
+static ui_vm_plan_chart_t s_plan_chart_vm __attribute__((section(".psram_bss")));
 static lv_obj_t *s_chart_obj;
 
 static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,

@@ -33,7 +33,7 @@ static lv_obj_t *s_submenu_list = NULL;
 static lv_obj_t *s_light_status_lbl = NULL;
 static uint16_t s_submenu_width = 0;
 static uint16_t s_submenu_height = 0;
-static ui_vm_dive_plan_view_t s_dive_plan_last_vm;
+static ui_vm_dive_plan_view_t s_dive_plan_last_vm __attribute__((section(".psram_bss")));
 static bool s_dive_plan_last_vm_valid = false;
 static bool s_submenu_selection_scroll_silent = false;
 

@@ -7,6 +7,7 @@
 
 #include "alarm_view.h"
 #include "alarm.h"
+#include "../core/data.h"
 #include "../screen/screen.h"
 
 #include <stdio.h>
@@ -15,10 +16,16 @@
 #define ALARM_L1_SLIDE_PX   16
 #define ALARM_TARGET_USE_OVERLAY  1U  /* 告警边框用覆盖层绘制，避免改父组件边框导致内容抖动 */
 #define ALARM_TARGET_OVERLAY_TAG  ((uintptr_t)0xA11A0001U)  /* 告警目标覆盖层标记 */
+#define LOW_POWER_SHUTDOWN_OVERLAY_W 220
+#define LOW_POWER_SHUTDOWN_OVERLAY_H 112
 
 static lv_obj_t *s_alarm_banner;
 static lv_obj_t *s_alarm_banner_lbl;
 static lv_coord_t s_alarm_banner_target_y;
+static lv_obj_t *s_low_power_shutdown_overlay;
+static lv_obj_t *s_low_power_shutdown_title_lbl;
+static lv_obj_t *s_low_power_shutdown_time_lbl;
+static uint8_t s_low_power_shutdown_last_sec = 0xFFU;
 
 static lv_color_t alarm_view_level_color(alarm_level_t level)
 {
@@ -147,6 +154,106 @@ static void alarm_view_reset_banner_if_invalid(lv_obj_t *safe_zone)
     {
         s_alarm_banner = NULL;
         s_alarm_banner_lbl = NULL;
+    }
+}
+
+static void alarm_view_reset_low_power_shutdown_if_invalid(lv_obj_t *safe_zone)
+{
+    if (!s_low_power_shutdown_overlay)
+    {
+        return;
+    }
+
+    if (!lv_obj_is_valid(s_low_power_shutdown_overlay) ||
+        lv_obj_get_parent(s_low_power_shutdown_overlay) != safe_zone)
+    {
+        s_low_power_shutdown_overlay = NULL;
+        s_low_power_shutdown_title_lbl = NULL;
+        s_low_power_shutdown_time_lbl = NULL;
+        s_low_power_shutdown_last_sec = 0xFFU;
+    }
+}
+
+static void alarm_view_hide_low_power_shutdown_overlay(void)
+{
+    if (s_low_power_shutdown_overlay)
+    {
+        lv_obj_add_flag(s_low_power_shutdown_overlay, LV_OBJ_FLAG_HIDDEN);
+    }
+    s_low_power_shutdown_last_sec = 0xFFU;
+}
+
+static void alarm_view_show_low_power_shutdown_overlay(const alarm_view_context_t *ctx,
+                                                       uint8_t remaining_sec,
+                                                       bool phase_on)
+{
+    if (!ctx || !ctx->safe_zone)
+    {
+        return;
+    }
+
+    alarm_view_reset_low_power_shutdown_if_invalid(ctx->safe_zone);
+
+    if (!s_low_power_shutdown_overlay)
+    {
+        s_low_power_shutdown_overlay = lv_obj_create(ctx->safe_zone);
+        lv_obj_remove_style_all(s_low_power_shutdown_overlay);
+        lv_obj_set_size(s_low_power_shutdown_overlay,
+                        LOW_POWER_SHUTDOWN_OVERLAY_W,
+                        LOW_POWER_SHUTDOWN_OVERLAY_H);
+        lv_obj_clear_flag(s_low_power_shutdown_overlay, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_clear_flag(s_low_power_shutdown_overlay, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_style_radius(s_low_power_shutdown_overlay, 0, 0);
+        lv_obj_set_style_border_width(s_low_power_shutdown_overlay, 2, 0);
+        lv_obj_set_style_border_color(s_low_power_shutdown_overlay, GREEN, 0);
+        lv_obj_set_style_border_opa(s_low_power_shutdown_overlay, LV_OPA_COVER, 0);
+
+        s_low_power_shutdown_title_lbl = lv_label_create(s_low_power_shutdown_overlay);
+        lv_obj_set_width(s_low_power_shutdown_title_lbl, LV_PCT(100));
+        lv_obj_set_style_text_font(s_low_power_shutdown_title_lbl, get_font(FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_align(s_low_power_shutdown_title_lbl, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(s_low_power_shutdown_title_lbl, LV_ALIGN_TOP_MID, 0, 12);
+        lv_label_set_text(s_low_power_shutdown_title_lbl, "SHUTDOWN IN");
+
+        s_low_power_shutdown_time_lbl = lv_label_create(s_low_power_shutdown_overlay);
+        lv_obj_set_width(s_low_power_shutdown_time_lbl, LV_PCT(100));
+        lv_obj_set_style_text_font(s_low_power_shutdown_time_lbl, get_font(FONT_ID_MEDIUM), 0);
+        lv_obj_set_style_text_align(s_low_power_shutdown_time_lbl, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(s_low_power_shutdown_time_lbl, LV_ALIGN_BOTTOM_MID, 0, -16);
+    }
+
+    lv_obj_set_size(s_low_power_shutdown_overlay,
+                    LOW_POWER_SHUTDOWN_OVERLAY_W,
+                    LOW_POWER_SHUTDOWN_OVERLAY_H);
+
+    /* 倒计时提示固定在移动内容区中心，避开左/上/下固定栏，避免遮挡固定信息栏。 */
+    lv_coord_t overlay_x = (lv_coord_t)ctx->content_x;
+    lv_coord_t overlay_y = (lv_coord_t)ctx->content_y;
+    if (ctx->content_w > LOW_POWER_SHUTDOWN_OVERLAY_W)
+    {
+        overlay_x += (lv_coord_t)((ctx->content_w - LOW_POWER_SHUTDOWN_OVERLAY_W) / 2U);
+    }
+    if (ctx->content_h > LOW_POWER_SHUTDOWN_OVERLAY_H)
+    {
+        overlay_y += (lv_coord_t)((ctx->content_h - LOW_POWER_SHUTDOWN_OVERLAY_H) / 2U);
+    }
+    lv_obj_set_pos(s_low_power_shutdown_overlay, overlay_x, overlay_y);
+    lv_obj_clear_flag(s_low_power_shutdown_overlay, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(s_low_power_shutdown_overlay);
+
+    lv_color_t bg_color = phase_on ? GREEN : BLACK;
+    lv_color_t text_color = phase_on ? BLACK : GREEN;
+    lv_obj_set_style_bg_color(s_low_power_shutdown_overlay, bg_color, 0);
+    lv_obj_set_style_bg_opa(s_low_power_shutdown_overlay, LV_OPA_COVER, 0);
+    lv_obj_set_style_text_color(s_low_power_shutdown_title_lbl, text_color, 0);
+    lv_obj_set_style_text_color(s_low_power_shutdown_time_lbl, text_color, 0);
+
+    if (remaining_sec != s_low_power_shutdown_last_sec)
+    {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%us", (unsigned int)remaining_sec);
+        lv_label_set_text(s_low_power_shutdown_time_lbl, buf);
+        s_low_power_shutdown_last_sec = remaining_sec;
     }
 }
 
@@ -666,6 +773,18 @@ void alarm_view_tick(const alarm_view_context_t *ctx)
         {
             s_prev_targets[s_prev_target_count++] = effects[i].target;
         }
+    }
+
+    if (bus_get_low_power_shutdown_active())
+    {
+        uint8_t remaining_sec = bus_get_low_power_shutdown_remaining_sec();
+        alarm_view_show_low_power_shutdown_overlay(ctx,
+                                                   remaining_sec,
+                                                   (remaining_sec % 2U) == 0U);
+    }
+    else
+    {
+        alarm_view_hide_low_power_shutdown_overlay();
     }
 
     s_last_visible = display->visible;

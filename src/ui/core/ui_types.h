@@ -168,6 +168,8 @@ typedef struct
     uint16_t fps;
     char    sensor_status[16];
     float   battery_pct;
+    bool    low_power_shutdown_active;
+    uint8_t low_power_shutdown_remaining_sec;
     uint8_t sys_time_h;
     uint8_t sys_time_m;
     uint8_t sys_time_s;

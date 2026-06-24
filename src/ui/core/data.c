@@ -36,7 +36,7 @@
 #endif
 #endif
 
-static dive_pt_t s_dive_log[MAX_DIVE_LOG];
+static dive_pt_t s_dive_log[MAX_DIVE_LOG] __attribute__((section(".psram_bss")));
 static uint16_t s_dive_log_count;
 static bool s_dive_log_sample_valid;
 static float s_dive_log_last_sample_time_s;
@@ -66,7 +66,7 @@ typedef enum
     LAYOUT_ARCHIVE_COUNT
 } layout_archive_id_t;
 
-static sys_config_t s_layout_archives[LAYOUT_ARCHIVE_COUNT];
+static sys_config_t s_layout_archives[LAYOUT_ARCHIVE_COUNT] __attribute__((section(".psram_bss")));
 static bool s_layout_archive_valid[LAYOUT_ARCHIVE_COUNT];
 #if UI_DIRTY_THROTTLE_ENABLED
 static dirty_mask_t s_dirty_throttle_bypass_once;
@@ -1332,6 +1332,22 @@ void bus_set_charge_state(uint8_t state)
     }
 }
 
+void bus_set_low_power_shutdown_state(bool active, uint8_t remaining_sec)
+{
+    if (!active)
+    {
+        remaining_sec = 0U;
+    }
+
+    if (g_sensor_data.low_power_shutdown_active != active ||
+        g_sensor_data.low_power_shutdown_remaining_sec != remaining_sec)
+    {
+        g_sensor_data.low_power_shutdown_active = active;
+        g_sensor_data.low_power_shutdown_remaining_sec = remaining_sec;
+        bus_mark_dirty(DIRTY_ALARM);
+    }
+}
+
 void bus_set_ambient_pressure(float pressure_mbar)
 {
     if (fabsf(g_sensor_data.ambient_pressure_mbar - pressure_mbar) > 0.5f)
@@ -1907,9 +1923,10 @@ void bus_set_units_mode(uint8_t units)
     if (g_sys_config.units_mode != value)
     {
         g_sys_config.units_mode = value;
-        bus_mark_dirty(DIRTY_SYSTEM | DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS |
-                       DIRTY_GAS_SUPPLY | DIRTY_PLAN | DIRTY_LOGBOOK);
     }
+    /* 睡眠恢复时单位可能未变化，但重建后的组件仍需要按 m/ft 重新格式化。 */
+    bus_requeue_dirty_immediate(DIRTY_SYSTEM | DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS |
+                                DIRTY_GAS_SUPPLY | DIRTY_PLAN | DIRTY_LOGBOOK);
 }
 
 void bus_set_date_format(uint8_t format)
@@ -2321,6 +2338,16 @@ dive_lifecycle_phase_t bus_get_dive_lifecycle_phase(void)
 float bus_get_battery_pct(void)
 {
     return g_sensor_data.battery_pct;
+}
+
+bool bus_get_low_power_shutdown_active(void)
+{
+    return g_sensor_data.low_power_shutdown_active;
+}
+
+uint8_t bus_get_low_power_shutdown_remaining_sec(void)
+{
+    return g_sensor_data.low_power_shutdown_remaining_sec;
 }
 
 float bus_get_pod1_bar(void)

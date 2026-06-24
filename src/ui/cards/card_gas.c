@@ -25,7 +25,7 @@ static lv_obj_t *s_lbl_name[GAS_COUNT];
 static lv_obj_t *s_lbl_ppo2[GAS_COUNT];
 static lv_obj_t *s_lbl_mod[GAS_COUNT];
 static lv_obj_t *s_hint;
-static ui_vm_gas_t s_gas_vm_cache;
+static ui_vm_gas_t s_gas_vm_cache __attribute__((section(".psram_bss")));
 
 static bool gas_obj_is_valid(lv_obj_t **obj_ref)
 {

@@ -30,7 +30,7 @@ static const char *s_info_titles[SUBMENU_INFO_COUNT] =
 };
 
 /* 这些静态缓存用于承接 VM 动态文本，保证返回给 view 层的是稳定字符串指针。 */
-static char s_info_str[SUBMENU_INFO_COUNT][6][32];
+static char s_info_str[SUBMENU_INFO_COUNT][6][32] __attribute__((section(".psram_bss")));
 static const char *s_info_dyn[SUBMENU_INFO_COUNT][7];
 static const char *s_plan_dyn[16];
 static char s_gas_switch_str[GAS_COUNT][20];

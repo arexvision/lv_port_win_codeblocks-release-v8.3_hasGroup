@@ -47,7 +47,7 @@ static lv_obj_t *s_lbl_gf_setting;
 
 static lv_timer_t *s_tissue_flash_timer;
 static bool        s_tissue_flash_phase;
-static ui_vm_deco_t s_deco_vm_cache;
+static ui_vm_deco_t s_deco_vm_cache __attribute__((section(".psram_bss")));
 static bool        s_surf_gf_alert_cache;
 static bool        s_surf_gf_style_cache_valid;
 

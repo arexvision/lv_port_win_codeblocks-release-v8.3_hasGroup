@@ -452,11 +452,29 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     switch (w_id)
     {
     case COMP_DEPTH_1606:
-    case COMP_DEPTH_1612:
     {
         ui_vm_depth_t depth_vm;
         ui_vm_depth_update(&depth_vm, NULL);
         (void)snprintf(vm->text, sizeof(vm->text), "%s", depth_vm.text);
+        break;
+    }
+    case COMP_DEPTH_1612:
+    {
+        ui_vm_depth_t depth_vm;
+        ui_vm_depth_update(&depth_vm, NULL);
+        if (bus_get_units_mode() == UI_UNITS_IMPERIAL)
+        {
+            const float depth_ft = bus_get_depth_display(bus_get_depth());
+            const int rounded_depth = (depth_ft >= 0.0f)
+                                      ? (int)(depth_ft + 0.5f)
+                                      : (int)(depth_ft - 0.5f);
+            /* 1612 深度卡片的 ft 显示定义为整数，保持 VM fallback 与分体数字渲染一致。 */
+            (void)snprintf(vm->text, sizeof(vm->text), "%d", rounded_depth);
+        }
+        else
+        {
+            (void)snprintf(vm->text, sizeof(vm->text), "%s", depth_vm.text);
+        }
         break;
     }
     case COMP_DIVE_TIME_1606:

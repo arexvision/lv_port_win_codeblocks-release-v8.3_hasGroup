@@ -183,7 +183,7 @@ static bool alarm_gas_switch_accept_active(void)
     return !s_gas_switch_depth_hidden;
 }
 
-static bool alarm_is_active(uint8_t id)
+static bool alarm_is_active(alarm_id_t id)
 {
     return id < ALARM_ID_COUNT && s_alarm_states[id].active;
 }
