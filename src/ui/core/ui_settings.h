@@ -35,7 +35,12 @@ extern "C" {
 
 #define UI_UNITS_METRIC        0U
 #define UI_UNITS_IMPERIAL      1U
+#define UI_DEFAULT_USE_FT      0U
+#if UI_DEFAULT_USE_FT
+#define UI_UNITS_DEFAULT       UI_UNITS_IMPERIAL
+#else
 #define UI_UNITS_DEFAULT       UI_UNITS_METRIC
+#endif
 #define UI_METERS_TO_FEET      3.28084f
 
 #define UI_ASCENT_RATE_DISPLAY_EPSILON_MPM  0.2f

@@ -469,7 +469,7 @@ void ui_on_reset_defaults(void)
     s_oc_tech_he_pct[4] = 0U;
     for (uint8_t i = 0U; i < 5U; i++) s_oc_tech_ppo2[i] = 1.4f;
     for (uint8_t i = 0U; i < 5U; i++) s_oc_tech_active[i] = 1U;
-    s_units_mode = 0U;
+    s_units_mode = UI_UNITS_DEFAULT;
     s_temperature_unit = UI_TEMP_UNIT_DEFAULT;
     s_bluetooth_enabled = 0U;
     s_datetime_year = 2026U;

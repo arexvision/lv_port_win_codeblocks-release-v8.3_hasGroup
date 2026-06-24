@@ -121,7 +121,7 @@ static uint8_t s_gtr_enabled = 1;        /* 0=OFF, 1=ON */
 static uint16_t s_depth_alarm_m = 40;
 static uint16_t s_time_alarm_min = 60;
 static uint8_t s_ndl_alarm_min = 5;
-static uint8_t s_units_mode = 0;         /* 0=METRIC, 1=IMPERIAL */
+static uint8_t s_units_mode = UI_UNITS_DEFAULT;         /* 0=METRIC, 1=IMPERIAL */
 static uint8_t s_temperature_unit = UI_TEMP_UNIT_DEFAULT;
 static uint8_t s_log_rate_s = UI_LOG_RATE_DEFAULT_S;
 static uint8_t s_bluetooth_enabled = 0;  /* 0=OFF, 1=ON */
