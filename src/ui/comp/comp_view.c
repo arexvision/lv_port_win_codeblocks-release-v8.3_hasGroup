@@ -511,6 +511,7 @@ static void comp_value_handle_register_part(comp_id_t id,
     h->label = label;
     h->custom_card_idx = 0xFFU;
     h->next = s_value_handle_heads[(uint8_t)id];
+    (void)snprintf(h->last_text, sizeof(h->last_text), "%s", lv_label_get_text(label));
 
     if (g_left_anchor_obj != NULL && lv_obj_is_valid(g_left_anchor_obj))
     {
