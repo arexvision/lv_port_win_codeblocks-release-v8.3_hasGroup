@@ -611,7 +611,7 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         case COMP_ASCENT_0812:
         case COMP_DEPTH_MAX_0806:
         case COMP_DEPTH_AVG_0806:
-            mask |= DIRTY_DIVE_PROFILE;
+            mask |= DIRTY_DIVE_PROFILE | DIRTY_SYSTEM;
             break;
         case COMP_TTS_0806:
         case COMP_STOP_DEPTH_0806:

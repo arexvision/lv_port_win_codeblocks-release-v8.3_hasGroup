@@ -49,6 +49,7 @@ static uint16_t s_logbook_sample_counts[MAX_LOGBOOK_ENTRIES];
 static uint16_t s_logbook_count;
 #endif
 static logbook_entry_t s_last_dive_snapshot;
+static uint16_t s_last_dive_snapshot_source_count;
 
 #ifndef PC_SIMULATOR
 L2_RET_BSS_SECT_BEGIN(logbook_backend_heap)
@@ -3154,6 +3155,54 @@ void dive_log_reset(void)
     s_deco_stop_count = 0U;
 }
 
+static bool last_dive_snapshot_load_latest(logbook_entry_t *out_entry)
+{
+    uint16_t count;
+    logbook_entry_t latest;
+
+    if (out_entry == NULL)
+    {
+        return false;
+    }
+
+    count = logbook_backend_count();
+    if (count == 0U)
+    {
+        if (s_last_dive_snapshot.valid && s_last_dive_snapshot_source_count == 0U)
+        {
+            *out_entry = s_last_dive_snapshot;
+            return true;
+        }
+
+        (void)memset(&s_last_dive_snapshot, 0, sizeof(s_last_dive_snapshot));
+        s_last_dive_snapshot_source_count = 0U;
+        return false;
+    }
+
+    if (s_last_dive_snapshot.valid && s_last_dive_snapshot_source_count == count)
+    {
+        *out_entry = s_last_dive_snapshot;
+        return true;
+    }
+
+    (void)memset(&latest, 0, sizeof(latest));
+    if (!logbook_backend_get_summary((uint16_t)(count - 1U), &latest) || !latest.valid)
+    {
+        if (s_last_dive_snapshot.valid)
+        {
+            *out_entry = s_last_dive_snapshot;
+            return true;
+        }
+        return false;
+    }
+
+    s_last_dive_snapshot = latest;
+    s_last_dive_snapshot.valid = true;
+    s_last_dive_snapshot_source_count = count;
+    *out_entry = s_last_dive_snapshot;
+    return true;
+}
+
 #ifdef PC_SIMULATOR
 uint16_t logbook_backend_count(void)
 {
@@ -3248,6 +3297,7 @@ bool logbook_backend_update_meta(uint16_t index, const logbook_meta_t *meta)
     if (s_last_dive_snapshot.valid && (index + 1U == s_logbook_count))
     {
         s_last_dive_snapshot.meta = *meta;
+        s_last_dive_snapshot_source_count = s_logbook_count;
     }
     bus_mark_dirty(DIRTY_LOGBOOK);
     return true;
@@ -3272,10 +3322,12 @@ bool logbook_backend_delete(uint16_t index)
     if (s_logbook_count > 0U)
     {
         s_last_dive_snapshot = s_logbook_entries[s_logbook_count - 1U];
+        s_last_dive_snapshot_source_count = s_logbook_count;
     }
     else
     {
         (void)memset(&s_last_dive_snapshot, 0, sizeof(s_last_dive_snapshot));
+        s_last_dive_snapshot_source_count = 0U;
     }
     bus_mark_dirty(DIRTY_LOGBOOK);
     return true;
@@ -3315,19 +3367,14 @@ bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const d
     }
 
     s_last_dive_snapshot = s_logbook_entries[index];
+    s_last_dive_snapshot_source_count = s_logbook_count;
     bus_mark_dirty(DIRTY_LOGBOOK);
     return true;
 }
 
 bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry)
 {
-    if ((out_entry == NULL) || !s_last_dive_snapshot.valid)
-    {
-        return false;
-    }
-
-    *out_entry = s_last_dive_snapshot;
-    return true;
+    return last_dive_snapshot_load_latest(out_entry);
 }
 #else
 __attribute__((weak))
@@ -3453,6 +3500,7 @@ bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const d
 
     s_last_dive_snapshot = *entry;
     s_last_dive_snapshot.valid = true;
+    s_last_dive_snapshot_source_count = 0U;
     bus_mark_dirty(DIRTY_LOGBOOK);
     return false;
 }
@@ -3460,13 +3508,7 @@ bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const d
 __attribute__((weak))
 bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry)
 {
-    if ((out_entry == NULL) || !s_last_dive_snapshot.valid)
-    {
-        return false;
-    }
-
-    *out_entry = s_last_dive_snapshot;
-    return true;
+    return last_dive_snapshot_load_latest(out_entry);
 }
 #endif
 
