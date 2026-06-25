@@ -40,6 +40,11 @@ static void vm_format_depth_compact(char *buf, size_t buf_size, float depth_m)
     (void)snprintf(buf, buf_size, "%.0f%s", (double)bus_get_depth_display(depth_m), bus_get_depth_unit_label());
 }
 
+static void vm_format_depth_1(char *buf, size_t buf_size, float depth_m)
+{
+    (void)snprintf(buf, buf_size, "%.1f%s", (double)bus_get_depth_display(depth_m), bus_get_depth_unit_label());
+}
+
 static const char *vm_altitude_label(uint8_t value)
 {
     switch (value)
@@ -262,7 +267,7 @@ void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
 
     (void)memset(vm, 0, sizeof(*vm));
     vm_format_depth_compact(last_deco_depth, sizeof(last_deco_depth), (bus_get_last_deco_stop() == 6U) ? 6.0f : 3.0f);
-    vm_format_depth_compact(start_depth, sizeof(start_depth), dive_start_depth_m);
+    vm_format_depth_1(start_depth, sizeof(start_depth), dive_start_depth_m);
 
     (void)snprintf(vm->items[0], sizeof(vm->items[0]), "SALINITY: %s", vm_salinity_label(salinity_mode));
     (void)snprintf(vm->items[1], sizeof(vm->items[1]), "MOD PO2: %.1f", (double)bus_get_mod_ppo2());
