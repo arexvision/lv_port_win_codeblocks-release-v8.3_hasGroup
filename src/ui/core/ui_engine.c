@@ -332,6 +332,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->depth_alarm_m = 40;
     cfg->time_alarm_min = 60;
     cfg->ndl_alarm_min = 5;
+    cfg->dive_start_depth_m = UI_DIVE_START_DEPTH_DEFAULT_M;
 }
 
 /* =========================================================

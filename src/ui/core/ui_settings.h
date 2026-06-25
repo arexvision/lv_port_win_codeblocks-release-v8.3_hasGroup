@@ -29,9 +29,13 @@ extern "C" {
 #define UI_SAFETY_STOP_COUNT   6U
 #define UI_SAFETY_STOP_DEFAULT UI_SAFETY_STOP_3MIN
 
-#define UI_SURFACE_CONFIRM_MIN_MIN      1U   /* 出水判定最短分钟数 */
-#define UI_SURFACE_CONFIRM_MAX_MIN      10U  /* 出水判定最长分钟数 */
-#define UI_SURFACE_CONFIRM_DEFAULT_MIN  1U   /* 出水判定默认分钟数 */
+#define UI_SURFACE_CONFIRM_MIN_MIN      1U   /* 潜水结束判定最短分钟数 */
+#define UI_SURFACE_CONFIRM_MAX_MIN      10U  /* 潜水结束判定最长分钟数 */
+#define UI_SURFACE_CONFIRM_DEFAULT_MIN  5U   /* 潜水结束判定默认分钟数 */
+#define UI_DIVE_START_DEPTH_MIN_M       0.3f /* 入水判定最浅深度 */
+#define UI_DIVE_START_DEPTH_MAX_M       2.0f /* 入水判定最深深度 */
+#define UI_DIVE_START_DEPTH_STEP_M      0.1f /* 入水判定步进深度 */
+#define UI_DIVE_START_DEPTH_DEFAULT_M   1.0f /* 入水判定默认深度 */
 
 #define UI_TEMP_UNIT_C         0U
 #define UI_TEMP_UNIT_F         1U

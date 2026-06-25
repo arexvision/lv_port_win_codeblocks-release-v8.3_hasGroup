@@ -52,6 +52,7 @@ typedef enum
     SUBMENU_SETTING_PLAN_TIME,
     SUBMENU_SETTING_PLAN_RMV,
     SUBMENU_SETTING_SURFACE_CONFIRM,
+    SUBMENU_SETTING_DIVE_START_DEPTH,
 } submenu_setting_kind_t;
 
 typedef struct

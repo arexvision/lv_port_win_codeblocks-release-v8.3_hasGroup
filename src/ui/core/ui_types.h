@@ -87,6 +87,7 @@ typedef struct
     uint16_t time_alarm_min;
     uint16_t ndl_alarm_min;
     uint8_t surface_confirm_min;
+    float dive_start_depth_m;
 } sys_config_t;
 #pragma pack(pop)
 

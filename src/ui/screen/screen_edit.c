@@ -23,7 +23,7 @@ bool        s_edit_flash_on = false;
 
 static bool edit_kind_is_depth(submenu_setting_kind_t kind)
 {
-    return kind == SUBMENU_SETTING_PLAN_DEPTH || kind == SUBMENU_SETTING_DEPTH_ALARM;
+    return kind == SUBMENU_SETTING_PLAN_DEPTH || kind == SUBMENU_SETTING_DEPTH_ALARM || kind == SUBMENU_SETTING_DIVE_START_DEPTH;
 }
 
 static bool edit_kind_refreshes_submenu(submenu_setting_kind_t kind)
@@ -77,6 +77,10 @@ static void format_edit_value_text(char *buf, size_t buf_size, submenu_setting_k
         unsigned int v = (unsigned int)(value + 0.5f);
         snprintf(buf, buf_size, (arg == 0) ? "%04u" : "%02u", v);
     }
+    else if (kind == SUBMENU_SETTING_DIVE_START_DEPTH)
+    {
+        snprintf(buf, buf_size, "%.1f%s", (double)bus_get_depth_display(value), bus_get_depth_unit_label());
+    }
     else if (edit_kind_is_depth(kind))
     {
         snprintf(buf, buf_size, "%.0f%s", (double)bus_get_depth_display(value), bus_get_depth_unit_label());
@@ -99,7 +103,8 @@ static void format_edit_committed_text(char *buf, size_t buf_size, submenu_setti
     case SUBMENU_SETTING_PLAN_TIME: snprintf(buf, buf_size, "TIME: %.0fmin", (double)value); break;
     case SUBMENU_SETTING_PLAN_RMV: snprintf(buf, buf_size, "RMV: %.0fL/min", (double)value); break;
     case SUBMENU_SETTING_MOD_PPO2: snprintf(buf, buf_size, "MOD PO2: %.1f", (double)value); break;
-    case SUBMENU_SETTING_SURFACE_CONFIRM: snprintf(buf, buf_size, "SURFACE CONFIRM: %.0fmin", (double)value); break;
+    case SUBMENU_SETTING_SURFACE_CONFIRM: snprintf(buf, buf_size, "DIVE END TIME: %.0fmin", (double)value); break;
+    case SUBMENU_SETTING_DIVE_START_DEPTH: snprintf(buf, buf_size, "DIVE START DEPTH: %.1f%s", (double)bus_get_depth_display(value), bus_get_depth_unit_label()); break;
     case SUBMENU_SETTING_GAS_EDIT_PPO2: snprintf(buf, buf_size, "PO2: %.1f", (double)value); break;
     case SUBMENU_SETTING_NITROX_O2: snprintf(buf, buf_size, "O2: %.0f%%", (double)value); break;
     case SUBMENU_SETTING_3GAS_O2: snprintf(buf, buf_size, "GAS %u: %.0f%%", (unsigned)(arg + 1U), (double)value); break;
@@ -130,6 +135,7 @@ static void dispatch_edit_setting_callback(submenu_setting_kind_t kind, uint8_t 
     {
     case SUBMENU_SETTING_MOD_PPO2: ui_on_mod_ppo2_set(value); break;
     case SUBMENU_SETTING_SURFACE_CONFIRM: ui_on_surface_confirm_min_set((uint8_t)(value + 0.5f)); break;
+    case SUBMENU_SETTING_DIVE_START_DEPTH: ui_on_dive_start_depth_set(value); break;
     case SUBMENU_SETTING_DEPTH_ALARM: ui_on_depth_alarm_set((uint16_t)(value + 0.5f)); break;
     case SUBMENU_SETTING_TIME_ALARM: ui_on_time_alarm_set((uint16_t)(value + 0.5f)); break;
     case SUBMENU_SETTING_NDL_ALARM: ui_on_ndl_alarm_set((uint16_t)(value + 0.5f)); break;

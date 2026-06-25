@@ -208,6 +208,7 @@ typedef enum
     MENU_ITEM_DIVE_PLAN_PLAN,
     MENU_ITEM_DIVE_PLAN_PRIMARY,
     MENU_ITEM_DIVE_SURFACE_CONFIRM,
+    MENU_ITEM_DIVE_START_DEPTH,
 } menu_item_id_t;
 
 /* menu_actions_handle_select() 不直接操作 view，

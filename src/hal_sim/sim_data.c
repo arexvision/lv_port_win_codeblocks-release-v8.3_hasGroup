@@ -31,6 +31,11 @@ static uint32_t sim_surface_confirm_s(void)
     return (uint32_t)bus_get_surface_confirm_min() * 60U;
 }
 
+static float sim_dive_entry_depth_m(void)
+{
+    return bus_get_dive_start_depth_m();
+}
+
 static float sim_default_air_mod_m(void)
 {
     float mod_m = bus_calculate_gas_mod(21U, 0U, 1.4f);
@@ -39,7 +44,6 @@ static float sim_default_air_mod_m(void)
 
 #define SIM_LAYOUT_PHASE_COUNT 4U
 #define SIM_LAYOUT_SWITCH_TICKS 5U
-#define SIM_DIVE_ENTRY_DEPTH_M 0.5f       /* 入水确认深度 */
 #define SIM_DIVE_ENTRY_CONFIRM_S 3U       /* 入水确认秒数 */
 #define SIM_SURFACE_DEPTH_M 0.2f          /* 出水确认深度 */
 #define SIM_TEMP_C 99.9f
@@ -753,7 +757,7 @@ static void sim_lifecycle_tick(float depth_m)
 
     if (s_sim.lifecycle_state == SIM_LIFE_SURFACE_CONFIRMED)
     {
-        if (depth_m >= SIM_DIVE_ENTRY_DEPTH_M)
+        if (depth_m >= sim_dive_entry_depth_m())
         {
             s_sim.entry_pending_s = 0U;
             sim_lifecycle_set_state(SIM_LIFE_ENTRY_PENDING);
@@ -769,7 +773,7 @@ static void sim_lifecycle_tick(float depth_m)
 
     if (s_sim.lifecycle_state == SIM_LIFE_ENTRY_PENDING)
     {
-        if (depth_m >= SIM_DIVE_ENTRY_DEPTH_M)
+        if (depth_m >= sim_dive_entry_depth_m())
         {
             if (s_sim.entry_pending_s < SIM_DIVE_ENTRY_CONFIRM_S) s_sim.entry_pending_s++;
             if (s_sim.entry_pending_s >= SIM_DIVE_ENTRY_CONFIRM_S)

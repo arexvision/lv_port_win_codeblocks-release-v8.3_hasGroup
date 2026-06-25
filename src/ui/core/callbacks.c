@@ -123,7 +123,14 @@ WEAK_CALLBACK
 void ui_on_surface_confirm_min_set(uint8_t minutes)
 {
     bus_set_surface_confirm_min(minutes);
-    UI_CALLBACK_TRACE("[DIVE_SETUP] Surface confirm: %umin\n", (unsigned)minutes);
+    UI_CALLBACK_TRACE("[DIVE_SETUP] Dive end time: %umin\n", (unsigned)minutes);
+}
+
+WEAK_CALLBACK
+void ui_on_dive_start_depth_set(float depth_m)
+{
+    bus_set_dive_start_depth_m(depth_m);
+    UI_CALLBACK_TRACE("[DIVE_SETUP] Dive start depth: %.1fm\n", (double)depth_m);
 }
 
 WEAK_CALLBACK
@@ -487,6 +494,7 @@ void ui_on_reset_defaults(void)
 #endif
     bus_set_safety_stop_mode(UI_SAFETY_STOP_DEFAULT);
     bus_set_surface_confirm_min(UI_SURFACE_CONFIRM_DEFAULT_MIN);
+    bus_set_dive_start_depth_m(UI_DIVE_START_DEPTH_DEFAULT_M);
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     bus_set_time_24h_enabled(true);
@@ -591,6 +599,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->datetime_hour = (uint8_t)bus_get_sys_time_h();
     out_snapshot->datetime_minute = (uint8_t)bus_get_sys_time_m();
 #endif
+    out_snapshot->dive_start_depth_m = bus_get_dive_start_depth_m();
     return true;
 }
 

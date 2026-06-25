@@ -1969,6 +1969,15 @@ void bus_set_surface_confirm_min(uint8_t minutes)
     }
 }
 
+void bus_set_dive_start_depth_m(float depth_m)
+{
+    if (fabsf(g_sys_config.dive_start_depth_m - depth_m) > 0.01f)
+    {
+        g_sys_config.dive_start_depth_m = depth_m;
+        bus_mark_dirty(DIRTY_DIVE_CONFIG);
+    }
+}
+
 void bus_set_altitude_level(uint8_t level)
 {
     if (g_sys_config.altitude_level != level)
@@ -2984,6 +2993,13 @@ uint8_t bus_get_surface_confirm_min(void)
     uint8_t minutes = g_sys_config.surface_confirm_min;
     if (minutes < UI_SURFACE_CONFIRM_MIN_MIN || minutes > UI_SURFACE_CONFIRM_MAX_MIN) return UI_SURFACE_CONFIRM_DEFAULT_MIN;
     return minutes;
+}
+
+float bus_get_dive_start_depth_m(void)
+{
+    float depth_m = g_sys_config.dive_start_depth_m;
+    if (!isfinite(depth_m) || depth_m < UI_DIVE_START_DEPTH_MIN_M || depth_m > UI_DIVE_START_DEPTH_MAX_M) return UI_DIVE_START_DEPTH_DEFAULT_M;
+    return depth_m;
 }
 
 uint8_t bus_get_altitude_level(void)
