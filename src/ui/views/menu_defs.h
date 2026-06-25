@@ -207,6 +207,7 @@ typedef enum
     MENU_ITEM_LOGBOOK_DELETE,
     MENU_ITEM_DIVE_PLAN_PLAN,
     MENU_ITEM_DIVE_PLAN_PRIMARY,
+    MENU_ITEM_DIVE_SURFACE_CONFIRM,
 } menu_item_id_t;
 
 /* menu_actions_handle_select() 不直接操作 view，

@@ -26,6 +26,11 @@ static uint32_t s_heading_accum_mdeg;
 static void sim_fill_logbook_tanks(logbook_entry_t *entry);
 static void sim_raise_next_log_no_from_logbook(void);
 
+static uint32_t sim_surface_confirm_s(void)
+{
+    return (uint32_t)bus_get_surface_confirm_min() * 60U;
+}
+
 static float sim_default_air_mod_m(void)
 {
     float mod_m = bus_calculate_gas_mod(21U, 0U, 1.4f);
@@ -40,9 +45,6 @@ static float sim_default_air_mod_m(void)
 #define SIM_TEMP_C 99.9f
 #define SIM_SURFACE_PRESSURE_MBAR 1013.25f
 #define SIM_WATER_METERS_PER_BAR 10.0f
-#ifndef SIM_SURFACE_CONFIRM_S
-#define SIM_SURFACE_CONFIRM_S 30U         /* 出水确认秒数 */
-#endif
 #define SIM_HEADING_TIMER_MS 10U /* 指南针模拟刷新周期 */
 
 typedef enum
@@ -816,7 +818,7 @@ static void sim_lifecycle_tick(float depth_m)
             sim_lifecycle_set_state(SIM_LIFE_SURFACING_PENDING);
         }
         s_sim.surface_pending_s++;
-        if (s_sim.surface_pending_s >= SIM_SURFACE_CONFIRM_S)
+        if (s_sim.surface_pending_s >= sim_surface_confirm_s())
         {
             sim_finalize_dive();
         }

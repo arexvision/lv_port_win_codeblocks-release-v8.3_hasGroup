@@ -1960,6 +1960,15 @@ void bus_set_safety_stop_mode(uint8_t mode)
     bus_apply_algo_safety_stop(mode);
 }
 
+void bus_set_surface_confirm_min(uint8_t minutes)
+{
+    if (g_sys_config.surface_confirm_min != minutes)
+    {
+        g_sys_config.surface_confirm_min = minutes;
+        bus_mark_dirty(DIRTY_DIVE_CONFIG);
+    }
+}
+
 void bus_set_altitude_level(uint8_t level)
 {
     if (g_sys_config.altitude_level != level)
@@ -2968,6 +2977,13 @@ float bus_get_temperature_display(float temp_c)
 uint8_t bus_get_safety_stop_mode(void)
 {
     return g_sys_config.safety_stop_mode;
+}
+
+uint8_t bus_get_surface_confirm_min(void)
+{
+    uint8_t minutes = g_sys_config.surface_confirm_min;
+    if (minutes < UI_SURFACE_CONFIRM_MIN_MIN || minutes > UI_SURFACE_CONFIRM_MAX_MIN) return UI_SURFACE_CONFIRM_DEFAULT_MIN;
+    return minutes;
 }
 
 uint8_t bus_get_altitude_level(void)

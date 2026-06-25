@@ -29,6 +29,10 @@ extern "C" {
 #define UI_SAFETY_STOP_COUNT   6U
 #define UI_SAFETY_STOP_DEFAULT UI_SAFETY_STOP_3MIN
 
+#define UI_SURFACE_CONFIRM_MIN_MIN      1U   /* 出水判定最短分钟数 */
+#define UI_SURFACE_CONFIRM_MAX_MIN      10U  /* 出水判定最长分钟数 */
+#define UI_SURFACE_CONFIRM_DEFAULT_MIN  1U   /* 出水判定默认分钟数 */
+
 #define UI_TEMP_UNIT_C         0U
 #define UI_TEMP_UNIT_F         1U
 #define UI_TEMP_UNIT_DEFAULT   UI_TEMP_UNIT_C

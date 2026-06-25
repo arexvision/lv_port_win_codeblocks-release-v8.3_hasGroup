@@ -327,6 +327,7 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->date_format = 1U;
     cfg->temperature_unit = UI_TEMP_UNIT_DEFAULT;
     cfg->safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
+    cfg->surface_confirm_min = UI_SURFACE_CONFIRM_DEFAULT_MIN;
     cfg->altitude_level = 0;
     cfg->depth_alarm_m = 40;
     cfg->time_alarm_min = 60;

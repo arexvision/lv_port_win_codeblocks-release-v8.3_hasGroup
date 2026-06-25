@@ -120,6 +120,13 @@ void ui_on_safety_stop_mode_set(uint8_t mode)
 }
 
 WEAK_CALLBACK
+void ui_on_surface_confirm_min_set(uint8_t minutes)
+{
+    bus_set_surface_confirm_min(minutes);
+    UI_CALLBACK_TRACE("[DIVE_SETUP] Surface confirm: %umin\n", (unsigned)minutes);
+}
+
+WEAK_CALLBACK
 void ui_on_last_deco_stop_set(uint8_t depth_m)
 {
     /* 最后减压停留深度由 data 层统一持有。 */
@@ -479,6 +486,7 @@ void ui_on_reset_defaults(void)
     s_datetime_minute = 0U;
 #endif
     bus_set_safety_stop_mode(UI_SAFETY_STOP_DEFAULT);
+    bus_set_surface_confirm_min(UI_SURFACE_CONFIRM_DEFAULT_MIN);
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     bus_set_time_24h_enabled(true);
@@ -502,6 +510,7 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
 
     out_snapshot->salinity_mode = bus_get_salinity_mode();
     out_snapshot->safety_stop_mode = bus_get_safety_stop_mode();
+    out_snapshot->surface_confirm_min = bus_get_surface_confirm_min();
     out_snapshot->last_deco_stop_m = bus_get_last_deco_stop();
     out_snapshot->altitude_level = bus_get_altitude_level();
     out_snapshot->depth_alarm_m = bus_get_depth_alarm_m();

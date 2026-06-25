@@ -248,6 +248,7 @@ void ui_vm_gas_switch_menu_update(ui_vm_gas_switch_menu_t *vm)
 void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
                                   uint8_t salinity_mode,
                                   uint8_t safety_stop_mode,
+                                  uint8_t surface_confirm_min,
                                   uint8_t altitude_level)
 {
     char safety_depth[12];
@@ -267,8 +268,9 @@ void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
     if (safety_stop_mode == UI_SAFETY_STOP_OFF) (void)snprintf(vm->items[2], sizeof(vm->items[2]), "SAFETY STOP: %s", vm_safety_stop_label(safety_stop_mode));
     else (void)snprintf(vm->items[2], sizeof(vm->items[2]), "SAFETY STOP: %s @ %s", vm_safety_stop_label(safety_stop_mode), safety_depth);
     (void)snprintf(vm->items[3], sizeof(vm->items[3]), "LAST DECO: %s", last_deco_depth);
-    (void)snprintf(vm->items[4], sizeof(vm->items[4]), "ALTITUDE: %s", vm_altitude_label(altitude_level));
-    vm->count = 5U;
+    (void)snprintf(vm->items[4], sizeof(vm->items[4]), "SURFACE CONFIRM: %umin", (unsigned)surface_confirm_min);
+    (void)snprintf(vm->items[5], sizeof(vm->items[5]), "ALTITUDE: %s", vm_altitude_label(altitude_level));
+    vm->count = 6U;
 }
 
 void ui_vm_dive_context_update(ui_vm_dive_context_t *vm)
@@ -516,6 +518,22 @@ void ui_vm_edit_mod_ppo2_update(ui_vm_edit_spec_t *vm)
     vm->step = 0.1f;
     vm->decimals = 1U;
     (void)snprintf(vm->label, sizeof(vm->label), "%s", "MOD PO2:");
+}
+
+void ui_vm_edit_surface_confirm_update(ui_vm_edit_spec_t *vm, uint8_t value)
+{
+    if (vm == NULL)
+    {
+        return;
+    }
+
+    (void)memset(vm, 0, sizeof(*vm));
+    vm->value = (float)value;
+    vm->min = (float)UI_SURFACE_CONFIRM_MIN_MIN;
+    vm->max = (float)UI_SURFACE_CONFIRM_MAX_MIN;
+    vm->step = 1.0f;
+    vm->decimals = 0U;
+    (void)snprintf(vm->label, sizeof(vm->label), "%s", "SURFACE:");
 }
 
 void ui_vm_edit_nitrox_o2_update(ui_vm_edit_spec_t *vm, uint8_t value)

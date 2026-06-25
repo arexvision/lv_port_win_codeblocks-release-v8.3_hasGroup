@@ -370,6 +370,7 @@ static void build_rows(void)
             MENU_ITEM_DIVE_MOD_PPO2,
             MENU_ITEM_DIVE_SAFETY_STOP,
             MENU_ITEM_DIVE_LAST_DECO,
+            MENU_ITEM_DIVE_SURFACE_CONFIRM,
             MENU_ITEM_DIVE_ALTITUDE,
         };
         build_nested_by_title("DIVE SETUP", ids, NULL);
