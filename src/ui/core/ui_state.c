@@ -147,6 +147,7 @@ void ui_state_init(void)
     s_ui.dash_page     = PAGE_POS_DYNAMIC_FIRST;
     /* 菜单索引从 0 开始，便于后续统一做边界修正。 */
     s_ui.menu_info_idx = 0;
+    s_ui.menu_entry_idx = 0;
     /* 边界充能计数归零，避免上一次进入菜单的“蓄力”残留。 */
     s_ui.wall_charge   = 0;
     s_pending_dash_page = 0xFFU;
@@ -250,9 +251,32 @@ static void ui_return_to_card_home(void)
 {
     s_ui.wall_charge = 0;
     screen_hide_walls_snap();
+    menu_entry_clear_selection();
     s_ui.state = UI_DASH;
     s_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
     ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
+}
+
+static void ui_enter_info_menu_page(void)
+{
+#if ENABLE_INFO_MENU
+    s_ui.wall_charge = 0;
+    s_ui.state = UI_INFO;
+    s_ui.menu_info_idx = 0;
+    menu_entry_clear_selection();
+    ui_go_to_page(PAGE_POS_INFO);
+    screen_set_info_selection(0);
+#endif
+}
+
+static void ui_enter_setup_menu_page(void)
+{
+    s_ui.wall_charge = 0;
+    s_ui.state = UI_SETUP;
+    s_ui.menu_setup_idx = 0;
+    menu_entry_clear_selection();
+    ui_go_to_page(page_setup_display_pos());
+    screen_set_setup_selection(0);
 }
 
 /* =========================================
@@ -278,68 +302,27 @@ void ui_handle_rotate(int8_t dir)
     /* --- DASH: scroll between pages with wall-charge at edges --- */
     case UI_DASH:
     {
-        /* 仪表盘只允许在动态页范围内滑动；最后一页外侧保留为菜单入口。 */
+        /* 仪表盘楼层循环：动态卡片 + MENU 入口页。 */
         uint8_t dash_min = PAGE_POS_DYNAMIC_FIRST;
-        uint8_t dash_max = page_setup_display_pos() - 1;
+        uint8_t dash_max = page_menu_display_pos();
+        int8_t next = (int8_t)s_ui.dash_page + dir;
+        s_ui.wall_charge = 0;
+        screen_hide_walls();
+        menu_entry_clear_selection();
+        if (next < (int8_t)dash_min) next = (int8_t)dash_max;
+        if (next > (int8_t)dash_max) next = (int8_t)dash_min;
+        ui_schedule_dash_page((uint8_t)next);
+        break;
+    }
 
-        if (s_pending_dash_page != 0xFFU &&
-            ((s_ui.dash_page == dash_min && dir == -1) ||
-             (s_ui.dash_page == dash_max && dir == 1)))
-        {
-            /* 已经合并到边界页但屏幕尚未实际滚动时，先落地边界页。
-             * 边界蓄力必须以用户已经看到边界页为前提，否则会出现视觉还在中间页、
-             * 状态机却开始进入 INFO/SETUP 的错位。 */
-            ui_flush_pending_dash_page();
-            break;
-        }
-
-#if ENABLE_INFO_MENU
-        if (s_ui.dash_page == dash_min && dir == -1)
-        {
-            /* 到达最左侧后继续向上旋转，进入信息菜单前需要“蓄力确认”。 */
-            s_ui.wall_charge++;
-            screen_show_wall(WALL_TOP, s_ui.wall_charge,
-                                  ">>> ENTER INFO MENU >>>");
-            if (s_ui.wall_charge >= 3)
-            {
-                /* 三次确认后才真正切换到菜单态，降低误触概率。 */
-                s_ui.wall_charge = 0;
-                screen_hide_walls_snap();
-                s_ui.state = UI_INFO;
-                s_ui.menu_info_idx = 0;
-                screen_set_info_selection(0);
-                ui_go_to_page(0);
-            }
-        }
-        else
-#endif
-            if (s_ui.dash_page == dash_max && dir == 1)
-            {
-                s_ui.wall_charge++;
-                screen_show_wall(WALL_BOTTOM, s_ui.wall_charge,
-                                      "<<< ENTER DIVE MENU <<<");
-            if (s_ui.wall_charge >= 3)
-            {
-                /* 底部同样采用蓄力确认，避免误进设置菜单。 */
-                s_ui.wall_charge = 0;
-                screen_hide_walls_snap();
-                s_ui.state = UI_SETUP;
-                    s_ui.menu_setup_idx = 0;
-                    screen_set_setup_selection(0);
-                    ui_go_to_page(page_setup_display_pos());
-                }
-            }
-            else
-            {
-                /* 边界外的反向旋转必须先清掉充能，否则最后一页附近轻微回拨会让用户感知成“方向反了”。 */
-                s_ui.wall_charge = 0;
-                /* 退出边界提示，恢复正常翻页。 */
-                screen_hide_walls();
-                int8_t next = (int8_t)s_ui.dash_page + dir;
-                if (next < (int8_t)dash_min) next = (int8_t)dash_min;
-                if (next > (int8_t)dash_max) next = (int8_t)dash_max;
-                ui_schedule_dash_page((uint8_t)next);
-            }
+    case UI_MENU_ENTRY:
+    {
+        uint8_t count = menu_entry_item_count();
+        if (count == 0U) break;
+        s_ui.wall_charge = 0;
+        screen_hide_walls();
+        s_ui.menu_entry_idx = (uint8_t)(((int8_t)s_ui.menu_entry_idx + dir + (int8_t)count) % (int8_t)count);
+        menu_entry_set_selection(s_ui.menu_entry_idx);
         break;
     }
 
@@ -562,8 +545,27 @@ void ui_handle_click(void)
             s_ui.gas_cursor = bus_get_gas_active_idx();
             screen_refresh_gas_menu();
         }
+        else if (page_id == PAGE_ID_MENU)
+        {
+            s_ui.state = UI_MENU_ENTRY;
+            s_ui.menu_entry_idx = 0;
+            menu_entry_set_selection(0);
+        }
         break;
     }
+
+    case UI_MENU_ENTRY:
+        if (s_ui.menu_entry_idx == 0U)
+        {
+            ui_enter_setup_menu_page();
+        }
+#if ENABLE_INFO_MENU
+        else
+        {
+            ui_enter_info_menu_page();
+        }
+#endif
+        break;
 
     case UI_EDIT_GAS:
         s_ui.state = UI_MODAL_GAS;
@@ -685,6 +687,12 @@ void ui_handle_back(void)
     {
     case UI_DASH:
         ui_return_to_card_home();
+        break;
+
+    case UI_MENU_ENTRY:
+        s_ui.state = UI_DASH;
+        s_ui.menu_entry_idx = 0U;
+        menu_entry_clear_selection();
         break;
 
     case UI_EDIT_GAS:

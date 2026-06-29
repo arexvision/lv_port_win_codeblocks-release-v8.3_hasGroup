@@ -507,7 +507,7 @@ void safe_zone_reposition(void)
                 }
             }
         }
-        screen_update_scroll_dots(active_idx, ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_EDIT_GAS);
+        screen_update_scroll_dots(active_idx, ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_MENU_ENTRY || ui_state_get_state() == UI_EDIT_GAS);
     }
 }
 
@@ -655,7 +655,7 @@ void right_panel_create(void)
             lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
     }
 
-    screen_update_scroll_dots(0, ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_EDIT_GAS);
+    screen_update_scroll_dots(0, ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_MENU_ENTRY || ui_state_get_state() == UI_EDIT_GAS);
 }
 
 lv_obj_t *make_wall(lv_obj_t *parent, lv_coord_t y)
@@ -965,7 +965,7 @@ void screen_rebuild_tileview(void)
             }
         }
     }
-    screen_update_scroll_dots(active_idx, ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_EDIT_GAS);
+    screen_update_scroll_dots(active_idx, ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_MENU_ENTRY || ui_state_get_state() == UI_EDIT_GAS);
 }
 
 void screen_rebuild_full(void)

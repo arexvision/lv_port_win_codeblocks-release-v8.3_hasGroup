@@ -483,6 +483,10 @@ void ui_update_router_dispatch(dirty_mask_t mask)
     if (mask & DIRTY_INFO_REFRESH_MASK)
     {
         uint32_t start_ms = lv_tick_get();
+        if (screen_page_id_refresh_visible(PAGE_ID_MENU))
+        {
+            menu_entry_update();
+        }
         screen_refresh_info_submenu_if_open();
         if (mask & DIRTY_SYSTEM)
         {

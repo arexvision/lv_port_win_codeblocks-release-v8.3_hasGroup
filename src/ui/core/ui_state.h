@@ -36,6 +36,7 @@ typedef enum
     UI_MODAL_ACT    = 7,  /* generic action modal */
     UI_EDIT_VALUE   = 8,  /* inline value editor (e.g. MOD PO2) */
     UI_MODAL_SETUP_CONFIRM = 9,  /* confirm setup item from sub-menu */
+    UI_MENU_ENTRY   = 10, /* MENU floor internal option focus */
 } ui_state_t;
 
 /* Sub-menu history entry */
@@ -97,6 +98,7 @@ typedef struct
     /* Menu cursors */
     uint8_t  menu_info_idx;
     uint8_t  menu_setup_idx;
+    uint8_t  menu_entry_idx;
     uint8_t  sub_menu_idx;
     uint8_t  gas_cursor;
     bool     gas_modal_from_submenu;  // HOTFIX: Route GAS modal exit based on context.

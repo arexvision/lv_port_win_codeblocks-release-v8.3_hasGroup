@@ -480,12 +480,16 @@ void screen_scroll_to_page(uint8_t tile_pos)
 
     dirty_mask = screen_visible_page_dirty_mask(tile_pos);
     screen_schedule_visible_page_dirty(tile_pos);
+    if (page_id_at(tile_pos) == PAGE_ID_MENU)
+    {
+        menu_entry_update();
+    }
 #if UI_SCROLL_PROFILE_ENABLED
     dirty_ms = lv_tick_get() - mark_ms;
     mark_ms = lv_tick_get();
 #endif
 
-    /* SETUP（最后一页）不显示 dots，只有 DASH 动态页面才更新 */
+    /* DIVE MENU 目标页不显示 dots，DASH 楼层（动态卡片 + MENU 入口）才更新。 */
     if (tile_pos >= PAGE_POS_DYNAMIC_FIRST && tile_pos < page_setup_display_pos())
     {
         /* 根据当前可见动态页数量重新计算小圆点高亮位置。 */
@@ -700,6 +704,8 @@ dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos)
         return DIRTY_GAS_SUPPLY;
     case PAGE_ID_PLAN:
         return DIRTY_PLAN;
+    case PAGE_ID_MENU:
+        return DIRTY_INFO_REFRESH_MASK;
     case PAGE_ID_CUSTOM_GRID:
     {
         uint8_t storage_pos = page_storage_pos(tile_pos);

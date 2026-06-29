@@ -40,6 +40,7 @@ typedef enum
     PAGE_ID_CUSTOM_GRID = 5,
     PAGE_ID_BLANK       = 6,
     PAGE_ID_SETUP       = 7,
+    PAGE_ID_MENU        = 8,
     PAGE_ID_COUNT
 } page_id_t;
 
@@ -52,7 +53,7 @@ typedef enum
     PAGE_POS_INFO          = 0,
     PAGE_POS_DYNAMIC_FIRST = 1,
     PAGE_POS_SETUP         = PAGE_POS_DYNAMIC_FIRST + MAX_DYNAMIC_SLOTS,
-    PAGE_POS_COUNT
+    PAGE_POS_COUNT         = PAGE_POS_SETUP + 2
 } page_pos_t;
 
 #define PAGE_POS_1   (PAGE_POS_DYNAMIC_FIRST + 0)
@@ -69,7 +70,7 @@ typedef enum
 #define PAGE_POS_12  (PAGE_POS_DYNAMIC_FIRST + 11)
 
 #define PAGE_COUNT      PAGE_POS_COUNT
-#define DASH_PAGE_COUNT MAX_DYNAMIC_SLOTS
+#define DASH_PAGE_COUNT (MAX_DYNAMIC_SLOTS + 1)
 
 #ifdef __cplusplus
 }

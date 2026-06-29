@@ -42,6 +42,7 @@ typedef struct
 
 uint8_t page_count(void);
 uint8_t page_visible_dash_count(void);
+uint8_t page_menu_display_pos(void);
 uint8_t page_setup_display_pos(void);
 uint8_t page_storage_pos(uint8_t display_pos);
 uint8_t page_id_at(uint8_t display_pos);
@@ -62,6 +63,7 @@ typedef page_t card_t;
 #define CARD_ID_CUSTOM_GRID PAGE_ID_CUSTOM_GRID
 #define CARD_ID_BLANK       PAGE_ID_BLANK
 #define CARD_ID_SETUP       PAGE_ID_SETUP
+#define CARD_ID_MENU        PAGE_ID_MENU
 #define CARD_ID_COUNT       PAGE_ID_COUNT
 #define CARD_ID_UNUSED      PAGE_ID_UNUSED
 
@@ -92,6 +94,7 @@ typedef page_t card_t;
 
 #define card_count          page_count
 #define visible_dash_count  page_visible_dash_count
+#define menu_display_pos    page_menu_display_pos
 #define setup_display_pos   page_setup_display_pos
 #define card_storage_pos    page_storage_pos
 #define card_id_at          page_id_at
@@ -107,6 +110,10 @@ void card_gas_update(void);
 void card_gas_update_vm(const ui_vm_gas_t *vm);
 void card_plan_update(const ui_vm_plan_chart_t *vm);
 void card_blank_update(void);
+void menu_entry_set_selection(uint8_t idx);
+void menu_entry_clear_selection(void);
+uint8_t menu_entry_item_count(void);
+void menu_entry_update(void);
 void menu_setup_update(void);
 void page_registry_update_deco_vm(const ui_vm_deco_t *vm);
 void page_registry_update_gas_vm(const ui_vm_gas_t *vm);

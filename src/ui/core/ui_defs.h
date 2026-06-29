@@ -68,9 +68,17 @@ extern "C" {
 #define ANCHOR_SEP_THICK          3       /* 固定栏和内容区分隔条厚度 */
 #define ANCHOR_SEP_STYLE          SEP_SOLID  /* 固定栏和内容区分隔条样式 */
 
-#define RATE_LEVEL1_THRESHOLD     3.0f    /* 上升速率一级阈值，m/min */
-#define RATE_LEVEL2_THRESHOLD     9.0f    /* 上升速率二级阈值，m/min */
-#define RATE_STILL_THRESHOLD      UI_ASCENT_RATE_STILL_DEADBAND_MPM  /* 上升速率静止死区 */
+#define RATE_UP_LEVEL2_THRESHOLD    2.0f   /* 上升 level2 阈值，m/min */
+#define RATE_UP_LEVEL3_THRESHOLD    5.0f   /* 上升 level3 阈值，m/min */
+#define RATE_UP_LEVEL4_THRESHOLD    8.0f   /* 上升 level4 阈值，m/min */
+#define RATE_UP_LEVEL5_THRESHOLD    10.0f  /* 上升 level5 阈值，m/min */
+#define RATE_UP_LEVEL6_THRESHOLD    12.0f  /* 上升 level6 阈值，m/min */
+#define RATE_DOWN_LEVEL2_THRESHOLD  2.0f   /* 下降 level2 阈值，m/min */
+#define RATE_DOWN_LEVEL3_THRESHOLD  6.0f   /* 下降 level3 阈值，m/min */
+#define RATE_DOWN_LEVEL4_THRESHOLD  12.0f  /* 下降 level4 阈值，m/min */
+#define RATE_DOWN_LEVEL5_THRESHOLD  18.0f  /* 下降 level5 阈值，m/min */
+#define RATE_DOWN_LEVEL6_THRESHOLD  24.0f  /* 下降 level6 阈值，m/min */
+#define RATE_STILL_THRESHOLD        0.0f    /* 速率图标静止死区；小于显示精度的数据已在 bus 层归零 */
 
 #define GAS_COUNT                 5       /* 气体槽数量上限 */
 

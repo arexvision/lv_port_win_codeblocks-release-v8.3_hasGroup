@@ -19,6 +19,7 @@
 #include <string.h>
 
 void screen_register_setup_list(lv_obj_t *list);
+void menu_entry_update(void);
 void menu_setup_update(void);
 
 /* DIVE MENU 顶层菜单页。
@@ -40,6 +41,9 @@ static ui_vm_menu_layout_t s_menu_layout_vm;
  */
 static lv_obj_t *s_setup_item_objs[SETUP_ITEM_COUNT];
 static lv_obj_t *s_setup_badge_lbls[SETUP_ITEM_COUNT];
+static lv_obj_t *s_menu_entry_items[2];
+static lv_obj_t *s_menu_entry_labels[2];
+static uint8_t s_menu_entry_selected = 0xFFU;
 
 static bool menu_setup_obj_is_valid(lv_obj_t **obj_ref)
 {
@@ -71,6 +75,112 @@ static void menu_setup_badge_set_text_if_changed(lv_obj_t *label, const char *te
     {
         lv_label_set_text(label, text);
     }
+}
+
+static bool menu_entry_info_visible(void)
+{
+    dive_lifecycle_phase_t phase = bus_get_dive_lifecycle_phase();
+    return (phase != DIVE_LIFECYCLE_ACTIVE) && (phase != DIVE_LIFECYCLE_SURFACING_PENDING);
+}
+
+static uint8_t menu_entry_visible_count(void)
+{
+#if ENABLE_INFO_MENU
+    return menu_entry_info_visible() ? 2U : 1U;
+#else
+    return 1U;
+#endif
+}
+
+static void menu_entry_apply_row_style(lv_obj_t *item, lv_obj_t *label, bool selected)
+{
+    if (item == NULL || label == NULL) return;
+
+    lv_obj_set_style_bg_color(item, BLACK, 0);
+    lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(item, selected ? GREEN : DARK, 0);
+    lv_obj_set_style_border_width(item, selected ? (INNER_BORDER_W + 2) : INNER_BORDER_W, 0);
+    lv_obj_set_style_text_color(label, selected ? LIGHT : GREEN, 0);
+    lv_obj_set_style_text_font(label, get_font(selected ? FONT_ID_MEDIUM : FONT_ID_TITLE), 0);
+}
+
+static lv_obj_t *menu_entry_create_row(lv_obj_t *parent, const char *text, lv_coord_t y, lv_coord_t w, lv_coord_t h)
+{
+    lv_obj_t *item = lv_obj_create(parent);
+    lv_obj_remove_style_all(item);
+    lv_obj_set_size(item, w, h);
+    lv_obj_set_pos(item, 0, y);
+    lv_obj_set_style_pad_left(item, MENU_LIST_EDGE_PAD_PX, 0);
+    lv_obj_set_style_pad_right(item, MENU_LIST_EDGE_PAD_PX, 0);
+    lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *label = lv_label_create(item);
+    lv_obj_set_width(label, (lv_coord_t)(w - MENU_LIST_EDGE_PAD_PX * 2));
+    lv_obj_set_pos(label, MENU_LIST_EDGE_PAD_PX, 0);
+    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
+    lv_obj_set_style_text_color(label, GREEN, 0);
+    lv_obj_set_style_text_font(label, get_font(FONT_ID_TITLE), 0);
+    lv_label_set_text(label, text);
+    lv_obj_center(label);
+    return item;
+}
+
+void menu_entry_set_selection(uint8_t idx)
+{
+    uint8_t count = menu_entry_visible_count();
+    if (count == 0U) return;
+    if (idx >= count) idx = (uint8_t)(count - 1U);
+    s_menu_entry_selected = idx;
+    menu_entry_update();
+}
+
+void menu_entry_clear_selection(void)
+{
+    s_menu_entry_selected = 0xFFU;
+    menu_entry_update();
+}
+
+uint8_t menu_entry_item_count(void)
+{
+    return menu_entry_visible_count();
+}
+
+void menu_entry_create(lv_obj_t *parent)
+{
+    ui_vm_menu_layout_update(&s_menu_layout_vm, NULL);
+    int right_canvas_w = (int)s_menu_layout_vm.right_canvas_w;
+    uint16_t item_h_px = s_menu_layout_vm.item_h_px;
+    uint16_t gap_y_px = s_menu_layout_vm.gap_y_px;
+    uint16_t list_y = (CARD_TITLE_H > MENU_LIST_TOP_NUDGE_PX) ? (uint16_t)(CARD_TITLE_H - MENU_LIST_TOP_NUDGE_PX) : CARD_TITLE_H;
+
+    render_card_title(parent, "MENU");
+    s_menu_entry_items[0] = menu_entry_create_row(parent, "DIVE MENU", (lv_coord_t)list_y, (lv_coord_t)right_canvas_w, (lv_coord_t)item_h_px);
+    s_menu_entry_items[1] = menu_entry_create_row(parent, "INFO MENU", (lv_coord_t)(list_y + item_h_px + gap_y_px), (lv_coord_t)right_canvas_w, (lv_coord_t)item_h_px);
+    s_menu_entry_labels[0] = lv_obj_get_child(s_menu_entry_items[0], 0);
+    s_menu_entry_labels[1] = lv_obj_get_child(s_menu_entry_items[1], 0);
+    menu_entry_clear_selection();
+}
+
+void menu_entry_update(void)
+{
+    uint8_t count = menu_entry_visible_count();
+    bool active = ui_state_get_state() == UI_MENU_ENTRY;
+
+    if (s_menu_entry_items[0] == NULL || !lv_obj_is_valid(s_menu_entry_items[0])) return;
+    if (s_menu_entry_items[1] != NULL && !lv_obj_is_valid(s_menu_entry_items[1])) s_menu_entry_items[1] = NULL;
+
+    if (!active) s_menu_entry_selected = 0xFFU;
+    if (active && s_menu_entry_selected >= count) s_menu_entry_selected = 0U;
+
+    lv_obj_clear_flag(s_menu_entry_items[0], LV_OBJ_FLAG_HIDDEN);
+    if (s_menu_entry_items[1] != NULL)
+    {
+        if (count > 1U) lv_obj_clear_flag(s_menu_entry_items[1], LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(s_menu_entry_items[1], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    menu_entry_apply_row_style(s_menu_entry_items[0], s_menu_entry_labels[0], active && s_menu_entry_selected == 0U);
+    if (s_menu_entry_items[1] != NULL) menu_entry_apply_row_style(s_menu_entry_items[1], s_menu_entry_labels[1], active && s_menu_entry_selected == 1U);
 }
 
 void menu_setup_create(lv_obj_t *parent)

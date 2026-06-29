@@ -31,7 +31,7 @@ void screen_scroll_dots_reset_cache(void)
 
 void screen_update_scroll_dots(uint8_t active_idx, bool visible)
 {
-    bool in_dash_or_edit = (ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_EDIT_GAS);
+    bool in_dash_or_edit = (ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_MENU_ENTRY || ui_state_get_state() == UI_EDIT_GAS);
     bool dots_enabled = (ui_dots_position_get() != DOTS_NONE);
     uint8_t visible_dash = page_visible_dash_count();
 

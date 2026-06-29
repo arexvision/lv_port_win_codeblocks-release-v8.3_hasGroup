@@ -26,9 +26,17 @@
 LV_IMG_DECLARE(sudo_up_level0);
 LV_IMG_DECLARE(sudo_up_level1);
 LV_IMG_DECLARE(sudo_up_level2);
+LV_IMG_DECLARE(sudo_up_level3);
+LV_IMG_DECLARE(sudo_up_level4);
+LV_IMG_DECLARE(sudo_up_level5);
+LV_IMG_DECLARE(sudo_up_level6);
 LV_IMG_DECLARE(sudo_down_level0);
 LV_IMG_DECLARE(sudo_down_level1);
 LV_IMG_DECLARE(sudo_down_level2);
+LV_IMG_DECLARE(sudo_down_level3);
+LV_IMG_DECLARE(sudo_down_level4);
+LV_IMG_DECLARE(sudo_down_level5);
+LV_IMG_DECLARE(sudo_down_level6);
 
 #define MAX_WIDGET_RENDER_INSTANCES (LEFT_MAX_WIDGETS + (MAX_CUSTOM_CARDS * MAX_5F_WIDGETS))
 #define MAX_VALUE_HANDLES          (MAX_WIDGET_RENDER_INSTANCES * 2U)
@@ -1900,7 +1908,7 @@ void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)
     /* 速率图标的决策维度有三个：
      * 1. 是否在运动
      * 2. 方向是上升还是下降
-     * 3. 当前处于 level0/1/2 哪一档，并结合 flash_on 做闪烁 */
+     * 3. 当前处于 level0~6 哪一档，并结合 flash_on 做闪烁 */
 
     if (!is_moving)
     {
@@ -1910,33 +1918,24 @@ void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)
     }
     else if (current_direction > 0)
     {
-        if (vm->rate >= RATE_LEVEL2_THRESHOLD)
-        {
-            target_img_src = current_flash_state ? &sudo_up_level2 : &sudo_up_level0;
-        }
-        else if (vm->rate >= RATE_LEVEL1_THRESHOLD)
-        {
-            target_img_src = current_flash_state ? &sudo_up_level1 : &sudo_up_level0;
-        }
-        else
-        {
-            target_img_src = &sudo_up_level0;
-        }
+        if (vm->rate >= RATE_UP_LEVEL6_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level6 : &sudo_up_level0;
+        else if (vm->rate >= RATE_UP_LEVEL5_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level5 : &sudo_up_level0;
+        else if (vm->rate >= RATE_UP_LEVEL4_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level4 : &sudo_up_level0;
+        else if (vm->rate >= RATE_UP_LEVEL3_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level3 : &sudo_up_level0;
+        else if (vm->rate >= RATE_UP_LEVEL2_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level2 : &sudo_up_level0;
+        else if (vm->rate > RATE_STILL_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level1 : &sudo_up_level0;
+        else target_img_src = &sudo_up_level0;
     }
     else
     {
-        if (vm->rate <= -RATE_LEVEL2_THRESHOLD)
-        {
-            target_img_src = current_flash_state ? &sudo_down_level2 : &sudo_down_level0;
-        }
-        else if (vm->rate <= -RATE_LEVEL1_THRESHOLD)
-        {
-            target_img_src = current_flash_state ? &sudo_down_level1 : &sudo_down_level0;
-        }
-        else
-        {
-            target_img_src = &sudo_down_level0;
-        }
+        float down_rate_mpm = -vm->rate;
+        if (down_rate_mpm >= RATE_DOWN_LEVEL6_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level6 : &sudo_down_level0;
+        else if (down_rate_mpm >= RATE_DOWN_LEVEL5_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level5 : &sudo_down_level0;
+        else if (down_rate_mpm >= RATE_DOWN_LEVEL4_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level4 : &sudo_down_level0;
+        else if (down_rate_mpm >= RATE_DOWN_LEVEL3_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level3 : &sudo_down_level0;
+        else if (down_rate_mpm >= RATE_DOWN_LEVEL2_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level2 : &sudo_down_level0;
+        else if (down_rate_mpm > RATE_STILL_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level1 : &sudo_down_level0;
+        else target_img_src = &sudo_down_level0;
     }
 
     if (current_direction != 0)

@@ -31,6 +31,8 @@ void card_plan_create(lv_obj_t *parent);
 void card_plan_update(const ui_vm_plan_chart_t *vm);
 void card_blank_create(lv_obj_t *parent);
 void card_blank_update(void);
+void menu_entry_create(lv_obj_t *parent);
+void menu_entry_update(void);
 void menu_setup_create(lv_obj_t *parent);
 void menu_setup_update(void);
 
@@ -138,11 +140,21 @@ static page_t g_pages[PAGE_ID_COUNT] =
         .update_cb   = menu_setup_update,
         .on_enter_cb = NULL,
     },
+    [PAGE_ID_MENU] = {
+        .id          = PAGE_ID_MENU,
+        .title       = "MENU",
+        .engine_type = PAGE_ENGINE_CUSTOM,
+        .config_data = NULL,
+        .tile_obj    = NULL,
+        .create_cb   = menu_entry_create,
+        .update_cb   = menu_entry_update,
+        .on_enter_cb = NULL,
+    },
 };
 
-uint8_t page_visible_dash_count(void)
+static uint8_t page_dynamic_visible_count(void)
 {
-    /* 只统计真正会显示在 DASH 区域的动态页。 */
+    /* 只统计 APP 配置下发的动态卡片，不包含 MENU 合成页。 */
     uint8_t count = 0;
     for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < PAGE_POS_SETUP; ++pos)
     {
@@ -155,15 +167,26 @@ uint8_t page_visible_dash_count(void)
     return (count > 0) ? count : 1;
 }
 
+uint8_t page_visible_dash_count(void)
+{
+    /* DASH 楼层 = 动态卡片 + MENU 入口页。 */
+    return (uint8_t)(page_dynamic_visible_count() + 1U);
+}
+
+uint8_t page_menu_display_pos(void)
+{
+    return (uint8_t)(PAGE_POS_DYNAMIC_FIRST + page_dynamic_visible_count());
+}
+
 uint8_t page_setup_display_pos(void)
 {
-    /* 设置页固定排在动态页之后。 */
-    return (uint8_t)(PAGE_POS_DYNAMIC_FIRST + page_visible_dash_count());
+    /* 真正的 DIVE MENU 页固定排在 MENU 入口页之后，只在确认后进入。 */
+    return (uint8_t)(page_menu_display_pos() + 1U);
 }
 
 uint8_t page_count(void)
 {
-    /* 总页数 = INFO + 动态页 + SETUP。 */
+    /* 总页数 = INFO + 动态页 + MENU 入口 + DIVE MENU。 */
     return (uint8_t)(page_setup_display_pos() + 1);
 }
 
@@ -175,13 +198,11 @@ uint8_t page_storage_pos(uint8_t display_pos)
      *
      * 因为 PAGE_ID_UNUSED 会在显示时被折叠或跳过，
      * 所以 display_pos 不能直接拿来索引 card_order[]。 */
-    uint8_t setup_pos = page_setup_display_pos();
-
     if (display_pos == PAGE_POS_INFO)
     {
         return PAGE_POS_INFO;
     }
-    if (display_pos >= PAGE_POS_DYNAMIC_FIRST && display_pos < setup_pos)
+    if (display_pos >= PAGE_POS_DYNAMIC_FIRST && display_pos < page_menu_display_pos())
     {
         /* 动态页区间需要做一次“可见页压缩”：
          * 遍历存储槽位时跳过 UNUSED，直到找到第 N 个可见页。
@@ -208,7 +229,7 @@ uint8_t page_storage_pos(uint8_t display_pos)
 
         return 0xFF;
     }
-    if (display_pos == setup_pos)
+    if (display_pos == page_setup_display_pos())
     {
         return PAGE_POS_SETUP;
     }
@@ -259,7 +280,13 @@ uint8_t page_id_at(uint8_t display_pos)
     /* 这是 screen/ui_state 层最应该调用的入口。
      * 只要涉及“当前显示位置对应哪个页面”，都不要直接碰 card_order[]，
      * 否则一旦中间有空槽或 blank 页，索引马上会错位。 */
-    uint8_t storage_pos = page_storage_pos(display_pos);
+    uint8_t storage_pos;
+    if (display_pos == page_menu_display_pos())
+    {
+        return PAGE_ID_MENU;
+    }
+
+    storage_pos = page_storage_pos(display_pos);
     if (storage_pos == 0xFF)
     {
         return PAGE_ID_UNUSED;
