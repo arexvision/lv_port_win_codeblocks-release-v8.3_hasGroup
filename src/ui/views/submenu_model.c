@@ -40,9 +40,9 @@ static const char *s_conservatism_dyn[CONSERVATISM_COUNT + 1];
 
 static const setting_option_t s_conservatism_options[CONSERVATISM_COUNT] =
 {
-    { CONSERVATISM_LOW,    "LOW (GF 40/95)",    "LOW" },
+    { CONSERVATISM_LOW,    "LOW (GF 45/95)",    "LOW" },
     { CONSERVATISM_MED,    "MED (GF 40/85)",    "MED" },
-    { CONSERVATISM_HIGH,   "HIGH (GF 30/70)",   "HIGH" },
+    { CONSERVATISM_HIGH,   "HIGH (GF 35/75)",   "HIGH" },
     { CONSERVATISM_CUSTOM, "CUSTOM (GF 50/70)", "CUSTOM" },
 };
 

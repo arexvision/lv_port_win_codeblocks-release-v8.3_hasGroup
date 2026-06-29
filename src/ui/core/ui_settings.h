@@ -63,9 +63,9 @@ static inline bool ui_gf_from_conservatism_level(uint8_t level,
 {
     static const uint8_t gf_table[UI_CONSERVATISM_PROFILE_COUNT][2] =
     {
-        { 40U, 95U },
+        { 45U, 95U },
         { 40U, 85U },
-        { 30U, 70U },
+        { 35U, 75U },
         { 50U, 70U },
     };
 
@@ -86,9 +86,9 @@ static inline bool ui_gf_from_conservatism_level(uint8_t level,
 
 static inline uint8_t ui_conservatism_from_gf(uint8_t gf_low, uint8_t gf_high)
 {
-    if (gf_low == 40U && gf_high == 95U) return 0U;
+    if (gf_low == 45U && gf_high == 95U) return 0U;
     if (gf_low == 40U && gf_high == 85U) return 1U;
-    if (gf_low == 30U && gf_high == 70U) return 2U;
+    if (gf_low == 35U && gf_high == 75U) return 2U;
     return 3U;
 }
 

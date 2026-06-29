@@ -1855,9 +1855,9 @@ void bus_set_conservatism(uint8_t level)
 {
     static const uint8_t gf_table[][2] =
     {
-        { 40U, 95U },
+        { 45U, 95U },
         { 40U, 85U },
-        { 30U, 70U },
+        { 35U, 75U },
         { 50U, 70U },
     };
 
