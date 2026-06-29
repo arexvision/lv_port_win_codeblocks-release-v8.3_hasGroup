@@ -10,6 +10,16 @@ typedef uint32_t rt_tick_t;
 typedef int32_t rt_int32_t;
 typedef uint32_t rt_uint32_t;
 
+#ifndef RT_NULL
+#define RT_NULL ((void *)0)
+#endif
+
+typedef struct rt_thread
+{
+    void *stack_addr;
+    rt_uint32_t stack_size;
+} *rt_thread_t;
+
 #ifndef RT_TICK_PER_SECOND
 #define RT_TICK_PER_SECOND 1000U
 #endif
@@ -40,6 +50,11 @@ static inline void rt_thread_delay(rt_tick_t tick)
 static inline void rt_thread_mdelay(rt_int32_t ms)
 {
     (void)ms;
+}
+
+static inline rt_thread_t rt_thread_self(void)
+{
+    return RT_NULL;
 }
 
 #define rt_kprintf printf
