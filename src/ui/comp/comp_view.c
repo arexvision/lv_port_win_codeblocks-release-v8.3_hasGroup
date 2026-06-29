@@ -1003,6 +1003,12 @@ static lv_coord_t tissue_chart_x_for_permille(const lv_area_t *area, int permill
     return (lv_coord_t)(area->x1 + (lv_coord_t)((draw_permille * (int)(w - 1)) / TISSUE_CHART_MAX_PERMILLE));
 }
 
+static lv_coord_t tissue_chart_row_boundary_y(const lv_area_t *area, uint8_t index)
+{
+    int plot_span = lv_area_get_height(area) - 1;
+    return area->y1 + (lv_coord_t)(((int)index * plot_span) / TISSUE_LEAD_COUNT);
+}
+
 static uint16_t tissue_chart_raw_permille(const ui_vm_deco_t *vm, uint8_t index)
 {
     if (vm == NULL || index >= TISSUE_LEAD_COUNT || vm->tissue_normalized_valid == 0U) return 0U;
@@ -1137,14 +1143,13 @@ static void tissue_draw_normalized_chart(lv_draw_ctx_t *draw_ctx, const lv_area_
         return;
     }
 
-    int plot_h = lv_area_get_height(&plot);
-    lv_coord_t row_h = (lv_coord_t)(plot_h / TISSUE_LEAD_COUNT);
-    if (row_h <= 0) return;
+    int plot_span = lv_area_get_height(&plot) - 1;
+    if (plot_span < TISSUE_LEAD_COUNT) return;
     tissue_draw_rect_area(draw_ctx, &rect_dsc, plot.x1, plot.y1, plot.x2, plot.y1, TISSUE_CHART_COLOR_PI, LV_OPA_COVER);
     for (uint8_t i = 0U; i < TISSUE_LEAD_COUNT; i++)
     {
-        lv_coord_t row_y1 = plot.y1 + (lv_coord_t)(i * row_h);
-        lv_coord_t row_y2 = (lv_coord_t)(row_y1 + row_h - 1);
+        lv_coord_t row_y1 = tissue_chart_row_boundary_y(&plot, i);
+        lv_coord_t row_y2 = tissue_chart_row_boundary_y(&plot, (uint8_t)(i + 1U));
         lv_coord_t bar_y1 = (lv_coord_t)(row_y1 + 1);
         lv_coord_t bar_y2 = (lv_coord_t)(row_y2 - 1);
         int value_permille = (int)tissue_chart_permille_for_widget(&h->vm, h->widget_id, i);

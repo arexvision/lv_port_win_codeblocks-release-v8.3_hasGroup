@@ -185,6 +185,12 @@ static lv_coord_t tissue_x_for_permille(const lv_area_t *plot, int permille)
     return plot->x1 + (lv_coord_t)((draw_permille * plot_w) / TISSUE_UI_MAX_PERMILLE);
 }
 
+static lv_coord_t tissue_row_boundary_y(const lv_area_t *plot, int index)
+{
+    int plot_span = lv_area_get_height(plot) - 1;
+    return plot->y1 + (lv_coord_t)((index * plot_span) / TISSUE_COMPARTMENT_COUNT);
+}
+
 static void tissue_draw_vertical_line(lv_draw_ctx_t *draw_ctx, const lv_area_t *plot, int permille, lv_color_t color, lv_opa_t opa, lv_coord_t width, lv_coord_t dash_width, lv_coord_t dash_gap)
 {
     lv_draw_line_dsc_t line_dsc;
@@ -239,7 +245,7 @@ static void tissue_chart_draw_cb(lv_event_t *e)
     lv_draw_ctx_t *draw_ctx = lv_event_get_draw_ctx(e);
     lv_area_t *area = &obj->coords;
     bool chart_active = card_deco_tissue_chart_active();
-    int plot_h;
+    int plot_span;
     lv_area_t plot_bg = {area->x1, area->y1, area->x2, (lv_coord_t)(area->y2 - TISSUE_LABEL_H)};
     lv_area_t plot = {plot_bg.x1, (lv_coord_t)(plot_bg.y1 + TISSUE_PLOT_PAD_Y), plot_bg.x2, (lv_coord_t)(plot_bg.y2 - TISSUE_PLOT_PAD_Y)};
 
@@ -255,14 +261,13 @@ static void tissue_chart_draw_cb(lv_event_t *e)
 
     tissue_draw_rect(draw_ctx, &rect_dsc, plot_bg.x1, plot_bg.y1, plot_bg.x2, plot_bg.y2, TISSUE_COLOR_BG, LV_OPA_COVER);
 
-    plot_h = lv_area_get_height(&plot);
-    lv_coord_t row_h = (lv_coord_t)(plot_h / TISSUE_COMPARTMENT_COUNT);
-    if (row_h <= 0) return;
+    plot_span = lv_area_get_height(&plot) - 1;
+    if (plot_span < TISSUE_COMPARTMENT_COUNT) return;
     tissue_draw_rect(draw_ctx, &rect_dsc, plot.x1, plot.y1, plot.x2, plot.y1, TISSUE_COLOR_PI, LV_OPA_COVER);
     for (int i = 0; i < TISSUE_COMPARTMENT_COUNT; i++)
     {
-        lv_coord_t row_y1 = plot.y1 + (lv_coord_t)(i * row_h);
-        lv_coord_t row_y2 = (lv_coord_t)(row_y1 + row_h - 1);
+        lv_coord_t row_y1 = tissue_row_boundary_y(&plot, i);
+        lv_coord_t row_y2 = tissue_row_boundary_y(&plot, i + 1);
         lv_coord_t bar_y1 = (lv_coord_t)(row_y1 + 1);
         lv_coord_t bar_y2 = (lv_coord_t)(row_y2 - 1);
         int value_permille = (chart_active && s_deco_vm_cache.tissue_normalized_valid != 0U) ? (int)s_deco_vm_cache.tissue_bar_permille[i] : 0;
