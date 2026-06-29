@@ -555,16 +555,16 @@ void ui_handle_click(void)
     }
 
     case UI_MENU_ENTRY:
-        if (s_ui.menu_entry_idx == 0U)
-        {
-            ui_enter_setup_menu_page();
-        }
 #if ENABLE_INFO_MENU
-        else
+        if (menu_entry_selection_is_info(s_ui.menu_entry_idx))
         {
             ui_enter_info_menu_page();
         }
+        else
 #endif
+        {
+            ui_enter_setup_menu_page();
+        }
         break;
 
     case UI_EDIT_GAS:

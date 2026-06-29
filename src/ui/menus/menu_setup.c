@@ -47,8 +47,8 @@ static uint8_t s_menu_entry_selected = 0xFFU;
 
 static const menu_item_cfg_t s_menu_entry_cfg[] =
 {
-    { "DIVE MENU", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "INFO MENU", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "DIVE MENU", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 
 static bool menu_setup_obj_is_valid(lv_obj_t **obj_ref)
@@ -130,6 +130,16 @@ uint8_t menu_entry_item_count(void)
     return menu_entry_visible_count();
 }
 
+bool menu_entry_selection_is_info(uint8_t idx)
+{
+#if ENABLE_INFO_MENU
+    return menu_entry_info_visible() && idx == 0U;
+#else
+    (void)idx;
+    return false;
+#endif
+}
+
 void menu_entry_create(lv_obj_t *parent)
 {
     ui_vm_menu_layout_update(&s_menu_layout_vm, NULL);
@@ -179,12 +189,22 @@ void menu_entry_update(void)
     lv_obj_clear_flag(s_menu_entry_items[0], LV_OBJ_FLAG_HIDDEN);
     if (s_menu_entry_items[1] != NULL)
     {
-        if (count > 1U) lv_obj_clear_flag(s_menu_entry_items[1], LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_add_flag(s_menu_entry_items[1], LV_OBJ_FLAG_HIDDEN);
+        lv_coord_t first_y = lv_obj_get_y(s_menu_entry_items[0]);
+        lv_coord_t second_y = first_y + lv_obj_get_height(s_menu_entry_items[0]) + (lv_coord_t)ui_menu_gap_px_get();
+        if (count > 1U)
+        {
+            lv_obj_clear_flag(s_menu_entry_items[0], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_y(s_menu_entry_items[1], second_y);
+        }
+        else
+        {
+            lv_obj_add_flag(s_menu_entry_items[0], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_y(s_menu_entry_items[1], first_y);
+        }
     }
 
-    menu_entry_apply_row_style(s_menu_entry_items[0], lv_obj_get_child(s_menu_entry_items[0], 0), active && s_menu_entry_selected == 0U);
-    if (s_menu_entry_items[1] != NULL) menu_entry_apply_row_style(s_menu_entry_items[1], lv_obj_get_child(s_menu_entry_items[1], 0), active && s_menu_entry_selected == 1U);
+    if (s_menu_entry_items[0] != NULL) menu_entry_apply_row_style(s_menu_entry_items[0], lv_obj_get_child(s_menu_entry_items[0], 0), active && count > 1U && s_menu_entry_selected == 0U);
+    if (s_menu_entry_items[1] != NULL) menu_entry_apply_row_style(s_menu_entry_items[1], lv_obj_get_child(s_menu_entry_items[1], 0), active && s_menu_entry_selected == (count > 1U ? 1U : 0U));
 }
 
 void menu_setup_create(lv_obj_t *parent)
