@@ -1016,6 +1016,32 @@ static lv_coord_t tissue_chart_row_boundary_y(const lv_area_t *area, uint8_t ind
     return area->y1 + (lv_coord_t)(((int)index * plot_span) / TISSUE_LEAD_COUNT);
 }
 
+static bool tissue_chart_fit_equal_rows(lv_area_t *plot)
+{
+    int plot_span;
+    int row_pitch;
+    int fit_span;
+    int offset_y;
+
+    if (plot == NULL)
+    {
+        return false;
+    }
+
+    plot_span = lv_area_get_height(plot) - 1;
+    row_pitch = plot_span / TISSUE_LEAD_COUNT;
+    if (row_pitch <= 1)
+    {
+        return false;
+    }
+
+    fit_span = row_pitch * TISSUE_LEAD_COUNT;
+    offset_y = (plot_span - fit_span) / 2;
+    plot->y1 = (lv_coord_t)(plot->y1 + offset_y);
+    plot->y2 = (lv_coord_t)(plot->y1 + fit_span);
+    return true;
+}
+
 static uint16_t tissue_chart_raw_permille(const ui_vm_deco_t *vm, uint8_t index)
 {
     if (vm == NULL || index >= TISSUE_LEAD_COUNT || vm->tissue_normalized_valid == 0U) return 0U;
@@ -1149,8 +1175,7 @@ static void tissue_draw_normalized_chart(lv_draw_ctx_t *draw_ctx, const lv_area_
         return;
     }
 
-    int plot_span = lv_area_get_height(&plot) - 1;
-    if (plot_span < TISSUE_LEAD_COUNT) return;
+    if (!tissue_chart_fit_equal_rows(&plot)) return;
     tissue_draw_rect_area(draw_ctx, &rect_dsc, plot.x1, plot.y1, plot.x2, plot.y1, TISSUE_CHART_COLOR_PI, LV_OPA_COVER);
     tissue_chart_draw_vertical_line(draw_ctx, &plot, h->vm.tissue_pi_permille, TISSUE_CHART_COLOR_PI, LV_OPA_COVER, 1, 3, 3);
     for (uint8_t i = 0U; i < TISSUE_LEAD_COUNT; i++)
