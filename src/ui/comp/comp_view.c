@@ -1114,7 +1114,6 @@ static void tissue_chart_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_
     x1 = tissue_chart_x_for_permille(area, draw_low);
     x2 = tissue_chart_x_for_permille(area, draw_high);
     tissue_draw_rect_area(draw_ctx, rect_dsc, x1, y1, x2, y2, color, opa);
-    tissue_draw_rect_area(draw_ctx, rect_dsc, x2, (lv_coord_t)(y1 - 1), x2, (lv_coord_t)(y2 + 1), color, opa);
 }
 
 static void tissue_chart_draw_vertical_line(lv_draw_ctx_t *draw_ctx, const lv_area_t *area, int permille, lv_color_t color, lv_opa_t opa, lv_coord_t width, lv_coord_t dash_width, lv_coord_t dash_gap)
@@ -1148,6 +1147,7 @@ static void tissue_draw_normalized_chart(lv_draw_ctx_t *draw_ctx, const lv_area_
     int plot_span = lv_area_get_height(&plot) - 1;
     if (plot_span < TISSUE_LEAD_COUNT) return;
     tissue_draw_rect_area(draw_ctx, &rect_dsc, plot.x1, plot.y1, plot.x2, plot.y1, TISSUE_CHART_COLOR_PI, LV_OPA_COVER);
+    tissue_chart_draw_vertical_line(draw_ctx, &plot, h->vm.tissue_pi_permille, TISSUE_CHART_COLOR_PI, LV_OPA_COVER, 1, 3, 3);
     for (uint8_t i = 0U; i < TISSUE_LEAD_COUNT; i++)
     {
         lv_coord_t row_y1 = tissue_chart_row_boundary_y(&plot, i);
@@ -1165,7 +1165,6 @@ static void tissue_draw_normalized_chart(lv_draw_ctx_t *draw_ctx, const lv_area_
 
     tissue_chart_draw_vertical_line(draw_ctx, &plot, TISSUE_CHART_PAMB_PERMILLE, TISSUE_CHART_COLOR_AMB, LV_OPA_COVER, 2, 0, 0);
     tissue_chart_draw_vertical_line(draw_ctx, &plot, TISSUE_CHART_LIMIT_PERMILLE, TISSUE_CHART_COLOR_DANGER, LV_OPA_COVER, 2, 0, 0);
-    tissue_chart_draw_vertical_line(draw_ctx, &plot, h->vm.tissue_pi_permille, TISSUE_CHART_COLOR_PI, LV_OPA_COVER, 1, 3, 3);
 }
 
 static void tissue_chart_draw_cb(lv_event_t *e)
