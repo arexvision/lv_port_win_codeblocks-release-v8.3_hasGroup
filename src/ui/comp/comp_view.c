@@ -1113,7 +1113,6 @@ static void tissue_chart_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_
     if (draw_high <= draw_low) return;
     x1 = tissue_chart_x_for_permille(area, draw_low);
     x2 = tissue_chart_x_for_permille(area, draw_high);
-    if (draw_high < TISSUE_CHART_MAX_PERMILLE) x2--;
     tissue_draw_rect_area(draw_ctx, rect_dsc, x1, y1, x2, y2, color, opa);
 }
 
