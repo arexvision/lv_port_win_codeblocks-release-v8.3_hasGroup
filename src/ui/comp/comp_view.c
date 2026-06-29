@@ -53,7 +53,6 @@ LV_IMG_DECLARE(sudo_down_level6);
 #define TISSUE_CHART_LIMIT_PERMILLE 900
 #define TISSUE_CHART_MAX_PERMILLE 1000
 #define TISSUE_CHART_PAD_Y       1       /* 图表上下留白 */
-#define TISSUE_CHART_END_GAP_X   2       /* 填充末端收口 */
 #define TISSUE_CHART_HEADROOM    34U     /* 标题区预留 */
 #define TISSUE_CHART_BOTTOM_PAD  2       /* 图表底部留白 */
 #define DEPTH_1612_DECIMAL_ANCHOR_TEXT ".0"
@@ -1114,7 +1113,7 @@ static void tissue_chart_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_
     if (draw_high <= draw_low) return;
     x1 = tissue_chart_x_for_permille(area, draw_low);
     x2 = tissue_chart_x_for_permille(area, draw_high);
-    if (draw_high < TISSUE_CHART_MAX_PERMILLE) x2 = (lv_coord_t)(x2 - TISSUE_CHART_END_GAP_X);
+    if (draw_high < TISSUE_CHART_MAX_PERMILLE) x2--;
     tissue_draw_rect_area(draw_ctx, rect_dsc, x1, y1, x2, y2, color, opa);
 }
 

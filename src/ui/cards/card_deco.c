@@ -30,7 +30,6 @@
 #define TISSUE_LABEL_H           18      /* 图表底部标签高度 */
 #define TISSUE_LABEL_GAP_Y       4       /* 图表与标签间距 */
 #define TISSUE_PLOT_PAD_Y        1       /* 图表上下留白 */
-#define TISSUE_BAR_END_GAP_X     2       /* 填充末端收口 */
 #define TISSUE_COLOR_BG          lv_color_make(0x00, 0x00, 0x00) /* 纯黑背景 */
 #define TISSUE_COLOR_PI          lv_color_make(0x00, 0x33, 0x00) /* PI 虚线 20% */
 #define TISSUE_COLOR_SAFE        lv_color_make(0x00, 0x4C, 0x00) /* 安全区 30% */
@@ -229,7 +228,7 @@ static void tissue_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t 
     if (draw_high <= draw_low) return;
     x1 = tissue_x_for_permille(plot, draw_low);
     x2 = tissue_x_for_permille(plot, draw_high);
-    if (draw_high < TISSUE_UI_MAX_PERMILLE) x2 = (lv_coord_t)(x2 - TISSUE_BAR_END_GAP_X);
+    if (draw_high < TISSUE_UI_MAX_PERMILLE) x2--;
     tissue_draw_rect(draw_ctx, rect_dsc, x1, y1, x2, y2, color, opa);
 }
 
