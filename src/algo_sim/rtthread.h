@@ -11,7 +11,7 @@ typedef int32_t rt_int32_t;
 typedef uint32_t rt_uint32_t;
 
 #ifndef RT_NULL
-#define RT_NULL ((void *)0)
+#define RT_NULL 0
 #endif
 
 typedef struct rt_thread
