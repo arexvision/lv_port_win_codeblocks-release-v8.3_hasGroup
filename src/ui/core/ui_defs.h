@@ -26,6 +26,10 @@ extern "C" {
 #define LEFT_ANCHOR_W             160     /* 侧边固定栏宽度 */
 #define TOP_ANCHOR_H              120     /* 上/下固定栏高度 */
 #define CARD_TITLE_H              60      /* 卡片/菜单标题区高度 */
+#define CARD_TITLE_TEXT_Y         8       /* 卡片/菜单标题文字Y */
+#define CARD_TITLE_TEXT_H         40      /* 卡片/菜单标题文字高度 */
+#define CARD_TITLE_LINE_Y         48      /* 卡片/菜单标题下划线Y */
+#define CARD_TITLE_LINE_H         2       /* 卡片/菜单标题下划线高度 */
 #define DECO_REFRESH_MS           1000    /* DECO 卡片刷新周期，单位 ms */
 #define UI_NDL_STOP_TIME_MINUTE_ONLY  1U  /* NDL/停留时间只显示向上取整分钟 */
 #define PLAN_TRACK_DECO_STOP_TIME_LABELS_ENABLED  0  /* 减压站标签停留时间开关 */

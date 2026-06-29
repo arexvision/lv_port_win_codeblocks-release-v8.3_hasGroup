@@ -313,8 +313,8 @@ void render_card_title(lv_obj_t *parent_card, const char *title_text)
 
     lv_obj_t *lbl = lv_label_create(parent_card);
     lv_obj_remove_style_all(lbl);
-    lv_obj_set_pos(lbl, 16, 8);
-    lv_obj_set_size(lbl, right_w - 32, 40);
+    lv_obj_set_pos(lbl, 16, CARD_TITLE_TEXT_Y);
+    lv_obj_set_size(lbl, right_w - 32, CARD_TITLE_TEXT_H);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
     lv_label_set_text(lbl, title_text);
     lv_obj_set_style_text_font(lbl, get_font(FONT_ID_TITLE), 0);
@@ -322,8 +322,8 @@ void render_card_title(lv_obj_t *parent_card, const char *title_text)
 
     lv_obj_t *line = lv_obj_create(parent_card);
     lv_obj_remove_style_all(line);
-    lv_obj_set_size(line, right_w - 32, 2);
-    lv_obj_set_pos(line, 16, 48);
+    lv_obj_set_size(line, right_w - 32, CARD_TITLE_LINE_H);
+    lv_obj_set_pos(line, 16, CARD_TITLE_LINE_Y);
     lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_color(line, DARK, 0);
 }
