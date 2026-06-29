@@ -229,6 +229,7 @@ static void tissue_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t 
     x1 = tissue_x_for_permille(plot, draw_low);
     x2 = tissue_x_for_permille(plot, draw_high);
     tissue_draw_rect(draw_ctx, rect_dsc, x1, y1, x2, y2, color, opa);
+    tissue_draw_rect(draw_ctx, rect_dsc, x2, (lv_coord_t)(y1 - 1), x2, (lv_coord_t)(y2 + 1), color, opa);
 }
 
 static void tissue_draw_scale_label(lv_draw_ctx_t *draw_ctx, lv_draw_label_dsc_t *label_dsc, const lv_area_t *area, const lv_area_t *plot, int permille, const char *text)

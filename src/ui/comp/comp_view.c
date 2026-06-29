@@ -1114,6 +1114,7 @@ static void tissue_chart_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_
     x1 = tissue_chart_x_for_permille(area, draw_low);
     x2 = tissue_chart_x_for_permille(area, draw_high);
     tissue_draw_rect_area(draw_ctx, rect_dsc, x1, y1, x2, y2, color, opa);
+    tissue_draw_rect_area(draw_ctx, rect_dsc, x2, (lv_coord_t)(y1 - 1), x2, (lv_coord_t)(y2 + 1), color, opa);
 }
 
 static void tissue_chart_draw_vertical_line(lv_draw_ctx_t *draw_ctx, const lv_area_t *area, int permille, lv_color_t color, lv_opa_t opa, lv_coord_t width, lv_coord_t dash_width, lv_coord_t dash_gap)
