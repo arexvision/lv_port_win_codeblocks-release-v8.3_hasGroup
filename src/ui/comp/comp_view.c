@@ -877,9 +877,14 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
 {
     /* 这个回调负责按当前 VM 进度绘制 NDL/停留进度条。 */
     lv_obj_t * obj = lv_event_get_target(e);
+    lv_obj_t * parent = lv_obj_get_parent(obj);
     lv_draw_ctx_t * draw_ctx = lv_event_get_draw_ctx(e);
     lv_area_t * area = &obj->coords;
     const ui_vm_ndl_stop_t *vm = (const ui_vm_ndl_stop_t *)lv_event_get_user_data(e);
+    lv_color_t parent_bg = parent ? lv_obj_get_style_bg_color(parent, LV_PART_MAIN) : BLACK;
+    bool inverted = lv_color_brightness(parent_bg) > 80U;
+    lv_color_t active_color = inverted ? BLACK : GREEN;
+    lv_color_t inactive_color = inverted ? lv_color_make(0x00, 0x33, 0x00) : DARK;
 
     int total_w = lv_area_get_width(area);
     int gap = 3;
@@ -942,14 +947,14 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
         if (i < active_blocks)
         {
             /* 全亮格子 */
-            rect_dsc.bg_color = GREEN;
+            rect_dsc.bg_color = active_color;
             rect_dsc.bg_opa = LV_OPA_COVER;
             lv_draw_rect(draw_ctx, &rect_dsc, &block_area);
         }
         else if (i == active_blocks && remainder > 0.05f)
         {
             /* 半亮格子 (先画暗底，再盖亮 */
-            rect_dsc.bg_color = DARK;
+            rect_dsc.bg_color = inactive_color;
             rect_dsc.bg_opa = LV_OPA_COVER;
             lv_draw_rect(draw_ctx, &rect_dsc, &block_area);
 
@@ -957,14 +962,14 @@ static void ndl_horiz_bar_draw_cb(lv_event_t * e)
             if (partial_w > 0)
             {
                 lv_area_t partial_area = {x1, area->y1, x1 + partial_w - 1, area->y2};
-                rect_dsc.bg_color = GREEN;
+                rect_dsc.bg_color = active_color;
                 lv_draw_rect(draw_ctx, &rect_dsc, &partial_area);
             }
         }
         else
         {
             /* 未激活的暗格 */
-            rect_dsc.bg_color = DARK;
+            rect_dsc.bg_color = inactive_color;
             rect_dsc.bg_opa = LV_OPA_COVER;
             lv_draw_rect(draw_ctx, &rect_dsc, &block_area);
         }

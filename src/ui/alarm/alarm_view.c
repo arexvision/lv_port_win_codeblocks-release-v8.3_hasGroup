@@ -457,6 +457,7 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
         else
         {
             alarm_view_restore_widget_style(obj);
+            lv_obj_invalidate(obj);
             return;
         }
     }
@@ -479,6 +480,7 @@ static void alarm_view_apply_widget_style(lv_obj_t *obj,
     }
 
     alarm_view_set_text_color_recursive(obj, text_color);
+    lv_obj_invalidate(obj);
 }
 
 static void alarm_view_restore_widget_style(lv_obj_t *obj)
