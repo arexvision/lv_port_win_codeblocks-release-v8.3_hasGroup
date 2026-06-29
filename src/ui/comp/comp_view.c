@@ -1131,10 +1131,12 @@ static void tissue_draw_normalized_chart(lv_draw_ctx_t *draw_ctx, const lv_area_
     }
 
     int plot_h = lv_area_get_height(area);
+    lv_coord_t row_h = (lv_coord_t)(plot_h / TISSUE_LEAD_COUNT);
+    if (row_h <= 0) return;
     for (uint8_t i = 0U; i < TISSUE_LEAD_COUNT; i++)
     {
-        lv_coord_t row_y1 = area->y1 + (lv_coord_t)((i * plot_h) / TISSUE_LEAD_COUNT);
-        lv_coord_t row_y2 = area->y1 + (lv_coord_t)((((i + 1U) * plot_h) / TISSUE_LEAD_COUNT) - 1);
+        lv_coord_t row_y1 = area->y1 + (lv_coord_t)(i * row_h);
+        lv_coord_t row_y2 = (lv_coord_t)(row_y1 + row_h - 1);
         lv_coord_t bar_y1 = (lv_coord_t)(row_y1 + 1);
         lv_coord_t bar_y2 = (lv_coord_t)(row_y2 - 1);
         int value_permille = (int)tissue_chart_permille_for_widget(&h->vm, h->widget_id, i);

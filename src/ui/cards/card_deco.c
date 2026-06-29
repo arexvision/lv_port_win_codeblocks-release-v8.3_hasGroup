@@ -248,10 +248,12 @@ static void tissue_chart_draw_cb(lv_event_t *e)
     tissue_draw_rect(draw_ctx, &rect_dsc, plot.x1, plot.y1, plot.x2, plot.y2, TISSUE_COLOR_BG, LV_OPA_COVER);
 
     plot_h = lv_area_get_height(&plot);
+    lv_coord_t row_h = (lv_coord_t)(plot_h / TISSUE_COMPARTMENT_COUNT);
+    if (row_h <= 0) return;
     for (int i = 0; i < TISSUE_COMPARTMENT_COUNT; i++)
     {
-        lv_coord_t row_y1 = plot.y1 + (lv_coord_t)((i * plot_h) / TISSUE_COMPARTMENT_COUNT);
-        lv_coord_t row_y2 = plot.y1 + (lv_coord_t)((((i + 1) * plot_h) / TISSUE_COMPARTMENT_COUNT) - 1);
+        lv_coord_t row_y1 = plot.y1 + (lv_coord_t)(i * row_h);
+        lv_coord_t row_y2 = (lv_coord_t)(row_y1 + row_h - 1);
         lv_coord_t bar_y1 = (lv_coord_t)(row_y1 + 1);
         lv_coord_t bar_y2 = (lv_coord_t)(row_y2 - 1);
         int value_permille = (chart_active && s_deco_vm_cache.tissue_normalized_valid != 0U) ? (int)s_deco_vm_cache.tissue_bar_permille[i] : 0;
