@@ -3,10 +3,11 @@
 #include "../ui/core/data.h"
 #include "../ui/core/ui_dirty.h"
 #include "../algo_sim/deco_core.h"
-#include "sim_alert_policy.h"
 #ifndef PC_SIMULATOR
 #define PC_SIMULATOR
 #endif
+#include "sim_policy.h"
+#include "sim_alert_policy.h"
 #define DEBUG_LINK_PC_IMPLEMENTATION
 #include "debug_link_pc.h"
 #include "lvgl/lvgl.h"
@@ -41,15 +42,6 @@ static float sim_default_air_mod_m(void)
     float mod_m = bus_calculate_gas_mod(21U, 0U, 1.4f);
     return (mod_m > 0.0f) ? mod_m : 56.0f;
 }
-
-#define SIM_LAYOUT_PHASE_COUNT 4U
-#define SIM_LAYOUT_SWITCH_TICKS 5U
-#define SIM_DIVE_ENTRY_CONFIRM_S 3U       /* 入水确认秒数 */
-#define SIM_SURFACE_DEPTH_M 0.2f          /* 出水确认深度 */
-#define SIM_TEMP_C 99.9f
-#define SIM_SURFACE_PRESSURE_MBAR 1013.25f
-#define SIM_WATER_METERS_PER_BAR 10.0f
-#define SIM_HEADING_TIMER_MS 10U /* 指南针模拟刷新周期 */
 
 typedef enum
 {

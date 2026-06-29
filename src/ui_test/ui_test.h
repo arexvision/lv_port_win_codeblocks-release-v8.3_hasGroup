@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 bool ui_test_try_start(void);
+void ui_test_poll_runtime_control(void);
 
 #ifdef __cplusplus
 }

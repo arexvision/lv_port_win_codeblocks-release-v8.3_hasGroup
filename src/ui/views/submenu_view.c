@@ -80,6 +80,7 @@ static uint16_t s_logbook_detail_index = 0U;
 static uint16_t s_logbook_detail_display_index = 0U;
 static bool s_logbook_detail_loading = false;
 static bool s_logbook_picker_view_ready = false;
+static bool s_logbook_loading = false;
 static lv_obj_t *s_logbook_picker_title = NULL;
 static lv_obj_t *s_logbook_picker_count = NULL;
 static lv_obj_t *s_logbook_picker_page = NULL;
@@ -204,6 +205,7 @@ static void logbook_prefetch_start(uint16_t index);
 static bool logbook_prefetch_take(uint16_t index);
 static bool logbook_prefetch_take_wait(uint16_t index, uint32_t timeout_ms);
 static void logbook_picker_view_reset(void);
+static void logbook_picker_view_forget(void);
 static void logbook_picker_load_timer_cb(lv_timer_t *timer);
 static void logbook_detail_load_timer_cb(lv_timer_t *timer);
 static bool logbook_points_load(uint16_t index);
@@ -1147,36 +1149,24 @@ static void logbook_picker_sync_focus(void)
     }
 }
 
-static void logbook_picker_view_reset(void)
+static void logbook_delete_cached_obj(lv_obj_t **obj_ref)
 {
-    for (uint8_t i = 0U; i < LOGBOOK_PICKER_VISIBLE_ROWS; ++i)
+    if ((obj_ref == NULL) || (*obj_ref == NULL))
     {
-        if (s_logbook_picker_rows[i] != NULL)
-        {
-            lv_obj_del(s_logbook_picker_rows[i]);
-            s_logbook_picker_rows[i] = NULL;
-        }
+        return;
     }
-    if (s_logbook_picker_title != NULL)
+
+    /* picker 页会缓存多个 LVGL 对象用于快速翻页。页面切换时父容器可能已被清空，
+     * 删除前必须确认对象仍挂在 LVGL 树上，避免 stale 指针再次进入 lv_obj_del()。 */
+    if (lv_obj_is_valid(*obj_ref))
     {
-        lv_obj_del(s_logbook_picker_title);
+        lv_obj_del(*obj_ref);
     }
-    if (s_logbook_picker_count != NULL)
-    {
-        lv_obj_del(s_logbook_picker_count);
-    }
-    if (s_logbook_picker_page != NULL)
-    {
-        lv_obj_del(s_logbook_picker_page);
-    }
-    if (s_logbook_picker_back != NULL)
-    {
-        lv_obj_del(s_logbook_picker_back);
-    }
-    if (s_logbook_picker_next != NULL)
-    {
-        lv_obj_del(s_logbook_picker_next);
-    }
+    *obj_ref = NULL;
+}
+
+static void logbook_picker_view_forget(void)
+{
     s_logbook_picker_view_ready = false;
     s_logbook_picker_title = NULL;
     s_logbook_picker_count = NULL;
@@ -1191,6 +1181,20 @@ static void logbook_picker_view_reset(void)
         s_logbook_picker_left[i] = NULL;
         s_logbook_picker_right[i] = NULL;
     }
+}
+
+static void logbook_picker_view_reset(void)
+{
+    for (uint8_t i = 0U; i < LOGBOOK_PICKER_VISIBLE_ROWS; ++i)
+    {
+        logbook_delete_cached_obj(&s_logbook_picker_rows[i]);
+    }
+    logbook_delete_cached_obj(&s_logbook_picker_title);
+    logbook_delete_cached_obj(&s_logbook_picker_count);
+    logbook_delete_cached_obj(&s_logbook_picker_page);
+    logbook_delete_cached_obj(&s_logbook_picker_back);
+    logbook_delete_cached_obj(&s_logbook_picker_next);
+    logbook_picker_view_forget();
 }
 
 static void logbook_picker_load_timer_cb(lv_timer_t *timer)
@@ -1330,9 +1334,14 @@ static void logbook_detail_load_timer_cb(lv_timer_t *timer)
 
 static bool logbook_picker_snapshot_refresh(void)
 {
-    uint16_t count = logbook_backend_count();
-
     logbook_picker_cache_invalidate();
+    s_logbook_loading = !logbook_backend_is_ready();
+    if (s_logbook_loading)
+    {
+        return false;
+    }
+
+    uint16_t count = logbook_backend_count();
     if (count == 0U)
     {
         return false;
@@ -1659,6 +1668,14 @@ static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
     bool has_back = logbook_picker_has_back();
     bool has_next = logbook_picker_has_next();
 
+    if (s_logbook_picker_view_ready &&
+        ((s_logbook_picker_title == NULL) ||
+         !lv_obj_is_valid(s_logbook_picker_title) ||
+         (lv_obj_get_parent(s_logbook_picker_title) != parent)))
+    {
+        logbook_picker_view_forget();
+    }
+
     if (!s_logbook_picker_view_ready)
     {
         s_logbook_picker_title = logbook_label(parent, "DIVE LOG", FONT_ID_TITLE, GREEN, 18, title_y, panel_w, 32, LV_TEXT_ALIGN_LEFT);
@@ -1890,7 +1907,15 @@ static void submenu_populate_logbook(void)
 
     if (!s_logbook_valid)
     {
-        logbook_label(s_submenu_list, "NO LOGS", FONT_ID_MEDIUM, LIGHT, 0, logbook_compact_layout() ? 116 : 160, w, 48, LV_TEXT_ALIGN_CENTER);
+        logbook_label(s_submenu_list,
+                      s_logbook_loading ? "LOADING" : "NO LOGS",
+                      FONT_ID_MEDIUM,
+                      LIGHT,
+                      0,
+                      logbook_compact_layout() ? 116 : 160,
+                      w,
+                      48,
+                      LV_TEXT_ALIGN_CENTER);
         (void)h;
         ui_state_set_sub_item_count(0U);
         ui_state_set_sub_menu_idx(0U);
@@ -1977,6 +2002,7 @@ void submenu_view_reset(void)
     logbook_picker_stop_loader();
     logbook_detail_stop_loader();
     logbook_picker_cache_invalidate();
+    logbook_picker_view_forget();
     s_submenu_layer = NULL;
     s_submenu_title = NULL;
     s_submenu_title_line = NULL;
@@ -2524,9 +2550,43 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
 {
     if (!s_submenu_title || !s_submenu_list) return;
 
+    if ((menu_runtime_current_id() == MENU_INFO_LAST_DIVE) && !bus_is_last_dive_ready())
+    {
+        const uint16_t w = submenu_right_width();
+        const uint16_t h = s_submenu_height;
+        const int16_t title_y = (int16_t)((h > 120U) ? ((h / 2U) - 46U) : 30U);
+        const int16_t loading_y = (int16_t)(title_y + 44);
+
+        if (s_logbook_picker_view_ready)
+        {
+            logbook_picker_view_reset();
+        }
+        lv_label_set_text(s_submenu_title, "LAST DIVE");
+        lv_obj_add_flag(s_submenu_title, LV_OBJ_FLAG_HIDDEN);
+        if (s_submenu_title_line)
+        {
+            lv_obj_add_flag(s_submenu_title_line, LV_OBJ_FLAG_HIDDEN);
+        }
+        submenu_list_set_page_geometry();
+        lv_obj_clean(s_submenu_list);
+        s_light_status_lbl = NULL;
+        logbook_label(s_submenu_list, "LAST DIVE", FONT_ID_TITLE, GREEN, 0, title_y, w, 36U, LV_TEXT_ALIGN_CENTER);
+        logbook_label(s_submenu_list, "LOADING...", FONT_ID_MEDIUM, LIGHT, 0, loading_y, w, 40U, LV_TEXT_ALIGN_CENTER);
+        ui_state_set_sub_item_count(0U);
+        ui_state_set_sub_menu_idx(0U);
+        (void)rows;
+        (void)count;
+        (void)title;
+        return;
+    }
+
     bool is_dive_plan = menu_runtime_is_dive_plan();
     if (is_dive_plan)
     {
+        if (s_logbook_picker_view_ready)
+        {
+            logbook_picker_view_reset();
+        }
         /* DIVE PLAN 不是普通“纵向菜单列表”，而是一个借用子菜单层承载的独立页面。
          * 因此标题栏、列表尺寸和选中态逻辑都要切到专用分支。 */
         lv_label_set_text(s_submenu_title, "DIVE PLAN");
@@ -2868,6 +2928,27 @@ void screen_refresh_info_submenu_if_open(void)
     }
 
     refresh_info_submenu_page(ui_state_get_sub_menu_idx());
+}
+
+void screen_refresh_logbook_if_open(void)
+{
+    if (!s_submenu_title || !s_submenu_list)
+    {
+        return;
+    }
+    const bool log_related_page =
+        menu_runtime_is_logbook() || (menu_runtime_current_id() == MENU_INFO_LAST_DIVE);
+
+    if ((ui_state_get_state() != UI_SUB_MENU) ||
+        (ui_state_get_sub_parent() != UI_INFO) ||
+        (ui_state_get_sub_history_depth() != 0U) ||
+        !log_related_page)
+    {
+        return;
+    }
+
+    logbook_load_current();
+    submenu_populate_current();
 }
 
 void screen_refresh_settings_submenu_if_open(void)

@@ -3241,6 +3241,11 @@ uint16_t logbook_backend_count(void)
     return s_logbook_count;
 }
 
+bool logbook_backend_is_ready(void)
+{
+    return true;
+}
+
 bool logbook_backend_get_summary(uint16_t index, logbook_entry_t *out_entry)
 {
     if ((out_entry == NULL) || (index >= s_logbook_count))
@@ -3410,6 +3415,12 @@ bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry)
 }
 #else
 __attribute__((weak))
+bool logbook_backend_is_ready(void)
+{
+    return true;
+}
+
+__attribute__((weak))
 uint16_t logbook_backend_count(void)
 {
     return 0U;
@@ -3543,6 +3554,11 @@ bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry)
     return last_dive_snapshot_load_latest(out_entry);
 }
 #endif
+
+bool bus_is_last_dive_ready(void)
+{
+    return logbook_backend_is_ready();
+}
 
 /* =========================================================
  * Legacy 配置接口兼容占位

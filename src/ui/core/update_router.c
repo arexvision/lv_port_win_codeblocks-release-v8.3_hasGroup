@@ -475,6 +475,11 @@ void ui_update_router_dispatch(dirty_mask_t mask)
         /* 告警动画与样式节拍在 ui_update_task() 统一推进，router 只负责消费脏标记。 */
     }
 
+    if (mask & DIRTY_LOGBOOK)
+    {
+        screen_refresh_logbook_if_open();
+    }
+
     if (mask & DIRTY_INFO_REFRESH_MASK)
     {
         uint32_t start_ms = lv_tick_get();

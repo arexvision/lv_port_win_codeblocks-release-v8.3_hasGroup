@@ -20,6 +20,7 @@
 #include "../alarm/alarm_view.h"
 #include <stdio.h>
 #include "../views/submenu_dive_plan_state.h"
+#include "../../ui_test/ui_test.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -540,6 +541,8 @@ void ui_update_flush_pending_once(void)
 void ui_update_task(lv_timer_t *timer)
 {
     (void)timer;
+
+    ui_test_poll_runtime_control();
 
     {
         alarm_view_context_t ctx;

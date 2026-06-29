@@ -88,6 +88,15 @@ void ui_vm_info_lines_update(ui_vm_info_lines_t *vm, uint8_t info_group_index)
         logbook_entry_t last_dive;
 
         vm_format_duration(surface_time, sizeof(surface_time), bus_get_surface_time_s());
+        if (!bus_is_last_dive_ready())
+        {
+            (void)snprintf(vm->lines[0], sizeof(vm->lines[0]), "LAST DIVE");
+            (void)snprintf(vm->lines[1], sizeof(vm->lines[1]), "LOADING...");
+            (void)snprintf(vm->lines[2], sizeof(vm->lines[2]), "SURFACE: %s", surface_time);
+            vm->count = 3U;
+            break;
+        }
+
         if (!bus_get_last_dive_snapshot(&last_dive))
         {
             (void)snprintf(vm->lines[0], sizeof(vm->lines[0]), "NO LAST DIVE");

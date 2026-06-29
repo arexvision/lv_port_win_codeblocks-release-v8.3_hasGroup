@@ -122,6 +122,7 @@ void screen_open_setup_submenu(uint8_t item_idx);
 void screen_handle_submenu_select(uint8_t item_idx);
 void screen_close_submenu(void);
 void screen_refresh_info_submenu_if_open(void);
+void screen_refresh_logbook_if_open(void);
 void screen_refresh_settings_submenu_if_open(void);
 bool screen_handle_dive_plan_rotate(int8_t dir);
 bool screen_handle_logbook_rotate(int8_t dir);

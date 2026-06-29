@@ -35,6 +35,37 @@
 #define UI_LVGL_PAGE_STRESS_UPDATE_PERIOD_MS 100
 #define UI_LVGL_PAGE_STRESS_SWITCH_PERIOD_MS 3000
 
+/*
+ * LVGL pseudo monkey test.
+ *
+ * Purpose:
+ * - By default, inject rotate/click/back/layout-dirty events around the short
+ *   window after page navigation or while LVGL animations are running.
+ * - Use "ui_monkey start full" only when business-data, fixed alarm and
+ *   custom-alarm injection is also needed.
+ * - Monitor LVGL heap, RT-Thread heap and LVGL thread stack watermark.
+ *
+ * Usage:
+ * - Set UI_LVGL_MONKEY_TEST_ENABLED to 1 and rebuild.
+ * - Run "ui_monkey start" from MSH for UI-only mode.
+ * - Run "ui_monkey start full" for UI + business-data + alarm mode.
+ * - Run "ui_monkey stop" to stop timers and print the final summary.
+ */
+#define UI_LVGL_MONKEY_TEST_ENABLED 1
+#define UI_LVGL_MONKEY_AUTO_START 0
+#define UI_LVGL_MONKEY_INJECT_PERIOD_MS 15U
+#define UI_LVGL_MONKEY_MONITOR_PERIOD_MS 2000U
+#define UI_LVGL_MONKEY_BLIND_WINDOW_MS 100U
+#define UI_LVGL_MONKEY_WIDE_ACTION_INTERVAL 16U
+#define UI_LVGL_MONKEY_WIDE_ROTATE_MAX_STEPS 18U
+#define UI_LVGL_MONKEY_ESCAPE_BACK_MAX 4U
+#define UI_LVGL_MONKEY_BASELINE_DELAY_MS 300000U
+#define UI_LVGL_MONKEY_DURATION_MS 3600000U
+#define UI_LVGL_MONKEY_LV_MEM_TOLERANCE_BYTES 16384U
+#define UI_LVGL_MONKEY_RT_MEM_TOLERANCE_BYTES 16384U
+#define UI_LVGL_MONKEY_MEMORY_FAIL_CONFIRM_SAMPLES 3U
+#define UI_LVGL_MONKEY_STACK_MIN_FREE_BYTES 2048U
+
 #if (UI_OPTICAL_GHOST_TEST_ENABLED != 0) && (UI_OPTICAL_GHOST_TEST_ENABLED != 1)
 #error "UI_OPTICAL_GHOST_TEST_ENABLED must be 0 or 1"
 #endif
@@ -49,6 +80,30 @@
 
 #if (UI_LVGL_PAGE_STRESS_FORCE_FULL_INVALIDATE != 0) && (UI_LVGL_PAGE_STRESS_FORCE_FULL_INVALIDATE != 1)
 #error "UI_LVGL_PAGE_STRESS_FORCE_FULL_INVALIDATE must be 0 or 1"
+#endif
+
+#if (UI_LVGL_MONKEY_TEST_ENABLED != 0) && (UI_LVGL_MONKEY_TEST_ENABLED != 1)
+#error "UI_LVGL_MONKEY_TEST_ENABLED must be 0 or 1"
+#endif
+
+#if (UI_LVGL_MONKEY_AUTO_START != 0) && (UI_LVGL_MONKEY_AUTO_START != 1)
+#error "UI_LVGL_MONKEY_AUTO_START must be 0 or 1"
+#endif
+
+#if UI_LVGL_MONKEY_WIDE_ACTION_INTERVAL < 1U
+#error "UI_LVGL_MONKEY_WIDE_ACTION_INTERVAL must be at least 1"
+#endif
+
+#if UI_LVGL_MONKEY_WIDE_ROTATE_MAX_STEPS < 3U
+#error "UI_LVGL_MONKEY_WIDE_ROTATE_MAX_STEPS must be at least 3"
+#endif
+
+#if UI_LVGL_MONKEY_ESCAPE_BACK_MAX < 1U
+#error "UI_LVGL_MONKEY_ESCAPE_BACK_MAX must be at least 1"
+#endif
+
+#if UI_LVGL_MONKEY_MEMORY_FAIL_CONFIRM_SAMPLES < 1U
+#error "UI_LVGL_MONKEY_MEMORY_FAIL_CONFIRM_SAMPLES must be at least 1"
 #endif
 
 #if UI_LVGL_PAGE_STRESS_PAGE_COUNT < 2

@@ -35,7 +35,7 @@ extern "C" {
 #define UI_DIVE_START_DEPTH_MIN_M       0.3f /* 入水判定最浅深度 */
 #define UI_DIVE_START_DEPTH_MAX_M       2.0f /* 入水判定最深深度 */
 #define UI_DIVE_START_DEPTH_STEP_M      0.1f /* 入水判定步进深度 */
-#define UI_DIVE_START_DEPTH_DEFAULT_M   1.0f /* 入水判定默认深度 */
+#define UI_DIVE_START_DEPTH_DEFAULT_M   1.6f /* 入水判定默认深度 */
 
 #define UI_TEMP_UNIT_C         0U
 #define UI_TEMP_UNIT_F         1U
