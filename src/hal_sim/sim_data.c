@@ -846,7 +846,7 @@ static void sim_tick_cb(lv_timer_t *t)
         for (uint16_t tick = 0; tick < time_scale; tick++) {
             bool goto_reached = false;
             s_sim.runtime_tick_s++;
-            current_depth_m = g_sensor_data.depth;
+            current_depth_m = s_sim.depth_m;
             if (debug_link_pc_depth_goto_step(current_depth_m, &current_depth_m, &goto_reached)) {
                 if (goto_reached) {
                     bus_set_depth_force(current_depth_m);
@@ -855,6 +855,8 @@ static void sim_tick_cb(lv_timer_t *t)
                 } else {
                     bus_set_depth(current_depth_m);
                 }
+            } else {
+                current_depth_m = g_sensor_data.depth;
             }
             s_sim.depth_m = current_depth_m;
             sim_lifecycle_tick(current_depth_m);
