@@ -55,6 +55,10 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bo
 #define DEBUG_DEPTH_GOTO_MIN_MPM 0.1f
 #define DEBUG_DEPTH_GOTO_MAX_MPM 120.0f
 #define DEBUG_DEPTH_GOTO_EPSILON_M 0.01f
+#define DEBUG_DEPTH_GLITCH_DEFAULT_MIN_M 0.0f
+#define DEBUG_DEPTH_GLITCH_DEFAULT_MAX_M 45.0f
+#define DEBUG_DEPTH_GLITCH_DEFAULT_SPIKE_M 30.0f
+#define DEBUG_DEPTH_GLITCH_MAX_M 200.0f
 #define DEBUG_HEADING_SPEED_MAX_DPS 3600U      /* 指南针模拟最大度/秒 */
 #define DEBUG_RTC_VALID_AFTER_EPOCH 1577836800LL
 #define DEBUG_RTC_OFFLINE_MAX_SECONDS (30UL * 24UL * 60UL * 60UL)
@@ -92,6 +96,11 @@ typedef struct
     bool depth_goto_active;
     float depth_goto_target_m;
     float depth_goto_rate_mpm;
+    bool depth_glitch_active;
+    bool depth_glitch_rand_seeded;
+    float depth_glitch_min_m;
+    float depth_glitch_max_m;
+    float depth_glitch_spike_m;
     bool rtc_sleep_mark_valid;
     time_t rtc_sleep_mark;
     debug_link_pc_rtc_offline_fn rtc_offline_handler;
@@ -403,6 +412,73 @@ static void debug_depth_goto_cancel(void)
     s_debug_link.depth_goto_rate_mpm = 0.0f;
 }
 
+static void debug_depth_glitch_cancel(void)
+{
+    s_debug_link.depth_glitch_active = false;
+    s_debug_link.depth_glitch_min_m = 0.0f;
+    s_debug_link.depth_glitch_max_m = 0.0f;
+    s_debug_link.depth_glitch_spike_m = 0.0f;
+}
+
+static float debug_random_0_1(void)
+{
+    return (float)rand() / (float)RAND_MAX;
+}
+
+static float debug_random_range(float min_value, float max_value)
+{
+    return min_value + (max_value - min_value) * debug_random_0_1();
+}
+
+static bool debug_depth_glitch_start(float min_depth_m, float max_depth_m, float spike_m)
+{
+    if (min_depth_m < 0.0f) min_depth_m = 0.0f;
+    if (max_depth_m < 0.0f) max_depth_m = 0.0f;
+    if (spike_m < 0.0f) spike_m = -spike_m;
+    if (min_depth_m > max_depth_m)
+    {
+        float swap_depth_m = min_depth_m;
+        min_depth_m = max_depth_m;
+        max_depth_m = swap_depth_m;
+    }
+    if (max_depth_m > DEBUG_DEPTH_GLITCH_MAX_M || spike_m > DEBUG_DEPTH_GLITCH_MAX_M)
+    {
+        debug_sendf("ERR glitch max %.0fm, spike max %.0fm\r\n", (double)DEBUG_DEPTH_GLITCH_MAX_M, (double)DEBUG_DEPTH_GLITCH_MAX_M);
+        return false;
+    }
+    if (max_depth_m <= 0.0f && spike_m <= 0.0f)
+    {
+        debug_send_raw("ERR usage: glitch on [min max spike speed] | glitch <min> <max> [spike speed] | glitch off\r\n");
+        return false;
+    }
+
+    if (!s_debug_link.depth_glitch_rand_seeded)
+    {
+        srand((unsigned)time(NULL) ^ (unsigned)lv_tick_get());
+        s_debug_link.depth_glitch_rand_seeded = true;
+    }
+
+    debug_depth_goto_cancel();
+    s_debug_link.depth_glitch_active = true;
+    s_debug_link.depth_glitch_min_m = min_depth_m;
+    s_debug_link.depth_glitch_max_m = max_depth_m;
+    s_debug_link.depth_glitch_spike_m = spike_m;
+    s_debug_link.depth_rate_valid = false;
+    return true;
+}
+
+static float debug_depth_glitch_next_depth(void)
+{
+    float depth_m = debug_random_range(s_debug_link.depth_glitch_min_m, s_debug_link.depth_glitch_max_m);
+    if (s_debug_link.depth_glitch_spike_m > 0.0f && (rand() % 4) == 0)
+    {
+        depth_m += debug_random_range(-s_debug_link.depth_glitch_spike_m, s_debug_link.depth_glitch_spike_m);
+    }
+    if (depth_m < 0.0f) depth_m = 0.0f;
+    if (depth_m > DEBUG_DEPTH_GLITCH_MAX_M) depth_m = DEBUG_DEPTH_GLITCH_MAX_M;
+    return depth_m;
+}
+
 static bool debug_rtc_now(time_t *out_now)
 {
     time_t now;
@@ -445,6 +521,7 @@ static bool debug_apply_rtc_offline_seconds(uint32_t seconds, const char *ok_nam
     }
 
     debug_depth_goto_cancel();
+    debug_depth_glitch_cancel();
     bus_set_ascent_rate(0.0f);
     s_debug_link.depth_rate_valid = false;
     debug_sendf("OK %s %lu AIR\r\n", ok_name ? ok_name : "rtc_offline", (unsigned long)seconds);
@@ -490,6 +567,7 @@ static bool debug_depth_goto_start(float target_depth_m, float rate_mpm)
         return false;
     }
 
+    debug_depth_glitch_cancel();
     s_debug_link.depth_goto_active = true;
     s_debug_link.depth_goto_target_m = target_depth_m;
     s_debug_link.depth_goto_rate_mpm = rate_mpm;
@@ -508,6 +586,7 @@ static void debug_apply_depth_sample(float depth)
     }
 
     debug_depth_goto_cancel();
+    debug_depth_glitch_cancel();
 
     sample_time_s = g_sensor_data.dive_time_s;
     s_debug_link.sample_time_s = sample_time_s;
@@ -589,7 +668,8 @@ static void debug_send_help(void)
         "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back [2] | manual on|off | auto on|off | speed <1..120> | heading_speed <0..3600>\r\n"
-        "  depth <m> | goto <m> [m_min]|stop | sample <time_s> <depth_m> | rate <m_min> | time <s>\r\n"
+        "  depth <m> | goto <m> [m_min]|stop | glitch on [min max spike speed] | glitch <min> <max> [spike speed] | glitch off\r\n"
+        "  sample <time_s> <depth_m> | rate <m_min> | time <s>\r\n"
         "  rtc_offline <seconds> | rtc_sleep_mark | rtc_sleep_apply | rtc_sleep_status\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
         "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
@@ -601,13 +681,13 @@ static void debug_send_help(void)
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "  alert ids: asc po2 po2min po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
-        "Slots are 0-based. TCP disables the auto depth script; goto defaults to 18m/min down, 10m/min up; optional goto speed uses simulated time.\r\n");
+        "Slots are 0-based. TCP disables the auto depth script; goto defaults to 18m/min down, 10m/min up; speed accelerates goto/glitch simulated time.\r\n");
 }
 
 static void debug_send_state(void)
 {
     debug_sendf(
-        "STATE tcp=%u depth_manual=%u manual=%u speed=%u heading_speed=%u goto=%u target=%.1f goto_rate=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
+        "STATE tcp=%u depth_manual=%u manual=%u speed=%u heading_speed=%u goto=%u target=%.1f goto_rate=%.1f glitch=%u glitch_range=%.1f..%.1f glitch_spike=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
@@ -616,6 +696,10 @@ static void debug_send_state(void)
         s_debug_link.depth_goto_active ? 1U : 0U,
         (double)s_debug_link.depth_goto_target_m,
         (double)s_debug_link.depth_goto_rate_mpm,
+        s_debug_link.depth_glitch_active ? 1U : 0U,
+        (double)s_debug_link.depth_glitch_min_m,
+        (double)s_debug_link.depth_glitch_max_m,
+        (double)s_debug_link.depth_glitch_spike_m,
         (double)g_sensor_data.depth,
         (double)g_sensor_data.ascent_rate,
         (unsigned long)g_sensor_data.dive_time_s,
@@ -991,6 +1075,7 @@ static void debug_exec_line(char *line)
         if (debug_streq(arg, "stop") || debug_streq(arg, "cancel") || debug_streq(arg, "off"))
         {
             debug_depth_goto_cancel();
+            debug_depth_glitch_cancel();
             debug_send_raw("OK goto off\r\n");
             return;
         }
@@ -1017,6 +1102,67 @@ static void debug_exec_line(char *line)
         {
             debug_sendf("OK goto %.1f auto\r\n", (double)s_debug_link.depth_goto_target_m);
         }
+        return;
+    }
+
+    if (debug_streq(cmd, "glitch") || debug_streq(cmd, "spike"))
+    {
+        float min_depth_m = DEBUG_DEPTH_GLITCH_DEFAULT_MIN_M;
+        float max_depth_m = DEBUG_DEPTH_GLITCH_DEFAULT_MAX_M;
+        float spike_m = DEBUG_DEPTH_GLITCH_DEFAULT_SPIKE_M;
+        int speed = 0;
+        char *first_arg = debug_next_token(&cursor);
+        char *min_arg = NULL;
+        char *max_arg = NULL;
+        char *spike_arg = NULL;
+        char *speed_arg = NULL;
+
+        if (!first_arg || debug_streq(first_arg, "on") || debug_streq(first_arg, "start") || debug_streq(first_arg, "random"))
+        {
+            min_arg = debug_next_token(&cursor);
+        }
+        else if (debug_streq(first_arg, "off") || debug_streq(first_arg, "stop") || debug_streq(first_arg, "cancel"))
+        {
+            debug_depth_glitch_cancel();
+            bus_set_ascent_rate(0.0f);
+            s_debug_link.depth_rate_valid = false;
+            debug_send_raw("OK glitch off\r\n");
+            return;
+        }
+        else
+        {
+            min_arg = first_arg;
+        }
+
+        if (min_arg)
+        {
+            max_arg = debug_next_token(&cursor);
+            spike_arg = debug_next_token(&cursor);
+            speed_arg = debug_next_token(&cursor);
+            if (!debug_parse_float(min_arg, &min_depth_m) ||
+                    !debug_parse_float(max_arg, &max_depth_m) ||
+                    (spike_arg && !debug_parse_float(spike_arg, &spike_m)) ||
+                    (speed_arg && (!debug_parse_int(speed_arg, &speed) || speed < 1 || speed > 120)) ||
+                    debug_next_token(&cursor) != NULL)
+            {
+                debug_send_raw("ERR usage: glitch on [min max spike speed] | glitch <min> <max> [spike speed] | glitch off\r\n");
+                return;
+            }
+        }
+
+        if (!debug_depth_glitch_start(min_depth_m, max_depth_m, spike_m))
+        {
+            return;
+        }
+        if (speed > 0)
+        {
+            s_debug_link.time_scale = (uint16_t)speed;
+        }
+        debug_sendf("OK glitch %.1f..%.1f spike=%.1f speed=%u\r\n",
+                    (double)s_debug_link.depth_glitch_min_m,
+                    (double)s_debug_link.depth_glitch_max_m,
+                    (double)s_debug_link.depth_glitch_spike_m,
+                    (unsigned)debug_link_pc_time_scale());
         return;
     }
 
@@ -1065,6 +1211,7 @@ static void debug_exec_line(char *line)
         else
         {
             debug_depth_goto_cancel();
+            debug_depth_glitch_cancel();
         }
         debug_sendf("OK manual %s\r\n", enabled ? "on" : "off");
         return;
@@ -1083,6 +1230,7 @@ static void debug_exec_line(char *line)
         if (enabled)
         {
             debug_depth_goto_cancel();
+            debug_depth_glitch_cancel();
         }
         debug_sendf("OK auto %s\r\n", enabled ? "on" : "off");
         return;
@@ -1113,6 +1261,7 @@ static void debug_exec_line(char *line)
             return;
         }
         debug_depth_goto_cancel();
+        debug_depth_glitch_cancel();
         bus_set_dive_time((uint32_t)time_s);
         dive_log_append_sampled((float)time_s, depth);
         bus_set_depth(depth);
@@ -1646,6 +1795,7 @@ static void debug_process_rx_bytes(const char *data, int len)
 static void debug_disconnect_client(void)
 {
     debug_depth_goto_cancel();
+    debug_depth_glitch_cancel();
     debug_close_socket(&s_debug_link.client);
     s_debug_link.rx_len = 0;
     printf("[DBG] TCP debug client disconnected\r\n");
@@ -1671,6 +1821,7 @@ static void debug_poll_cb(lv_timer_t *timer)
             s_debug_link.connect_event = true;
             s_debug_link.time_scale = 1;
             debug_depth_goto_cancel();
+            debug_depth_glitch_cancel();
             s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
             s_debug_link.depth_rate_valid = false;
             s_debug_link.depth_rate_last_m = g_sensor_data.depth;
@@ -1797,13 +1948,24 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bo
     float step_m;
     float next_depth_m;
 
-    if (!s_debug_link.depth_goto_active || !out_depth_m)
+    if (!out_depth_m)
     {
         return false;
     }
     if (out_reached)
     {
         *out_reached = false;
+    }
+
+    if (s_debug_link.depth_glitch_active)
+    {
+        *out_depth_m = debug_depth_glitch_next_depth();
+        return true;
+    }
+
+    if (!s_debug_link.depth_goto_active)
+    {
+        return false;
     }
 
     target_depth_m = s_debug_link.depth_goto_target_m;
