@@ -150,7 +150,7 @@ void menu_entry_create(lv_obj_t *parent)
     uint16_t list_y = (CARD_TITLE_H > MENU_LIST_TOP_NUDGE_PX) ? (uint16_t)(CARD_TITLE_H - MENU_LIST_TOP_NUDGE_PX) : CARD_TITLE_H;
     uint16_t visible_h = ui_content_h_get() > list_y ? (uint16_t)(ui_content_h_get() - list_y) : list_h;
 
-    render_card_title(parent, "MENU");
+    render_card_title(parent, "MENU HUB");
 
     s_menu_entry_list = lv_obj_create(parent);
     lv_obj_remove_style_all(s_menu_entry_list);
