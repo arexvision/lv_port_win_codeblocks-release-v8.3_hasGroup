@@ -301,7 +301,7 @@ static const comp_style_t g_widget_styles[] =
     },
     {
         .widget_id = COMP_TISSUE_GF_4012,
-        .span_w = 5, .span_h = 3,
+        .span_w = 5, .span_h = 2,
         .elements = ELEM_TITLE | ELEM_BAR,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_MEDIUM,
@@ -315,7 +315,7 @@ static const comp_style_t g_widget_styles[] =
     },
     {
         .widget_id = COMP_TISSUE_RAW_4012,
-        .span_w = 5, .span_h = 3,
+        .span_w = 5, .span_h = 2,
         .elements = ELEM_TITLE | ELEM_BAR,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_MEDIUM,

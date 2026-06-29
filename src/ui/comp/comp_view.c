@@ -53,8 +53,6 @@ LV_IMG_DECLARE(sudo_down_level6);
 #define TISSUE_CHART_LIMIT_PERMILLE 900
 #define TISSUE_CHART_MAX_PERMILLE 1000
 #define TISSUE_CHART_PAD_Y       1       /* 图表上下留白 */
-#define TISSUE_CHART_HEADROOM    34U     /* 标题区预留 */
-#define TISSUE_CHART_BOTTOM_PAD  4       /* 图表底部留白 */
 #define DEPTH_1612_DECIMAL_ANCHOR_TEXT ".0"
 #define TISSUE_CHART_COLOR_BG      lv_color_make(0x00, 0x00, 0x00) /* 纯黑背景 */
 #define TISSUE_CHART_COLOR_PI      lv_color_make(0x00, 0x33, 0x00) /* PI 虚线 20% */
@@ -1613,8 +1611,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
                 h->chart = lv_obj_create(obj);
                 lv_obj_remove_style_all(h->chart);
-                lv_obj_set_size(h->chart, abs_w - 10U, abs_h - TISSUE_CHART_HEADROOM - TISSUE_CHART_BOTTOM_PAD);
-                lv_obj_align(h->chart, LV_ALIGN_BOTTOM_MID, 0, -TISSUE_CHART_BOTTOM_PAD);
+                lv_obj_set_size(h->chart, abs_w - 10U, abs_h - 42U);
+                lv_obj_align(h->chart, LV_ALIGN_BOTTOM_MID, 0, -8);
                 lv_obj_add_event_cb(h->chart, tissue_chart_draw_cb, LV_EVENT_DRAW_MAIN, h);
                 lv_obj_add_flag(h->chart, LV_OBJ_FLAG_HIDDEN);
 
