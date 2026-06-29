@@ -28,6 +28,7 @@
 #define TISSUE_UI_MVALUE_PERMILLE 900    /* M 值固定线 */
 #define TISSUE_UI_MAX_PERMILLE   1000    /* 归一化条长上限 */
 #define TISSUE_LABEL_H           18      /* 图表底部标签高度 */
+#define TISSUE_LABEL_GAP_Y       4       /* 图表与标签间距 */
 #define TISSUE_PLOT_PAD_Y        1       /* 图表上下留白 */
 #define TISSUE_COLOR_BG          lv_color_make(0x00, 0x00, 0x00) /* 纯黑背景 */
 #define TISSUE_COLOR_PI          lv_color_make(0x00, 0x33, 0x00) /* PI 虚线 20% */
@@ -228,7 +229,7 @@ static void tissue_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t 
 static void tissue_draw_scale_label(lv_draw_ctx_t *draw_ctx, lv_draw_label_dsc_t *label_dsc, const lv_area_t *area, const lv_area_t *plot, int permille, const char *text)
 {
     lv_coord_t x = tissue_x_for_permille(plot, permille);
-    lv_area_t t_area = {(lv_coord_t)(x - 24), (lv_coord_t)(plot->y2 + 1), (lv_coord_t)(x + 24), area->y2};
+    lv_area_t t_area = {(lv_coord_t)(x - 24), (lv_coord_t)(plot->y2 + TISSUE_LABEL_GAP_Y), (lv_coord_t)(x + 24), area->y2};
     lv_draw_label(draw_ctx, label_dsc, &t_area, text, NULL);
 }
 
@@ -257,6 +258,7 @@ static void tissue_chart_draw_cb(lv_event_t *e)
     plot_h = lv_area_get_height(&plot);
     lv_coord_t row_h = (lv_coord_t)(plot_h / TISSUE_COMPARTMENT_COUNT);
     if (row_h <= 0) return;
+    tissue_draw_rect(draw_ctx, &rect_dsc, plot.x1, plot.y1, plot.x2, plot.y1, TISSUE_COLOR_PI, LV_OPA_COVER);
     for (int i = 0; i < TISSUE_COMPARTMENT_COUNT; i++)
     {
         lv_coord_t row_y1 = plot.y1 + (lv_coord_t)(i * row_h);

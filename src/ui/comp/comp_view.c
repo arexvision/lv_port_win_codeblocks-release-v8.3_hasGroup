@@ -1142,6 +1142,7 @@ static void tissue_draw_normalized_chart(lv_draw_ctx_t *draw_ctx, const lv_area_
     int plot_h = lv_area_get_height(&plot);
     lv_coord_t row_h = (lv_coord_t)(plot_h / TISSUE_LEAD_COUNT);
     if (row_h <= 0) return;
+    tissue_draw_rect_area(draw_ctx, &rect_dsc, plot.x1, plot.y1, plot.x2, plot.y1, TISSUE_CHART_COLOR_PI, LV_OPA_COVER);
     for (uint8_t i = 0U; i < TISSUE_LEAD_COUNT; i++)
     {
         lv_coord_t row_y1 = plot.y1 + (lv_coord_t)(i * row_h);
