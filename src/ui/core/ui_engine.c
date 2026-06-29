@@ -228,7 +228,7 @@ void sys_config_defaults(sys_config_t *cfg)
             { COMP_TMAG_2406, 0, 4 }, { COMP_SENSOR_STAT_1606, 3, 4 }, { COMP_ATTITUDE_2406, 0, 5 },
         },
         {
-            { COMP_TISSUE_GF_4012, 0, 0 }, { COMP_TISSUE_RAW_4012, 0, 2 },
+            { COMP_TISSUE_GF_4012, 0, 0 }, { COMP_TISSUE_RAW_4012, 0, 3 },
         },
     };
 
