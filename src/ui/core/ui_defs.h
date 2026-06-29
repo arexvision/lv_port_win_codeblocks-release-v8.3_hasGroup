@@ -68,6 +68,11 @@ extern "C" {
 #define ANCHOR_SEP_THICK          3       /* 固定栏和内容区分隔条厚度 */
 #define ANCHOR_SEP_STYLE          SEP_SOLID  /* 固定栏和内容区分隔条样式 */
 
+#ifndef ASCENT_ICON_USE_FINE_LEVELS
+#define ASCENT_ICON_USE_FINE_LEVELS  0U   /* 速率图标分级：0=旧三档映射0/3/6，1=新七档0~6 */
+#endif
+#define RATE_LEGACY_LEVEL1_THRESHOLD  3.0f  /* 旧三档 level1 阈值，m/min */
+#define RATE_LEGACY_LEVEL2_THRESHOLD  9.0f  /* 旧三档 level2 阈值，m/min */
 #define RATE_UP_LEVEL2_THRESHOLD    2.0f   /* 上升 level2 阈值，m/min */
 #define RATE_UP_LEVEL3_THRESHOLD    5.0f   /* 上升 level3 阈值，m/min */
 #define RATE_UP_LEVEL4_THRESHOLD    8.0f   /* 上升 level4 阈值，m/min */

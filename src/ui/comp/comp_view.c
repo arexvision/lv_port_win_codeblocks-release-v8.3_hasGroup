@@ -1918,6 +1918,7 @@ void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)
     }
     else if (current_direction > 0)
     {
+#if ASCENT_ICON_USE_FINE_LEVELS
         if (vm->rate >= RATE_UP_LEVEL6_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level6 : &sudo_up_level0;
         else if (vm->rate >= RATE_UP_LEVEL5_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level5 : &sudo_up_level0;
         else if (vm->rate >= RATE_UP_LEVEL4_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level4 : &sudo_up_level0;
@@ -1925,10 +1926,16 @@ void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)
         else if (vm->rate >= RATE_UP_LEVEL2_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level2 : &sudo_up_level0;
         else if (vm->rate > RATE_STILL_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level1 : &sudo_up_level0;
         else target_img_src = &sudo_up_level0;
+#else
+        if (vm->rate >= RATE_LEGACY_LEVEL2_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level6 : &sudo_up_level0;
+        else if (vm->rate >= RATE_LEGACY_LEVEL1_THRESHOLD) target_img_src = current_flash_state ? &sudo_up_level3 : &sudo_up_level0;
+        else target_img_src = &sudo_up_level0;
+#endif
     }
     else
     {
         float down_rate_mpm = -vm->rate;
+#if ASCENT_ICON_USE_FINE_LEVELS
         if (down_rate_mpm >= RATE_DOWN_LEVEL6_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level6 : &sudo_down_level0;
         else if (down_rate_mpm >= RATE_DOWN_LEVEL5_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level5 : &sudo_down_level0;
         else if (down_rate_mpm >= RATE_DOWN_LEVEL4_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level4 : &sudo_down_level0;
@@ -1936,6 +1943,11 @@ void comp_refresh_ascent_icons(const ui_vm_ascent_t *vm)
         else if (down_rate_mpm >= RATE_DOWN_LEVEL2_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level2 : &sudo_down_level0;
         else if (down_rate_mpm > RATE_STILL_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level1 : &sudo_down_level0;
         else target_img_src = &sudo_down_level0;
+#else
+        if (down_rate_mpm >= RATE_LEGACY_LEVEL2_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level6 : &sudo_down_level0;
+        else if (down_rate_mpm >= RATE_LEGACY_LEVEL1_THRESHOLD) target_img_src = current_flash_state ? &sudo_down_level3 : &sudo_down_level0;
+        else target_img_src = &sudo_down_level0;
+#endif
     }
 
     if (current_direction != 0)
