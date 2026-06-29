@@ -28,6 +28,7 @@
 #define TISSUE_UI_MVALUE_PERMILLE 900    /* M 值固定线 */
 #define TISSUE_UI_MAX_PERMILLE   1000    /* 归一化条长上限 */
 #define TISSUE_LABEL_H           18      /* 图表底部标签高度 */
+#define TISSUE_PLOT_PAD_Y        1       /* 图表上下留白 */
 #define TISSUE_COLOR_BG          lv_color_make(0x00, 0x00, 0x00) /* 纯黑背景 */
 #define TISSUE_COLOR_PI          lv_color_make(0x00, 0x33, 0x00) /* PI 虚线 20% */
 #define TISSUE_COLOR_SAFE        lv_color_make(0x00, 0x4C, 0x00) /* 安全区 30% */
@@ -215,8 +216,13 @@ static void tissue_draw_bar_segment(lv_draw_ctx_t *draw_ctx, lv_draw_rect_dsc_t 
 {
     int draw_low = tissue_draw_permille_for_range(low_permille);
     int draw_high = tissue_draw_permille_for_range(high_permille);
+    lv_coord_t x1;
+    lv_coord_t x2;
     if (draw_high <= draw_low) return;
-    tissue_draw_rect(draw_ctx, rect_dsc, tissue_x_for_permille(plot, draw_low), y1, tissue_x_for_permille(plot, draw_high), y2, color, opa);
+    x1 = tissue_x_for_permille(plot, draw_low);
+    x2 = tissue_x_for_permille(plot, draw_high);
+    if (draw_high < TISSUE_UI_MAX_PERMILLE) x2--;
+    tissue_draw_rect(draw_ctx, rect_dsc, x1, y1, x2, y2, color, opa);
 }
 
 static void tissue_draw_scale_label(lv_draw_ctx_t *draw_ctx, lv_draw_label_dsc_t *label_dsc, const lv_area_t *area, const lv_area_t *plot, int permille, const char *text)
@@ -233,7 +239,8 @@ static void tissue_chart_draw_cb(lv_event_t *e)
     lv_area_t *area = &obj->coords;
     bool chart_active = card_deco_tissue_chart_active();
     int plot_h;
-    lv_area_t plot = {area->x1, area->y1, area->x2, (lv_coord_t)(area->y2 - TISSUE_LABEL_H)};
+    lv_area_t plot_bg = {area->x1, area->y1, area->x2, (lv_coord_t)(area->y2 - TISSUE_LABEL_H)};
+    lv_area_t plot = {plot_bg.x1, (lv_coord_t)(plot_bg.y1 + TISSUE_PLOT_PAD_Y), plot_bg.x2, (lv_coord_t)(plot_bg.y2 - TISSUE_PLOT_PAD_Y)};
 
     lv_draw_rect_dsc_t rect_dsc;
     lv_draw_rect_dsc_init(&rect_dsc);
@@ -245,7 +252,7 @@ static void tissue_chart_draw_cb(lv_event_t *e)
     label_dsc.color = TISSUE_COLOR_DANGER;
     label_dsc.align = LV_TEXT_ALIGN_CENTER;
 
-    tissue_draw_rect(draw_ctx, &rect_dsc, plot.x1, plot.y1, plot.x2, plot.y2, TISSUE_COLOR_BG, LV_OPA_COVER);
+    tissue_draw_rect(draw_ctx, &rect_dsc, plot_bg.x1, plot_bg.y1, plot_bg.x2, plot_bg.y2, TISSUE_COLOR_BG, LV_OPA_COVER);
 
     plot_h = lv_area_get_height(&plot);
     lv_coord_t row_h = (lv_coord_t)(plot_h / TISSUE_COMPARTMENT_COUNT);
