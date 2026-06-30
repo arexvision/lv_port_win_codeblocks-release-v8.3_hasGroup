@@ -105,6 +105,7 @@ void ui_on_date_format_set(uint8_t format);
 void ui_on_log_rate_set(uint8_t seconds);
 void ui_on_bluetooth_set(bool enabled);
 void ui_on_reset_defaults(void);
+void ui_on_tissue_reset(void);
 bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_snapshot);
 uint32_t ui_get_dive_plan_config_signature(void);
 

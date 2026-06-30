@@ -509,6 +509,15 @@ void ui_on_reset_defaults(void)
 }
 
 WEAK_CALLBACK
+void ui_on_tissue_reset(void)
+{
+#ifdef PC_SIMULATOR
+    deco_core_reset();
+#endif
+    UI_CALLBACK_TRACE("[DIVE_SETUP] Tissue reset\n");
+}
+
+WEAK_CALLBACK
 bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_snapshot)
 {
     if (out_snapshot == NULL)

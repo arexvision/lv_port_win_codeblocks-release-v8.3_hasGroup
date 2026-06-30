@@ -119,6 +119,9 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
     case SUBMENU_SETTING_RESET_DEFAULTS:
         ui_on_reset_defaults();
         break;
+    case SUBMENU_SETTING_TISSUE_RESET:
+        ui_on_tissue_reset();
+        break;
     default:
         break;
     }

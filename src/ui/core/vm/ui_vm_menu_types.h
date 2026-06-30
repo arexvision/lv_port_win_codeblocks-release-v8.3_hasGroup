@@ -54,7 +54,7 @@ typedef struct
 typedef struct
 {
     uint8_t count;
-    char items[7][32];
+    char items[8][32];
 } ui_vm_dive_setup_menu_t;
 
 typedef struct

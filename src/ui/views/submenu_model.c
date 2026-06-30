@@ -854,6 +854,8 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         for (uint8_t i = 0U; i < 5U; i++) s_oc_tech_ppo2[i] = 1.4f;
         for (uint8_t i = 0U; i < 5U; i++) s_oc_tech_active[i] = 1U;
         break;
+    case SUBMENU_SETTING_TISSUE_RESET:
+        break;
     default:
         break;
     }
@@ -1674,6 +1676,14 @@ bool submenu_setting_from_selection(const char *current_title,
         return true;
     }
 
+    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 6)
+    {
+        out_setting->kind = SUBMENU_SETTING_TISSUE_RESET;
+        out_setting->value = 0;
+        lv_snprintf(out_setting->body, sizeof(out_setting->body), "%s", "TISSUE RESET\nAREX RESET");
+        return true;
+    }
+
     return false;
 }
 
@@ -1728,7 +1738,7 @@ bool submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 6)
+    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 7)
     {
         uint8_t next = (uint8_t)((s_altitude_level + 1) % 4);
         out_setting->kind = SUBMENU_SETTING_ALTITUDE;
@@ -2154,6 +2164,13 @@ bool submenu_setting_from_ids(menu_id_t current_menu,
         else if (s_gas_edit_mode == 1U) lv_snprintf(out_setting->body, sizeof(out_setting->body), "GAS CONFIG\nNITROX %u%%", (unsigned)s_gas_edit_draft_o2_pct);
         return true;
     }
+    if (current_menu == MENU_DIVE_SETUP && item_id == MENU_ITEM_DIVE_TISSUE_RESET)
+    {
+        memset(out_setting, 0, sizeof(*out_setting));
+        out_setting->kind = SUBMENU_SETTING_TISSUE_RESET;
+        lv_snprintf(out_setting->body, sizeof(out_setting->body), "%s", "TISSUE RESET\nAREX RESET");
+        return true;
+    }
 
     switch (item_id)
     {
@@ -2213,7 +2230,7 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
     case MENU_ITEM_DIVE_SALINITY:    item_index = 0U; break;
     case MENU_ITEM_DIVE_SAFETY_STOP: item_index = 2U; break;
     case MENU_ITEM_DIVE_LAST_DECO:   item_index = 3U; break;
-    case MENU_ITEM_DIVE_ALTITUDE:    item_index = 6U; break;
+    case MENU_ITEM_DIVE_ALTITUDE:    item_index = 7U; break;
     case MENU_ITEM_AI_TANK_0:        item_index = 0U; break;
     case MENU_ITEM_AI_TANK_1:        item_index = 1U; break;
     case MENU_ITEM_AI_GTR:           item_index = 2U; break;

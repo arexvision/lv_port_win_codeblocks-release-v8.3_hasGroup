@@ -275,8 +275,9 @@ void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
     (void)snprintf(vm->items[3], sizeof(vm->items[3]), "LAST DECO: %s", last_deco_depth);
     (void)snprintf(vm->items[4], sizeof(vm->items[4]), "DIVE END TIME: %umin", (unsigned)surface_confirm_min);
     (void)snprintf(vm->items[5], sizeof(vm->items[5]), "DIVE START DEPTH: %s", start_depth);
-    (void)snprintf(vm->items[6], sizeof(vm->items[6]), "ALTITUDE: %s", vm_altitude_label(altitude_level));
-    vm->count = 7U;
+    (void)snprintf(vm->items[6], sizeof(vm->items[6]), "%s", "TISSUE RESET");
+    (void)snprintf(vm->items[7], sizeof(vm->items[7]), "ALTITUDE: %s", vm_altitude_label(altitude_level));
+    vm->count = 8U;
 }
 
 void ui_vm_dive_context_update(ui_vm_dive_context_t *vm)
