@@ -248,6 +248,16 @@ void ui_state_poll_deferred_navigation(void)
 #endif
 }
 
+static uint8_t ui_wrap_index(uint8_t current, int8_t dir, uint8_t count)
+{
+    int16_t next;
+    if (count == 0U) return 0U;
+    next = (int16_t)current + (int16_t)dir;
+    while (next < 0) next += count;
+    while (next >= (int16_t)count) next -= count;
+    return (uint8_t)next;
+}
+
 static void ui_return_to_card_home(void)
 {
     s_ui.wall_charge = 0;
@@ -359,68 +369,26 @@ void ui_handle_rotate(int8_t dir)
     /* --- INFO menu --- */
     case UI_INFO:
     {
-        /* 信息菜单的最后一项向下旋转后，同样需要蓄力返回主界面。 */
+        /* 顶层菜单旋转只循环移动光标，返回统一由 BACK/返回键负责。 */
         uint8_t len = screen_info_item_count();
-        if (dir == 1 && s_ui.menu_info_idx == len - 1)
-        {
-            s_ui.wall_charge++;
-            screen_show_wall(WALL_BOTTOM, s_ui.wall_charge,
-                                  "<<< RETURN TO DASH <<<");
-            if (s_ui.wall_charge >= 3)
-            {
-                /* 回到仪表盘后，默认重新定位到第一个动态页。 */
-                s_ui.wall_charge = 0;
-                screen_hide_walls_snap();
-                s_ui.state = UI_DASH;
-                s_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
-                ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
-            }
-        }
-        else
-        {
-            /* 普通菜单项浏览：先清除墙提示，再做索引夹紧。 */
-            s_ui.wall_charge = 0;
-            screen_hide_walls();
-            int8_t next = (int8_t)s_ui.menu_info_idx + dir;
-            if (next < 0) next = 0;
-            if (next >= (int8_t)len) next = len - 1;
-            s_ui.menu_info_idx = (uint8_t)next;
-            screen_set_info_selection(s_ui.menu_info_idx);
-        }
+        if (len == 0U) break;
+        s_ui.wall_charge = 0;
+        screen_hide_walls();
+        s_ui.menu_info_idx = ui_wrap_index(s_ui.menu_info_idx, dir, len);
+        screen_set_info_selection(s_ui.menu_info_idx);
         break;
     }
 
     /* --- SETUP menu --- */
     case UI_SETUP:
     {
-        /* 设置菜单的第一项向上旋转后，蓄力后返回仪表盘尾页。 */
+        /* 顶层设置菜单同样循环移动光标，不再用墙提示返回主屏。 */
         uint8_t len = screen_setup_item_count();
-        if (dir == -1 && s_ui.menu_setup_idx == 0)
-        {
-            s_ui.wall_charge++;
-            screen_show_wall(WALL_TOP, s_ui.wall_charge,
-                                  ">>> RETURN TO DASH >>>");
-            if (s_ui.wall_charge >= 3)
-            {
-                /* 返回仪表盘时落到最后一个动态页前的位置，形成从菜单回主屏的视觉闭环。 */
-                s_ui.wall_charge = 0;
-                screen_hide_walls_snap();
-                s_ui.state = UI_DASH;
-                s_ui.dash_page = page_setup_display_pos() - 1;
-                ui_go_to_page(page_setup_display_pos() - 1);
-            }
-        }
-        else
-        {
-            /* 其余情况下只移动菜单光标，不切换状态。 */
-            s_ui.wall_charge = 0;
-            screen_hide_walls();
-            int8_t next = (int8_t)s_ui.menu_setup_idx + dir;
-            if (next < 0) next = 0;
-            if (next >= (int8_t)len) next = len - 1;
-            s_ui.menu_setup_idx = (uint8_t)next;
-            screen_set_setup_selection(s_ui.menu_setup_idx);
-        }
+        if (len == 0U) break;
+        s_ui.wall_charge = 0;
+        screen_hide_walls();
+        s_ui.menu_setup_idx = ui_wrap_index(s_ui.menu_setup_idx, dir, len);
+        screen_set_setup_selection(s_ui.menu_setup_idx);
         break;
     }
 
@@ -442,10 +410,9 @@ void ui_handle_rotate(int8_t dir)
         {
             break;
         }
-        int8_t next = (int8_t)s_ui.sub_menu_idx + dir;
-        if (next < 0) next = 0;
-        if (next >= (int8_t)s_ui.sub_item_count) next = s_ui.sub_item_count - 1;
-        s_ui.sub_menu_idx = (uint8_t)next;
+        s_ui.wall_charge = 0;
+        screen_hide_walls();
+        s_ui.sub_menu_idx = ui_wrap_index(s_ui.sub_menu_idx, dir, s_ui.sub_item_count);
         screen_set_submenu_selection(s_ui.sub_menu_idx);
         break;
     }
