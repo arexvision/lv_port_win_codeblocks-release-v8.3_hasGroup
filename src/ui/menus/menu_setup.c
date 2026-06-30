@@ -248,7 +248,7 @@ void menu_entry_create(lv_obj_t *parent)
 
     s_menu_entry_hint_lbl = lv_label_create(parent);
     lv_obj_remove_style_all(s_menu_entry_hint_lbl);
-    lv_obj_set_pos(s_menu_entry_hint_lbl, 150, CARD_TITLE_TEXT_Y + 3);
+    lv_obj_set_pos(s_menu_entry_hint_lbl, 150, CARD_TITLE_TEXT_Y);
     lv_obj_set_size(s_menu_entry_hint_lbl, right_canvas_w > 166 ? right_canvas_w - 166 : right_canvas_w, CARD_TITLE_TEXT_H);
     lv_label_set_long_mode(s_menu_entry_hint_lbl, LV_LABEL_LONG_DOT);
     lv_label_set_text(s_menu_entry_hint_lbl, "[ ENTER ] select menu");
