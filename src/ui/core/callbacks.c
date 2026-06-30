@@ -512,6 +512,12 @@ WEAK_CALLBACK
 void ui_on_tissue_reset(void)
 {
 #ifdef PC_SIMULATOR
+    dive_lifecycle_phase_t phase = bus_get_dive_lifecycle_phase();
+    if (phase != DIVE_LIFECYCLE_SURFACE_CONFIRMED)
+    {
+        UI_CALLBACK_TRACE("[DIVE_SETUP] Tissue reset rejected while diving\n");
+        return;
+    }
     deco_core_reset();
 #endif
     UI_CALLBACK_TRACE("[DIVE_SETUP] Tissue reset\n");

@@ -16,6 +16,7 @@
 #include <string.h>
 
 static submenu_setting_confirm_t s_pending_setting;
+static const char *kTissueResetUnavailableText = "TISSUE RESET\nNOT AVAILABLE\nUNDERWATER";
 
 /* 清空 action 输出，避免 view 误执行上一次残留动作。 */
 static void action_clear(menu_action_t *action)
@@ -159,6 +160,15 @@ static bool confirm_setting_for_row(uint8_t row_index,
                                           row_index,
                                           row ? row->label : NULL,
                                           out_setting);
+}
+
+static bool tissue_reset_unavailable_underwater(void)
+{
+    /*
+     * Tissue reset clears AREX tissue/safety runtime. Once lifecycle leaves
+     * confirmed surface, do not even show the destructive confirmation dialog.
+     */
+    return bus_get_dive_lifecycle_phase() != DIVE_LIFECYCLE_SURFACE_CONFIRMED;
 }
 
 static bool edit_spec_for_row(uint8_t row_index,
@@ -393,6 +403,13 @@ bool menu_actions_handle_select(uint8_t row_index,
 
     if (confirm_setting_for_row(row_index, row, &setting))
     {
+        if (setting.kind == SUBMENU_SETTING_TISSUE_RESET &&
+            tissue_reset_unavailable_underwater())
+        {
+            out_action->type = MENU_ACTION_SHOW_TEXT_MODAL;
+            out_action->modal_text = kTissueResetUnavailableText;
+            return true;
+        }
         s_pending_setting = setting;
         out_action->type = MENU_ACTION_SHOW_CONFIRM;
         out_action->modal_text = s_pending_setting.body;

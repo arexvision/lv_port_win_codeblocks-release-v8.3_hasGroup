@@ -36,6 +36,7 @@ static uint16_t s_submenu_height = 0;
 static ui_vm_dive_plan_view_t s_dive_plan_last_vm __attribute__((section(".psram_bss")));
 static bool s_dive_plan_last_vm_valid = false;
 static bool s_submenu_selection_scroll_silent = false;
+static lv_coord_t s_submenu_target_scroll_y = 0;
 
 typedef enum
 {
@@ -2010,6 +2011,7 @@ void submenu_view_reset(void)
     s_light_status_lbl = NULL;
     s_submenu_width = 0;
     s_submenu_height = 0;
+    s_submenu_target_scroll_y = 0;
     submenu_dive_plan_render_cache_reset();
     menu_runtime_reset();
     menu_actions_clear_pending();
@@ -2047,6 +2049,24 @@ static lv_anim_enable_t submenu_selection_scroll_anim(void)
     return (MENU_LIST_SCROLL_ANIM_ENABLED && !s_submenu_selection_scroll_silent) ? LV_ANIM_ON : LV_ANIM_OFF;
 }
 
+static void submenu_list_restore_scroll(lv_coord_t scroll_y)
+{
+    if (!s_submenu_list)
+    {
+        return;
+    }
+
+    if (scroll_y < 0)
+    {
+        scroll_y = 0;
+    }
+
+    lv_obj_update_layout(s_submenu_list);
+    lv_anim_del(s_submenu_list, (lv_anim_exec_xcb_t)0);
+    lv_obj_scroll_to_y(s_submenu_list, scroll_y, LV_ANIM_OFF);
+    s_submenu_target_scroll_y = lv_obj_get_scroll_y(s_submenu_list);
+}
+
 static void submenu_list_scroll_item_to_view(lv_obj_t *item)
 {
     lv_coord_t visible_h;
@@ -2060,7 +2080,7 @@ static void submenu_list_scroll_item_to_view(lv_obj_t *item)
     visible_h = lv_obj_get_height(s_submenu_list);
     item_y = lv_obj_get_y(item);
     item_h = lv_obj_get_height(item);
-    scroll_y = lv_obj_get_scroll_y(s_submenu_list);
+    scroll_y = s_submenu_target_scroll_y;
     target_y = scroll_y;
     if (visible_h <= item_h + margin * 2) margin = 0;
 
@@ -2068,6 +2088,7 @@ static void submenu_list_scroll_item_to_view(lv_obj_t *item)
     else if (item_y + item_h + margin > scroll_y + visible_h) target_y = item_y + item_h + margin - visible_h;
     if (target_y < 0) target_y = 0;
 
+    s_submenu_target_scroll_y = target_y;
     lv_obj_scroll_to_y(s_submenu_list, target_y, submenu_selection_scroll_anim());
 }
 
@@ -2866,6 +2887,7 @@ void screen_open_info_submenu(uint8_t item_idx)
         menu_runtime_refresh();
     }
 
+    s_submenu_target_scroll_y = 0;
     submenu_populate_current();
     if (!menu_runtime_is_logbook())
     {
@@ -2884,11 +2906,13 @@ static void refresh_info_submenu_page(uint8_t keep_idx)
 {
     uint8_t count = 0;
     bool prev_silent = s_submenu_selection_scroll_silent;
+    lv_coord_t keep_scroll_y = s_submenu_target_scroll_y;
     menu_runtime_refresh();
     (void)menu_runtime_current_rows(&count);
 
     s_submenu_selection_scroll_silent = true;
     submenu_populate_current();
+    submenu_list_restore_scroll(keep_scroll_y);
     ui_state_set_sub_item_count(count);
     if (count == 0U)
     {
@@ -3187,6 +3211,7 @@ void screen_open_setup_submenu(uint8_t item_idx)
         return;
     }
 
+    s_submenu_target_scroll_y = 0;
     submenu_populate_current();
     (void)menu_runtime_current_rows(&count);
     ui_state_set_sub_item_count(count);
@@ -3207,6 +3232,7 @@ void screen_open_nested_submenu(const char *title, const char **items, uint8_t c
     (void)title;
     (void)items;
     (void)count;
+    s_submenu_target_scroll_y = 0;
     submenu_populate_current();
     (void)menu_runtime_current_rows(&count);
     ui_state_set_sub_item_count(count);
@@ -3218,11 +3244,13 @@ static void refresh_current_submenu_page(uint8_t keep_idx)
 {
     uint8_t count = 0;
     bool prev_silent = s_submenu_selection_scroll_silent;
+    lv_coord_t keep_scroll_y = s_submenu_target_scroll_y;
     menu_runtime_refresh();
     (void)menu_runtime_current_rows(&count);
 
     s_submenu_selection_scroll_silent = true;
     submenu_populate_current();
+    submenu_list_restore_scroll(keep_scroll_y);
     ui_state_set_sub_item_count(count);
     if (count == 0U)
     {
