@@ -20,13 +20,10 @@ const menu_item_cfg_t g_menu_info_items[SUBMENU_INFO_COUNT] =
 
 const menu_item_cfg_t g_menu_setup_items[SUBMENU_SETUP_COUNT] =
 {
-    /* DIVE MENU 只保留潜水期间会直接用到的配置入口。 */
+    /* DIVE MENU 保留原设置入口层级，硬件即时控制单独放到 DEVICE CONTROL。 */
     { "GAS SWITCH",    "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "CONSERVATISM",  "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "DIVE SETUP",    NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "AI SETUP",      NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "DISPLAY",       NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "ALERTS SETUP",  NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "SYSTEM SETUP",  NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 
 static const menu_item_cfg_t s_menu_device_items[] =
@@ -36,6 +33,8 @@ static const menu_item_cfg_t s_menu_device_items[] =
     { "COMPASS CAL",   "IDLE", FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "LIGHT CONTROL", NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
+
+#define MENU_SETUP_DIVE_ROOT_COUNT 3U
 
 static menu_setup_root_t s_setup_root = MENU_SETUP_ROOT_DIVE;
 
@@ -56,7 +55,7 @@ const menu_item_cfg_t *menu_defs_setup_items(uint8_t *out_count)
     {
         *out_count = (s_setup_root == MENU_SETUP_ROOT_DEVICE)
                          ? (uint8_t)(sizeof(s_menu_device_items) / sizeof(s_menu_device_items[0]))
-                         : (uint8_t)(sizeof(g_menu_setup_items) / sizeof(g_menu_setup_items[0]));
+                         : MENU_SETUP_DIVE_ROOT_COUNT;
     }
     return (s_setup_root == MENU_SETUP_ROOT_DEVICE) ? s_menu_device_items : g_menu_setup_items;
 }
@@ -98,10 +97,7 @@ menu_id_t menu_defs_setup_menu_for_index(uint8_t index)
     {
         MENU_SETUP_GAS_SWITCH,
         MENU_SETUP_CONSERVATISM,
-        MENU_DIVE_SETUP,
-        MENU_AI_SETUP,
-        MENU_DISPLAY,
-        MENU_ALERTS_SETUP,
+        MENU_SETUP_SYSTEMS,
     };
     static const menu_id_t device_map[] =
     {

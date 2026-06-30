@@ -63,7 +63,7 @@ static const menu_item_cfg_t s_menu_entry_cfg[] =
 static const char *const s_menu_entry_previews[] =
 {
     "LAST DIVE / PLAN / TISSUE / LOG",
-    "GAS / GF / DIVE / AI / DISPLAY",
+    "GAS / GF / SYSTEM SETUP",
     "BRIGHTNESS / COMPASS / LIGHT",
     "",
 };
