@@ -6,6 +6,7 @@
  */
 
 #include "ui_state.h"
+#include "callbacks.h"
 #include "data.h"
 #include "ui_engine.h"
 #include "../../config/build/ui_build_flags.h"
@@ -607,7 +608,19 @@ void ui_handle_click(void)
         }
         else
 #endif
-        if (menu_entry_selection_is_device(s_ui.menu_entry_idx))
+        if (menu_entry_selection_is_end_dive(s_ui.menu_entry_idx))
+        {
+            if (bus_get_dive_lifecycle_phase() == DIVE_LIFECYCLE_SURFACING_PENDING)
+            {
+                s_ui.state = UI_MODAL_END_DIVE;
+                screen_show_modal_setup_confirm("END DIVE\nCONFIRM SURFACE");
+            }
+            else
+            {
+                menu_entry_update();
+            }
+        }
+        else if (menu_entry_selection_is_device(s_ui.menu_entry_idx))
         {
             ui_enter_device_control_page();
         }
@@ -674,6 +687,19 @@ void ui_handle_click(void)
         screen_refresh_compass_target();
         screen_hide_modal();
         s_ui.state = UI_DASH;
+        break;
+
+    case UI_MODAL_END_DIVE:
+        if (bus_get_dive_lifecycle_phase() == DIVE_LIFECYCLE_SURFACING_PENDING)
+        {
+            ui_on_end_dive_confirm();
+        }
+        screen_hide_modal();
+        s_ui.state = UI_DASH;
+        s_ui.menu_entry_idx = 0U;
+        menu_entry_clear_selection();
+        screen_refresh_setup_menu();
+        screen_refresh_left_panel();
         break;
 
     case UI_MODAL_SETUP_CONFIRM:
@@ -779,6 +805,12 @@ void ui_handle_back(void)
 
     case UI_MODAL_SETUP_CONFIRM:
         screen_cancel_submenu_setting();
+        break;
+
+    case UI_MODAL_END_DIVE:
+        screen_hide_modal();
+        s_ui.state = UI_MENU_ENTRY;
+        menu_entry_set_selection(s_ui.menu_entry_idx);
         break;
 
     case UI_EDIT_VALUE:

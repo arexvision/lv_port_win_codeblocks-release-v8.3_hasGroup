@@ -116,6 +116,7 @@ void menu_entry_clear_selection(void);
 uint8_t menu_entry_item_count(void);
 bool menu_entry_selection_is_info(uint8_t idx);
 bool menu_entry_selection_is_device(uint8_t idx);
+bool menu_entry_selection_is_end_dive(uint8_t idx);
 void menu_entry_update(void);
 void menu_setup_update(void);
 void page_registry_update_deco_vm(const ui_vm_deco_t *vm);

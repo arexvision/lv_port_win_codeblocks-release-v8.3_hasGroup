@@ -26,6 +26,7 @@ void menu_setup_update(void);
  * 它占用右侧 tileview 中的一个固定页面，但职责是设置入口和 badge 展示。
  */
 #define SETUP_ITEM_COUNT SUBMENU_SETUP_COUNT
+#define MENU_ENTRY_COUNT 4U
 #define MENU_ENTRY_ITEM_H_U 7U  /* MENU HUB 双层入口高度 */
 #define MENU_ENTRY_TITLE_Y 5    /* HUB 标题层Y */
 #define MENU_ENTRY_PREVIEW_Y 38 /* HUB 预览层Y */
@@ -47,7 +48,7 @@ static lv_obj_t *s_setup_title_lbl;
 static lv_obj_t *s_setup_item_objs[SETUP_ITEM_COUNT];
 static lv_obj_t *s_setup_badge_lbls[SETUP_ITEM_COUNT];
 static lv_obj_t *s_menu_entry_list;
-static lv_obj_t *s_menu_entry_items[3];
+static lv_obj_t *s_menu_entry_items[MENU_ENTRY_COUNT];
 static lv_obj_t *s_menu_entry_hint_lbl;
 static uint8_t s_menu_entry_selected = 0xFFU;
 
@@ -56,6 +57,7 @@ static const menu_item_cfg_t s_menu_entry_cfg[] =
     { "INFO MENU", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "DIVE MENU", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "DEVICE CONTROL", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "END DIVE", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 
 static const char *const s_menu_entry_previews[] =
@@ -63,6 +65,7 @@ static const char *const s_menu_entry_previews[] =
     "LAST DIVE / PLAN / TISSUE / LOG",
     "GAS / GF / DIVE / AI / DISPLAY",
     "BRIGHTNESS / COMPASS / LIGHT",
+    "CONFIRM SURFACE / SAVE LOG",
 };
 
 static bool menu_setup_obj_is_valid(lv_obj_t **obj_ref)
@@ -103,13 +106,41 @@ static bool menu_entry_info_visible(void)
     return (phase != DIVE_LIFECYCLE_ACTIVE) && (phase != DIVE_LIFECYCLE_SURFACING_PENDING);
 }
 
+static bool menu_entry_end_dive_visible(void)
+{
+    return bus_get_dive_lifecycle_phase() == DIVE_LIFECYCLE_SURFACING_PENDING;
+}
+
+static bool menu_entry_raw_visible(uint8_t raw_idx)
+{
+#if !ENABLE_INFO_MENU
+    if (raw_idx == 0U) return false;
+#endif
+    if (raw_idx == 0U) return menu_entry_info_visible();
+    if (raw_idx == 3U) return menu_entry_end_dive_visible();
+    return raw_idx < MENU_ENTRY_COUNT;
+}
+
+static uint8_t menu_entry_raw_for_visible(uint8_t idx)
+{
+    uint8_t visible_idx = 0U;
+    for (uint8_t raw_idx = 0U; raw_idx < MENU_ENTRY_COUNT; raw_idx++)
+    {
+        if (!menu_entry_raw_visible(raw_idx)) continue;
+        if (visible_idx == idx) return raw_idx;
+        visible_idx++;
+    }
+    return 1U;
+}
+
 static uint8_t menu_entry_visible_count(void)
 {
-#if ENABLE_INFO_MENU
-    return menu_entry_info_visible() ? 3U : 2U;
-#else
-    return 2U;
-#endif
+    uint8_t count = 0U;
+    for (uint8_t raw_idx = 0U; raw_idx < MENU_ENTRY_COUNT; raw_idx++)
+    {
+        if (menu_entry_raw_visible(raw_idx)) count++;
+    }
+    return count;
 }
 
 static void menu_entry_apply_row_style(lv_obj_t *item, lv_obj_t *label, bool selected)
@@ -153,7 +184,7 @@ uint8_t menu_entry_item_count(void)
 bool menu_entry_selection_is_info(uint8_t idx)
 {
 #if ENABLE_INFO_MENU
-    return menu_entry_info_visible() && idx == 0U;
+    return menu_entry_raw_for_visible(idx) == 0U;
 #else
     (void)idx;
     return false;
@@ -162,11 +193,12 @@ bool menu_entry_selection_is_info(uint8_t idx)
 
 bool menu_entry_selection_is_device(uint8_t idx)
 {
-#if ENABLE_INFO_MENU
-    return menu_entry_info_visible() ? (idx == 2U) : (idx == 1U);
-#else
-    return idx == 1U;
-#endif
+    return menu_entry_raw_for_visible(idx) == 2U;
+}
+
+bool menu_entry_selection_is_end_dive(uint8_t idx)
+{
+    return menu_entry_raw_for_visible(idx) == 3U;
 }
 
 static void menu_setup_render_title(lv_obj_t *parent)
@@ -226,7 +258,7 @@ static lv_obj_t *menu_entry_create_item(lv_obj_t *parent, const menu_item_cfg_t 
 static void menu_entry_render_items(lv_obj_t *parent, int item_w, int item_h, int gap_y)
 {
     int current_y = MENU_LIST_EDGE_PAD_PX;
-    for (uint8_t i = 0U; i < (uint8_t)(sizeof(s_menu_entry_cfg) / sizeof(s_menu_entry_cfg[0])); i++)
+    for (uint8_t i = 0U; i < MENU_ENTRY_COUNT; i++)
     {
         s_menu_entry_items[i] = menu_entry_create_item(parent, &s_menu_entry_cfg[i], s_menu_entry_previews[i], current_y, item_w, item_h);
         current_y += item_h + gap_y;
@@ -239,7 +271,7 @@ void menu_entry_create(lv_obj_t *parent)
     int right_canvas_w = (int)s_menu_layout_vm.right_canvas_w;
     uint16_t item_h_px = MENU_ENTRY_ITEM_H_U * BASE_U;
     uint16_t gap_y_px = s_menu_layout_vm.gap_y_px;
-    uint16_t list_h = 3U * item_h_px + 2U * gap_y_px;
+    uint16_t list_h = MENU_ENTRY_COUNT * item_h_px + (MENU_ENTRY_COUNT - 1U) * gap_y_px;
     uint16_t list_y = (CARD_TITLE_H > MENU_LIST_TOP_NUDGE_PX) ? (uint16_t)(CARD_TITLE_H - MENU_LIST_TOP_NUDGE_PX) : CARD_TITLE_H;
     uint16_t visible_h = ui_content_h_get() > list_y ? (uint16_t)(ui_content_h_get() - list_y) : list_h;
 
@@ -295,44 +327,36 @@ void menu_entry_update(void)
     if (s_menu_entry_list == NULL || !lv_obj_is_valid(s_menu_entry_list))
     {
         s_menu_entry_list = NULL;
-        s_menu_entry_items[0] = NULL;
-        s_menu_entry_items[1] = NULL;
-        s_menu_entry_items[2] = NULL;
+        memset(s_menu_entry_items, 0, sizeof(s_menu_entry_items));
         return;
     }
-    if (s_menu_entry_items[0] == NULL || !lv_obj_is_valid(s_menu_entry_items[0])) return;
-    if (s_menu_entry_items[1] != NULL && !lv_obj_is_valid(s_menu_entry_items[1])) s_menu_entry_items[1] = NULL;
-    if (s_menu_entry_items[2] != NULL && !lv_obj_is_valid(s_menu_entry_items[2])) s_menu_entry_items[2] = NULL;
+    for (uint8_t i = 0U; i < MENU_ENTRY_COUNT; i++)
+    {
+        if (s_menu_entry_items[i] != NULL && !lv_obj_is_valid(s_menu_entry_items[i])) s_menu_entry_items[i] = NULL;
+    }
+    if (s_menu_entry_items[1] == NULL) return;
 
     if (!active) s_menu_entry_selected = 0xFFU;
     if (active && s_menu_entry_selected >= count) s_menu_entry_selected = 0U;
 
-    lv_obj_clear_flag(s_menu_entry_items[0], LV_OBJ_FLAG_HIDDEN);
-    if (s_menu_entry_items[1] != NULL && s_menu_entry_items[2] != NULL)
+    lv_coord_t current_y = MENU_LIST_EDGE_PAD_PX;
+    uint8_t visible_idx = 0U;
+    for (uint8_t raw_idx = 0U; raw_idx < MENU_ENTRY_COUNT; raw_idx++)
     {
-        lv_coord_t first_y = lv_obj_get_y(s_menu_entry_items[0]);
-        lv_coord_t second_y = first_y + lv_obj_get_height(s_menu_entry_items[0]) + (lv_coord_t)ui_menu_gap_px_get();
-        lv_coord_t third_y = second_y + lv_obj_get_height(s_menu_entry_items[1]) + (lv_coord_t)ui_menu_gap_px_get();
-        if (menu_entry_info_visible())
+        if (s_menu_entry_items[raw_idx] == NULL) continue;
+        if (menu_entry_raw_visible(raw_idx))
         {
-            lv_obj_clear_flag(s_menu_entry_items[0], LV_OBJ_FLAG_HIDDEN);
-            lv_obj_set_y(s_menu_entry_items[1], second_y);
-            lv_obj_set_y(s_menu_entry_items[2], third_y);
+            lv_obj_clear_flag(s_menu_entry_items[raw_idx], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_y(s_menu_entry_items[raw_idx], current_y);
+            menu_entry_apply_row_style(s_menu_entry_items[raw_idx], lv_obj_get_child(s_menu_entry_items[raw_idx], 0), active && s_menu_entry_selected == visible_idx);
+            current_y += lv_obj_get_height(s_menu_entry_items[raw_idx]) + (lv_coord_t)ui_menu_gap_px_get();
+            visible_idx++;
         }
         else
         {
-            lv_obj_add_flag(s_menu_entry_items[0], LV_OBJ_FLAG_HIDDEN);
-            lv_obj_set_y(s_menu_entry_items[1], first_y);
-            lv_obj_set_y(s_menu_entry_items[2], second_y);
+            lv_obj_add_flag(s_menu_entry_items[raw_idx], LV_OBJ_FLAG_HIDDEN);
         }
-        lv_obj_clear_flag(s_menu_entry_items[2], LV_OBJ_FLAG_HIDDEN);
     }
-
-    bool info_visible = menu_entry_info_visible();
-    bool dive_selected = active && (s_menu_entry_selected == (info_visible ? 1U : 0U));
-    if (s_menu_entry_items[0] != NULL) menu_entry_apply_row_style(s_menu_entry_items[0], lv_obj_get_child(s_menu_entry_items[0], 0), active && info_visible && s_menu_entry_selected == 0U);
-    if (s_menu_entry_items[1] != NULL) menu_entry_apply_row_style(s_menu_entry_items[1], lv_obj_get_child(s_menu_entry_items[1], 0), dive_selected);
-    if (s_menu_entry_items[2] != NULL) menu_entry_apply_row_style(s_menu_entry_items[2], lv_obj_get_child(s_menu_entry_items[2], 0), active && menu_entry_selection_is_device(s_menu_entry_selected));
 }
 
 void menu_setup_create(lv_obj_t *parent)

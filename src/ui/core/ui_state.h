@@ -37,6 +37,7 @@ typedef enum
     UI_EDIT_VALUE   = 8,  /* inline value editor (e.g. MOD PO2) */
     UI_MODAL_SETUP_CONFIRM = 9,  /* confirm setup item from sub-menu */
     UI_MENU_ENTRY   = 10, /* MENU floor internal option focus */
+    UI_MODAL_END_DIVE = 11, /* confirm manual dive end from MENU HUB */
 } ui_state_t;
 
 /* Sub-menu history entry */

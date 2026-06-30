@@ -743,6 +743,12 @@ static void sim_finalize_dive(void)
     bus_set_surface_time(0U);
 }
 
+void sim_data_end_dive_now(void)
+{
+    if (s_sim.lifecycle_state != SIM_LIFE_SURFACING_PENDING) return;
+    sim_finalize_dive();
+}
+
 static void sim_lifecycle_tick(float depth_m)
 {
     bool dive_tick = false;

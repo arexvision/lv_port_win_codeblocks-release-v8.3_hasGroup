@@ -13,6 +13,7 @@
 
 #ifdef PC_SIMULATOR
 #include "../../algo_sim/deco_core.h"
+#include "../../hal_sim/sim_data.h"
 #endif
 
 #ifndef PC_SIMULATOR
@@ -521,6 +522,23 @@ void ui_on_tissue_reset(void)
     deco_core_reset();
 #endif
     UI_CALLBACK_TRACE("[DIVE_SETUP] Tissue reset\n");
+}
+
+WEAK_CALLBACK
+void ui_on_end_dive_confirm(void)
+{
+    dive_lifecycle_phase_t phase = bus_get_dive_lifecycle_phase();
+    if (phase != DIVE_LIFECYCLE_SURFACING_PENDING)
+    {
+        UI_CALLBACK_TRACE("[MENU_HUB] End dive rejected outside surfacing pending\n");
+        return;
+    }
+#ifdef PC_SIMULATOR
+    sim_data_end_dive_now();
+#else
+    bus_set_dive_lifecycle_phase(DIVE_LIFECYCLE_SURFACE_CONFIRMED);
+#endif
+    UI_CALLBACK_TRACE("[MENU_HUB] End dive confirmed\n");
 }
 
 WEAK_CALLBACK
