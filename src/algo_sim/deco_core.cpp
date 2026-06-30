@@ -18,6 +18,7 @@ extern "C" {
 #define PLAN_DESCENT_RATE_MPM 18.0f
 #define DECO_SCHEDULE_DEBUG_PRINT_MS 1000U
 #define DECO_SCHEDULE_DEBUG_MAX_STOPS 6U
+#define DECO_UI_SCHEDULE_DEBUG_MAX_STOPS MAX_DECO_STOPS /* 打印 UI 实际可承载的过滤后站点 */
 #define DECO_PLAN_CALL_DEBUG 1U               /* 打印每次 step/plan 调用结果 */
 #define DECO_GAS_SWITCH_PENALTY_SECONDS 60U   /* 传给 core 的切气惩罚时间 */
 #define DECO_HIDE_SWITCH_ONLY_STOPS (DECO_GAS_SWITCH_PENALTY_SECONDS > 0U) /* UI 使用 hold 时间并隐藏纯切气预测站 */
@@ -316,6 +317,60 @@ static void debug_print_plan_call(const char *tag, int step_status, int plan_sta
 #endif
 }
 
+static uint32_t stop_runtime_seconds(const ArexDecoStop *stop);
+static bool stop_is_switch_only(const ArexDecoStop *stop);
+static bool should_skip_leading_waypoint(const ArexDecoSchedule *schedule, uint8_t index, uint8_t skipped_count, bool leading_window_open);
+
+static void debug_print_ui_schedule(const ArexDecoSchedule *schedule)
+{
+    uint8_t display_count = 0U;
+    uint8_t hidden_leading = 0U;
+    uint8_t hidden_switch = 0U;
+    uint8_t hidden_zero = 0U;
+    bool leading_window_open = true;
+
+    if (schedule == NULL) return;
+
+    rt_kprintf("[AREX_UI_PLAN] tts_raw=%lus raw_stops=%u",
+               (unsigned long)schedule->tts_seconds,
+               (unsigned)schedule->stop_count);
+
+    for (uint8_t i = 0U; i < schedule->stop_count && display_count < DECO_UI_SCHEDULE_DEBUG_MAX_STOPS; i++)
+    {
+        const ArexDecoStop *stop = &schedule->stops[i];
+        uint32_t runtime_s = stop_runtime_seconds(stop);
+        if (stop->depth_m <= 0.0f || runtime_s == 0U)
+        {
+            if (stop_is_switch_only(stop)) hidden_switch++;
+            else hidden_zero++;
+            continue;
+        }
+        if (should_skip_leading_waypoint(schedule, i, hidden_leading, leading_window_open))
+        {
+            hidden_leading++;
+            continue;
+        }
+        leading_window_open = false;
+        char gas_text[32];
+        format_algo_gas_ref(stop->gas_index, gas_text, sizeof(gas_text));
+        rt_kprintf(" | #%u raw#%u %.2fm %lus/%umin gas=%s gf=%.2f",
+                   (unsigned)(display_count + 1U),
+                   (unsigned)(i + 1U),
+                   (double)stop->depth_m,
+                   (unsigned long)runtime_s,
+                   (unsigned)round_up_minutes(runtime_s),
+                   gas_text,
+                   (double)stop->target_gf);
+        display_count++;
+    }
+
+    rt_kprintf(" | display=%u hidden_leading=%u hidden_switch=%u hidden_zero=%u\n",
+               (unsigned)display_count,
+               (unsigned)hidden_leading,
+               (unsigned)hidden_switch,
+               (unsigned)hidden_zero);
+}
+
 static void debug_print_schedule(const ArexDecoSchedule *schedule)
 {
     uint32_t now_ms = rt_tick_get();
@@ -359,6 +414,7 @@ static void debug_print_schedule(const ArexDecoSchedule *schedule)
     }
     if (schedule->stop_count > print_count) rt_kprintf(" | ...");
     rt_kprintf("\n");
+    debug_print_ui_schedule(schedule);
 }
 
 static float pressure_bar_at_depth(const ArexDecoConfig *config, float depth_m)
