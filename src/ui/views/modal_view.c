@@ -104,7 +104,7 @@ static void modal_set_content(const char *title, const char *body, const char *h
     lv_obj_set_pos(b, 0, 40);
 
     uint8_t body_lines = modal_count_body_lines(body);
-    int16_t hint_y = (body_lines > 2U) ? (int16_t)(52 + body_lines * 38) : 100;
+    int16_t hint_y = (body_lines > 1U) ? (int16_t)(52 + body_lines * 38) : 100;
 
     lv_obj_t *h = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(h, LIGHT, 0);

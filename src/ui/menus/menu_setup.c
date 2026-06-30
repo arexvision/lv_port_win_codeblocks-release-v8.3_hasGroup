@@ -65,7 +65,7 @@ static const char *const s_menu_entry_previews[] =
     "LAST DIVE / PLAN / TISSUE / LOG",
     "GAS / GF / DIVE / AI / DISPLAY",
     "BRIGHTNESS / COMPASS / LIGHT",
-    "CONFIRM SURFACE / SAVE LOG",
+    "",
 };
 
 static bool menu_setup_obj_is_valid(lv_obj_t **obj_ref)
