@@ -542,6 +542,12 @@ void ui_on_end_dive_confirm(void)
 }
 
 WEAK_CALLBACK
+void ui_on_turn_off(void)
+{
+    UI_CALLBACK_TRACE("[DEVICE_CONTROL] Turn off\n");
+}
+
+WEAK_CALLBACK
 bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_snapshot)
 {
     if (out_snapshot == NULL)

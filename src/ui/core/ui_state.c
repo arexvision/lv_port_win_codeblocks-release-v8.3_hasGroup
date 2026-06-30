@@ -723,6 +723,11 @@ void ui_handle_click(void)
         break;
 
     case UI_SETUP:
+        if (menu_defs_setup_menu_for_index(s_ui.menu_setup_idx) == MENU_SETUP_TURN_OFF)
+        {
+            ui_on_turn_off();
+            break;
+        }
         screen_open_setup_submenu(s_ui.menu_setup_idx);
         break;
 

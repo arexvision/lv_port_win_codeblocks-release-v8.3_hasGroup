@@ -107,6 +107,7 @@ void ui_on_bluetooth_set(bool enabled);
 void ui_on_reset_defaults(void);
 void ui_on_tissue_reset(void);
 void ui_on_end_dive_confirm(void);
+void ui_on_turn_off(void);
 bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_snapshot);
 uint32_t ui_get_dive_plan_config_signature(void);
 
