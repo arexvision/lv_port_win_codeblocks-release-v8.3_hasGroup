@@ -413,7 +413,8 @@ void menu_actions_clear_pending(void)
 }
 
 bool menu_actions_confirm_pending(bool *out_close_parent_too,
-                                  bool *out_return_dash)
+                                  bool *out_return_dash,
+                                  bool *out_keep_current_row)
 {
     /* 用户在确认弹窗里按下确认后，统一在这里落地。 */
     /* 二次确认的意义在于把“用户当前高亮了哪个选项”和“真正提交哪个设置”
@@ -425,6 +426,10 @@ bool menu_actions_confirm_pending(bool *out_close_parent_too,
     if (out_return_dash)
     {
         *out_return_dash = false;
+    }
+    if (out_keep_current_row)
+    {
+        *out_keep_current_row = false;
     }
     if (s_pending_setting.kind == SUBMENU_SETTING_NONE)
     {
@@ -440,6 +445,10 @@ bool menu_actions_confirm_pending(bool *out_close_parent_too,
     if (out_return_dash)
     {
         *out_return_dash = false;
+    }
+    if (out_keep_current_row)
+    {
+        *out_keep_current_row = (s_pending_setting.kind == SUBMENU_SETTING_TISSUE_RESET);
     }
 
     submenu_apply_setting(s_pending_setting.kind,

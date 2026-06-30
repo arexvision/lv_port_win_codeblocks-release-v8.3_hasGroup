@@ -3361,7 +3361,8 @@ void screen_confirm_submenu_setting(void)
 {
     bool close_extra_mode_layer = false;
     bool return_dash_after_apply = false;
-    if (!menu_actions_confirm_pending(&close_extra_mode_layer, &return_dash_after_apply))
+    bool keep_current_row = false;
+    if (!menu_actions_confirm_pending(&close_extra_mode_layer, &return_dash_after_apply, &keep_current_row))
     {
         screen_hide_modal();
         ui_state_set_state(UI_SUB_MENU);
@@ -3378,6 +3379,12 @@ void screen_confirm_submenu_setting(void)
         menu_actions_clear_pending();
         submenu_slide_out();
         ui_state_set_state(UI_DASH);
+        return;
+    }
+    if (keep_current_row)
+    {
+        refresh_current_submenu_page(ui_state_get_sub_menu_idx());
+        ui_state_set_state(UI_SUB_MENU);
         return;
     }
     screen_close_submenu();

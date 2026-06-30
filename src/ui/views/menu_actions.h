@@ -33,7 +33,8 @@ bool menu_actions_handle_select(uint8_t row_index,
  */
 void menu_actions_clear_pending(void);
 bool menu_actions_confirm_pending(bool *out_close_parent_too,
-                                  bool *out_return_dash);
+                                  bool *out_return_dash,
+                                  bool *out_keep_current_row);
 
 #ifdef __cplusplus
 }
