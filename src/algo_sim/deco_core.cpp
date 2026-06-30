@@ -21,9 +21,6 @@ extern "C" {
 #define DECO_UI_SCHEDULE_DEBUG_MAX_STOPS MAX_DECO_STOPS /* 打印 UI 实际可承载的过滤后站点 */
 #define DECO_PLAN_CALL_DEBUG 1U               /* 打印每次 step/plan 调用结果 */
 #define DECO_GAS_SWITCH_PENALTY_SECONDS 60U   /* 传给 core 的切气惩罚时间 */
-#define DECO_HIDE_SWITCH_ONLY_STOPS (DECO_GAS_SWITCH_PENALTY_SECONDS > 0U) /* UI 使用 hold 时间并隐藏纯切气预测站 */
-#define DECO_HIDE_LEADING_WAYPOINT_STOPS 1U    /* 隐藏 raw schedule 开头短 waypoint，只影响用户可见 stop */
-#define DECO_MAX_LEADING_WAYPOINTS_TO_HIDE 2U  /* 最多隐藏连续 leading waypoint 数量 */
 #define DECO_CEILING_ACTIVE_M 0.01f           /* ceiling 大于该值即认为有实时减压义务 */
 #define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
 #define DECO_GAS_DENSITY_COMPRESSIBILITY_Z 1.0f /* 真实气体压缩因子，当前按理想气体 */
@@ -318,16 +315,13 @@ static void debug_print_plan_call(const char *tag, int step_status, int plan_sta
 }
 
 static uint32_t stop_runtime_seconds(const ArexDecoStop *stop);
-static bool stop_is_switch_only(const ArexDecoStop *stop);
-static bool should_skip_leading_waypoint(const ArexDecoSchedule *schedule, uint8_t index, uint8_t skipped_count, bool leading_window_open);
+static bool stop_display_suppressed(const ArexDecoStop *stop);
 
 static void debug_print_ui_schedule(const ArexDecoSchedule *schedule)
 {
     uint8_t display_count = 0U;
-    uint8_t hidden_leading = 0U;
-    uint8_t hidden_switch = 0U;
+    uint8_t hidden_suppressed = 0U;
     uint8_t hidden_zero = 0U;
-    bool leading_window_open = true;
 
     if (schedule == NULL) return;
 
@@ -339,35 +333,34 @@ static void debug_print_ui_schedule(const ArexDecoSchedule *schedule)
     {
         const ArexDecoStop *stop = &schedule->stops[i];
         uint32_t runtime_s = stop_runtime_seconds(stop);
+        if (stop_display_suppressed(stop))
+        {
+            hidden_suppressed++;
+            continue;
+        }
         if (stop->depth_m <= 0.0f || runtime_s == 0U)
         {
-            if (stop_is_switch_only(stop)) hidden_switch++;
-            else hidden_zero++;
+            hidden_zero++;
             continue;
         }
-        if (should_skip_leading_waypoint(schedule, i, hidden_leading, leading_window_open))
-        {
-            hidden_leading++;
-            continue;
-        }
-        leading_window_open = false;
         char gas_text[32];
         format_algo_gas_ref(stop->gas_index, gas_text, sizeof(gas_text));
-        rt_kprintf(" | #%u raw#%u %.2fm %lus/%umin gas=%s gf=%.2f",
+        rt_kprintf(" | #%u raw#%u %.2fm %lus/%umin gas=%s gf=%.2f kind=%u flags=0x%02x",
                    (unsigned)(display_count + 1U),
                    (unsigned)(i + 1U),
                    (double)stop->depth_m,
                    (unsigned long)runtime_s,
                    (unsigned)round_up_minutes(runtime_s),
                    gas_text,
-                   (double)stop->target_gf);
+                   (double)stop->target_gf,
+                   (unsigned)stop->kind,
+                   (unsigned)stop->flags);
         display_count++;
     }
 
-    rt_kprintf(" | display=%u hidden_leading=%u hidden_switch=%u hidden_zero=%u\n",
+    rt_kprintf(" | display=%u hidden_suppressed=%u hidden_zero=%u\n",
                (unsigned)display_count,
-               (unsigned)hidden_leading,
-               (unsigned)hidden_switch,
+               (unsigned)hidden_suppressed,
                (unsigned)hidden_zero);
 }
 
@@ -401,7 +394,7 @@ static void debug_print_schedule(const ArexDecoSchedule *schedule)
         int8_t gas_idx = stop->gas_index;
         uint8_t source_slot = (gas_idx >= 0) ? algo_gas_source_slot((uint8_t)gas_idx) : 0xFFU;
         const char *source_name = (gas_idx >= 0) ? algo_gas_source_name((uint8_t)gas_idx) : "--";
-        rt_kprintf(" | #%u %.2fm dur=%lus hold=%lus sw=%lus gas=%d(slot%u %s) gf=%.2f",
+        rt_kprintf(" | #%u %.2fm dur=%lus hold=%lus sw=%lus gas=%d(slot%u %s) gf=%.2f kind=%u flags=0x%02x",
                    (unsigned)(i + 1U),
                    (double)stop->depth_m,
                    (unsigned long)stop->duration_seconds,
@@ -410,7 +403,9 @@ static void debug_print_schedule(const ArexDecoSchedule *schedule)
                    (int)gas_idx,
                    (unsigned)source_slot,
                    source_name,
-                   (double)stop->target_gf);
+                   (double)stop->target_gf,
+                   (unsigned)stop->kind,
+                   (unsigned)stop->flags);
     }
     if (schedule->stop_count > print_count) rt_kprintf(" | ...");
     rt_kprintf("\n");
@@ -431,69 +426,16 @@ static float core_mod_depth_for_gas(const ArexDecoConfig *config, const ArexDeco
     return gas->max_depth_m;
 }
 
-static bool stop_is_switch_only(const ArexDecoStop *stop)
-{
-    return stop != NULL &&
-           stop->duration_seconds > 0U &&
-           stop->hold_seconds == 0U &&
-           stop->switch_penalty_seconds > 0U;
-}
-
 static uint32_t stop_runtime_seconds(const ArexDecoStop *stop)
 {
     if (stop == NULL) return 0U;
-#if DECO_HIDE_SWITCH_ONLY_STOPS
-    if (stop_is_switch_only(stop)) return 0U;
     return stop->hold_seconds;
-#else
-    return stop->duration_seconds;
-#endif
 }
 
-static bool stop_is_short_waypoint(const ArexDecoStop *stop)
+static bool stop_display_suppressed(const ArexDecoStop *stop)
 {
-    uint32_t runtime_seconds;
     if (stop == NULL) return false;
-    runtime_seconds = stop_runtime_seconds(stop);
-    return stop->depth_m > 0.0f &&
-           stop->switch_penalty_seconds == 0U &&
-           runtime_seconds > 0U &&
-           runtime_seconds <= AREX_DECO_STOP_TIME_GRANULARITY_SECONDS;
-}
-
-static bool schedule_has_later_runtime_stop(const ArexDecoSchedule *schedule, uint8_t index)
-{
-    if (schedule == NULL) return false;
-    for (uint8_t later = (uint8_t)(index + 1U); later < schedule->stop_count; later++)
-    {
-        const ArexDecoStop *stop = &schedule->stops[later];
-        if (stop->depth_m > 0.0f && stop_runtime_seconds(stop) > 0U) return true;
-    }
-    return false;
-}
-
-static bool should_skip_leading_waypoint(const ArexDecoSchedule *schedule,
-                                         uint8_t index,
-                                         uint8_t skipped_count,
-                                         bool leading_window_open)
-{
-#if DECO_HIDE_LEADING_WAYPOINT_STOPS
-    if (schedule == NULL ||
-        !leading_window_open ||
-        skipped_count >= DECO_MAX_LEADING_WAYPOINTS_TO_HIDE ||
-        index >= schedule->stop_count)
-    {
-        return false;
-    }
-    return stop_is_short_waypoint(&schedule->stops[index]) &&
-           schedule_has_later_runtime_stop(schedule, index);
-#else
-    (void)schedule;
-    (void)index;
-    (void)skipped_count;
-    (void)leading_window_open;
-    return false;
-#endif
+    return (stop->flags & AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED) != 0U;
 }
 
 static void format_gas_name(const ArexDecoGas *gas, char *name_buf, size_t name_buf_size)
@@ -872,8 +814,6 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
 {
     deco_stop_t stops[MAX_DECO_STOPS];
     uint8_t count = 0U;
-    uint8_t skipped_waypoints = 0U;
-    bool leading_window_open = true;
 
     if (schedule == NULL || schedule->stop_count == 0U)
     {
@@ -884,16 +824,14 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
     for (uint8_t i = 0U; i < schedule->stop_count && count < MAX_DECO_STOPS; i++)
     {
         uint32_t runtime_s = stop_runtime_seconds(&schedule->stops[i]);
+        if (stop_display_suppressed(&schedule->stops[i]))
+        {
+            continue;
+        }
         if (schedule->stops[i].depth_m <= 0.0f || runtime_s == 0U)
         {
             continue;
         }
-        if (should_skip_leading_waypoint(schedule, i, skipped_waypoints, leading_window_open))
-        {
-            skipped_waypoints++;
-            continue;
-        }
-        leading_window_open = false;
         stops[count].depth_m = schedule->stops[i].depth_m;
         stops[count].stay_min = (float)runtime_s / 60.0f;
         count++;
@@ -904,22 +842,18 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
 static const ArexDecoStop *first_runtime_stop(const ArexDecoSchedule *schedule)
 {
     if (schedule == NULL) return NULL;
-    uint8_t skipped_waypoints = 0U;
-    bool leading_window_open = true;
     for (uint8_t i = 0U; i < schedule->stop_count; i++)
     {
         const ArexDecoStop *stop = &schedule->stops[i];
         uint32_t runtime_s = stop_runtime_seconds(stop);
+        if (stop_display_suppressed(stop))
+        {
+            continue;
+        }
         if (stop->depth_m <= 0.0f || runtime_s == 0U)
         {
             continue;
         }
-        if (should_skip_leading_waypoint(schedule, i, skipped_waypoints, leading_window_open))
-        {
-            skipped_waypoints++;
-            continue;
-        }
-        leading_window_open = false;
         return stop;
     }
     return NULL;
@@ -1387,6 +1321,7 @@ static float plan_ascent_display_distance_m(float start_depth_m, const ArexDecoS
     for (uint8_t i = 0U; i < schedule->stop_count; i++)
     {
         const ArexDecoStop *stop = &schedule->stops[i];
+        if (stop_display_suppressed(stop)) continue;
         if (stop_runtime_seconds(stop) == 0U) continue;
         if (stop->depth_m < from_depth_m)
         {
@@ -1496,12 +1431,13 @@ bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv
     {
         const ArexDecoStop *stop = &schedule.stops[i];
         uint32_t runtime_s = stop_runtime_seconds(stop);
+        bool display_stop = !stop_display_suppressed(stop) && runtime_s > 0U;
         int8_t gas_idx = stop->gas_index;
         if (gas_idx < 0 || gas_idx >= (int8_t)plan_state.gas_plan.gas_count) gas_idx = plan_state.gas_plan.active_gas_index;
         const ArexDecoGas *gas = &plan_state.gas_plan.gases[gas_idx];
         uint16_t stop_gas_l = gas_qty_l(stop->depth_m, stop->duration_seconds, rmv_lpm, &plan_state.config);
 
-        if (runtime_s > 0U && stop->depth_m < ascent_from_depth_m)
+        if (display_stop && stop->depth_m < ascent_from_depth_m)
         {
             uint32_t segment_s = plan_ascent_segment_s(ascent_from_depth_m, stop->depth_m, total_ascent_s, ascent_distance_m, &used_ascent_s);
             uint16_t ascent_l = gas_qty_l((ascent_from_depth_m + stop->depth_m) * 0.5f, segment_s, rmv_lpm, &plan_state.config);
@@ -1517,7 +1453,7 @@ bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv
 
         run_s += stop->duration_seconds;
         total_deco_l = (uint16_t)(total_deco_l + stop_gas_l);
-        if (runtime_s == 0U) continue;
+        if (!display_stop) continue;
         (void)append_plan_row(out_snapshot, DIVE_PLAN_ROW_DECO_STOP, (int16_t)(stop->depth_m + 0.5f), round_up_minutes(runtime_s), round_up_minutes(run_s), gas, stop_gas_l);
         ascent_gas = gas;
     }
