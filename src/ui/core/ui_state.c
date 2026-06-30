@@ -18,6 +18,10 @@
 #include "lvgl/lvgl.h"
 #include <string.h>
 
+#ifndef UI_MENU_ROTATE_LEGACY_WALL_RETURN
+#define UI_MENU_ROTATE_LEGACY_WALL_RETURN 0  /* 旧菜单边界蓄力返回逻辑，默认关闭 */
+#endif
+
 /* =========================================
    Global UI context
    ========================================= */
@@ -369,26 +373,78 @@ void ui_handle_rotate(int8_t dir)
     /* --- INFO menu --- */
     case UI_INFO:
     {
-        /* 顶层菜单旋转只循环移动光标，返回统一由 BACK/返回键负责。 */
         uint8_t len = screen_info_item_count();
         if (len == 0U) break;
+#if UI_MENU_ROTATE_LEGACY_WALL_RETURN
+        if (dir == 1 && s_ui.menu_info_idx == len - 1)
+        {
+            s_ui.wall_charge++;
+            screen_show_wall(WALL_BOTTOM, s_ui.wall_charge, "<<< RETURN TO DASH <<<");
+            if (s_ui.wall_charge >= 3)
+            {
+                s_ui.wall_charge = 0;
+                screen_hide_walls_snap();
+                s_ui.state = UI_DASH;
+                s_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
+                ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
+            }
+        }
+        else
+        {
+            s_ui.wall_charge = 0;
+            screen_hide_walls();
+            int8_t next = (int8_t)s_ui.menu_info_idx + dir;
+            if (next < 0) next = 0;
+            if (next >= (int8_t)len) next = len - 1;
+            s_ui.menu_info_idx = (uint8_t)next;
+            screen_set_info_selection(s_ui.menu_info_idx);
+        }
+#else
+        /* 顶层菜单旋转只循环移动光标，返回统一由 BACK/返回键负责。 */
         s_ui.wall_charge = 0;
         screen_hide_walls();
         s_ui.menu_info_idx = ui_wrap_index(s_ui.menu_info_idx, dir, len);
         screen_set_info_selection(s_ui.menu_info_idx);
+#endif
         break;
     }
 
     /* --- SETUP menu --- */
     case UI_SETUP:
     {
-        /* 顶层设置菜单同样循环移动光标，不再用墙提示返回主屏。 */
         uint8_t len = screen_setup_item_count();
         if (len == 0U) break;
+#if UI_MENU_ROTATE_LEGACY_WALL_RETURN
+        if (dir == -1 && s_ui.menu_setup_idx == 0)
+        {
+            s_ui.wall_charge++;
+            screen_show_wall(WALL_TOP, s_ui.wall_charge, ">>> RETURN TO DASH >>>");
+            if (s_ui.wall_charge >= 3)
+            {
+                s_ui.wall_charge = 0;
+                screen_hide_walls_snap();
+                s_ui.state = UI_DASH;
+                s_ui.dash_page = page_setup_display_pos() - 1;
+                ui_go_to_page(page_setup_display_pos() - 1);
+            }
+        }
+        else
+        {
+            s_ui.wall_charge = 0;
+            screen_hide_walls();
+            int8_t next = (int8_t)s_ui.menu_setup_idx + dir;
+            if (next < 0) next = 0;
+            if (next >= (int8_t)len) next = len - 1;
+            s_ui.menu_setup_idx = (uint8_t)next;
+            screen_set_setup_selection(s_ui.menu_setup_idx);
+        }
+#else
+        /* 顶层设置菜单同样循环移动光标，不再用墙提示返回主屏。 */
         s_ui.wall_charge = 0;
         screen_hide_walls();
         s_ui.menu_setup_idx = ui_wrap_index(s_ui.menu_setup_idx, dir, len);
         screen_set_setup_selection(s_ui.menu_setup_idx);
+#endif
         break;
     }
 
@@ -410,9 +466,16 @@ void ui_handle_rotate(int8_t dir)
         {
             break;
         }
+#if UI_MENU_ROTATE_LEGACY_WALL_RETURN
+        int8_t next = (int8_t)s_ui.sub_menu_idx + dir;
+        if (next < 0) next = 0;
+        if (next >= (int8_t)s_ui.sub_item_count) next = s_ui.sub_item_count - 1;
+        s_ui.sub_menu_idx = (uint8_t)next;
+#else
         s_ui.wall_charge = 0;
         screen_hide_walls();
         s_ui.sub_menu_idx = ui_wrap_index(s_ui.sub_menu_idx, dir, s_ui.sub_item_count);
+#endif
         screen_set_submenu_selection(s_ui.sub_menu_idx);
         break;
     }
