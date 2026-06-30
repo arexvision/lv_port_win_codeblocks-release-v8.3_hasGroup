@@ -13,6 +13,7 @@
 #include "../alarm/alarm.h"
 #include "../screen/page_registry.h"
 #include "../screen/screen.h"
+#include "../views/menu_defs.h"
 
 #include "lvgl/lvgl.h"
 #include <string.h>
@@ -275,6 +276,20 @@ static void ui_enter_setup_menu_page(void)
     s_ui.state = UI_SETUP;
     s_ui.menu_setup_idx = 0;
     menu_entry_clear_selection();
+    menu_defs_set_setup_root(MENU_SETUP_ROOT_DIVE);
+    menu_setup_update();
+    ui_go_to_page(page_setup_display_pos());
+    screen_set_setup_selection(0);
+}
+
+static void ui_enter_device_control_page(void)
+{
+    s_ui.wall_charge = 0;
+    s_ui.state = UI_SETUP;
+    s_ui.menu_setup_idx = 0;
+    menu_entry_clear_selection();
+    menu_defs_set_setup_root(MENU_SETUP_ROOT_DEVICE);
+    menu_setup_update();
     ui_go_to_page(page_setup_display_pos());
     screen_set_setup_selection(0);
 }
@@ -562,6 +577,11 @@ void ui_handle_click(void)
         }
         else
 #endif
+        if (menu_entry_selection_is_device(s_ui.menu_entry_idx))
+        {
+            ui_enter_device_control_page();
+        }
+        else
         {
             ui_enter_setup_menu_page();
         }

@@ -35,6 +35,7 @@ const menu_list_cfg_t menu_setup_cfg =
 
 static lv_obj_t *s_list;
 static ui_vm_menu_layout_t s_menu_layout_vm;
+static lv_obj_t *s_setup_title_lbl;
 
 /* badge 句柄数组：由动态菜单工厂输出的 item handles 填充。
  * child 0=title label，child 1=badge label。
@@ -42,7 +43,7 @@ static ui_vm_menu_layout_t s_menu_layout_vm;
 static lv_obj_t *s_setup_item_objs[SETUP_ITEM_COUNT];
 static lv_obj_t *s_setup_badge_lbls[SETUP_ITEM_COUNT];
 static lv_obj_t *s_menu_entry_list;
-static lv_obj_t *s_menu_entry_items[2];
+static lv_obj_t *s_menu_entry_items[3];
 static lv_obj_t *s_menu_entry_hint_lbl;
 static uint8_t s_menu_entry_selected = 0xFFU;
 
@@ -50,6 +51,7 @@ static const menu_item_cfg_t s_menu_entry_cfg[] =
 {
     { "INFO MENU", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "DIVE MENU", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "DEVICE CONTROL", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 
 static bool menu_setup_obj_is_valid(lv_obj_t **obj_ref)
@@ -93,9 +95,9 @@ static bool menu_entry_info_visible(void)
 static uint8_t menu_entry_visible_count(void)
 {
 #if ENABLE_INFO_MENU
-    return menu_entry_info_visible() ? 2U : 1U;
+    return menu_entry_info_visible() ? 3U : 2U;
 #else
-    return 1U;
+    return 2U;
 #endif
 }
 
@@ -141,16 +143,47 @@ bool menu_entry_selection_is_info(uint8_t idx)
 #endif
 }
 
+bool menu_entry_selection_is_device(uint8_t idx)
+{
+#if ENABLE_INFO_MENU
+    return menu_entry_info_visible() ? (idx == 2U) : (idx == 1U);
+#else
+    return idx == 1U;
+#endif
+}
+
+static void menu_setup_render_title(lv_obj_t *parent)
+{
+    uint16_t right_w = ui_content_w_get();
+
+    s_setup_title_lbl = lv_label_create(parent);
+    lv_obj_remove_style_all(s_setup_title_lbl);
+    lv_obj_set_pos(s_setup_title_lbl, 16, CARD_TITLE_TEXT_Y);
+    lv_obj_set_size(s_setup_title_lbl, right_w - 32, CARD_TITLE_TEXT_H);
+    lv_label_set_long_mode(s_setup_title_lbl, LV_LABEL_LONG_DOT);
+    lv_label_set_text(s_setup_title_lbl, menu_defs_setup_root_title());
+    lv_obj_set_style_text_font(s_setup_title_lbl, get_font(FONT_ID_TITLE), 0);
+    lv_obj_set_style_text_color(s_setup_title_lbl, LIGHT, 0);
+
+    lv_obj_t *line = lv_obj_create(parent);
+    lv_obj_remove_style_all(line);
+    lv_obj_set_size(line, right_w - 32, CARD_TITLE_LINE_H);
+    lv_obj_set_pos(line, 16, CARD_TITLE_LINE_Y);
+    lv_obj_set_style_bg_opa(line, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_color(line, DARK, 0);
+}
+
 void menu_entry_create(lv_obj_t *parent)
 {
     ui_vm_menu_layout_update(&s_menu_layout_vm, NULL);
     int right_canvas_w = (int)s_menu_layout_vm.right_canvas_w;
     uint16_t item_h_px = s_menu_layout_vm.item_h_px;
     uint16_t gap_y_px = s_menu_layout_vm.gap_y_px;
-    uint16_t list_h = 2U * item_h_px + gap_y_px;
+    uint16_t list_h = 3U * item_h_px + 2U * gap_y_px;
     uint16_t list_y = (CARD_TITLE_H > MENU_LIST_TOP_NUDGE_PX) ? (uint16_t)(CARD_TITLE_H - MENU_LIST_TOP_NUDGE_PX) : CARD_TITLE_H;
     uint16_t visible_h = ui_content_h_get() > list_y ? (uint16_t)(ui_content_h_get() - list_y) : list_h;
 
+    memset(s_menu_entry_items, 0, sizeof(s_menu_entry_items));
     render_card_title(parent, "MENU HUB");
 
     s_menu_entry_hint_lbl = lv_label_create(parent);
@@ -204,41 +237,53 @@ void menu_entry_update(void)
         s_menu_entry_list = NULL;
         s_menu_entry_items[0] = NULL;
         s_menu_entry_items[1] = NULL;
+        s_menu_entry_items[2] = NULL;
         return;
     }
     if (s_menu_entry_items[0] == NULL || !lv_obj_is_valid(s_menu_entry_items[0])) return;
     if (s_menu_entry_items[1] != NULL && !lv_obj_is_valid(s_menu_entry_items[1])) s_menu_entry_items[1] = NULL;
+    if (s_menu_entry_items[2] != NULL && !lv_obj_is_valid(s_menu_entry_items[2])) s_menu_entry_items[2] = NULL;
 
     if (!active) s_menu_entry_selected = 0xFFU;
     if (active && s_menu_entry_selected >= count) s_menu_entry_selected = 0U;
 
     lv_obj_clear_flag(s_menu_entry_items[0], LV_OBJ_FLAG_HIDDEN);
-    if (s_menu_entry_items[1] != NULL)
+    if (s_menu_entry_items[1] != NULL && s_menu_entry_items[2] != NULL)
     {
         lv_coord_t first_y = lv_obj_get_y(s_menu_entry_items[0]);
         lv_coord_t second_y = first_y + lv_obj_get_height(s_menu_entry_items[0]) + (lv_coord_t)ui_menu_gap_px_get();
-        if (count > 1U)
+        lv_coord_t third_y = second_y + lv_obj_get_height(s_menu_entry_items[1]) + (lv_coord_t)ui_menu_gap_px_get();
+        if (menu_entry_info_visible())
         {
             lv_obj_clear_flag(s_menu_entry_items[0], LV_OBJ_FLAG_HIDDEN);
             lv_obj_set_y(s_menu_entry_items[1], second_y);
+            lv_obj_set_y(s_menu_entry_items[2], third_y);
         }
         else
         {
             lv_obj_add_flag(s_menu_entry_items[0], LV_OBJ_FLAG_HIDDEN);
             lv_obj_set_y(s_menu_entry_items[1], first_y);
+            lv_obj_set_y(s_menu_entry_items[2], second_y);
         }
+        lv_obj_clear_flag(s_menu_entry_items[2], LV_OBJ_FLAG_HIDDEN);
     }
 
-    if (s_menu_entry_items[0] != NULL) menu_entry_apply_row_style(s_menu_entry_items[0], lv_obj_get_child(s_menu_entry_items[0], 0), active && count > 1U && s_menu_entry_selected == 0U);
-    if (s_menu_entry_items[1] != NULL) menu_entry_apply_row_style(s_menu_entry_items[1], lv_obj_get_child(s_menu_entry_items[1], 0), active && s_menu_entry_selected == (count > 1U ? 1U : 0U));
+    bool info_visible = menu_entry_info_visible();
+    bool dive_selected = active && (s_menu_entry_selected == (info_visible ? 1U : 0U));
+    if (s_menu_entry_items[0] != NULL) menu_entry_apply_row_style(s_menu_entry_items[0], lv_obj_get_child(s_menu_entry_items[0], 0), active && info_visible && s_menu_entry_selected == 0U);
+    if (s_menu_entry_items[1] != NULL) menu_entry_apply_row_style(s_menu_entry_items[1], lv_obj_get_child(s_menu_entry_items[1], 0), dive_selected);
+    if (s_menu_entry_items[2] != NULL) menu_entry_apply_row_style(s_menu_entry_items[2], lv_obj_get_child(s_menu_entry_items[2], 0), active && menu_entry_selection_is_device(s_menu_entry_selected));
 }
 
 void menu_setup_create(lv_obj_t *parent)
 {
-    uint8_t setup_count = 0;
-    const menu_item_cfg_t *setup_items = menu_defs_setup_items(&setup_count);
+    uint8_t setup_count = SETUP_ITEM_COUNT;
+    const menu_item_cfg_t *setup_items = g_menu_setup_items;
 
-    render_card_title(parent, "DIVE MENU");
+    s_setup_title_lbl = NULL;
+    memset(s_setup_item_objs, 0, sizeof(s_setup_item_objs));
+    memset(s_setup_badge_lbls, 0, sizeof(s_setup_badge_lbls));
+    menu_setup_render_title(parent);
 
     ui_vm_menu_layout_update(&s_menu_layout_vm, NULL);
     int right_canvas_w = (int)s_menu_layout_vm.right_canvas_w;
@@ -282,6 +327,8 @@ void menu_setup_create(lv_obj_t *parent)
 void menu_setup_update(void)
 {
     ui_vm_setup_menu_t vm;
+    uint8_t setup_count = 0;
+    const menu_item_cfg_t *setup_items = menu_defs_setup_items(&setup_count);
 
     if (!menu_setup_obj_is_valid(&s_list)) return;
 
@@ -290,18 +337,58 @@ void menu_setup_update(void)
 
     ui_vm_setup_menu_update(&vm);
 
-    if (menu_setup_obj_is_valid(&s_setup_badge_lbls[1]))
+    if (s_setup_title_lbl != NULL && lv_obj_is_valid(s_setup_title_lbl))
     {
-        menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[1], vm.conservatism_badge);
+        menu_setup_badge_set_text_if_changed(s_setup_title_lbl, menu_defs_setup_root_title());
     }
-    if (menu_setup_obj_is_valid(&s_setup_badge_lbls[2]))
+    else
     {
-        menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[2], vm.brightness_badge);
+        s_setup_title_lbl = NULL;
     }
-    if (menu_setup_obj_is_valid(&s_setup_badge_lbls[3]))
+
+    for (uint8_t i = 0U; i < SETUP_ITEM_COUNT; i++)
     {
-        uint8_t idx = (vm.compass_cal_badge_idx <= 2U) ? vm.compass_cal_badge_idx : 0U;
-        menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[3], cal_str[idx]);
+        if (!menu_setup_obj_is_valid(&s_setup_item_objs[i])) continue;
+        if (i < setup_count)
+        {
+            lv_obj_t *label = lv_obj_get_child(s_setup_item_objs[i], 0);
+            lv_obj_clear_flag(s_setup_item_objs[i], LV_OBJ_FLAG_HIDDEN);
+            if (label != NULL) menu_setup_badge_set_text_if_changed(label, setup_items[i].title_text);
+        }
+        else
+        {
+            lv_obj_add_flag(s_setup_item_objs[i], LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
+    for (uint8_t i = 0U; i < SETUP_ITEM_COUNT; i++)
+    {
+        if (!menu_setup_obj_is_valid(&s_setup_badge_lbls[i])) continue;
+        menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[i], "");
+        lv_obj_add_flag(s_setup_badge_lbls[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (menu_defs_get_setup_root() == MENU_SETUP_ROOT_DIVE)
+    {
+        if (menu_setup_obj_is_valid(&s_setup_badge_lbls[1]))
+        {
+            lv_obj_clear_flag(s_setup_badge_lbls[1], LV_OBJ_FLAG_HIDDEN);
+            menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[1], vm.conservatism_badge);
+        }
+    }
+    else
+    {
+        if (menu_setup_obj_is_valid(&s_setup_badge_lbls[0]))
+        {
+            lv_obj_clear_flag(s_setup_badge_lbls[0], LV_OBJ_FLAG_HIDDEN);
+            menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[0], vm.brightness_badge);
+        }
+        if (menu_setup_obj_is_valid(&s_setup_badge_lbls[1]))
+        {
+            uint8_t idx = (vm.compass_cal_badge_idx <= 2U) ? vm.compass_cal_badge_idx : 0U;
+            lv_obj_clear_flag(s_setup_badge_lbls[1], LV_OBJ_FLAG_HIDDEN);
+            menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[1], cal_str[idx]);
+        }
     }
     if (vm.compass_cal_state != last_cal_state)
     {

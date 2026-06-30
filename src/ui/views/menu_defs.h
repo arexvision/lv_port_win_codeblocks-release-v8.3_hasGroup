@@ -25,6 +25,12 @@ extern "C" {
 extern const menu_item_cfg_t g_menu_info_items[SUBMENU_INFO_COUNT];
 extern const menu_item_cfg_t g_menu_setup_items[SUBMENU_SETUP_COUNT];
 
+typedef enum
+{
+    MENU_SETUP_ROOT_DIVE = 0,
+    MENU_SETUP_ROOT_DEVICE,
+} menu_setup_root_t;
+
 /* 一个 menu_id_t 表示“当前打开的是哪一个菜单页面”。
  * 例如 MENU_SETUP_BRIGHTNESS 表示亮度列表页，
  * MENU_LIGHT_RED 表示 LIGHT CONTROL 下面的 RED 强度选择页。
@@ -256,6 +262,9 @@ typedef struct
 
 const menu_item_cfg_t *menu_defs_info_items(uint8_t *out_count);
 const menu_item_cfg_t *menu_defs_setup_items(uint8_t *out_count);
+void menu_defs_set_setup_root(menu_setup_root_t root);
+menu_setup_root_t menu_defs_get_setup_root(void);
+const char *menu_defs_setup_root_title(void);
 menu_id_t menu_defs_info_menu_for_index(uint8_t index);
 menu_id_t menu_defs_setup_menu_for_index(uint8_t index);
 const char *menu_defs_title(menu_id_t id);

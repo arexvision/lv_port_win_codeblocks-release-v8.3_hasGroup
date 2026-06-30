@@ -1127,7 +1127,17 @@ uint8_t screen_setup_item_count(void)
         s_setup_list = NULL;
         return 0;
     }
-    return (uint8_t)lv_obj_get_child_cnt(s_setup_list);
+    uint8_t count = 0U;
+    uint32_t child_cnt = lv_obj_get_child_cnt(s_setup_list);
+    for (uint32_t i = 0U; i < child_cnt; i++)
+    {
+        lv_obj_t *item = lv_obj_get_child(s_setup_list, i);
+        if (item != NULL && !lv_obj_has_flag(item, LV_OBJ_FLAG_HIDDEN))
+        {
+            count++;
+        }
+    }
+    return count;
 }
 
 void screen_register_info_list(lv_obj_t *list)

@@ -20,14 +20,24 @@ const menu_item_cfg_t g_menu_info_items[SUBMENU_INFO_COUNT] =
 
 const menu_item_cfg_t g_menu_setup_items[SUBMENU_SETUP_COUNT] =
 {
-    /* SETUP 菜单包含设备设置、亮度、罗盘校准和灯光控制等入口。 */
-    { "GAS SWITCH",    NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    /* DIVE MENU 只保留潜水期间会直接用到的配置入口。 */
+    { "GAS SWITCH",    "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "CONSERVATISM",  "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "DIVE SETUP",    NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "AI SETUP",      NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "DISPLAY",       NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "ALERTS SETUP",  NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+};
+
+static const menu_item_cfg_t s_menu_device_items[] =
+{
+    /* DEVICE CONTROL 放即时硬件控制和校准入口。 */
     { "BRIGHTNESS",    "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "COMPASS CAL",   "IDLE", FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "LIGHT CONTROL", NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "SYSTEM SETUP",  NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
+
+static menu_setup_root_t s_setup_root = MENU_SETUP_ROOT_DIVE;
 
 const menu_item_cfg_t *menu_defs_info_items(uint8_t *out_count)
 {
@@ -41,12 +51,29 @@ const menu_item_cfg_t *menu_defs_info_items(uint8_t *out_count)
 
 const menu_item_cfg_t *menu_defs_setup_items(uint8_t *out_count)
 {
-    /* SETUP 菜单同样走静态表输出，避免 view 层自己拼配置。 */
+    /* SETUP 物理页根据 MENU HUB 选择切换为 DIVE MENU 或 DEVICE CONTROL。 */
     if (out_count)
     {
-        *out_count = (uint8_t)(sizeof(g_menu_setup_items) / sizeof(g_menu_setup_items[0]));
+        *out_count = (s_setup_root == MENU_SETUP_ROOT_DEVICE)
+                         ? (uint8_t)(sizeof(s_menu_device_items) / sizeof(s_menu_device_items[0]))
+                         : (uint8_t)(sizeof(g_menu_setup_items) / sizeof(g_menu_setup_items[0]));
     }
-    return g_menu_setup_items;
+    return (s_setup_root == MENU_SETUP_ROOT_DEVICE) ? s_menu_device_items : g_menu_setup_items;
+}
+
+void menu_defs_set_setup_root(menu_setup_root_t root)
+{
+    s_setup_root = (root == MENU_SETUP_ROOT_DEVICE) ? MENU_SETUP_ROOT_DEVICE : MENU_SETUP_ROOT_DIVE;
+}
+
+menu_setup_root_t menu_defs_get_setup_root(void)
+{
+    return s_setup_root;
+}
+
+const char *menu_defs_setup_root_title(void)
+{
+    return (s_setup_root == MENU_SETUP_ROOT_DEVICE) ? "DEVICE CONTROL" : "DIVE MENU";
 }
 
 menu_id_t menu_defs_info_menu_for_index(uint8_t index)
@@ -67,16 +94,26 @@ menu_id_t menu_defs_info_menu_for_index(uint8_t index)
 menu_id_t menu_defs_setup_menu_for_index(uint8_t index)
 {
     /* SETUP 菜单索引到具体子页的映射表。 */
-    static const menu_id_t map[] =
+    static const menu_id_t dive_map[] =
     {
         MENU_SETUP_GAS_SWITCH,
         MENU_SETUP_CONSERVATISM,
+        MENU_DIVE_SETUP,
+        MENU_AI_SETUP,
+        MENU_DISPLAY,
+        MENU_ALERTS_SETUP,
+    };
+    static const menu_id_t device_map[] =
+    {
         MENU_SETUP_BRIGHTNESS,
         MENU_SETUP_COMPASS_CAL,
         MENU_SETUP_LIGHT_CONTROL,
-        MENU_SETUP_SYSTEMS,
     };
-    return (index < (sizeof(map) / sizeof(map[0]))) ? map[index] : MENU_NONE;
+    if (s_setup_root == MENU_SETUP_ROOT_DEVICE)
+    {
+        return (index < (sizeof(device_map) / sizeof(device_map[0]))) ? device_map[index] : MENU_NONE;
+    }
+    return (index < (sizeof(dive_map) / sizeof(dive_map[0]))) ? dive_map[index] : MENU_NONE;
 }
 
 const char *menu_defs_title(menu_id_t id)

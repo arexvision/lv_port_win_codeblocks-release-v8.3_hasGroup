@@ -203,7 +203,6 @@ static bool handle_conservatism(menu_item_id_t id, menu_action_t *action)
     option = submenu_conservatism_option(index);
     ui_on_conservatism_set(option->value);
     screen_refresh_setup_menu();
-    screen_update_setup_badge(1, option->badge_label);
     action->type = MENU_ACTION_CLOSE;
     return true;
 }
@@ -223,7 +222,7 @@ static bool handle_brightness(menu_item_id_t id, menu_action_t *action)
     option = submenu_brightness_option(index);
     bus_set_brightness(option->value);
     set_brightness(option->value);
-    screen_update_setup_badge(2, option->badge_label);
+    screen_refresh_setup_menu();
     action->type = MENU_ACTION_CLOSE;
     return true;
 }
