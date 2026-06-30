@@ -168,7 +168,7 @@ void ui_vm_modal_gas_update(ui_vm_modal_gas_t *vm, uint8_t gas_cursor)
     if (gas_count == 0U)
     {
         (void)snprintf(vm->body, sizeof(vm->body), "%s", "NO ACTIVE GAS");
-        (void)snprintf(vm->hint, sizeof(vm->hint), "%s", "[ ESC CANCEL ]");
+        (void)snprintf(vm->hint, sizeof(vm->hint), "%s", "[ BACK CANCEL ]");
         return;
     }
 
@@ -198,7 +198,7 @@ void ui_vm_modal_gas_update(ui_vm_modal_gas_t *vm, uint8_t gas_cursor)
         (void)snprintf(vm->hint,
                        sizeof(vm->hint),
                        "%s",
-                       "[ ENTER CONFIRM ]  [ ESC CANCEL ]");
+                       "[ ENTER CONFIRM ]  [ BACK CANCEL ]");
     }
     vm->valid = 1U;
 }

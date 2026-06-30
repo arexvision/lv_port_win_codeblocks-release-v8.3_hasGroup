@@ -120,7 +120,7 @@ void screen_show_modal_act(const char *action_text)
     {
         return;
     }
-    modal_set_content("ACTION", action_text ? action_text : "", "[ ESC TO BACK ]");
+    modal_set_content("ACTION", action_text ? action_text : "", "[ BACK CLOSE ]");
     lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
     ui_state_set_state(UI_MODAL_ACT);
     lv_timer_create(modal_act_timer_cb, 1000, NULL);
@@ -134,7 +134,7 @@ void screen_show_modal_setup_confirm(const char *body)
         return;
     }
     modal_set_content("CONFIRM SETTING", body ? body : "",
-                      "[ ENTER CONFIRM ]  [ ESC CANCEL ]");
+                      "[ ENTER CONFIRM ]  [ BACK CANCEL ]");
     lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
 }
 
@@ -169,7 +169,7 @@ void screen_show_modal_compass(void)
         return;
     }
     modal_set_content("CLEAR TARGET?", "REMOVE HEADING MARKER?",
-                      "[ ENTER CONFIRM ]  [ ESC CANCEL ]");
+                      "[ ENTER CONFIRM ]  [ BACK CANCEL ]");
     lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
 }
 
