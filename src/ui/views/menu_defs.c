@@ -24,6 +24,9 @@ const menu_item_cfg_t g_menu_setup_items[SUBMENU_SETUP_COUNT] =
     { "GAS SWITCH",    "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "CONSERVATISM",  "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "SYSTEM SETUP",  NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "",              NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "",              NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "",              NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 
 static const menu_item_cfg_t s_menu_device_items[] =
