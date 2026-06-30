@@ -43,6 +43,7 @@ static lv_obj_t *s_setup_item_objs[SETUP_ITEM_COUNT];
 static lv_obj_t *s_setup_badge_lbls[SETUP_ITEM_COUNT];
 static lv_obj_t *s_menu_entry_list;
 static lv_obj_t *s_menu_entry_items[2];
+static lv_obj_t *s_menu_entry_hint_lbl;
 static uint8_t s_menu_entry_selected = 0xFFU;
 
 static const menu_item_cfg_t s_menu_entry_cfg[] =
@@ -152,6 +153,15 @@ void menu_entry_create(lv_obj_t *parent)
 
     render_card_title(parent, "MENU HUB");
 
+    s_menu_entry_hint_lbl = lv_label_create(parent);
+    lv_obj_remove_style_all(s_menu_entry_hint_lbl);
+    lv_obj_set_pos(s_menu_entry_hint_lbl, 150, CARD_TITLE_TEXT_Y + 3);
+    lv_obj_set_size(s_menu_entry_hint_lbl, right_canvas_w > 166 ? right_canvas_w - 166 : right_canvas_w, CARD_TITLE_TEXT_H);
+    lv_label_set_long_mode(s_menu_entry_hint_lbl, LV_LABEL_LONG_DOT);
+    lv_label_set_text(s_menu_entry_hint_lbl, "[ ENTER ] select menu");
+    lv_obj_set_style_text_font(s_menu_entry_hint_lbl, get_font(FONT_ID_SMALL), 0);
+    lv_obj_set_style_text_color(s_menu_entry_hint_lbl, LIGHT, 0);
+
     s_menu_entry_list = lv_obj_create(parent);
     lv_obj_remove_style_all(s_menu_entry_list);
     lv_obj_set_size(s_menu_entry_list, right_canvas_w, visible_h);
@@ -172,6 +182,22 @@ void menu_entry_update(void)
 {
     uint8_t count = menu_entry_visible_count();
     bool active = ui_state_get_state() == UI_MENU_ENTRY;
+
+    if (s_menu_entry_hint_lbl != NULL && lv_obj_is_valid(s_menu_entry_hint_lbl))
+    {
+        if (active)
+        {
+            lv_obj_add_flag(s_menu_entry_hint_lbl, LV_OBJ_FLAG_HIDDEN);
+        }
+        else
+        {
+            lv_obj_clear_flag(s_menu_entry_hint_lbl, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    else
+    {
+        s_menu_entry_hint_lbl = NULL;
+    }
 
     if (s_menu_entry_list == NULL || !lv_obj_is_valid(s_menu_entry_list))
     {
