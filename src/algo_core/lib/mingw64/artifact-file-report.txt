@@ -8,7 +8,7 @@
 ./arex_deco_step_common.cpp.obj:      Intel amd64 COFF object file, no line number info, not stripped, 13 sections, symbol offset=0xc88, 51 symbols, 1st section name ".text"
 ./arex_deco_tissue_pressures.cpp.obj: Intel amd64 COFF object file, no line number info, not stripped, 19 sections, symbol offset=0xe64, 59 symbols, 1st section name ".text"
 ./arex_deco_version.cpp.obj:          Intel amd64 COFF object file, no line number info, not stripped, 6 sections, symbol offset=0x186, 16 symbols, 1st section name ".text"
-./deco_planner.cpp.obj:               Intel amd64 COFF object file, no line number info, not stripped, 34 sections, symbol offset=0x4f24, 122 symbols, 1st section name ".text"
+./deco_planner.cpp.obj:               Intel amd64 COFF object file, no line number info, not stripped, 34 sections, symbol offset=0x5120, 122 symbols, 1st section name ".text"
 ./gas_model.cpp.obj:                  Intel amd64 COFF object file, no line number info, not stripped, 19 sections, symbol offset=0xafe, 53 symbols, 1st section name ".text"
 ./gradient_factors.cpp.obj:           Intel amd64 COFF object file, no line number info, not stripped, 10 sections, symbol offset=0xc80, 34 symbols, 1st section name ".text"
 ./ndl.cpp.obj:                        Intel amd64 COFF object file, no line number info, not stripped, 13 sections, symbol offset=0x7ae, 38 symbols, 1st section name ".text"

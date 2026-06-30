@@ -169,6 +169,17 @@ typedef struct ArexDecoGasRecommendation {
     uint8_t reserved[24];
 } ArexDecoGasRecommendation;
 
+enum {
+    AREX_DECO_STOP_KIND_MANDATORY = 0,
+    AREX_DECO_STOP_KIND_ROUTE_WAYPOINT = 1,
+    AREX_DECO_STOP_KIND_GAS_SWITCH = 2,
+    AREX_DECO_STOP_KIND_SAFETY = 3,
+};
+
+enum {
+    AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED = 1u << 0,
+};
+
 typedef struct ArexDecoStop {
     float depth_m;
     // Total predicted time at this stop. This includes the physical hold and
@@ -180,7 +191,12 @@ typedef struct ArexDecoStop {
     uint32_t hold_seconds;
     // Planner-only same-depth gas-switch delay.
     uint32_t switch_penalty_seconds;
-    uint8_t reserved[12];
+    // AREX_DECO_STOP_KIND_*. The field is uint8_t to keep the C ABI compact
+    // and stable across compilers.
+    uint8_t kind;
+    // AREX_DECO_STOP_FLAG_* bitmask for display/runtime interpretation.
+    uint8_t flags;
+    uint8_t reserved[10];
 } ArexDecoStop;
 
 typedef struct ArexDecoSchedule {

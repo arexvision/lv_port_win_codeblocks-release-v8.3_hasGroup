@@ -1,6 +1,6 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.25`。
+本文档描述当前 core API。当前 API 版本为 `0.0.26`。
 
 ## 适用场景
 
@@ -15,7 +15,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 25`
+- `AREX_DECO_API_VERSION_PATCH = 26`
 
 固定容量：
 
@@ -287,10 +287,24 @@ ABI 布局保存和还原它们；内部验证用的 `GfAnchorUpdateInfo` 不属
 | `target_gf` | `float` | 0-1 | 该停站目标 GF |
 | `hold_seconds` | `uint32_t` | s | 扣除预测切气延迟后的停留求解时间。强制减压站由 `solve_stop_time_seconds()` 从 penalty 推进后的组织状态起算；安全停留站使用 `safety_stop_seconds` |
 | `switch_penalty_seconds` | `uint32_t` | s | planner 预测用的同深度切气延迟；期间按新气体推进组织舱，并已包含在 `duration_seconds` 内 |
+| `kind` | `uint8_t` | - | algorithm stop kind，描述 raw stop 在 planner 路径中的算法身份：`MANDATORY=0`、`ROUTE_WAYPOINT=1`、`GAS_SWITCH=2`、`SAFETY=3` |
+| `flags` | `uint8_t` | - | runtime display hint flags，不参与 tissue / TTS / ceiling 安全判定；`AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 表示该 raw stop 不应作为 runtime 当前实质停站展示 |
 
 `hold_seconds` 依赖 `switch_penalty_seconds` 已按新气体推进组织舱这一前提，
 两者不可被视为两个互不相关的倒计时。若只需要一个停站剩余时间，
 调用方应使用 `duration_seconds`。
+
+`kind` 是算法事实：它说明该 raw stop 是强制减压停站、GF anchor 下的网格路径
+waypoint、纯切气预测站，还是安全停留。`kind` 不要求 UI 一定显示或隐藏某站。
+
+`flags` 是 runtime display hint：它不改变 raw schedule、`tts_seconds`、组织舱推进、
+ceiling、GF99 或安全判定。`AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 只告诉固件 / App：
+该 raw stop 不应作为主屏当前实质停站、PLAN 图首站或 DLF/APP `next_stop` 展示。
+
+`ROUTE_WAYPOINT` 不必然隐藏：若它贴近当前 GF target ceiling，可作为成熟产品风格的
+短首停显示；若它明显深于当前 ceiling，只作为路径连续性点，并设置
+`DISPLAY_SUPPRESSED`。这里的“贴近”按当前 `deco_step_m` 的半个网格判断，是 display
+classification 语义，不是 Bühlmann / GF 安全裕量。
 
 ### `ArexDecoSchedule`
 
@@ -310,11 +324,12 @@ ABI 布局保存和还原它们；内部验证用的 `GfAnchorUpdateInfo` 不属
 `18 m / 1 s`、`15 m / 1 s`、`6 m / 1 s` 这类短 waypoint 可能出现在 raw
 路径中，用于保持 GF slope、减压网格路径和实时重复 plan 的连续性。它们会参与
 TTS、组织舱和氧暴露递推，因此 core 不会为了贴合 UI first stop 直接删除。
-固件 `ArexDecoRuntime` / App display 层应在保留 raw schedule 的同时派生用户
-看到的 current/effective/display stop，并过滤 leading waypoint。DLF/APP 日志
-语义中的 `next_stop` 应来自该 runtime/display stop，而不是直接使用
-`schedule.stops[0]`。core public C API 当前不提供 display helper；Web adapter 和
-validation 中的 effective/display 逻辑仅作为固件 runtime 过滤口径的镜像实现。
+固件 `ArexDecoRuntime` / App display 层应在保留 raw schedule 的同时，依据
+`stop.kind` 和 runtime display hint `stop.flags` 派生用户看到的
+current/effective/display stop。凡带有 `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 的
+raw stop 不应作为主屏当前实质停站或 DLF/APP `next_stop` 输出；`schedule.tts_seconds`
+仍始终来自 raw schedule。core public C API 当前不提供 display helper；Web adapter
+和 validation 中的 effective/display 逻辑仅作为固件 runtime 语义消费的镜像实现。
 
 ### `ArexDecoTtsForecast`
 
@@ -616,7 +631,10 @@ Planning 与 Runtime 语义：
 - 二分求解固定 24 次迭代，6 h 上限下时间分辨率约 1.29 ms，输出前按严格上界取到整数秒。
 - 如果 0 s 已满足离开条件，该深度通常不会写入 `schedule->stops`，但 planner 仍会继续模拟上升到下一深度。
 - 当较深的实质停站已经确立 GF anchor 后，后续中间网格站若数学停留为 0 s，planner 会先验证在该站停留最小输出粒度后仍满足离开到下一站的 ceiling 约束；验证通过时输出一个 `AREX_DECO_STOP_TIME_GRANULARITY_SECONDS` 的安全 waypoint，避免实时重复调用 `arex_deco_plan()` 时出现 9 m / 3 m 这类跳过 6 m 的断档计划。该 waypoint 会参与 tissue、氧暴露和 TTS 递推，不是纯 UI 展示项。
-- UI / adapter 不应直接把 `18 m / 1 s`、`15 m / 1 s`、`6 m / 1 s` 这类 leading waypoint 当作当前实质停站展示；产品层应在保留 raw `schedule->stops` 的同时派生 effective/display stop，例如过滤 `duration_seconds < 5 s` 的连续 leading waypoint。
+- UI / adapter 不应直接把带有 `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 的
+  `18 m / 1 s`、`15 m / 1 s`、`6 m / 1 s` 等 raw stop 当作当前实质停站展示；
+  产品层应保留 raw `schedule->stops`，并按 `kind/flags` 派生 effective/display stop。
+  不再需要按“前 N 个短站”“小于若干秒”等 heuristic 猜测 waypoint。
 - 如果需要停留，Core 将该停站时间输出为整数秒。例如 12 s 会输出为 12 s，而不会在核心算法层抬到 60 s。
 - Core 会用该秒级停留时间继续推进组织舱和氧暴露，再计算后续更浅停站。
 - 因此 `tts_seconds`、后续停站时间、气体使用估算和跨语言移植结果都必须基于“求解 -> 秒级 strict-ceil -> 重算”的闭环，不能在 core 层额外套用分钟级取整。
@@ -870,6 +888,8 @@ if (status == AREX_DECO_STATUS_OK) {
         // stop->duration_seconds: planning total
         // stop->hold_seconds: physical hold only
         // stop->switch_penalty_seconds: planning-only switch delay
+        // stop->kind: algorithm stop kind
+        // stop->flags: runtime display hints only
     }
 }
 ```
@@ -878,9 +898,14 @@ if (status == AREX_DECO_STATUS_OK) {
 
 - tick 内先用 `arex_deco_step()` 推进真实状态，再用 `arex_deco_recommend_gas()` 获取当前深度最佳安全可用气体，最后按产品需要调用 `arex_deco_plan()` 刷新计划。
 - TTS 显示使用 `schedule.tts_seconds`。该值包含未来上升、停站、安全停留和预测切气延迟，适合做保守总时间估计。
-- 当前站主倒计时使用当前站的 `duration_seconds`。不要只绑定 `hold_seconds`，否则在 pending 切气被确认、`switch_penalty_seconds` 清零后，隐藏在 penalty 中的新气体脱气时间会回到 `hold_seconds`，可能导致倒计时向上跳变。
+- 当前站主倒计时应绑定第一个未设置
+  `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 的 stop 的 `duration_seconds`。不要只绑定
+  `hold_seconds`，否则在 pending 切气被确认、`switch_penalty_seconds` 清零后，隐藏在
+  penalty 中的新气体脱气时间会回到 `hold_seconds`，可能导致倒计时向上跳变。
 - `hold_seconds` 和 `switch_penalty_seconds` 可用于拆分展示、调试或计划详情；若只显示一个当前站剩余时间，应显示 `duration_seconds`。
-- 若当前首站满足 `hold_seconds == 0 && switch_penalty_seconds > 0`，它是纯切气预测站。Runtime 主界面应隐藏该站减压倒计时，只保留切气提示；静态计划和日志中可显示为“切气 +N s”。
+- 若当前首站 `kind == AREX_DECO_STOP_KIND_GAS_SWITCH` 或设置了
+  `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED`，Runtime 主界面应隐藏该站减压倒计时；
+  纯切气预测站只保留切气提示，静态计划和日志中可显示为“切气 +N s”。
 - 用户确认切气后，用 0 秒 `arex_deco_step()` 更新 active gas，再重新调用 `arex_deco_plan()`。此时当前气体已是推荐气体，对应当前站的 `switch_penalty_seconds` 会按新状态重新计算，主倒计时继续绑定新的 `duration_seconds`。
 - 用户拒绝或气体不可用时，产品层应保持 active gas 不变，并在传给 core 的 gas plan 中把该气体 `enabled` 设为 0 或移除该气体后重新 plan；core 不保存拒绝策略状态。
 
@@ -1020,5 +1045,7 @@ WASM 构建导出的是同一套 C ABI 符号，外加版本和 sizeof helper。
 | `target_gf` | 12 |
 | `hold_seconds` | 16 |
 | `switch_penalty_seconds` | 20 |
+| `kind` | 24 |
+| `flags` | 25 |
 
 WASM adapter 必须以 sizeof helper 为准。任何 core ABI 变更都必须同步更新 JS offset 和 API 版本。

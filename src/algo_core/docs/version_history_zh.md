@@ -26,6 +26,51 @@
 - smoke test
 - 文档
 
+## 0.0.26
+
+### 摘要
+
+本次版本在不删除 raw algorithm schedule 的前提下，为 `ArexDecoStop` 增加明确的
+停站语义字段，让固件 / App 不再通过“短时长、前几个停站”等 heuristic 猜测哪些
+raw stop 是路径 waypoint 或纯切气预测站。
+
+### 行为与 ABI 变更
+
+- `ArexDecoStop` 使用原 reserved 空间新增：
+  `uint8_t kind`（offset `24`）和 `uint8_t flags`（offset `25`）。结构体总大小保持
+  `36` 字节，`ArexDecoSchedule` 总大小保持 `1500` 字节。
+- `kind` 是 algorithm stop kind，描述 raw stop 在 planner 路径中的算法身份。取值：
+  `AREX_DECO_STOP_KIND_MANDATORY = 0`、
+  `AREX_DECO_STOP_KIND_ROUTE_WAYPOINT = 1`、
+  `AREX_DECO_STOP_KIND_GAS_SWITCH = 2`、
+  `AREX_DECO_STOP_KIND_SAFETY = 3`。
+- `flags` 是 runtime display hint flags，不参与 tissue / TTS / ceiling 安全判定。
+  新增 `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED`。带该标志的 raw stop 仍保留在
+  `schedule.stops[]` 并计入 `schedule.tts_seconds`，但不应作为固件主屏当前实质停站、
+  PLAN 图首站或 DLF/APP `next_stop` 展示。
+- planner 会把 GF anchor 下用于保持网格路径连续性的短停站标记为
+  `ROUTE_WAYPOINT`；其中明显深于当前 GF target ceiling、只用于路径连续性的点会额外设置
+  `DISPLAY_SUPPRESSED`。贴近当前 ceiling（当前 `deco_step_m` 半个网格内）的短首停仍可作为
+  成熟产品风格的当前停站显示；该半格阈值只用于 display classification，不是减压安全裕量。
+  纯切气预测站标记为
+  `GAS_SWITCH | DISPLAY_SUPPRESSED`，把安全停留标记为 `SAFETY`，普通强制减压站标记为
+  `MANDATORY`。
+- Web adapter / validation 的 effective/display stop 逻辑改为读取 core `kind/flags`，
+  不再按“连续 leading 短 waypoint”“最多隐藏 N 个”等规则猜测。
+- `case_001` regression CSV 保留 `raw_stop_sequence`、`effective_stop_sequence` 和
+  `stop_kind_sequence`；gate 直接断言 `route_waypoint:suppressed` 语义存在。
+- C++ planner 单测覆盖 `deco_step_m = 3.0 m`、`3.048 m` 和 `1.5 m`，确保
+  route waypoint display hint 使用半个当前网格，而不是固定 3 m case 的 magic number。
+- API patch 版本升至 `0.0.26`；WASM adapter 与 smoke test 同步更新。
+
+### 固件迁移建议
+
+- raw schedule 继续完整消费：日志、调试、TTS、气量估算仍以 `schedule.stops[]` 和
+  `schedule.tts_seconds` 为准。
+- runtime 当前停站 / PLAN 图首站 / DLF `next_stop` 应跳过
+  `stop.flags & AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 的 stop。
+- 不再需要 firmware 维护“最多隐藏几个 1 s stop”“只过滤开头窗口”等 heuristic。
+
 ## 0.0.25
 
 ### 摘要
