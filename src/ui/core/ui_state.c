@@ -702,6 +702,14 @@ void ui_handle_click(void)
         screen_refresh_left_panel();
         break;
 
+    case UI_MODAL_TURN_OFF:
+        ui_on_turn_off();
+        screen_hide_modal();
+        s_ui.state = UI_DASH;
+        screen_refresh_setup_menu();
+        screen_refresh_left_panel();
+        break;
+
     case UI_MODAL_SETUP_CONFIRM:
         screen_confirm_submenu_setting();
         break;
@@ -725,7 +733,8 @@ void ui_handle_click(void)
     case UI_SETUP:
         if (menu_defs_setup_menu_for_index(s_ui.menu_setup_idx) == MENU_SETUP_TURN_OFF)
         {
-            ui_on_turn_off();
+            s_ui.state = UI_MODAL_TURN_OFF;
+            screen_show_modal_setup_confirm("TURN OFF\nCONFIRM SLEEP");
             break;
         }
         screen_open_setup_submenu(s_ui.menu_setup_idx);
@@ -813,9 +822,18 @@ void ui_handle_back(void)
         break;
 
     case UI_MODAL_END_DIVE:
+    case UI_MODAL_TURN_OFF:
         screen_hide_modal();
-        s_ui.state = UI_MENU_ENTRY;
-        menu_entry_set_selection(s_ui.menu_entry_idx);
+        if (s_ui.state == UI_MODAL_END_DIVE)
+        {
+            s_ui.state = UI_MENU_ENTRY;
+            menu_entry_set_selection(s_ui.menu_entry_idx);
+        }
+        else
+        {
+            s_ui.state = UI_SETUP;
+            screen_set_setup_selection(s_ui.menu_setup_idx);
+        }
         break;
 
     case UI_EDIT_VALUE:
