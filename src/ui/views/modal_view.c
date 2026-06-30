@@ -18,6 +18,27 @@
 static lv_obj_t *s_modal = NULL;
 static lv_obj_t *s_modal_box = NULL;
 
+static uint8_t modal_count_body_lines(const char *body)
+{
+    uint8_t lines = 1U;
+
+    if (!body || body[0] == '\0')
+    {
+        return 0U;
+    }
+
+    while (*body)
+    {
+        if (*body == '\n')
+        {
+            lines++;
+        }
+        body++;
+    }
+
+    return lines;
+}
+
 void modal_view_reset(void)
 {
     /* 布局重建后旧模态框对象会失效，因此只保留空引用。 */
@@ -78,14 +99,18 @@ static void modal_set_content(const char *title, const char *body, const char *h
     lv_obj_t *b = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(b, GREEN, 0);
     lv_obj_set_style_text_font(b, get_font(FONT_ID_MEDIUM), 0);
+    lv_obj_set_style_text_line_space(b, 6, 0);
     lv_label_set_text(b, body);
     lv_obj_set_pos(b, 0, 40);
+
+    uint8_t body_lines = modal_count_body_lines(body);
+    int16_t hint_y = (body_lines > 2U) ? (int16_t)(52 + body_lines * 38) : 100;
 
     lv_obj_t *h = lv_label_create(s_modal_box);
     lv_obj_set_style_text_color(h, LIGHT, 0);
     lv_obj_set_style_text_font(h, get_font(FONT_ID_SMALL), 0);
     lv_label_set_text(h, hint);
-    lv_obj_set_pos(h, 0, 100);
+    lv_obj_set_pos(h, 0, hint_y);
 }
 
 void screen_show_modal_act(const char *action_text)
