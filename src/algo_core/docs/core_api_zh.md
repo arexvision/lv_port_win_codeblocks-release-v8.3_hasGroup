@@ -1,6 +1,6 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.23`。
+本文档描述当前 core API。当前 API 版本为 `0.0.25`。
 
 ## 适用场景
 
@@ -15,7 +15,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 23`
+- `AREX_DECO_API_VERSION_PATCH = 25`
 
 固定容量：
 
@@ -203,7 +203,17 @@ CNS 衰减（0.0.3 起）：
 | `max_depth_m` | `float` | m | 本次潜水最大深度 |
 | `depth_time_m_seconds` | `float` | m*s | 深度时间积分，由 `arex_deco_step()` 按线性深度段自动累计，用于计算平均深度 |
 | `elapsed_seconds` | `uint32_t` | s | 已经过时间 |
-| `was_deco_dive` | `uint8_t` | - | 本次潜水是否曾触发减压义务（latched bit）。一旦 `metrics->ceiling_depth_m > 0` 则置 1，并保持到 `arex_deco_reset_tissue_to_surface` / `arex_deco_make_initial_dive_state` 重置。**该字段服务过去式语义**（影响 nofly 等下限），不要用作 UI 实时 "DECO NOW" 指示——实时义务请读 `metrics->ceiling_depth_m`。0.0.4 起字段名由 `in_deco` 重命名为 `was_deco_dive` 以消除时态歧义；内存布局不变 |
+| `was_deco_dive` | `uint8_t` | - | 本次潜水是否曾触发减压义务（latched bit）。一旦 `metrics->ceiling_depth_m > 0` 则置 1，并保持到新潜水状态初始化。**该字段服务过去式语义**（影响 nofly 等下限），不要用作 UI 实时 "DECO NOW" 指示——实时义务请读 `metrics->ceiling_depth_m`。0.0.4 起字段名由 `in_deco` 重命名为 `was_deco_dive` 以消除时态歧义；内存布局不变 |
+| `safety_stop_required` | `uint8_t` | - | 安全停留执行状态：本次潜水是否已触发安全停留 |
+| `safety_stop_completed` | `uint8_t` | - | 安全停留执行状态：是否已完成 |
+| `safety_stop_missed` | `uint8_t` | - | 安全停留执行状态：是否已错过 |
+| `safety_stop_elapsed_seconds` | `uint32_t` | s | 安全停留累计有效计时 |
+| `gf_anchor_depth_m` | `float` | m | GF Low 深端锚点：本次潜水进入强制减压后，历史上出现过的最深有效 GF-low first-stop grid depth。它用于稳定 GF Low → GF High 插值斜率；不是 current stop、current ceiling、max depth 或 safety stop |
+| `gf_anchor_valid` | `uint8_t` | - | `gf_anchor_depth_m` 是否有效。完整 profile replay 会由 `arex_deco_step()` 自动重建；若宿主从中间快照恢复，则快照必须保存该字段和 `gf_anchor_depth_m` |
+
+`gf_anchor_depth_m` / `gf_anchor_valid` 是 public `ArexDecoDiveState` 的算法状态，
+不是调试字段。宿主若序列化、恢复或跨 WASM/native 边界传递完整潜水状态，必须按
+ABI 布局保存和还原它们；内部验证用的 `GfAnchorUpdateInfo` 不属于 C API。
 
 `arex_deco_plan()` 会校验 `current_depth_m`、`max_depth_m`、
 `depth_time_m_seconds` 和 `elapsed_seconds` 的基本一致性。若调用方手工拼接
@@ -292,9 +302,19 @@ CNS 衰减（0.0.3 起）：
 | `stop_count` | `uint8_t` | - | 有效停站数量 |
 | `truncated` | `uint8_t` | - | 1 表示停站数组容量不足被截断 |
 | `ceiling_violated` | `uint8_t` | - | 1 表示计划时当前深度浅于 GF-high ceiling，即使 `stops/tts` 为 0 也必须提示违规/风险 |
-| `tts_seconds` | `uint32_t` | s | Time To Surface，包括停站和上升时间 |
+| `tts_seconds` | `uint32_t` | s | raw Time To Surface，包括完整 planner 路径、上升时间、停站、安全停留和切气惩罚；不应由 UI/display stop 重新计算 |
 | `end_of_dive_exposure` | `ArexDecoOxygenExposure` | - | 若严格按此计划升水，出水时预测累计 CNS / OTU |
-| `stops[40]` | `ArexDecoStop[]` | - | 固定容量停站数组 |
+| `stops[40]` | `ArexDecoStop[]` | - | 固定容量 raw algorithm route 停站数组。它是 planner 的完整原始路径，可包含短 waypoint，不等同于固件 UI 当前显示停站 |
+
+`ArexDecoSchedule.stops[]` 是 core 算法输出，不是产品显示层 API。
+`18 m / 1 s`、`15 m / 1 s`、`6 m / 1 s` 这类短 waypoint 可能出现在 raw
+路径中，用于保持 GF slope、减压网格路径和实时重复 plan 的连续性。它们会参与
+TTS、组织舱和氧暴露递推，因此 core 不会为了贴合 UI first stop 直接删除。
+固件 `ArexDecoRuntime` / App display 层应在保留 raw schedule 的同时派生用户
+看到的 current/effective/display stop，并过滤 leading waypoint。DLF/APP 日志
+语义中的 `next_stop` 应来自该 runtime/display stop，而不是直接使用
+`schedule.stops[0]`。core public C API 当前不提供 display helper；Web adapter 和
+validation 中的 effective/display 逻辑仅作为固件 runtime 过滤口径的镜像实现。
 
 ### `ArexDecoTtsForecast`
 
@@ -596,6 +616,7 @@ Planning 与 Runtime 语义：
 - 二分求解固定 24 次迭代，6 h 上限下时间分辨率约 1.29 ms，输出前按严格上界取到整数秒。
 - 如果 0 s 已满足离开条件，该深度通常不会写入 `schedule->stops`，但 planner 仍会继续模拟上升到下一深度。
 - 当较深的实质停站已经确立 GF anchor 后，后续中间网格站若数学停留为 0 s，planner 会先验证在该站停留最小输出粒度后仍满足离开到下一站的 ceiling 约束；验证通过时输出一个 `AREX_DECO_STOP_TIME_GRANULARITY_SECONDS` 的安全 waypoint，避免实时重复调用 `arex_deco_plan()` 时出现 9 m / 3 m 这类跳过 6 m 的断档计划。该 waypoint 会参与 tissue、氧暴露和 TTS 递推，不是纯 UI 展示项。
+- UI / adapter 不应直接把 `18 m / 1 s`、`15 m / 1 s`、`6 m / 1 s` 这类 leading waypoint 当作当前实质停站展示；产品层应在保留 raw `schedule->stops` 的同时派生 effective/display stop，例如过滤 `duration_seconds < 5 s` 的连续 leading waypoint。
 - 如果需要停留，Core 将该停站时间输出为整数秒。例如 12 s 会输出为 12 s，而不会在核心算法层抬到 60 s。
 - Core 会用该秒级停留时间继续推进组织舱和氧暴露，再计算后续更浅停站。
 - 因此 `tts_seconds`、后续停站时间、气体使用估算和跨语言移植结果都必须基于“求解 -> 秒级 strict-ceil -> 重算”的闭环，不能在 core 层额外套用分钟级取整。
@@ -957,6 +978,26 @@ WASM 构建导出的是同一套 C ABI 符号，外加版本和 sizeof helper。
 | `gas_switch_penalty_seconds` | 56 |
 | `water_type` | 60 |
 | `safety_stop_enabled` | 64 |
+
+当前 `ArexDecoDiveState` 关键字段偏移：
+
+| 字段 | offset |
+|---|---:|
+| `config` | 8 |
+| `gas_plan` | 76 |
+| `tissue` | 388 |
+| `oxygen_exposure` | 524 |
+| `current_depth_m` | 556 |
+| `max_depth_m` | 560 |
+| `depth_time_m_seconds` | 564 |
+| `elapsed_seconds` | 568 |
+| `was_deco_dive` | 572 |
+| `safety_stop_required` | 573 |
+| `safety_stop_completed` | 574 |
+| `safety_stop_missed` | 575 |
+| `safety_stop_elapsed_seconds` | 576 |
+| `gf_anchor_depth_m` | 580 |
+| `gf_anchor_valid` | 584 |
 
 当前 `ArexDecoSchedule` 关键字段偏移：
 

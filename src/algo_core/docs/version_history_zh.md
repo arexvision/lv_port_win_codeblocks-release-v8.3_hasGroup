@@ -26,6 +26,68 @@
 - smoke test
 - 文档
 
+## 0.0.25
+
+### 摘要
+
+本次版本把强制减压进入后的 GF Low 深端锚点状态化，并修正 Garmin-style
+氧暴露回归中发现的 CNS 低 ppO2 水下衰减问题。Planner 不再在每次
+`arex_deco_plan()` 时用当前组织舱重新推导一个可能变浅的 GF anchor，而是由
+真实 `arex_deco_step()` 路径维护本次潜水历史上最深的有效 GF-low first-stop
+grid depth。
+
+### 行为与 ABI 变更
+
+- `ArexDecoDiveState` 使用原 reserved 空间新增：
+  `float gf_anchor_depth_m`（offset `580`）和
+  `uint8_t gf_anchor_valid`（offset `584`）。`ArexDecoDiveState` 总大小保持
+  `600` 字节，后续 `reserved` 缩减为 `15` 字节。
+- 这两个字段是 public `ArexDecoDiveState` 的算法状态，不是 replay 诊断字段；完整状态快照、
+  WASM adapter 和 native 宿主都必须保存/还原它们。`GfAnchorUpdateInfo` 仅为 internal
+  validation/test hook，不进入 C API。
+- `arex_deco_make_initial_dive_state()` 会初始化
+  `gf_anchor_valid = 0`、`gf_anchor_depth_m = 0`。完整 profile replay 会通过
+  `arex_deco_step()` 自动重建 anchor；若宿主从中间快照恢复，快照必须保存这两个字段。
+- `arex_deco_step()` / pressure step 在真实推进后仅根据强制减压义务更新
+  anchor；安全停留不会写入 anchor。anchor 只允许从浅到深加深，不随上升变浅。
+- `arex_deco_plan()`、`arex_deco_forecast_tts_hold()` 和
+  `arex_deco_calculate_tissue_pressures()` 使用同一稳定 anchor 语义，避免
+  stop list、TTS forecast、`current_gf_target` / `tissue_m_gf_bar` 分裂。
+- CNS 低 ppO2 衰减语义调整：水下浅水低 ppO2 段不再按旧 90 min 半衰期强衰减；
+  近水面 / 水面恢复仍按产品定义处理。case_001 最终 CNS 对齐约 `7.4%`，
+  OTU 维持约 `20`。
+- validation 新增 case_001 phase gate，直接读取
+  `dist/arex_deco_regression_case_001.zip`，并强制使用 manifest 中的
+  `water_meters_per_bar = 10.0`，防止 wrapper 由 salinity 误推导为 `10.3`。
+- `ArexDecoSchedule.stops[]` 保持 raw algorithm route 语义，可包含
+  `18 m / 1 s`、`15 m / 1 s`、`6 m / 1 s` 等短 waypoint；`tts_seconds` 始终
+  基于 raw schedule。固件 `ArexDecoRuntime` / App display 层负责派生用户可见的
+  current/effective/display stop，DLF/APP `next_stop` 不应直接取 raw `stops[0]`。
+  core public C API 本次不新增 display helper；validation / Web adapter 中的
+  effective/display 逻辑仅作为固件 runtime 过滤口径的镜像。
+- WASM adapter 与 smoke test 同步更新 API patch 版本和 dive state offset。
+
+## 0.0.24
+
+### 摘要
+
+本次版本拆分 planner 预测选气与 runtime 切气推荐的 MOD 边界语义。Planner
+继续允许停留站深度等于气体 MOD 时使用该气体进行 look-ahead 预测；runtime
+`arex_deco_recommend_gas()` 则要求当前实际深度严格浅于气体 MOD 和
+`max_depth_m` 才给出切气推荐。
+
+### 行为与 ABI 变更
+
+- `deco_plan()` 内部停站预测仍使用原 `gas_best_index()` 语义，停留站深度等于
+  MOD 时不排除该气体，避免 6 m / O2 等边界停站被错误回退到底气预测。
+- `arex_deco_recommend_gas()` 改为 runtime 专用的严格边界选气：当前深度必须
+  `depth < MOD` 且 `depth < max_depth_m`，等于边界时不会弹出切气推荐。
+- `arex_deco_plan(..., gas_rec)` 的兼容推荐输出与 `arex_deco_recommend_gas()`
+  保持同一 runtime 语义；计划停站本身仍按 planner look-ahead 语义生成。
+- Near-MOD / 准备切气提示仍属于 UI 层职责，不新增 core ABI 字段。
+- ABI 字节布局无变化；由于 runtime 切气推荐可观察行为变化，API patch 版本升至
+  `0.0.24`。
+
 ## 0.0.23
 
 ### 摘要

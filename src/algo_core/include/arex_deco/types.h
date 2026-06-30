@@ -101,7 +101,7 @@ typedef struct ArexDecoDiveState {
     float depth_time_m_seconds;
     uint32_t elapsed_seconds;
     // 本次潜水是否曾产生减压义务（latched bit）。一旦在某个 step 中
-    // ceiling > 0 即置 1，至 arex_deco_reset_tissue_to_surface 才清零。
+    // ceiling > 0 即置 1，至新潜水状态初始化才清零。
     // 此字段服务的是过去式语义（影响 nofly 等下限），不要用作 UI 实时
     // "DECO NOW" 指示——实时义务请读 ArexDecoRuntimeMetrics.ceiling_depth_m。
     uint8_t was_deco_dive;
@@ -109,7 +109,12 @@ typedef struct ArexDecoDiveState {
     uint8_t safety_stop_completed;
     uint8_t safety_stop_missed;
     uint32_t safety_stop_elapsed_seconds;
-    uint8_t reserved[20];
+    // GF Low 深端锚点：本次潜水进入强制减压后，历史上出现过的
+    // 最深有效 GF-low first-stop grid depth。用于稳定 GF Low -> GF High
+    // 插值斜率；不是 current stop / current ceiling / max depth / safety stop。
+    float gf_anchor_depth_m;
+    uint8_t gf_anchor_valid;
+    uint8_t reserved[15];
 } ArexDecoDiveState;
 
 typedef struct ArexDecoStepInput {
