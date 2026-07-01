@@ -452,7 +452,7 @@ void ui_on_bluetooth_set(bool enabled)
 #ifdef PC_SIMULATOR
     s_bluetooth_enabled = enabled ? 1U : 0U;
 #endif
-    UI_CALLBACK_TRACE("[DISPLAY_SETUP] Bluetooth: %s\n", enabled ? "ON" : "OFF");
+    UI_CALLBACK_TRACE("[DEVICE_CONTROL] Bluetooth: %s\n", enabled ? "ON" : "OFF");
 }
 
 WEAK_CALLBACK

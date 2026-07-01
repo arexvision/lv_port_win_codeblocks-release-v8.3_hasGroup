@@ -731,7 +731,18 @@ void ui_handle_click(void)
         break;
 
     case UI_SETUP:
-        if (menu_defs_setup_menu_for_index(s_ui.menu_setup_idx) == MENU_SETUP_TURN_OFF)
+    {
+        menu_id_t setup_menu = menu_defs_setup_menu_for_index(s_ui.menu_setup_idx);
+        if (setup_menu == MENU_SETUP_BLUETOOTH)
+        {
+            ui_persisted_settings_snapshot_t snapshot;
+            (void)memset(&snapshot, 0, sizeof(snapshot));
+            (void)ui_get_persisted_settings_snapshot(&snapshot);
+            ui_on_bluetooth_set(snapshot.bluetooth_enabled == 0U);
+            screen_refresh_setup_menu();
+            break;
+        }
+        if (setup_menu == MENU_SETUP_TURN_OFF)
         {
             s_ui.state = UI_MODAL_TURN_OFF;
             screen_show_modal_setup_confirm("TURN OFF\nCONFIRM SLEEP");
@@ -739,6 +750,7 @@ void ui_handle_click(void)
         }
         screen_open_setup_submenu(s_ui.menu_setup_idx);
         break;
+    }
 
     case UI_SUB_MENU:
         screen_handle_submenu_select(s_ui.sub_menu_idx);

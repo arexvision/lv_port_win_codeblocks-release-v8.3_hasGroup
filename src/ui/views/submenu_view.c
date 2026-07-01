@@ -2112,7 +2112,7 @@ void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
     lv_obj_set_pos(s_submenu_title, 16, 8);
     lv_obj_set_size(s_submenu_title, s_submenu_width - 32, 40);
     lv_label_set_long_mode(s_submenu_title, LV_LABEL_LONG_DOT);
-    lv_label_set_text(s_submenu_title, "> SUB MENU");
+    lv_label_set_text(s_submenu_title, "SUB MENU");
     lv_obj_set_style_text_color(s_submenu_title, LIGHT, 0);
     lv_obj_set_style_text_font(s_submenu_title, get_font(FONT_ID_TITLE), 0);
 
@@ -2649,7 +2649,7 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
     if (menu_runtime_is_nested())
     {
         char nested_title[48];
-        lv_snprintf(nested_title, sizeof(nested_title), "> %s", title ? title : "");
+        lv_snprintf(nested_title, sizeof(nested_title), "%s", title ? title : "");
         lv_label_set_text(s_submenu_title, nested_title);
     }
     else

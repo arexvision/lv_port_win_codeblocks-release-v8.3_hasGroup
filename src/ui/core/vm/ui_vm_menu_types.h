@@ -32,6 +32,7 @@ typedef struct
 {
     char conservatism_badge[16];
     char brightness_badge[16];
+    char bluetooth_badge[16];
     uint8_t compass_cal_badge_idx;
     compass_cal_ui_state_t compass_cal_state;
 } ui_vm_setup_menu_t;

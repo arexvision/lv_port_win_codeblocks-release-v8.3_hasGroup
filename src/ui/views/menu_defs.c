@@ -35,6 +35,7 @@ static const menu_item_cfg_t s_menu_device_items[] =
     { "BRIGHTNESS",    "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "COMPASS CAL",   "IDLE", FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "LIGHT CONTROL", NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "BLUETOOTH",     "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "TURN OFF",      NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 
@@ -108,6 +109,7 @@ menu_id_t menu_defs_setup_menu_for_index(uint8_t index)
         MENU_SETUP_BRIGHTNESS,
         MENU_SETUP_COMPASS_CAL,
         MENU_SETUP_LIGHT_CONTROL,
+        MENU_SETUP_BLUETOOTH,
         MENU_SETUP_TURN_OFF,
     };
     if (s_setup_root == MENU_SETUP_ROOT_DEVICE)
@@ -133,6 +135,7 @@ const char *menu_defs_title(menu_id_t id)
     case MENU_SETUP_BRIGHTNESS:    return "BRIGHTNESS";
     case MENU_SETUP_COMPASS_CAL:   return "COMPASS CAL";
     case MENU_SETUP_LIGHT_CONTROL: return "LIGHT CONTROL";
+    case MENU_SETUP_BLUETOOTH:     return "BLUETOOTH";
     case MENU_SETUP_TURN_OFF:      return "TURN OFF";
     case MENU_SETUP_SYSTEMS:       return "SYSTEMS SETUP";
     case MENU_MODE_SETUP:          return "MODE SETUP";

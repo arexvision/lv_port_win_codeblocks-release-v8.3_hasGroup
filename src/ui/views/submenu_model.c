@@ -1667,7 +1667,7 @@ bool submenu_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 5)
+    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 4)
     {
         out_setting->kind = SUBMENU_SETTING_RESET_DEFAULTS;
         out_setting->value = 0;
@@ -1781,13 +1781,6 @@ bool submenu_direct_setting_from_selection(const char *current_title,
         s_log_rate_s = bus_get_log_rate();
         out_setting->kind = SUBMENU_SETTING_LOG_RATE;
         out_setting->value = ui_next_log_rate(s_log_rate_s);
-        return true;
-    }
-
-    if (strcmp(clean_title, "DISPLAY") == 0 && item_index == 4)
-    {
-        out_setting->kind = SUBMENU_SETTING_BLUETOOTH;
-        out_setting->value = s_bluetooth_enabled ? 0 : 1;
         return true;
     }
 
@@ -2191,7 +2184,7 @@ bool submenu_setting_from_ids(menu_id_t current_menu,
         item_text = "CONFIRM & ACTIVATE";
         break;
     case MENU_ITEM_DISPLAY_RESET:
-        item_index = 5U;
+        item_index = 4U;
         item_text = "RESET DEFAULTS";
         break;
     default:
@@ -2237,7 +2230,6 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
     case MENU_ITEM_DISPLAY_UNITS:    item_index = 0U; break;
     case MENU_ITEM_DISPLAY_TEMP_UNIT: item_index = 1U; break;
     case MENU_ITEM_DISPLAY_LOG_RATE: item_index = 3U; break;
-    case MENU_ITEM_DISPLAY_BLUETOOTH:item_index = 4U; break;
     case MENU_ITEM_DATETIME_24H:     item_index = 2U; break;
     case MENU_ITEM_DATE_FORMAT_MM_DD_YY:
         item_index = 0U;

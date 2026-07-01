@@ -408,7 +408,6 @@ static void build_rows(void)
             MENU_ITEM_DISPLAY_TEMP_UNIT,
             MENU_ITEM_DISPLAY_DATE_CLOCK,
             MENU_ITEM_DISPLAY_LOG_RATE,
-            MENU_ITEM_DISPLAY_BLUETOOTH,
             MENU_ITEM_DISPLAY_RESET,
         };
         build_nested_by_title("DISPLAY", ids, NULL);

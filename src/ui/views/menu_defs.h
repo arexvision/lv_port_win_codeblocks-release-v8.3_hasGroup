@@ -68,6 +68,7 @@ typedef enum
     MENU_LIGHT_GREEN,
     MENU_LIGHT_BLUE,
     MENU_LIGHT_WHITE,
+    MENU_SETUP_BLUETOOTH,
 } menu_id_t;
 
 /* row type 只描述这一行在视图上有没有特殊渲染/行为。

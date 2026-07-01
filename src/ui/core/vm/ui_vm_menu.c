@@ -9,6 +9,7 @@
 #include "ui_vm_dashboard.h"
 #include "ui_vm_system_view.h"
 #include "../../views/submenu_model.h"
+#include "../callbacks.h"
 #include "../data.h"
 #include "../ui_settings.h"
 
@@ -112,6 +113,7 @@ void ui_vm_setup_menu_update(ui_vm_setup_menu_t *vm)
     uint8_t cons;
     uint8_t brt;
     compass_cal_ui_state_t cal_state;
+    ui_persisted_settings_snapshot_t snapshot;
 
     if (vm == NULL)
     {
@@ -123,15 +125,14 @@ void ui_vm_setup_menu_update(ui_vm_setup_menu_t *vm)
     cons = bus_get_conservatism();
     brt = bus_get_brightness();
     cal_state = get_compass_calibration_ui_state();
+    if (!ui_get_persisted_settings_snapshot(&snapshot)) (void)memset(&snapshot, 0, sizeof(snapshot));
 
     (void)snprintf(vm->conservatism_badge,
                    sizeof(vm->conservatism_badge),
                    "%s",
                    submenu_conservatism_badge(cons));
-    (void)snprintf(vm->brightness_badge,
-                   sizeof(vm->brightness_badge),
-                   "%s",
-                   submenu_brightness_badge(brt));
+    (void)snprintf(vm->brightness_badge, sizeof(vm->brightness_badge), "%s", submenu_brightness_badge(brt));
+    (void)snprintf(vm->bluetooth_badge, sizeof(vm->bluetooth_badge), "%s", vm_bluetooth_label(snapshot.bluetooth_enabled));
 
     vm->compass_cal_state = cal_state;
     vm->compass_cal_badge_idx = 0U;
@@ -378,9 +379,9 @@ void ui_vm_display_menu_update(ui_vm_simple_menu_t *vm,
     (void)snprintf(vm->items[1], sizeof(vm->items[1]), "TEMP: %s", ui_temp_unit_label(temperature_unit));
     (void)snprintf(vm->items[2], sizeof(vm->items[2]), "%s", "Time/date");
     (void)snprintf(vm->items[3], sizeof(vm->items[3]), "LOG RATE: %us", (unsigned)log_rate_s);
-    (void)snprintf(vm->items[4], sizeof(vm->items[4]), "BLUETOOTH: %s", vm_bluetooth_label(bluetooth_enabled));
-    (void)snprintf(vm->items[5], sizeof(vm->items[5]), "%s", "RESET DEFAULTS");
-    vm->count = 6U;
+    (void)bluetooth_enabled;
+    (void)snprintf(vm->items[4], sizeof(vm->items[4]), "%s", "RESET DEFAULTS");
+    vm->count = 5U;
 }
 
 void ui_vm_datetime_menu_update(ui_vm_simple_menu_t *vm,
