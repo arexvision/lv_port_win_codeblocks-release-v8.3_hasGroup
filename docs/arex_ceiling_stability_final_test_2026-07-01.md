@@ -4,7 +4,7 @@
 
 - 日志文件：`C:\Users\admin\.codex\attachments\7ab180f3-7614-4ec3-afda-6df5c99ddde3\pasted-text.txt`
 - 测试日期：2026-07-01
-- 场景特征：AIR，GF `30/70`，深度快速进入并停留在 `40.0m`，观察 NDL 归零后 ceiling / TTS / stop list / display filter 的变化。
+- 场景特征：AIR，GF `30/70`，模拟器设置 `speed 40` 后执行 `goto 40`，快速到达 `40.0m` 后保持深度不动，观察停底过程中 NDL 归零后 ceiling / TTS / stop list / display filter 的变化。
 - 固件日志版本：已包含 `ceiling / gf99 / surfgf / kind / flags / hidden_suppressed`。
 
 ## 2. 日志字段语义
@@ -25,7 +25,7 @@
 | NDL 到 DECO 切换 | `ndl=10s` 后下一次进入 `ndl=0s`，ceiling 从 `0.00m` 到 `0.62m` |
 | SurfaceGF | 单调上升：`0.0% -> 146.8%`，与停底累积趋势一致 |
 | GF99 | 全程打印为 `0.0%`，这可能是“当前 40m 环境压力下组织未超过环境压力”的结果；如果预期 GF99 非 0，需要算法侧确认 GF99 口径 |
-| TTS | 从 safety stop 阶段的 `446s`，进入强制减压瞬间变为 `284s`，后续随 ceiling 上升逐步增加到 `1897s` |
+| TTS | NDL 阶段包含 safety stop 计划；进入强制减压后切换为 mandatory deco 计划，后续随 ceiling 上升逐步增加到 `1897s` |
 | raw stop list | 不稳定，停站数量在 `1 / 2 / 3 / 4 / 5 / 6` 之间切换 |
 | UI display stop | 仍会出现 `9m/1s`、`12m/1s`、`15m/1s`、`18m/1s` 作为可见首站，原因是这些 stop 的 `flags=0x00` |
 | suppressed filter | 当 core 设置 `flags=0x01` 时，固件能正确隐藏 route waypoint |
@@ -81,9 +81,9 @@
 
 因此，“ceiling 数值稳定性”本身目前看是好的；用户感知到的不稳定更可能来自 plan stop list / display stop 的切换。
 
-## 7. 主要异常/疑点
+## 7. 主要观察/疑点
 
-### 7.1 进入 DECO 瞬间 TTS 从 446s 降到 284s
+### 7.1 Safety stop 到 mandatory deco 的 TTS 语义切换
 
 在 NDL 阶段：
 
@@ -97,7 +97,7 @@ ceiling=0.00m, stops=1, tts=446s, stop=5m/180s kind=SAFETY
 ceiling=0.62m, stops=1, tts=284s, stop=6m/17s kind=MANDATORY
 ```
 
-这表示 safety stop 计划和 mandatory deco 计划在 TTS 语义上发生切换。它可能是算法预期行为，但产品显示上会表现为：刚进入 DECO 时 TTS 反而变短。建议算法侧确认 `safety stop` 与 `mandatory deco` 切换时 TTS 是否期望平滑。
+这表示 safety stop 计划和 mandatory deco 计划在 TTS 语义上发生切换。该现象更像安全停留与强制减压计划切换造成的显示语义差异，不作为本次 ceiling 稳定性问题的重点；本报告后续重点仍放在 `ROUTE_WAYPOINT + flags` 导致的用户可见首站跳变。
 
 ### 7.2 `ROUTE_WAYPOINT + flags=0x00` 会直接进入 UI
 
@@ -138,7 +138,6 @@ ceiling=0.62m, stops=1, tts=284s, stop=6m/17s kind=MANDATORY
 
 - `ROUTE_WAYPOINT + 1s + flags=0x00` 是否确实代表“应该给用户显示的短首停”。
 - 如果这些点只是 raw 路径 waypoint，是否应保持 `DISPLAY_SUPPRESSED`，避免主屏/PLAN/DLF 显示 `15m/1s`、`18m/1s`。
-- Safety stop 到 mandatory deco 切换时，TTS 从 `446s` 降到 `284s` 是否符合预期。
 - `GF99` 在 40m 停底全程为 `0.0%` 是否符合当前 runtime metrics 的定义。
 
 ## 9. 固件侧当前结论
@@ -148,4 +147,3 @@ ceiling=0.62m, stops=1, tts=284s, stop=6m/17s kind=MANDATORY
 - 本日志中所有 `flags=0x01` 的 raw stop 都被正确隐藏。
 - 所有 `flags=0x00` 的 raw stop 都会按协议进入 UI display schedule。
 - 因此，当前用户可见 `1s` 首站不是固件过滤漏掉，而是 core 没有给该 stop 设置 `DISPLAY_SUPPRESSED`。
-
