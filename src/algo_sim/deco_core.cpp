@@ -326,6 +326,7 @@ static void debug_print_plan_call(const char *tag, int step_status, int plan_sta
 static uint32_t stop_runtime_seconds(const ArexDecoStop *stop);
 static bool stop_display_suppressed(const ArexDecoStop *stop);
 static bool stop_is_plan_display_stop(const ArexDecoStop *stop);
+static bool stop_matches_runtime_stop(const ArexDecoStop *stop, const ArexDecoRuntimeStop *runtime_stop);
 static uint8_t plan_display_first_index(const ArexDecoSchedule *schedule, const ArexDecoRuntimeStop *runtime_stop);
 
 static void debug_print_ui_schedule(const ArexDecoSchedule *schedule, const ArexDecoRuntimeStop *runtime_stop)
@@ -476,6 +477,15 @@ static bool stop_is_plan_display_stop(const ArexDecoStop *stop)
     return true;
 }
 
+static bool stop_matches_runtime_stop(const ArexDecoStop *stop, const ArexDecoRuntimeStop *runtime_stop)
+{
+    if (stop == NULL || runtime_stop == NULL || runtime_stop->available == 0U) return false;
+    if (!stop_is_plan_display_stop(stop)) return false;
+    if (fabsf(stop->depth_m - runtime_stop->depth_m) > 0.05f) return false;
+    if (stop->gas_index != runtime_stop->gas_index) return false;
+    return stop_runtime_seconds(stop) > 0U;
+}
+
 static bool select_runtime_stop(const ArexDecoSchedule *schedule, ArexDecoRuntimeStop *runtime_stop)
 {
     ArexDecoRuntimeStopSelectorInput input;
@@ -530,9 +540,17 @@ static uint8_t plan_display_first_index(const ArexDecoSchedule *schedule, const 
 {
     if (schedule == NULL || runtime_stop == NULL) return 0U;
     if (runtime_stop->available == 0U) return 0U;
-    if (runtime_stop->source_raw_index == AREX_DECO_INVALID_STOP_INDEX) return 0U;
-    if (runtime_stop->source_raw_index >= schedule->stop_count) return 0U;
-    return runtime_stop->source_raw_index;
+    if (runtime_stop->source_raw_index != AREX_DECO_INVALID_STOP_INDEX &&
+        runtime_stop->source_raw_index < schedule->stop_count &&
+        stop_matches_runtime_stop(&schedule->stops[runtime_stop->source_raw_index], runtime_stop))
+    {
+        return runtime_stop->source_raw_index;
+    }
+    for (uint8_t i = 0U; i < schedule->stop_count; i++)
+    {
+        if (stop_matches_runtime_stop(&schedule->stops[i], runtime_stop)) return i;
+    }
+    return 0U;
 }
 
 static void format_gas_name(const ArexDecoGas *gas, char *name_buf, size_t name_buf_size)
