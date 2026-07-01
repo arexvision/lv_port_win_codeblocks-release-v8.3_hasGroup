@@ -885,10 +885,11 @@ static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec, co
     (void)alarm_set_active(ALARM_ID_INFO_GAS_SWITCH, recommended_idx >= 0);
 }
 
-static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
+static void sync_deco_plan_data(const ArexDecoSchedule *schedule, const ArexDecoRuntimeStop *runtime_stop)
 {
     deco_stop_t stops[MAX_DECO_STOPS];
     uint8_t count = 0U;
+    uint8_t first_display_index = 0U;
 
     if (schedule == NULL || schedule->stop_count == 0U)
     {
@@ -896,9 +897,21 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
         return;
     }
 
+    if (runtime_stop != NULL &&
+        runtime_stop->available != 0U &&
+        runtime_stop->source_raw_index != AREX_DECO_INVALID_STOP_INDEX &&
+        runtime_stop->source_raw_index < schedule->stop_count)
+    {
+        first_display_index = runtime_stop->source_raw_index;
+    }
+
     for (uint8_t i = 0U; i < schedule->stop_count && count < MAX_DECO_STOPS; i++)
     {
         uint32_t runtime_s = stop_runtime_seconds(&schedule->stops[i]);
+        if (i < first_display_index)
+        {
+            continue;
+        }
         if (!stop_is_plan_display_stop(&schedule->stops[i]))
         {
             continue;
@@ -1031,7 +1044,7 @@ static void sync_core_data(const ArexDecoSchedule *schedule, const ArexDecoRunti
     sync_gas_data();
     sync_forecast_data();
     sync_stop_data(runtime_stop);
-    sync_deco_plan_data(schedule);
+    sync_deco_plan_data(schedule, runtime_stop);
 }
 
 static void sync_core_data_without_plan(const ArexDecoDiveState *output_state)
