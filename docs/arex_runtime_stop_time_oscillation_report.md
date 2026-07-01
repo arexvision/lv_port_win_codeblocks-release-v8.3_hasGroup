@@ -10,6 +10,12 @@
 
 说明：当前日志未直接打印 TCP 命令文本，因此 `goto 40 / speed 40 / speed 10` 为测试操作记录；问题证据来自 `[AREX_PLAN]`、`[AREX_RUNTIME_STOP]`、`[AREX_UI_PLAN]` 三类日志。
 
+## 复核修正
+
+此前把 `6m` 的 selector held 倒计时和 raw plan 中的 `6m` 停站时长混在一起解读，结论不准确。`6m` 片段里的 raw plan 时长整体是递增的，不能作为“raw 6m 非单调跳变”的主要证据。
+
+本次复核后，主要异常证据应集中在 `12m` 和部分 `9m` 当前站：这些位置更能说明 selector 输出的主屏当前站时间会受 raw schedule 拓扑切换影响，出现用户可见的分钟回跳。
+
 ## 当前显示链路
 
 当前模拟器侧已经按 AREX 0.0.27 的 selector 方案接入：
@@ -37,26 +43,36 @@
 主屏时间仍然会出现明显来回变化，表现类似：
 
 ```text
-3min -> 2min -> 1min -> 2min -> 3min
+3min -> 2min -> 1min -> 2min
 ```
 
 从日志看，这不是单纯的 UI 分钟向上取整造成的。UI 当前使用 selector 输出；而 selector 输出本身的 `remaining_seconds / total_seconds` 会随着 raw schedule 拓扑变化出现非单调跳变。
 
-## 关键证据 1：6m 当前站先降后升
+## 复核片段：6m raw plan 基本递增，不作为主要异常证据
 
-| 日志行 | selector 当前站 | selector 剩余 | UI 分钟 | raw plan 片段 | 备注 |
-|---|---:|---:|---:|---|---|
-| L106 | 6m | 81s / total 82s | 2min | `9m/1s, 6m/12s, 3m/76s` | selector 显示 6m，但 raw 6m 只有 12s |
-| L110 | 6m | 62s / total 82s | 2min | `9m/11s, 6m/16s, 3m/83s` | 倒计时下降 |
-| L115 | 6m | 51s / total 82s | 1min | `9m/17s, 6m/23s, 3m/82s` | `2min -> 1min` 是取整边界导致，但仍处于下降 |
-| L124 | 6m | 21s / total 82s | 1min | `12m/1s, 9m/1s, 6m/28s, 3m/112s` | raw 拓扑变为 4 站 |
-| L128 | 6m | 37s / total 37s | 1min | `12m/1s, 9m/1s, 6m/37s, 3m/112s` | total 从 82s 重置为 37s |
-| L137 | 6m | 62s / total 62s | 2min | `12m/1s, 9m/1s, 6m/62s, 3m/122s` | 同一 6m 当前站又从 1min 回到 2min |
-| L155 | 6m | 93s / total 93s | 2min | `12m/1s, 9m/11s, 6m/93s, 3m/156s` | 继续增长 |
+| 日志行 | selector 当前站 | selector 剩余 | raw plan 中 6m 时长 | 备注 |
+|---|---:|---:|---:|---|
+| L106 | 6m | 81s / total 82s | 12s | selector 仍持有此前 `total=82s` 的当前站语义 |
+| L110 | 6m | 62s / total 82s | 16s | raw 6m 递增，selector held 倒计时递减 |
+| L115 | 6m | 51s / total 82s | 23s | raw 6m 继续递增 |
+| L124 | 6m | 21s / total 82s | 28s | raw 拓扑变为 4 站，但 raw 6m 仍递增 |
+| L128 | 6m | 37s / total 37s | 37s | selector 重新绑定到当前 raw 6m |
+| L133 | 6m | 54s / total 54s | 54s | 绑定后 selector 与 raw 6m 同步增加 |
+| L137 | 6m | 62s / total 62s | 62s | 继续增加 |
+| L155 | 6m | 93s / total 93s | 93s | 继续增加 |
 
-结论：`6m` 当前站在 40m 停留过程中出现了 `82s -> 21s -> 37s -> 93s` 这类非单调变化。部分 `2min -> 1min` 是分钟取整边界，但 `21s -> 37s -> 62s -> 93s` 是 selector 输出本身增加。
+修正结论：`6m` raw plan 片段实际更接近 `12s -> 16s -> 23s -> 28s -> 37s -> 54s -> 62s -> 93s` 的递增趋势。此前写的 `82s -> 21s -> 37s -> 93s` 混合了 selector held 倒计时和 raw 6m plan 时长，不能作为主要问题描述。
 
-## 关键证据 2：9m 当前站从 2min 掉到 0，再回到 2min
+这个片段仍然有价值，但它说明的是 selector 的两种语义在日志中会交错出现：
+
+| 阶段 | 表现 | 含义 |
+|---|---|---|
+| held 阶段 | selector `total=82s`，`remaining` 递减；raw 6m 从 `12s` 增到 `28s` | selector 当前站沿用上一轮显示状态，不等于当前 raw 6m 时长 |
+| rebind 阶段 | selector 变为 `total=37s`，之后 `54s/62s/93s` | selector 重新绑定到当前 raw 6m，之后与 raw plan 同步 |
+
+因此，`6m` 片段不适合用来证明 raw plan 非单调；真正要发给算法侧的问题应放在下面的 `9m/12m` 片段。
+
+## 关键证据 1：9m 当前站从 2min 掉到 0，再回到 2min
 
 | 日志行 | selector 当前站 | selector 剩余 | UI 分钟 | raw plan 片段 | 备注 |
 |---|---:|---:|---:|---|---|
@@ -69,7 +85,7 @@
 
 结论：`9m` 当前站不是平滑倒计时，而是 `111s -> 40s -> 22s -> 0s -> 38s -> 64s`。这会直接造成主屏 `2min -> 1min -> 0/1min -> 2min` 的观感。
 
-## 关键证据 3：12m 当前站出现 3min -> 2min -> 1min -> 2min
+## 关键证据 2：12m 当前站出现 3min -> 2min -> 1min -> 2min
 
 | 日志行 | selector 当前站 | selector 剩余 | UI 分钟 | raw plan 片段 | 备注 |
 |---|---:|---:|---:|---|---|
@@ -106,4 +122,3 @@
 固件可以强行做 UI hysteresis，例如同一 depth 下不允许分钟减少后再增加，或者不允许 remaining_seconds 增加。但这会改变 selector 的官方语义，并可能掩盖算法实际状态变化。
 
 建议优先由算法侧确认 selector 对 `remaining_seconds / total_seconds` 的稳定性承诺。如果算法侧认为当前输出符合预期，固件侧再单独定义产品级显示平滑策略。
-
