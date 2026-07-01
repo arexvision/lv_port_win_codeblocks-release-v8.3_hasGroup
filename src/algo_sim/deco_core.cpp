@@ -339,11 +339,18 @@ static void debug_print_ui_schedule(const ArexDecoSchedule *schedule, const Arex
     uint8_t first_display_index;
 
     if (schedule == NULL) return;
-    first_display_index = plan_display_first_index(schedule, runtime_stop);
 
     rt_kprintf("[AREX_UI_PLAN] tts_raw=%lus raw_stops=%u",
                (unsigned long)schedule->tts_seconds,
                (unsigned)schedule->stop_count);
+
+    if (runtime_stop == NULL || runtime_stop->available == 0U)
+    {
+        rt_kprintf(" | display=0 hidden_before_current=0 hidden_suppressed=0 hidden_kind=0 hidden_zero=0\n");
+        return;
+    }
+
+    first_display_index = plan_display_first_index(schedule, runtime_stop);
 
     for (uint8_t i = 0U; i < schedule->stop_count && display_count < DECO_UI_SCHEDULE_DEBUG_MAX_STOPS; i++)
     {
@@ -928,7 +935,7 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule, const ArexDeco
     uint8_t count = 0U;
     uint8_t first_display_index = 0U;
 
-    if (schedule == NULL || schedule->stop_count == 0U)
+    if (schedule == NULL || schedule->stop_count == 0U || runtime_stop == NULL || runtime_stop->available == 0U)
     {
         bus_set_deco_plan(NULL, 0U);
         return;
