@@ -212,6 +212,58 @@ typedef struct ArexDecoSchedule {
     ArexDecoStop stops[AREX_DECO_MAX_DECO_STOP_COUNT];
 } ArexDecoSchedule;
 
+enum {
+    AREX_DECO_RUNTIME_STOP_REASON_NONE = 0,
+    AREX_DECO_RUNTIME_STOP_REASON_STABLE_CANDIDATE = 1,
+    AREX_DECO_RUNTIME_STOP_REASON_UNIQUE_SHORT = 2,
+    AREX_DECO_RUNTIME_STOP_REASON_HELD_PREVIOUS = 3,
+    AREX_DECO_RUNTIME_STOP_REASON_DEBOUNCING = 4,
+    AREX_DECO_RUNTIME_STOP_REASON_CLEARED = 5,
+};
+
+typedef struct ArexDecoRuntimeStopSelectorState {
+    ArexDecoVersion api_version;
+    uint8_t active;
+    uint8_t candidate_active;
+    uint8_t displayed_source_raw_index;
+    uint8_t candidate_source_raw_index;
+    float displayed_depth_m;
+    uint32_t displayed_remaining_seconds;
+    uint32_t displayed_total_seconds;
+    int8_t displayed_gas_index;
+    uint8_t displayed_is_short;
+    int8_t candidate_gas_index;
+    uint8_t reserved_flags[1];
+    float candidate_depth_m;
+    uint32_t candidate_seen_seconds;
+    uint32_t last_elapsed_seconds;
+    uint8_t reserved[24];
+} ArexDecoRuntimeStopSelectorState;
+
+typedef struct ArexDecoRuntimeStopSelectorInput {
+    ArexDecoVersion api_version;
+    float current_depth_m;
+    uint32_t elapsed_seconds;
+    float stop_zone_half_width_m;
+    uint32_t promote_min_seconds;
+    uint32_t stable_seconds;
+    uint8_t reserved[24];
+} ArexDecoRuntimeStopSelectorInput;
+
+typedef struct ArexDecoRuntimeStop {
+    ArexDecoVersion api_version;
+    uint8_t available;
+    uint8_t source_raw_index;
+    uint8_t reason;
+    uint8_t is_short;
+    float depth_m;
+    uint32_t remaining_seconds;
+    uint32_t total_seconds;
+    int8_t gas_index;
+    uint8_t reserved_flags[3];
+    uint8_t reserved[24];
+} ArexDecoRuntimeStop;
+
 typedef struct ArexDecoTtsForecast {
     ArexDecoVersion api_version;
     uint32_t hold_seconds;

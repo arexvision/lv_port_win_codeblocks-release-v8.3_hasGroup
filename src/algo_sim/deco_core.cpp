@@ -36,6 +36,7 @@ extern "C" {
 
 static ArexDecoDiveState s_state;
 static ArexDecoRuntimeMetrics s_metrics;
+static ArexDecoRuntimeStopSelectorState s_runtime_stop_selector_state;
 static bool s_initialized;
 static bool s_api_version_checked;
 static bool s_api_version_ok;
@@ -46,6 +47,7 @@ static uint8_t s_salinity_mode;
 static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
 static uint32_t s_schedule_debug_last_print_ms;
 static uint32_t s_plan_call_debug_last_print_ms;
+static uint32_t s_runtime_stop_debug_last_print_ms;
 static float s_temperature_c;
 static bool s_temperature_valid;
 static bool s_surface_confirmed = true;
@@ -100,6 +102,11 @@ typedef struct
 } stop_progress_t;
 
 static stop_progress_t s_stop_progress;
+
+static void reset_runtime_stop_selector(void)
+{
+    (void)memset(&s_runtime_stop_selector_state, 0, sizeof(s_runtime_stop_selector_state));
+}
 
 static bool check_api_version_once(void)
 {
@@ -440,6 +447,56 @@ static bool stop_display_suppressed(const ArexDecoStop *stop)
 {
     if (stop == NULL) return false;
     return (stop->flags & AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED) != 0U;
+}
+
+static bool select_runtime_stop(const ArexDecoSchedule *schedule, ArexDecoRuntimeStop *runtime_stop)
+{
+    ArexDecoRuntimeStopSelectorInput input;
+    ArexDecoRuntimeStopSelectorState next_state;
+    ArexDecoStatus status;
+    uint32_t now_ms;
+
+    if (runtime_stop == NULL) return false;
+    (void)memset(runtime_stop, 0, sizeof(*runtime_stop));
+    if (schedule == NULL) return false;
+
+    (void)memset(&input, 0, sizeof(input));
+    (void)memset(&next_state, 0, sizeof(next_state));
+    input.api_version = arex_deco_get_api_version();
+    input.current_depth_m = s_state.current_depth_m;
+    input.elapsed_seconds = s_state.elapsed_seconds;
+
+    status = arex_deco_select_runtime_stop(schedule, &s_runtime_stop_selector_state, &input, &next_state, runtime_stop);
+    if (status != AREX_DECO_STATUS_OK)
+    {
+        rt_kprintf("[AREX_RUNTIME_STOP] selector failed: %s(%d)\n", deco_status_name((int)status), (int)status);
+        reset_runtime_stop_selector();
+        (void)memset(runtime_stop, 0, sizeof(*runtime_stop));
+        return false;
+    }
+
+    s_runtime_stop_selector_state = next_state;
+    now_ms = rt_tick_get();
+    if ((uint32_t)(now_ms - s_runtime_stop_debug_last_print_ms) >= DECO_SCHEDULE_DEBUG_PRINT_MS)
+    {
+        char gas_text[32];
+        unsigned raw_display_index = runtime_stop->available ? (unsigned)(runtime_stop->source_raw_index + 1U) : 0U;
+        s_runtime_stop_debug_last_print_ms = now_ms;
+        format_algo_gas_ref(runtime_stop->gas_index, gas_text, sizeof(gas_text));
+        rt_kprintf("[AREX_RUNTIME_STOP] avail=%u raw#%u depth=%.2fm rem=%lus total=%lus gas=%s reason=%u short=%u active=%u cand=%u cand_seen=%lus\n",
+                   (unsigned)runtime_stop->available,
+                   raw_display_index,
+                   (double)runtime_stop->depth_m,
+                   (unsigned long)runtime_stop->remaining_seconds,
+                   (unsigned long)runtime_stop->total_seconds,
+                   gas_text,
+                   (unsigned)runtime_stop->reason,
+                   (unsigned)runtime_stop->is_short,
+                   (unsigned)s_runtime_stop_selector_state.active,
+                   (unsigned)s_runtime_stop_selector_state.candidate_active,
+                   (unsigned long)s_runtime_stop_selector_state.candidate_seen_seconds);
+    }
+    return runtime_stop->available != 0U;
 }
 
 static void format_gas_name(const ArexDecoGas *gas, char *name_buf, size_t name_buf_size)
@@ -789,15 +846,12 @@ static void sync_gas_data(void)
     }
 }
 
-static const ArexDecoStop *first_runtime_stop(const ArexDecoSchedule *schedule);
-
-static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec, const ArexDecoSchedule *schedule)
+static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec, const ArexDecoRuntimeStop *runtime_stop)
 {
     int8_t recommended_idx = -1;
     dive_lifecycle_phase_t phase = bus_get_dive_lifecycle_phase();
-    const ArexDecoStop *runtime_stop = first_runtime_stop(schedule);
     bool lifecycle_allows_prompt = phase == DIVE_LIFECYCLE_ACTIVE || phase == DIVE_LIFECYCLE_SURFACING_PENDING;
-    bool deco_context = runtime_stop != NULL && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M;
+    bool deco_context = runtime_stop != NULL && runtime_stop->available != 0U && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M;
 
     if (lifecycle_allows_prompt &&
         deco_context &&
@@ -843,26 +897,6 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
     bus_set_deco_plan((count > 0U) ? stops : NULL, count);
 }
 
-static const ArexDecoStop *first_runtime_stop(const ArexDecoSchedule *schedule)
-{
-    if (schedule == NULL) return NULL;
-    for (uint8_t i = 0U; i < schedule->stop_count; i++)
-    {
-        const ArexDecoStop *stop = &schedule->stops[i];
-        uint32_t runtime_s = stop_runtime_seconds(stop);
-        if (stop_display_suppressed(stop))
-        {
-            continue;
-        }
-        if (stop->depth_m <= 0.0f || runtime_s == 0U)
-        {
-            continue;
-        }
-        return stop;
-    }
-    return NULL;
-}
-
 static void sync_ndl_low_alarm(int16_t ndl_min, stop_type_t stop_type)
 {
     uint16_t threshold_min = bus_get_ndl_alarm_min();
@@ -874,7 +908,7 @@ static void sync_ndl_low_alarm(int16_t ndl_min, stop_type_t stop_type)
     (void)alarm_set_active(ALARM_ID_WARN_NDL_LOW, active);
 }
 
-static void sync_stop_data(const ArexDecoSchedule *schedule)
+static void sync_stop_data(const ArexDecoRuntimeStop *runtime_stop)
 {
     ArexDecoSafetyStopStatus safety_stop;
     int16_t ndl_min = 0;
@@ -890,15 +924,12 @@ static void sync_stop_data(const ArexDecoSchedule *schedule)
         ndl_min = (ndl_calc > 99U) ? 99 : (int16_t)ndl_calc;
     }
 
-    const ArexDecoStop *runtime_stop = first_runtime_stop(schedule);
-
     (void)memset(&safety_stop, 0, sizeof(safety_stop));
-    if (runtime_stop != NULL && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M)
+    if (runtime_stop != NULL && runtime_stop->available != 0U && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M)
     {
-        uint32_t runtime_s = stop_runtime_seconds(runtime_stop);
         stop_type = STOP_DECO;
         stop_depth_m = runtime_stop->depth_m;
-        stop_left_s = (runtime_s > 65535U) ? 65535U : (uint16_t)runtime_s;
+        stop_left_s = (runtime_stop->remaining_seconds > 65535U) ? 65535U : (uint16_t)runtime_stop->remaining_seconds;
         in_stop_zone = deco_stop_zone_active(s_state.current_depth_m, stop_depth_m);
         ndl_min = 0;
         stop_total_s = sync_stop_progress_total(stop_type, stop_depth_m, stop_left_s, in_stop_zone);
@@ -964,7 +995,7 @@ static void sync_forecast_data(void)
     }
 }
 
-static void sync_core_data(const ArexDecoSchedule *schedule, const ArexDecoDiveState *output_state)
+static void sync_core_data(const ArexDecoSchedule *schedule, const ArexDecoRuntimeStop *runtime_stop, const ArexDecoDiveState *output_state)
 {
     uint32_t nofly_seconds = 0U;
 
@@ -982,7 +1013,7 @@ static void sync_core_data(const ArexDecoSchedule *schedule, const ArexDecoDiveS
     }
     sync_gas_data();
     sync_forecast_data();
-    sync_stop_data(schedule);
+    sync_stop_data(runtime_stop);
     sync_deco_plan_data(schedule);
 }
 
@@ -1018,6 +1049,7 @@ static void refresh_current_outputs(void)
 {
     ArexDecoSchedule schedule;
     ArexDecoGasRecommendation gas_rec;
+    ArexDecoRuntimeStop runtime_stop;
     ArexDecoDiveState surface_state;
     ArexDecoDiveState planner_state;
     ArexDecoDiveState gas_rec_state;
@@ -1025,6 +1057,7 @@ static void refresh_current_outputs(void)
 
     (void)memset(&schedule, 0, sizeof(schedule));
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
+    (void)memset(&runtime_stop, 0, sizeof(runtime_stop));
     if (s_surface_confirmed && make_surface_air_state(&s_state, &surface_state)) plan_state = &surface_state;
     planner_state = *plan_state;
     apply_runtime_ignored_gases(&planner_state);
@@ -1034,8 +1067,9 @@ static void refresh_current_outputs(void)
     ArexDecoStatus gas_status = s_surface_confirmed ? AREX_DECO_STATUS_INVALID_STATE : arex_deco_recommend_gas(&gas_rec_state, &gas_rec);
     debug_print_plan_call("refresh", -1, plan_status, &schedule, -1, planner_state.gas_plan.active_gas_index);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
-    sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &schedule);
-    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, plan_state);
+    if (plan_status == AREX_DECO_STATUS_OK) (void)select_runtime_stop(&schedule, &runtime_stop);
+    sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &runtime_stop);
+    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, &runtime_stop, plan_state);
     else sync_core_data_without_plan(plan_state);
 }
 
@@ -1063,6 +1097,7 @@ static void handle_pending_gas_switch(float depth_m)
             if (arex_deco_step(&s_state, &input, &next_state, &s_metrics) == AREX_DECO_STATUS_OK)
             {
                 s_state = next_state;
+                reset_runtime_stop_selector();
             }
         }
     }
@@ -1074,6 +1109,7 @@ static void handle_pending_gas_ignore(void)
     uint8_t target_gas_idx = 0U;
     if (!has_pending_gas_ignore(&target_gas_idx)) return;
     runtime_ignore_gas(target_gas_idx);
+    reset_runtime_stop_selector();
     clear_gas_ignore_cmd();
 }
 
@@ -1088,14 +1124,18 @@ void deco_core_reset(void)
     s_runtime_ignored_gas_mask = 0U;
     clear_gas_ignore_cmd();
     reset_stop_progress();
+    reset_runtime_stop_selector();
     s_temperature_valid = false;
     s_tts_forecast_elapsed_s = DECO_FORECAST_TTS_INTERVAL_S;
+    s_runtime_stop_debug_last_print_ms = 0U;
     (void)ensure_initialized();
 }
 
 void deco_core_set_surface_confirmed(bool confirmed)
 {
     s_surface_confirmed = confirmed;
+    reset_runtime_stop_selector();
+    reset_stop_progress();
     if (confirmed)
     {
         runtime_clear_ignored_gases();
@@ -1109,6 +1149,7 @@ void deco_core_set_final_stop_depth(uint8_t depth_m)
     s_final_deco_stop_depth_m = (depth_m == 6U) ? 6U : 3U;
     if (ensure_initialized())
     {
+        reset_runtime_stop_selector();
         apply_current_ui_config();
         refresh_current_outputs();
     }
@@ -1123,6 +1164,7 @@ void deco_core_set_gf(uint8_t gf_low_pct, uint8_t gf_high_pct)
     s_gf_high_pct = gf_high_pct;
     if (ensure_initialized())
     {
+        reset_runtime_stop_selector();
         apply_current_ui_config();
         refresh_current_outputs();
     }
@@ -1134,6 +1176,7 @@ void deco_core_set_salinity_mode(uint8_t mode)
     s_salinity_mode = mode;
     if (ensure_initialized())
     {
+        reset_runtime_stop_selector();
         apply_current_ui_config();
         refresh_current_outputs();
     }
@@ -1145,6 +1188,7 @@ void deco_core_set_safety_stop_mode(uint8_t mode)
     s_safety_stop_mode = mode;
     if (ensure_initialized())
     {
+        reset_runtime_stop_selector();
         apply_current_ui_config();
         refresh_current_outputs();
     }
@@ -1157,6 +1201,7 @@ void deco_core_apply_gases_from_ui(void)
     {
         runtime_clear_ignored_gases();
         clear_gas_ignore_cmd();
+        reset_runtime_stop_selector();
         apply_current_ui_config();
         refresh_current_outputs();
     }
@@ -1188,6 +1233,7 @@ bool deco_core_rtc_offline(uint32_t seconds)
     ArexDecoDiveState plan_state;
     ArexDecoGasPlan original_gas_plan;
     ArexDecoSchedule schedule;
+    ArexDecoRuntimeStop runtime_stop;
     ArexDecoStepInput input;
 
     if (!ensure_initialized()) return false;
@@ -1213,11 +1259,13 @@ bool deco_core_rtc_offline(uint32_t seconds)
 
     if (!make_surface_air_state(&s_state, &plan_state)) return false;
     (void)memset(&schedule, 0, sizeof(schedule));
+    (void)memset(&runtime_stop, 0, sizeof(runtime_stop));
     ArexDecoStatus plan_status = arex_deco_plan(&plan_state, &schedule, NULL);
     debug_print_plan_call("rtc_offline", AREX_DECO_STATUS_OK, plan_status, &schedule, input.gas_index, plan_state.gas_plan.active_gas_index);
     if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
-    sync_gas_recommendation(NULL, NULL);
-    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, &plan_state);
+    if (plan_status == AREX_DECO_STATUS_OK) (void)select_runtime_stop(&schedule, &runtime_stop);
+    sync_gas_recommendation(NULL, &runtime_stop);
+    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, &runtime_stop, &plan_state);
     else sync_core_data_without_plan(&plan_state);
     rt_kprintf("[RTC_OFFLINE] surface sleep %lus with AIR\n", (unsigned long)seconds);
     return true;
@@ -1278,12 +1326,14 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
 
     ArexDecoSchedule schedule;
     ArexDecoGasRecommendation gas_rec;
+    ArexDecoRuntimeStop runtime_stop;
     ArexDecoDiveState plan_state;
     ArexDecoDiveState planner_state;
     ArexDecoDiveState gas_rec_state;
     const ArexDecoDiveState *plan_source = &s_state;
     (void)memset(&schedule, 0, sizeof(schedule));
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
+    (void)memset(&runtime_stop, 0, sizeof(runtime_stop));
     if (s_surface_confirmed && make_surface_air_state(&s_state, &plan_state)) plan_source = &plan_state;
     planner_state = *plan_source;
     apply_runtime_ignored_gases(&planner_state);
@@ -1295,9 +1345,10 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     if (plan_status == AREX_DECO_STATUS_OK)
     {
         debug_print_schedule(&schedule);
+        (void)select_runtime_stop(&schedule, &runtime_stop);
     }
-    sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &schedule);
-    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, plan_source);
+    sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &runtime_stop);
+    if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, &runtime_stop, plan_source);
     else sync_core_data_without_plan(plan_source);
 }
 

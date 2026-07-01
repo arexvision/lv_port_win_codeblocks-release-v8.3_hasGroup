@@ -1,6 +1,6 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.26`。
+本文档描述当前 core API。当前 API 版本为 `0.0.27`。
 
 ## 适用场景
 
@@ -15,13 +15,21 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 26`
+- `AREX_DECO_API_VERSION_PATCH = 27`
 
 固定容量：
 
 - `AREX_DECO_COMPARTMENT_COUNT = 16`
 - `AREX_DECO_MAX_GAS_COUNT = 6`
 - `AREX_DECO_MAX_DECO_STOP_COUNT = 40`
+- `AREX_DECO_INVALID_STOP_INDEX = 255`，用于 `uint8_t` raw stop index 字段的无效哨兵，
+  必须始终大于等于 `AREX_DECO_MAX_DECO_STOP_COUNT`
+
+常量归类：
+
+- `abi_constants.h`：API 版本、固定容量和跨语言 ABI 哨兵。
+- `defaults.h`：默认配置模板、默认气体策略和 runtime selector 默认策略。
+- `model_constants.h`：算法模型固定规则、物理常数、数值容差和安全停留/禁飞/CNS 机制常量。
 
 默认参数：
 
@@ -60,6 +68,12 @@ CNS 衰减（0.0.3 起）：
 - `AREX_DECO_DEFAULT_BOTTOM_PPO2_BAR = 1.4`（底部气工作 ppO2 默认）
 - `AREX_DECO_DEFAULT_DECO_PPO2_BAR = 1.6`（减压气工作 ppO2 默认）
 - `AREX_DECO_MAX_ALLOWABLE_PPO2_BAR = 2.0`（绝对生理硬顶——`validate_gas` 会拒绝高于此值的配置；行业策略限值 1.4 / 1.6 应在 UI 层提示）
+
+runtime current-stop selector 默认策略（0.0.27 起）：
+
+- `AREX_DECO_DEFAULT_RUNTIME_STOP_ZONE_HALF_WIDTH_M = 1.5`
+- `AREX_DECO_DEFAULT_RUNTIME_STOP_PROMOTE_MIN_SECONDS = 30`
+- `AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS = 10`
 
 ## 状态码
 
@@ -291,8 +305,9 @@ ABI 布局保存和还原它们；内部验证用的 `GfAnchorUpdateInfo` 不属
 | `flags` | `uint8_t` | - | runtime display hint flags，不参与 tissue / TTS / ceiling 安全判定；`AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 表示该 raw stop 不应作为 runtime 当前实质停站展示 |
 
 `hold_seconds` 依赖 `switch_penalty_seconds` 已按新气体推进组织舱这一前提，
-两者不可被视为两个互不相关的倒计时。若只需要一个停站剩余时间，
-调用方应使用 `duration_seconds`。
+两者不可被视为两个互不相关的倒计时。静态计划、TTS 和气量估算应继续使用
+`duration_seconds`；用户主屏当前停站应调用
+`arex_deco_select_runtime_stop()` 获取稳定 runtime current-stop 语义。
 
 `kind` 是算法事实：它说明该 raw stop 是强制减压停站、GF anchor 下的网格路径
 waypoint、纯切气预测站，还是安全停留。`kind` 不要求 UI 一定显示或隐藏某站。
@@ -324,12 +339,70 @@ classification 语义，不是 Bühlmann / GF 安全裕量。
 `18 m / 1 s`、`15 m / 1 s`、`6 m / 1 s` 这类短 waypoint 可能出现在 raw
 路径中，用于保持 GF slope、减压网格路径和实时重复 plan 的连续性。它们会参与
 TTS、组织舱和氧暴露递推，因此 core 不会为了贴合 UI first stop 直接删除。
-固件 `ArexDecoRuntime` / App display 层应在保留 raw schedule 的同时，依据
-`stop.kind` 和 runtime display hint `stop.flags` 派生用户看到的
-current/effective/display stop。凡带有 `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 的
-raw stop 不应作为主屏当前实质停站或 DLF/APP `next_stop` 输出；`schedule.tts_seconds`
-仍始终来自 raw schedule。core public C API 当前不提供 display helper；Web adapter
-和 validation 中的 effective/display 逻辑仅作为固件 runtime 语义消费的镜像实现。
+固件 `ArexDecoRuntime` / App display 层应在保留 raw schedule 的同时，把
+`schedule`、上一帧 `ArexDecoRuntimeStopSelectorState` 和当前深度传给
+`arex_deco_select_runtime_stop()`，用其输出作为主屏当前实质停站和 DLF/APP
+`next_stop`。凡带有 `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 的 raw stop 不进入
+selector 候选；`schedule.tts_seconds` 仍始终来自 raw schedule。
+
+### `ArexDecoRuntimeStopSelectorState`
+
+runtime current-stop selector 的调用方持有状态。core 不在 `arex_deco_plan()` 内保存
+隐藏状态；固件、Web 或 App 每帧把上一帧 `next_state` 作为下一次
+`previous_state` 传入。
+
+| 字段 | 类型 | 单位 | 说明 |
+|---|---|---:|---|
+| `api_version` | `ArexDecoVersion` | - | API 版本 |
+| `active` | `uint8_t` | - | 1 表示当前有已激活的 runtime current stop |
+| `candidate_active` | `uint8_t` | - | 1 表示正在 debounce 某个候选停站 |
+| `displayed_source_raw_index` | `uint8_t` | - | 当前显示停站来源 raw stop index；无效时为 `AREX_DECO_INVALID_STOP_INDEX` |
+| `candidate_source_raw_index` | `uint8_t` | - | 当前 debounce 候选 raw stop index；无效时为 `AREX_DECO_INVALID_STOP_INDEX` |
+| `displayed_depth_m` | `float` | m | 当前 runtime 停站深度 |
+| `displayed_remaining_seconds` | `uint32_t` | s | 当前 runtime 停站剩余/预测停留秒数 |
+| `displayed_total_seconds` | `uint32_t` | s | 当前 runtime 停站总预测秒数 |
+| `displayed_gas_index` | `int8_t` | - | 当前 runtime 停站气体 |
+| `displayed_is_short` | `uint8_t` | - | 1 表示当前显示停站低于 promote 门槛 |
+| `candidate_gas_index` | `int8_t` | - | debounce 候选气体；候选 identity 使用 `candidate_depth_m + candidate_gas_index`，不绑定 raw index |
+| `candidate_depth_m` | `float` | m | debounce 候选深度 |
+| `candidate_seen_seconds` | `uint32_t` | s | 候选已连续稳定出现的秒数 |
+| `last_elapsed_seconds` | `uint32_t` | s | 上一次 selector 调用对应的潜水 elapsed time |
+
+### `ArexDecoRuntimeStopSelectorInput`
+
+| 字段 | 类型 | 单位 | 说明 |
+|---|---|---:|---|
+| `api_version` | `ArexDecoVersion` | - | API 版本 |
+| `current_depth_m` | `float` | m | 当前真实深度 |
+| `elapsed_seconds` | `uint32_t` | s | 当前潜水 elapsed time |
+| `stop_zone_half_width_m` | `float` | m | 当前停站 zone 半宽；传 0 使用 `AREX_DECO_DEFAULT_RUNTIME_STOP_ZONE_HALF_WIDTH_M` |
+| `promote_min_seconds` | `uint32_t` | s | 实质停站门槛；传 0 使用 `AREX_DECO_DEFAULT_RUNTIME_STOP_PROMOTE_MIN_SECONDS` |
+| `stable_seconds` | `uint32_t` | s | 候选稳定激活门槛；传 0 使用 `AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS` |
+
+### `ArexDecoRuntimeStop`
+
+| 字段 | 类型 | 单位 | 说明 |
+|---|---|---:|---|
+| `api_version` | `ArexDecoVersion` | - | API 版本 |
+| `available` | `uint8_t` | - | 1 表示本帧有稳定 runtime current stop |
+| `source_raw_index` | `uint8_t` | - | 来源 raw stop index；无效时为 `AREX_DECO_INVALID_STOP_INDEX` |
+| `reason` | `uint8_t` | - | `AREX_DECO_RUNTIME_STOP_REASON_*` |
+| `is_short` | `uint8_t` | - | 1 表示输出停站低于 promote 门槛 |
+| `depth_m` | `float` | m | runtime current stop 深度 |
+| `remaining_seconds` | `uint32_t` | s | runtime current stop 剩余/预测秒数 |
+| `total_seconds` | `uint32_t` | s | runtime current stop 总预测秒数 |
+| `gas_index` | `int8_t` | - | 停站气体 |
+
+`reason` 取值：
+
+| 值 | 名称 | 说明 |
+|---:|---|---|
+| 0 | `NONE` | 无特殊原因 |
+| 1 | `STABLE_CANDIDATE` | 候选经过 `stable_seconds` 后激活 |
+| 2 | `UNIQUE_SHORT` | 唯一短候选且潜水员已接近 stop zone |
+| 3 | `HELD_PREVIOUS` | 为避免瞬态跳变，保持上一帧 runtime stop |
+| 4 | `DEBOUNCING` | 正在等待候选稳定，本帧不输出新 current stop |
+| 5 | `CLEARED` | 当前无 runtime selector 候选 |
 
 ### `ArexDecoTtsForecast`
 
@@ -602,6 +675,61 @@ Planner 行为：
   `stops == 0` 或 `tts_seconds == 0` 判断安全，必须同时确认
   `ceiling_violated == 0`。
 - 单站时长上限 6 h（0.0.3 起）。若该上限内仍无法满足 ceiling 约束，返回 `AREX_DECO_STATUS_INVALID_STATE`。
+
+### `arex_deco_select_runtime_stop`
+
+```c
+ArexDecoStatus arex_deco_select_runtime_stop(
+    const ArexDecoSchedule* schedule,
+    const ArexDecoRuntimeStopSelectorState* previous_state,
+    const ArexDecoRuntimeStopSelectorInput* input,
+    ArexDecoRuntimeStopSelectorState* next_state,
+    ArexDecoRuntimeStop* output);
+```
+
+从 raw `schedule` 中选择本帧用户应该看到的稳定 runtime current stop。
+
+该接口不修改 `schedule`，不重算 TTS，不推进组织舱，也不改变
+`ArexDecoDiveState`。它是显式 state-in/state-out 纯函数：调用方保存
+`next_state`，下一帧作为 `previous_state` 传回；`previous_state == NULL` 表示
+selector 初始化。
+
+版本和时间语义：
+
+- `input->api_version` 必须等于当前 `arex_deco_get_api_version()`，否则返回
+  `AREX_DECO_STATUS_UNSUPPORTED_VERSION`。
+- `previous_state->api_version` 不匹配当前版本时，selector 将其视为无上一帧状态并重新
+  debounce，不返回错误。
+- `elapsed_seconds` 与上一帧相同表示同一潜水秒内重复调用，不会增加
+  `candidate_seen_seconds`，也不会递减 held stop remaining。
+- `elapsed_seconds` 小于上一帧表示 replay/潜水时间回退，selector 将上一帧状态视为无效并重新
+  debounce。
+
+候选规则：
+
+- 只考虑 `depth_m > 0` 且 `hold_seconds > 0` 的停站。
+- 带 `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 的 raw stop 不进入候选。
+- `ROUTE_WAYPOINT`、`GAS_SWITCH` 和 `SAFETY` 不进入强制减压 current-stop selector。
+  安全停留继续使用 `arex_deco_safety_stop()`。
+- `hold_seconds >= promote_min_seconds` 的候选为实质候选；更短的 mandatory stop
+  是 short candidate。
+- debounce 候选 identity 使用 `depth_m + gas_index`。raw stop index 只记录来源位置，
+  不参与候选连续性判断，因此 raw schedule 拓扑变化不会重置同一实质停站的 debounce。
+
+状态机语义：
+
+- 当前无 active stop 时，优先选择第一个实质候选；若没有实质候选，才选择第一个
+  visible short 候选。候选需连续稳定 `stable_seconds` 才激活。
+- 已有 active stop 且潜水员仍远深于该停站时，更深实质候选可在稳定后抢占；更浅候选不立即抢占。
+- 已接近或进入当前 stop zone 时，保持当前停站，不因 raw plan 瞬时出现更深短站而跳回深处。
+- 已有实质 displayed stop 时，同深度 raw 候选若瞬时降为 short，selector 保持上一帧
+  displayed stop，避免 `9 m / 100 s -> 9 m / 1 s` 这类主屏抖动；保持期间
+  remaining 按 `elapsed_seconds` 差值递减，不冻结倒计时。
+- 唯一 short stop 只有在潜水员已接近该 stop zone 时才可立即输出；远深处的 1 s
+  候选不会抢主屏。
+
+`output` 是固件主屏当前减压站、bridge current stop 和 DLF/APP `next_stop` 的官方语义。
+`schedule.tts_seconds` 仍是唯一 TTS 来源，不得用 selector 输出重算。
 
 安全停留边界：
 
@@ -958,12 +1086,16 @@ WASM 构建导出的是同一套 C ABI 符号，外加版本和 sizeof helper。
 | `_arex_deco_wasm_sizeof_gas_recommendation()` | `ArexDecoGasRecommendation` 字节大小 |
 | `_arex_deco_wasm_sizeof_stop()` | `ArexDecoStop` 字节大小 |
 | `_arex_deco_wasm_sizeof_schedule()` | `ArexDecoSchedule` 字节大小 |
+| `_arex_deco_wasm_sizeof_runtime_stop_selector_state()` | `ArexDecoRuntimeStopSelectorState` 字节大小 |
+| `_arex_deco_wasm_sizeof_runtime_stop_selector_input()` | `ArexDecoRuntimeStopSelectorInput` 字节大小 |
+| `_arex_deco_wasm_sizeof_runtime_stop()` | `ArexDecoRuntimeStop` 字节大小 |
 | `_arex_deco_wasm_sizeof_tts_forecast()` | `ArexDecoTtsForecast` 字节大小 |
 | `_arex_deco_wasm_sizeof_ndl_excursion_forecast()` | `ArexDecoNdlExcursionForecast` 字节大小 |
 | `_arex_deco_wasm_sizeof_safety_stop_status()` | `ArexDecoSafetyStopStatus` 字节大小 |
 | `_arex_deco_calculate_gas_mod()` | 按 core 口径计算气体 MOD |
 | `_arex_deco_calculate_gas_density()` | 按 core 口径计算实时气体密度 |
 | `_arex_deco_recommend_gas()` | 当前深度的最佳安全可用气体推荐 |
+| `_arex_deco_select_runtime_stop()` | 从 raw schedule 中选择稳定 runtime current stop |
 | `_arex_deco_calculate_tissue_pressures()` | 输出当前环境压力下 16 仓组织压力、M 值和 GF M 值 |
 | `_arex_deco_forecast_tts_hold()` | 计算 TTS hold 动态应急预测 |
 | `_arex_deco_forecast_ndl_excursion()` | 计算 NDL 深度试探预测 |
@@ -1047,5 +1179,46 @@ WASM 构建导出的是同一套 C ABI 符号，外加版本和 sizeof helper。
 | `switch_penalty_seconds` | 20 |
 | `kind` | 24 |
 | `flags` | 25 |
+
+当前 `ArexDecoRuntimeStopSelectorState` 关键字段偏移：
+
+| 字段 | offset |
+|---|---:|
+| `active` | 6 |
+| `candidate_active` | 7 |
+| `displayed_source_raw_index` | 8 |
+| `candidate_source_raw_index` | 9 |
+| `displayed_depth_m` | 12 |
+| `displayed_remaining_seconds` | 16 |
+| `displayed_total_seconds` | 20 |
+| `displayed_gas_index` | 24 |
+| `displayed_is_short` | 25 |
+| `candidate_gas_index` | 26 |
+| `candidate_depth_m` | 28 |
+| `candidate_seen_seconds` | 32 |
+| `last_elapsed_seconds` | 36 |
+
+当前 `ArexDecoRuntimeStopSelectorInput` 关键字段偏移：
+
+| 字段 | offset |
+|---|---:|
+| `current_depth_m` | 8 |
+| `elapsed_seconds` | 12 |
+| `stop_zone_half_width_m` | 16 |
+| `promote_min_seconds` | 20 |
+| `stable_seconds` | 24 |
+
+当前 `ArexDecoRuntimeStop` 关键字段偏移：
+
+| 字段 | offset |
+|---|---:|
+| `available` | 6 |
+| `source_raw_index` | 7 |
+| `reason` | 8 |
+| `is_short` | 9 |
+| `depth_m` | 12 |
+| `remaining_seconds` | 16 |
+| `total_seconds` | 20 |
+| `gas_index` | 24 |
 
 WASM adapter 必须以 sizeof helper 为准。任何 core ABI 变更都必须同步更新 JS offset 和 API 版本。

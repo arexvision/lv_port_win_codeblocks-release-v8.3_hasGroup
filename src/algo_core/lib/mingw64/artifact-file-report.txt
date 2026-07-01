@@ -3,6 +3,7 @@
 ./arex_deco_defaults.cpp.obj:         Intel amd64 COFF object file, no line number info, not stripped, 7 sections, symbol offset=0x896, 28 symbols, 1st section name ".text"
 ./arex_deco_forecast.cpp.obj:         Intel amd64 COFF object file, no line number info, not stripped, 19 sections, symbol offset=0x122a, 67 symbols, 1st section name ".text"
 ./arex_deco_plan.cpp.obj:             Intel amd64 COFF object file, no line number info, not stripped, 25 sections, symbol offset=0x13d4, 76 symbols, 1st section name ".text"
+./arex_deco_runtime_stop.cpp.obj:     Intel amd64 COFF object file, no line number info, not stripped, 28 sections, symbol offset=0x2162, 90 symbols, 1st section name ".text"
 ./arex_deco_safety_stop.cpp.obj:      Intel amd64 COFF object file, no line number info, not stripped, 19 sections, symbol offset=0x860, 52 symbols, 1st section name ".text"
 ./arex_deco_step.cpp.obj:             Intel amd64 COFF object file, no line number info, not stripped, 10 sections, symbol offset=0x4e2, 28 symbols, 1st section name ".text"
 ./arex_deco_step_common.cpp.obj:      Intel amd64 COFF object file, no line number info, not stripped, 13 sections, symbol offset=0xc88, 51 symbols, 1st section name ".text"

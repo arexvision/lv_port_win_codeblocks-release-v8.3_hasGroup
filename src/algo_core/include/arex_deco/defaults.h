@@ -29,6 +29,12 @@ extern "C" {
 #define AREX_DECO_DEFAULT_BOTTOM_PPO2_BAR 1.4f
 #define AREX_DECO_DEFAULT_DECO_PPO2_BAR 1.6f
 
+// Default runtime current-stop selector policy. These values are used when
+// ArexDecoRuntimeStopSelectorInput passes 0 for the corresponding override.
+#define AREX_DECO_DEFAULT_RUNTIME_STOP_ZONE_HALF_WIDTH_M 1.5f
+#define AREX_DECO_DEFAULT_RUNTIME_STOP_PROMOTE_MIN_SECONDS 30u
+#define AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS 10u
+
 #ifdef __cplusplus
 }
 #endif

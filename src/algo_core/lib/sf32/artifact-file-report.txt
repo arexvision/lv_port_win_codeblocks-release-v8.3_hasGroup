@@ -3,6 +3,7 @@
 ./arex_deco_defaults.cpp.obj:         ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
 ./arex_deco_forecast.cpp.obj:         ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
 ./arex_deco_plan.cpp.obj:             ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
+./arex_deco_runtime_stop.cpp.obj:     ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
 ./arex_deco_safety_stop.cpp.obj:      ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
 ./arex_deco_step.cpp.obj:             ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped
 ./arex_deco_step_common.cpp.obj:      ELF 32-bit LSB relocatable, ARM, EABI5 version 1 (SYSV), not stripped

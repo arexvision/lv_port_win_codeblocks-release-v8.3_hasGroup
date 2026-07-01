@@ -47,6 +47,13 @@ ArexDecoStatus arex_deco_plan(
     ArexDecoSchedule* schedule,
     ArexDecoGasRecommendation* gas_rec);
 
+ArexDecoStatus arex_deco_select_runtime_stop(
+    const ArexDecoSchedule* schedule,
+    const ArexDecoRuntimeStopSelectorState* previous_state,
+    const ArexDecoRuntimeStopSelectorInput* input,
+    ArexDecoRuntimeStopSelectorState* next_state,
+    ArexDecoRuntimeStop* output);
+
 ArexDecoStatus arex_deco_recommend_gas(
     const ArexDecoDiveState* state,
     ArexDecoGasRecommendation* gas_rec);

@@ -26,6 +26,62 @@
 - smoke test
 - 文档
 
+## 0.0.27
+
+### 摘要
+
+本次版本新增 runtime current-stop selector，用于解决连续 replay / 每秒重新 plan 时，
+用户可见减压站随 raw schedule 拓扑瞬态变化而跳变的问题。Planner 数学、GF anchor、
+CNS/OTU、raw `ArexDecoSchedule.stops[]` 和 `schedule.tts_seconds` 均不改变。
+
+### 行为与 ABI 变更
+
+- 新增 public C API：
+  `arex_deco_select_runtime_stop(schedule, previous_state, input, next_state, output)`。
+  该接口是显式 state-in/state-out 纯函数；core 不在 `arex_deco_plan()` 内保存隐藏显示状态。
+- 新增 public POD：
+  `ArexDecoRuntimeStopSelectorState`（64 字节）、
+  `ArexDecoRuntimeStopSelectorInput`（52 字节）和
+  `ArexDecoRuntimeStop`（52 字节）。
+- selector 使用 raw `stop.kind/flags` 做静态候选过滤：
+  `DISPLAY_SUPPRESSED`、`ROUTE_WAYPOINT`、`GAS_SWITCH`、`SAFETY` 不进入强制减压
+  current-stop 候选；安全停留继续由 `arex_deco_safety_stop()` 管理。
+- selector 在跨帧状态中维护 displayed stop 和 candidate debounce：
+  默认值由 `defaults.h` 中的
+  `AREX_DECO_DEFAULT_RUNTIME_STOP_PROMOTE_MIN_SECONDS`、
+  `AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS` 和
+  `AREX_DECO_DEFAULT_RUNTIME_STOP_ZONE_HALF_WIDTH_M` 定义，调用方可通过 input 显式覆盖。
+- raw stop index 的无效哨兵统一使用 `AREX_DECO_INVALID_STOP_INDEX`，属于
+  `uint8_t` index ABI 语义，不是 selector 策略参数。
+- short mandatory stop 仍可保留在 raw schedule 中，但不会在远深处瞬时抢占主屏；
+  已有实质 displayed stop 时，同深度 short 瞬态也不会把主屏剩余时间刷新成 1 s。
+- `schedule.tts_seconds` 仍是唯一 TTS 来源。selector 输出只定义主屏 current stop /
+  bridge current stop / DLF `next_stop` 语义，不重算 TTS，不修改 raw schedule。
+- WASM 导出新增 selector 相关 sizeof helper，并导出 `_arex_deco_select_runtime_stop()`。
+- API patch 版本升至 `0.0.27`；WASM adapter 版本和 selector offset 同步更新。
+
+### 验证
+
+- 新增 `RuntimeStopSelectorTest` 覆盖：
+  candidate 稳定激活、`DISPLAY_SUPPRESSED` 过滤、route waypoint / pure gas switch
+  不进 current stop、short 1 s 不抢占已有实质站、更深实质站稳定后抢占、远深处浅站不抢占、
+  stop zone 保持、唯一 short stop 到站可显示，以及 40 m hold replay 稳定性。
+- 40 m hold replay（0 m -> 40 m，18 m/min，40 m hold 35 min，Air，GF 30/70，
+  safety stop off）结果：
+  raw 1 s stops = 2068，raw route waypoints = 2043，raw mandatory 1 s = 25；
+  legacy effective display 1 s = 746，selector display 1 s = 0；
+  legacy display depth changes = 16，selector display depth changes = 8；
+  selector display whiplash = 0。
+- `case_001` regression 仍通过：`assertions=20 failed=0 raw_failed=0 display_failed=0`。
+
+### 固件迁移建议
+
+- 固件 / Web / App 每帧保存 `ArexDecoRuntimeStopSelectorState`，调用
+  `arex_deco_select_runtime_stop()`，使用 `ArexDecoRuntimeStop` 作为主屏当前减压站和
+  DLF/APP `next_stop`。
+- 日志、调试、TTS、气量估算继续使用 raw `schedule.stops[]` 和 `schedule.tts_seconds`。
+- 不要直接用 raw `stops[0]`，也不要只取第一个未 `DISPLAY_SUPPRESSED` stop 作为用户当前站。
+
 ## 0.0.26
 
 ### 摘要

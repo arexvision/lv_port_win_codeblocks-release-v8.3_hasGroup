@@ -9,11 +9,15 @@ extern "C" {
 // public struct layout, static array sizes, and cross-language bindings.
 #define AREX_DECO_API_VERSION_MAJOR 0
 #define AREX_DECO_API_VERSION_MINOR 0
-#define AREX_DECO_API_VERSION_PATCH 26
+#define AREX_DECO_API_VERSION_PATCH 27
 
 #define AREX_DECO_COMPARTMENT_COUNT 16
 #define AREX_DECO_MAX_GAS_COUNT 6
 #define AREX_DECO_MAX_DECO_STOP_COUNT 40
+
+// Sentinel for uint8_t raw stop index fields. It must remain outside
+// [0, AREX_DECO_MAX_DECO_STOP_COUNT).
+#define AREX_DECO_INVALID_STOP_INDEX 255u
 
 #ifdef __cplusplus
 }
