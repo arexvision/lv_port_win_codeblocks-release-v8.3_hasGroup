@@ -325,11 +325,13 @@ static void debug_print_plan_call(const char *tag, int step_status, int plan_sta
 
 static uint32_t stop_runtime_seconds(const ArexDecoStop *stop);
 static bool stop_display_suppressed(const ArexDecoStop *stop);
+static bool stop_is_plan_display_stop(const ArexDecoStop *stop);
 
 static void debug_print_ui_schedule(const ArexDecoSchedule *schedule)
 {
     uint8_t display_count = 0U;
     uint8_t hidden_suppressed = 0U;
+    uint8_t hidden_kind = 0U;
     uint8_t hidden_zero = 0U;
 
     if (schedule == NULL) return;
@@ -345,6 +347,11 @@ static void debug_print_ui_schedule(const ArexDecoSchedule *schedule)
         if (stop_display_suppressed(stop))
         {
             hidden_suppressed++;
+            continue;
+        }
+        if (stop->kind == AREX_DECO_STOP_KIND_ROUTE_WAYPOINT || stop->kind == AREX_DECO_STOP_KIND_GAS_SWITCH)
+        {
+            hidden_kind++;
             continue;
         }
         if (stop->depth_m <= 0.0f || runtime_s == 0U)
@@ -367,9 +374,10 @@ static void debug_print_ui_schedule(const ArexDecoSchedule *schedule)
         display_count++;
     }
 
-    rt_kprintf(" | display=%u hidden_suppressed=%u hidden_zero=%u\n",
+    rt_kprintf(" | display=%u hidden_suppressed=%u hidden_kind=%u hidden_zero=%u\n",
                (unsigned)display_count,
                (unsigned)hidden_suppressed,
+               (unsigned)hidden_kind,
                (unsigned)hidden_zero);
 }
 
@@ -447,6 +455,15 @@ static bool stop_display_suppressed(const ArexDecoStop *stop)
 {
     if (stop == NULL) return false;
     return (stop->flags & AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED) != 0U;
+}
+
+static bool stop_is_plan_display_stop(const ArexDecoStop *stop)
+{
+    if (stop == NULL) return false;
+    if (stop_display_suppressed(stop)) return false;
+    if (stop->kind == AREX_DECO_STOP_KIND_ROUTE_WAYPOINT) return false;
+    if (stop->kind == AREX_DECO_STOP_KIND_GAS_SWITCH) return false;
+    return true;
 }
 
 static bool select_runtime_stop(const ArexDecoSchedule *schedule, ArexDecoRuntimeStop *runtime_stop)
@@ -882,7 +899,7 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule)
     for (uint8_t i = 0U; i < schedule->stop_count && count < MAX_DECO_STOPS; i++)
     {
         uint32_t runtime_s = stop_runtime_seconds(&schedule->stops[i]);
-        if (stop_display_suppressed(&schedule->stops[i]))
+        if (!stop_is_plan_display_stop(&schedule->stops[i]))
         {
             continue;
         }
@@ -1376,7 +1393,7 @@ static float plan_ascent_display_distance_m(float start_depth_m, const ArexDecoS
     for (uint8_t i = 0U; i < schedule->stop_count; i++)
     {
         const ArexDecoStop *stop = &schedule->stops[i];
-        if (stop_display_suppressed(stop)) continue;
+        if (!stop_is_plan_display_stop(stop)) continue;
         if (stop_runtime_seconds(stop) == 0U) continue;
         if (stop->depth_m < from_depth_m)
         {
@@ -1486,7 +1503,7 @@ bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv
     {
         const ArexDecoStop *stop = &schedule.stops[i];
         uint32_t runtime_s = stop_runtime_seconds(stop);
-        bool display_stop = !stop_display_suppressed(stop) && runtime_s > 0U;
+        bool display_stop = stop_is_plan_display_stop(stop) && runtime_s > 0U;
         int8_t gas_idx = stop->gas_index;
         if (gas_idx < 0 || gas_idx >= (int8_t)plan_state.gas_plan.gas_count) gas_idx = plan_state.gas_plan.active_gas_index;
         const ArexDecoGas *gas = &plan_state.gas_plan.gases[gas_idx];
