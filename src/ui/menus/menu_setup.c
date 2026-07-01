@@ -436,8 +436,15 @@ void menu_setup_update(void)
         if (i < setup_count)
         {
             lv_obj_t *label = lv_obj_get_child(s_setup_item_objs[i], 0);
+            char bluetooth_title[32];
+            const char *title = setup_items[i].title_text;
+            if (menu_defs_get_setup_root() == MENU_SETUP_ROOT_DEVICE && i == 3U)
+            {
+                (void)snprintf(bluetooth_title, sizeof(bluetooth_title), "BLUETOOTH: %s", vm.bluetooth_badge);
+                title = bluetooth_title;
+            }
             lv_obj_clear_flag(s_setup_item_objs[i], LV_OBJ_FLAG_HIDDEN);
-            if (label != NULL) menu_setup_badge_set_text_if_changed(label, setup_items[i].title_text);
+            if (label != NULL) menu_setup_badge_set_text_if_changed(label, title);
         }
         else
         {
@@ -472,13 +479,6 @@ void menu_setup_update(void)
             uint8_t idx = (vm.compass_cal_badge_idx <= 2U) ? vm.compass_cal_badge_idx : 0U;
             lv_obj_clear_flag(s_setup_badge_lbls[1], LV_OBJ_FLAG_HIDDEN);
             menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[1], cal_str[idx]);
-        }
-        if (menu_setup_obj_is_valid(&s_setup_badge_lbls[3]))
-        {
-            lv_obj_set_size(s_setup_badge_lbls[3], 80, 28);
-            lv_obj_align(s_setup_badge_lbls[3], LV_ALIGN_RIGHT_MID, -12, 0);
-            lv_obj_clear_flag(s_setup_badge_lbls[3], LV_OBJ_FLAG_HIDDEN);
-            menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[3], vm.bluetooth_badge);
         }
     }
     if (vm.compass_cal_state != last_cal_state)

@@ -35,7 +35,7 @@ static const menu_item_cfg_t s_menu_device_items[] =
     { "BRIGHTNESS",    "",     FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "COMPASS CAL",   "IDLE", FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "LIGHT CONTROL", NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
-    { "BLUETOOTH",     "OFF",  FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
+    { "BLUETOOTH",     NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
     { "TURN OFF",      NULL,   FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
 };
 
