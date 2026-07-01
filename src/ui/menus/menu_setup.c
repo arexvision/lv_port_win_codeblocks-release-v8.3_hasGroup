@@ -475,6 +475,8 @@ void menu_setup_update(void)
         }
         if (menu_setup_obj_is_valid(&s_setup_badge_lbls[3]))
         {
+            lv_obj_set_size(s_setup_badge_lbls[3], 80, 28);
+            lv_obj_align(s_setup_badge_lbls[3], LV_ALIGN_RIGHT_MID, -12, 0);
             lv_obj_clear_flag(s_setup_badge_lbls[3], LV_OBJ_FLAG_HIDDEN);
             menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[3], vm.bluetooth_badge);
         }
