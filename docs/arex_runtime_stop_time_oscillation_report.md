@@ -38,6 +38,40 @@
 | PLAN 图起点 | 从 selector 当前站匹配到的 raw stop 开始 |
 | 分钟显示 | 正秒数向上取整，所以 `61s -> 2min`，`60s/59s -> 1min` |
 
+## 日志打印含义
+
+| 日志 tag | 数据层级 | 主要含义 |
+|---|---|---|
+| `[AREX_CALL]` | runtime 调用汇总 | 每次 `step/plan` 后的摘要，包含当前深度、step/plan 返回值、NDL、ceiling、GF99、SurfGF、raw stop 数量和 raw TTS。它是本帧算法调用总览，不是 UI 过滤后的显示列表。 |
+| `[AREX_PLAN]` | core raw schedule | `arex_deco_plan()` 返回的原始 `ArexDecoSchedule.stops[]`。这里保留所有 raw stop，包括 route waypoint、suppressed stop、1s stop 等。 |
+| `[AREX_RUNTIME_STOP]` | 0.0.27 selector 输出 | `arex_deco_select_runtime_stop()` 返回的用户当前站。主屏 `DECO xxm xxmin` 使用这里的 `depth/rem/total`。selector 只返回一个当前站，不返回完整 plan 列表。 |
+| `[AREX_UI_PLAN]` | 固件/UI 展示列表 | PLAN 图和 UI 调试使用的过滤后列表。当前逻辑从 selector current stop 匹配到的 raw stop 开始，隐藏 current stop 之前的 raw stop，并继续过滤 suppressed/kind/zero stop。 |
+
+常用字段说明：
+
+| 字段 | 出现位置 | 含义 |
+|---|---|---|
+| `depth` | `CALL/PLAN/RUNTIME_STOP` | 当前水深或 selector 当前站深度。 |
+| `ceiling` | `CALL/PLAN` | core 返回的当前 ceiling。 |
+| `gf99` / `surfgf` | `CALL/PLAN` | core 返回的 GF99 / SurfGF。 |
+| `tts` / `tts_raw` | `CALL/PLAN/UI_PLAN` | raw `schedule.tts_seconds`，UI 不按过滤后 stop 重算。 |
+| `stops` / `raw_stops` | `CALL/PLAN/UI_PLAN` | raw schedule stop 数量。 |
+| `dur` | `PLAN` | raw stop 的 `duration_seconds`。 |
+| `hold` | `PLAN` | 普通减压站展示用停留秒数。 |
+| `sw` | `PLAN` | switch penalty seconds，纯切气站相关。 |
+| `kind` | `PLAN/UI_PLAN` | stop 类型；当前日志中 `0` 为 mandatory，`1` 为 route waypoint，`3` 为 safety。 |
+| `flags` | `PLAN/UI_PLAN` | `0x01` 表示 `DISPLAY_SUPPRESSED`，不应作为用户当前实质站展示；`0x00` 表示未 suppressed。 |
+| `avail` | `RUNTIME_STOP` | selector 是否返回可用当前站。 |
+| `raw#` | `RUNTIME_STOP/UI_PLAN` | 对应 raw schedule stop 序号；`raw#0` 表示无可用 raw stop。 |
+| `rem` / `total` | `RUNTIME_STOP` | selector 当前站剩余秒数 / 总秒数，主屏时间直接来自这里。 |
+| `reason` | `RUNTIME_STOP` | selector 选择原因枚举值，当前文档只用它区分 selector 输出状态，不按具体枚举名判断。 |
+| `active` / `cand` / `cand_seen` | `RUNTIME_STOP` | selector 内部 displayed stop 与 candidate debounce 状态。 |
+| `display` | `UI_PLAN` | UI/PLAN 图最终展示的 stop 数量。 |
+| `hidden_before_current` | `UI_PLAN` | 因 selector current stop 起点裁剪而隐藏的前置 raw stop 数量。 |
+| `hidden_suppressed` / `hidden_kind` / `hidden_zero` | `UI_PLAN` | 分别表示因 suppressed flag、stop kind、0 秒时长被隐藏的数量。 |
+
+`[AREX_CALL]` 和 `[AREX_PLAN]` 的对应关系：`CALL` 是算法调用摘要，打印频率可能高于 `PLAN` 详细 stop 列表；`PLAN` 是某次 raw schedule 详细展开。看当前站显示问题时，应同时看同一段附近的 `[AREX_PLAN]`、`[AREX_RUNTIME_STOP]` 和 `[AREX_UI_PLAN]`。
+
 ## 现象摘要
 
 主屏时间仍然会出现明显来回变化，表现类似：
@@ -108,6 +142,96 @@
 4. raw schedule 在同一深度附近会发生拓扑切换，例如从 `12m/136s` 切到 `18m/1s, 15m/1s, 12m/20s`，随后 selector 输出也出现重绑定或 total 重置。
 
 因此当前更像是算法 core selector / raw plan 拓扑交互问题，而不是 UI 层只显示错了。
+
+## 关键原始日志摘录
+
+以下为关键字段摘录，完整日志来源见本文开头路径。为降低噪声，重复的 `gas/gf/flags` 等字段在部分行中省略，但保留了判断问题所需的 `depth / ceiling / stops / dur / rem / total / display`。
+
+### 6m 复核片段：raw plan 递增，selector 先 held 后 rebind
+
+```text
+L105 [AREX_PLAN] ceiling=2.18m tts=356s stops=3 | #1 9m dur=1s | #2 6m dur=12s | #3 3m dur=76s
+L106 [AREX_RUNTIME_STOP] avail=1 raw#1 depth=6.00m rem=81s total=82s reason=3 active=1
+L107 [AREX_UI_PLAN] #1 raw#2 6.00m 12s/1min | #2 raw#3 3.00m 76s/2min | display=2 hidden_before_current=1
+
+L109 [AREX_PLAN] ceiling=2.49m tts=377s stops=3 | #1 9m dur=11s | #2 6m dur=16s | #3 3m dur=83s
+L110 [AREX_RUNTIME_STOP] avail=1 raw#1 depth=6.00m rem=62s total=82s reason=3 active=1
+
+L123 [AREX_PLAN] ceiling=3.12m tts=409s stops=4 | #1 12m dur=1s | #2 9m dur=1s | #3 6m dur=28s | #4 3m dur=112s
+L124 [AREX_RUNTIME_STOP] avail=1 raw#1 depth=6.00m rem=21s total=82s reason=3 active=1
+
+L127 [AREX_PLAN] ceiling=3.26m tts=418s stops=4 | #1 12m dur=1s | #2 9m dur=1s | #3 6m dur=37s | #4 3m dur=112s
+L128 [AREX_RUNTIME_STOP] avail=1 raw#3 depth=6.00m rem=37s total=37s reason=3 active=1
+
+L136 [AREX_PLAN] ceiling=3.67m tts=453s stops=4 | #1 12m dur=1s | #2 9m dur=1s | #3 6m dur=62s | #4 3m dur=122s
+L137 [AREX_RUNTIME_STOP] avail=1 raw#3 depth=6.00m rem=62s total=62s reason=3 active=1
+```
+
+对应含义：
+
+| 日志 | 含义 |
+|---|---|
+| `L105/L109/L123/L127/L136 [AREX_PLAN]` | raw 6m 时长从 `12s -> 16s -> 28s -> 37s -> 62s`，整体递增。 |
+| `L106/L110/L124 [AREX_RUNTIME_STOP]` | selector 还在 held 之前的 `total=82s` 当前站，所以 `rem` 递减，不应拿它直接和当前 raw 6m dur 比较。 |
+| `L128/L137 [AREX_RUNTIME_STOP]` | selector 重新绑定到当前 raw 6m，之后 `rem/total` 与 raw 6m 基本一致。 |
+
+### 9m 片段：selector 当前站发生可见时间回跳
+
+```text
+L161 [AREX_PLAN] ceiling=4.55m tts=587s stops=3 | #1 9m dur=110s | #2 6m dur=64s | #3 3m dur=146s
+L163 [AREX_RUNTIME_STOP] avail=1 raw#1 depth=9.00m rem=111s total=111s reason=3 active=1
+L162 [AREX_UI_PLAN] #1 raw#1 9.00m 110s/2min | #2 raw#2 6.00m 64s/2min | #3 raw#3 3.00m 146s/3min
+
+L166 [AREX_PLAN] ceiling=4.76m tts=588s stops=4 | #1 12m dur=2s | #2 9m dur=40s | #3 6m dur=96s | #4 3m dur=183s
+L167 [AREX_RUNTIME_STOP] avail=1 raw#2 depth=9.00m rem=40s total=40s reason=3 active=1
+L168 [AREX_UI_PLAN] #1 raw#2 9.00m 40s/1min | #2 raw#3 6.00m 96s/2min | #3 raw#4 3.00m 183s/4min
+
+L170 [AREX_PLAN] ceiling=4.95m tts=599s stops=5 | #1 15m dur=1s | #2 12m dur=1s | #3 9m dur=8s | #4 6m dur=113s | #5 3m dur=209s
+L171 [AREX_RUNTIME_STOP] avail=1 raw#2 depth=9.00m rem=22s total=40s reason=3 active=1
+
+L179 [AREX_PLAN] ceiling=5.17m tts=628s stops=5 | #1 15m dur=1s | #2 12m dur=1s | #3 9m dur=24s | #4 6m dur=113s | #5 3m dur=222s
+L180 [AREX_RUNTIME_STOP] avail=1 raw#2 depth=9.00m rem=0s total=40s reason=3 active=1
+
+L184 [AREX_PLAN] ceiling=5.36m tts=654s stops=5 | #1 15m dur=1s | #2 12m dur=1s | #3 9m dur=38s | #4 6m dur=113s | #5 3m dur=234s
+L185 [AREX_RUNTIME_STOP] avail=1 raw#3 depth=9.00m rem=38s total=38s reason=3 active=1
+```
+
+对应含义：
+
+| 日志 | 含义 |
+|---|---|
+| `L161-L163` | selector 当前站为 `9m`，主屏显示约 `2min`。 |
+| `L166-L168` | raw schedule 拓扑加入 `12m` 后，9m raw dur 变为 `40s`，selector 也变成 `40s`，主屏会从 `2min` 掉到 `1min`。 |
+| `L170-L180` | raw schedule 又加入 `15m/12m` waypoint，selector 仍显示 9m 但 held 到 `0s`，此时 raw 9m 已经从 `8s` 增到 `24s`。 |
+| `L184-L185` | selector 重新绑定到 raw#3 9m，`rem/total` 变为 `38s`，随后继续增加。 |
+
+### 12m 片段：最接近用户肉眼看到的 3min -> 2min -> 1min -> 2min
+
+```text
+L238 [AREX_PLAN] ceiling=6.75m tts=1032s stops=4 | #1 12m dur=125s | #2 9m dur=82s | #3 6m dur=195s | #4 3m dur=363s
+L239 [AREX_RUNTIME_STOP] avail=1 raw#1 depth=12.00m rem=125s total=125s reason=3 active=1
+
+L243 [AREX_PLAN] ceiling=6.87m tts=1084s stops=4 | #1 12m dur=136s | #2 9m dur=82s | #3 6m dur=205s | #4 3m dur=394s
+L244 [AREX_RUNTIME_STOP] avail=1 raw#1 depth=12.00m rem=136s total=136s reason=3 active=1
+
+L248 [AREX_PLAN] ceiling=6.99m tts=1051s stops=6 | #1 18m dur=1s | #2 15m dur=1s | #3 12m dur=20s | #4 9m dur=110s | #5 6m dur=217s | #6 3m dur=435s
+L249 [AREX_RUNTIME_STOP] avail=1 raw#1 depth=12.00m rem=119s total=137s reason=3 active=1
+
+L256 [AREX_PLAN] ceiling=7.10m tts=1104s stops=6 | #1 18m dur=1s | #2 15m dur=1s | #3 12m dur=30s | #4 9m dur=110s | #5 6m dur=227s | #6 3m dur=468s
+L258 [AREX_RUNTIME_STOP] avail=1 raw#3 depth=12.00m rem=30s total=30s reason=3 active=1
+
+L282 [AREX_RUNTIME_STOP] avail=1 raw#3 depth=12.00m rem=61s total=61s reason=3 active=1
+L287 [AREX_RUNTIME_STOP] avail=1 raw#3 depth=12.00m rem=69s total=69s reason=3 active=1
+```
+
+对应含义：
+
+| 日志 | 含义 |
+|---|---|
+| `L238-L244` | 当前站 `12m` 从 `125s` 增到 `136s`，主屏显示约 `3min`。 |
+| `L248-L249` | raw schedule 拓扑变为 `18m/1s, 15m/1s, 12m/20s...`，selector 仍显示 12m，但 `rem` 开始从 `137s` held 递减到 `119s`，主屏变为 `2min`。 |
+| `L256-L258` | selector 重新绑定到 raw#3 12m，`total` 变成 `30s`，主屏变为 `1min`。 |
+| `L282-L287` | 同一个 12m 当前站又增长到 `61s/69s`，主屏回到 `2min`。 |
 
 ## 需要算法侧确认的问题
 
