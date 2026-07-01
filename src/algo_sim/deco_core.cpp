@@ -326,15 +326,19 @@ static void debug_print_plan_call(const char *tag, int step_status, int plan_sta
 static uint32_t stop_runtime_seconds(const ArexDecoStop *stop);
 static bool stop_display_suppressed(const ArexDecoStop *stop);
 static bool stop_is_plan_display_stop(const ArexDecoStop *stop);
+static uint8_t plan_display_first_index(const ArexDecoSchedule *schedule, const ArexDecoRuntimeStop *runtime_stop);
 
-static void debug_print_ui_schedule(const ArexDecoSchedule *schedule)
+static void debug_print_ui_schedule(const ArexDecoSchedule *schedule, const ArexDecoRuntimeStop *runtime_stop)
 {
     uint8_t display_count = 0U;
+    uint8_t hidden_before_current = 0U;
     uint8_t hidden_suppressed = 0U;
     uint8_t hidden_kind = 0U;
     uint8_t hidden_zero = 0U;
+    uint8_t first_display_index;
 
     if (schedule == NULL) return;
+    first_display_index = plan_display_first_index(schedule, runtime_stop);
 
     rt_kprintf("[AREX_UI_PLAN] tts_raw=%lus raw_stops=%u",
                (unsigned long)schedule->tts_seconds,
@@ -344,6 +348,11 @@ static void debug_print_ui_schedule(const ArexDecoSchedule *schedule)
     {
         const ArexDecoStop *stop = &schedule->stops[i];
         uint32_t runtime_s = stop_runtime_seconds(stop);
+        if (i < first_display_index)
+        {
+            hidden_before_current++;
+            continue;
+        }
         if (stop_display_suppressed(stop))
         {
             hidden_suppressed++;
@@ -374,25 +383,26 @@ static void debug_print_ui_schedule(const ArexDecoSchedule *schedule)
         display_count++;
     }
 
-    rt_kprintf(" | display=%u hidden_suppressed=%u hidden_kind=%u hidden_zero=%u\n",
+    rt_kprintf(" | display=%u hidden_before_current=%u hidden_suppressed=%u hidden_kind=%u hidden_zero=%u\n",
                (unsigned)display_count,
+               (unsigned)hidden_before_current,
                (unsigned)hidden_suppressed,
                (unsigned)hidden_kind,
                (unsigned)hidden_zero);
 }
 
-static void debug_print_schedule(const ArexDecoSchedule *schedule)
+static bool debug_print_schedule(const ArexDecoSchedule *schedule)
 {
     uint32_t now_ms = rt_tick_get();
     uint8_t print_count;
 
     if (schedule == NULL)
     {
-        return;
+        return false;
     }
     if ((uint32_t)(now_ms - s_schedule_debug_last_print_ms) < DECO_SCHEDULE_DEBUG_PRINT_MS)
     {
-        return;
+        return false;
     }
 
     s_schedule_debug_last_print_ms = now_ms;
@@ -428,7 +438,7 @@ static void debug_print_schedule(const ArexDecoSchedule *schedule)
     }
     if (schedule->stop_count > print_count) rt_kprintf(" | ...");
     rt_kprintf("\n");
-    debug_print_ui_schedule(schedule);
+    return true;
 }
 
 static float pressure_bar_at_depth(const ArexDecoConfig *config, float depth_m)
@@ -514,6 +524,15 @@ static bool select_runtime_stop(const ArexDecoSchedule *schedule, ArexDecoRuntim
                    (unsigned long)s_runtime_stop_selector_state.candidate_seen_seconds);
     }
     return runtime_stop->available != 0U;
+}
+
+static uint8_t plan_display_first_index(const ArexDecoSchedule *schedule, const ArexDecoRuntimeStop *runtime_stop)
+{
+    if (schedule == NULL || runtime_stop == NULL) return 0U;
+    if (runtime_stop->available == 0U) return 0U;
+    if (runtime_stop->source_raw_index == AREX_DECO_INVALID_STOP_INDEX) return 0U;
+    if (runtime_stop->source_raw_index >= schedule->stop_count) return 0U;
+    return runtime_stop->source_raw_index;
 }
 
 static void format_gas_name(const ArexDecoGas *gas, char *name_buf, size_t name_buf_size)
@@ -897,13 +916,7 @@ static void sync_deco_plan_data(const ArexDecoSchedule *schedule, const ArexDeco
         return;
     }
 
-    if (runtime_stop != NULL &&
-        runtime_stop->available != 0U &&
-        runtime_stop->source_raw_index != AREX_DECO_INVALID_STOP_INDEX &&
-        runtime_stop->source_raw_index < schedule->stop_count)
-    {
-        first_display_index = runtime_stop->source_raw_index;
-    }
+    first_display_index = plan_display_first_index(schedule, runtime_stop);
 
     for (uint8_t i = 0U; i < schedule->stop_count && count < MAX_DECO_STOPS; i++)
     {
@@ -1084,6 +1097,7 @@ static void refresh_current_outputs(void)
     ArexDecoDiveState planner_state;
     ArexDecoDiveState gas_rec_state;
     const ArexDecoDiveState *plan_state = &s_state;
+    bool raw_plan_printed = false;
 
     (void)memset(&schedule, 0, sizeof(schedule));
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
@@ -1096,8 +1110,9 @@ static void refresh_current_outputs(void)
     ArexDecoStatus plan_status = arex_deco_plan(&planner_state, &schedule, NULL);
     ArexDecoStatus gas_status = s_surface_confirmed ? AREX_DECO_STATUS_INVALID_STATE : arex_deco_recommend_gas(&gas_rec_state, &gas_rec);
     debug_print_plan_call("refresh", -1, plan_status, &schedule, -1, planner_state.gas_plan.active_gas_index);
-    if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
+    if (plan_status == AREX_DECO_STATUS_OK) raw_plan_printed = debug_print_schedule(&schedule);
     if (plan_status == AREX_DECO_STATUS_OK) (void)select_runtime_stop(&schedule, &runtime_stop);
+    if (raw_plan_printed) debug_print_ui_schedule(&schedule, &runtime_stop);
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &runtime_stop);
     if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, &runtime_stop, plan_state);
     else sync_core_data_without_plan(plan_state);
@@ -1291,9 +1306,11 @@ bool deco_core_rtc_offline(uint32_t seconds)
     (void)memset(&schedule, 0, sizeof(schedule));
     (void)memset(&runtime_stop, 0, sizeof(runtime_stop));
     ArexDecoStatus plan_status = arex_deco_plan(&plan_state, &schedule, NULL);
+    bool raw_plan_printed = false;
     debug_print_plan_call("rtc_offline", AREX_DECO_STATUS_OK, plan_status, &schedule, input.gas_index, plan_state.gas_plan.active_gas_index);
-    if (plan_status == AREX_DECO_STATUS_OK) debug_print_schedule(&schedule);
+    if (plan_status == AREX_DECO_STATUS_OK) raw_plan_printed = debug_print_schedule(&schedule);
     if (plan_status == AREX_DECO_STATUS_OK) (void)select_runtime_stop(&schedule, &runtime_stop);
+    if (raw_plan_printed) debug_print_ui_schedule(&schedule, &runtime_stop);
     sync_gas_recommendation(NULL, &runtime_stop);
     if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, &runtime_stop, &plan_state);
     else sync_core_data_without_plan(&plan_state);
@@ -1361,6 +1378,7 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     ArexDecoDiveState planner_state;
     ArexDecoDiveState gas_rec_state;
     const ArexDecoDiveState *plan_source = &s_state;
+    bool raw_plan_printed = false;
     (void)memset(&schedule, 0, sizeof(schedule));
     (void)memset(&gas_rec, 0, sizeof(gas_rec));
     (void)memset(&runtime_stop, 0, sizeof(runtime_stop));
@@ -1374,9 +1392,10 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     debug_print_plan_call("tick", (int)step_status, plan_status, &schedule, input.gas_index, planner_state.gas_plan.active_gas_index);
     if (plan_status == AREX_DECO_STATUS_OK)
     {
-        debug_print_schedule(&schedule);
+        raw_plan_printed = debug_print_schedule(&schedule);
         (void)select_runtime_stop(&schedule, &runtime_stop);
     }
+    if (raw_plan_printed) debug_print_ui_schedule(&schedule, &runtime_stop);
     sync_gas_recommendation((gas_status == AREX_DECO_STATUS_OK) ? &gas_rec : NULL, &runtime_stop);
     if (plan_status == AREX_DECO_STATUS_OK) sync_core_data(&schedule, &runtime_stop, plan_source);
     else sync_core_data_without_plan(plan_source);
