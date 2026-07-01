@@ -289,7 +289,7 @@ static void debug_print_plan_call(const char *tag, int step_status, int plan_sta
     format_algo_gas_ref(step_gas_idx, step_gas_text, sizeof(step_gas_text));
     format_algo_gas_ref(plan_active_idx, plan_active_text, sizeof(plan_active_text));
 
-    rt_kprintf("[AREX_CALL] %s depth=%.1fm step=%s(%d) step_gas=%s plan=%s(%d) plan_active=%s ndl=%lus/%umin ceiling=%.2fm stops=%u tts=%lus cv=%u\n",
+    rt_kprintf("[AREX_CALL] %s depth=%.1fm step=%s(%d) step_gas=%s plan=%s(%d) plan_active=%s ndl=%lus/%umin ceiling=%.2fm gf99=%.1f%% surfgf=%.1f%% stops=%u tts=%lus cv=%u\n",
                tag ? tag : "plan",
                s_state.current_depth_m,
                deco_status_name(step_status),
@@ -301,6 +301,8 @@ static void debug_print_plan_call(const char *tag, int step_status, int plan_sta
                (unsigned long)ndl_s,
                (unsigned)ndl_min,
                s_metrics.ceiling_depth_m,
+               s_metrics.gf99_percent,
+               s_metrics.surface_gf_percent,
                (unsigned)stop_count,
                (unsigned long)tts_s,
                (unsigned)cv);
@@ -382,9 +384,11 @@ static void debug_print_schedule(const ArexDecoSchedule *schedule)
     print_count = schedule->stop_count;
     if (print_count > DECO_SCHEDULE_DEBUG_MAX_STOPS) print_count = DECO_SCHEDULE_DEBUG_MAX_STOPS;
 
-    rt_kprintf("[AREX_PLAN] depth=%.1fm ceiling=%.2fm cv=%u tts=%lus stops=%u",
+    rt_kprintf("[AREX_PLAN] depth=%.1fm ceiling=%.2fm gf99=%.1f%% surfgf=%.1f%% cv=%u tts=%lus stops=%u",
                (double)s_state.current_depth_m,
                (double)s_metrics.ceiling_depth_m,
+               (double)s_metrics.gf99_percent,
+               (double)s_metrics.surface_gf_percent,
                (unsigned)schedule->ceiling_violated,
                (unsigned long)schedule->tts_seconds,
                (unsigned)schedule->stop_count);
