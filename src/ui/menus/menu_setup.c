@@ -64,7 +64,7 @@ static const char *const s_menu_entry_previews[] =
 {
     "LAST DIVE / PLAN / TISSUE / LOG",
     "GAS / GF / SYSTEM SETUP",
-    "BRIGHTNESS / COMPASS / LIGHT",
+    "BRIGHTNESS / COMPASS / LIGHT / TURN OFF",
     "CONFIRM SURFACE",
 };
 
