@@ -1205,6 +1205,29 @@ void deco_core_reset(void)
     (void)ensure_initialized();
 }
 
+void deco_core_begin_dive(float depth_m)
+{
+    if (!ensure_initialized()) return;
+    if (depth_m < 0.0f) depth_m = 0.0f;
+
+    /* 新一潜只清本次潜水 latch；组织舱/氧暴露保留，用于重复潜水残余。 */
+    apply_current_ui_config();
+    s_state.current_depth_m = 0.0f;
+    s_state.max_depth_m = 0.0f;
+    s_state.depth_time_m_seconds = 0.0f;
+    s_state.elapsed_seconds = 0U;
+    s_state.was_deco_dive = 0U;
+    s_state.safety_stop_required = 0U;
+    s_state.safety_stop_completed = 0U;
+    s_state.safety_stop_missed = 0U;
+    s_state.safety_stop_elapsed_seconds = 0U;
+    s_state.gf_anchor_depth_m = 0.0f;
+    s_state.gf_anchor_valid = 0U;
+    reset_runtime_stop_selector();
+    reset_stop_progress();
+    rt_kprintf("[DECO] begin dive depth=%.1fm, preserved tissue state\n", (double)depth_m);
+}
+
 void deco_core_set_surface_confirmed(bool confirmed)
 {
     s_surface_confirmed = confirmed;

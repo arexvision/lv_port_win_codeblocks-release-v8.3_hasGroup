@@ -637,6 +637,7 @@ static void sim_start_dive(float depth_m)
     uint16_t m = bus_get_sys_time_m();
 
     sim_lifecycle_set_state(SIM_LIFE_DIVING);
+    deco_core_begin_dive(depth_m);
     s_sim.entry_pending_s = 0U;
     s_sim.surface_pending_s = 0U;
     s_sim.last_surface_interval_s = s_sim.surface_time_s;
