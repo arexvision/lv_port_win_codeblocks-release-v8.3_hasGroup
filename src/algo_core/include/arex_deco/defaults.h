@@ -29,11 +29,13 @@ extern "C" {
 #define AREX_DECO_DEFAULT_BOTTOM_PPO2_BAR 1.4f
 #define AREX_DECO_DEFAULT_DECO_PPO2_BAR 1.6f
 
-// Default runtime current-stop selector policy. These values are used when
-// ArexDecoRuntimeStopSelectorInput passes 0 for the corresponding override.
+// Default runtime current-stop selector policy. stop_zone_half_width_m and
+// promote_min_seconds use these defaults when the input passes 0. stable_seconds
+// is a hysteresis override: pass 0 to disable it, or pass this default for the
+// public default.
 #define AREX_DECO_DEFAULT_RUNTIME_STOP_ZONE_HALF_WIDTH_M 1.5f
 #define AREX_DECO_DEFAULT_RUNTIME_STOP_PROMOTE_MIN_SECONDS 30u
-#define AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS 10u
+#define AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS 2u
 
 #ifdef __cplusplus
 }

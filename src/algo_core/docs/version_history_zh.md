@@ -26,52 +26,92 @@
 - smoke test
 - 文档
 
-## 0.0.27
+## 0.0.29
 
 ### 摘要
 
-本次版本新增 runtime current-stop selector，用于解决连续 replay / 每秒重新 plan 时，
-用户可见减压站随 raw schedule 拓扑瞬态变化而跳变的问题。Planner 数学、GF anchor、
+本次版本封板 `2026-07-02` 下水测试算法：保持 `0.0.28` 的 runtime mandatory projection
+方向不变，修复 planner 中 GF anchor update 与主 planner 路径语义不一致的问题。
+
+本次不修改 tissue 方程、ZHL-16C 系数、GF 数学、hard ceiling、安全边界、public API
+字段或 ABI 布局。API patch 版本升至 `0.0.29`，用于固件与日志明确识别本次算法修复版。
+
+### 行为变更
+
+- `deco_calculate_gf_anchor_update()` 改为使用与 `deco_plan()` 同构的路径：
+  先模拟从当前深度上升到 first stop，再逐站 solve hold，再逐站模拟上升。
+- 修复前，anchor-update 会用当前 tissue 静态扫描各 grid stop 的 positive hold；
+  该口径可能与主 planner 实际路径上的 first mandatory stop 不一致，从而影响
+  `gf_anchor_depth_m` 何时加深、route waypoint 何时出现，以及 runtime current stop
+  边界跳变时刻。
+- 修复后，anchor-update 的 `first_real_stop_m` 与同一 anchor 输入下主 planner 的
+  first mandatory stop 对齐。
+- Garmin 40.8m 台架观察中的 `3m` 增长到 `48s` 后切 `6m`，当前 AREX GF 40/85
+  replay 已复现；该现象不再作为 planner bug 处理。
+
+### 嵌入式交付说明
+
+- 根目录新增 `ALGORITHM_HANDOFF_20260702.md`，记录本版算法行为、Shearwater/Garmin
+  对齐状态、嵌入式接入顺序和下水测试必记字段。
+- 旧 tag `v0.0.28` 不移动；本次版本应在提交后使用新 tag `v0.0.29`。
+
+### 验证
+
+- 新增 `DecoPlannerTest.GfAnchorUpdateUsesPlannerPathForFirstRealStop`，覆盖 40.8m、
+  GF 40/85、逐秒加压/hold 场景下 anchor-update 与主 planner first mandatory 的一致性。
+- `arex_deco_core_tests`: `184/184 passed`。
+- `case_001_air_45m_single_gas`: `assertions=20 failed=0 raw_failed=0 display_failed=0`。
+
+## 0.0.28
+
+### 摘要
+
+本次版本把 runtime current-stop selector 从 experimental 强 debounce 状态机收敛为
+stateless mandatory projection + 可选 1-2 s 极薄 hysteresis。Planner 数学、GF anchor、
 CNS/OTU、raw `ArexDecoSchedule.stops[]` 和 `schedule.tts_seconds` 均不改变。
 
 ### 行为与 ABI 变更
 
-- 新增 public C API：
+- 保留 public C API：
   `arex_deco_select_runtime_stop(schedule, previous_state, input, next_state, output)`。
   该接口是显式 state-in/state-out 纯函数；core 不在 `arex_deco_plan()` 内保存隐藏显示状态。
-- 新增 public POD：
+- 保留 public POD：
   `ArexDecoRuntimeStopSelectorState`（64 字节）、
   `ArexDecoRuntimeStopSelectorInput`（52 字节）和
   `ArexDecoRuntimeStop`（52 字节）。
 - selector 使用 raw `stop.kind/flags` 做静态候选过滤：
   `DISPLAY_SUPPRESSED`、`ROUTE_WAYPOINT`、`GAS_SWITCH`、`SAFETY` 不进入强制减压
   current-stop 候选；安全停留继续由 `arex_deco_safety_stop()` 管理。
-- selector 在跨帧状态中维护 displayed stop 和 candidate debounce：
+- selector 使用 stateless mandatory projection，并只保留可选 1-2 s 极薄 hysteresis：
   默认值由 `defaults.h` 中的
   `AREX_DECO_DEFAULT_RUNTIME_STOP_PROMOTE_MIN_SECONDS`、
   `AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS` 和
   `AREX_DECO_DEFAULT_RUNTIME_STOP_ZONE_HALF_WIDTH_M` 定义，调用方可通过 input 显式覆盖。
+  `stable_seconds = 0` 表示关闭 hysteresis；非 0 时上限夹到 2 s，不存在 10 s
+  candidate debounce / stable promotion。
 - raw stop index 的无效哨兵统一使用 `AREX_DECO_INVALID_STOP_INDEX`，属于
   `uint8_t` index ABI 语义，不是 selector 策略参数。
 - short mandatory stop 仍可保留在 raw schedule 中，但不会在远深处瞬时抢占主屏；
-  已有实质 displayed stop 时，同深度 short 瞬态也不会把主屏剩余时间刷新成 1 s。
+  只有唯一 mandatory、已在 stop zone、或没有实质 mandatory 替代时才显示。
+- Shearwater 也会发生 current stop jump，所以 display stop depth change 本身不是失败；
+  失败标准是 pathological oscillation 和不可解释的 short stop 抢占。
 - `schedule.tts_seconds` 仍是唯一 TTS 来源。selector 输出只定义主屏 current stop /
   bridge current stop / DLF `next_stop` 语义，不重算 TTS，不修改 raw schedule。
-- WASM 导出新增 selector 相关 sizeof helper，并导出 `_arex_deco_select_runtime_stop()`。
-- API patch 版本升至 `0.0.27`；WASM adapter 版本和 selector offset 同步更新。
+- ABI 字节布局无变化；API patch 版本升至 `0.0.28`。WASM adapter / smoke test
+  期望版本同步更新。
 
 ### 验证
 
 - 新增 `RuntimeStopSelectorTest` 覆盖：
-  candidate 稳定激活、`DISPLAY_SUPPRESSED` 过滤、route waypoint / pure gas switch
-  不进 current stop、short 1 s 不抢占已有实质站、更深实质站稳定后抢占、远深处浅站不抢占、
-  stop zone 保持、唯一 short stop 到站可显示，以及 40 m hold replay 稳定性。
+  stateless mandatory projection、`DISPLAY_SUPPRESSED` 过滤、route waypoint / pure gas switch
+  不进 current stop、short mandatory 规则、hysteresis 只 hold 当前 schedule 中仍有效的
+  非 short mandatory、更深实质 mandatory 立即投影，以及 40 m hold replay attribution。
 - 40 m hold replay（0 m -> 40 m，18 m/min，40 m hold 35 min，Air，GF 30/70，
   safety stop off）结果：
-  raw 1 s stops = 2068，raw route waypoints = 2043，raw mandatory 1 s = 25；
-  legacy effective display 1 s = 746，selector display 1 s = 0；
-  legacy display depth changes = 16，selector display depth changes = 8；
-  selector display whiplash = 0。
+  waypoint display count = 0，suppressed display count = 0，1 s route display count = 0；
+  short display count = 0，time differing from stateless projection = 0；
+  selector display depth changes = 20，immediate-sample whiplash = 0；
+  max hold previous duration = 0 s，max duration hiding deeper substantive mandatory = 0 s。
 - `case_001` regression 仍通过：`assertions=20 failed=0 raw_failed=0 display_failed=0`。
 
 ### 固件迁移建议
@@ -81,6 +121,25 @@ CNS/OTU、raw `ArexDecoSchedule.stops[]` 和 `schedule.tts_seconds` 均不改变
   DLF/APP `next_stop`。
 - 日志、调试、TTS、气量估算继续使用 raw `schedule.stops[]` 和 `schedule.tts_seconds`。
 - 不要直接用 raw `stops[0]`，也不要只取第一个未 `DISPLAY_SUPPRESSED` stop 作为用户当前站。
+
+## 0.0.27
+
+### 摘要
+
+本次版本新增 runtime current-stop selector public API 和 WASM exports，作为 raw
+`schedule.stops[]` 与主屏 current stop 之间的显式投影层。后续 `0.0.28` 对 selector
+行为做了收敛，废弃 experimental 强 debounce 语义。
+
+### 行为与 ABI 变更
+
+- 新增 public C API：
+  `arex_deco_select_runtime_stop(schedule, previous_state, input, next_state, output)`。
+- 新增 public POD：
+  `ArexDecoRuntimeStopSelectorState`（64 字节）、
+  `ArexDecoRuntimeStopSelectorInput`（52 字节）和
+  `ArexDecoRuntimeStop`（52 字节）。
+- WASM 导出新增 selector 相关 sizeof helper，并导出 `_arex_deco_select_runtime_stop()`。
+- API patch 版本升至 `0.0.27`；WASM adapter 版本和 selector offset 同步更新。
 
 ## 0.0.26
 

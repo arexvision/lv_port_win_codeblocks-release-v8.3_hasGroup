@@ -1,6 +1,6 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.27`。
+本文档描述当前 core API。当前 API 版本为 `0.0.29`。
 
 ## 适用场景
 
@@ -15,7 +15,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 27`
+- `AREX_DECO_API_VERSION_PATCH = 29`
 
 固定容量：
 
@@ -69,11 +69,11 @@ CNS 衰减（0.0.3 起）：
 - `AREX_DECO_DEFAULT_DECO_PPO2_BAR = 1.6`（减压气工作 ppO2 默认）
 - `AREX_DECO_MAX_ALLOWABLE_PPO2_BAR = 2.0`（绝对生理硬顶——`validate_gas` 会拒绝高于此值的配置；行业策略限值 1.4 / 1.6 应在 UI 层提示）
 
-runtime current-stop selector 默认策略（0.0.27 起）：
+runtime current-stop selector 默认策略（0.0.28 起）：
 
 - `AREX_DECO_DEFAULT_RUNTIME_STOP_ZONE_HALF_WIDTH_M = 1.5`
 - `AREX_DECO_DEFAULT_RUNTIME_STOP_PROMOTE_MIN_SECONDS = 30`
-- `AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS = 10`
+- `AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS = 2`
 
 ## 状态码
 
@@ -310,16 +310,18 @@ ABI 布局保存和还原它们；内部验证用的 `GfAnchorUpdateInfo` 不属
 `arex_deco_select_runtime_stop()` 获取稳定 runtime current-stop 语义。
 
 `kind` 是算法事实：它说明该 raw stop 是强制减压停站、GF anchor 下的网格路径
-waypoint、纯切气预测站，还是安全停留。`kind` 不要求 UI 一定显示或隐藏某站。
+waypoint、纯切气预测站，还是安全停留。runtime current stop projection 只从
+`MANDATORY` 中选择；`ROUTE_WAYPOINT` 是 planner route representation，不是 user stop
+obligation。
 
 `flags` 是 runtime display hint：它不改变 raw schedule、`tts_seconds`、组织舱推进、
 ceiling、GF99 或安全判定。`AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 只告诉固件 / App：
 该 raw stop 不应作为主屏当前实质停站、PLAN 图首站或 DLF/APP `next_stop` 展示。
 
-`ROUTE_WAYPOINT` 不必然隐藏：若它贴近当前 GF target ceiling，可作为成熟产品风格的
-短首停显示；若它明显深于当前 ceiling，只作为路径连续性点，并设置
-`DISPLAY_SUPPRESSED`。这里的“贴近”按当前 `deco_step_m` 的半个网格判断，是 display
-classification 语义，不是 Bühlmann / GF 安全裕量。
+`ROUTE_WAYPOINT` 即使未设置 `DISPLAY_SUPPRESSED`，也不进入 runtime current stop。
+它可以保留在 raw schedule、PLAN 图调试和 TTS 路径中，但主屏当前停站应使用
+`arex_deco_select_runtime_stop()` 从 first meaningful mandatory obligation 派生。
+`DISPLAY_SUPPRESSED` 是 display hint，不是 Bühlmann / GF 安全裕量。
 
 ### `ArexDecoSchedule`
 
@@ -355,17 +357,17 @@ runtime current-stop selector 的调用方持有状态。core 不在 `arex_deco_
 |---|---|---:|---|
 | `api_version` | `ArexDecoVersion` | - | API 版本 |
 | `active` | `uint8_t` | - | 1 表示当前有已激活的 runtime current stop |
-| `candidate_active` | `uint8_t` | - | 1 表示正在 debounce 某个候选停站 |
+| `candidate_active` | `uint8_t` | - | 保留 ABI 字段；当前 selector 不再使用 candidate promotion，输出中保持 0 |
 | `displayed_source_raw_index` | `uint8_t` | - | 当前显示停站来源 raw stop index；无效时为 `AREX_DECO_INVALID_STOP_INDEX` |
-| `candidate_source_raw_index` | `uint8_t` | - | 当前 debounce 候选 raw stop index；无效时为 `AREX_DECO_INVALID_STOP_INDEX` |
+| `candidate_source_raw_index` | `uint8_t` | - | 保留 ABI 字段；当前 selector 不再使用，输出中为 `AREX_DECO_INVALID_STOP_INDEX` |
 | `displayed_depth_m` | `float` | m | 当前 runtime 停站深度 |
 | `displayed_remaining_seconds` | `uint32_t` | s | 当前 runtime 停站剩余/预测停留秒数 |
 | `displayed_total_seconds` | `uint32_t` | s | 当前 runtime 停站总预测秒数 |
 | `displayed_gas_index` | `int8_t` | - | 当前 runtime 停站气体 |
 | `displayed_is_short` | `uint8_t` | - | 1 表示当前显示停站低于 promote 门槛 |
-| `candidate_gas_index` | `int8_t` | - | debounce 候选气体；候选 identity 使用 `candidate_depth_m + candidate_gas_index`，不绑定 raw index |
-| `candidate_depth_m` | `float` | m | debounce 候选深度 |
-| `candidate_seen_seconds` | `uint32_t` | s | 候选已连续稳定出现的秒数 |
+| `candidate_gas_index` | `int8_t` | - | 保留 ABI 字段；当前 selector 不再使用，输出中为 -1 |
+| `candidate_depth_m` | `float` | m | 保留 ABI 字段；当前 selector 不再使用，输出中为 0 |
+| `candidate_seen_seconds` | `uint32_t` | s | 当前仅记录 `HELD_PREVIOUS` 的连续 hold 秒数；没有 hold 时为 0 |
 | `last_elapsed_seconds` | `uint32_t` | s | 上一次 selector 调用对应的潜水 elapsed time |
 
 ### `ArexDecoRuntimeStopSelectorInput`
@@ -377,14 +379,14 @@ runtime current-stop selector 的调用方持有状态。core 不在 `arex_deco_
 | `elapsed_seconds` | `uint32_t` | s | 当前潜水 elapsed time |
 | `stop_zone_half_width_m` | `float` | m | 当前停站 zone 半宽；传 0 使用 `AREX_DECO_DEFAULT_RUNTIME_STOP_ZONE_HALF_WIDTH_M` |
 | `promote_min_seconds` | `uint32_t` | s | 实质停站门槛；传 0 使用 `AREX_DECO_DEFAULT_RUNTIME_STOP_PROMOTE_MIN_SECONDS` |
-| `stable_seconds` | `uint32_t` | s | 候选稳定激活门槛；传 0 使用 `AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS` |
+| `stable_seconds` | `uint32_t` | s | 极薄 hysteresis 秒数；0 表示关闭。非 0 会夹到 1-2 s，上限为 2 s；默认宏为 2 |
 
 ### `ArexDecoRuntimeStop`
 
 | 字段 | 类型 | 单位 | 说明 |
 |---|---|---:|---|
 | `api_version` | `ArexDecoVersion` | - | API 版本 |
-| `available` | `uint8_t` | - | 1 表示本帧有稳定 runtime current stop |
+| `available` | `uint8_t` | - | 1 表示本帧有 runtime current stop |
 | `source_raw_index` | `uint8_t` | - | 来源 raw stop index；无效时为 `AREX_DECO_INVALID_STOP_INDEX` |
 | `reason` | `uint8_t` | - | `AREX_DECO_RUNTIME_STOP_REASON_*` |
 | `is_short` | `uint8_t` | - | 1 表示输出停站低于 promote 门槛 |
@@ -398,10 +400,10 @@ runtime current-stop selector 的调用方持有状态。core 不在 `arex_deco_
 | 值 | 名称 | 说明 |
 |---:|---|---|
 | 0 | `NONE` | 无特殊原因 |
-| 1 | `STABLE_CANDIDATE` | 候选经过 `stable_seconds` 后激活 |
-| 2 | `UNIQUE_SHORT` | 唯一短候选且潜水员已接近 stop zone |
-| 3 | `HELD_PREVIOUS` | 为避免瞬态跳变，保持上一帧 runtime stop |
-| 4 | `DEBOUNCING` | 正在等待候选稳定，本帧不输出新 current stop |
+| 1 | `STABLE_CANDIDATE` | 本帧 projection 输出了非 short mandatory stop |
+| 2 | `UNIQUE_SHORT` | 本帧 projection 输出了允许显示的 short mandatory stop |
+| 3 | `HELD_PREVIOUS` | 极薄 hysteresis 暂时保持上一帧 runtime stop，且来源已在当前 schedule 中重新匹配到有效 mandatory |
+| 4 | `DEBOUNCING` | 旧语义保留值；当前 selector 不再使用 10 s debounce，也不会因等待候选稳定而清空输出 |
 | 5 | `CLEARED` | 当前无 runtime selector 候选 |
 
 ### `ArexDecoTtsForecast`
@@ -687,7 +689,7 @@ ArexDecoStatus arex_deco_select_runtime_stop(
     ArexDecoRuntimeStop* output);
 ```
 
-从 raw `schedule` 中选择本帧用户应该看到的稳定 runtime current stop。
+从 raw `schedule` 中选择本帧用户应该看到的 runtime current stop。
 
 该接口不修改 `schedule`，不重算 TTS，不推进组织舱，也不改变
 `ArexDecoDiveState`。它是显式 state-in/state-out 纯函数：调用方保存
@@ -698,38 +700,38 @@ selector 初始化。
 
 - `input->api_version` 必须等于当前 `arex_deco_get_api_version()`，否则返回
   `AREX_DECO_STATUS_UNSUPPORTED_VERSION`。
-- `previous_state->api_version` 不匹配当前版本时，selector 将其视为无上一帧状态并重新
-  debounce，不返回错误。
-- `elapsed_seconds` 与上一帧相同表示同一潜水秒内重复调用，不会增加
-  `candidate_seen_seconds`，也不会递减 held stop remaining。
-- `elapsed_seconds` 小于上一帧表示 replay/潜水时间回退，selector 将上一帧状态视为无效并重新
-  debounce。
+- `previous_state->api_version` 不匹配当前版本时，selector 将其视为无上一帧状态，不返回错误。
+- `elapsed_seconds` 与上一帧相同表示同一潜水秒内重复调用；如发生极薄 hysteresis hold，
+  hold age 不会增加。
+- `elapsed_seconds` 小于上一帧表示 replay/潜水时间回退，selector 将上一帧状态视为无效。
 
 候选规则：
 
-- 只考虑 `depth_m > 0` 且 `hold_seconds > 0` 的停站。
-- 带 `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 的 raw stop 不进入候选。
+- 每帧先从当前 raw schedule 重新计算 projected stop。
+- 只考虑 `kind == MANDATORY`、`depth_m > 0`、`hold_seconds > 0` 且
+  `runtime_seconds_for_stop > 0` 的停站。
+- 带 `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 的 raw stop 不进入 projection。
 - `ROUTE_WAYPOINT`、`GAS_SWITCH` 和 `SAFETY` 不进入强制减压 current-stop selector。
   安全停留继续使用 `arex_deco_safety_stop()`。
 - `hold_seconds >= promote_min_seconds` 的候选为实质候选；更短的 mandatory stop
   是 short candidate。
-- debounce 候选 identity 使用 `depth_m + gas_index`。raw stop index 只记录来源位置，
-  不参与候选连续性判断，因此 raw schedule 拓扑变化不会重置同一实质停站的 debounce。
+- first mandatory 若为 short：唯一 mandatory 时可显示；潜水员已在该 stop zone 内时可显示；
+  没有实质 mandatory 替代时可显示；否则显示第一个实质 mandatory。
 
-状态机语义：
+projection / hysteresis 语义：
 
-- 当前无 active stop 时，优先选择第一个实质候选；若没有实质候选，才选择第一个
-  visible short 候选。候选需连续稳定 `stable_seconds` 才激活。
-- 已有 active stop 且潜水员仍远深于该停站时，更深实质候选可在稳定后抢占；更浅候选不立即抢占。
-- 已接近或进入当前 stop zone 时，保持当前停站，不因 raw plan 瞬时出现更深短站而跳回深处。
-- 已有实质 displayed stop 时，同深度 raw 候选若瞬时降为 short，selector 保持上一帧
-  displayed stop，避免 `9 m / 100 s -> 9 m / 1 s` 这类主屏抖动；保持期间
-  remaining 按 `elapsed_seconds` 差值递减，不冻结倒计时。
-- 唯一 short stop 只有在潜水员已接近该 stop zone 时才可立即输出；远深处的 1 s
-  候选不会抢主屏。
+- 默认策略为 stateless mandatory projection；`stable_seconds = 0` 可完全关闭 hysteresis。
+- `stable_seconds > 0` 时只启用 1-2 s 极薄 hysteresis，实际值会夹到最大 2 s。
+- hold previous 前必须在当前 schedule 中重新找到同 depth/gas 的有效、非 short
+  mandatory candidate；`output.source_raw_index` 使用当前 schedule 中匹配到的 raw index。
+- 如果 previous stop 在当前 schedule 中不再是有效 mandatory、变成 short、变成
+  `ROUTE_WAYPOINT` 或带 `DISPLAY_SUPPRESSED`，selector 必须立即切到本帧 projection。
+- 如果 projected stop 是更深的实质 mandatory，selector 不会长期 hold 旧 stop。
+- selector 不再使用 `candidate_active/candidate_seen_seconds` 做 10 s debounce 或 stable promotion。
 
 `output` 是固件主屏当前减压站、bridge current stop 和 DLF/APP `next_stop` 的官方语义。
-`schedule.tts_seconds` 仍是唯一 TTS 来源，不得用 selector 输出重算。
+`schedule.tts_seconds` 仍是唯一 TTS 来源，不得用 selector 输出重算。runtime stop 不是
+safety proof layer；安全边界来自 planner schedule、hard ceiling、tissue/GF 重算和违规提示。
 
 安全停留边界：
 

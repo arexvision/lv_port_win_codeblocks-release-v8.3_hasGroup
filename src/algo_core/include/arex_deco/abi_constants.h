@@ -9,7 +9,7 @@ extern "C" {
 // public struct layout, static array sizes, and cross-language bindings.
 #define AREX_DECO_API_VERSION_MAJOR 0
 #define AREX_DECO_API_VERSION_MINOR 0
-#define AREX_DECO_API_VERSION_PATCH 27
+#define AREX_DECO_API_VERSION_PATCH 29
 
 #define AREX_DECO_COMPARTMENT_COUNT 16
 #define AREX_DECO_MAX_GAS_COUNT 6

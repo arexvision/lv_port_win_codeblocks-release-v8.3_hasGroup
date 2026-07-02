@@ -1,6 +1,7 @@
 #include "deco_core.h"
 
 #include "arex_deco/arex_deco.h"
+#include "arex_deco/defaults.h"
 #include "rtthread.h"
 
 extern "C" {
@@ -296,7 +297,7 @@ static void debug_print_plan_call(const char *tag, int step_status, int plan_sta
     format_algo_gas_ref(step_gas_idx, step_gas_text, sizeof(step_gas_text));
     format_algo_gas_ref(plan_active_idx, plan_active_text, sizeof(plan_active_text));
 
-    rt_kprintf("[AREX_CALL] %s depth=%.1fm step=%s(%d) step_gas=%s plan=%s(%d) plan_active=%s ndl=%lus/%umin ceiling=%.2fm gf99=%.1f%% surfgf=%.1f%% stops=%u tts=%lus cv=%u\n",
+    rt_kprintf("[AREX_CALL] %s depth=%.1fm step=%s(%d) step_gas=%s plan=%s(%d) plan_active=%s ndl=%lus/%umin ceiling=%.2fm gf99=%.1f%% surfgf=%.1f%% gf_anchor=%u/%.1fm stops=%u tts=%lus cv=%u\n",
                tag ? tag : "plan",
                s_state.current_depth_m,
                deco_status_name(step_status),
@@ -310,6 +311,8 @@ static void debug_print_plan_call(const char *tag, int step_status, int plan_sta
                s_metrics.ceiling_depth_m,
                s_metrics.gf99_percent,
                s_metrics.surface_gf_percent,
+               (unsigned)s_state.gf_anchor_valid,
+               s_state.gf_anchor_depth_m,
                (unsigned)stop_count,
                (unsigned long)tts_s,
                (unsigned)cv);
@@ -509,6 +512,7 @@ static bool select_runtime_stop(const ArexDecoSchedule *schedule, ArexDecoRuntim
     input.api_version = arex_deco_get_api_version();
     input.current_depth_m = s_state.current_depth_m;
     input.elapsed_seconds = s_state.elapsed_seconds;
+    input.stable_seconds = AREX_DECO_DEFAULT_RUNTIME_STOP_STABLE_SECONDS;
 
     status = arex_deco_select_runtime_stop(schedule, &s_runtime_stop_selector_state, &input, &next_state, runtime_stop);
     if (status != AREX_DECO_STATUS_OK)
