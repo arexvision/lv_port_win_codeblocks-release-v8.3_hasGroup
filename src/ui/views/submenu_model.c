@@ -60,7 +60,7 @@ static const char *s_setup_sub[SUBMENU_SETUP_COUNT][7] =
     { NULL },
     { NULL },
     { "AUTO CAL: AUTO", "RESET AUTO CAL", NULL },
-    { "LIGHT ON/OFF", "LIGHT MODE", "RED COLOR", "GREEN COLOR", "BLUE COLOR", "WHITE COLOR", NULL },
+    { "LIGHT POWER", "LIGHT COLOR", "LIGHT LEVEL", "FLASH MODE", NULL },
     { "VERSION: " SYSTEM_VERSION, "MODE SETUP", "DIVE SETUP", "AI SETUP", "ALERTS SETUP", "DISPLAY" },
 };
 
@@ -72,10 +72,8 @@ static const char *s_setup_titles[SUBMENU_SETUP_COUNT] =
 static char s_menu_vm_str[8][40];
 static const char *s_menu_vm_dyn[9];
 
-static const char *s_nested_red[]    = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_green[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_blue[]   = { "10%", "30%", "50%", "70%", "100%", NULL };
-static const char *s_nested_white[]  = { "10%", "30%", "50%", "70%", "100%", NULL };
+static const char *s_nested_light_color[] = { "RED", "GREEN", "BLUE", "WHITE", NULL };
+static const char *s_nested_light_level[] = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS", "OC Tech", NULL };
 static const uint8_t s_last_deco_values[] = { 3, 6 };
 
@@ -1428,10 +1426,8 @@ const char **submenu_nested_items_for(const char *title, uint8_t *out_count)
     else if (strcmp(clean_title, "TIME") == 0) return build_nested_time_adjust(out_count);
     else if (strcmp(clean_title, "DATE") == 0) return build_nested_date_adjust(out_count);
     else if (strcmp(clean_title, "DATE FORMAT") == 0) return build_nested_date_format(out_count);
-    else if (strcmp(clean_title, "RED") == 0) items = s_nested_red;
-    else if (strcmp(clean_title, "GREEN") == 0) items = s_nested_green;
-    else if (strcmp(clean_title, "BLUE") == 0) items = s_nested_blue;
-    else if (strcmp(clean_title, "WHITE") == 0) items = s_nested_white;
+    else if (strcmp(clean_title, "LIGHT COLOR") == 0) items = s_nested_light_color;
+    else if (strcmp(clean_title, "LIGHT LEVEL") == 0) items = s_nested_light_level;
 
     if (items && out_count)
     {
@@ -1488,24 +1484,9 @@ const char **submenu_child_items_for(const char *current_title,
     }
     else if (clean_current_title && strcmp(clean_current_title, "LIGHT CONTROL") == 0)
     {
-        static const char *light_child_titles[] =
-        {
-            NULL,
-            NULL,
-            "RED",
-            "GREEN",
-            "BLUE",
-            "WHITE",
-        };
-        if (item_index < (sizeof(light_child_titles) / sizeof(light_child_titles[0])) &&
-            light_child_titles[item_index])
-        {
-            lv_snprintf(key, sizeof(key), "%s", light_child_titles[item_index]);
-        }
-        else
-        {
-            key[0] = '\0';
-        }
+        if (item_index == 1U) lv_snprintf(key, sizeof(key), "%s", "LIGHT COLOR");
+        else if (item_index == 2U) lv_snprintf(key, sizeof(key), "%s", "LIGHT LEVEL");
+        else key[0] = '\0';
     }
     else if (clean_current_title && strcmp(clean_current_title, "MODE SETUP") == 0)
     {

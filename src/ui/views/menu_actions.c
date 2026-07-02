@@ -278,14 +278,18 @@ static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t
         action->type = MENU_ACTION_REFRESH;
         return true;
     }
+    if (id >= MENU_ITEM_LIGHT_RED && id <= MENU_ITEM_LIGHT_WHITE)
+    {
+        bus_set_light_color((light_color_t)(id - MENU_ITEM_LIGHT_RED));
+        screen_refresh_setup_menu();
+        action->type = MENU_ACTION_CLOSE;
+        return true;
+    }
 
     if (id >= MENU_ITEM_LIGHT_LEVEL_10 && id <= MENU_ITEM_LIGHT_LEVEL_100)
     {
-        ui_on_light_color_set(menu_defs_light_color_name(menu_runtime_current_id()),
-                              (id == MENU_ITEM_LIGHT_LEVEL_10)  ? "10%" :
-                              (id == MENU_ITEM_LIGHT_LEVEL_30)  ? "30%" :
-                              (id == MENU_ITEM_LIGHT_LEVEL_50)  ? "50%" :
-                              (id == MENU_ITEM_LIGHT_LEVEL_70)  ? "70%" : "100%");
+        bus_set_light_level((light_level_t)(id - MENU_ITEM_LIGHT_LEVEL_10));
+        screen_refresh_setup_menu();
         action->type = MENU_ACTION_CLOSE;
         return true;
     }

@@ -79,6 +79,8 @@ static screen_scroll_profile_t s_scroll_profile;
 /* 问题4修复：灯光硬件默认开启，UI 初始值必须匹配硬件状态 */
 bool g_light_power_state = true;
 light_mode_t g_light_mode_state = LIGHT_MODE_ALWAYS;
+light_color_t g_light_color_state = LIGHT_COLOR_WHITE;
+light_level_t g_light_level_state = LIGHT_LEVEL_100;
 
 /* Wall indicators */
 lv_obj_t *s_wall_top;

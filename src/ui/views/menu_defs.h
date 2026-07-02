@@ -33,7 +33,7 @@ typedef enum
 
 /* 一个 menu_id_t 表示“当前打开的是哪一个菜单页面”。
  * 例如 MENU_SETUP_BRIGHTNESS 表示亮度列表页，
- * MENU_LIGHT_RED 表示 LIGHT CONTROL 下面的 RED 强度选择页。
+ * MENU_LIGHT_COLOR 表示 LIGHT CONTROL 下面的颜色选择页。
  */
 typedef enum
 {
@@ -64,6 +64,8 @@ typedef enum
     MENU_TIME_ADJUST,
     MENU_DATE_ADJUST,
     MENU_DATE_FORMAT,
+    MENU_LIGHT_COLOR,
+    MENU_LIGHT_LEVEL,
     MENU_LIGHT_RED,
     MENU_LIGHT_GREEN,
     MENU_LIGHT_BLUE,
@@ -78,6 +80,8 @@ typedef enum
 {
     MENU_ROW_NORMAL = 0,
     MENU_ROW_LIGHT_POWER,
+    MENU_ROW_LIGHT_COLOR,
+    MENU_ROW_LIGHT_LEVEL,
     MENU_ROW_LIGHT_MODE,
     MENU_ROW_DIVE_PLAN,
     MENU_ROW_READONLY,
@@ -129,6 +133,8 @@ typedef enum
 
     MENU_ITEM_LIGHT_POWER,
     MENU_ITEM_LIGHT_MODE,
+    MENU_ITEM_LIGHT_COLOR,
+    MENU_ITEM_LIGHT_LEVEL,
     MENU_ITEM_LIGHT_RED,
     MENU_ITEM_LIGHT_GREEN,
     MENU_ITEM_LIGHT_BLUE,

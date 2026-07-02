@@ -151,6 +151,8 @@ const char *menu_defs_title(menu_id_t id)
     case MENU_TIME_ADJUST:         return "TIME";
     case MENU_DATE_ADJUST:         return "DATE";
     case MENU_DATE_FORMAT:         return "DATE FORMAT";
+    case MENU_LIGHT_COLOR:         return "LIGHT COLOR";
+    case MENU_LIGHT_LEVEL:         return "LIGHT LEVEL";
     case MENU_LIGHT_RED:           return "RED";
     case MENU_LIGHT_GREEN:         return "GREEN";
     case MENU_LIGHT_BLUE:          return "BLUE";
@@ -187,10 +189,8 @@ menu_id_t menu_defs_child_menu_for_item(menu_item_id_t id)
     case MENU_ITEM_DATETIME_TIME:        return MENU_TIME_ADJUST;
     case MENU_ITEM_DATETIME_DATE:        return MENU_DATE_ADJUST;
     case MENU_ITEM_DATETIME_DATE_FORMAT: return MENU_DATE_FORMAT;
-    case MENU_ITEM_LIGHT_RED:            return MENU_LIGHT_RED;
-    case MENU_ITEM_LIGHT_GREEN:          return MENU_LIGHT_GREEN;
-    case MENU_ITEM_LIGHT_BLUE:           return MENU_LIGHT_BLUE;
-    case MENU_ITEM_LIGHT_WHITE:          return MENU_LIGHT_WHITE;
+    case MENU_ITEM_LIGHT_COLOR:          return MENU_LIGHT_COLOR;
+    case MENU_ITEM_LIGHT_LEVEL:          return MENU_LIGHT_LEVEL;
     case MENU_ITEM_OC_TECH_SLOT_0:
     case MENU_ITEM_OC_TECH_SLOT_1:
     case MENU_ITEM_OC_TECH_SLOT_2:

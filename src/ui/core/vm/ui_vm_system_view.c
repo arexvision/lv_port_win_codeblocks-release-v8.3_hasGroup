@@ -23,6 +23,8 @@ void ui_vm_submenu_view_update(ui_vm_submenu_view_t *vm)
     (void)memset(vm, 0, sizeof(*vm));
     vm->light_power_on = bus_get_light_power() ? 1U : 0U;
     vm->light_mode = (uint8_t)bus_get_light_mode();
+    vm->light_color = (uint8_t)bus_get_light_color();
+    vm->light_level = (uint8_t)bus_get_light_level();
 }
 
 void ui_vm_brightness_update(ui_vm_brightness_t *vm)

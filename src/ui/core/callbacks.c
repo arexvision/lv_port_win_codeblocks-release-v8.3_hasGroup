@@ -87,6 +87,59 @@ void bus_toggle_light_mode(void)
     bus_set_light_mode(g_light_mode_state);
 }
 
+const char *bus_get_light_color_label(void)
+{
+    switch (bus_get_light_color())
+    {
+    case LIGHT_COLOR_RED:   return "RED";
+    case LIGHT_COLOR_GREEN: return "GREEN";
+    case LIGHT_COLOR_BLUE:  return "BLUE";
+    case LIGHT_COLOR_WHITE:
+    default:                return "WHITE";
+    }
+}
+
+const char *bus_get_light_level_label(void)
+{
+    switch (bus_get_light_level())
+    {
+    case LIGHT_LEVEL_10:  return "10%";
+    case LIGHT_LEVEL_30:  return "30%";
+    case LIGHT_LEVEL_50:  return "50%";
+    case LIGHT_LEVEL_70:  return "70%";
+    case LIGHT_LEVEL_100:
+    default:              return "100%";
+    }
+}
+
+WEAK_CALLBACK
+void bus_set_light_color(light_color_t color)
+{
+    g_light_color_state = color;
+    UI_CALLBACK_TRACE("[LIGHT] Color: %s\n", bus_get_light_color_label());
+    ui_on_light_color_set(bus_get_light_color_label(), bus_get_light_level_label());
+}
+
+WEAK_CALLBACK
+light_color_t bus_get_light_color(void)
+{
+    return g_light_color_state;
+}
+
+WEAK_CALLBACK
+void bus_set_light_level(light_level_t level)
+{
+    g_light_level_state = level;
+    UI_CALLBACK_TRACE("[LIGHT] Level: %s\n", bus_get_light_level_label());
+    ui_on_light_color_set(bus_get_light_color_label(), bus_get_light_level_label());
+}
+
+WEAK_CALLBACK
+light_level_t bus_get_light_level(void)
+{
+    return g_light_level_state;
+}
+
 WEAK_CALLBACK
 void ui_on_light_color_set(const char *color, const char *level)
 {

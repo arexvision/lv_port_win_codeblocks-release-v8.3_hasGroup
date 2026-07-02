@@ -21,6 +21,25 @@ typedef enum
     LIGHT_MODE_BREATH,
 } light_mode_t;
 
+typedef enum
+{
+    LIGHT_COLOR_RED = 0,
+    LIGHT_COLOR_GREEN,
+    LIGHT_COLOR_BLUE,
+    LIGHT_COLOR_WHITE,
+    LIGHT_COLOR_COUNT,
+} light_color_t;
+
+typedef enum
+{
+    LIGHT_LEVEL_10 = 0,
+    LIGHT_LEVEL_30,
+    LIGHT_LEVEL_50,
+    LIGHT_LEVEL_70,
+    LIGHT_LEVEL_100,
+    LIGHT_LEVEL_COUNT,
+} light_level_t;
+
 typedef struct
 {
     uint8_t salinity_mode;
@@ -59,12 +78,20 @@ typedef struct
 /* 这一层把 UI 操作翻译成业务动作，供菜单和设置页面统一调用。 */
 extern bool g_light_power_state;
 extern light_mode_t g_light_mode_state;
+extern light_color_t g_light_color_state;
+extern light_level_t g_light_level_state;
 void bus_set_light_power(bool on);
 bool bus_get_light_power(void);
 void bus_toggle_light_power(void);
 void bus_set_light_mode(light_mode_t mode);
 light_mode_t bus_get_light_mode(void);
 void bus_toggle_light_mode(void);
+void bus_set_light_color(light_color_t color);
+light_color_t bus_get_light_color(void);
+void bus_set_light_level(light_level_t level);
+light_level_t bus_get_light_level(void);
+const char *bus_get_light_color_label(void);
+const char *bus_get_light_level_label(void);
 void ui_on_light_color_set(const char *color, const char *level);
 void set_software_brightness_enabled(bool enabled);
 void apply_software_brightness(uint8_t level);

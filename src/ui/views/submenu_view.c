@@ -1987,6 +1987,31 @@ static const char *submenu_light_mode_text(void)
     return submenu_light_mode() == LIGHT_MODE_BREATH ? "BREATH" : "ALWAYS";
 }
 
+static bool submenu_row_is_light_status(const menu_row_t *row)
+{
+    return row != NULL &&
+           (row->type == MENU_ROW_LIGHT_POWER ||
+            row->type == MENU_ROW_LIGHT_COLOR ||
+            row->type == MENU_ROW_LIGHT_LEVEL ||
+            row->type == MENU_ROW_LIGHT_MODE);
+}
+
+static const char *submenu_light_status_text(const menu_row_t *row)
+{
+    if (row == NULL)
+    {
+        return "";
+    }
+    switch (row->type)
+    {
+    case MENU_ROW_LIGHT_POWER: return submenu_light_power_on() ? "ON" : "OFF";
+    case MENU_ROW_LIGHT_COLOR: return bus_get_light_color_label();
+    case MENU_ROW_LIGHT_LEVEL: return bus_get_light_level_label();
+    case MENU_ROW_LIGHT_MODE:  return submenu_light_mode_text();
+    default:                   return "";
+    }
+}
+
 static lv_color_t submenu_light_status_color(const menu_row_t *row)
 {
     if (row != NULL && row->type == MENU_ROW_LIGHT_POWER)
@@ -2689,17 +2714,15 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
         lv_obj_clear_flag(item, LV_OBJ_FLAG_SCROLLABLE);
 
         /* LIGHT CONTROL 特殊布局: 左侧项目名，右侧当前状态 */
-        if (rows[i].type == MENU_ROW_LIGHT_POWER || rows[i].type == MENU_ROW_LIGHT_MODE)
+        if (submenu_row_is_light_status(&rows[i]))
         {
-            const bool is_power = (rows[i].type == MENU_ROW_LIGHT_POWER);
-
             lv_obj_t *lbl_light = lv_label_create(item);
             lv_obj_set_style_text_color(lbl_light, GREEN, 0);
             lv_obj_set_style_text_font(lbl_light, get_font(FONT_ID_TITLE), 0);
             lv_obj_set_size(lbl_light, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(lbl_light, LV_ALIGN_LEFT_MID, 12, 0);
             lv_obj_set_style_text_align(lbl_light, LV_TEXT_ALIGN_LEFT, 0);
-            lv_label_set_text(lbl_light, is_power ? "LIGHT" : "MODE");
+            lv_label_set_text(lbl_light, rows[i].label ? rows[i].label : "");
 
             lv_obj_t *lbl_status = lv_label_create(item);
             lv_obj_set_style_text_color(lbl_status, submenu_light_status_color(&rows[i]), 0);
@@ -2707,11 +2730,9 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
             lv_obj_set_size(lbl_status, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(lbl_status, LV_ALIGN_RIGHT_MID, -12, 0);
             lv_obj_set_style_text_align(lbl_status, LV_TEXT_ALIGN_RIGHT, 0);
-            lv_label_set_text(lbl_status, is_power
-                              ? (submenu_light_power_on() ? "ON" : "OFF")
-                              : submenu_light_mode_text());
+            lv_label_set_text(lbl_status, submenu_light_status_text(&rows[i]));
 
-            if (is_power)
+            if (rows[i].type == MENU_ROW_LIGHT_POWER)
             {
                 s_light_status_lbl = lbl_status;
             }
