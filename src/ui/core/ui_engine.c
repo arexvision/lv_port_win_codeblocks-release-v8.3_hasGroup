@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <string.h>
 
+extern void ui_test_poll_runtime_control(void) __attribute__((weak));
+
 __attribute__((weak)) void app_ui_perf_note_dirty_mask(uint32_t mask)
 {
     (void)mask;
@@ -542,7 +544,10 @@ void ui_update_task(lv_timer_t *timer)
 {
     (void)timer;
 
-    ui_test_poll_runtime_control();
+    if (ui_test_poll_runtime_control)
+    {
+        ui_test_poll_runtime_control();
+    }
 
     {
         alarm_view_context_t ctx;

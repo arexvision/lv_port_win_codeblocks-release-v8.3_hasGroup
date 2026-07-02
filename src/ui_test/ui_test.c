@@ -219,7 +219,7 @@ bool ui_test_try_start(void)
 #endif
 }
 
-void ui_test_poll_runtime_control(void)
+__attribute__((weak)) void ui_test_poll_runtime_control(void)
 {
     /* Fallback when the optional monkey test module is not linked. */
 }
