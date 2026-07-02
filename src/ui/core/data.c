@@ -3218,7 +3218,8 @@ static bool last_dive_snapshot_load_latest(logbook_entry_t *out_entry)
     }
 
     (void)memset(&latest, 0, sizeof(latest));
-    if (!logbook_backend_get_summary((uint16_t)(count - 1U), &latest) || !latest.valid)
+    /* LAST DIVE 需要完整 summary 字段（尤其 AVG DEPTH），不能只读轻量 index 快照。 */
+    if (!logbook_backend_get_detail((uint16_t)(count - 1U), &latest) || !latest.valid)
     {
         if (s_last_dive_snapshot.valid)
         {

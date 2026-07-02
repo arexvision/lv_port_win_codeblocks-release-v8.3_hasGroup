@@ -176,8 +176,30 @@ static void monkey_note_failure(const char *reason)
 static void monkey_check_ui_state(void)
 {
     ui_state_t state = ui_state_get_state();
+    bool known_state = false;
 
-    if ((state < UI_DASH) || (state > UI_MODAL_SETUP_CONFIRM))
+    switch (state)
+    {
+    case UI_DASH:
+    case UI_INFO:
+    case UI_SETUP:
+    case UI_EDIT_GAS:
+    case UI_MODAL_GAS:
+    case UI_MODAL_COMPASS:
+    case UI_SUB_MENU:
+    case UI_MODAL_ACT:
+    case UI_EDIT_VALUE:
+    case UI_MODAL_SETUP_CONFIRM:
+    case UI_MENU_ENTRY:
+    case UI_MODAL_END_DIVE:
+    case UI_MODAL_TURN_OFF:
+        known_state = true;
+        break;
+    default:
+        break;
+    }
+
+    if (!known_state)
     {
         ++s_monkey.state_fail_count;
         monkey_note_failure("unknown_ui_state");
@@ -290,6 +312,13 @@ static bool monkey_ui_only_click_is_safe(void)
 {
     ui_state_t state = ui_state_get_state();
 
+    /* Monkey 压测不能确认会结束潜水或关机的弹窗，full 模式也只负责压 UI/业务数据链路。 */
+    if ((state == UI_MODAL_END_DIVE) ||
+        (state == UI_MODAL_TURN_OFF))
+    {
+        return false;
+    }
+
     if (monkey_full_mode())
     {
         return true;
@@ -301,7 +330,8 @@ static bool monkey_ui_only_click_is_safe(void)
         (state == UI_MODAL_GAS) ||
         (state == UI_MODAL_COMPASS) ||
         (state == UI_MODAL_ACT) ||
-        (state == UI_MODAL_SETUP_CONFIRM))
+        (state == UI_MODAL_SETUP_CONFIRM) ||
+        (state == UI_MENU_ENTRY))
     {
         return false;
     }
