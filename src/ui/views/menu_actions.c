@@ -59,6 +59,9 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
     case SUBMENU_SETTING_LAST_DECO:
         ui_on_last_deco_stop_set(setting->value == 1 ? 6 : 3);
         break;
+    case SUBMENU_SETTING_DEPTH_COMP_ENABLED:
+        ui_on_depth_comp_enabled_set(setting->value != 0U);
+        break;
     case SUBMENU_SETTING_ALTITUDE:
         ui_on_altitude_range_set((uint8_t)setting->value);
         break;

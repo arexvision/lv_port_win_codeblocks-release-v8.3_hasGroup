@@ -69,8 +69,8 @@ static const char *s_setup_titles[SUBMENU_SETUP_COUNT] =
     "GAS SWITCH", "CONSERVATISM", "BRIGHTNESS", "COMPASS CAL", "LIGHT CONTROL", "SYSTEMS SETUP"
 };
 
-static char s_menu_vm_str[8][40];
-static const char *s_menu_vm_dyn[9];
+static char s_menu_vm_str[MENU_MAX_ROWS][40];
+static const char *s_menu_vm_dyn[MENU_MAX_ROWS + 1U];
 
 static const char *s_nested_light_color[] = { "RED", "GREEN", "BLUE", "WHITE", NULL };
 static const char *s_nested_light_level[] = { "10%", "30%", "50%", "70%", "100%", NULL };
@@ -98,6 +98,8 @@ static uint8_t s_safety_stop_mode = UI_SAFETY_STOP_DEFAULT;
 static uint8_t s_last_deco_mode = 0;     /* 0=3m, 1=6m */
 static uint8_t s_surface_confirm_min = UI_SURFACE_CONFIRM_DEFAULT_MIN;
 static float s_dive_start_depth_m = UI_DIVE_START_DEPTH_DEFAULT_M;
+static uint8_t s_depth_comp_enabled = UI_DEPTH_COMP_DEFAULT_ENABLED;
+static float s_depth_comp_m = UI_DEPTH_COMP_DEFAULT_M;
 static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1=SEA, 2=L1, 3=L2 */
 static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS, 3=OC Tech */
 static float s_air_ppo2 = 1.4f;
@@ -151,6 +153,8 @@ void submenu_sync_persisted_settings(void)
     s_last_deco_mode = (snapshot.last_deco_stop_m >= 6U) ? 1U : 0U;
     s_surface_confirm_min = snapshot.surface_confirm_min;
     s_dive_start_depth_m = snapshot.dive_start_depth_m;
+    s_depth_comp_enabled = snapshot.depth_comp_enabled ? 1U : 0U;
+    s_depth_comp_m = snapshot.depth_comp_m;
     s_altitude_level = snapshot.altitude_level;
     s_depth_alarm_m = snapshot.depth_alarm_m;
     s_time_alarm_min = snapshot.time_alarm_min;
@@ -434,9 +438,9 @@ static const char **copy_menu_lines(const char items[][32], uint8_t count, uint8
 {
     uint8_t copy_count = count;
 
-    if (copy_count > 8U)
+    if (copy_count > MENU_MAX_ROWS)
     {
-        copy_count = 8U;
+        copy_count = MENU_MAX_ROWS;
     }
 
     for (uint8_t i = 0U; i < copy_count; i++)
@@ -791,6 +795,9 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
     case SUBMENU_SETTING_DIVE_START_DEPTH:
         s_dive_start_depth_m = (float)value;
         break;
+    case SUBMENU_SETTING_DEPTH_COMP_ENABLED:
+        s_depth_comp_enabled = value ? 1U : 0U;
+        break;
     case SUBMENU_SETTING_LAST_DECO:
         s_last_deco_mode = (value > 1) ? 0 : (uint8_t)value;
         break;
@@ -845,6 +852,8 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         s_ndl_alarm_min = 5U;
         s_surface_confirm_min = UI_SURFACE_CONFIRM_DEFAULT_MIN;
         s_dive_start_depth_m = UI_DIVE_START_DEPTH_DEFAULT_M;
+        s_depth_comp_enabled = UI_DEPTH_COMP_DEFAULT_ENABLED;
+        s_depth_comp_m = UI_DEPTH_COMP_DEFAULT_M;
         s_air_ppo2 = 1.4f;
         s_nitrox_ppo2 = 1.4f;
         for (uint8_t i = 0U; i < 3U; i++) s_three_gas_ppo2[i] = 1.4f;
@@ -882,6 +891,10 @@ static void submenu_commit_edit_value(submenu_setting_kind_t kind, uint8_t arg, 
     case SUBMENU_SETTING_DIVE_START_DEPTH:
         s_dive_start_depth_m = value;
         ui_on_dive_start_depth_set(s_dive_start_depth_m);
+        break;
+    case SUBMENU_SETTING_DEPTH_COMP_VALUE:
+        s_depth_comp_m = value;
+        ui_on_depth_comp_value_set(s_depth_comp_m);
         break;
     case SUBMENU_SETTING_NITROX_O2:
         s_nitrox_o2_pct = (uint8_t)(value + 0.5f);
@@ -1288,6 +1301,8 @@ static const char **build_nested_dive_setup(uint8_t *out_count)
                                  s_safety_stop_mode,
                                  s_surface_confirm_min,
                                  s_dive_start_depth_m,
+                                 s_depth_comp_enabled,
+                                 s_depth_comp_m,
                                  s_altitude_level);
     return copy_menu_lines(vm.items, vm.count, out_count);
 }
@@ -2198,6 +2213,38 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
         out_setting->value = s_gas_edit_draft_active ? 0U : 1U;
         return true;
     }
+    if (current_menu == MENU_DIVE_SETUP)
+    {
+        ui_vm_dive_context_t vm;
+
+        memset(out_setting, 0, sizeof(*out_setting));
+        ui_vm_dive_context_update(&vm);
+        switch (item_id)
+        {
+        case MENU_ITEM_DIVE_SALINITY:
+            out_setting->kind = SUBMENU_SETTING_SALINITY;
+            out_setting->value = (uint8_t)((vm.salinity_mode + 1U) % 3U);
+            return true;
+        case MENU_ITEM_DIVE_SAFETY_STOP:
+            out_setting->kind = SUBMENU_SETTING_SAFETY_STOP;
+            out_setting->value = (uint8_t)((s_safety_stop_mode + 1U) % UI_SAFETY_STOP_COUNT);
+            return true;
+        case MENU_ITEM_DIVE_LAST_DECO:
+            out_setting->kind = SUBMENU_SETTING_LAST_DECO;
+            out_setting->value = (uint8_t)((((vm.last_stop_depth_m == 6U) ? 1U : 0U) + 1U) % (sizeof(s_last_deco_values) / sizeof(s_last_deco_values[0])));
+            return true;
+        case MENU_ITEM_DIVE_DEPTH_COMP:
+            out_setting->kind = SUBMENU_SETTING_DEPTH_COMP_ENABLED;
+            out_setting->value = s_depth_comp_enabled ? 0U : 1U;
+            return true;
+        case MENU_ITEM_DIVE_ALTITUDE:
+            out_setting->kind = SUBMENU_SETTING_ALTITUDE;
+            out_setting->value = (uint8_t)((s_altitude_level + 1U) % 4U);
+            return true;
+        default:
+            break;
+        }
+    }
 
     switch (item_id)
     {
@@ -2250,6 +2297,37 @@ bool submenu_edit_spec_from_ids(menu_id_t current_menu,
             return submenu_edit_spec_from_selection(gas_title, 1U, NULL, out_spec);
         }
         return false;
+    }
+    if (current_menu == MENU_DIVE_SETUP)
+    {
+        switch (item_id)
+        {
+        case MENU_ITEM_DIVE_MOD_PPO2:
+            ui_vm_edit_mod_ppo2_update(&vm_edit);
+            break;
+        case MENU_ITEM_DIVE_SURFACE_CONFIRM:
+            ui_vm_edit_surface_confirm_update(&vm_edit, s_surface_confirm_min);
+            break;
+        case MENU_ITEM_DIVE_START_DEPTH:
+            ui_vm_edit_dive_start_depth_update(&vm_edit, s_dive_start_depth_m);
+            break;
+        case MENU_ITEM_DIVE_DEPTH_COMP_VALUE:
+            ui_vm_edit_depth_comp_update(&vm_edit, s_depth_comp_m);
+            break;
+        default:
+            return false;
+        }
+        out_spec->kind = (item_id == MENU_ITEM_DIVE_MOD_PPO2) ? SUBMENU_SETTING_MOD_PPO2 :
+                         (item_id == MENU_ITEM_DIVE_SURFACE_CONFIRM) ? SUBMENU_SETTING_SURFACE_CONFIRM :
+                         (item_id == MENU_ITEM_DIVE_START_DEPTH) ? SUBMENU_SETTING_DIVE_START_DEPTH :
+                         SUBMENU_SETTING_DEPTH_COMP_VALUE;
+        out_spec->value = vm_edit.value;
+        out_spec->min = vm_edit.min;
+        out_spec->max = vm_edit.max;
+        out_spec->step = vm_edit.step;
+        out_spec->decimals = vm_edit.decimals;
+        lv_snprintf(out_spec->label, sizeof(out_spec->label), "%s", vm_edit.label);
+        return true;
     }
 
     switch (item_id)

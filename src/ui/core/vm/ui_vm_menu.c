@@ -256,10 +256,14 @@ void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
                                   uint8_t safety_stop_mode,
                                   uint8_t surface_confirm_min,
                                   float dive_start_depth_m,
+                                  uint8_t depth_comp_enabled,
+                                  float depth_comp_m,
                                   uint8_t altitude_level)
 {
     char last_deco_depth[12];
     char start_depth[12];
+    char comp_depth[12];
+    uint8_t row = 0U;
 
     if (vm == NULL)
     {
@@ -269,16 +273,22 @@ void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
     (void)memset(vm, 0, sizeof(*vm));
     vm_format_depth_compact(last_deco_depth, sizeof(last_deco_depth), (bus_get_last_deco_stop() == 6U) ? 6.0f : 3.0f);
     vm_format_depth_1(start_depth, sizeof(start_depth), dive_start_depth_m);
+    vm_format_depth_1(comp_depth, sizeof(comp_depth), depth_comp_m);
 
-    (void)snprintf(vm->items[0], sizeof(vm->items[0]), "SALINITY: %s", vm_salinity_label(salinity_mode));
-    (void)snprintf(vm->items[1], sizeof(vm->items[1]), "MOD PO2: %.1f", (double)bus_get_mod_ppo2());
-    (void)snprintf(vm->items[2], sizeof(vm->items[2]), "SAFETY STOP: %s", vm_safety_stop_label(safety_stop_mode));
-    (void)snprintf(vm->items[3], sizeof(vm->items[3]), "LAST DECO: %s", last_deco_depth);
-    (void)snprintf(vm->items[4], sizeof(vm->items[4]), "DIVE END TIME: %umin", (unsigned)surface_confirm_min);
-    (void)snprintf(vm->items[5], sizeof(vm->items[5]), "DIVE START DEPTH: %s", start_depth);
-    (void)snprintf(vm->items[6], sizeof(vm->items[6]), "%s", "TISSUE RESET");
-    (void)snprintf(vm->items[7], sizeof(vm->items[7]), "ALTITUDE: %s", vm_altitude_label(altitude_level));
-    vm->count = 8U;
+    (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "SALINITY: %s", vm_salinity_label(salinity_mode));
+    (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "MOD PO2: %.1f", (double)bus_get_mod_ppo2());
+    (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "SAFETY STOP: %s", vm_safety_stop_label(safety_stop_mode));
+    (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "LAST DECO: %s", last_deco_depth);
+    (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "DIVE END TIME: %umin", (unsigned)surface_confirm_min);
+    (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "DIVE START DEPTH: %s", start_depth);
+    (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "DEPTH COMP: %s", depth_comp_enabled ? "ON" : "OFF");
+    if (depth_comp_enabled)
+    {
+        (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "COMP VALUE: %s", comp_depth);
+    }
+    (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "%s", "TISSUE RESET");
+    (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "ALTITUDE: %s", vm_altitude_label(altitude_level));
+    vm->count = row;
 }
 
 void ui_vm_dive_context_update(ui_vm_dive_context_t *vm)
@@ -558,6 +568,22 @@ void ui_vm_edit_dive_start_depth_update(ui_vm_edit_spec_t *vm, float value)
     vm->step = UI_DIVE_START_DEPTH_STEP_M;
     vm->decimals = 1U;
     (void)snprintf(vm->label, sizeof(vm->label), "%s", "START DEPTH:");
+}
+
+void ui_vm_edit_depth_comp_update(ui_vm_edit_spec_t *vm, float value)
+{
+    if (vm == NULL)
+    {
+        return;
+    }
+
+    (void)memset(vm, 0, sizeof(*vm));
+    vm->value = value;
+    vm->min = UI_DEPTH_COMP_MIN_M;
+    vm->max = UI_DEPTH_COMP_MAX_M;
+    vm->step = UI_DEPTH_COMP_STEP_M;
+    vm->decimals = 1U;
+    (void)snprintf(vm->label, sizeof(vm->label), "%s", "DEPTH COMP:");
 }
 
 void ui_vm_edit_nitrox_o2_update(ui_vm_edit_spec_t *vm, uint8_t value)

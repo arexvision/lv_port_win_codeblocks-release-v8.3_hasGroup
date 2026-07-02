@@ -373,17 +373,18 @@ static void build_rows(void)
     }
     case MENU_DIVE_SETUP:
     {
-        static const menu_item_id_t ids[] =
-        {
-            MENU_ITEM_DIVE_SALINITY,
-            MENU_ITEM_DIVE_MOD_PPO2,
-            MENU_ITEM_DIVE_SAFETY_STOP,
-            MENU_ITEM_DIVE_LAST_DECO,
-            MENU_ITEM_DIVE_SURFACE_CONFIRM,
-            MENU_ITEM_DIVE_START_DEPTH,
-            MENU_ITEM_DIVE_TISSUE_RESET,
-            MENU_ITEM_DIVE_ALTITUDE,
-        };
+        menu_item_id_t ids[10];
+        uint8_t n = 0U;
+        ids[n++] = MENU_ITEM_DIVE_SALINITY;
+        ids[n++] = MENU_ITEM_DIVE_MOD_PPO2;
+        ids[n++] = MENU_ITEM_DIVE_SAFETY_STOP;
+        ids[n++] = MENU_ITEM_DIVE_LAST_DECO;
+        ids[n++] = MENU_ITEM_DIVE_SURFACE_CONFIRM;
+        ids[n++] = MENU_ITEM_DIVE_START_DEPTH;
+        ids[n++] = MENU_ITEM_DIVE_DEPTH_COMP;
+        if (bus_get_depth_comp_enabled()) ids[n++] = MENU_ITEM_DIVE_DEPTH_COMP_VALUE;
+        ids[n++] = MENU_ITEM_DIVE_TISSUE_RESET;
+        ids[n++] = MENU_ITEM_DIVE_ALTITUDE;
         build_nested_by_title("DIVE SETUP", ids, NULL);
         break;
     }

@@ -73,6 +73,8 @@ typedef struct
     uint8_t datetime_minute;
     uint8_t surface_confirm_min;
     float dive_start_depth_m;
+    uint8_t depth_comp_enabled;
+    float depth_comp_m;
 } ui_persisted_settings_snapshot_t;
 
 /* 这一层把 UI 操作翻译成业务动作，供菜单和设置页面统一调用。 */
@@ -101,6 +103,8 @@ void ui_on_salinity_set(uint8_t mode);
 void ui_on_safety_stop_mode_set(uint8_t mode);
 void ui_on_surface_confirm_min_set(uint8_t minutes);
 void ui_on_dive_start_depth_set(float depth_m);
+void ui_on_depth_comp_enabled_set(bool enabled);
+void ui_on_depth_comp_value_set(float depth_m);
 void ui_on_last_deco_stop_set(uint8_t depth_m);
 void ui_on_altitude_range_set(uint8_t level);
 void ui_on_dive_mode_set(uint8_t mode);
