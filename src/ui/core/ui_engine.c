@@ -521,6 +521,7 @@ void ui_update_flush_pending_once(void)
      */
     ui_state_poll_deferred_navigation();
     screen_poll_deferred_page_dirty();
+    screen_poll_scroll_dots();
 
     dirty_mask_t mask = bus_take_dirty();
     if (mask == DIRTY_NONE)
@@ -592,6 +593,8 @@ void ui_update_task(lv_timer_t *timer)
             screen_refresh_setup_menu();
         }
     }
+
+    screen_poll_scroll_dots();
 
     {
         static bool s_last_flash_state = false;

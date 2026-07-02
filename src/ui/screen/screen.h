@@ -167,6 +167,8 @@ void screen_refresh_compass_target(void);
    Scroll dots indicator
    ========================================= */
 void screen_update_scroll_dots(uint8_t active_idx, bool visible);
+void screen_scroll_dots_notify_interaction(void);
+void screen_poll_scroll_dots(void);
 
 /* =========================================
    Card title helper

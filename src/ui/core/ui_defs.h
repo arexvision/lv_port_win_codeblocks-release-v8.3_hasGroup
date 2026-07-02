@@ -36,6 +36,7 @@ extern "C" {
 #define PLAN_TRACK_STOP_LABEL_W_PX                72  /* 停站标签最大宽度 */
 #define PLAN_TRACK_STOP_LABEL_GAP_PX              6  /* 停站标签距节点距离 */
 #define PLAN_TRACK_NOW_DOT_RADIUS_PX              6  /* NOW 当前点半径 */
+#define UI_SCROLL_DOTS_AUTO_HIDE_MS            3000U /* 楼层指示点无操作自动隐藏时间 */
 #define PLAN_TRACK_NOW_LABEL_GAP_PX               8  /* NOW 当前点到文字框距离 */
 #define PLAN_TRACK_NOW_LABEL_OFFSET_Y_PX          16  /* NOW 文字框纵向偏移 */
 #define PLAN_TRACK_NOW_LABEL_PAD_X_PX             4  /* NOW 文字框横向内边距 */

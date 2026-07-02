@@ -314,6 +314,11 @@ static void ui_enter_device_control_page(void)
    ========================================= */
 void ui_handle_rotate(int8_t dir)
 {
+    if (dir != 0)
+    {
+        screen_scroll_dots_notify_interaction();
+    }
+
     if (s_ui.state != UI_DASH)
     {
         ui_flush_pending_dash_page();
