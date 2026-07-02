@@ -2024,6 +2024,18 @@
 		<Unit filename="src/ui/picture/sudo_down_level2.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/ui/picture/sudo_down_level3.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/picture/sudo_down_level4.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/picture/sudo_down_level5.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/picture/sudo_down_level6.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="src/ui/picture/sudo_up_level0.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -2031,6 +2043,18 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/picture/sudo_up_level2.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/picture/sudo_up_level3.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/picture/sudo_up_level4.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/picture/sudo_up_level5.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/picture/sudo_up_level6.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/screen/README.md" />
