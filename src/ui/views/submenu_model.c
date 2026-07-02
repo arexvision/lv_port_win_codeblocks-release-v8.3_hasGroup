@@ -2279,6 +2279,7 @@ bool submenu_edit_spec_from_ids(menu_id_t current_menu,
     /* 通过 menu_id + item_id 生成编辑规格。 */
     const char *title = submenu_title_for_menu_id(current_menu);
     uint8_t item_index = 0U;
+    ui_vm_edit_spec_t vm_edit;
 
     if (current_menu == MENU_OC_TECH_EDIT)
     {
