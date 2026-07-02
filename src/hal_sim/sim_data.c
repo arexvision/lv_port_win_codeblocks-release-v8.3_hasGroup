@@ -731,7 +731,6 @@ static void sim_finalize_dive(void)
     (void)logbook_backend_append_finalized_dive(&entry, points, count);
 
     sim_lifecycle_set_state(SIM_LIFE_SURFACE_CONFIRMED);
-    deco_core_reset();
     s_sim.entry_pending_s = 0U;
     s_sim.surface_pending_s = 0U;
     s_sim.dive_time_s = 0U;
