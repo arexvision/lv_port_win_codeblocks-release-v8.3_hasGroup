@@ -1824,7 +1824,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                 lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
                 lv_obj_align(h->sub_bot, LV_ALIGN_TOP_LEFT, 8, 8);
                 lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
-                lv_obj_align(h->main_val, LV_ALIGN_TOP_MID, 16, -8);
+                lv_obj_align(h->main_val, LV_ALIGN_TOP_MID, 0, -8);
             }
 
             comp_view_label_set_text_fmt_if_changed(h->main_val, "%d", vm->ndl);
