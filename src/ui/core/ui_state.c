@@ -468,10 +468,6 @@ void ui_handle_rotate(int8_t dir)
         {
             break;
         }
-        if (screen_handle_light_color_rotate(dir))
-        {
-            break;
-        }
         if (s_ui.sub_item_count == 0U)
         {
             break;

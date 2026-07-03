@@ -3087,32 +3087,6 @@ bool screen_handle_logbook_rotate(int8_t dir)
     return true;
 }
 
-bool screen_handle_light_color_rotate(int8_t dir)
-{
-    const menu_row_t *row;
-    uint8_t idx;
-    int8_t next;
-
-    if (ui_state_get_state() != UI_SUB_MENU || menu_runtime_current_id() != MENU_SETUP_LIGHT_CONTROL)
-    {
-        return false;
-    }
-
-    idx = ui_state_get_sub_menu_idx();
-    row = menu_runtime_row_at(idx);
-    if (row == NULL || row->id != MENU_ITEM_LIGHT_COLOR)
-    {
-        return false;
-    }
-
-    next = (int8_t)bus_get_light_color() + ((dir > 0) ? 1 : -1);
-    if (next < 0) next = (int8_t)LIGHT_COLOR_COUNT - 1;
-    if (next >= (int8_t)LIGHT_COLOR_COUNT) next = 0;
-    bus_set_light_color((light_color_t)next);
-    refresh_current_submenu_page(idx);
-    return true;
-}
-
 bool screen_handle_logbook_back(void)
 {
     if ((ui_state_get_state() != UI_SUB_MENU) ||
