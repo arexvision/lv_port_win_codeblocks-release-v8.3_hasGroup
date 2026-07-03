@@ -30,12 +30,6 @@ ArexDecoStatus arex_deco_calculate_gas_density(
     float compressibility_z,
     float* density_g_per_l);
 
-ArexDecoStatus arex_deco_step(
-    const ArexDecoDiveState* state,
-    const ArexDecoStepInput* input,
-    ArexDecoDiveState* next_state,
-    ArexDecoRuntimeMetrics* metrics);
-
 ArexDecoStatus arex_deco_step_pressure(
     const ArexDecoDiveState* state,
     const ArexDecoPressureStepInput* input,

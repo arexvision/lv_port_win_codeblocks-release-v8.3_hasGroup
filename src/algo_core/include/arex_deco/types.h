@@ -10,12 +10,6 @@
 extern "C" {
 #endif
 
-typedef enum ArexDecoWaterType {
-    AREX_DECO_WATER_SALT = 0,
-    AREX_DECO_WATER_FRESH = 1
-    // TODO: EN13319
-} ArexDecoWaterType;
-
 typedef enum ArexDecoGasRole {
     AREX_DECO_GAS_ROLE_BOTTOM = 0,
     AREX_DECO_GAS_ROLE_TRAVEL = 1,
@@ -45,7 +39,7 @@ typedef struct ArexDecoConfig {
     ArexDecoVersion api_version;
     float surface_pressure_bar;
     float water_vapor_pressure_bar;
-    float water_meters_per_bar;
+    float meters_per_bar;
     float gf_low;
     float gf_high;
     ArexDecoAscentRate ascent_rate;
@@ -53,9 +47,8 @@ typedef struct ArexDecoConfig {
     float last_stop_m;
     uint32_t safety_stop_seconds;
     uint32_t gas_switch_penalty_seconds;
-    ArexDecoWaterType water_type;
     uint8_t safety_stop_enabled;
-    uint8_t reserved[3];
+    uint8_t reserved[7];
 } ArexDecoConfig;
 
 typedef struct ArexDecoGas {
@@ -116,15 +109,6 @@ typedef struct ArexDecoDiveState {
     uint8_t gf_anchor_valid;
     uint8_t reserved[15];
 } ArexDecoDiveState;
-
-typedef struct ArexDecoStepInput {
-    ArexDecoVersion api_version;
-    float start_depth_m;
-    float end_depth_m;
-    uint32_t duration_seconds;
-    int8_t gas_index;
-    uint8_t reserved[15];
-} ArexDecoStepInput;
 
 typedef struct ArexDecoPressureStepInput {
     ArexDecoVersion api_version;

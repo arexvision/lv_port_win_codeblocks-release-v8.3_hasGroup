@@ -26,6 +26,29 @@
 - smoke test
 - 文档
 
+## 0.0.30
+
+### 摘要
+
+本次版本把实时推进入口收敛为压力段输入，移除 core 对水体类型的推导和
+depth-step public ABI，调用方直接提供绝对环境压力；core 只通过
+`surface_pressure_bar` 与 `meters_per_bar` 做确定性深度换算，用于 planner 网格、
+MOD、显示字段和既有 depth-based 辅助逻辑。
+
+### 行为与 ABI 变更
+
+- `ArexDecoConfig.water_meters_per_bar` 重命名为 `meters_per_bar`，offset 仍为 `16`。
+- 移除 `ArexDecoWaterType` 与 `ArexDecoConfig.water_type`；`safety_stop_enabled`
+  前移到 offset `60`，尾部使用单一 `reserved[7]` 保留空间，
+  `ArexDecoConfig` 总大小仍为 `68` 字节。
+- 移除 depth-based `ArexDecoStepInput` / `arex_deco_step()` public ABI；
+  实时推进统一使用 `ArexDecoPressureStepInput` / `arex_deco_step_pressure()`。
+- 默认配置改为 `meters_per_bar = 10.0`；fresh/salt、盐度、水密度来源和压力传感器
+  标定均由产品层负责。
+- WASM binding、Web adapter、smoke test、validation wrapper 和测试数据同步改为
+  pressure-step 与 `meters_per_bar` 口径。
+- API patch 版本升至 `0.0.30`。
+
 ## 0.0.29
 
 ### 摘要
