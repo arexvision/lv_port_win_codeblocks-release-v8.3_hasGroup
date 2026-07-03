@@ -189,7 +189,6 @@ menu_id_t menu_defs_child_menu_for_item(menu_item_id_t id)
     case MENU_ITEM_DATETIME_TIME:        return MENU_TIME_ADJUST;
     case MENU_ITEM_DATETIME_DATE:        return MENU_DATE_ADJUST;
     case MENU_ITEM_DATETIME_DATE_FORMAT: return MENU_DATE_FORMAT;
-    case MENU_ITEM_LIGHT_COLOR:          return MENU_LIGHT_COLOR;
     case MENU_ITEM_LIGHT_LEVEL:          return MENU_LIGHT_LEVEL;
     case MENU_ITEM_OC_TECH_SLOT_0:
     case MENU_ITEM_OC_TECH_SLOT_1:

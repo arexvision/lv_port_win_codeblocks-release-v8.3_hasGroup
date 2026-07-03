@@ -74,7 +74,7 @@ extern "C" {
 #define ANCHOR_SEP_STYLE          SEP_SOLID  /* 固定栏和内容区分隔条样式 */
 
 #ifndef ASCENT_ICON_USE_FINE_LEVELS
-#define ASCENT_ICON_USE_FINE_LEVELS  0U   /* 速率图标分级：0=旧三档映射0/3/6，1=新七档0~6 */
+#define ASCENT_ICON_USE_FINE_LEVELS  1U   /* 速率图标分级：0=旧三档映射0/3/6，1=新七档0~6 */
 #endif
 #define RATE_LEGACY_LEVEL1_THRESHOLD  3.0f  /* 旧三档 level1 阈值，m/min */
 #define RATE_LEGACY_LEVEL2_THRESHOLD  9.0f  /* 旧三档 level2 阈值，m/min */
