@@ -129,6 +129,10 @@ typedef struct
     int8_t  deco_main_x;
     int8_t deco_main_y;
     uint8_t deco_main_align;  /* 停留倒计时 MM:SS */
+    int8_t  deco_bar_side_pad; /* DECO底部横条总留白，越大越短 */
+    int8_t  deco_bar_h;
+    int8_t  deco_bar_x;
+    int8_t  deco_bar_y;
     int8_t  deco_sub_x;
     int8_t deco_sub_y;
     uint8_t deco_sub_align;   /* Safety 悬浮的 NDL 文本 */

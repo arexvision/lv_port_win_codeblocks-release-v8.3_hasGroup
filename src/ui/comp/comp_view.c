@@ -1874,6 +1874,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
         else if (vm->stop_type == STOP_DECO)
         {
             /* 减压停留态：逻辑上比 SAFETY 更强制，所以只保留 DECO 深度和剩余时间。 */
+            const style_ndl_stop_t *s = &style->spec.ndl_stop;
             comp_view_obj_set_hidden_if_changed(h->title_top, false);
             comp_view_obj_set_hidden_if_changed(h->sub_bot, true);
 
@@ -1884,16 +1885,17 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             if (layout_changed)
             {
                 lv_coord_t comp_w = lv_obj_get_width(h->comp);
-                lv_obj_set_size(h->horiz_bg, (comp_w > 16) ? (comp_w - 16) : comp_w, 10);
-                lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
+                lv_coord_t bar_w = (comp_w > s->deco_bar_side_pad) ? (comp_w - s->deco_bar_side_pad) : comp_w;
+                lv_obj_set_size(h->horiz_bg, bar_w, s->deco_bar_h);
+                lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, s->deco_bar_x, s->deco_bar_y);
                 lv_obj_set_size(h->title_top, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 2, -2);
+                lv_obj_align(h->title_top, (lv_align_t)s->deco_title_align, s->deco_title_x, s->deco_title_y);
             }
 
             lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
             comp_ndl_stop_set_time_text(h->main_val, vm->stop_time_left_s);
             lv_obj_set_size(h->main_val, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-            lv_obj_align(h->main_val, LV_ALIGN_BOTTOM_RIGHT, -4, -12);
+            lv_obj_align(h->main_val, (lv_align_t)s->deco_main_align, s->deco_main_x, s->deco_main_y);
         }
 
         if (layout_changed)
