@@ -1890,17 +1890,9 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                              comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
             }
 
-            bool compact_deco_time = (comp_ndl_stop_display_minutes(vm->stop_time_left_s) >= 10U);
-            lv_obj_set_style_text_font(h->main_val, get_font(compact_deco_time ? FONT_ID_TITLE : FONT_ID_MEDIUM), 0);
+            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
             comp_ndl_stop_set_time_text(h->main_val, vm->stop_time_left_s);
-            if (compact_deco_time)
-            {
-                lv_obj_align(h->main_val, LV_ALIGN_TOP_RIGHT, -4, 2);
-            }
-            else
-            {
-                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
-            }
+            lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
         }
 
         if (layout_changed)
