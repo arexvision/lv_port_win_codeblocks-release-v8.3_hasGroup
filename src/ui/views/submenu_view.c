@@ -3111,6 +3111,19 @@ static void submenu_show_light_color_preview_hint(void)
     }
 }
 
+static void light_color_preview_cancel_if_active(void)
+{
+    if (!s_light_color_preview_active)
+    {
+        return;
+    }
+
+    /* ROTARY COLOR 旋转只做实时预览；只有 ENTER 才允许持久化。
+     * 若预览态被 BACK 以外的关闭路径打断，也按取消处理，恢复进入页面前的颜色。 */
+    bus_preview_light_color(s_light_color_preview_original);
+    s_light_color_preview_active = false;
+}
+
 void screen_begin_light_color_preview(uint8_t item_idx)
 {
     uint8_t select_idx;
@@ -3142,7 +3155,7 @@ bool screen_handle_light_color_preview_rotate(int8_t dir)
     next = (int8_t)bus_get_light_color() + ((dir > 0) ? 1 : -1);
     if (next < 0) next = (int8_t)LIGHT_COLOR_COUNT - 1;
     if (next >= (int8_t)LIGHT_COLOR_COUNT) next = 0;
-    bus_set_light_color((light_color_t)next);
+    bus_preview_light_color((light_color_t)next);
     select_idx = (uint8_t)(1U + (uint8_t)next);
     ui_state_set_sub_menu_idx(select_idx);
     screen_set_submenu_selection(select_idx);
@@ -3153,6 +3166,10 @@ bool screen_handle_light_color_preview_rotate(int8_t dir)
 
 void screen_commit_light_color_preview(void)
 {
+    if (s_light_color_preview_active)
+    {
+        bus_set_light_color(bus_get_light_color());
+    }
     s_light_color_preview_active = false;
     if (s_submenu_hint) lv_obj_add_flag(s_submenu_hint, LV_OBJ_FLAG_HIDDEN);
     screen_close_submenu();
@@ -3162,11 +3179,7 @@ void screen_cancel_light_color_preview(void)
 {
     uint8_t restore_idx;
 
-    if (s_light_color_preview_active)
-    {
-        bus_set_light_color(s_light_color_preview_original);
-    }
-    s_light_color_preview_active = false;
+    light_color_preview_cancel_if_active();
     restore_idx = (uint8_t)(1U + (uint8_t)s_light_color_preview_original);
     ui_state_set_sub_menu_idx(restore_idx);
     screen_set_submenu_selection(restore_idx);
@@ -3456,6 +3469,8 @@ void screen_handle_submenu_select(uint8_t item_idx)
 
 void screen_close_submenu(void)
 {
+    light_color_preview_cancel_if_active();
+
     if (!s_submenu_layer || !s_submenu_title || !s_submenu_list)
     {
         ui_state_set_sub_history_depth(0U);

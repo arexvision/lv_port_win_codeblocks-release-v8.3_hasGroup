@@ -121,6 +121,14 @@ void bus_set_light_color(light_color_t color)
 }
 
 WEAK_CALLBACK
+void bus_preview_light_color(light_color_t color)
+{
+    g_light_color_state = color;
+    UI_CALLBACK_TRACE("[LIGHT] Preview Color: %s\n", bus_get_light_color_label());
+    ui_on_light_color_preview(bus_get_light_color_label(), bus_get_light_level_label());
+}
+
+WEAK_CALLBACK
 light_color_t bus_get_light_color(void)
 {
     return g_light_color_state;
@@ -144,6 +152,12 @@ WEAK_CALLBACK
 void ui_on_light_color_set(const char *color, const char *level)
 {
     UI_CALLBACK_TRACE("[LIGHT] Color: %s, Level: %s\n", color, level);
+}
+
+WEAK_CALLBACK
+void ui_on_light_color_preview(const char *color, const char *level)
+{
+    UI_CALLBACK_TRACE("[LIGHT] Preview Color: %s, Level: %s\n", color, level);
 }
 
 WEAK_CALLBACK
