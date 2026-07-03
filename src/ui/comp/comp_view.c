@@ -1884,15 +1884,16 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             if (layout_changed)
             {
                 lv_coord_t comp_w = lv_obj_get_width(h->comp);
-                lv_obj_set_size(h->horiz_bg, (comp_w > 16) ? (comp_w - 16) : comp_w, 10);
-                lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
-                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
-                             comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
+                lv_obj_set_size(h->horiz_bg, (comp_w > 40) ? (comp_w - 40) : comp_w, 10);
+                lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_RIGHT, -10, -2);
+                lv_obj_set_size(h->title_top, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, 2, -2);
             }
 
             lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
             comp_ndl_stop_set_time_text(h->main_val, vm->stop_time_left_s);
-            lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
+            lv_obj_set_size(h->main_val, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_align(h->main_val, LV_ALIGN_BOTTOM_RIGHT, -4, -12);
         }
 
         if (layout_changed)
