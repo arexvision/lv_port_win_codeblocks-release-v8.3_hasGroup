@@ -28,6 +28,7 @@
 
 static lv_obj_t *s_submenu_layer = NULL;
 static lv_obj_t *s_submenu_title = NULL;
+static lv_obj_t *s_submenu_hint = NULL;
 static lv_obj_t *s_submenu_title_line = NULL;
 static lv_obj_t *s_submenu_list = NULL;
 static lv_obj_t *s_light_status_lbl = NULL;
@@ -2033,6 +2034,7 @@ void submenu_view_reset(void)
     logbook_picker_view_forget();
     s_submenu_layer = NULL;
     s_submenu_title = NULL;
+    s_submenu_hint = NULL;
     s_submenu_title_line = NULL;
     s_submenu_list = NULL;
     s_light_status_lbl = NULL;
@@ -2142,6 +2144,16 @@ void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height)
     lv_label_set_text(s_submenu_title, "SUB MENU");
     lv_obj_set_style_text_color(s_submenu_title, LIGHT, 0);
     lv_obj_set_style_text_font(s_submenu_title, get_font(FONT_ID_TITLE), 0);
+
+    s_submenu_hint = lv_label_create(s_submenu_layer);
+    lv_obj_remove_style_all(s_submenu_hint);
+    lv_obj_set_pos(s_submenu_hint, 150, 10);
+    lv_obj_set_size(s_submenu_hint, s_submenu_width - 166, 26);
+    lv_label_set_long_mode(s_submenu_hint, LV_LABEL_LONG_CLIP);
+    lv_label_set_text(s_submenu_hint, "[ENTER SAVE] [BACK CANCEL]");
+    lv_obj_set_style_text_color(s_submenu_hint, GREEN, 0);
+    lv_obj_set_style_text_font(s_submenu_hint, get_font(FONT_ID_SMALL), 0);
+    lv_obj_add_flag(s_submenu_hint, LV_OBJ_FLAG_HIDDEN);
 
     s_submenu_title_line = lv_obj_create(s_submenu_layer);
     lv_obj_remove_style_all(s_submenu_title_line);
@@ -2597,6 +2609,7 @@ static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
 static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t count)
 {
     if (!s_submenu_title || !s_submenu_list) return;
+    if (s_submenu_hint) lv_obj_add_flag(s_submenu_hint, LV_OBJ_FLAG_HIDDEN);
 
     if ((menu_runtime_current_id() == MENU_INFO_LAST_DIVE) && !bus_is_last_dive_ready())
     {
@@ -3089,16 +3102,30 @@ bool screen_handle_logbook_rotate(int8_t dir)
     return true;
 }
 
+static void submenu_show_light_color_preview_hint(void)
+{
+    if (s_submenu_hint)
+    {
+        lv_label_set_text(s_submenu_hint, "[ENTER SAVE] [BACK CANCEL]");
+        lv_obj_clear_flag(s_submenu_hint, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
 void screen_begin_light_color_preview(uint8_t item_idx)
 {
+    uint8_t select_idx;
+    (void)item_idx;
+
     if (menu_runtime_current_id() != MENU_LIGHT_COLOR)
     {
         return;
     }
     s_light_color_preview_original = bus_get_light_color();
     s_light_color_preview_active = true;
-    ui_state_set_sub_menu_idx(item_idx);
-    screen_set_submenu_selection(item_idx);
+    select_idx = (uint8_t)(1U + (uint8_t)s_light_color_preview_original);
+    ui_state_set_sub_menu_idx(select_idx);
+    screen_set_submenu_selection(select_idx);
+    submenu_show_light_color_preview_hint();
     ui_state_set_state(UI_EDIT_LIGHT_COLOR);
 }
 
@@ -3120,12 +3147,14 @@ bool screen_handle_light_color_preview_rotate(int8_t dir)
     ui_state_set_sub_menu_idx(select_idx);
     screen_set_submenu_selection(select_idx);
     refresh_current_submenu_page(select_idx);
+    submenu_show_light_color_preview_hint();
     return true;
 }
 
 void screen_commit_light_color_preview(void)
 {
     s_light_color_preview_active = false;
+    if (s_submenu_hint) lv_obj_add_flag(s_submenu_hint, LV_OBJ_FLAG_HIDDEN);
     screen_close_submenu();
 }
 
@@ -3142,6 +3171,7 @@ void screen_cancel_light_color_preview(void)
     ui_state_set_sub_menu_idx(restore_idx);
     screen_set_submenu_selection(restore_idx);
     ui_state_set_state(UI_SUB_MENU);
+    if (s_submenu_hint) lv_obj_add_flag(s_submenu_hint, LV_OBJ_FLAG_HIDDEN);
     refresh_current_submenu_page(restore_idx);
 }
 
