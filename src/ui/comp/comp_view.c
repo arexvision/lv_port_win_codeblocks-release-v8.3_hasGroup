@@ -1819,9 +1819,12 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             comp_view_label_set_text_if_changed(h->sub_bot, "NDL");
             if (layout_changed)
             {
-                lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
+                lv_coord_t comp_w = lv_obj_get_width(h->comp);
+                lv_obj_set_size(h->horiz_bg, (comp_w > 32) ? (comp_w - 32) : comp_w, 10);
+                lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
+                lv_obj_align(h->sub_bot, LV_ALIGN_TOP_LEFT, 8, 8);
                 lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
-                lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
+                lv_obj_align(h->main_val, LV_ALIGN_TOP_MID, 16, -8);
             }
 
             comp_view_label_set_text_fmt_if_changed(h->main_val, "%d", vm->ndl);
@@ -1838,6 +1841,9 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                                                     bus_get_depth_unit_label());
             if (layout_changed)
             {
+                lv_coord_t comp_w = lv_obj_get_width(h->comp);
+                lv_obj_set_size(h->horiz_bg, (comp_w > 16) ? (comp_w - 16) : comp_w, 10);
+                lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
                 lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
                              comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
             }
@@ -1877,6 +1883,9 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                                                     bus_get_depth_unit_label());
             if (layout_changed)
             {
+                lv_coord_t comp_w = lv_obj_get_width(h->comp);
+                lv_obj_set_size(h->horiz_bg, (comp_w > 16) ? (comp_w - 16) : comp_w, 10);
+                lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
                 lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
                              comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
             }
