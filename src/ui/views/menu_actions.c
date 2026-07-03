@@ -281,6 +281,11 @@ static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t
         action->type = MENU_ACTION_REFRESH;
         return true;
     }
+    if (id == MENU_ITEM_LIGHT_ROTARY_COLOR)
+    {
+        action->type = MENU_ACTION_BEGIN_LIGHT_COLOR_PREVIEW;
+        return true;
+    }
     if (id >= MENU_ITEM_LIGHT_RED && id <= MENU_ITEM_LIGHT_WHITE)
     {
         bus_set_light_color((light_color_t)(id - MENU_ITEM_LIGHT_RED));

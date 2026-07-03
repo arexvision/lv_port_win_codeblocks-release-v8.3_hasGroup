@@ -240,6 +240,7 @@ static void build_light_color(void)
     /* 灯光颜色选择页。 */
     static const menu_item_id_t ids[] =
     {
+        MENU_ITEM_LIGHT_ROTARY_COLOR,
         MENU_ITEM_LIGHT_RED,
         MENU_ITEM_LIGHT_GREEN,
         MENU_ITEM_LIGHT_BLUE,

@@ -37,6 +37,8 @@ static ui_vm_dive_plan_view_t s_dive_plan_last_vm __attribute__((section(".psram
 static bool s_dive_plan_last_vm_valid = false;
 static bool s_submenu_selection_scroll_silent = false;
 static lv_coord_t s_submenu_target_scroll_y = 0;
+static bool s_light_color_preview_active = false;
+static light_color_t s_light_color_preview_original = LIGHT_COLOR_RED;
 
 typedef enum
 {
@@ -3087,6 +3089,62 @@ bool screen_handle_logbook_rotate(int8_t dir)
     return true;
 }
 
+void screen_begin_light_color_preview(uint8_t item_idx)
+{
+    if (menu_runtime_current_id() != MENU_LIGHT_COLOR)
+    {
+        return;
+    }
+    s_light_color_preview_original = bus_get_light_color();
+    s_light_color_preview_active = true;
+    ui_state_set_sub_menu_idx(item_idx);
+    screen_set_submenu_selection(item_idx);
+    ui_state_set_state(UI_EDIT_LIGHT_COLOR);
+}
+
+bool screen_handle_light_color_preview_rotate(int8_t dir)
+{
+    int8_t next;
+    uint8_t select_idx;
+
+    if (!s_light_color_preview_active || menu_runtime_current_id() != MENU_LIGHT_COLOR)
+    {
+        return false;
+    }
+
+    next = (int8_t)bus_get_light_color() + ((dir > 0) ? 1 : -1);
+    if (next < 0) next = (int8_t)LIGHT_COLOR_COUNT - 1;
+    if (next >= (int8_t)LIGHT_COLOR_COUNT) next = 0;
+    bus_set_light_color((light_color_t)next);
+    select_idx = (uint8_t)(1U + (uint8_t)next);
+    ui_state_set_sub_menu_idx(select_idx);
+    screen_set_submenu_selection(select_idx);
+    refresh_current_submenu_page(select_idx);
+    return true;
+}
+
+void screen_commit_light_color_preview(void)
+{
+    s_light_color_preview_active = false;
+    screen_close_submenu();
+}
+
+void screen_cancel_light_color_preview(void)
+{
+    uint8_t restore_idx;
+
+    if (s_light_color_preview_active)
+    {
+        bus_set_light_color(s_light_color_preview_original);
+    }
+    s_light_color_preview_active = false;
+    restore_idx = (uint8_t)(1U + (uint8_t)s_light_color_preview_original);
+    ui_state_set_sub_menu_idx(restore_idx);
+    screen_set_submenu_selection(restore_idx);
+    ui_state_set_state(UI_SUB_MENU);
+    refresh_current_submenu_page(restore_idx);
+}
+
 bool screen_handle_logbook_back(void)
 {
     if ((ui_state_get_state() != UI_SUB_MENU) ||
@@ -3350,6 +3408,9 @@ void screen_handle_submenu_select(uint8_t item_idx)
         break;
     case MENU_ACTION_BEGIN_EDIT:
         screen_begin_edit_value(item_idx, &action.edit_spec);
+        break;
+    case MENU_ACTION_BEGIN_LIGHT_COLOR_PREVIEW:
+        screen_begin_light_color_preview(item_idx);
         break;
     case MENU_ACTION_SHOW_GAS_MODAL:
         screen_show_modal_gas();

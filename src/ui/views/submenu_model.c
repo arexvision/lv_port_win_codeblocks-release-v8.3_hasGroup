@@ -72,7 +72,7 @@ static const char *s_setup_titles[SUBMENU_SETUP_COUNT] =
 static char s_menu_vm_str[MENU_MAX_ROWS][40];
 static const char *s_menu_vm_dyn[MENU_MAX_ROWS + 1U];
 
-static const char *s_nested_light_color[] = { "RED", "GREEN", "BLUE", "WHITE", NULL };
+static const char *s_nested_light_color[] = { "ROTARY COLOR", "RED", "GREEN", "BLUE", "WHITE", NULL };
 static const char *s_nested_light_level[] = { "10%", "30%", "50%", "70%", "100%", NULL };
 static const char *s_nested_mode_setup[]   = { "AIR", "NITROX", "3 GAS", "OC Tech", NULL };
 static const uint8_t s_last_deco_values[] = { 3, 6 };
