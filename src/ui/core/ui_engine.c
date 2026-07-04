@@ -30,6 +30,10 @@ __attribute__((weak)) void app_ui_perf_note_dirty_mask(uint32_t mask)
     (void)mask;
 }
 
+__attribute__((weak)) void ui_test_poll_runtime_control(void)
+{
+}
+
 __attribute__((weak)) void app_ui_perf_note_router_cost(uint32_t total_ms,
                                                         uint32_t deco_ms,
                                                         uint32_t ndl_ms,

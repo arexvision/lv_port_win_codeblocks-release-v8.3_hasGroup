@@ -26,17 +26,19 @@
 LV_IMG_DECLARE(sudo_up_level0);
 LV_IMG_DECLARE(sudo_up_level1);
 LV_IMG_DECLARE(sudo_up_level2);
-LV_IMG_DECLARE(sudo_up_level3);
-LV_IMG_DECLARE(sudo_up_level4);
-LV_IMG_DECLARE(sudo_up_level5);
-LV_IMG_DECLARE(sudo_up_level6);
 LV_IMG_DECLARE(sudo_down_level0);
 LV_IMG_DECLARE(sudo_down_level1);
 LV_IMG_DECLARE(sudo_down_level2);
-LV_IMG_DECLARE(sudo_down_level3);
-LV_IMG_DECLARE(sudo_down_level4);
-LV_IMG_DECLARE(sudo_down_level5);
-LV_IMG_DECLARE(sudo_down_level6);
+
+/* CodeBlocks 工程当前只编译 level0~2 资源，高档位先映射到 level2，避免未加入工程的图片符号链接失败。 */
+#define sudo_up_level3    sudo_up_level2
+#define sudo_up_level4    sudo_up_level2
+#define sudo_up_level5    sudo_up_level2
+#define sudo_up_level6    sudo_up_level2
+#define sudo_down_level3  sudo_down_level2
+#define sudo_down_level4  sudo_down_level2
+#define sudo_down_level5  sudo_down_level2
+#define sudo_down_level6  sudo_down_level2
 
 #define MAX_WIDGET_RENDER_INSTANCES (LEFT_MAX_WIDGETS + (MAX_CUSTOM_CARDS * MAX_5F_WIDGETS))
 #define MAX_VALUE_HANDLES          (MAX_WIDGET_RENDER_INSTANCES * 2U)
