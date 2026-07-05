@@ -127,6 +127,10 @@ void screen_refresh_settings_submenu_if_open(void);
 bool screen_handle_dive_plan_rotate(int8_t dir);
 bool screen_handle_logbook_rotate(int8_t dir);
 bool screen_handle_logbook_back(void);
+void screen_begin_light_color_preview(uint8_t item_idx);
+bool screen_handle_light_color_preview_rotate(int8_t dir);
+void screen_commit_light_color_preview(void);
+void screen_cancel_light_color_preview(void);
 void screen_refresh_compass_cal_submenu_if_open(void);
 
 void screen_open_nested_submenu(const char *title, const char **items, uint8_t count);
@@ -167,6 +171,8 @@ void screen_refresh_compass_target(void);
    Scroll dots indicator
    ========================================= */
 void screen_update_scroll_dots(uint8_t active_idx, bool visible);
+void screen_scroll_dots_notify_interaction(void);
+void screen_poll_scroll_dots(void);
 
 /* =========================================
    Card title helper

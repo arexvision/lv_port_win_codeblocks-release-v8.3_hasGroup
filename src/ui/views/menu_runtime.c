@@ -179,26 +179,22 @@ static void build_setup_compass(void)
 
 static void build_setup_light(void)
 {
-    /* 灯光菜单既包含总开关，也包含各档位/颜色的可选行。 */
+    /* 灯光菜单按硬件控制语义拆为开关、颜色、亮度和闪烁模式。 */
     uint8_t count = 0;
     const char **labels = submenu_build_setup_items(4, &count);
     static const menu_item_id_t ids[] =
     {
         MENU_ITEM_LIGHT_POWER,
+        MENU_ITEM_LIGHT_COLOR,
+        MENU_ITEM_LIGHT_LEVEL,
         MENU_ITEM_LIGHT_MODE,
-        MENU_ITEM_LIGHT_RED,
-        MENU_ITEM_LIGHT_GREEN,
-        MENU_ITEM_LIGHT_BLUE,
-        MENU_ITEM_LIGHT_WHITE,
     };
     static const menu_row_type_t types[] =
     {
         MENU_ROW_LIGHT_POWER,
+        MENU_ROW_LIGHT_COLOR,
+        MENU_ROW_LIGHT_LEVEL,
         MENU_ROW_LIGHT_MODE,
-        MENU_ROW_NORMAL,
-        MENU_ROW_NORMAL,
-        MENU_ROW_NORMAL,
-        MENU_ROW_NORMAL,
     };
     rows_from_labels(labels, count, ids, types);
 }
@@ -241,7 +237,21 @@ static void build_nested_by_title(const char *title,
 
 static void build_light_color(void)
 {
-    /* 灯光颜色选择页是典型的嵌套菜单，按标题拿到对应的选择项。 */
+    /* 灯光颜色选择页。 */
+    static const menu_item_id_t ids[] =
+    {
+        MENU_ITEM_LIGHT_ROTARY_COLOR,
+        MENU_ITEM_LIGHT_RED,
+        MENU_ITEM_LIGHT_GREEN,
+        MENU_ITEM_LIGHT_BLUE,
+        MENU_ITEM_LIGHT_WHITE,
+    };
+    build_nested_by_title("LIGHT COLOR", ids, NULL);
+}
+
+static void build_light_level(void)
+{
+    /* 灯光亮度选择页。 */
     static const menu_item_id_t ids[] =
     {
         MENU_ITEM_LIGHT_LEVEL_10,
@@ -250,7 +260,7 @@ static void build_light_color(void)
         MENU_ITEM_LIGHT_LEVEL_70,
         MENU_ITEM_LIGHT_LEVEL_100,
     };
-    build_nested_by_title(menu_defs_title(s_current_menu), ids, NULL);
+    build_nested_by_title("LIGHT LEVEL", ids, NULL);
 }
 
 static void build_rows(void)
@@ -364,17 +374,18 @@ static void build_rows(void)
     }
     case MENU_DIVE_SETUP:
     {
-        static const menu_item_id_t ids[] =
-        {
-            MENU_ITEM_DIVE_SALINITY,
-            MENU_ITEM_DIVE_MOD_PPO2,
-            MENU_ITEM_DIVE_SAFETY_STOP,
-            MENU_ITEM_DIVE_LAST_DECO,
-            MENU_ITEM_DIVE_SURFACE_CONFIRM,
-            MENU_ITEM_DIVE_START_DEPTH,
-            MENU_ITEM_DIVE_TISSUE_RESET,
-            MENU_ITEM_DIVE_ALTITUDE,
-        };
+        menu_item_id_t ids[10];
+        uint8_t n = 0U;
+        ids[n++] = MENU_ITEM_DIVE_SALINITY;
+        ids[n++] = MENU_ITEM_DIVE_MOD_PPO2;
+        ids[n++] = MENU_ITEM_DIVE_SAFETY_STOP;
+        ids[n++] = MENU_ITEM_DIVE_LAST_DECO;
+        ids[n++] = MENU_ITEM_DIVE_SURFACE_CONFIRM;
+        ids[n++] = MENU_ITEM_DIVE_START_DEPTH;
+        ids[n++] = MENU_ITEM_DIVE_DEPTH_COMP;
+        if (bus_get_depth_comp_enabled()) ids[n++] = MENU_ITEM_DIVE_DEPTH_COMP_VALUE;
+        ids[n++] = MENU_ITEM_DIVE_TISSUE_RESET;
+        ids[n++] = MENU_ITEM_DIVE_ALTITUDE;
         build_nested_by_title("DIVE SETUP", ids, NULL);
         break;
     }
@@ -456,11 +467,11 @@ static void build_rows(void)
         build_nested_by_title("DATE FORMAT", ids, NULL);
         break;
     }
-    case MENU_LIGHT_RED:
-    case MENU_LIGHT_GREEN:
-    case MENU_LIGHT_BLUE:
-    case MENU_LIGHT_WHITE:
+    case MENU_LIGHT_COLOR:
         build_light_color();
+        break;
+    case MENU_LIGHT_LEVEL:
+        build_light_level();
         break;
     default:
         rows_clear();

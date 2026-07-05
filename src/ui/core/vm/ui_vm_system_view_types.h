@@ -18,6 +18,8 @@ typedef struct
 {
     uint8_t light_power_on;
     uint8_t light_mode;
+    uint8_t light_color;
+    uint8_t light_level;
 } ui_vm_submenu_view_t;
 
 typedef struct

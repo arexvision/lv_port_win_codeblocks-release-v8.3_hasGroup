@@ -37,6 +37,11 @@ static float sim_dive_entry_depth_m(void)
     return bus_get_dive_start_depth_m();
 }
 
+static float sim_deco_input_depth_m(float raw_depth_m)
+{
+    return bus_get_deco_input_depth_m(raw_depth_m);
+}
+
 static float sim_default_air_mod_m(void)
 {
     float mod_m = bus_calculate_gas_mod(21U, 0U, 1.4f);
@@ -883,7 +888,7 @@ static void sim_tick_cb(lv_timer_t *t)
             sim_update_mlx_diagnostics(s_sim.dive_time_s);
             sim_update_runtime_metrics(time_scale);
 
-            deco_core_tick(current_depth_m, s_sim.temperature_c, 1U);
+            deco_core_tick(sim_deco_input_depth_m(current_depth_m), s_sim.temperature_c, 1U);
             sim_alert_tick();
         }
     }

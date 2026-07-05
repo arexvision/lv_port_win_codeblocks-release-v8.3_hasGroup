@@ -87,10 +87,77 @@ void bus_toggle_light_mode(void)
     bus_set_light_mode(g_light_mode_state);
 }
 
+const char *bus_get_light_color_label(void)
+{
+    switch (bus_get_light_color())
+    {
+    case LIGHT_COLOR_RED:   return "RED";
+    case LIGHT_COLOR_GREEN: return "GREEN";
+    case LIGHT_COLOR_BLUE:  return "BLUE";
+    case LIGHT_COLOR_WHITE:
+    default:                return "WHITE";
+    }
+}
+
+const char *bus_get_light_level_label(void)
+{
+    switch (bus_get_light_level())
+    {
+    case LIGHT_LEVEL_10:  return "10%";
+    case LIGHT_LEVEL_30:  return "30%";
+    case LIGHT_LEVEL_50:  return "50%";
+    case LIGHT_LEVEL_70:  return "70%";
+    case LIGHT_LEVEL_100:
+    default:              return "100%";
+    }
+}
+
+WEAK_CALLBACK
+void bus_set_light_color(light_color_t color)
+{
+    g_light_color_state = color;
+    UI_CALLBACK_TRACE("[LIGHT] Color: %s\n", bus_get_light_color_label());
+    ui_on_light_color_set(bus_get_light_color_label(), bus_get_light_level_label());
+}
+
+WEAK_CALLBACK
+void bus_preview_light_color(light_color_t color)
+{
+    g_light_color_state = color;
+    UI_CALLBACK_TRACE("[LIGHT] Preview Color: %s\n", bus_get_light_color_label());
+    ui_on_light_color_preview(bus_get_light_color_label(), bus_get_light_level_label());
+}
+
+WEAK_CALLBACK
+light_color_t bus_get_light_color(void)
+{
+    return g_light_color_state;
+}
+
+WEAK_CALLBACK
+void bus_set_light_level(light_level_t level)
+{
+    g_light_level_state = level;
+    UI_CALLBACK_TRACE("[LIGHT] Level: %s\n", bus_get_light_level_label());
+    ui_on_light_color_set(bus_get_light_color_label(), bus_get_light_level_label());
+}
+
+WEAK_CALLBACK
+light_level_t bus_get_light_level(void)
+{
+    return g_light_level_state;
+}
+
 WEAK_CALLBACK
 void ui_on_light_color_set(const char *color, const char *level)
 {
     UI_CALLBACK_TRACE("[LIGHT] Color: %s, Level: %s\n", color, level);
+}
+
+WEAK_CALLBACK
+void ui_on_light_color_preview(const char *color, const char *level)
+{
+    UI_CALLBACK_TRACE("[LIGHT] Preview Color: %s, Level: %s\n", color, level);
 }
 
 WEAK_CALLBACK
@@ -132,6 +199,20 @@ void ui_on_dive_start_depth_set(float depth_m)
 {
     bus_set_dive_start_depth_m(depth_m);
     UI_CALLBACK_TRACE("[DIVE_SETUP] Dive start depth: %.1fm\n", (double)depth_m);
+}
+
+WEAK_CALLBACK
+void ui_on_depth_comp_enabled_set(bool enabled)
+{
+    bus_set_depth_comp_enabled(enabled);
+    UI_CALLBACK_TRACE("[DIVE_SETUP] Depth compensation: %s\n", enabled ? "ON" : "OFF");
+}
+
+WEAK_CALLBACK
+void ui_on_depth_comp_value_set(float depth_m)
+{
+    bus_set_depth_comp_m(depth_m);
+    UI_CALLBACK_TRACE("[DIVE_SETUP] Depth compensation value: %.1fm\n", (double)depth_m);
 }
 
 WEAK_CALLBACK
@@ -496,6 +577,8 @@ void ui_on_reset_defaults(void)
     bus_set_safety_stop_mode(UI_SAFETY_STOP_DEFAULT);
     bus_set_surface_confirm_min(UI_SURFACE_CONFIRM_DEFAULT_MIN);
     bus_set_dive_start_depth_m(UI_DIVE_START_DEPTH_DEFAULT_M);
+    bus_set_depth_comp_enabled(UI_DEPTH_COMP_DEFAULT_ENABLED != 0U);
+    bus_set_depth_comp_m(UI_DEPTH_COMP_DEFAULT_M);
     bus_set_altitude_level(0U);
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     bus_set_time_24h_enabled(true);
@@ -559,6 +642,8 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->safety_stop_mode = bus_get_safety_stop_mode();
     out_snapshot->surface_confirm_min = bus_get_surface_confirm_min();
     out_snapshot->last_deco_stop_m = bus_get_last_deco_stop();
+    out_snapshot->depth_comp_enabled = bus_get_depth_comp_enabled() ? 1U : 0U;
+    out_snapshot->depth_comp_m = bus_get_depth_comp_m();
     out_snapshot->altitude_level = bus_get_altitude_level();
     out_snapshot->depth_alarm_m = bus_get_depth_alarm_m();
     out_snapshot->time_alarm_min = bus_get_time_alarm_min();

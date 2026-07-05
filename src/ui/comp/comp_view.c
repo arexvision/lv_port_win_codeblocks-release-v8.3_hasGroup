@@ -26,19 +26,17 @@
 LV_IMG_DECLARE(sudo_up_level0);
 LV_IMG_DECLARE(sudo_up_level1);
 LV_IMG_DECLARE(sudo_up_level2);
+LV_IMG_DECLARE(sudo_up_level3);
+LV_IMG_DECLARE(sudo_up_level4);
+LV_IMG_DECLARE(sudo_up_level5);
+LV_IMG_DECLARE(sudo_up_level6);
 LV_IMG_DECLARE(sudo_down_level0);
 LV_IMG_DECLARE(sudo_down_level1);
 LV_IMG_DECLARE(sudo_down_level2);
-
-/* CodeBlocks 工程当前只编译 level0~2 资源，高档位先映射到 level2，避免未加入工程的图片符号链接失败。 */
-#define sudo_up_level3    sudo_up_level2
-#define sudo_up_level4    sudo_up_level2
-#define sudo_up_level5    sudo_up_level2
-#define sudo_up_level6    sudo_up_level2
-#define sudo_down_level3  sudo_down_level2
-#define sudo_down_level4  sudo_down_level2
-#define sudo_down_level5  sudo_down_level2
-#define sudo_down_level6  sudo_down_level2
+LV_IMG_DECLARE(sudo_down_level3);
+LV_IMG_DECLARE(sudo_down_level4);
+LV_IMG_DECLARE(sudo_down_level5);
+LV_IMG_DECLARE(sudo_down_level6);
 
 #define MAX_WIDGET_RENDER_INSTANCES (LEFT_MAX_WIDGETS + (MAX_CUSTOM_CARDS * MAX_5F_WIDGETS))
 #define MAX_VALUE_HANDLES          (MAX_WIDGET_RENDER_INSTANCES * 2U)
@@ -1821,9 +1819,12 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             comp_view_label_set_text_if_changed(h->sub_bot, "NDL");
             if (layout_changed)
             {
-                lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
+                lv_coord_t comp_w = lv_obj_get_width(h->comp);
+                lv_obj_set_size(h->horiz_bg, (comp_w > 32) ? (comp_w - 32) : comp_w, 10);
+                lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
+                lv_obj_align(h->sub_bot, LV_ALIGN_TOP_LEFT, 8, 8);
                 lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
-                lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
+                lv_obj_align(h->main_val, LV_ALIGN_TOP_MID, 0, -8);
             }
 
             comp_view_label_set_text_fmt_if_changed(h->main_val, "%d", vm->ndl);
@@ -1840,6 +1841,9 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                                                     bus_get_depth_unit_label());
             if (layout_changed)
             {
+                lv_coord_t comp_w = lv_obj_get_width(h->comp);
+                lv_obj_set_size(h->horiz_bg, (comp_w > 16) ? (comp_w - 16) : comp_w, 10);
+                lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
                 lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
                              comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
             }
@@ -1870,6 +1874,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
         else if (vm->stop_type == STOP_DECO)
         {
             /* 减压停留态：逻辑上比 SAFETY 更强制，所以只保留 DECO 深度和剩余时间。 */
+            const style_ndl_stop_t *s = &style->spec.ndl_stop;
             comp_view_obj_set_hidden_if_changed(h->title_top, false);
             comp_view_obj_set_hidden_if_changed(h->sub_bot, true);
 
@@ -1879,19 +1884,18 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                                                     bus_get_depth_unit_label());
             if (layout_changed)
             {
-                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
-                             comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
+                lv_coord_t comp_w = lv_obj_get_width(h->comp);
+                lv_coord_t bar_w = (comp_w > s->deco_bar_side_pad) ? (comp_w - s->deco_bar_side_pad) : comp_w;
+                lv_obj_set_size(h->horiz_bg, bar_w, s->deco_bar_h);
+                lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, s->deco_bar_x, s->deco_bar_y);
+                lv_obj_set_size(h->title_top, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+                lv_obj_align(h->title_top, (lv_align_t)s->deco_title_align, s->deco_title_x, s->deco_title_y);
             }
 
-            if (layout_changed)
-            {
-                lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
-            }
+            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
             comp_ndl_stop_set_time_text(h->main_val, vm->stop_time_left_s);
-            if (layout_changed)
-            {
-                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
-            }
+            lv_obj_set_size(h->main_val, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+            lv_obj_align(h->main_val, (lv_align_t)s->deco_main_align, s->deco_main_x, s->deco_main_y);
         }
 
         if (layout_changed)

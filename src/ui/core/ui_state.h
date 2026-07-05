@@ -39,6 +39,7 @@ typedef enum
     UI_MENU_ENTRY   = 10, /* MENU floor internal option focus */
     UI_MODAL_END_DIVE = 11, /* confirm manual dive end from MENU HUB */
     UI_MODAL_TURN_OFF = 12, /* confirm device sleep/power off */
+    UI_EDIT_LIGHT_COLOR = 13, /* live light color preview before confirm */
 } ui_state_t;
 
 /* Sub-menu history entry */

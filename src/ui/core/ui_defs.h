@@ -32,10 +32,11 @@ extern "C" {
 #define CARD_TITLE_LINE_H         2       /* 卡片/菜单标题下划线高度 */
 #define DECO_REFRESH_MS           1000    /* DECO 卡片刷新周期，单位 ms */
 #define UI_NDL_STOP_TIME_MINUTE_ONLY  1U  /* NDL/停留时间只显示向上取整分钟 */
-#define PLAN_TRACK_DECO_STOP_TIME_LABELS_ENABLED  0  /* 减压站标签停留时间开关 */
+#define PLAN_TRACK_DECO_STOP_TIME_LABELS_ENABLED  1  /* 减压站标签停留时间开关 */
 #define PLAN_TRACK_STOP_LABEL_W_PX                72  /* 停站标签最大宽度 */
 #define PLAN_TRACK_STOP_LABEL_GAP_PX              6  /* 停站标签距节点距离 */
 #define PLAN_TRACK_NOW_DOT_RADIUS_PX              6  /* NOW 当前点半径 */
+#define UI_SCROLL_DOTS_AUTO_HIDE_MS            3000U /* 楼层指示点无操作自动隐藏时间 */
 #define PLAN_TRACK_NOW_LABEL_GAP_PX               8  /* NOW 当前点到文字框距离 */
 #define PLAN_TRACK_NOW_LABEL_OFFSET_Y_PX          16  /* NOW 文字框纵向偏移 */
 #define PLAN_TRACK_NOW_LABEL_PAD_X_PX             4  /* NOW 文字框横向内边距 */
@@ -73,7 +74,7 @@ extern "C" {
 #define ANCHOR_SEP_STYLE          SEP_SOLID  /* 固定栏和内容区分隔条样式 */
 
 #ifndef ASCENT_ICON_USE_FINE_LEVELS
-#define ASCENT_ICON_USE_FINE_LEVELS  0U   /* 速率图标分级：0=旧三档映射0/3/6，1=新七档0~6 */
+#define ASCENT_ICON_USE_FINE_LEVELS  1U   /* 速率图标分级：0=旧三档映射0/3/6，1=新七档0~6 */
 #endif
 #define RATE_LEGACY_LEVEL1_THRESHOLD  3.0f  /* 旧三档 level1 阈值，m/min */
 #define RATE_LEGACY_LEVEL2_THRESHOLD  9.0f  /* 旧三档 level2 阈值，m/min */

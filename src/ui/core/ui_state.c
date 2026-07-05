@@ -314,6 +314,11 @@ static void ui_enter_device_control_page(void)
    ========================================= */
 void ui_handle_rotate(int8_t dir)
 {
+    if (dir != 0)
+    {
+        screen_scroll_dots_notify_interaction();
+    }
+
     if (s_ui.state != UI_DASH)
     {
         ui_flush_pending_dash_page();
@@ -494,6 +499,10 @@ void ui_handle_rotate(int8_t dir)
         screen_refresh_edit_value();
         break;
     }
+
+    case UI_EDIT_LIGHT_COLOR:
+        (void)screen_handle_light_color_preview_rotate(dir);
+        break;
 
     default:
         break;
@@ -720,6 +729,11 @@ void ui_handle_click(void)
         screen_commit_edit_value();
         break;
 
+    case UI_EDIT_LIGHT_COLOR:
+        s_ui.state = UI_SUB_MENU;
+        screen_commit_light_color_preview();
+        break;
+
     case UI_INFO:
 #if ENABLE_INFO_MENU
         screen_open_info_submenu(s_ui.menu_info_idx);
@@ -853,6 +867,11 @@ void ui_handle_back(void)
         s_ui.edit_ctx.active = false;
         s_ui.state = UI_SUB_MENU;
         screen_cancel_edit_value();
+        break;
+
+    case UI_EDIT_LIGHT_COLOR:
+        s_ui.state = UI_SUB_MENU;
+        screen_cancel_light_color_preview();
         break;
 
     case UI_SUB_MENU:

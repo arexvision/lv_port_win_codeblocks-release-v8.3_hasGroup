@@ -59,6 +59,9 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
     case SUBMENU_SETTING_LAST_DECO:
         ui_on_last_deco_stop_set(setting->value == 1 ? 6 : 3);
         break;
+    case SUBMENU_SETTING_DEPTH_COMP_ENABLED:
+        ui_on_depth_comp_enabled_set(setting->value != 0U);
+        break;
     case SUBMENU_SETTING_ALTITUDE:
         ui_on_altitude_range_set((uint8_t)setting->value);
         break;
@@ -278,14 +281,23 @@ static bool handle_light(menu_item_id_t id, const menu_row_t *row, menu_action_t
         action->type = MENU_ACTION_REFRESH;
         return true;
     }
+    if (id == MENU_ITEM_LIGHT_ROTARY_COLOR)
+    {
+        action->type = MENU_ACTION_BEGIN_LIGHT_COLOR_PREVIEW;
+        return true;
+    }
+    if (id >= MENU_ITEM_LIGHT_RED && id <= MENU_ITEM_LIGHT_WHITE)
+    {
+        bus_set_light_color((light_color_t)(id - MENU_ITEM_LIGHT_RED));
+        screen_refresh_setup_menu();
+        action->type = MENU_ACTION_CLOSE;
+        return true;
+    }
 
     if (id >= MENU_ITEM_LIGHT_LEVEL_10 && id <= MENU_ITEM_LIGHT_LEVEL_100)
     {
-        ui_on_light_color_set(menu_defs_light_color_name(menu_runtime_current_id()),
-                              (id == MENU_ITEM_LIGHT_LEVEL_10)  ? "10%" :
-                              (id == MENU_ITEM_LIGHT_LEVEL_30)  ? "30%" :
-                              (id == MENU_ITEM_LIGHT_LEVEL_50)  ? "50%" :
-                              (id == MENU_ITEM_LIGHT_LEVEL_70)  ? "70%" : "100%");
+        bus_set_light_level((light_level_t)(id - MENU_ITEM_LIGHT_LEVEL_10));
+        screen_refresh_setup_menu();
         action->type = MENU_ACTION_CLOSE;
         return true;
     }

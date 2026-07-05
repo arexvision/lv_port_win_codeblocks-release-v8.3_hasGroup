@@ -25,13 +25,11 @@
 #include <stdio.h>
 #include <string.h>
 
+extern void ui_test_poll_runtime_control(void) __attribute__((weak));
+
 __attribute__((weak)) void app_ui_perf_note_dirty_mask(uint32_t mask)
 {
     (void)mask;
-}
-
-__attribute__((weak)) void ui_test_poll_runtime_control(void)
-{
 }
 
 __attribute__((weak)) void app_ui_perf_note_router_cost(uint32_t total_ms,
@@ -338,6 +336,8 @@ void sys_config_defaults(sys_config_t *cfg)
     cfg->time_alarm_min = 60;
     cfg->ndl_alarm_min = 5;
     cfg->dive_start_depth_m = UI_DIVE_START_DEPTH_DEFAULT_M;
+    cfg->depth_comp_enabled = UI_DEPTH_COMP_DEFAULT_ENABLED;
+    cfg->depth_comp_m = UI_DEPTH_COMP_DEFAULT_M;
 }
 
 /* =========================================================
@@ -521,6 +521,7 @@ void ui_update_flush_pending_once(void)
      */
     ui_state_poll_deferred_navigation();
     screen_poll_deferred_page_dirty();
+    screen_poll_scroll_dots();
 
     dirty_mask_t mask = bus_take_dirty();
     if (mask == DIRTY_NONE)
@@ -546,7 +547,10 @@ void ui_update_task(lv_timer_t *timer)
 {
     (void)timer;
 
-    ui_test_poll_runtime_control();
+    if (ui_test_poll_runtime_control)
+    {
+        ui_test_poll_runtime_control();
+    }
 
     {
         alarm_view_context_t ctx;
@@ -589,6 +593,8 @@ void ui_update_task(lv_timer_t *timer)
             screen_refresh_setup_menu();
         }
     }
+
+    screen_poll_scroll_dots();
 
     {
         static bool s_last_flash_state = false;

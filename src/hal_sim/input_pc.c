@@ -4,6 +4,20 @@
 #include "lvgl/lvgl.h"
 #include "lv_drivers/win32drv/win32drv.h"
 
+#define INPUT_PC_ESC_POLL_MS       20U
+#define INPUT_PC_BACK_DEBOUNCE_MS  120U
+
+static bool s_esc_down = false;
+static uint32_t s_last_back_ms = 0U - INPUT_PC_BACK_DEBOUNCE_MS;
+
+static void input_pc_back_once(void)
+{
+    uint32_t now = lv_tick_get();
+    if (now - s_last_back_ms < INPUT_PC_BACK_DEBOUNCE_MS) return;
+    s_last_back_ms = now;
+    ui_handle_back();
+}
+
 static void key_event_cb(lv_event_t *e)
 {
     uint32_t key = lv_event_get_key(e);
@@ -14,7 +28,7 @@ static void key_event_cb(lv_event_t *e)
         case LV_KEY_RIGHT:     ui_handle_rotate(+1); break;
         case LV_KEY_ENTER:     ui_handle_click();    break;
         case LV_KEY_ESC:
-        case LV_KEY_BACKSPACE: ui_handle_back();     break;
+        case LV_KEY_BACKSPACE: input_pc_back_once(); break;
         default: break;
     }
 }
@@ -23,6 +37,15 @@ static void enc_click_cb(lv_event_t *e)
 {
     lv_event_code_t code = lv_event_get_code(e);
     if (code == LV_EVENT_CLICKED) ui_handle_click();
+}
+
+static void esc_poll_timer_cb(lv_timer_t *timer)
+{
+    (void)timer;
+
+    bool esc_down = ((GetAsyncKeyState(VK_ESCAPE) & 0x8000) != 0);
+    if (esc_down && !s_esc_down) input_pc_back_once();
+    s_esc_down = esc_down;
 }
 
 void input_init(lv_obj_t *scr)
@@ -51,4 +74,6 @@ void input_init(lv_obj_t *scr)
     lv_group_add_obj(g_enc, catcher);
     lv_group_set_editing(g_enc, true);
     lv_indev_set_group(lv_win32_encoder_device_object, g_enc);
+
+    lv_timer_create(esc_poll_timer_cb, INPUT_PC_ESC_POLL_MS, NULL);
 }

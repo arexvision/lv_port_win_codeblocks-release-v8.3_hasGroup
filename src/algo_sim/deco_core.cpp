@@ -26,6 +26,11 @@ extern "C" {
 #define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
 #define DECO_GAS_DENSITY_COMPRESSIBILITY_Z 1.0f /* 真实气体压缩因子，当前按理想气体 */
 #define DECO_TEMPERATURE_KELVIN_OFFSET 273.15f /* 摄氏度转 Kelvin */
+#define DECO_PRESSURE_PA_PER_BAR 100000.0f      /* 1 bar 对应 Pa */
+#define DECO_GRAVITY_M_S2 9.80665f              /* 标准重力加速度 */
+#define DECO_WATER_DENSITY_FRESH_KG_M3 1000.0f  /* 淡水密度 */
+#define DECO_WATER_DENSITY_SALT_KG_M3 1030.0f   /* 盐水密度 */
+#define DECO_WATER_DENSITY_EN13319_KG_M3 1020.0f /* EN13319 欧标密度 */
 #define DECO_FORECAST_TTS_HOLD_SECONDS 300U   /* TTS hold 预测 5 分钟 */
 #define DECO_FORECAST_TTS_INTERVAL_S 5U       /* TTS forecast 低频刷新间隔 */
 #define DECO_NDL_EXCURSION_DELTA_M 3.0f       /* NDL 上/下 3m 试探 */
@@ -455,7 +460,22 @@ static bool debug_print_schedule(const ArexDecoSchedule *schedule)
 static float pressure_bar_at_depth(const ArexDecoConfig *config, float depth_m)
 {
     if (depth_m < 0.0f) depth_m = 0.0f;
-    return config->surface_pressure_bar + depth_m / config->water_meters_per_bar;
+    return config->surface_pressure_bar + depth_m / config->meters_per_bar;
+}
+
+static void fill_pressure_step_input(ArexDecoPressureStepInput *input,
+                                     const ArexDecoConfig *config,
+                                     float start_depth_m,
+                                     float end_depth_m,
+                                     uint32_t duration_seconds,
+                                     int8_t gas_index)
+{
+    (void)memset(input, 0, sizeof(*input));
+    input->api_version = arex_deco_get_api_version();
+    input->start_pressure_bar = pressure_bar_at_depth(config, start_depth_m);
+    input->end_pressure_bar = pressure_bar_at_depth(config, end_depth_m);
+    input->duration_seconds = duration_seconds;
+    input->gas_index = gas_index;
 }
 
 static float core_mod_depth_for_gas(const ArexDecoConfig *config, const ArexDecoGas *gas)
@@ -641,10 +661,23 @@ static uint32_t safety_stop_seconds_from_mode(uint8_t mode, uint8_t *enabled)
     }
 }
 
-static ArexDecoWaterType water_type_from_salinity(uint8_t mode)
+static float water_density_from_salinity(uint8_t mode)
 {
-    if (mode == 0U) return AREX_DECO_WATER_FRESH;
-    return AREX_DECO_WATER_SALT;
+    switch (mode)
+    {
+    case 2U:
+        return DECO_WATER_DENSITY_EN13319_KG_M3;
+    case 1U:
+        return DECO_WATER_DENSITY_SALT_KG_M3;
+    case 0U:
+    default:
+        return DECO_WATER_DENSITY_FRESH_KG_M3;
+    }
+}
+
+static float meters_per_bar_from_salinity(uint8_t mode)
+{
+    return DECO_PRESSURE_PA_PER_BAR / (water_density_from_salinity(mode) * DECO_GRAVITY_M_S2);
 }
 
 static void fill_config_from_ui(ArexDecoConfig *config)
@@ -656,8 +689,7 @@ static void fill_config_from_ui(ArexDecoConfig *config)
     config->gf_high = (float)s_gf_high_pct / 100.0f;
     config->last_stop_m = (float)s_final_deco_stop_depth_m;
     config->deco_step_m = 3.0f;
-    config->water_type = water_type_from_salinity(s_salinity_mode);
-    config->water_meters_per_bar = (config->water_type == AREX_DECO_WATER_FRESH) ? AREX_DECO_DEFAULT_FRESH_WATER_METERS_PER_BAR : AREX_DECO_DEFAULT_SALT_WATER_METERS_PER_BAR;
+    config->meters_per_bar = meters_per_bar_from_salinity(s_salinity_mode);
     config->safety_stop_seconds = safety_stop_seconds_from_mode(s_safety_stop_mode, &safety_enabled);
     config->safety_stop_enabled = safety_enabled;
     config->gas_switch_penalty_seconds = DECO_GAS_SWITCH_PENALTY_SECONDS;
@@ -1150,7 +1182,7 @@ static void refresh_current_outputs(void)
 static void handle_pending_gas_switch(float depth_m)
 {
     uint8_t target_gas_idx = 0U;
-    ArexDecoStepInput input;
+    ArexDecoPressureStepInput input;
     ArexDecoDiveState next_state;
 
     (void)depth_m;
@@ -1162,13 +1194,8 @@ static void handle_pending_gas_switch(float depth_m)
         ArexDecoGas *gas = &s_state.gas_plan.gases[target_gas_idx];
         if (gas->enabled != 0U && s_state.current_depth_m <= gas->max_depth_m + 0.1f)
         {
-            (void)memset(&input, 0, sizeof(input));
-            input.api_version = arex_deco_get_api_version();
-            input.start_depth_m = s_state.current_depth_m;
-            input.end_depth_m = s_state.current_depth_m;
-            input.duration_seconds = 0U;
-            input.gas_index = (int8_t)target_gas_idx;
-            if (arex_deco_step(&s_state, &input, &next_state, &s_metrics) == AREX_DECO_STATUS_OK)
+            fill_pressure_step_input(&input, &s_state.config, s_state.current_depth_m, s_state.current_depth_m, 0U, (int8_t)target_gas_idx);
+            if (arex_deco_step_pressure(&s_state, &input, &next_state, &s_metrics) == AREX_DECO_STATUS_OK)
             {
                 s_state = next_state;
                 reset_runtime_stop_selector();
@@ -1331,7 +1358,7 @@ bool deco_core_rtc_offline(uint32_t seconds)
     ArexDecoGasPlan original_gas_plan;
     ArexDecoSchedule schedule;
     ArexDecoRuntimeStop runtime_stop;
-    ArexDecoStepInput input;
+    ArexDecoPressureStepInput input;
 
     if (!ensure_initialized()) return false;
     if (seconds == 0U) return false;
@@ -1341,14 +1368,9 @@ bool deco_core_rtc_offline(uint32_t seconds)
     step_state = s_state;
     if (!make_surface_air_state(&s_state, &step_state)) return false;
 
-    (void)memset(&input, 0, sizeof(input));
-    input.api_version = arex_deco_get_api_version();
-    input.start_depth_m = 0.0f;
-    input.end_depth_m = 0.0f;
-    input.duration_seconds = seconds;
-    input.gas_index = 0;
+    fill_pressure_step_input(&input, &step_state.config, 0.0f, 0.0f, seconds, 0);
 
-    if (arex_deco_step(&step_state, &input, &next_state, &s_metrics) != AREX_DECO_STATUS_OK) return false;
+    if (arex_deco_step_pressure(&step_state, &input, &next_state, &s_metrics) != AREX_DECO_STATUS_OK) return false;
 
     next_state.gas_plan = original_gas_plan;
     next_state.current_depth_m = 0.0f;
@@ -1382,27 +1404,20 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
     handle_pending_gas_switch(depth_m);
     handle_pending_gas_ignore();
 
-    ArexDecoStepInput input;
+    ArexDecoPressureStepInput input;
     ArexDecoDiveState next_state;
-    (void)memset(&input, 0, sizeof(input));
-    input.api_version = arex_deco_get_api_version();
-    input.duration_seconds = delta_time_s;
     if (s_surface_confirmed)
     {
         if (!make_surface_air_state(&s_state, &step_state)) return;
-        input.start_depth_m = 0.0f;
-        input.end_depth_m = 0.0f;
-        input.gas_index = 0;
+        fill_pressure_step_input(&input, &step_state.config, 0.0f, 0.0f, delta_time_s, 0);
     }
     else
     {
         step_state = s_state;
-        input.start_depth_m = s_state.current_depth_m;
-        input.end_depth_m = depth_m;
-        input.gas_index = s_state.gas_plan.active_gas_index;
+        fill_pressure_step_input(&input, &step_state.config, s_state.current_depth_m, depth_m, delta_time_s, s_state.gas_plan.active_gas_index);
     }
 
-    ArexDecoStatus step_status = arex_deco_step(&step_state, &input, &next_state, &s_metrics);
+    ArexDecoStatus step_status = arex_deco_step_pressure(&step_state, &input, &next_state, &s_metrics);
     if (step_status != AREX_DECO_STATUS_OK)
     {
         debug_print_plan_call("tick", (int)step_status, -1, NULL, input.gas_index, -1);
@@ -1550,20 +1565,13 @@ bool deco_core_plan_calculate(float depth_m, uint16_t bottom_time_min, float rmv
     (void)arex_deco_reset_tissue_to_surface(&plan_state.config, &plan_state.gas_plan.gases[plan_state.gas_plan.active_gas_index], &plan_state.tissue);
 
     uint32_t descent_s = (uint32_t)((depth_m / PLAN_DESCENT_RATE_MPM) * 60.0f + 0.5f);
-    ArexDecoStepInput input;
-    (void)memset(&input, 0, sizeof(input));
-    input.api_version = arex_deco_get_api_version();
-    input.start_depth_m = 0.0f;
-    input.end_depth_m = depth_m;
-    input.duration_seconds = descent_s;
-    input.gas_index = plan_state.gas_plan.active_gas_index;
-    if (arex_deco_step(&plan_state, &input, &next_state, &metrics) != AREX_DECO_STATUS_OK) return false;
+    ArexDecoPressureStepInput input;
+    fill_pressure_step_input(&input, &plan_state.config, 0.0f, depth_m, descent_s, plan_state.gas_plan.active_gas_index);
+    if (arex_deco_step_pressure(&plan_state, &input, &next_state, &metrics) != AREX_DECO_STATUS_OK) return false;
     plan_state = next_state;
 
-    input.start_depth_m = depth_m;
-    input.end_depth_m = depth_m;
-    input.duration_seconds = (uint32_t)bottom_time_min * 60U;
-    if (arex_deco_step(&plan_state, &input, &next_state, &metrics) != AREX_DECO_STATUS_OK) return false;
+    fill_pressure_step_input(&input, &plan_state.config, depth_m, depth_m, (uint32_t)bottom_time_min * 60U, plan_state.gas_plan.active_gas_index);
+    if (arex_deco_step_pressure(&plan_state, &input, &next_state, &metrics) != AREX_DECO_STATUS_OK) return false;
     plan_state = next_state;
 
     (void)memset(&schedule, 0, sizeof(schedule));

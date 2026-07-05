@@ -7,6 +7,7 @@
 
 #include "screen_dots.h"
 #include "../core/data.h"
+#include "../core/ui_defs.h"
 #include "../core/ui_state.h"
 #include "page_registry.h"
 
@@ -18,6 +19,8 @@ typedef struct
 } scroll_dot_state_t;
 
 static scroll_dot_state_t s_dot_state_cache[DASH_PAGE_COUNT];
+static uint32_t s_last_interaction_ms;
+static uint8_t s_interaction_visible;
 
 void screen_scroll_dots_reset_cache(void)
 {
@@ -29,10 +32,35 @@ void screen_scroll_dots_reset_cache(void)
     }
 }
 
+void screen_scroll_dots_notify_interaction(void)
+{
+    s_last_interaction_ms = lv_tick_get();
+    s_interaction_visible = 1U;
+}
+
+static bool screen_scroll_dots_interaction_window_active(void)
+{
+#if UI_SCROLL_DOTS_AUTO_HIDE_MS == 0U
+    return true;
+#else
+    if (!s_interaction_visible)
+    {
+        return false;
+    }
+    if ((uint32_t)(lv_tick_get() - s_last_interaction_ms) <= UI_SCROLL_DOTS_AUTO_HIDE_MS)
+    {
+        return true;
+    }
+    s_interaction_visible = 0U;
+    return false;
+#endif
+}
+
 void screen_update_scroll_dots(uint8_t active_idx, bool visible)
 {
     bool in_dash_or_edit = (ui_state_get_state() == UI_DASH || ui_state_get_state() == UI_MENU_ENTRY || ui_state_get_state() == UI_EDIT_GAS);
     bool dots_enabled = (ui_dots_position_get() != DOTS_NONE);
+    bool dots_visible = visible && screen_scroll_dots_interaction_window_active();
     uint8_t visible_dash = page_visible_dash_count();
 
     for (uint8_t i = 0; i < DASH_PAGE_COUNT; i++)
@@ -42,7 +70,7 @@ void screen_update_scroll_dots(uint8_t active_idx, bool visible)
             continue;
         }
 
-        bool show = visible && in_dash_or_edit && dots_enabled && (i < visible_dash);
+        bool show = dots_visible && in_dash_or_edit && dots_enabled && (i < visible_dash);
         bool active = (show && i == active_idx);
         if (s_dot_state_cache[i].valid &&
             s_dot_state_cache[i].show == (show ? 1U : 0U) &&

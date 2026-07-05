@@ -66,6 +66,13 @@ static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,
     }
 }
 
+static uint16_t plan_track_stop_label_minutes(float stay_min)
+{
+    if (stay_min <= 0.0f) return 0U;
+    uint16_t minutes = (uint16_t)ceilf(stay_min);
+    return (minutes == 0U) ? 1U : minutes;
+}
+
 static void plan_chart_draw_cb(lv_event_t *e)
 {
     lv_obj_t *obj = lv_event_get_target(e);
@@ -312,7 +319,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
             lv_draw_rect(draw_ctx, &deco_node, &c_area);
 
             char d_buf[16];
-            if (show_stop_time) snprintf(d_buf, sizeof(d_buf), "%.0f%s %d'", (double)bus_get_depth_display(vm->deco_stops[i].depth_m), bus_get_depth_unit_label(), (int)vm->deco_stops[i].stay_min);
+            if (show_stop_time) snprintf(d_buf, sizeof(d_buf), "%.0f%s %u'", (double)bus_get_depth_display(vm->deco_stops[i].depth_m), bus_get_depth_unit_label(), (unsigned)plan_track_stop_label_minutes(vm->deco_stops[i].stay_min));
             else snprintf(d_buf, sizeof(d_buf), "%.0f%s", (double)bus_get_depth_display(vm->deco_stops[i].depth_m), bus_get_depth_unit_label());
             lv_coord_t label_x1;
             lv_coord_t label_x2;

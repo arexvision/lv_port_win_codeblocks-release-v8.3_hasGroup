@@ -79,6 +79,8 @@ static screen_scroll_profile_t s_scroll_profile;
 /* 问题4修复：灯光硬件默认开启，UI 初始值必须匹配硬件状态 */
 bool g_light_power_state = true;
 light_mode_t g_light_mode_state = LIGHT_MODE_ALWAYS;
+light_color_t g_light_color_state = LIGHT_COLOR_WHITE;
+light_level_t g_light_level_state = LIGHT_LEVEL_100;
 
 /* Wall indicators */
 lv_obj_t *s_wall_top;
@@ -519,6 +521,33 @@ void screen_scroll_to_page(uint8_t tile_pos)
 uint8_t screen_visible_tile_pos_get(void)
 {
     return s_visible_tile_pos;
+}
+
+void screen_poll_scroll_dots(void)
+{
+    uint8_t tile_pos = s_visible_tile_pos;
+    if (tile_pos >= page_count())
+    {
+        screen_update_scroll_dots(0U, false);
+        return;
+    }
+
+    if (tile_pos >= PAGE_POS_DYNAMIC_FIRST && tile_pos < page_setup_display_pos())
+    {
+        uint8_t active_idx = 0U;
+        for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
+        {
+            if (page_id_at(pos) != PAGE_ID_UNUSED)
+            {
+                active_idx++;
+            }
+        }
+        screen_update_scroll_dots(active_idx, true);
+    }
+    else
+    {
+        screen_update_scroll_dots(0U, false);
+    }
 }
 
 void screen_invalidate_visible_tile_cache(void)

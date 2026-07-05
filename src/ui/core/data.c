@@ -1978,6 +1978,25 @@ void bus_set_dive_start_depth_m(float depth_m)
     }
 }
 
+void bus_set_depth_comp_enabled(bool enabled)
+{
+    uint8_t value = enabled ? 1U : 0U;
+    if (g_sys_config.depth_comp_enabled != value)
+    {
+        g_sys_config.depth_comp_enabled = value;
+        bus_mark_dirty(DIRTY_DIVE_CONFIG);
+    }
+}
+
+void bus_set_depth_comp_m(float depth_m)
+{
+    if (fabsf(g_sys_config.depth_comp_m - depth_m) > 0.01f)
+    {
+        g_sys_config.depth_comp_m = depth_m;
+        bus_mark_dirty(DIRTY_DIVE_CONFIG);
+    }
+}
+
 void bus_set_altitude_level(uint8_t level)
 {
     if (g_sys_config.altitude_level != level)
@@ -3000,6 +3019,24 @@ float bus_get_dive_start_depth_m(void)
     float depth_m = g_sys_config.dive_start_depth_m;
     if (!isfinite(depth_m) || depth_m < UI_DIVE_START_DEPTH_MIN_M || depth_m > UI_DIVE_START_DEPTH_MAX_M) return UI_DIVE_START_DEPTH_DEFAULT_M;
     return depth_m;
+}
+
+bool bus_get_depth_comp_enabled(void)
+{
+    return g_sys_config.depth_comp_enabled != 0U;
+}
+
+float bus_get_depth_comp_m(void)
+{
+    float depth_m = g_sys_config.depth_comp_m;
+    if (!isfinite(depth_m) || depth_m < UI_DEPTH_COMP_MIN_M || depth_m > UI_DEPTH_COMP_MAX_M) return UI_DEPTH_COMP_DEFAULT_M;
+    return depth_m;
+}
+
+float bus_get_deco_input_depth_m(float raw_depth_m)
+{
+    float depth_m = (raw_depth_m > 0.0f) ? raw_depth_m : 0.0f;
+    return bus_get_depth_comp_enabled() ? (depth_m + bus_get_depth_comp_m()) : depth_m;
 }
 
 uint8_t bus_get_altitude_level(void)

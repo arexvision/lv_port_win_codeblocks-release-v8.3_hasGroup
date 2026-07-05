@@ -16,6 +16,7 @@ extern "C" {
 
 void screen_update_scroll_dots(uint8_t active_idx, bool visible);
 void screen_scroll_dots_reset_cache(void);
+void screen_scroll_dots_notify_interaction(void);
 
 #ifdef __cplusplus
 }
