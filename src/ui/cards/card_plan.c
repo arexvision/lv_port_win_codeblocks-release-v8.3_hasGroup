@@ -1,5 +1,6 @@
 #include "../screen/screen.h"
 #include "../core/data.h"
+#include "../core/ui_defs.h"
 #include "../core/ui_engine.h"
 #include "../core/vm/ui_vm_plan_chart_types.h"
 #include "../comp/depth_chart_renderer.h"
@@ -117,7 +118,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
     {
         max_t_axis_sec = 20.0f;
     }
-    if (max_t_axis_sec > 3600.0f)
+    if (max_t_axis_sec > (float)PLAN_TRACK_HOUR_MODE_THRESHOLD_S)
     {
         x_axis_mode = X_AXIS_HOURS;
     }

@@ -8,6 +8,7 @@
 #include "ui_vm_plan_chart.h"
 
 #include "../data.h"
+#include "../ui_defs.h"
 
 #include <math.h>
 #include <string.h>
@@ -73,7 +74,7 @@ static float vm_plan_time_axis(float current_time_s, float predicted_t_sec)
         target_max_t_sec = 20.0f;
     }
 
-    if (target_max_t_sec > 3600.0f)
+    if (target_max_t_sec > (float)PLAN_TRACK_HOUR_MODE_THRESHOLD_S)
     {
         axis = ceilf(target_max_t_sec / 3600.0f) * 3600.0f;
     }
@@ -101,9 +102,13 @@ static uint16_t vm_plan_time_step(float max_t_axis_sec)
     {
         x_step = 7200U;
     }
-    else if (max_t_axis_sec > 3600.0f)
+    else if (max_t_axis_sec > (float)PLAN_TRACK_HOUR_MODE_THRESHOLD_S)
     {
         x_step = 3600U;
+    }
+    else if (max_t_axis_sec > 3600.0f)
+    {
+        x_step = PLAN_TRACK_LONG_MINUTE_STEP_S;
     }
     else if (max_t_axis_sec > 1200.0f)
     {
