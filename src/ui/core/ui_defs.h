@@ -35,6 +35,8 @@ extern "C" {
 #define PLAN_TRACK_DECO_STOP_TIME_LABELS_ENABLED  1  /* 减压站标签停留时间开关 */
 #define PLAN_TRACK_STOP_LABEL_W_PX                72  /* 停站标签最大宽度 */
 #define PLAN_TRACK_STOP_LABEL_GAP_PX              6  /* 停站标签距节点距离 */
+#define PLAN_TRACK_STOP_LABEL_COMPACT_ON_COLLISION  1  /* 停站标签拥挤时降为14px */
+#define PLAN_TRACK_STOP_LABEL_COLLISION_PAD_PX       2  /* 停站标签拥挤判定间距 */
 #define PLAN_TRACK_NOW_DOT_RADIUS_PX              6  /* NOW 当前点半径 */
 #define PLAN_TRACK_HOUR_MODE_THRESHOLD_S       10800U /* PLAN图超过该秒数才切小时刻度 */
 #define PLAN_TRACK_LONG_MINUTE_STEP_S           1800U /* PLAN图1~3h分钟刻度步进 */

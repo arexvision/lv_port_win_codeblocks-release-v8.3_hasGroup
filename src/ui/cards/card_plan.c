@@ -74,6 +74,17 @@ static uint16_t plan_track_stop_label_minutes(float stay_min)
     return (minutes == 0U) ? 1U : minutes;
 }
 
+static bool plan_track_area_overlaps(const lv_area_t *a, const lv_area_t *b, lv_coord_t pad)
+{
+    return (a->x1 <= b->x2 + pad) && (a->x2 + pad >= b->x1) && (a->y1 <= b->y2 + pad) && (a->y2 + pad >= b->y1);
+}
+
+static void plan_track_format_stop_label(char *buf, size_t size, const deco_stop_t *stop, bool show_stop_time)
+{
+    if (show_stop_time) snprintf(buf, size, "%.0f%s %u'", (double)bus_get_depth_display(stop->depth_m), bus_get_depth_unit_label(), (unsigned)plan_track_stop_label_minutes(stop->stay_min));
+    else snprintf(buf, size, "%.0f%s", (double)bus_get_depth_display(stop->depth_m), bus_get_depth_unit_label());
+}
+
 static void plan_chart_draw_cb(lv_event_t *e)
 {
     lv_obj_t *obj = lv_event_get_target(e);
@@ -294,6 +305,82 @@ static void plan_chart_draw_cb(lv_event_t *e)
         lv_point_t p1 = now_p;
         bool safety_stop_label = bus_get_stop_type() == STOP_SAFETY;
         bool show_stop_time = safety_stop_label || (PLAN_TRACK_DECO_STOP_TIME_LABELS_ENABLED != 0);
+        const lv_font_t *normal_stop_font = txt_dsc.font;
+        const lv_font_t *stop_label_font = normal_stop_font;
+
+        if ((PLAN_TRACK_STOP_LABEL_COMPACT_ON_COLLISION != 0) && (vm->deco_stop_count > 1U))
+        {
+            lv_area_t used_label_area[MAX_DECO_STOPS];
+            uint8_t used_label_count = 0U;
+            float probe_t_sec = current_t_sec;
+            float probe_d = current_d;
+
+            for (uint8_t i = 0U; i < vm->deco_stop_count; i++)
+            {
+                float asc_t = (probe_d > vm->deco_stops[i].depth_m) ? (probe_d - vm->deco_stops[i].depth_m) * 6.0f : 0.0f;
+                probe_t_sec += asc_t;
+                lv_point_t p2 = {MAP_X(probe_t_sec), MAP_Y(vm->deco_stops[i].depth_m)};
+                float hold_t_sec = vm->deco_stops[i].stay_min * 60.0f;
+                probe_t_sec += hold_t_sec;
+                lv_coord_t label_anchor_x = MAP_X(probe_t_sec - hold_t_sec / 2.0f);
+
+                char d_buf[16];
+                plan_track_format_stop_label(d_buf, sizeof(d_buf), &vm->deco_stops[i], show_stop_time);
+
+                lv_point_t label_size;
+                lv_txt_get_size(&label_size, d_buf, normal_stop_font, txt_dsc.letter_space, txt_dsc.line_space, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+                lv_coord_t label_w = label_size.x + 2;
+                lv_coord_t label_h = label_size.y;
+                if (label_w > PLAN_TRACK_STOP_LABEL_W_PX) label_w = PLAN_TRACK_STOP_LABEL_W_PX;
+                if (label_h < 1) label_h = 1;
+
+                lv_coord_t label_x1;
+                lv_coord_t label_x2;
+                lv_area_t label_area;
+                if (safety_stop_label)
+                {
+                    label_x1 = label_anchor_x - label_w / 2;
+                    label_x2 = label_anchor_x + (label_w + 1) / 2;
+                    if (label_x1 < (lv_coord_t)x_axis_left)
+                    {
+                        label_x1 = (lv_coord_t)x_axis_left;
+                        label_x2 = label_x1 + label_w;
+                    }
+                    if (label_x2 > (lv_coord_t)x_axis_right)
+                    {
+                        label_x2 = (lv_coord_t)x_axis_right;
+                        label_x1 = label_x2 - label_w;
+                    }
+                    label_area = (lv_area_t){label_x1, p2.y - label_h - 12, label_x2, p2.y - 12};
+                }
+                else
+                {
+                    label_x2 = label_anchor_x - PLAN_TRACK_STOP_LABEL_GAP_PX;
+                    label_x1 = label_x2 - label_w;
+                    if (label_x2 <= (lv_coord_t)x_axis_left) label_x2 = (lv_coord_t)x_axis_left + label_w;
+                    if (label_x1 < (lv_coord_t)x_axis_left) label_x1 = (lv_coord_t)x_axis_left;
+                    label_area = (lv_area_t){label_x1, p2.y - label_h - 4, label_x2, p2.y - 4};
+                }
+
+                if (plan_track_area_overlaps(&label_area, &now_bg_area, PLAN_TRACK_STOP_LABEL_COLLISION_PAD_PX))
+                {
+                    stop_label_font = FONT_14;
+                    break;
+                }
+                for (uint8_t j = 0U; j < used_label_count; j++)
+                {
+                    if (plan_track_area_overlaps(&label_area, &used_label_area[j], PLAN_TRACK_STOP_LABEL_COLLISION_PAD_PX))
+                    {
+                        stop_label_font = FONT_14;
+                        break;
+                    }
+                }
+                if (stop_label_font != normal_stop_font) break;
+                if (used_label_count < MAX_DECO_STOPS) used_label_area[used_label_count++] = label_area;
+                probe_d = vm->deco_stops[i].depth_m;
+            }
+        }
+        txt_dsc.font = stop_label_font;
 
         for (uint8_t i = 0U; i < vm->deco_stop_count; i++)
         {
@@ -311,8 +398,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
             lv_coord_t label_anchor_x = MAP_X(cur_t_sec - hold_t_sec / 2.0f);
 
             char d_buf[16];
-            if (show_stop_time) snprintf(d_buf, sizeof(d_buf), "%.0f%s %u'", (double)bus_get_depth_display(vm->deco_stops[i].depth_m), bus_get_depth_unit_label(), (unsigned)plan_track_stop_label_minutes(vm->deco_stops[i].stay_min));
-            else snprintf(d_buf, sizeof(d_buf), "%.0f%s", (double)bus_get_depth_display(vm->deco_stops[i].depth_m), bus_get_depth_unit_label());
+            plan_track_format_stop_label(d_buf, sizeof(d_buf), &vm->deco_stops[i], show_stop_time);
             lv_coord_t label_x1;
             lv_coord_t label_x2;
             lv_area_t d_txt;
@@ -350,6 +436,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
             p1 = p3;
             draw_d = vm->deco_stops[i].depth_m;
         }
+        txt_dsc.font = normal_stop_font;
 
         cur_t_sec += (draw_d > 0.0f) ? draw_d * 6.0f : 0.0f;
         lv_point_t p_end = {MAP_X(cur_t_sec), MAP_Y(0.0f)};
