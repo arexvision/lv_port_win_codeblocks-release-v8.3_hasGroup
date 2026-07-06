@@ -338,7 +338,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
                     label_x2 = (lv_coord_t)x_axis_right;
                     label_x1 = label_x2 - PLAN_TRACK_STOP_LABEL_W_PX;
                 }
-                d_txt = (lv_area_t){label_x1, p2.y - 30, label_x2, p2.y - 12};
+                d_txt = (lv_area_t){label_x1, p2.y - 30 + PLAN_TRACK_STOP_LABEL_OFFSET_Y_PX, label_x2, p2.y - 12 + PLAN_TRACK_STOP_LABEL_OFFSET_Y_PX};
                 txt_dsc.align = LV_TEXT_ALIGN_CENTER;
             }
             else
@@ -347,7 +347,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
                 label_x1 = label_x2 - PLAN_TRACK_STOP_LABEL_W_PX;
                 if (label_x2 <= (lv_coord_t)x_axis_left) label_x2 = (lv_coord_t)x_axis_left + PLAN_TRACK_STOP_LABEL_W_PX;
                 if (label_x1 < (lv_coord_t)x_axis_left) label_x1 = (lv_coord_t)x_axis_left;
-                d_txt = (lv_area_t){label_x1, p2.y - 20, label_x2, p2.y - 4};
+                d_txt = (lv_area_t){label_x1, p2.y - 20 + PLAN_TRACK_STOP_LABEL_OFFSET_Y_PX, label_x2, p2.y - 4 + PLAN_TRACK_STOP_LABEL_OFFSET_Y_PX};
                 txt_dsc.align = LV_TEXT_ALIGN_RIGHT;
             }
             lv_draw_label(draw_ctx, &txt_dsc, &d_txt, d_buf, NULL);
