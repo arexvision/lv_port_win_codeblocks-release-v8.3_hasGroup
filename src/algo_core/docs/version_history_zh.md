@@ -26,6 +26,35 @@
 - smoke test
 - 文档
 
+## 0.0.31
+
+### 摘要
+
+本次版本封装 `experiment/gf-trial-ascent-release` 实验分支的浅水减压站候选修复，用于区分
+`0.0.30` 压力输入口径版本和后续刷入固件的 GF release 行为版本。
+
+本次不修改 public ABI 字段或结构体布局；由于 `arex_deco_plan()` / TTS / runtime display stop
+的可观察算法输出会变化，API patch 版本升至 `0.0.31`。
+
+### 行为变更
+
+- `deco_plan()`、GF anchor update 和 staged TTS 统一使用压力域的 implicit
+  tolerated-pressure release solver，不再用“固定 target GF ceiling 不深于下一站压力”作为
+  唯一离站判据。
+- GF-low anchor 改为使用 raw pressure anchor 口径，并至少锚定到 `surface + 1bar`
+  等效深度，避免中间站 GF slope 过平导致 6m 及以上停留偏短。
+- raw route waypoint 与 effective/display stop 分层更清晰；测试和 fixture 比对以
+  non-suppressed effective stop 为准，避免 1s/noise route waypoint 被误认为用户可见停站。
+
+### 验证记录
+
+- Subsurface oracle 矩形 profile 对照中，GF35/75 air 的总减压差从 baseline
+  `45m -248s / 40m -167s / 30m -58s / 21m +8s` 收敛到
+  `45m -5s / 40m -18s / 30m +12s / 21m +17s`。
+- `20260702_pool_46m_air` 真实日志 replay 中，Shearwater 两条日志的 6m 窗口提前量收敛到
+  约 `-23s / -31s`，最终 active last 分别为 `-8s / 0s`。
+- 详细实验结论见 `validation/VENDOR_REPLAY_20260702_POOL_46M_AIR_ANALYSIS_zh.md`。
+
 ## 0.0.30
 
 ### 摘要

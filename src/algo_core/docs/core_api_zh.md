@@ -1,6 +1,6 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.30`。
+本文档描述当前 core API。当前 API 版本为 `0.0.31`。
 
 ## 适用场景
 
@@ -15,7 +15,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 30`
+- `AREX_DECO_API_VERSION_PATCH = 31`
 
 固定容量：
 

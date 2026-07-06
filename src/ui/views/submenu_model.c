@@ -1672,7 +1672,9 @@ bool submenu_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 6)
+    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) &&
+        item_text != NULL &&
+        strcmp(item_text, "TISSUE RESET") == 0)
     {
         out_setting->kind = SUBMENU_SETTING_TISSUE_RESET;
         out_setting->value = 0;
@@ -1690,15 +1692,16 @@ bool submenu_direct_setting_from_selection(const char *current_title,
 {
     /* 直接生效设置不需要确认弹窗。 */
     const char *clean_title = strip_title_prefix(current_title);
-    (void)item_text;
+    bool is_dive_setup;
     if (!clean_title || !out_setting)
     {
         return false;
     }
 
     memset(out_setting, 0, sizeof(*out_setting));
+    is_dive_setup = (strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0);
 
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 0)
+    if (is_dive_setup && item_text != NULL && strncmp(item_text, "SALINITY:", 9U) == 0)
     {
         ui_vm_dive_context_t vm;
         uint8_t current_salinity;
@@ -1711,7 +1714,7 @@ bool submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 2)
+    if (is_dive_setup && item_text != NULL && strncmp(item_text, "SAFETY STOP:", 12U) == 0)
     {
         uint8_t next = (uint8_t)((s_safety_stop_mode + 1) %
                        UI_SAFETY_STOP_COUNT);
@@ -1720,7 +1723,7 @@ bool submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 3)
+    if (is_dive_setup && item_text != NULL && strncmp(item_text, "LAST DECO:", 10U) == 0)
     {
         ui_vm_dive_context_t vm;
         uint8_t current_last_deco_mode;
@@ -1734,7 +1737,7 @@ bool submenu_direct_setting_from_selection(const char *current_title,
         return true;
     }
 
-    if ((strcmp(clean_title, "DIVE SETUP") == 0 || strcmp(clean_title, "DIVE MENU") == 0) && item_index == 7)
+    if (is_dive_setup && item_text != NULL && strncmp(item_text, "ALTITUDE:", 9U) == 0)
     {
         uint8_t next = (uint8_t)((s_altitude_level + 1) % 4);
         out_setting->kind = SUBMENU_SETTING_ALTITUDE;
@@ -2153,7 +2156,7 @@ bool submenu_setting_from_ids(menu_id_t current_menu,
         else if (s_gas_edit_mode == 1U) lv_snprintf(out_setting->body, sizeof(out_setting->body), "GAS CONFIG\nNITROX %u%%", (unsigned)s_gas_edit_draft_o2_pct);
         return true;
     }
-    if (current_menu == MENU_DIVE_SETUP && item_id == MENU_ITEM_DIVE_TISSUE_RESET)
+    if (item_id == MENU_ITEM_DIVE_TISSUE_RESET)
     {
         memset(out_setting, 0, sizeof(*out_setting));
         out_setting->kind = SUBMENU_SETTING_TISSUE_RESET;
@@ -2213,7 +2216,12 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
         out_setting->value = s_gas_edit_draft_active ? 0U : 1U;
         return true;
     }
-    if (current_menu == MENU_DIVE_SETUP)
+    if (current_menu == MENU_DIVE_SETUP ||
+        item_id == MENU_ITEM_DIVE_SALINITY ||
+        item_id == MENU_ITEM_DIVE_SAFETY_STOP ||
+        item_id == MENU_ITEM_DIVE_LAST_DECO ||
+        item_id == MENU_ITEM_DIVE_DEPTH_COMP ||
+        item_id == MENU_ITEM_DIVE_ALTITUDE)
     {
         ui_vm_dive_context_t vm;
 
