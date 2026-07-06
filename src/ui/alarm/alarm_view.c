@@ -17,6 +17,7 @@
 #define ALARM_WARN_BORDER_W_ON   3U
 #define ALARM_WARN_BORDER_W_OFF  1U
 #define ALARM_WARN_BANNER_BORDER_W  3U
+#define ALARM_BANNER_ACK_HINT_W  92
 #define ALARM_TARGET_USE_OVERLAY  1U  /* 告警边框用覆盖层绘制，避免改父组件边框导致内容抖动 */
 #define ALARM_TARGET_OVERLAY_TAG  ((uintptr_t)0xA11A0001U)  /* 告警目标覆盖层标记 */
 #define LOW_POWER_SHUTDOWN_OVERLAY_W 220
@@ -24,6 +25,7 @@
 
 static lv_obj_t *s_alarm_banner;
 static lv_obj_t *s_alarm_banner_lbl;
+static lv_obj_t *s_alarm_banner_hint_lbl;
 static lv_coord_t s_alarm_banner_target_y;
 static lv_obj_t *s_low_power_shutdown_overlay;
 static lv_obj_t *s_low_power_shutdown_title_lbl;
@@ -157,6 +159,7 @@ static void alarm_view_reset_banner_if_invalid(lv_obj_t *safe_zone)
     {
         s_alarm_banner = NULL;
         s_alarm_banner_lbl = NULL;
+        s_alarm_banner_hint_lbl = NULL;
     }
 }
 
@@ -307,17 +310,31 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
 
         s_alarm_banner_lbl = lv_label_create(s_alarm_banner);
         lv_obj_set_style_text_font(s_alarm_banner_lbl, get_font(FONT_ID_MEDIUM), 0);
+        lv_label_set_long_mode(s_alarm_banner_lbl, LV_LABEL_LONG_CLIP);
         lv_obj_align(s_alarm_banner_lbl, LV_ALIGN_LEFT_MID, 20, 0);
+
+        s_alarm_banner_hint_lbl = lv_label_create(s_alarm_banner);
+        lv_obj_set_style_text_font(s_alarm_banner_hint_lbl, get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_align(s_alarm_banner_hint_lbl, LV_TEXT_ALIGN_RIGHT, 0);
+        lv_label_set_long_mode(s_alarm_banner_hint_lbl, LV_LABEL_LONG_CLIP);
+        lv_label_set_text(s_alarm_banner_hint_lbl, "BACK ACK");
     }
 
     lv_obj_set_size(s_alarm_banner, banner_w, banner_h);
     lv_obj_set_pos(s_alarm_banner, banner_x, banner_y);
+    lv_obj_set_width(s_alarm_banner_lbl, (banner_w > ALARM_BANNER_ACK_HINT_W + 40) ? (banner_w - ALARM_BANNER_ACK_HINT_W - 40) : banner_w);
+    lv_obj_align(s_alarm_banner_lbl, LV_ALIGN_LEFT_MID, 20, 0);
+    lv_obj_set_width(s_alarm_banner_hint_lbl, ALARM_BANNER_ACK_HINT_W);
+    lv_obj_align(s_alarm_banner_hint_lbl, LV_ALIGN_RIGHT_MID, -14, 1);
+    if (alarm_current_requires_ack()) lv_obj_clear_flag(s_alarm_banner_hint_lbl, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(s_alarm_banner_hint_lbl, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_move_foreground(s_alarm_banner);
     lv_obj_clear_flag(s_alarm_banner, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_style_bg_color(s_alarm_banner, BLACK, 0);
     lv_obj_set_style_bg_opa(s_alarm_banner, LV_OPA_COVER, 0);
     lv_obj_set_style_text_color(s_alarm_banner_lbl, GREEN, 0);
+    lv_obj_set_style_text_color(s_alarm_banner_hint_lbl, GREEN, 0);
 
     (void)level;
     lv_label_set_text(s_alarm_banner_lbl, text ? text : "");

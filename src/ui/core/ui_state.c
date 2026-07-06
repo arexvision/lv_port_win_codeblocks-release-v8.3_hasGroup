@@ -788,6 +788,15 @@ void ui_handle_back(void)
 {
     ui_flush_pending_dash_page();
 
+    if (alarm_current_requires_ack())
+    {
+        if (alarm_confirm_current())
+        {
+            s_ui.alarm_pending_click = false;
+            return;
+        }
+    }
+
     {
         extern bool alarm_mark_clear_requested(void);
         if (alarm_mark_clear_requested())
