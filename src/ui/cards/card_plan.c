@@ -307,16 +307,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
             lv_point_t p3 = {MAP_X(cur_t_sec), MAP_Y(vm->deco_stops[i].depth_m)};
             draw_diagonal_dashed_line(draw_ctx, &line_dsc, p2, p3);
 
-            lv_coord_t circle_x = MAP_X(cur_t_sec - hold_t_sec / 2.0f);
-            lv_draw_rect_dsc_t deco_node;
-            lv_draw_rect_dsc_init(&deco_node);
-            deco_node.radius = LV_RADIUS_CIRCLE;
-            deco_node.bg_color = BLACK;
-            deco_node.bg_opa = LV_OPA_COVER;
-            deco_node.border_color = GREEN;
-            deco_node.border_width = 2;
-            lv_area_t c_area = {circle_x - 4, p2.y - 4, circle_x + 4, p2.y + 4};
-            lv_draw_rect(draw_ctx, &deco_node, &c_area);
+            lv_coord_t label_anchor_x = MAP_X(cur_t_sec - hold_t_sec / 2.0f);
 
             char d_buf[16];
             if (show_stop_time) snprintf(d_buf, sizeof(d_buf), "%.0f%s %u'", (double)bus_get_depth_display(vm->deco_stops[i].depth_m), bus_get_depth_unit_label(), (unsigned)plan_track_stop_label_minutes(vm->deco_stops[i].stay_min));
@@ -327,8 +318,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
             txt_dsc.opa = LV_OPA_COVER;
             if (safety_stop_label)
             {
-                label_x1 = circle_x - PLAN_TRACK_STOP_LABEL_W_PX / 2;
-                label_x2 = circle_x + PLAN_TRACK_STOP_LABEL_W_PX / 2;
+                label_x1 = label_anchor_x - PLAN_TRACK_STOP_LABEL_W_PX / 2;
+                label_x2 = label_anchor_x + PLAN_TRACK_STOP_LABEL_W_PX / 2;
                 if (label_x1 < (lv_coord_t)x_axis_left)
                 {
                     label_x1 = (lv_coord_t)x_axis_left;
@@ -344,7 +335,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
             }
             else
             {
-                label_x2 = circle_x - PLAN_TRACK_STOP_LABEL_GAP_PX;
+                label_x2 = label_anchor_x - PLAN_TRACK_STOP_LABEL_GAP_PX;
                 label_x1 = label_x2 - PLAN_TRACK_STOP_LABEL_W_PX;
                 if (label_x2 <= (lv_coord_t)x_axis_left) label_x2 = (lv_coord_t)x_axis_left + PLAN_TRACK_STOP_LABEL_W_PX;
                 if (label_x1 < (lv_coord_t)x_axis_left) label_x1 = (lv_coord_t)x_axis_left;
