@@ -285,6 +285,7 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
         { COMP_GTR_0806, 0, 4 },
         { COMP_RMV_0806, 1, 4 },
         { COMP_SAC_0806, 2, 4 },
+        { COMP_SURFACE_TIME_1606, 3, 4 },
     };
     static const grid_widget_t side_sensor[] =
     {
@@ -325,6 +326,7 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
         { COMP_GTR_0806, 2, 3 },
         { COMP_RMV_0806, 3, 3 },
         { COMP_SAC_0806, 4, 3 },
+        { COMP_SURFACE_TIME_1606, 5, 3 },
     };
     static const grid_widget_t top_sensor[] =
     {

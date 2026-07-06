@@ -199,7 +199,7 @@ void sys_config_defaults(sys_config_t *cfg)
     {
         "CORE LARGE", "DECO LIMITS", "DIVE STATS", "SENSORS", "TISSUES"
     };
-    static const uint8_t module_counts[] = { 14U, 15U, 12U, 15U, 2U };
+    static const uint8_t module_counts[] = { 14U, 15U, 13U, 15U, 2U };
     static const grid_widget_t module_cards[][MAX_5F_WIDGETS] =
     {
         {
@@ -221,6 +221,7 @@ void sys_config_defaults(sys_config_t *cfg)
             { COMP_TEMP_AVG_0806, 3, 0 }, { COMP_TTS_AT_5MIN_0806, 4, 0 }, { COMP_TTS_DELTA_5MIN_0806, 0, 1 },
             { COMP_NDL_UP_3M_0806, 1, 1 }, { COMP_NDL_DOWN_3M_0806, 2, 1 }, { COMP_NDL_DELTA_3M_0806, 3, 1 },
             { COMP_GTR_0806, 4, 1 }, { COMP_RMV_0806, 0, 2 }, { COMP_SAC_0806, 1, 2 },
+            { COMP_SURFACE_TIME_1606, 2, 2 },
         },
         {
             { COMP_ACCEL_2406, 0, 0 }, { COMP_BATT_V_0806, 3, 0 }, { COMP_PRESSURE_0806, 4, 0 },
