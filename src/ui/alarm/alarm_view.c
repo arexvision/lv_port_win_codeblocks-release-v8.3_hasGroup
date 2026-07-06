@@ -17,7 +17,7 @@
 #define ALARM_WARN_BORDER_W_ON   3U
 #define ALARM_WARN_BORDER_W_OFF  1U
 #define ALARM_WARN_BANNER_BORDER_W  3U
-#define ALARM_BANNER_ACK_HINT_W  92
+#define ALARM_BANNER_ACK_HINT_W  56
 #define ALARM_TARGET_USE_OVERLAY  1U  /* 告警边框用覆盖层绘制，避免改父组件边框导致内容抖动 */
 #define ALARM_TARGET_OVERLAY_TAG  ((uintptr_t)0xA11A0001U)  /* 告警目标覆盖层标记 */
 #define LOW_POWER_SHUTDOWN_OVERLAY_W 220
@@ -317,7 +317,7 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
         lv_obj_set_style_text_font(s_alarm_banner_hint_lbl, get_font(FONT_ID_SMALL), 0);
         lv_obj_set_style_text_align(s_alarm_banner_hint_lbl, LV_TEXT_ALIGN_RIGHT, 0);
         lv_label_set_long_mode(s_alarm_banner_hint_lbl, LV_LABEL_LONG_CLIP);
-        lv_label_set_text(s_alarm_banner_hint_lbl, "BACK ACK");
+        lv_label_set_text(s_alarm_banner_hint_lbl, "BACK");
     }
 
     lv_obj_set_size(s_alarm_banner, banner_w, banner_h);
