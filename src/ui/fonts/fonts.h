@@ -121,6 +121,12 @@ extern const lv_font_t lv_font_ordinar_64;
 #define FONT_24       (lv_font_montserrat_24)
 #endif
 
+#ifdef USE_FONT_ORDINAR
+#define PLAN_TRACK_DECO_STOP_LABEL_FONT  (&lv_font_ordinar_14)  /* PLAN图减压站标签专用14px适配字体 */
+#else
+#define PLAN_TRACK_DECO_STOP_LABEL_FONT  FONT_14  /* PLAN图减压站标签专用14px适配字体 */
+#endif
+
 #ifdef __cplusplus
 }
 #endif
