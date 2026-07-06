@@ -39,6 +39,7 @@ extern "C" {
 #define PLAN_TRACK_NOW_DOT_RADIUS_PX              5  /* NOW 当前点半径 */
 #define PLAN_TRACK_HOUR_MODE_THRESHOLD_S       10800U /* PLAN图超过该秒数才切小时刻度 */
 #define PLAN_TRACK_LONG_MINUTE_STEP_S           1800U /* PLAN图1~3h分钟刻度步进 */
+#define PLAN_TRACK_TIME_AXIS_HEADROOM_PCT        15.0f /* PLAN图X轴右侧时间余量百分比 */
 #define UI_SCROLL_DOTS_AUTO_HIDE_MS            3000U /* 楼层指示点无操作自动隐藏时间 */
 #define PLAN_TRACK_NOW_LABEL_GAP_PX               8  /* NOW 当前点到文字框距离 */
 #define PLAN_TRACK_NOW_LABEL_OFFSET_Y_PX          16  /* NOW 文字框纵向偏移 */

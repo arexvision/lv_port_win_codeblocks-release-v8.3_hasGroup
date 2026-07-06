@@ -66,7 +66,7 @@ static float vm_plan_depth_axis(float max_log_d)
 
 static float vm_plan_time_axis(float current_time_s, float predicted_t_sec)
 {
-    float target_max_t_sec = fmaxf(current_time_s, predicted_t_sec) * 1.05f;
+    float target_max_t_sec = fmaxf(current_time_s, predicted_t_sec) * (1.0f + PLAN_TRACK_TIME_AXIS_HEADROOM_PCT / 100.0f);
     float axis = 20.0f;
 
     if (target_max_t_sec < 20.0f)
