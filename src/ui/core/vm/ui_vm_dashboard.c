@@ -54,6 +54,25 @@ static float vm_surface_air_ppo2(void)
     return 0.21f * (pressure_mbar / 1013.25f);
 }
 
+static void vm_format_duration(char *buf, size_t buf_size, uint32_t total_s)
+{
+    uint32_t h;
+    uint32_t m;
+    uint32_t s;
+
+    if (buf == NULL || buf_size == 0U)
+    {
+        return;
+    }
+
+    h = total_s / 3600U;
+    m = (total_s % 3600U) / 60U;
+    s = total_s % 60U;
+
+    if (h > 0U) (void)snprintf(buf, buf_size, "%02u:%02u:%02u", (unsigned)h, (unsigned)m, (unsigned)s);
+    else (void)snprintf(buf, buf_size, "%02u:%02u", (unsigned)m, (unsigned)s);
+}
+
 static void vm_format_mod_text(char *buf, size_t buf_size, float mod_m)
 {
     float display_depth;
@@ -479,6 +498,9 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     }
     case COMP_DIVE_TIME_1606:
         (void)snprintf(vm->text,sizeof(vm->text),"%02u:%02u",(unsigned)(bus_get_dive_time_s() / 60U),(unsigned)(bus_get_dive_time_s() % 60U));
+        break;
+    case COMP_SURFACE_TIME_1606:
+        vm_format_duration(vm->text, sizeof(vm->text), bus_get_surface_time_s());
         break;
     case COMP_GAS_1606:
         (void)snprintf(vm->text,sizeof(vm->text),"%s",bus_get_gas_slot_name(bus_get_gas_active_idx()));

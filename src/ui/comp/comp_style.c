@@ -78,6 +78,17 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
+        .widget_id = COMP_SURFACE_TIME_1606,
+        .span_w = 2, .span_h = 1,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_MEDIUM,
+        .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "SURFACE",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
         .widget_id = COMP_GAS_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,

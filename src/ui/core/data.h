@@ -61,7 +61,7 @@ extern "C" {
 /* 固定栏组件描述 (3 Bytes): 左/右 2x7；上/下 7x2 */
 typedef struct
 {
-    uint8_t widget_id;    /* comp_id_t (0~61) */
+    uint8_t widget_id;    /* comp_id_t (0~62) */
     uint8_t x;           /* 当前固定栏方向下的列索引 */
     uint8_t y;           /* 当前固定栏方向下的行索引 */
 } ble_sync_left_widget_t;
@@ -69,7 +69,7 @@ typedef struct
 /* 自定义卡组件描述 (3 Bytes): 左/右 5x6；上/下 7x4 */
 typedef struct
 {
-    uint8_t widget_id;   /* comp_id_t (0~61) */
+    uint8_t widget_id;   /* comp_id_t (0~62) */
     uint8_t r;           /* 当前内容区方向下的起始行 */
     uint8_t c;           /* 当前内容区方向下的起始列 */
 } ble_sync_5f_widget_t;

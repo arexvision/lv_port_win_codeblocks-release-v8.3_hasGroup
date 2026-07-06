@@ -640,6 +640,7 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         case COMP_DEPTH_1612:
         case COMP_DEPTH_1606:
         case COMP_DIVE_TIME_1606:
+        case COMP_SURFACE_TIME_1606:
         case COMP_ASCENT_0806:
         case COMP_ASCENT_0812:
         case COMP_DEPTH_MAX_0806:

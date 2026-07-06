@@ -229,7 +229,8 @@ typedef enum
     COMP_NDL_DELTA_3M_0806 = 58, /* 动态3米NDL预测 */
     COMP_GTR_0806         = 59,  /* 剩余气体时间 */
     COMP_RMV_0806         = 60,  /* 呼吸分钟通气量 */
-    COMP_SAC_0806         = 61   /* 水面耗气率 */
+    COMP_SAC_0806         = 61,  /* 水面耗气率 */
+    COMP_SURFACE_TIME_1606 = 62  /* 水面/出水时间 */
 } comp_id_t;
 
 typedef enum

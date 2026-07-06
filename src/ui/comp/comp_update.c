@@ -432,6 +432,7 @@ void comp_sync_data(comp_id_t w_id)
      * 3. 潜水时间（MM:SS 格式化）
      * ========================================================= */
     case COMP_DIVE_TIME_1606:
+    case COMP_SURFACE_TIME_1606:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 

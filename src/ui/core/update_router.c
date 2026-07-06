@@ -59,6 +59,7 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_DEPTH_1606:
         return DIRTY_DIVE_PROFILE | DIRTY_SYSTEM;
     case COMP_DIVE_TIME_1606:
+    case COMP_SURFACE_TIME_1606:
     case COMP_ASCENT_0806:
     case COMP_ASCENT_0812:
     case COMP_DEPTH_MAX_0806:
