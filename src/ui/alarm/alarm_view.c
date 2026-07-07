@@ -282,6 +282,11 @@ static void alarm_view_banner_rect(const alarm_view_context_t *ctx,
     }
 }
 
+static bool alarm_view_banner_should_show_back(void)
+{
+    return alarm_display_is(ALARM_ID_WARN_TIME_LIMIT) && alarm_current_requires_ack();
+}
+
 static void alarm_view_show_banner(const alarm_view_context_t *ctx,
                                    alarm_level_t level,
                                    const char *text)
@@ -300,6 +305,8 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
     lv_coord_t banner_h;
     alarm_view_banner_rect(ctx, &banner_x, &banner_y, &banner_w, &banner_h);
     s_alarm_banner_target_y = banner_y;
+    bool show_back_hint = alarm_view_banner_should_show_back();
+    lv_coord_t text_w = banner_w;
 
     if (!s_alarm_banner)
     {
@@ -322,11 +329,12 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
 
     lv_obj_set_size(s_alarm_banner, banner_w, banner_h);
     lv_obj_set_pos(s_alarm_banner, banner_x, banner_y);
-    lv_obj_set_width(s_alarm_banner_lbl, (banner_w > ALARM_BANNER_ACK_HINT_W + 40) ? (banner_w - ALARM_BANNER_ACK_HINT_W - 40) : banner_w);
+    if (show_back_hint && banner_w > ALARM_BANNER_ACK_HINT_W + 40) text_w = banner_w - ALARM_BANNER_ACK_HINT_W - 40;
+    lv_obj_set_width(s_alarm_banner_lbl, text_w);
     lv_obj_align(s_alarm_banner_lbl, LV_ALIGN_LEFT_MID, 20, 0);
     lv_obj_set_width(s_alarm_banner_hint_lbl, ALARM_BANNER_ACK_HINT_W);
     lv_obj_align(s_alarm_banner_hint_lbl, LV_ALIGN_RIGHT_MID, -14, 1);
-    if (alarm_current_requires_ack()) lv_obj_clear_flag(s_alarm_banner_hint_lbl, LV_OBJ_FLAG_HIDDEN);
+    if (show_back_hint) lv_obj_clear_flag(s_alarm_banner_hint_lbl, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(s_alarm_banner_hint_lbl, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_move_foreground(s_alarm_banner);
