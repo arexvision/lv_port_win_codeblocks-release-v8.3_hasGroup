@@ -1,6 +1,13 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.31`。
+本文档描述当前 core API。当前 API 版本为 `0.0.32`。
+
+当前硬件只能回传 `major.minor.patch` 三段版本。`0.0.32` 的首个工程测试版本
+在设备侧显示为 `0.0.32`，研发和验证侧标识为 `0.0.32-alpha1-anchor-first-real`。
+本 alpha 的算法实现 commit 为 `26b126f064700df2547c15e5622f384cae89dcd1`，
+基线 commit 为 `0f82a7fbee7f2a16535d702451fe36d19659e4a5`
+（`Keep runtime stop at missed deco depth`）。alpha 后缀不编码进 public ABI，
+最终构建 commit 必须通过固件包名、构建 manifest、测试记录和日志目录追溯。
 
 ## 适用场景
 
@@ -15,7 +22,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 31`
+- `AREX_DECO_API_VERSION_PATCH = 32`
 
 固定容量：
 
@@ -699,10 +706,19 @@ projection / hysteresis 语义：
 
 - 默认策略为 stateless mandatory projection；`stable_seconds = 0` 可完全关闭 hysteresis。
 - `stable_seconds > 0` 时只启用 1-2 s 极薄 hysteresis，实际值会夹到最大 2 s。
+- missed-deco 优先于常规 projection：如果上一帧已显示的强制减压站仍有剩余时间，
+  当前深度已经浅于该站，且当前 schedule 中已找不到同 depth/gas 的有效 mandatory stop，
+  selector 会继续显示上一帧错过的较深站，提示潜水员回到该停站。
+  此时 `output.reason = AREX_DECO_RUNTIME_STOP_REASON_HELD_PREVIOUS`，
+  `output.source_raw_index = AREX_DECO_INVALID_STOP_INDEX`，`remaining_seconds`
+  按两次 selector 调用的 elapsed delta 扣减。
+- 如果当前 schedule 中存在更深的实质 mandatory projection，则更深站立即抢占，
+  不会被上一帧 missed stop 长期遮蔽。
 - hold previous 前必须在当前 schedule 中重新找到同 depth/gas 的有效、非 short
   mandatory candidate；`output.source_raw_index` 使用当前 schedule 中匹配到的 raw index。
-- 如果 previous stop 在当前 schedule 中不再是有效 mandatory、变成 short、变成
-  `ROUTE_WAYPOINT` 或带 `DISPLAY_SUPPRESSED`，selector 必须立即切到本帧 projection。
+- 常规 hysteresis 下，如果 previous stop 在当前 schedule 中不再是有效 mandatory、变成
+  short、变成 `ROUTE_WAYPOINT` 或带 `DISPLAY_SUPPRESSED`，selector 必须切到本帧 projection；
+  上述 missed-deco 情况除外。
 - 如果 projected stop 是更深的实质 mandatory，selector 不会长期 hold 旧 stop。
 - selector 不再使用 `candidate_active/candidate_seen_seconds` 做 10 s debounce 或 stable promotion。
 

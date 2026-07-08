@@ -26,6 +26,75 @@
 - smoke test
 - 文档
 
+当前硬件只能回传 `major.minor.patch` 三段版本，不能显式展示 `alpha` / `beta`
+等预发布后缀。因此工程测试版本必须同时记录：
+
+- 设备可见 API 版本，例如 `0.0.32`
+- 研发版本标识，例如 `0.0.32-alpha1-anchor-first-real`
+- core 完整 commit
+- 基线完整 commit
+- 固件包名、构建 manifest 和测试报告目录
+
+`alpha` 后缀不编码进 public ABI；它只用于研发、验证和测试追溯。
+
+## 0.0.32-alpha1-anchor-first-real
+
+### 摘要
+
+本版本为 `0.0.32` 的首个工程测试版本。设备侧 API patch 显示为 `0.0.32`；
+研发和验证侧标识为 `0.0.32-alpha1-anchor-first-real`。
+
+本版本不修改 public ABI 字段、结构体大小或 offset；由于 GF-low anchor 选择逻辑会改变
+`arex_deco_plan()`、TTS、next stop depth/time 和 runtime selector 最终可见输出，
+API patch 版本从 `0.0.31` 升至 `0.0.32`。
+
+### 版本标识
+
+- 设备可见版本：`0.0.32`
+- 研发版本：`0.0.32-alpha1-anchor-first-real`
+- alpha1 算法实现 commit：`26b126f064700df2547c15e5622f384cae89dcd1`
+- 基线 commit：`0f82a7fbee7f2a16535d702451fe36d19659e4a5`
+- 基线说明：`Keep runtime stop at missed deco depth`
+- 构建 commit：以固件包 manifest、测试记录或 `git rev-parse HEAD` 为准。
+
+### 行为变更
+
+- 继承基线 commit `0f82a7fbee7f2a16535d702451fe36d19659e4a5` 的 missed-deco
+  runtime 展示语义：如果上一帧已显示的强制减压站仍有剩余时间，潜水员已经浅于该站，
+  且当前 planner raw schedule 已经不再包含同 depth/gas 的有效 mandatory stop，
+  selector 不会立刻展示更浅的新 projection，而是继续显示上一帧错过的较深减压站，
+  `remaining_seconds` 按 elapsed delta 递减，`source_raw_index` 置为
+  `AREX_DECO_INVALID_STOP_INDEX`，`reason` 为 `AREX_DECO_RUNTIME_STOP_REASON_HELD_PREVIOUS`。
+  这用于在主屏 / bridge / DLF `next_stop` 上提示潜水员回到错过的较深停站。
+- GF-low anchor 从原先偏理论 ceiling / synthetic anchor 的口径，调整为使用 planner
+  实际生成的第一个真实、产品可见 mandatory stop depth。
+- route waypoint 生成改用与 GF pressure interpolation ceiling 一致的压力域判据。
+- runtime selector 仍输出产品层最终使用的 current stop；本版本不新增 selector ABI。
+
+### 非变更项
+
+- 不改变 ZHL-16C 组织舱系数。
+- 不改变 tissue update 方程。
+- 不改变 public C ABI 布局。
+- 不改变默认上升速率，仍为 `9/9/9/9 m/min`。
+- 不引入 `0.0.32-alpha2` 的非线性 GF path 实验逻辑。
+- 不引入 `0.0.32-alpha3` 的 route waypoint display guard 实验逻辑。
+
+### 验证记录
+
+- `RuntimeStopSelectorTest.MissedPreviousStopAsksDiverToReturnDeeper` 覆盖手工 schedule：
+  上一帧显示 `9m/120s`，上浮错过后当前 schedule 只剩 `6m/3m`，selector 仍显示
+  `9m`，剩余时间扣减到 `119s`，raw index 为无效哨兵。
+- `RuntimeStopSelectorTest.PlannerOvershootKeepsRuntimeStopAtMissedDepth` 覆盖真实 planner：
+  40m air profile 上升到 `9m` 后继续浅到 `8m`，raw schedule 首站已变为 `6m`，
+  runtime selector 仍显示错过的 `9m`。
+- `20260705_pool_46m_air_shearwater_full` replay 使用 Shearwater 深度作为统一输入，
+  对比 core selector 最终输出与 Shearwater 的 TTS、next stop depth 和 next stop time。
+- 与 `0.0.31` / `0f82a7fbee7f2a16535d702451fe36d19659e4a5` 基线相比，
+  `alpha1` 在 stop depth 保持约 90% 同深度匹配的同时，stop time 完全一致样本和
+  same-depth stop time MAE 有明显改善。
+- `11/11/8/8 m/min` 上升速率仅作为 replay 参数搜索中的实验环境记录，不属于本版本默认行为。
+
 ## 0.0.31
 
 ### 摘要
