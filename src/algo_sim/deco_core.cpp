@@ -23,6 +23,7 @@ extern "C" {
 #define DECO_PLAN_CALL_DEBUG 1U               /* 打印每次 step/plan 调用结果 */
 #define DECO_GAS_SWITCH_PENALTY_SECONDS 60U   /* 传给 core 的切气惩罚时间 */
 #define DECO_CEILING_ACTIVE_M 0.01f           /* ceiling 大于该值即认为有实时减压义务 */
+#define DECO_STOP_ZONE_SHALLOW_MARGIN_M 1.0f  /* 减压站允许比显示站浅的范围 */
 #define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
 #define DECO_GAS_DENSITY_COMPRESSIBILITY_Z 1.0f /* 真实气体压缩因子，当前按理想气体 */
 #define DECO_TEMPERATURE_KELVIN_OFFSET 273.15f /* 摄氏度转 Kelvin */
@@ -215,6 +216,13 @@ static void reset_stop_progress(void)
     (void)memset(&s_stop_progress, 0, sizeof(s_stop_progress));
 }
 
+static int depth_tenths_for_zone(float depth_m)
+{
+    if (!isfinite(depth_m)) return 0;
+    if (depth_m <= 0.0f) return 0;
+    return (int)(depth_m * 10.0f + 0.5f);
+}
+
 static uint16_t sync_stop_progress_total(stop_type_t type, float depth_m, uint16_t left_s, bool in_stop_zone)
 {
     bool stop_changed;
@@ -256,7 +264,10 @@ static uint16_t sync_stop_progress_total(stop_type_t type, float depth_m, uint16
 
 static bool deco_stop_zone_active(float current_depth_m, float stop_depth_m)
 {
-    return current_depth_m <= (stop_depth_m + DECO_STOP_ZONE_DEEP_MARGIN_M);
+    const int current_dm = depth_tenths_for_zone(current_depth_m);
+    const int shallow_limit_dm = depth_tenths_for_zone(stop_depth_m - DECO_STOP_ZONE_SHALLOW_MARGIN_M);
+    const int deep_limit_dm = depth_tenths_for_zone(stop_depth_m + DECO_STOP_ZONE_DEEP_MARGIN_M);
+    return current_dm >= shallow_limit_dm && current_dm <= deep_limit_dm;
 }
 
 static const char *deco_status_name(int status)

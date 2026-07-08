@@ -73,6 +73,7 @@ static const alarm_def_t s_alarm_defs[ALARM_ID_COUNT] =
     { ALARM_ID_WARN_SIDEMOUNT_DIFF, ALARM_WARN, "TANK PRESSURE DIFF",    COMP_POD_0806,      true,  ALARM_MODE_CONDITION },
     { ALARM_ID_WARN_DEPTH_LIMIT,    ALARM_WARN, "DEPTH LIMIT",           COMP_DEPTH_1606,    true,  ALARM_MODE_CONDITION },
     { ALARM_ID_WARN_TIME_LIMIT,     ALARM_WARN, "TIME LIMIT",            COMP_EMPTY,         false, ALARM_MODE_CONDITION },
+    { ALARM_ID_WARN_MISSED_STOP,    ALARM_WARN, "MISSED STOP",           COMP_EMPTY,         true,  ALARM_MODE_CONDITION },
     { ALARM_ID_WARN_BATTERY_LOW,    ALARM_WARN, "BATTERY LOW",           COMP_BATTERY_0806,  true,  ALARM_MODE_CONDITION },
     { ALARM_ID_WARN_POD_LOST,       ALARM_WARN, "POD LOST",              COMP_POD_0806,      false, ALARM_MODE_CONDITION },
 
@@ -680,6 +681,10 @@ uint8_t alarm_get_target_effects(alarm_target_effect_entry_t *entries, uint8_t m
     {
         alarm_target_effect_t effect = ALARM_TARGET_EFFECT_NONE;
         if (!s_alarm_states[i].active || s_alarm_defs[i].level == ALARM_INFO)
+        {
+            continue;
+        }
+        if ((alarm_id_t)i == ALARM_ID_WARN_MISSED_STOP && s_alarm_states[i].target_acked)
         {
             continue;
         }

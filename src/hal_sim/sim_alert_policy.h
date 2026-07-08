@@ -12,6 +12,8 @@
 #include <string.h>
 
 #define SIM_ALERT_STOP_DONE_LEFT_THRESHOLD_S 1U
+#define SIM_ALERT_MISSED_STOP_SHALLOW_MARGIN_M 0.1f
+#define SIM_ALERT_MISSED_STOP_DEBOUNCE_MS 2000U
 
 typedef struct
 {
@@ -66,6 +68,7 @@ static bool s_sim_alert_last_stop_in_zone;
 static uint32_t s_sim_alert_stop_done_until_ms;
 static bool s_sim_alert_safety_info_was_in_zone;
 static uint32_t s_sim_alert_safety_info_until_ms;
+static uint32_t s_sim_alert_missed_stop_since_ms;
 
 static bool sim_alert_finite(float value)
 {
@@ -187,6 +190,7 @@ static bool sim_alert_alarm_id_from_text(const char *text, alarm_id_t *out_id)
     else if (sim_alert_streq(text, "safety") || sim_alert_streq(text, "safe")) *out_id = ALARM_ID_WARN_SAFETY_BROKEN;
     else if (sim_alert_streq(text, "depth")) *out_id = ALARM_ID_WARN_DEPTH_LIMIT;
     else if (sim_alert_streq(text, "time")) *out_id = ALARM_ID_WARN_TIME_LIMIT;
+    else if (sim_alert_streq(text, "missed") || sim_alert_streq(text, "missedstop")) *out_id = ALARM_ID_WARN_MISSED_STOP;
     else if (sim_alert_streq(text, "ss") || sim_alert_streq(text, "sstop")) *out_id = ALARM_ID_INFO_SAFETY_STOP;
     else if (sim_alert_streq(text, "done") || sim_alert_streq(text, "stopdone")) *out_id = ALARM_ID_INFO_STOP_DONE;
     else return false;
@@ -211,6 +215,7 @@ static const char *sim_alert_alarm_id_name(alarm_id_t id)
     case ALARM_ID_WARN_SAFETY_BROKEN: return "safety";
     case ALARM_ID_WARN_DEPTH_LIMIT: return "depth";
     case ALARM_ID_WARN_TIME_LIMIT: return "time";
+    case ALARM_ID_WARN_MISSED_STOP: return "missed";
     case ALARM_ID_WARN_BATTERY_LOW: return "batt";
     case ALARM_ID_INFO_SAFETY_STOP: return "ss";
     case ALARM_ID_INFO_STOP_DONE: return "done";
@@ -240,6 +245,38 @@ static bool sim_alert_ceiling_broken(void)
            sim_alert_finite(g_sensor_data.ceiling_m) &&
            g_sensor_data.ceiling_m > 0.0f &&
            (g_sensor_data.depth + s_sim_alert_config.ceiling_tolerance_m) < g_sensor_data.ceiling_m;
+}
+
+static uint16_t sim_alert_depth_dm(float depth_m)
+{
+    if (!sim_alert_finite(depth_m) || depth_m <= 0.0f) return 0U;
+    if (depth_m >= 6553.5f) return 65535U;
+    return (uint16_t)(depth_m * 10.0f + 0.5f);
+}
+
+static bool sim_alert_missed_deco_stop(uint32_t now_ms)
+{
+    bool missed;
+    if (g_sensor_data.stop_type != STOP_DECO ||
+        g_sensor_data.stop_depth_m <= 0.0f ||
+        !sim_alert_finite(g_sensor_data.depth))
+    {
+        s_sim_alert_missed_stop_since_ms = 0U;
+        return false;
+    }
+
+    missed = sim_alert_depth_dm(g_sensor_data.depth) <= sim_alert_depth_dm(g_sensor_data.stop_depth_m - SIM_ALERT_MISSED_STOP_SHALLOW_MARGIN_M);
+    if (!missed)
+    {
+        s_sim_alert_missed_stop_since_ms = 0U;
+        return false;
+    }
+    if (s_sim_alert_missed_stop_since_ms == 0U)
+    {
+        s_sim_alert_missed_stop_since_ms = now_ms;
+        return false;
+    }
+    return (now_ms - s_sim_alert_missed_stop_since_ms) >= SIM_ALERT_MISSED_STOP_DEBOUNCE_MS;
 }
 
 static bool sim_alert_update_algo_lock(bool ceiling_broken, uint32_t now_ms)
@@ -405,6 +442,7 @@ static void sim_alert_tick(void)
     sim_alert_apply_auto(ALARM_ID_WARN_OTU_HIGH,
                          g_sensor_data.otu >= s_sim_alert_config.otu_warn);
     sim_alert_apply_auto(ALARM_ID_CRIT_CEIL_BROKEN, ceiling_broken);
+    sim_alert_apply_auto(ALARM_ID_WARN_MISSED_STOP, sim_alert_missed_deco_stop(now_ms));
     sim_alert_apply_auto(ALARM_ID_CRIT_ALGO_LOCK,
                          sim_alert_update_algo_lock(ceiling_broken, now_ms));
 
