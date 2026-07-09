@@ -26,6 +26,37 @@
 - smoke test
 - 文档
 
+## 0.0.32
+
+### 摘要
+
+本版本为 `0.0.31` 之后的公共修复版本，用于修复 OTU 在水面 / 离线时间推进中
+只增不减、跨日残留的问题。
+
+本次不改变 public ABI 总大小；`ArexDecoOxygenExposure` 使用原 reserved 空间新增
+`otu_surface_interval_seconds` 状态字段，因此完整 `ArexDecoDiveState` 快照和
+WASM / 固件宿主必须继续完整保存 / 恢复整个 oxygen exposure 结构体。
+
+### 行为变更
+
+- `arex_deco_step_pressure()` 在 `0m -> 0m`、AIR、离线时长推进时，CNS 继续按既有
+  90 min 半衰期衰减；OTU 不再永久保持不变。
+- OTU 在高 ppO2 / 潜水暴露段仍按 Repex 公式累加，并重置
+  `otu_surface_interval_seconds`。
+- OTU 在近水面空气恢复条件下累计 `otu_surface_interval_seconds`；连续满
+  `24 h` 后清零，匹配常见潜水电脑按日过期 OTU 的产品语义。
+- 短水面间隔不会提前抵扣 OTU；未满 24 h 时 OTU 保持原值。
+- `arex_deco_reset_tissue_to_surface()` 仍只重置组织舱，不重置 CNS / OTU。需要完整清空
+  氧暴露时，应初始化新的 `ArexDecoDiveState` 或由宿主显式清零
+  `ArexDecoOxygenExposure`。
+
+### 验证
+
+- 新增 `OxygenExposureTest.OTUExpiresAfterTwentyFourHoursAtSurface`。
+- 新增 `OxygenExposureTest.OTULoadingResetsSurfaceRecoveryClock`。
+- 新增 `OxygenExposureTest.OfflineSurfaceStepExpiresOTUAfterTwentyFourHours`，覆盖产品层
+  离线逻辑使用 `arex_deco_step_pressure()` 以 `0m -> 0m`、AIR、X 秒推进的场景。
+
 当前硬件只能回传 `major.minor.patch` 三段版本，不能显式展示 `alpha` / `beta`
 等预发布后缀。因此工程测试版本必须同时记录：
 
@@ -55,6 +86,8 @@ API patch 版本从 `0.0.31` 升至 `0.0.32`。
 - alpha1 算法实现 commit：`26b126f064700df2547c15e5622f384cae89dcd1`
 - 基线 commit：`0f82a7fbee7f2a16535d702451fe36d19659e4a5`
 - 基线说明：`Keep runtime stop at missed deco depth`
+- 公共 hotfix commit：`e7cd12e890fb2d2155c36391aa50c8f4eeafa9d2`
+- 公共 hotfix 说明：`Expire OTU after surface recovery interval`
 - 构建 commit：以固件包 manifest、测试记录或 `git rev-parse HEAD` 为准。
 
 ### 行为变更

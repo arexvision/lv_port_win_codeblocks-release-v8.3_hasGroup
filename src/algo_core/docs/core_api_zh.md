@@ -6,7 +6,9 @@
 在设备侧显示为 `0.0.32`，研发和验证侧标识为 `0.0.32-alpha1-anchor-first-real`。
 本 alpha 的算法实现 commit 为 `26b126f064700df2547c15e5622f384cae89dcd1`，
 基线 commit 为 `0f82a7fbee7f2a16535d702451fe36d19659e4a5`
-（`Keep runtime stop at missed deco depth`）。alpha 后缀不编码进 public ABI，
+（`Keep runtime stop at missed deco depth`），公共 hotfix commit 为
+`e7cd12e890fb2d2155c36391aa50c8f4eeafa9d2`
+（`Expire OTU after surface recovery interval`）。alpha 后缀不编码进 public ABI，
 最终构建 commit 必须通过固件包名、构建 manifest、测试记录和日志目录追溯。
 
 ## 适用场景
@@ -211,6 +213,14 @@ runtime current-stop selector 默认策略（0.0.28 起）：
 |---|---|---:|---|
 | `cns_percent` | `float` | % | CNS 氧中毒百分比 |
 | `otu` | `float` | OTU | Oxygen Toxicity Units |
+| `otu_surface_interval_seconds` | `uint32_t` | s | 近水面空气恢复条件下连续累计的 OTU 过期计时。高 ppO2 / 潜水暴露会清零该计时；连续满 24 h 后 `otu` 清零 |
+
+OTU 恢复规则（0.0.32 起）：
+
+- 高 ppO2 / 潜水暴露段：`otu` 按 Repex 公式累加，`otu_surface_interval_seconds` 清零。
+- 近水面空气恢复段：`otu_surface_interval_seconds` 累计；未满 24 h 时 `otu` 保持不变。
+- 连续近水面空气恢复满 24 h 后：`otu` 清零。
+- `arex_deco_reset_tissue_to_surface()` 只重置组织舱，不重置 CNS / OTU。
 
 ### `ArexDecoDiveState`
 

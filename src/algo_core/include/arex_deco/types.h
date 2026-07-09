@@ -80,7 +80,11 @@ typedef struct ArexDecoTissueState {
 typedef struct ArexDecoOxygenExposure {
     float cns_percent;
     float otu;
-    uint8_t reserved[24];
+    // Consecutive near-surface air/offline interval used for 24 h OTU expiry.
+    // Reset to 0 whenever OTU is loaded by elevated PPO2 or the diver leaves
+    // the near-surface air recovery condition.
+    uint32_t otu_surface_interval_seconds;
+    uint8_t reserved[20];
 } ArexDecoOxygenExposure;
 
 typedef struct ArexDecoDiveState {
