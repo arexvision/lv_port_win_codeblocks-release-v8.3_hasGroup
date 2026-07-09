@@ -68,6 +68,7 @@ static stop_type_t s_sim_alert_last_stop_type = STOP_NONE;
 static float s_sim_alert_last_stop_depth_m;
 static uint16_t s_sim_alert_last_stop_left_s;
 static bool s_sim_alert_last_stop_in_zone;
+static bool s_sim_alert_deco_countdown_seen;
 static uint32_t s_sim_alert_stop_done_until_ms;
 static bool s_sim_alert_safety_info_was_in_zone;
 static uint32_t s_sim_alert_safety_info_until_ms;
@@ -127,6 +128,7 @@ static void sim_alert_reset_runtime(void)
     s_sim_alert_last_stop_depth_m = 0.0f;
     s_sim_alert_last_stop_left_s = 0U;
     s_sim_alert_last_stop_in_zone = false;
+    s_sim_alert_deco_countdown_seen = false;
     s_sim_alert_stop_done_until_ms = 0U;
     s_sim_alert_safety_info_was_in_zone = false;
     s_sim_alert_safety_info_until_ms = 0U;
@@ -329,19 +331,33 @@ static bool sim_alert_update_stop_done(uint32_t now_ms)
 {
     const bool stop_active = g_sensor_data.stop_type != STOP_NONE &&
                              g_sensor_data.stop_time_left_s > 0U;
+    const bool same_deco_stop =
+        stop_active &&
+        s_sim_alert_stop_was_active &&
+        s_sim_alert_last_stop_type == STOP_DECO &&
+        g_sensor_data.stop_type == STOP_DECO &&
+        fabsf(g_sensor_data.stop_depth_m - s_sim_alert_last_stop_depth_m) <= 0.05f;
+    const bool shallower_deco_stop =
+        stop_active &&
+        s_sim_alert_stop_was_active &&
+        s_sim_alert_last_stop_type == STOP_DECO &&
+        g_sensor_data.stop_type == STOP_DECO &&
+        g_sensor_data.stop_depth_m < (s_sim_alert_last_stop_depth_m - 0.1f);
     const bool prev_stop_completed =
         s_sim_alert_stop_was_active &&
         s_sim_alert_last_stop_in_zone &&
         s_sim_alert_last_stop_left_s <= SIM_ALERT_STOP_DONE_LEFT_THRESHOLD_S;
+    const bool prev_deco_stop_counted =
+        s_sim_alert_stop_was_active &&
+        s_sim_alert_last_stop_type == STOP_DECO &&
+        s_sim_alert_last_stop_in_zone &&
+        s_sim_alert_deco_countdown_seen;
     const bool stop_finished =
-        prev_stop_completed &&
+        (prev_stop_completed || prev_deco_stop_counted) &&
         !stop_active;
     const bool deco_station_done =
-        prev_stop_completed &&
-        stop_active &&
-        s_sim_alert_last_stop_type == STOP_DECO &&
-        g_sensor_data.stop_type == STOP_DECO &&
-        g_sensor_data.stop_depth_m < (s_sim_alert_last_stop_depth_m - 0.1f);
+        (prev_stop_completed || prev_deco_stop_counted) &&
+        shallower_deco_stop;
 
     if (stop_finished || deco_station_done)
     {
@@ -350,6 +366,23 @@ static bool sim_alert_update_stop_done(uint32_t now_ms)
 
     if (stop_active)
     {
+        if (g_sensor_data.stop_type == STOP_DECO)
+        {
+            if (!same_deco_stop)
+            {
+                s_sim_alert_deco_countdown_seen = false;
+            }
+            else if (s_sim_alert_last_stop_in_zone &&
+                     g_sensor_data.in_stop_zone &&
+                     g_sensor_data.stop_time_left_s < s_sim_alert_last_stop_left_s)
+            {
+                s_sim_alert_deco_countdown_seen = true;
+            }
+        }
+        else
+        {
+            s_sim_alert_deco_countdown_seen = false;
+        }
         s_sim_alert_last_stop_type = g_sensor_data.stop_type;
         s_sim_alert_last_stop_depth_m = g_sensor_data.stop_depth_m;
         s_sim_alert_last_stop_left_s = g_sensor_data.stop_time_left_s;
@@ -361,6 +394,7 @@ static bool sim_alert_update_stop_done(uint32_t now_ms)
         s_sim_alert_last_stop_depth_m = 0.0f;
         s_sim_alert_last_stop_left_s = 0U;
         s_sim_alert_last_stop_in_zone = false;
+        s_sim_alert_deco_countdown_seen = false;
     }
     s_sim_alert_stop_was_active = stop_active;
 
