@@ -677,7 +677,7 @@ static void debug_send_help(void)
         "  last_deco <3|6> | final_stop <3|6>\r\n"
         "  cns <pct> | otu <value> | mod <m> | ceiling <m> | mix <o2> <he> | dens <g_l> | fio2 <pct>\r\n"
         "  gas_count <n> | gas <slot> [name] | gas_slot <slot> <o2> <he> <mod> [name]\r\n"
-        "  layout <default|current|gas|empty|side|top|bottom>\r\n"
+        "  layout <default|current|gas|empty|side|top|bottom> | safe_offset <x> <y>\r\n"
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "  alert ids: asc po2 po2min po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
@@ -962,6 +962,26 @@ static void debug_exec_line(char *line)
         }
 
         debug_send_raw("ERR usage: layout <default|current|gas|empty|side|top|bottom>\r\n");
+        return;
+    }
+
+    if (debug_streq(cmd, "safe_offset") || debug_streq(cmd, "ui_offset") || debug_streq(cmd, "offset"))
+    {
+        int offset_x;
+        int offset_y;
+
+        if (!debug_parse_int(debug_next_token(&cursor), &offset_x) ||
+                !debug_parse_int(debug_next_token(&cursor), &offset_y) ||
+                offset_x < INT16_MIN || offset_x > INT16_MAX ||
+                offset_y < INT16_MIN || offset_y > INT16_MAX ||
+                debug_next_token(&cursor) != NULL)
+        {
+            debug_send_raw("ERR usage: safe_offset <x> <y>\r\n");
+            return;
+        }
+
+        bus_set_ui_offset((int16_t)offset_x, (int16_t)offset_y);
+        debug_sendf("OK safe_offset %d %d\r\n", offset_x, offset_y);
         return;
     }
 
