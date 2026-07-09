@@ -9,6 +9,7 @@ extern "C" {
 #include "../ui/core/data.h"
 #include "../ui/core/ui_settings.h"
 #include "../ui/core/ui_state.h"
+#include "../hal_sim/sim_policy.h"
 }
 
 #include <math.h>
@@ -696,6 +697,7 @@ static void fill_config_from_ui(ArexDecoConfig *config)
     uint8_t safety_enabled;
 
     (void)arex_deco_make_default_config(config);
+    config->surface_pressure_bar = AREX_RUNTIME_DEFAULT_SURFACE_MBAR / 1000.0f;
     config->gf_low = (float)s_gf_low_pct / 100.0f;
     config->gf_high = (float)s_gf_high_pct / 100.0f;
     config->last_stop_m = (float)s_final_deco_stop_depth_m;
