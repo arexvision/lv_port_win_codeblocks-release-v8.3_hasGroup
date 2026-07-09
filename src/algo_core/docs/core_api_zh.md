@@ -1,15 +1,13 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.32`。
+本文档描述当前 core API。当前 API 版本为 `0.0.33`。
 
-当前硬件只能回传 `major.minor.patch` 三段版本。`0.0.32` 的首个工程测试版本
-在设备侧显示为 `0.0.32`，研发和验证侧标识为 `0.0.32-alpha1-anchor-first-real`。
-本 alpha 的算法实现 commit 为 `26b126f064700df2547c15e5622f384cae89dcd1`，
-基线 commit 为 `0f82a7fbee7f2a16535d702451fe36d19659e4a5`
-（`Keep runtime stop at missed deco depth`），公共 hotfix commit 为
-`e7cd12e890fb2d2155c36391aa50c8f4eeafa9d2`
-（`Expire OTU after surface recovery interval`）。alpha 后缀不编码进 public ABI，
-最终构建 commit 必须通过固件包名、构建 manifest、测试记录和日志目录追溯。
+`0.0.33` 是 `0.0.32-alpha1-anchor-first-real` 收敛后的下水对标测试版本。
+设备侧显示为 `0.0.33`，release commit 为
+`cccdea36be8876e6c068702192cee7f2b043d847`，tag 为 `v0.0.33`。本版本继承
+`0.0.32` OTU surface recovery hotfix、first-real GF anchor、压力域 GF release，
+并补入 NDL transition / latent 3 m stop / runtime selector depth-layered promotion
+修正。最终构建 commit 必须通过固件包名、构建 manifest、测试记录和日志目录追溯。
 
 ## 适用场景
 
@@ -24,7 +22,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 32`
+- `AREX_DECO_API_VERSION_PATCH = 33`
 
 固定容量：
 
@@ -662,6 +660,12 @@ Planner 行为：
 - 中间停站按 `deco_step_m` 递减。
 - 到达 `last_stop_m` 后，不再生成更浅停站；若 `last_stop_m` 深于常规 step 网格（例如 6 m），最后一站会延长到满足直接升水条件。
 - 当较深 `last_stop_m` 与标准 step 网格对齐时，planner 会用一条“继续按常规 step 停到底”的 staged alt-plan 估算最后一站下界，避免直接升水求解低估保守停留时间。若该 alt-plan 在 6 h 单站上限内仍不可行，`arex_deco_plan` 返回 `AREX_DECO_STATUS_INVALID_STATE`，而不是输出被饱和值污染的计划。
+- 当 GF-high hard ceiling 已经进入浅层正值、但正常 3 m 网格 planner 尚未生成任何停站时，
+  `0.0.33` 会在严格门控下补一个 latent last stop：仅当 `last_stop_m == 3 m`、
+  `deco_step_m == 3 m`、当前深度仍深于 3 m、且 hard ceiling 约 `>= 0.85 m` 时，
+  输出最小 `3 m / 60 s` 停站，并把 TTS 计算为“上升到 3 m + 停 60 s + 升水”。
+  该逻辑只作用于 schedule 为空的浅 ceiling 灰区；只要 planner 已生成真实停站，
+  它不会插入或改写已有停站序列。
 - 气体切换会计入同深度额外停留，默认 60 s。该值写入停站的 `switch_penalty_seconds`，并计入 `duration_seconds`。
 - 气体切换惩罚期间按新气体推进组织舱，且该惩罚计入新气体所在停站的 `duration_seconds`。
 - `tts_seconds` 包含停站时间、上升时间、安全停留和气体切换惩罚。
@@ -707,8 +711,10 @@ selector 初始化。
 - 带 `AREX_DECO_STOP_FLAG_DISPLAY_SUPPRESSED` 的 raw stop 不进入 projection。
 - `ROUTE_WAYPOINT`、`GAS_SWITCH` 和 `SAFETY` 不进入强制减压 current-stop selector。
   安全停留继续使用 `arex_deco_safety_stop()`。
-- `hold_seconds >= promote_min_seconds` 的候选为实质候选；更短的 mandatory stop
-  是 short candidate。
+- 默认 `promote_min_seconds` 使用深度分层阈值：`3 m >= 1 s`、`6 m >= 15 s`、
+  `9 m 及更深 >= 24 s` 的候选为实质候选；更短的 mandatory stop 是 short candidate。
+  如果调用方显式传入非默认 `promote_min_seconds`，selector 按该统一阈值执行，
+  不再套用默认分层策略。
 - first mandatory 若为 short：唯一 mandatory 时可显示；潜水员已在该 stop zone 内时可显示；
   没有实质 mandatory 替代时可显示；否则显示第一个实质 mandatory。
 

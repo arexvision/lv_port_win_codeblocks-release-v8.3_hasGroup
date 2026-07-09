@@ -26,6 +26,91 @@
 - smoke test
 - 文档
 
+## 0.0.33
+
+### 摘要
+
+本版本为 `0.0.32-alpha1-anchor-first-real` 收敛后的下水对标测试版本。设备侧
+API patch 显示为 `0.0.33`，用于区别此前 `0.0.32` OTU hotfix 和 alpha 工程包。
+
+本次不改变 public ABI 字段、结构体大小或 offset；由于 planner / runtime selector 的
+产品可见输出语义变化，API patch 版本升至 `0.0.33`。
+
+### 版本标识
+
+- 设备可见版本：`0.0.33`
+- release commit：`cccdea36be8876e6c068702192cee7f2b043d847`
+- tag：`v0.0.33`
+- SF32 测试包：`arex-deco-core-0.0.33-sf32-cccdea3.tar.gz`
+- 包 manifest 要求：`API version: 0.0.33`，`Source dirty: no`
+
+### 行为变更
+
+- 继承 `0.0.32` 的 OTU surface recovery hotfix：水面 / 离线空气恢复满 24 h 后
+  OTU 清零，未满 24 h 不提前抵扣。
+- 继承 `0.0.32-alpha1-anchor-first-real` 的 GF anchor 语义：GF-low anchor 使用
+  planner 实际生成的第一个真实、产品可见 mandatory stop depth，而不是理论 ceiling /
+  synthetic candidate。该变化影响后续 GF release、route waypoint、TTS 和 next stop
+  depth/time。
+- 保留压力域 GF release 求解路径：planner 在判断离站到下一站 / 水面是否可行时，
+  使用与压力插值 ceiling 一致的判据，避免旧版本在中间站上把 GF 约束和压力约束拆开后
+  低估停留。
+- 修复 NDL 归零附近的 planner 边界行为：快速下潜或刚进入强制减压时，
+  `arex_deco_plan()` 不应返回 `AREX_DECO_STATUS_INVALID_STATE`，也不应把当前深度附近的
+  整条 route grid 暴露成大量减压站。
+- 新增浅 ceiling 的 latent last stop 兜底：当 GF-high hard ceiling 已经明确为正、
+  但正常 3 m 网格 planner 还没有生成任何停站时，仅在 `last_stop_m == 3 m`、
+  `deco_step_m == 3 m`、当前深度仍深于 3 m、且 hard ceiling 约 `>= 0.85 m` 时，
+  输出最小 `3 m / 60 s` 停站，并把 TTS 计算为“上升到 3 m + 停 60 s + 升水”。
+  该逻辑只作用于 schedule 为空的浅 ceiling 灰区，不改变已有真实停站序列。
+- runtime selector 默认 short-stop promotion 改为分层阈值：
+  `3 m >= 1 s`、`6 m >= 15 s`、`9 m 及更深 >= 24 s`。这降低 NDL 刚归零或站深切换边界
+  的短站抖动，同时允许 3 m 最小停站及时成为产品可见 current stop。
+- 调用方显式传入非默认 `promote_min_seconds` 时，selector 仍按旧的统一阈值策略执行，
+  以保持 API 参数语义可控。
+
+### 非变更项
+
+- 不改变 public C ABI 布局。
+- 不改变 ZHL-16C 系数、组织舱更新方程或 Bühlmann 基础数学。
+- 不改变默认 GF，仍为 `50/70`。
+- 不改变默认上升速率，仍为 `9/9/9/9 m/min`。
+- 不引入 `0.0.32-alpha2` 的非线性 GF path 实验逻辑。
+- 不引入 `0.0.32-alpha3` 的 route waypoint display guard 实验逻辑。
+- `11/11/8/8 m/min`、GF `35/75` 是 Shearwater 对标 replay / 下水测试配置，不是 core 默认值。
+
+### Shearwater 对标结果
+
+`20260705_pool_46m_air_shearwater_full` 使用每台 Shearwater 自身深度曲线作为 core 输入，
+线性插值到 1 Hz 后 replay，再回采到 Shearwater 原始采样点比较产品层展示值。
+比较字段为 TTS、first stop depth 和 first stop time；stop depth 按显示整数米，
+stop time / TTS 按显示分钟向上取整。
+
+- `TX9FE51472 #81`：same depth `1923/2118`，pair exact `1136`，
+  within 1 min `1768`，same-depth stop time MAE `0.49 min`，
+  TTS MAE `2.61 min`；core 首次显示停站比 Shearwater 晚约 `14 s`。
+- `TX9235E782 #135`：same depth `382/419`，pair exact `241`，
+  within 1 min `352`，same-depth stop time MAE `0.45 min`，
+  TTS MAE `0.70 min`；core 首次显示停站比 Shearwater 晚约 `10 s`。
+
+当前剩余差异主要集中在换站边界：core 往往比 Shearwater 多保持更深一站一小段时间，
+例如 Shearwater 已切到 `9 m` 或 `6 m` 时，core 仍显示上一档更深站。该方向通常偏保守，
+但本版本仍定义为下水对标测试版本，不作为唯一减压依据。
+
+### 验证
+
+- `DecoPlannerTest.FastDescentPlanDoesNotReportInvalidStateNearNdlTransition`
+  覆盖快速下潜接近 NDL transition 时 planner 不返回 INVALID_STATE。
+- `DecoPlannerTest.NdlZeroTransitionDoesNotEmitCurrentDepthRouteGrid`
+  覆盖 NDL 归零后 90 s 内不暴露当前深度整条 route grid。
+- `RuntimeStopSelectorTest.DepthLayeredPromotionDoesNotHoldShortPreviousCandidate`
+  覆盖分层 promotion 后，短的上一帧候选不会遮蔽当前更合理的实质停站。
+- `RuntimeStopSelectorTest.ExplicitPromotionThresholdUsesUniformCallerPolicy`
+  覆盖显式非默认 promotion 阈值仍使用统一调用方策略。
+- `ctest --test-dir build/test --output-on-failure`：`193/193 passed`。
+- SF32 发布包使用 `scripts/build_release.sh --platform sf32 --no-image-build` 构建，
+  内部目标文件校验为 `ELF 32-bit LSB relocatable, ARM, EABI5`。
+
 ## 0.0.32
 
 ### 摘要
