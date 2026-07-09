@@ -489,10 +489,6 @@ void safe_zone_reposition(void)
                 {
                     lv_obj_add_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
                 }
-                else
-                {
-                    lv_obj_clear_flag(s_scroll_dots[i], LV_OBJ_FLAG_HIDDEN);
-                }
             }
         }
         uint8_t active_idx = 0;
