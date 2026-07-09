@@ -46,22 +46,27 @@ void ble_sensor_debug_note_ui_dirty(uint16_t heading);
 #define PX_PER_DEGREE       3.0f   /* 像素/度比例 */
 #define TAPE_TOP_OFFSET     10      /* 卷尺距标题区顶部的偏移 */
 #define COMPASS_UI_ANIM_TICK_MS          16U
-#define COMPASS_UI_ANIM_ALPHA_SLOW       0.42f
-#define COMPASS_UI_ANIM_ALPHA_MID        0.56f
-#define COMPASS_UI_ANIM_ALPHA_FAST       0.72f
-#define COMPASS_UI_ANIM_ALPHA_REVERSAL   0.82f
-#define COMPASS_UI_ANIM_MID_DIFF_DEG     8.0f
-#define COMPASS_UI_ANIM_FAST_DIFF_DEG    30.0f
-#define COMPASS_UI_ANIM_MAX_STEP_DEG     42.0f
-#define COMPASS_UI_ANIM_MIN_STEP_DEG     0.18f
+#define COMPASS_UI_ANIM_DIRECT_DIFF_DEG  1.5f
+#define COMPASS_UI_ANIM_SLOW_DIFF_DEG    8.0f
+#define COMPASS_UI_ANIM_MID_DIFF_DEG     24.0f
+#define COMPASS_UI_ANIM_SLOW_STEP_DEG    3.0f
+#define COMPASS_UI_ANIM_MID_STEP_DEG     6.0f
+#define COMPASS_UI_ANIM_FAST_STEP_DEG    9.0f
+#define COMPASS_UI_ANIM_MIN_STEP_DEG     0.20f
 #define COMPASS_UI_ANIM_SNAP_EPS_DEG     0.08f
 #define COMPASS_UI_ANIM_REVERSAL_EPS_DEG 0.35f
 #define COMPASS_UI_PREDICT_SAMPLE_MIN_MS 12U
 #define COMPASS_UI_PREDICT_SAMPLE_MAX_MS 320U
-#define COMPASS_UI_PREDICT_HOLD_MS       260U
-#define COMPASS_UI_PREDICT_MAX_AHEAD_DEG 5.0f
-#define COMPASS_UI_PREDICT_SPEED_ALPHA   0.45f
-#define COMPASS_UI_PREDICT_MAX_DPS       220.0f
+#define COMPASS_UI_PREDICT_HOLD_MS       120U
+#define COMPASS_UI_PREDICT_MAX_AHEAD_DEG 2.5f
+#define COMPASS_UI_PREDICT_SPEED_ALPHA   0.38f
+#define COMPASS_UI_PREDICT_MAX_DPS       260.0f
+#define COMPASS_UI_PREDICT_SAME_DECAY    0.55f
+#define COMPASS_UI_PREDICT_REV_GAIN      0.25f
+#define COMPASS_UI_TARGET_BACKSTEP_DEG   8.0f
+#define COMPASS_UI_TARGET_RELEASE_DEG    7.0f
+#define COMPASS_UI_TARGET_RELEASE_MS     96U
+#define COMPASS_UI_TARGET_TREND_MIN_DPS  70.0f
 
 static ui_vm_compass_t s_compass_vm_cache;
 static lv_timer_t *s_compass_anim_timer = NULL;
@@ -69,9 +74,14 @@ static float s_compass_display_heading_deg = 0.0f;
 static float s_compass_display_last_step_deg = 0.0f;
 static float s_compass_display_target_deg = 0.0f;
 static float s_compass_display_velocity_dps = 0.0f;
+static float s_compass_display_pending_target_deg = 0.0f;
+static float s_compass_display_pending_delta_deg = 0.0f;
 static uint32_t s_compass_display_target_tick = 0U;
+static uint32_t s_compass_display_pending_target_tick = 0U;
+static uint8_t s_compass_display_pending_target_count = 0U;
 static bool s_compass_display_target_valid = false;
 static bool s_compass_display_seeded = false;
+static bool s_compass_display_pending_target_valid = false;
 static uint16_t s_compass_display_heading_text = 0xFFFFU;
 
 static float compass_normalize_heading_float(float deg)
@@ -118,6 +128,13 @@ static uint16_t compass_heading_from_float(float heading)
     return (uint16_t)value;
 }
 
+static float compass_display_heading_snapshot(void);
+
+uint16_t card_compass_display_heading_deg(void)
+{
+    return compass_heading_from_float(compass_display_heading_snapshot());
+}
+
 static float compass_display_heading_snapshot(void)
 {
     if (!s_compass_display_seeded)
@@ -134,10 +151,99 @@ static void compass_display_seed(uint16_t heading)
     s_compass_display_last_step_deg = 0.0f;
     s_compass_display_target_deg = s_compass_display_heading_deg;
     s_compass_display_velocity_dps = 0.0f;
+    s_compass_display_pending_target_deg = 0.0f;
+    s_compass_display_pending_delta_deg = 0.0f;
     s_compass_display_target_tick = lv_tick_get();
+    s_compass_display_pending_target_tick = 0U;
+    s_compass_display_pending_target_count = 0U;
     s_compass_display_target_valid = true;
     s_compass_display_seeded = true;
+    s_compass_display_pending_target_valid = false;
     s_compass_display_heading_text = 0xFFFFU;
+}
+
+static void compass_display_clear_pending_target(void)
+{
+    s_compass_display_pending_target_valid = false;
+    s_compass_display_pending_target_count = 0U;
+    s_compass_display_pending_target_tick = 0U;
+    s_compass_display_pending_target_deg = 0.0f;
+    s_compass_display_pending_delta_deg = 0.0f;
+}
+
+static void compass_display_decay_velocity(float factor)
+{
+    s_compass_display_velocity_dps *= factor;
+    if (fabsf(s_compass_display_velocity_dps) < 2.0f)
+    {
+        s_compass_display_velocity_dps = 0.0f;
+    }
+}
+
+/*
+ * 只处理显示层的瞬时反向毛刺：融合层偶发把目标角回退一帧时，先短暂
+ * 暂存，不立刻让屏幕倒退；如果下一帧仍继续反向，则认为用户真实换向。
+ */
+static bool compass_display_hold_transient_backstep(float new_target,
+                                                    float delta,
+                                                    uint32_t now_tick)
+{
+    bool has_trend = fabsf(s_compass_display_velocity_dps) >= COMPASS_UI_TARGET_TREND_MIN_DPS;
+    bool opposite_to_trend =
+        (s_compass_display_velocity_dps > 0.0f && delta < 0.0f) ||
+        (s_compass_display_velocity_dps < 0.0f && delta > 0.0f);
+    bool large_backstep = fabsf(delta) >= COMPASS_UI_TARGET_BACKSTEP_DEG;
+    float pending_move;
+    bool same_backstep;
+    bool continues_backstep;
+    bool close_to_target;
+    uint32_t age_ms;
+
+    if (!has_trend || !opposite_to_trend || !large_backstep)
+    {
+        compass_display_clear_pending_target();
+        return false;
+    }
+
+    if (!s_compass_display_pending_target_valid ||
+        fabsf(compass_shortest_delta_float(s_compass_display_pending_target_deg, new_target)) >
+            COMPASS_UI_TARGET_RELEASE_DEG)
+    {
+        s_compass_display_pending_target_deg = new_target;
+        s_compass_display_pending_delta_deg = delta;
+        s_compass_display_pending_target_tick = now_tick;
+        s_compass_display_pending_target_count = 1U;
+        s_compass_display_pending_target_valid = true;
+        compass_display_decay_velocity(0.35f);
+        s_compass_display_target_tick = now_tick;
+        return true;
+    }
+
+    pending_move = compass_shortest_delta_float(s_compass_display_pending_target_deg, new_target);
+    same_backstep = fabsf(pending_move) <= 0.5f;
+    continues_backstep =
+        (s_compass_display_pending_delta_deg > 0.0f && pending_move > 0.5f) ||
+        (s_compass_display_pending_delta_deg < 0.0f && pending_move < -0.5f);
+    if ((same_backstep || continues_backstep) && s_compass_display_pending_target_count < 3U)
+    {
+        s_compass_display_pending_target_count++;
+    }
+
+    s_compass_display_pending_target_deg = new_target;
+    close_to_target = fabsf(compass_shortest_delta_float(s_compass_display_target_deg, new_target)) <=
+                      COMPASS_UI_TARGET_RELEASE_DEG;
+    age_ms = now_tick - s_compass_display_pending_target_tick;
+    if (close_to_target ||
+        ((same_backstep || continues_backstep) && s_compass_display_pending_target_count >= 2U) ||
+        age_ms >= COMPASS_UI_TARGET_RELEASE_MS)
+    {
+        compass_display_clear_pending_target();
+        return false;
+    }
+
+    compass_display_decay_velocity(0.35f);
+    s_compass_display_target_tick = now_tick;
+    return true;
 }
 
 static void compass_display_note_target(uint16_t heading)
@@ -156,6 +262,18 @@ static void compass_display_note_target(uint16_t heading)
 
     uint32_t dt_ms = now_tick - s_compass_display_target_tick;
     float delta = compass_shortest_delta_float(s_compass_display_target_deg, new_target);
+    if (fabsf(delta) <= 0.01f)
+    {
+        compass_display_clear_pending_target();
+        compass_display_decay_velocity(COMPASS_UI_PREDICT_SAME_DECAY);
+        s_compass_display_target_tick = now_tick;
+        return;
+    }
+
+    if (compass_display_hold_transient_backstep(new_target, delta, now_tick))
+    {
+        return;
+    }
 
     if (dt_ms >= COMPASS_UI_PREDICT_SAMPLE_MIN_MS &&
         dt_ms <= COMPASS_UI_PREDICT_SAMPLE_MAX_MS)
@@ -173,7 +291,7 @@ static void compass_display_note_target(uint16_t heading)
         if ((s_compass_display_velocity_dps > 0.0f && sample_dps < 0.0f) ||
             (s_compass_display_velocity_dps < 0.0f && sample_dps > 0.0f))
         {
-            s_compass_display_velocity_dps = sample_dps;
+            s_compass_display_velocity_dps = sample_dps * COMPASS_UI_PREDICT_REV_GAIN;
         }
         else
         {
@@ -189,6 +307,7 @@ static void compass_display_note_target(uint16_t heading)
 
     s_compass_display_target_deg = new_target;
     s_compass_display_target_tick = now_tick;
+    compass_display_clear_pending_target();
 }
 
 static float compass_display_predict_target(void)
@@ -221,12 +340,55 @@ static float compass_display_predict_target(void)
     return compass_normalize_heading_float(s_compass_display_target_deg + ahead);
 }
 
+static float compass_display_adaptive_step(float diff, float abs_diff)
+{
+    float cap;
+    float alpha;
+    float step;
+
+    if (abs_diff <= COMPASS_UI_ANIM_DIRECT_DIFF_DEG)
+    {
+        return diff;
+    }
+
+    if (abs_diff < COMPASS_UI_ANIM_SLOW_DIFF_DEG)
+    {
+        cap = COMPASS_UI_ANIM_SLOW_STEP_DEG;
+        alpha = 0.72f;
+    }
+    else if (abs_diff < COMPASS_UI_ANIM_MID_DIFF_DEG)
+    {
+        cap = COMPASS_UI_ANIM_MID_STEP_DEG;
+        alpha = 0.62f;
+    }
+    else
+    {
+        cap = COMPASS_UI_ANIM_FAST_STEP_DEG;
+        alpha = 0.50f;
+    }
+
+    step = diff * alpha;
+    if (fabsf(step) > cap)
+    {
+        step = (step > 0.0f) ? cap : -cap;
+    }
+    if (fabsf(step) < COMPASS_UI_ANIM_MIN_STEP_DEG)
+    {
+        step = (diff > 0.0f) ? COMPASS_UI_ANIM_MIN_STEP_DEG : -COMPASS_UI_ANIM_MIN_STEP_DEG;
+    }
+    if (fabsf(step) > abs_diff)
+    {
+        step = diff;
+    }
+
+    return step;
+}
+
 static bool compass_display_step_towards_target(void)
 {
     float target = compass_display_predict_target();
     float diff;
     float abs_diff;
-    float alpha;
     float step;
     bool reversed;
 
@@ -261,35 +423,15 @@ static bool compass_display_step_towards_target(void)
          * 用户突然反向转头时，显示层必须立即释放上一方向的惯性。
          * 只影响 UI 补帧，不反写算法 heading。
          */
-        alpha = COMPASS_UI_ANIM_ALPHA_REVERSAL;
         s_compass_display_last_step_deg = 0.0f;
-    }
-    else if (abs_diff >= COMPASS_UI_ANIM_FAST_DIFF_DEG)
-    {
-        alpha = COMPASS_UI_ANIM_ALPHA_FAST;
-    }
-    else if (abs_diff >= COMPASS_UI_ANIM_MID_DIFF_DEG)
-    {
-        alpha = COMPASS_UI_ANIM_ALPHA_MID;
-    }
-    else
-    {
-        alpha = COMPASS_UI_ANIM_ALPHA_SLOW;
+        s_compass_display_velocity_dps = 0.0f;
     }
 
-    step = diff * alpha;
-    if (fabsf(step) > COMPASS_UI_ANIM_MAX_STEP_DEG)
-    {
-        step = (step > 0.0f) ? COMPASS_UI_ANIM_MAX_STEP_DEG : -COMPASS_UI_ANIM_MAX_STEP_DEG;
-    }
-    if (fabsf(step) < COMPASS_UI_ANIM_MIN_STEP_DEG)
-    {
-        step = (diff > 0.0f) ? COMPASS_UI_ANIM_MIN_STEP_DEG : -COMPASS_UI_ANIM_MIN_STEP_DEG;
-    }
-    if (fabsf(step) > abs_diff)
-    {
-        step = diff;
-    }
+    /*
+     * 手机指南针式跟随：小差值直接贴近，大差值按自适应速度追赶。
+     * 这样目标突变时不会一帧跳到目标，也不会固定 1 度/帧造成明显拖尾。
+     */
+    step = compass_display_adaptive_step(diff, abs_diff);
 
     s_compass_display_heading_deg =
         compass_normalize_heading_float(s_compass_display_heading_deg + step);

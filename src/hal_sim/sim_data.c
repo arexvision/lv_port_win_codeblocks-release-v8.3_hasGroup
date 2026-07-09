@@ -341,6 +341,7 @@ static void sim_reset_for_tcp_debug(void)
     data_init();
     sim_alert_init();
     dive_log_reset();
+    bus_set_ambient_pressure(SIM_SURFACE_PRESSURE_MBAR);
     bus_set_depth(0.0f);
     bus_set_ascent_rate(0.0f);
     bus_set_dive_time(0U);
@@ -977,11 +978,13 @@ void sim_data_start(void)
     }
 
 #if TCP_ALGO_DEBUG
+    bus_set_ambient_pressure(SIM_SURFACE_PRESSURE_MBAR);
     debug_link_pc_set_rtc_offline_handler(sim_apply_rtc_offline);
     debug_link_pc_start();
     sim_alert_init();
     sim_seed_logbook_demo_if_empty();
 #else
+    bus_set_ambient_pressure(SIM_SURFACE_PRESSURE_MBAR);
     sim_seed_original_defaults();
     sim_seed_logbook_demo_if_empty();
     sim_alert_init();

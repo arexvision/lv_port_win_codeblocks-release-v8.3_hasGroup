@@ -48,22 +48,27 @@ LV_IMG_DECLARE(sudo_down_level6);
 #define COMP_VALUE_HANDLE_ID_MAX   64U
 #define COMPASS_DIAL_TICK_COUNT    12U
 #define COMPASS_WIDGET_ANIM_TICK_MS          16U
-#define COMPASS_WIDGET_ANIM_ALPHA_SLOW       0.42f
-#define COMPASS_WIDGET_ANIM_ALPHA_MID        0.56f
-#define COMPASS_WIDGET_ANIM_ALPHA_FAST       0.72f
-#define COMPASS_WIDGET_ANIM_ALPHA_REVERSAL   0.82f
-#define COMPASS_WIDGET_ANIM_MID_DIFF_DEG     8.0f
-#define COMPASS_WIDGET_ANIM_FAST_DIFF_DEG    30.0f
-#define COMPASS_WIDGET_ANIM_MAX_STEP_DEG     42.0f
-#define COMPASS_WIDGET_ANIM_MIN_STEP_DEG     0.18f
+#define COMPASS_WIDGET_ANIM_DIRECT_DIFF_DEG  1.5f
+#define COMPASS_WIDGET_ANIM_SLOW_DIFF_DEG    8.0f
+#define COMPASS_WIDGET_ANIM_MID_DIFF_DEG     24.0f
+#define COMPASS_WIDGET_ANIM_SLOW_STEP_DEG    3.0f
+#define COMPASS_WIDGET_ANIM_MID_STEP_DEG     6.0f
+#define COMPASS_WIDGET_ANIM_FAST_STEP_DEG    9.0f
+#define COMPASS_WIDGET_ANIM_MIN_STEP_DEG     0.20f
 #define COMPASS_WIDGET_ANIM_SNAP_EPS_DEG     0.08f
 #define COMPASS_WIDGET_ANIM_REVERSAL_EPS_DEG 0.35f
 #define COMPASS_WIDGET_PREDICT_SAMPLE_MIN_MS 12U
 #define COMPASS_WIDGET_PREDICT_SAMPLE_MAX_MS 320U
-#define COMPASS_WIDGET_PREDICT_HOLD_MS       260U
-#define COMPASS_WIDGET_PREDICT_MAX_AHEAD_DEG 5.0f
-#define COMPASS_WIDGET_PREDICT_SPEED_ALPHA   0.45f
-#define COMPASS_WIDGET_PREDICT_MAX_DPS       220.0f
+#define COMPASS_WIDGET_PREDICT_HOLD_MS       120U
+#define COMPASS_WIDGET_PREDICT_MAX_AHEAD_DEG 2.5f
+#define COMPASS_WIDGET_PREDICT_SPEED_ALPHA   0.38f
+#define COMPASS_WIDGET_PREDICT_MAX_DPS       260.0f
+#define COMPASS_WIDGET_PREDICT_SAME_DECAY    0.55f
+#define COMPASS_WIDGET_PREDICT_REV_GAIN      0.25f
+#define COMPASS_WIDGET_TARGET_BACKSTEP_DEG   8.0f
+#define COMPASS_WIDGET_TARGET_RELEASE_DEG    7.0f
+#define COMPASS_WIDGET_TARGET_RELEASE_MS     96U
+#define COMPASS_WIDGET_TARGET_TREND_MIN_DPS  70.0f
 #define TISSUE_LEAD_COUNT          16U
 #define TISSUE_LEAD_BLINK_MS       450U
 #define TISSUE_CHART_PAMB_PERMILLE 400
@@ -251,9 +256,14 @@ static float s_compass_display_heading_deg;
 static float s_compass_display_last_step_deg;
 static float s_compass_display_target_deg;
 static float s_compass_display_velocity_dps;
+static float s_compass_display_pending_target_deg;
+static float s_compass_display_pending_delta_deg;
 static uint32_t s_compass_display_target_tick;
+static uint32_t s_compass_display_pending_target_tick;
+static uint8_t s_compass_display_pending_target_count;
 static bool s_compass_display_target_valid;
 static bool s_compass_display_seeded;
+static bool s_compass_display_pending_target_valid;
 static uint16_t s_compass_display_heading_text = 0xFFFFU;
 /* 1612 深度大卡使用“整数+小数”两个 label，句柄池按双句柄上限预留。 */
 static comp_value_handle_t s_value_handles[MAX_VALUE_HANDLES] __attribute__((section(".psram_bss")));
@@ -431,10 +441,99 @@ static void compass_widget_display_seed(uint16_t heading)
     s_compass_display_last_step_deg = 0.0f;
     s_compass_display_target_deg = s_compass_display_heading_deg;
     s_compass_display_velocity_dps = 0.0f;
+    s_compass_display_pending_target_deg = 0.0f;
+    s_compass_display_pending_delta_deg = 0.0f;
     s_compass_display_target_tick = lv_tick_get();
+    s_compass_display_pending_target_tick = 0U;
+    s_compass_display_pending_target_count = 0U;
     s_compass_display_target_valid = true;
     s_compass_display_seeded = true;
+    s_compass_display_pending_target_valid = false;
     s_compass_display_heading_text = 0xFFFFU;
+}
+
+static void compass_widget_display_clear_pending_target(void)
+{
+    s_compass_display_pending_target_valid = false;
+    s_compass_display_pending_target_count = 0U;
+    s_compass_display_pending_target_tick = 0U;
+    s_compass_display_pending_target_deg = 0.0f;
+    s_compass_display_pending_delta_deg = 0.0f;
+}
+
+static void compass_widget_display_decay_velocity(float factor)
+{
+    s_compass_display_velocity_dps *= factor;
+    if (fabsf(s_compass_display_velocity_dps) < 2.0f)
+    {
+        s_compass_display_velocity_dps = 0.0f;
+    }
+}
+
+/*
+ * 和主罗盘卡片保持同一策略：过滤单帧目标反向毛刺，但第二帧仍反向时
+ * 立即释放，避免真实换向被显示层拖慢。
+ */
+static bool compass_widget_display_hold_transient_backstep(float new_target,
+                                                           float delta,
+                                                           uint32_t now_tick)
+{
+    bool has_trend = fabsf(s_compass_display_velocity_dps) >= COMPASS_WIDGET_TARGET_TREND_MIN_DPS;
+    bool opposite_to_trend =
+        (s_compass_display_velocity_dps > 0.0f && delta < 0.0f) ||
+        (s_compass_display_velocity_dps < 0.0f && delta > 0.0f);
+    bool large_backstep = fabsf(delta) >= COMPASS_WIDGET_TARGET_BACKSTEP_DEG;
+    float pending_move;
+    bool same_backstep;
+    bool continues_backstep;
+    bool close_to_target;
+    uint32_t age_ms;
+
+    if (!has_trend || !opposite_to_trend || !large_backstep)
+    {
+        compass_widget_display_clear_pending_target();
+        return false;
+    }
+
+    if (!s_compass_display_pending_target_valid ||
+        fabsf(compass_widget_shortest_delta_float(s_compass_display_pending_target_deg, new_target)) >
+            COMPASS_WIDGET_TARGET_RELEASE_DEG)
+    {
+        s_compass_display_pending_target_deg = new_target;
+        s_compass_display_pending_delta_deg = delta;
+        s_compass_display_pending_target_tick = now_tick;
+        s_compass_display_pending_target_count = 1U;
+        s_compass_display_pending_target_valid = true;
+        compass_widget_display_decay_velocity(0.35f);
+        s_compass_display_target_tick = now_tick;
+        return true;
+    }
+
+    pending_move = compass_widget_shortest_delta_float(s_compass_display_pending_target_deg, new_target);
+    same_backstep = fabsf(pending_move) <= 0.5f;
+    continues_backstep =
+        (s_compass_display_pending_delta_deg > 0.0f && pending_move > 0.5f) ||
+        (s_compass_display_pending_delta_deg < 0.0f && pending_move < -0.5f);
+    if ((same_backstep || continues_backstep) && s_compass_display_pending_target_count < 3U)
+    {
+        s_compass_display_pending_target_count++;
+    }
+
+    s_compass_display_pending_target_deg = new_target;
+    close_to_target = fabsf(compass_widget_shortest_delta_float(s_compass_display_target_deg, new_target)) <=
+                      COMPASS_WIDGET_TARGET_RELEASE_DEG;
+    age_ms = now_tick - s_compass_display_pending_target_tick;
+    if (close_to_target ||
+        ((same_backstep || continues_backstep) && s_compass_display_pending_target_count >= 2U) ||
+        age_ms >= COMPASS_WIDGET_TARGET_RELEASE_MS)
+    {
+        compass_widget_display_clear_pending_target();
+        return false;
+    }
+
+    compass_widget_display_decay_velocity(0.35f);
+    s_compass_display_target_tick = now_tick;
+    return true;
 }
 
 static void compass_widget_display_note_target(uint16_t heading)
@@ -453,6 +552,18 @@ static void compass_widget_display_note_target(uint16_t heading)
 
     uint32_t dt_ms = now_tick - s_compass_display_target_tick;
     float delta = compass_widget_shortest_delta_float(s_compass_display_target_deg, new_target);
+    if (fabsf(delta) <= 0.01f)
+    {
+        compass_widget_display_clear_pending_target();
+        compass_widget_display_decay_velocity(COMPASS_WIDGET_PREDICT_SAME_DECAY);
+        s_compass_display_target_tick = now_tick;
+        return;
+    }
+
+    if (compass_widget_display_hold_transient_backstep(new_target, delta, now_tick))
+    {
+        return;
+    }
 
     if (dt_ms >= COMPASS_WIDGET_PREDICT_SAMPLE_MIN_MS &&
         dt_ms <= COMPASS_WIDGET_PREDICT_SAMPLE_MAX_MS)
@@ -470,7 +581,7 @@ static void compass_widget_display_note_target(uint16_t heading)
         if ((s_compass_display_velocity_dps > 0.0f && sample_dps < 0.0f) ||
             (s_compass_display_velocity_dps < 0.0f && sample_dps > 0.0f))
         {
-            s_compass_display_velocity_dps = sample_dps;
+            s_compass_display_velocity_dps = sample_dps * COMPASS_WIDGET_PREDICT_REV_GAIN;
         }
         else
         {
@@ -486,6 +597,7 @@ static void compass_widget_display_note_target(uint16_t heading)
 
     s_compass_display_target_deg = new_target;
     s_compass_display_target_tick = now_tick;
+    compass_widget_display_clear_pending_target();
 }
 
 static float compass_widget_display_predict_target(void)
@@ -518,12 +630,55 @@ static float compass_widget_display_predict_target(void)
     return compass_widget_normalize_heading_float(s_compass_display_target_deg + ahead);
 }
 
+static float compass_widget_display_adaptive_step(float diff, float abs_diff)
+{
+    float cap;
+    float alpha;
+    float step;
+
+    if (abs_diff <= COMPASS_WIDGET_ANIM_DIRECT_DIFF_DEG)
+    {
+        return diff;
+    }
+
+    if (abs_diff < COMPASS_WIDGET_ANIM_SLOW_DIFF_DEG)
+    {
+        cap = COMPASS_WIDGET_ANIM_SLOW_STEP_DEG;
+        alpha = 0.72f;
+    }
+    else if (abs_diff < COMPASS_WIDGET_ANIM_MID_DIFF_DEG)
+    {
+        cap = COMPASS_WIDGET_ANIM_MID_STEP_DEG;
+        alpha = 0.62f;
+    }
+    else
+    {
+        cap = COMPASS_WIDGET_ANIM_FAST_STEP_DEG;
+        alpha = 0.50f;
+    }
+
+    step = diff * alpha;
+    if (fabsf(step) > cap)
+    {
+        step = (step > 0.0f) ? cap : -cap;
+    }
+    if (fabsf(step) < COMPASS_WIDGET_ANIM_MIN_STEP_DEG)
+    {
+        step = (diff > 0.0f) ? COMPASS_WIDGET_ANIM_MIN_STEP_DEG : -COMPASS_WIDGET_ANIM_MIN_STEP_DEG;
+    }
+    if (fabsf(step) > abs_diff)
+    {
+        step = diff;
+    }
+
+    return step;
+}
+
 static bool compass_widget_display_step_towards_target(void)
 {
     float target = compass_widget_display_predict_target();
     float diff;
     float abs_diff;
-    float alpha;
     float step;
     bool reversed;
 
@@ -554,35 +709,15 @@ static bool compass_widget_display_step_towards_target(void)
         /*
          * 换向时立即丢弃上一方向的显示惯性，避免罗盘数字/指针短暂停住。
          */
-        alpha = COMPASS_WIDGET_ANIM_ALPHA_REVERSAL;
         s_compass_display_last_step_deg = 0.0f;
-    }
-    else if (abs_diff >= COMPASS_WIDGET_ANIM_FAST_DIFF_DEG)
-    {
-        alpha = COMPASS_WIDGET_ANIM_ALPHA_FAST;
-    }
-    else if (abs_diff >= COMPASS_WIDGET_ANIM_MID_DIFF_DEG)
-    {
-        alpha = COMPASS_WIDGET_ANIM_ALPHA_MID;
-    }
-    else
-    {
-        alpha = COMPASS_WIDGET_ANIM_ALPHA_SLOW;
+        s_compass_display_velocity_dps = 0.0f;
     }
 
-    step = diff * alpha;
-    if (fabsf(step) > COMPASS_WIDGET_ANIM_MAX_STEP_DEG)
-    {
-        step = (step > 0.0f) ? COMPASS_WIDGET_ANIM_MAX_STEP_DEG : -COMPASS_WIDGET_ANIM_MAX_STEP_DEG;
-    }
-    if (fabsf(step) < COMPASS_WIDGET_ANIM_MIN_STEP_DEG)
-    {
-        step = (diff > 0.0f) ? COMPASS_WIDGET_ANIM_MIN_STEP_DEG : -COMPASS_WIDGET_ANIM_MIN_STEP_DEG;
-    }
-    if (fabsf(step) > abs_diff)
-    {
-        step = diff;
-    }
+    /*
+     * 通用罗盘组件和主罗盘页保持同一显示策略：目标可突变，屏幕按
+     * 自适应速度追赶，避免固定逐度补帧带来的拖尾。
+     */
+    step = compass_widget_display_adaptive_step(diff, abs_diff);
 
     s_compass_display_heading_deg =
         compass_widget_normalize_heading_float(s_compass_display_heading_deg + step);

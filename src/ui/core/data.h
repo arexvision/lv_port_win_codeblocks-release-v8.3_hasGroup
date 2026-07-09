@@ -417,6 +417,10 @@ bool logbook_backend_get_summary(uint16_t index, logbook_entry_t *out_entry);
 bool logbook_backend_get_detail(uint16_t index, logbook_entry_t *out_entry);
 bool logbook_backend_get_samples(uint16_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count);
 bool logbook_backend_acquire_samples(uint16_t index, const dive_pt_t **out_points, uint16_t *out_count);
+bool logbook_backend_get_detail_and_acquire_samples(uint16_t index,
+                                                    logbook_entry_t *out_entry,
+                                                    const dive_pt_t **out_points,
+                                                    uint16_t *out_count);
 void logbook_backend_release_samples(const dive_pt_t *points);
 bool logbook_backend_update_meta(uint16_t index, const logbook_meta_t *meta);
 bool logbook_backend_delete(uint16_t index);

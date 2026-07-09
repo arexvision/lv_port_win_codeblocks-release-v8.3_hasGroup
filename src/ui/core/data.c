@@ -3358,6 +3358,30 @@ bool logbook_backend_acquire_samples(uint16_t index, const dive_pt_t **out_point
     return true;
 }
 
+bool logbook_backend_get_detail_and_acquire_samples(uint16_t index,
+                                                    logbook_entry_t *out_entry,
+                                                    const dive_pt_t **out_points,
+                                                    uint16_t *out_count)
+{
+    bool ok;
+
+    if (out_points != NULL)
+    {
+        *out_points = NULL;
+    }
+    if (out_count != NULL)
+    {
+        *out_count = 0U;
+    }
+
+    ok = logbook_backend_get_detail(index, out_entry);
+    if (ok && out_points != NULL && out_count != NULL)
+    {
+        (void)logbook_backend_acquire_samples(index, out_points, out_count);
+    }
+    return ok;
+}
+
 void logbook_backend_release_samples(const dive_pt_t *points)
 {
     free((void *)points);
@@ -3545,6 +3569,31 @@ bool logbook_backend_acquire_samples(uint16_t index, const dive_pt_t **out_point
 
     *out_points = points;
     return true;
+}
+
+__attribute__((weak))
+bool logbook_backend_get_detail_and_acquire_samples(uint16_t index,
+                                                    logbook_entry_t *out_entry,
+                                                    const dive_pt_t **out_points,
+                                                    uint16_t *out_count)
+{
+    bool ok;
+
+    if (out_points != NULL)
+    {
+        *out_points = NULL;
+    }
+    if (out_count != NULL)
+    {
+        *out_count = 0U;
+    }
+
+    ok = logbook_backend_get_detail(index, out_entry);
+    if (ok && out_points != NULL && out_count != NULL)
+    {
+        (void)logbook_backend_acquire_samples(index, out_points, out_count);
+    }
+    return ok;
 }
 
 __attribute__((weak))

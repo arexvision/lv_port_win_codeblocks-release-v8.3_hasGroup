@@ -229,7 +229,6 @@ static void logbook_detail_start_loader(uint16_t index);
 static void logbook_prefetch_cancel(void);
 static void logbook_prefetch_start(uint16_t index);
 static bool logbook_prefetch_take(uint16_t index);
-static bool logbook_prefetch_take_wait(uint16_t index, uint32_t timeout_ms);
 static void logbook_picker_view_reset(void);
 static void logbook_picker_view_forget(void);
 static void logbook_picker_load_timer_cb(lv_timer_t *timer);
@@ -308,15 +307,22 @@ static void logbook_detail_async_worker(void *parameter)
         request = s_logbook_detail_async_request;
         logbook_detail_async_unlock();
 
-        success = logbook_backend_get_detail(request.index, &entry);
-        if (success && entry.valid && request.load_points)
+        uint32_t profile_start_ms = logbook_profile_begin();
+        if (request.load_points)
         {
-            has_points = logbook_backend_acquire_samples(request.index, &points, &point_count);
-            if (!has_points)
-            {
-                points = NULL;
-                point_count = 0U;
-            }
+            success = logbook_backend_get_detail_and_acquire_samples(request.index, &entry, &points, &point_count);
+            logbook_profile_end("detail_async_get_detail_samples", profile_start_ms);
+            has_points = (points != NULL) && (point_count > 0U);
+        }
+        else
+        {
+            success = logbook_backend_get_detail(request.index, &entry);
+            logbook_profile_end("detail_async_get_detail", profile_start_ms);
+        }
+        if (!has_points)
+        {
+            points = NULL;
+            point_count = 0U;
         }
 
         if (!logbook_detail_async_lock_wait())
@@ -694,36 +700,6 @@ static bool logbook_prefetch_take(uint16_t index)
     return taken;
 }
 
-static bool logbook_prefetch_take_wait(uint16_t index, uint32_t timeout_ms)
-{
-    const uint32_t start_ms = rt_tick_get_millisecond();
-
-    do
-    {
-        bool running = false;
-
-        if (logbook_prefetch_take(index))
-        {
-            return true;
-        }
-
-        if (!logbook_prefetch_lock())
-        {
-            return false;
-        }
-        running = s_logbook_prefetch_running;
-        logbook_prefetch_unlock();
-
-        if (!running)
-        {
-            return false;
-        }
-
-        rt_thread_mdelay(10);
-    } while ((uint32_t)(rt_tick_get_millisecond() - start_ms) < timeout_ms);
-
-    return logbook_prefetch_take(index);
-}
 #else
 static void logbook_prefetch_cancel(void)
 {
@@ -738,13 +714,6 @@ static void logbook_prefetch_start(uint16_t index)
 static bool logbook_prefetch_take(uint16_t index)
 {
     (void)index;
-    return false;
-}
-
-static bool logbook_prefetch_take_wait(uint16_t index, uint32_t timeout_ms)
-{
-    (void)index;
-    (void)timeout_ms;
     return false;
 }
 #endif
@@ -1624,7 +1593,12 @@ static void logbook_chart_draw_cb(lv_event_t *e)
         lv_draw_line(draw_ctx, &grid, &p[0], &p[1]);
     }
 
-    (void)depth_chart_draw_profile(draw_ctx, s_logbook_points, s_logbook_point_count, area->x1, area->y1, (lv_coord_t)(chart_w - 1), (lv_coord_t)(chart_h - 1), max_t, max_d, LIGHT, 2U, LV_OPA_COVER, NULL);
+    if (s_logbook_points_loaded && s_logbook_points != NULL && s_logbook_point_count > 0U)
+    {
+        uint32_t profile_start_ms = logbook_profile_begin();
+        (void)depth_chart_draw_profile(draw_ctx, s_logbook_points, s_logbook_point_count, area->x1, area->y1, (lv_coord_t)(chart_w - 1), (lv_coord_t)(chart_h - 1), max_t, max_d, LIGHT, 2U, LV_OPA_COVER, NULL);
+        logbook_profile_end("chart_draw_profile", profile_start_ms);
+    }
 }
 
 static void logbook_draw_summary(lv_obj_t *parent, uint16_t w, uint16_t h)
@@ -1652,6 +1626,10 @@ static void logbook_draw_summary(lv_obj_t *parent, uint16_t w, uint16_t h)
     lv_obj_set_pos(chart, 50, 48);
     lv_obj_set_size(chart, (uint16_t)(w - 70U), chart_h);
     lv_obj_add_event_cb(chart, logbook_chart_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
+    if (!s_logbook_points_loaded || s_logbook_points == NULL || s_logbook_point_count == 0U)
+    {
+        logbook_label(parent, "PROFILE...", FONT_ID_SMALL, DARK, 50, (int16_t)(48 + chart_h / 2U - 10U), (uint16_t)(w - 70U), 20U, LV_TEXT_ALIGN_CENTER);
+    }
     (void)snprintf(buf, sizeof(buf), "%.0f%s", (double)bus_get_depth_display(s_logbook_entry.max_depth_m), bus_get_depth_unit_label());
     logbook_label(parent, buf, FONT_ID_TITLE, LIGHT, 8, axis_y, 56, 24, LV_TEXT_ALIGN_LEFT);
     logbook_label(parent, dive_time, FONT_ID_TITLE, LIGHT, (int16_t)(w - 110), axis_y, 100, 24, LV_TEXT_ALIGN_RIGHT);
@@ -3315,6 +3293,12 @@ bool screen_handle_logbook_back(void)
         return false;
     }
 
+    if (!s_logbook_valid)
+    {
+        screen_close_submenu();
+        return true;
+    }
+
     if (s_logbook_page != LOGBOOK_PAGE_PICK)
     {
         logbook_detail_stop_loader();
@@ -3387,17 +3371,14 @@ static void screen_handle_logbook_select(void)
         s_logbook_focus = s_logbook_index;
         s_logbook_page = LOGBOOK_PAGE_SUMMARY;
         s_logbook_focus = 0U;
-        /* Summary 首屏只依赖 picker summary 和 profile 点。profile 若仍放在 detail
-         * 异步线程后面，会等 get_detail 诊断读取完成后才出现路径图，用户会看到图和数据延迟补出。 */
+        /* 进入详情页不能在 LVGL 线程等待或同步读 profile。预取命中就直接复用，
+         * 未命中时先展示 summary，曲线由 detail 异步线程补齐，避免点击日志时卡住 UI。 */
         if (s_logbook_valid)
         {
-            if (!logbook_prefetch_take_wait(s_logbook_index, 240U))
-            {
-                (void)logbook_points_load(logbook_display_to_backend_index(s_logbook_index));
-            }
+            (void)logbook_prefetch_take(s_logbook_index);
         }
-        submenu_populate_current();
         logbook_detail_start_loader(s_logbook_index);
+        submenu_populate_current();
         break;
     case LOGBOOK_PAGE_SUMMARY:
     case LOGBOOK_PAGE_DETAIL_1:
