@@ -142,6 +142,16 @@ static void comp_sync_text_from_vm(comp_id_t w_id, uint8_t pod_index)
     /* 文本类组件统一先走 VM，再落到具体 label，避免各处重复格式化。 */
     ui_vm_value_text_t value_vm;
 
+    if (w_id == COMP_HEADING_0806 || w_id == COMP_COMPASS_1612)
+    {
+        (void)snprintf(value_vm.text,
+                       sizeof(value_vm.text),
+                       "%03u",
+                       (unsigned)comp_compass_display_heading_deg());
+        comp_set_text(w_id, value_vm.text);
+        return;
+    }
+
     ui_vm_value_text_update(&value_vm, w_id, pod_index);
     comp_set_text(w_id, value_vm.text);
 }

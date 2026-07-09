@@ -45,8 +45,257 @@ void ble_sensor_debug_note_ui_dirty(uint16_t heading);
 #define COMPASS_TAPE_H      60      /* 卷尺高度 60px */
 #define PX_PER_DEGREE       3.0f   /* 像素/度比例 */
 #define TAPE_TOP_OFFSET     10      /* 卷尺距标题区顶部的偏移 */
+#define COMPASS_UI_ANIM_TICK_MS          16U
+#define COMPASS_UI_ANIM_ALPHA_SLOW       0.42f
+#define COMPASS_UI_ANIM_ALPHA_MID        0.56f
+#define COMPASS_UI_ANIM_ALPHA_FAST       0.72f
+#define COMPASS_UI_ANIM_ALPHA_REVERSAL   0.82f
+#define COMPASS_UI_ANIM_MID_DIFF_DEG     8.0f
+#define COMPASS_UI_ANIM_FAST_DIFF_DEG    30.0f
+#define COMPASS_UI_ANIM_MAX_STEP_DEG     42.0f
+#define COMPASS_UI_ANIM_MIN_STEP_DEG     0.18f
+#define COMPASS_UI_ANIM_SNAP_EPS_DEG     0.08f
+#define COMPASS_UI_ANIM_REVERSAL_EPS_DEG 0.35f
+#define COMPASS_UI_PREDICT_SAMPLE_MIN_MS 12U
+#define COMPASS_UI_PREDICT_SAMPLE_MAX_MS 320U
+#define COMPASS_UI_PREDICT_HOLD_MS       260U
+#define COMPASS_UI_PREDICT_MAX_AHEAD_DEG 5.0f
+#define COMPASS_UI_PREDICT_SPEED_ALPHA   0.45f
+#define COMPASS_UI_PREDICT_MAX_DPS       220.0f
 
 static ui_vm_compass_t s_compass_vm_cache;
+static lv_timer_t *s_compass_anim_timer = NULL;
+static float s_compass_display_heading_deg = 0.0f;
+static float s_compass_display_last_step_deg = 0.0f;
+static float s_compass_display_target_deg = 0.0f;
+static float s_compass_display_velocity_dps = 0.0f;
+static uint32_t s_compass_display_target_tick = 0U;
+static bool s_compass_display_target_valid = false;
+static bool s_compass_display_seeded = false;
+static uint16_t s_compass_display_heading_text = 0xFFFFU;
+
+static float compass_normalize_heading_float(float deg)
+{
+    while (deg < 0.0f)
+    {
+        deg += 360.0f;
+    }
+    while (deg >= 360.0f)
+    {
+        deg -= 360.0f;
+    }
+    return deg;
+}
+
+static float compass_shortest_delta_float(float from_deg, float to_deg)
+{
+    float diff = to_deg - from_deg;
+    while (diff > 180.0f)
+    {
+        diff -= 360.0f;
+    }
+    while (diff < -180.0f)
+    {
+        diff += 360.0f;
+    }
+    return diff;
+}
+
+static int compass_round_float_to_int(float value)
+{
+    return (value >= 0.0f) ? (int)(value + 0.5f) : (int)(value - 0.5f);
+}
+
+static uint16_t compass_heading_from_float(float heading)
+{
+    int value = compass_round_float_to_int(compass_normalize_heading_float(heading));
+
+    value %= 360;
+    if (value < 0)
+    {
+        value += 360;
+    }
+    return (uint16_t)value;
+}
+
+static float compass_display_heading_snapshot(void)
+{
+    if (!s_compass_display_seeded)
+    {
+        return (float)(s_compass_vm_cache.heading % 360U);
+    }
+
+    return s_compass_display_heading_deg;
+}
+
+static void compass_display_seed(uint16_t heading)
+{
+    s_compass_display_heading_deg = (float)(heading % 360U);
+    s_compass_display_last_step_deg = 0.0f;
+    s_compass_display_target_deg = s_compass_display_heading_deg;
+    s_compass_display_velocity_dps = 0.0f;
+    s_compass_display_target_tick = lv_tick_get();
+    s_compass_display_target_valid = true;
+    s_compass_display_seeded = true;
+    s_compass_display_heading_text = 0xFFFFU;
+}
+
+static void compass_display_note_target(uint16_t heading)
+{
+    uint32_t now_tick = lv_tick_get();
+    float new_target = (float)(heading % 360U);
+
+    if (!s_compass_display_target_valid)
+    {
+        s_compass_display_target_deg = new_target;
+        s_compass_display_velocity_dps = 0.0f;
+        s_compass_display_target_tick = now_tick;
+        s_compass_display_target_valid = true;
+        return;
+    }
+
+    uint32_t dt_ms = now_tick - s_compass_display_target_tick;
+    float delta = compass_shortest_delta_float(s_compass_display_target_deg, new_target);
+
+    if (dt_ms >= COMPASS_UI_PREDICT_SAMPLE_MIN_MS &&
+        dt_ms <= COMPASS_UI_PREDICT_SAMPLE_MAX_MS)
+    {
+        float sample_dps = delta * 1000.0f / (float)dt_ms;
+        if (sample_dps > COMPASS_UI_PREDICT_MAX_DPS)
+        {
+            sample_dps = COMPASS_UI_PREDICT_MAX_DPS;
+        }
+        else if (sample_dps < -COMPASS_UI_PREDICT_MAX_DPS)
+        {
+            sample_dps = -COMPASS_UI_PREDICT_MAX_DPS;
+        }
+
+        if ((s_compass_display_velocity_dps > 0.0f && sample_dps < 0.0f) ||
+            (s_compass_display_velocity_dps < 0.0f && sample_dps > 0.0f))
+        {
+            s_compass_display_velocity_dps = sample_dps;
+        }
+        else
+        {
+            s_compass_display_velocity_dps =
+                (s_compass_display_velocity_dps * (1.0f - COMPASS_UI_PREDICT_SPEED_ALPHA)) +
+                (sample_dps * COMPASS_UI_PREDICT_SPEED_ALPHA);
+        }
+    }
+    else if (dt_ms > COMPASS_UI_PREDICT_SAMPLE_MAX_MS)
+    {
+        s_compass_display_velocity_dps = 0.0f;
+    }
+
+    s_compass_display_target_deg = new_target;
+    s_compass_display_target_tick = now_tick;
+}
+
+static float compass_display_predict_target(void)
+{
+    uint32_t now_tick = lv_tick_get();
+    uint32_t dt_ms;
+    float ahead;
+
+    if (!s_compass_display_target_valid)
+    {
+        return (float)(s_compass_vm_cache.heading % 360U);
+    }
+
+    dt_ms = now_tick - s_compass_display_target_tick;
+    if (dt_ms > COMPASS_UI_PREDICT_HOLD_MS)
+    {
+        return s_compass_display_target_deg;
+    }
+
+    ahead = s_compass_display_velocity_dps * (float)dt_ms / 1000.0f;
+    if (ahead > COMPASS_UI_PREDICT_MAX_AHEAD_DEG)
+    {
+        ahead = COMPASS_UI_PREDICT_MAX_AHEAD_DEG;
+    }
+    else if (ahead < -COMPASS_UI_PREDICT_MAX_AHEAD_DEG)
+    {
+        ahead = -COMPASS_UI_PREDICT_MAX_AHEAD_DEG;
+    }
+
+    return compass_normalize_heading_float(s_compass_display_target_deg + ahead);
+}
+
+static bool compass_display_step_towards_target(void)
+{
+    float target = compass_display_predict_target();
+    float diff;
+    float abs_diff;
+    float alpha;
+    float step;
+    bool reversed;
+
+    if (!s_compass_display_seeded)
+    {
+        compass_display_seed(s_compass_vm_cache.heading);
+        return true;
+    }
+
+    diff = compass_shortest_delta_float(s_compass_display_heading_deg, target);
+    abs_diff = fabsf(diff);
+    if (abs_diff <= COMPASS_UI_ANIM_SNAP_EPS_DEG)
+    {
+        if (fabsf(compass_shortest_delta_float(s_compass_display_heading_deg, target)) <= COMPASS_UI_ANIM_SNAP_EPS_DEG)
+        {
+            s_compass_display_heading_deg = target;
+        }
+        if (fabsf(s_compass_display_velocity_dps) < 2.0f)
+        {
+            s_compass_display_last_step_deg = 0.0f;
+        }
+        return false;
+    }
+
+    reversed = (fabsf(s_compass_display_last_step_deg) >= COMPASS_UI_ANIM_REVERSAL_EPS_DEG) &&
+               ((s_compass_display_last_step_deg > 0.0f && diff < 0.0f) ||
+                (s_compass_display_last_step_deg < 0.0f && diff > 0.0f));
+
+    if (reversed)
+    {
+        /*
+         * 用户突然反向转头时，显示层必须立即释放上一方向的惯性。
+         * 只影响 UI 补帧，不反写算法 heading。
+         */
+        alpha = COMPASS_UI_ANIM_ALPHA_REVERSAL;
+        s_compass_display_last_step_deg = 0.0f;
+    }
+    else if (abs_diff >= COMPASS_UI_ANIM_FAST_DIFF_DEG)
+    {
+        alpha = COMPASS_UI_ANIM_ALPHA_FAST;
+    }
+    else if (abs_diff >= COMPASS_UI_ANIM_MID_DIFF_DEG)
+    {
+        alpha = COMPASS_UI_ANIM_ALPHA_MID;
+    }
+    else
+    {
+        alpha = COMPASS_UI_ANIM_ALPHA_SLOW;
+    }
+
+    step = diff * alpha;
+    if (fabsf(step) > COMPASS_UI_ANIM_MAX_STEP_DEG)
+    {
+        step = (step > 0.0f) ? COMPASS_UI_ANIM_MAX_STEP_DEG : -COMPASS_UI_ANIM_MAX_STEP_DEG;
+    }
+    if (fabsf(step) < COMPASS_UI_ANIM_MIN_STEP_DEG)
+    {
+        step = (diff > 0.0f) ? COMPASS_UI_ANIM_MIN_STEP_DEG : -COMPASS_UI_ANIM_MIN_STEP_DEG;
+    }
+    if (fabsf(step) > abs_diff)
+    {
+        step = diff;
+    }
+
+    s_compass_display_heading_deg =
+        compass_normalize_heading_float(s_compass_display_heading_deg + step);
+    s_compass_display_last_step_deg = step;
+    return true;
+}
 
 /* ============================================================
  * 罗盘卷尺底层数学绘制引擎 (0 RAM 开销)
@@ -71,7 +320,7 @@ static void compass_tape_draw_cb(lv_event_t *e)
     int box_w = lv_area_get_width(area);
     int center_x = area->x1 + (box_w / 2);  /* 屏幕视口正中心 */
 
-    float heading = (float)s_compass_vm_cache.heading;  /* 当前航向 */
+    float heading = compass_display_heading_snapshot();  /* UI 补帧后的显示航向 */
 
     /* ---- 1. 初始化画笔 ---- */
     lv_draw_line_dsc_t line_dsc;
@@ -223,6 +472,88 @@ static void compass_label_set_text_if_changed(lv_obj_t *label, const char *text)
     lv_label_set_text(label, text);
 }
 
+static void compass_update_heading_label_from_display(bool force_update)
+{
+    uint16_t display_heading;
+    char heading_text[8];
+
+    if (!compass_obj_is_valid(&s_heading_val_lbl))
+    {
+        return;
+    }
+
+    display_heading = compass_heading_from_float(compass_display_heading_snapshot());
+    if (!force_update && s_compass_display_heading_text == display_heading)
+    {
+        return;
+    }
+
+    s_compass_display_heading_text = display_heading;
+    (void)snprintf(heading_text, sizeof(heading_text), "%03u", (unsigned)display_heading);
+    compass_label_set_text_if_changed(s_heading_val_lbl, heading_text);
+}
+
+static void compass_update_hint_label(void)
+{
+    if (!compass_obj_is_valid(&s_heading_hint_lbl))
+    {
+        return;
+    }
+
+    if (s_compass_vm_cache.locked != 0U)
+    {
+        char hint_text[32];
+        (void)snprintf(hint_text, sizeof(hint_text),
+                       "[ TARGET LOCKED: %03d ]",
+                       s_compass_vm_cache.heading_target);
+        compass_label_set_text_if_changed(s_heading_hint_lbl, hint_text);
+    }
+    else
+    {
+        compass_label_set_text_if_changed(s_heading_hint_lbl, "[ ENTER ] mark heading");
+    }
+}
+
+static void compass_anim_timer_cb(lv_timer_t *timer)
+{
+    bool stepped;
+
+    (void)timer;
+
+    if (!screen_page_id_refresh_visible(PAGE_ID_COMPASS))
+    {
+        return;
+    }
+
+    if (!compass_obj_is_valid(&s_heading_val_lbl) &&
+        !compass_obj_is_valid(&s_compass_tape_obj))
+    {
+        return;
+    }
+
+    stepped = compass_display_step_towards_target();
+    if (!stepped)
+    {
+        compass_update_heading_label_from_display(false);
+        return;
+    }
+
+    compass_update_heading_label_from_display(false);
+    if (compass_obj_is_valid(&s_compass_tape_obj))
+    {
+        lv_obj_invalidate(s_compass_tape_obj);
+    }
+}
+
+static void compass_anim_timer_ensure(void)
+{
+    if (s_compass_anim_timer == NULL)
+    {
+        s_compass_anim_timer =
+            lv_timer_create(compass_anim_timer_cb, COMPASS_UI_ANIM_TICK_MS, NULL);
+    }
+}
+
 /* ============================================================
  * 罗盘卡片工厂渲染函数
  *
@@ -294,7 +625,9 @@ void render_compass_custom(lv_obj_t *parent_card)
 void card_compass_create(lv_obj_t *parent)
 {
     ui_vm_compass_update(&s_compass_vm_cache, NULL, NULL);
+    compass_display_seed(s_compass_vm_cache.heading);
     render_compass_custom(parent);
+    compass_anim_timer_ensure();
 }
 
 void card_compass_refresh_heading_vm(const ui_vm_compass_t *vm, bool force_refresh)
@@ -343,32 +676,22 @@ void card_compass_refresh_heading_vm(const ui_vm_compass_t *vm, bool force_refre
         return;
     }
 
-    if (compass_obj_is_valid(&s_heading_val_lbl))
+    if (force_refresh || !s_compass_display_seeded)
     {
-        char heading_text[8];
-        (void)snprintf(heading_text, sizeof(heading_text), "%03d", s_compass_vm_cache.heading);
-        compass_label_set_text_if_changed(s_heading_val_lbl, heading_text);
+        /*
+         * 页面切入/对象重建时直接对齐目标角。否则旧页面残留显示角会缓慢追赶，
+         * 用户会误判为罗盘本身漂移。
+         */
+        compass_display_seed(s_compass_vm_cache.heading);
+    }
+    else
+    {
+        compass_display_note_target(s_compass_vm_cache.heading);
     }
 
-    if (compass_obj_is_valid(&s_compass_tape_obj))
-    {
-        lv_obj_invalidate(s_compass_tape_obj);
-    }
-    if (compass_obj_is_valid(&s_heading_hint_lbl))
-    {
-        if (s_compass_vm_cache.locked != 0U)
-        {
-            char hint_text[32];
-            (void)snprintf(hint_text, sizeof(hint_text),
-                           "[ TARGET LOCKED: %03d ]",
-                           s_compass_vm_cache.heading_target);
-            compass_label_set_text_if_changed(s_heading_hint_lbl, hint_text);
-        }
-        else
-        {
-            compass_label_set_text_if_changed(s_heading_hint_lbl, "[ ENTER ] mark heading");
-        }
-    }
+    compass_anim_timer_ensure();
+    compass_update_heading_label_from_display(force_refresh);
+    compass_update_hint_label();
 }
 
 void card_compass_refresh_heading(bool force_refresh)

@@ -40,6 +40,28 @@ static bool s_submenu_selection_scroll_silent = false;
 static lv_coord_t s_submenu_target_scroll_y = 0;
 static bool s_light_color_preview_active = false;
 static light_color_t s_light_color_preview_original = LIGHT_COLOR_RED;
+static uint8_t s_submenu_selected_idx = 0xFFU;
+
+static bool normalize_rotate_steps(int8_t steps, int8_t *out_dir, uint8_t *out_count)
+{
+    int16_t signed_steps = (int16_t)steps;
+    int8_t dir = (signed_steps > 0) ? 1 : ((signed_steps < 0) ? -1 : 0);
+    uint8_t count = (uint8_t)((signed_steps < 0) ? -signed_steps : signed_steps);
+
+    if (dir == 0 || count == 0U)
+    {
+        return false;
+    }
+    if (out_dir)
+    {
+        *out_dir = dir;
+    }
+    if (out_count)
+    {
+        *out_count = count;
+    }
+    return true;
+}
 
 typedef enum
 {
@@ -2610,6 +2632,7 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
 {
     if (!s_submenu_title || !s_submenu_list) return;
     if (s_submenu_hint) lv_obj_add_flag(s_submenu_hint, LV_OBJ_FLAG_HIDDEN);
+    s_submenu_selected_idx = 0xFFU;
 
     if ((menu_runtime_current_id() == MENU_INFO_LAST_DIVE) && !bus_is_last_dive_ready())
     {
@@ -2847,34 +2870,54 @@ void screen_set_submenu_selection(uint8_t idx)
     {
         idx = (uint8_t)(cnt - 1U);
     }
-    for (uint32_t i = 0; i < cnt; i++)
+
+    if (s_submenu_selected_idx == idx)
     {
-        lv_obj_t *item = lv_obj_get_child(s_submenu_list, i);
-        lv_obj_t *lbl  = lv_obj_get_child(item, 0);
-        /* 正在编辑的 item 由 begin_edit_value 单独管理，不参与选中态刷新 */
-        if (ui_state_get_edit_active() && ((uint8_t)i == ui_state_get_edit_item_index())) continue;
-        if (i == idx)
+        lv_obj_t *selected_item = lv_obj_get_child(s_submenu_list, idx);
+        if (selected_item)
         {
-            lv_obj_add_state(item, LV_STATE_FOCUSED);  // HOTFIX: Clear LVGL states to fix bold residue.
+            submenu_list_scroll_item_to_view(selected_item);
+        }
+        return;
+    }
+
+    if (s_submenu_selected_idx < cnt)
+    {
+        uint8_t old_idx = s_submenu_selected_idx;
+        lv_obj_t *item = lv_obj_get_child(s_submenu_list, old_idx);
+        lv_obj_t *lbl  = item ? lv_obj_get_child(item, 0) : NULL;
+        /* 正在编辑的 item 由 begin_edit_value 单独管理，不参与选中态刷新 */
+        if (item && !(ui_state_get_edit_active() && old_idx == ui_state_get_edit_item_index()))
+        {
+            lv_obj_clear_state(item, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);  // HOTFIX: Clear LVGL states to fix bold residue.
+            if (lbl) lv_obj_clear_state(lbl, LV_STATE_ANY);  // HOTFIX: Clear LVGL states to fix bold residue.
             lv_obj_set_style_bg_color(item, BLACK, 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(item, GREEN, 0);
-            lv_obj_set_style_border_width(item, INNER_BORDER_W + 2, 0);
+            lv_obj_set_style_border_color(item, DARK, 0);
+            lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
             if (lbl)
             {
-                lv_obj_set_style_text_color(lbl, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_color(lbl, GREEN, 0);
+                lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
             }
-            /* LIGHT CONTROL second column uses the same selected emphasis. */
+            /* LIGHT CONTROL 特殊处理：第二列状态恢复为当前状态色 */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
-                lv_obj_set_style_text_color(lbl2, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
+                const menu_row_t *row = menu_runtime_row_at(old_idx);
+                lv_obj_set_style_text_color(lbl2, submenu_light_status_color(row), 0);
+                lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
             }
         }
-        else
+    }
+    else
+    {
+        for (uint32_t i = 0; i < cnt; i++)
         {
+            lv_obj_t *item = lv_obj_get_child(s_submenu_list, i);
+            lv_obj_t *lbl  = item ? lv_obj_get_child(item, 0) : NULL;
+            if (item == NULL) continue;
+            if (ui_state_get_edit_active() && ((uint8_t)i == ui_state_get_edit_item_index())) continue;
             lv_obj_clear_state(item, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);  // HOTFIX: Clear LVGL states to fix bold residue.
             if (lbl) lv_obj_clear_state(lbl, LV_STATE_ANY);  // HOTFIX: Clear LVGL states to fix bold residue.
             lv_obj_set_style_bg_color(item, BLACK, 0);
@@ -2896,6 +2939,33 @@ void screen_set_submenu_selection(uint8_t idx)
             }
         }
     }
+
+    {
+        lv_obj_t *item = lv_obj_get_child(s_submenu_list, idx);
+        lv_obj_t *lbl  = item ? lv_obj_get_child(item, 0) : NULL;
+        if (item && !(ui_state_get_edit_active() && idx == ui_state_get_edit_item_index()))
+        {
+            lv_obj_add_state(item, LV_STATE_FOCUSED);  // HOTFIX: Clear LVGL states to fix bold residue.
+            lv_obj_set_style_bg_color(item, BLACK, 0);
+            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_color(item, GREEN, 0);
+            lv_obj_set_style_border_width(item, INNER_BORDER_W + 2, 0);
+            if (lbl)
+            {
+                lv_obj_set_style_text_color(lbl, LIGHT, 0);
+                lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
+            }
+            /* LIGHT CONTROL second column uses the same selected emphasis. */
+            lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
+            if (lbl2)
+            {
+                lv_obj_set_style_text_color(lbl2, LIGHT, 0);
+                lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
+            }
+        }
+    }
+    s_submenu_selected_idx = idx;
+
     lv_obj_t *selected_item = lv_obj_get_child(s_submenu_list, idx);
     if (selected_item)
     {
@@ -3031,6 +3101,11 @@ void screen_refresh_settings_submenu_if_open(void)
 
 bool screen_handle_dive_plan_rotate(int8_t dir)
 {
+    return screen_handle_dive_plan_rotate_steps(dir);
+}
+
+bool screen_handle_dive_plan_rotate_steps(int8_t steps)
+{
     if ((ui_state_get_state() != UI_SUB_MENU) ||
         (ui_state_get_sub_parent() != UI_INFO) ||
         !submenu_is_dive_plan_visible())
@@ -3041,7 +3116,23 @@ bool screen_handle_dive_plan_rotate(int8_t dir)
     {
         return false;
     }
-    if (!submenu_dive_plan_handle_rotate(dir))
+    int8_t dir = 0;
+    uint8_t step_count = 0U;
+    if (!normalize_rotate_steps(steps, &dir, &step_count))
+    {
+        return false;
+    }
+
+    bool consumed = false;
+    for (uint8_t i = 0U; i < step_count; i++)
+    {
+        if (!submenu_dive_plan_handle_rotate(dir))
+        {
+            break;
+        }
+        consumed = true;
+    }
+    if (!consumed)
     {
         return false;
     }
@@ -3051,9 +3142,21 @@ bool screen_handle_dive_plan_rotate(int8_t dir)
 
 bool screen_handle_logbook_rotate(int8_t dir)
 {
+    return screen_handle_logbook_rotate_steps(dir);
+}
+
+bool screen_handle_logbook_rotate_steps(int8_t steps)
+{
     if ((ui_state_get_state() != UI_SUB_MENU) ||
         (ui_state_get_sub_parent() != UI_INFO) ||
         !submenu_is_logbook_visible())
+    {
+        return false;
+    }
+
+    int8_t dir = 0;
+    uint8_t step_count = 0U;
+    if (!normalize_rotate_steps(steps, &dir, &step_count))
     {
         return false;
     }
@@ -3068,7 +3171,7 @@ bool screen_handle_logbook_rotate(int8_t dir)
     if (s_logbook_page == LOGBOOK_PAGE_PICK)
     {
         uint8_t focus_count = logbook_picker_focus_count();
-        int16_t next = (int16_t)s_logbook_picker_focus + dir;
+        int16_t next = (int16_t)s_logbook_picker_focus + ((int16_t)dir * (int16_t)step_count);
         if (focus_count == 0U)
         {
             s_logbook_picker_focus = 0U;
@@ -3087,16 +3190,16 @@ bool screen_handle_logbook_rotate(int8_t dir)
         return true;
     }
 
-    if (dir > 0)
+    int16_t next_page = (int16_t)s_logbook_page + ((int16_t)dir * (int16_t)step_count);
+    if (next_page < (int16_t)LOGBOOK_PAGE_SUMMARY)
     {
-        if (s_logbook_page == LOGBOOK_PAGE_SUMMARY) s_logbook_page = LOGBOOK_PAGE_DETAIL_1;
-        else if (s_logbook_page == LOGBOOK_PAGE_DETAIL_1) s_logbook_page = LOGBOOK_PAGE_DETAIL_2;
+        next_page = (int16_t)LOGBOOK_PAGE_SUMMARY;
     }
-    else if (dir < 0)
+    if (next_page > (int16_t)LOGBOOK_PAGE_DETAIL_2)
     {
-        if (s_logbook_page == LOGBOOK_PAGE_DETAIL_1) s_logbook_page = LOGBOOK_PAGE_SUMMARY;
-        else if (s_logbook_page == LOGBOOK_PAGE_DETAIL_2) s_logbook_page = LOGBOOK_PAGE_DETAIL_1;
+        next_page = (int16_t)LOGBOOK_PAGE_DETAIL_2;
     }
+    s_logbook_page = (logbook_page_t)next_page;
     s_logbook_focus = 0U;
     submenu_populate_current();
     return true;
@@ -3144,6 +3247,11 @@ void screen_begin_light_color_preview(uint8_t item_idx)
 
 bool screen_handle_light_color_preview_rotate(int8_t dir)
 {
+    return screen_handle_light_color_preview_rotate_steps(dir);
+}
+
+bool screen_handle_light_color_preview_rotate_steps(int8_t steps)
+{
     int8_t next;
     uint8_t select_idx;
 
@@ -3152,14 +3260,24 @@ bool screen_handle_light_color_preview_rotate(int8_t dir)
         return false;
     }
 
-    next = (int8_t)bus_get_light_color() + ((dir > 0) ? 1 : -1);
-    if (next < 0) next = (int8_t)LIGHT_COLOR_COUNT - 1;
-    if (next >= (int8_t)LIGHT_COLOR_COUNT) next = 0;
+    int8_t dir = 0;
+    uint8_t step_count = 0U;
+    if (!normalize_rotate_steps(steps, &dir, &step_count))
+    {
+        return false;
+    }
+
+    next = (int8_t)bus_get_light_color();
+    for (uint8_t i = 0U; i < step_count; i++)
+    {
+        next = (int8_t)(next + ((dir > 0) ? 1 : -1));
+        if (next < 0) next = (int8_t)LIGHT_COLOR_COUNT - 1;
+        if (next >= (int8_t)LIGHT_COLOR_COUNT) next = 0;
+    }
     bus_preview_light_color((light_color_t)next);
     select_idx = (uint8_t)(1U + (uint8_t)next);
     ui_state_set_sub_menu_idx(select_idx);
     screen_set_submenu_selection(select_idx);
-    refresh_current_submenu_page(select_idx);
     submenu_show_light_color_preview_hint();
     return true;
 }

@@ -47,6 +47,23 @@ LV_IMG_DECLARE(sudo_down_level6);
 #define MAX_COMPASS_WIDGETS        MAX_WIDGET_RENDER_INSTANCES
 #define COMP_VALUE_HANDLE_ID_MAX   64U
 #define COMPASS_DIAL_TICK_COUNT    12U
+#define COMPASS_WIDGET_ANIM_TICK_MS          16U
+#define COMPASS_WIDGET_ANIM_ALPHA_SLOW       0.42f
+#define COMPASS_WIDGET_ANIM_ALPHA_MID        0.56f
+#define COMPASS_WIDGET_ANIM_ALPHA_FAST       0.72f
+#define COMPASS_WIDGET_ANIM_ALPHA_REVERSAL   0.82f
+#define COMPASS_WIDGET_ANIM_MID_DIFF_DEG     8.0f
+#define COMPASS_WIDGET_ANIM_FAST_DIFF_DEG    30.0f
+#define COMPASS_WIDGET_ANIM_MAX_STEP_DEG     42.0f
+#define COMPASS_WIDGET_ANIM_MIN_STEP_DEG     0.18f
+#define COMPASS_WIDGET_ANIM_SNAP_EPS_DEG     0.08f
+#define COMPASS_WIDGET_ANIM_REVERSAL_EPS_DEG 0.35f
+#define COMPASS_WIDGET_PREDICT_SAMPLE_MIN_MS 12U
+#define COMPASS_WIDGET_PREDICT_SAMPLE_MAX_MS 320U
+#define COMPASS_WIDGET_PREDICT_HOLD_MS       260U
+#define COMPASS_WIDGET_PREDICT_MAX_AHEAD_DEG 5.0f
+#define COMPASS_WIDGET_PREDICT_SPEED_ALPHA   0.45f
+#define COMPASS_WIDGET_PREDICT_MAX_DPS       220.0f
 #define TISSUE_LEAD_COUNT          16U
 #define TISSUE_LEAD_BLINK_MS       450U
 #define TISSUE_CHART_PAMB_PERMILLE 400
@@ -229,12 +246,24 @@ static sys_handle_t s_sys_handles[MAX_SYS_WIDGETS] __attribute__((section(".psra
 static uint8_t s_sys_handle_count;
 static compass_handle_t s_compass_handles[MAX_COMPASS_WIDGETS] __attribute__((section(".psram_bss")));
 static uint8_t s_compass_handle_count;
+static lv_timer_t *s_compass_anim_timer;
+static float s_compass_display_heading_deg;
+static float s_compass_display_last_step_deg;
+static float s_compass_display_target_deg;
+static float s_compass_display_velocity_dps;
+static uint32_t s_compass_display_target_tick;
+static bool s_compass_display_target_valid;
+static bool s_compass_display_seeded;
+static uint16_t s_compass_display_heading_text = 0xFFFFU;
 /* 1612 深度大卡使用“整数+小数”两个 label，句柄池按双句柄上限预留。 */
 static comp_value_handle_t s_value_handles[MAX_VALUE_HANDLES] __attribute__((section(".psram_bss")));
 static uint16_t s_value_handle_heads[COMP_VALUE_HANDLE_ID_MAX];
 static uint16_t s_value_handle_count;
 static lv_obj_t *s_depth_unit_labels[MAX_WIDGET_RENDER_INSTANCES] __attribute__((section(".psram_bss")));
 static uint16_t s_depth_unit_label_count;
+
+static void compass_widget_anim_timer_ensure(void);
+void comp_refresh_heading_text_widgets(void);
 
 static bool ui_obj_is_valid(lv_obj_t **obj_ref)
 {
@@ -350,6 +379,339 @@ static void comp_ndl_stop_set_time_text(lv_obj_t *label, uint16_t seconds)
 #endif
 }
 
+static float compass_widget_normalize_heading_float(float deg)
+{
+    while (deg < 0.0f)
+    {
+        deg += 360.0f;
+    }
+    while (deg >= 360.0f)
+    {
+        deg -= 360.0f;
+    }
+    return deg;
+}
+
+static float compass_widget_shortest_delta_float(float from_deg, float to_deg)
+{
+    float diff = to_deg - from_deg;
+
+    while (diff > 180.0f)
+    {
+        diff -= 360.0f;
+    }
+    while (diff < -180.0f)
+    {
+        diff += 360.0f;
+    }
+    return diff;
+}
+
+static int compass_widget_round_float_to_int(float value)
+{
+    return (value >= 0.0f) ? (int)(value + 0.5f) : (int)(value - 0.5f);
+}
+
+static uint16_t compass_widget_heading_from_float(float heading)
+{
+    int value = compass_widget_round_float_to_int(
+        compass_widget_normalize_heading_float(heading));
+
+    value %= 360;
+    if (value < 0)
+    {
+        value += 360;
+    }
+    return (uint16_t)value;
+}
+
+static void compass_widget_display_seed(uint16_t heading)
+{
+    s_compass_display_heading_deg = (float)(heading % 360U);
+    s_compass_display_last_step_deg = 0.0f;
+    s_compass_display_target_deg = s_compass_display_heading_deg;
+    s_compass_display_velocity_dps = 0.0f;
+    s_compass_display_target_tick = lv_tick_get();
+    s_compass_display_target_valid = true;
+    s_compass_display_seeded = true;
+    s_compass_display_heading_text = 0xFFFFU;
+}
+
+static void compass_widget_display_note_target(uint16_t heading)
+{
+    uint32_t now_tick = lv_tick_get();
+    float new_target = (float)(heading % 360U);
+
+    if (!s_compass_display_target_valid)
+    {
+        s_compass_display_target_deg = new_target;
+        s_compass_display_velocity_dps = 0.0f;
+        s_compass_display_target_tick = now_tick;
+        s_compass_display_target_valid = true;
+        return;
+    }
+
+    uint32_t dt_ms = now_tick - s_compass_display_target_tick;
+    float delta = compass_widget_shortest_delta_float(s_compass_display_target_deg, new_target);
+
+    if (dt_ms >= COMPASS_WIDGET_PREDICT_SAMPLE_MIN_MS &&
+        dt_ms <= COMPASS_WIDGET_PREDICT_SAMPLE_MAX_MS)
+    {
+        float sample_dps = delta * 1000.0f / (float)dt_ms;
+        if (sample_dps > COMPASS_WIDGET_PREDICT_MAX_DPS)
+        {
+            sample_dps = COMPASS_WIDGET_PREDICT_MAX_DPS;
+        }
+        else if (sample_dps < -COMPASS_WIDGET_PREDICT_MAX_DPS)
+        {
+            sample_dps = -COMPASS_WIDGET_PREDICT_MAX_DPS;
+        }
+
+        if ((s_compass_display_velocity_dps > 0.0f && sample_dps < 0.0f) ||
+            (s_compass_display_velocity_dps < 0.0f && sample_dps > 0.0f))
+        {
+            s_compass_display_velocity_dps = sample_dps;
+        }
+        else
+        {
+            s_compass_display_velocity_dps =
+                (s_compass_display_velocity_dps * (1.0f - COMPASS_WIDGET_PREDICT_SPEED_ALPHA)) +
+                (sample_dps * COMPASS_WIDGET_PREDICT_SPEED_ALPHA);
+        }
+    }
+    else if (dt_ms > COMPASS_WIDGET_PREDICT_SAMPLE_MAX_MS)
+    {
+        s_compass_display_velocity_dps = 0.0f;
+    }
+
+    s_compass_display_target_deg = new_target;
+    s_compass_display_target_tick = now_tick;
+}
+
+static float compass_widget_display_predict_target(void)
+{
+    uint32_t now_tick = lv_tick_get();
+    uint32_t dt_ms;
+    float ahead;
+
+    if (!s_compass_display_target_valid)
+    {
+        return (float)(bus_get_heading() % 360U);
+    }
+
+    dt_ms = now_tick - s_compass_display_target_tick;
+    if (dt_ms > COMPASS_WIDGET_PREDICT_HOLD_MS)
+    {
+        return s_compass_display_target_deg;
+    }
+
+    ahead = s_compass_display_velocity_dps * (float)dt_ms / 1000.0f;
+    if (ahead > COMPASS_WIDGET_PREDICT_MAX_AHEAD_DEG)
+    {
+        ahead = COMPASS_WIDGET_PREDICT_MAX_AHEAD_DEG;
+    }
+    else if (ahead < -COMPASS_WIDGET_PREDICT_MAX_AHEAD_DEG)
+    {
+        ahead = -COMPASS_WIDGET_PREDICT_MAX_AHEAD_DEG;
+    }
+
+    return compass_widget_normalize_heading_float(s_compass_display_target_deg + ahead);
+}
+
+static bool compass_widget_display_step_towards_target(void)
+{
+    float target = compass_widget_display_predict_target();
+    float diff;
+    float abs_diff;
+    float alpha;
+    float step;
+    bool reversed;
+
+    if (!s_compass_display_seeded)
+    {
+        compass_widget_display_seed(bus_get_heading());
+        return true;
+    }
+
+    diff = compass_widget_shortest_delta_float(s_compass_display_heading_deg, target);
+    abs_diff = fabsf(diff);
+    if (abs_diff <= COMPASS_WIDGET_ANIM_SNAP_EPS_DEG)
+    {
+        s_compass_display_heading_deg = target;
+        if (fabsf(s_compass_display_velocity_dps) < 2.0f)
+        {
+            s_compass_display_last_step_deg = 0.0f;
+        }
+        return false;
+    }
+
+    reversed = (fabsf(s_compass_display_last_step_deg) >= COMPASS_WIDGET_ANIM_REVERSAL_EPS_DEG) &&
+               ((s_compass_display_last_step_deg > 0.0f && diff < 0.0f) ||
+                (s_compass_display_last_step_deg < 0.0f && diff > 0.0f));
+
+    if (reversed)
+    {
+        /*
+         * 换向时立即丢弃上一方向的显示惯性，避免罗盘数字/指针短暂停住。
+         */
+        alpha = COMPASS_WIDGET_ANIM_ALPHA_REVERSAL;
+        s_compass_display_last_step_deg = 0.0f;
+    }
+    else if (abs_diff >= COMPASS_WIDGET_ANIM_FAST_DIFF_DEG)
+    {
+        alpha = COMPASS_WIDGET_ANIM_ALPHA_FAST;
+    }
+    else if (abs_diff >= COMPASS_WIDGET_ANIM_MID_DIFF_DEG)
+    {
+        alpha = COMPASS_WIDGET_ANIM_ALPHA_MID;
+    }
+    else
+    {
+        alpha = COMPASS_WIDGET_ANIM_ALPHA_SLOW;
+    }
+
+    step = diff * alpha;
+    if (fabsf(step) > COMPASS_WIDGET_ANIM_MAX_STEP_DEG)
+    {
+        step = (step > 0.0f) ? COMPASS_WIDGET_ANIM_MAX_STEP_DEG : -COMPASS_WIDGET_ANIM_MAX_STEP_DEG;
+    }
+    if (fabsf(step) < COMPASS_WIDGET_ANIM_MIN_STEP_DEG)
+    {
+        step = (diff > 0.0f) ? COMPASS_WIDGET_ANIM_MIN_STEP_DEG : -COMPASS_WIDGET_ANIM_MIN_STEP_DEG;
+    }
+    if (fabsf(step) > abs_diff)
+    {
+        step = diff;
+    }
+
+    s_compass_display_heading_deg =
+        compass_widget_normalize_heading_float(s_compass_display_heading_deg + step);
+    s_compass_display_last_step_deg = step;
+    return true;
+}
+
+uint16_t comp_compass_display_heading_deg(void)
+{
+    if (!s_compass_display_seeded)
+    {
+        return bus_get_heading() % 360U;
+    }
+
+    return compass_widget_heading_from_float(s_compass_display_heading_deg);
+}
+
+static bool compass_widget_heading_text_visible(void)
+{
+    uint16_t idx;
+
+    if ((uint8_t)COMP_HEADING_0806 >= COMP_VALUE_HANDLE_ID_MAX)
+    {
+        return false;
+    }
+
+    idx = s_value_handle_heads[(uint8_t)COMP_HEADING_0806];
+    while (idx != UINT16_MAX && idx < s_value_handle_count)
+    {
+        comp_value_handle_t *h = &s_value_handles[idx];
+        if (ui_obj_is_valid(&h->label) && screen_obj_refresh_visible(h->label))
+        {
+            return true;
+        }
+        idx = h->next;
+    }
+
+    return false;
+}
+
+static bool compass_widget_dial_visible(void)
+{
+    for (uint8_t i = 0U; i < s_compass_handle_count; i++)
+    {
+        compass_handle_t *h = &s_compass_handles[i];
+        if (ui_obj_is_valid(&h->dial) && screen_obj_refresh_visible(h->dial))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void comp_refresh_heading_text_widgets(void)
+{
+    uint16_t idx;
+    uint16_t display_heading;
+    char text[8];
+
+    if ((uint8_t)COMP_HEADING_0806 >= COMP_VALUE_HANDLE_ID_MAX)
+    {
+        return;
+    }
+
+    display_heading = comp_compass_display_heading_deg();
+    (void)snprintf(text, sizeof(text), "%03u", (unsigned)display_heading);
+
+    idx = s_value_handle_heads[(uint8_t)COMP_HEADING_0806];
+    while (idx != UINT16_MAX && idx < s_value_handle_count)
+    {
+        comp_value_handle_t *h = &s_value_handles[idx];
+
+        if (ui_obj_is_valid(&h->label) &&
+            screen_obj_refresh_visible(h->label) &&
+            (strncmp(h->last_text, text, sizeof(h->last_text) - 1U) != 0))
+        {
+            comp_view_label_set_text_if_changed(h->label, text);
+            (void)snprintf(h->last_text, sizeof(h->last_text), "%s", text);
+        }
+        idx = h->next;
+    }
+
+    s_compass_display_heading_text = display_heading;
+}
+
+static void compass_widget_refresh_dials(void)
+{
+    for (uint8_t i = 0U; i < s_compass_handle_count; i++)
+    {
+        compass_handle_t *h = &s_compass_handles[i];
+        if (ui_obj_is_valid(&h->dial) && screen_obj_refresh_visible(h->dial))
+        {
+            lv_obj_invalidate(h->dial);
+        }
+    }
+}
+
+static void compass_widget_anim_timer_cb(lv_timer_t *timer)
+{
+    bool stepped;
+
+    (void)timer;
+
+    if (!compass_widget_dial_visible() && !compass_widget_heading_text_visible())
+    {
+        return;
+    }
+
+    stepped = compass_widget_display_step_towards_target();
+    if (!stepped)
+    {
+        comp_refresh_heading_text_widgets();
+        return;
+    }
+
+    comp_refresh_heading_text_widgets();
+    compass_widget_refresh_dials();
+}
+
+static void compass_widget_anim_timer_ensure(void)
+{
+    if (s_compass_anim_timer == NULL)
+    {
+        s_compass_anim_timer =
+            lv_timer_create(compass_widget_anim_timer_cb, COMPASS_WIDGET_ANIM_TICK_MS, NULL);
+    }
+}
+
 static int16_t compass_normalize_angle(int16_t angle)
 {
     angle %= 360;
@@ -405,7 +767,7 @@ static void compass_dial_draw_cb(lv_event_t *e)
     int16_t cx = (int16_t)(area->x1 + w / 2);
     int16_t cy = (int16_t)(area->y1 + h / 2);
     int16_t radius = (w < h) ? (int16_t)(w / 2 - 5) : (int16_t)(h / 2 - 5);
-    uint16_t heading = bus_get_heading() % 360U;
+    uint16_t heading = comp_compass_display_heading_deg();
 
     if (radius < 16)
     {
@@ -579,6 +941,11 @@ static void comp_value_handle_register_part(comp_id_t id,
 void comp_value_handle_register(comp_id_t id, uint8_t pod_index, lv_obj_t *label)
 {
     comp_value_handle_register_part(id, pod_index, COMP_VALUE_HANDLE_PART_FULL, label);
+    if (id == COMP_HEADING_0806)
+    {
+        compass_widget_anim_timer_ensure();
+        comp_refresh_heading_text_widgets();
+    }
 }
 
 void comp_value_handle_register_depth_part(comp_id_t id, bool decimal_part, lv_obj_t *label)
@@ -1558,9 +1925,19 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             case COMP_POD_0806:
             default:
             {
-                ui_vm_value_text_t value_vm;
-                ui_vm_value_text_update(&value_vm, w_id, pod_index);
-                snprintf(buf, sizeof(buf), "%s", value_vm.text);
+                if (w_id == COMP_HEADING_0806 || w_id == COMP_COMPASS_1612)
+                {
+                    snprintf(buf,
+                             sizeof(buf),
+                             "%03u",
+                             (unsigned)comp_compass_display_heading_deg());
+                }
+                else
+                {
+                    ui_vm_value_text_t value_vm;
+                    ui_vm_value_text_update(&value_vm, w_id, pod_index);
+                    snprintf(buf, sizeof(buf), "%s", value_vm.text);
+                }
                 break;
             }
             /* 历史旧 ID 已移除，展示文本统一走 ui_vm_value_text_update()。 */
@@ -1688,13 +2065,14 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
 void comp_refresh_compass_widgets(void)
 {
-    for (uint8_t i = 0U; i < s_compass_handle_count; i++)
+    compass_widget_anim_timer_ensure();
+    if (!s_compass_display_seeded)
     {
-        compass_handle_t *h = &s_compass_handles[i];
-        if (ui_obj_is_valid(&h->dial) && screen_obj_refresh_visible(h->dial))
-        {
-            lv_obj_invalidate(h->dial);
-        }
+        compass_widget_display_seed(bus_get_heading());
+    }
+    else
+    {
+        compass_widget_display_note_target(bus_get_heading());
     }
 }
 

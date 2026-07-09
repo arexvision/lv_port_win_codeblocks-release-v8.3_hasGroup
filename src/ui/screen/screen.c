@@ -98,6 +98,8 @@ bool s_software_brightness_enabled = true;
 /* INFO / SETUP list objects */
 lv_obj_t *s_info_list;
 lv_obj_t *s_setup_list;
+static uint8_t s_info_selected_idx = 0xFFU;
+static uint8_t s_setup_selected_idx = 0xFFU;
 
 /* 排版缓存 (避免每次重算) */
 uint16_t s_cached_right_w = 0;
@@ -1030,6 +1032,53 @@ static void menu_list_ensure_visible(lv_obj_t *list, uint8_t idx)
     menu_list_scroll_item_to_view(list, item, MENU_LIST_SCROLL_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
 }
 
+static void screen_apply_info_item_style(lv_obj_t *item, bool selected)
+{
+    lv_obj_t *lbl;
+
+    if (item == NULL)
+    {
+        return;
+    }
+    lbl = lv_obj_get_child(item, 0);
+    lv_obj_set_style_bg_color(item, BLACK, 0);
+    lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(item, selected ? GREEN : DARK, 0);
+    lv_obj_set_style_border_width(item, selected ? (INNER_BORDER_W + 2) : INNER_BORDER_W, 0);
+    if (lbl)
+    {
+        lv_obj_set_style_text_color(lbl, selected ? LIGHT : GREEN, 0);
+        lv_obj_set_style_text_font(lbl, get_font(selected ? FONT_ID_MEDIUM : FONT_ID_TITLE), 0);
+    }
+}
+
+static void screen_apply_setup_item_style(lv_obj_t *item, bool selected)
+{
+    lv_obj_t *lbl;
+    lv_obj_t *badge;
+
+    if (item == NULL)
+    {
+        return;
+    }
+    lbl = lv_obj_get_child(item, 0);
+    badge = lv_obj_get_child(item, 1);
+    lv_obj_set_style_bg_color(item, BLACK, 0);
+    lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(item, selected ? GREEN : DARK, 0);
+    lv_obj_set_style_border_width(item, selected ? (INNER_BORDER_W + 2) : INNER_BORDER_W, 0);
+    if (lbl)
+    {
+        lv_obj_set_style_text_color(lbl, selected ? LIGHT : GREEN, 0);
+        lv_obj_set_style_text_font(lbl, get_font(selected ? FONT_ID_MEDIUM : FONT_ID_TITLE), 0);
+    }
+    if (badge)
+    {
+        lv_obj_set_style_text_color(badge, LIGHT, 0);
+        lv_obj_set_style_text_font(badge, get_font(selected ? FONT_ID_TITLE : FONT_ID_SMALL), 0);
+    }
+}
+
 void screen_set_info_selection(uint8_t idx)
 {
     if (!s_info_list || !lv_obj_is_valid(s_info_list))
@@ -1048,35 +1097,24 @@ void screen_set_info_selection(uint8_t idx)
     {
         idx = (uint8_t)(cnt - 1U);
     }
-    for (uint32_t i = 0; i < cnt; i++)
+    if (s_info_selected_idx == idx)
     {
-        lv_obj_t *item = lv_obj_get_child(s_info_list, i);
-        lv_obj_t *lbl  = lv_obj_get_child(item, 0);
-        if (i == idx)
+        menu_list_ensure_visible(s_info_list, idx);
+        return;
+    }
+    if (s_info_selected_idx < cnt)
+    {
+        screen_apply_info_item_style(lv_obj_get_child(s_info_list, s_info_selected_idx), false);
+    }
+    else
+    {
+        for (uint32_t i = 0; i < cnt; i++)
         {
-            lv_obj_set_style_bg_color(item, BLACK, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(item, GREEN, 0);
-            lv_obj_set_style_border_width(item, INNER_BORDER_W + 2, 0);
-            if (lbl)
-            {
-                lv_obj_set_style_text_color(lbl, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl, get_font(FONT_ID_MEDIUM), 0);
-            }
-        }
-        else
-        {
-            lv_obj_set_style_bg_color(item, BLACK, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(item, DARK, 0);
-            lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
-            if (lbl)
-            {
-                lv_obj_set_style_text_color(lbl, GREEN, 0);
-                lv_obj_set_style_text_font(lbl, get_font(FONT_ID_TITLE), 0);
-            }
+            screen_apply_info_item_style(lv_obj_get_child(s_info_list, i), false);
         }
     }
+    screen_apply_info_item_style(lv_obj_get_child(s_info_list, idx), true);
+    s_info_selected_idx = idx;
     menu_list_ensure_visible(s_info_list, idx);
 }
 
@@ -1107,46 +1145,24 @@ void screen_set_setup_selection(uint8_t idx)
     {
         idx = (uint8_t)(cnt - 1U);
     }
-    for (uint32_t i = 0; i < cnt; i++)
+    if (s_setup_selected_idx == idx)
     {
-        lv_obj_t *item  = lv_obj_get_child(s_setup_list, i);
-        lv_obj_t *lbl   = lv_obj_get_child(item, 0);
-        lv_obj_t *badge = lv_obj_get_child(item, 1);
-        if (i == idx)
+        menu_list_ensure_visible(s_setup_list, idx);
+        return;
+    }
+    if (s_setup_selected_idx < cnt)
+    {
+        screen_apply_setup_item_style(lv_obj_get_child(s_setup_list, s_setup_selected_idx), false);
+    }
+    else
+    {
+        for (uint32_t i = 0; i < cnt; i++)
         {
-            lv_obj_set_style_bg_color(item, BLACK, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(item, GREEN, 0);
-            lv_obj_set_style_border_width(item, INNER_BORDER_W + 2, 0);
-            if (lbl)
-            {
-                lv_obj_set_style_text_color(lbl, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl, get_font(FONT_ID_MEDIUM), 0);
-            }
-            if (badge)
-            {
-                lv_obj_set_style_text_color(badge, LIGHT, 0);
-                lv_obj_set_style_text_font(badge, get_font(FONT_ID_TITLE), 0);
-            }
-        }
-        else
-        {
-            lv_obj_set_style_bg_color(item, BLACK, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_color(item, DARK, 0);
-            lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
-            if (lbl)
-            {
-                lv_obj_set_style_text_color(lbl, GREEN, 0);
-                lv_obj_set_style_text_font(lbl, get_font(FONT_ID_TITLE), 0);
-            }
-            if (badge)
-            {
-                lv_obj_set_style_text_color(badge, LIGHT, 0);
-                lv_obj_set_style_text_font(badge, get_font(FONT_ID_SMALL), 0);
-            }
+            screen_apply_setup_item_style(lv_obj_get_child(s_setup_list, i), false);
         }
     }
+    screen_apply_setup_item_style(lv_obj_get_child(s_setup_list, idx), true);
+    s_setup_selected_idx = idx;
     menu_list_ensure_visible(s_setup_list, idx);
 }
 
@@ -1173,10 +1189,12 @@ uint8_t screen_setup_item_count(void)
 void screen_register_info_list(lv_obj_t *list)
 {
     s_info_list  = list;
+    s_info_selected_idx = 0xFFU;
 }
 void screen_register_setup_list(lv_obj_t *list)
 {
     s_setup_list = list;
+    s_setup_selected_idx = 0xFFU;
 }
 
 /* =========================================================

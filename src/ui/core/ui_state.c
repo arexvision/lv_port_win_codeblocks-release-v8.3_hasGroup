@@ -15,6 +15,7 @@
 #include "../screen/page_registry.h"
 #include "../screen/screen.h"
 #include "../views/menu_defs.h"
+#include "../views/menu_runtime.h"
 
 #include "lvgl/lvgl.h"
 #include <string.h>
@@ -314,6 +315,43 @@ static void ui_enter_device_control_page(void)
    ========================================= */
 void ui_handle_rotate(int8_t dir)
 {
+    ui_handle_rotate_steps(dir);
+}
+
+bool ui_rotate_steps_can_coalesce(void)
+{
+    if (s_ui.state != UI_SUB_MENU)
+    {
+        return false;
+    }
+
+    if (!menu_runtime_is_dive_plan())
+    {
+        return false;
+    }
+
+    switch (submenu_dive_plan_get_page())
+    {
+    case DIVE_PLAN_PAGE_DEPTH:
+    case DIVE_PLAN_PAGE_TIME:
+    case DIVE_PLAN_PAGE_RMV:
+        return true;
+    default:
+        return false;
+    }
+}
+
+void ui_handle_rotate_steps(int8_t steps)
+{
+    int16_t signed_steps = (int16_t)steps;
+    int8_t dir = (signed_steps > 0) ? 1 : ((signed_steps < 0) ? -1 : 0);
+    uint8_t step_count = (uint8_t)((signed_steps < 0) ? -signed_steps : signed_steps);
+
+    if (dir == 0 || step_count == 0U)
+    {
+        return;
+    }
+
     if (dir != 0)
     {
         screen_scroll_dots_notify_interaction();
@@ -356,7 +394,10 @@ void ui_handle_rotate(int8_t dir)
         if (count == 0U) break;
         s_ui.wall_charge = 0;
         screen_hide_walls();
-        s_ui.menu_entry_idx = (uint8_t)(((int8_t)s_ui.menu_entry_idx + dir + (int8_t)count) % (int8_t)count);
+        for (uint8_t i = 0U; i < step_count; i++)
+        {
+            s_ui.menu_entry_idx = (uint8_t)(((int8_t)s_ui.menu_entry_idx + dir + (int8_t)count) % (int8_t)count);
+        }
         menu_entry_set_selection(s_ui.menu_entry_idx);
         break;
     }
@@ -370,8 +411,11 @@ void ui_handle_rotate(int8_t dir)
         {
             break;
         }
-        int8_t next = ((int8_t)s_ui.gas_cursor + dir + gas_count) % gas_count;
-        s_ui.gas_cursor = (uint8_t)next;
+        for (uint8_t i = 0U; i < step_count; i++)
+        {
+            int8_t next = ((int8_t)s_ui.gas_cursor + dir + gas_count) % gas_count;
+            s_ui.gas_cursor = (uint8_t)next;
+        }
         screen_refresh_gas_menu();
         break;
     }
@@ -409,7 +453,10 @@ void ui_handle_rotate(int8_t dir)
         /* 顶层菜单旋转只循环移动光标，返回统一由 BACK/返回键负责。 */
         s_ui.wall_charge = 0;
         screen_hide_walls();
-        s_ui.menu_info_idx = ui_wrap_index(s_ui.menu_info_idx, dir, len);
+        for (uint8_t i = 0U; i < step_count; i++)
+        {
+            s_ui.menu_info_idx = ui_wrap_index(s_ui.menu_info_idx, dir, len);
+        }
         screen_set_info_selection(s_ui.menu_info_idx);
 #endif
         break;
@@ -448,7 +495,10 @@ void ui_handle_rotate(int8_t dir)
         /* 顶层设置菜单同样循环移动光标，不再用墙提示返回主屏。 */
         s_ui.wall_charge = 0;
         screen_hide_walls();
-        s_ui.menu_setup_idx = ui_wrap_index(s_ui.menu_setup_idx, dir, len);
+        for (uint8_t i = 0U; i < step_count; i++)
+        {
+            s_ui.menu_setup_idx = ui_wrap_index(s_ui.menu_setup_idx, dir, len);
+        }
         screen_set_setup_selection(s_ui.menu_setup_idx);
 #endif
         break;
@@ -460,11 +510,11 @@ void ui_handle_rotate(int8_t dir)
         /* 子菜单内部可能把旋钮事件转交给更深层的潜水计划编辑页。 */
         /* 先给 DIVE PLAN 这类“伪菜单真页面”的特殊逻辑一次拦截机会，
          * 只有它不消费事件时，才退回普通列表选中逻辑。 */
-        if (screen_handle_dive_plan_rotate(dir))
+        if (screen_handle_dive_plan_rotate_steps(steps))
         {
             break;
         }
-        if (screen_handle_logbook_rotate(dir))
+        if (screen_handle_logbook_rotate_steps(steps))
         {
             break;
         }
@@ -480,7 +530,10 @@ void ui_handle_rotate(int8_t dir)
 #else
         s_ui.wall_charge = 0;
         screen_hide_walls();
-        s_ui.sub_menu_idx = ui_wrap_index(s_ui.sub_menu_idx, dir, s_ui.sub_item_count);
+        for (uint8_t i = 0U; i < step_count; i++)
+        {
+            s_ui.sub_menu_idx = ui_wrap_index(s_ui.sub_menu_idx, dir, s_ui.sub_item_count);
+        }
 #endif
         screen_set_submenu_selection(s_ui.sub_menu_idx);
         break;
@@ -491,7 +544,7 @@ void ui_handle_rotate(int8_t dir)
     {
         /* 数值编辑态只允许在 min/max 范围内按 step 递增或递减。 */
         if (!s_ui.edit_ctx.active) break;
-        float next = s_ui.edit_ctx.value - dir * s_ui.edit_ctx.step;
+        float next = s_ui.edit_ctx.value - (float)((int16_t)dir * (int16_t)step_count) * s_ui.edit_ctx.step;
         if (next < s_ui.edit_ctx.min) next = s_ui.edit_ctx.min;
         if (next > s_ui.edit_ctx.max) next = s_ui.edit_ctx.max;
         int steps = (int)((next - s_ui.edit_ctx.min) / s_ui.edit_ctx.step + 0.5f);
@@ -501,7 +554,7 @@ void ui_handle_rotate(int8_t dir)
     }
 
     case UI_EDIT_LIGHT_COLOR:
-        (void)screen_handle_light_color_preview_rotate(dir);
+        (void)screen_handle_light_color_preview_rotate_steps(steps);
         break;
 
     default:

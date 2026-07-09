@@ -301,7 +301,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
         bool safety_stop_label = bus_get_stop_type() == STOP_SAFETY;
         bool show_stop_time = safety_stop_label || (PLAN_TRACK_DECO_STOP_TIME_LABELS_ENABLED != 0);
         const lv_font_t *normal_stop_font = txt_dsc.font;
-        txt_dsc.font = PLAN_TRACK_DECO_STOP_LABEL_FONT;
+        txt_dsc.font = FONT_TRACK;
 
         for (uint8_t i = 0U; i < vm->deco_stop_count; i++)
         {
