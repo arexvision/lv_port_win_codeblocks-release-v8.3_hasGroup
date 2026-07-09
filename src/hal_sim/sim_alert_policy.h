@@ -333,11 +333,15 @@ static bool sim_alert_update_stop_done(uint32_t now_ms)
         s_sim_alert_stop_was_active &&
         s_sim_alert_last_stop_in_zone &&
         s_sim_alert_last_stop_left_s <= SIM_ALERT_STOP_DONE_LEFT_THRESHOLD_S;
+    const bool prev_deco_station_reached =
+        s_sim_alert_stop_was_active &&
+        s_sim_alert_last_stop_type == STOP_DECO &&
+        s_sim_alert_last_stop_in_zone;
     const bool stop_finished =
-        prev_stop_completed &&
+        (prev_stop_completed || prev_deco_station_reached) &&
         !stop_active;
     const bool deco_station_done =
-        prev_stop_completed &&
+        prev_deco_station_reached &&
         stop_active &&
         s_sim_alert_last_stop_type == STOP_DECO &&
         g_sensor_data.stop_type == STOP_DECO &&
