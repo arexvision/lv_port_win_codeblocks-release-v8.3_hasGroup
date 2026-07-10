@@ -238,16 +238,16 @@ typedef enum
     COMP_SURF_GF_1612     = 64,  /* 2x2 出水GF */
     COMP_OTU_1612         = 65,  /* 2x2 OTU */
     COMP_MOD_1612         = 66,  /* 2x2 MOD */
-    COMP_NDL_STOP_1612    = 68,  /* 2x2 NDL/停留 */
-    COMP_TIME_1612        = 69,  /* 2x2 当前时间 */
-    COMP_TTS_1612         = 70,  /* 2x2 TTS */
-    COMP_ASCENT_1612      = 71,  /* 2x2 上升/下降速率 */
-    COMP_STOP_DEPTH_1612  = 72,  /* 2x2 停留深度 */
-    COMP_STOP_TIME_1612   = 73,  /* 2x2 停留时间 */
-    COMP_GF99_1612        = 74,  /* 2x2 GF99 */
-    COMP_CNS_1612         = 75,  /* 2x2 CNS */
-    COMP_GF_1612          = 76,  /* 2x2 GF设置 */
-    COMP_CEILING_1612     = 77   /* 2x2 ceiling */
+    COMP_NDL_STOP_1612    = 67,  /* 2x2 NDL/停留 */
+    COMP_TIME_1612        = 68,  /* 2x2 当前时间 */
+    COMP_TTS_1612         = 69,  /* 2x2 TTS */
+    COMP_ASCENT_1612      = 70,  /* 2x2 上升/下降速率 */
+    COMP_STOP_DEPTH_1612  = 71,  /* 2x2 停留深度 */
+    COMP_STOP_TIME_1612   = 72,  /* 2x2 停留时间 */
+    COMP_GF99_1612        = 73,  /* 2x2 GF99 */
+    COMP_CNS_1612         = 74,  /* 2x2 CNS */
+    COMP_GF_1612          = 75,  /* 2x2 GF设置 */
+    COMP_CEILING_1612     = 76   /* 2x2 ceiling */
 } comp_id_t;
 
 typedef enum
