@@ -642,6 +642,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
                                     : vm_surface_air_ppo2()));
         break;
     case COMP_SURF_GF_0806:
+    case COMP_SURF_GF_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%.0f%%", (double)bus_get_surf_gf());
         break;
     case COMP_GF99_0806:
@@ -651,12 +652,14 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%u%%", (unsigned)bus_get_cns_pct());
         break;
     case COMP_OTU_0806:
+    case COMP_OTU_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%u", (unsigned)bus_get_otu());
         break;
     case COMP_GF_0806:
         (void)snprintf(vm->text,sizeof(vm->text),"%u/%u",(unsigned)bus_get_gf_low(),(unsigned)bus_get_gf_high());
         break;
     case COMP_MOD_0806:
+    case COMP_MOD_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_mod_m()));
         break;
     case COMP_CEILING_0806:
@@ -666,6 +669,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%u/%u",(unsigned)bus_get_gas_mix_o2(),(unsigned)bus_get_gas_mix_he());
         break;
     case COMP_GAS_DENS_0806:
+    case COMP_GAS_DENS_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%.2f", (double)bus_get_gas_density());
         break;
     case COMP_FIO2_0806:
@@ -690,6 +694,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_avg_depth()));
         break;
     case COMP_TEMP_0806:
+    case COMP_TEMP_1612:
         (void)snprintf(vm->text,sizeof(vm->text),"%.1f",(double)bus_get_temperature_display(bus_get_temperature()));
         break;
 

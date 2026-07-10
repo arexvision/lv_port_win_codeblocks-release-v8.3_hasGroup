@@ -21,7 +21,7 @@
 
 #include <string.h>
 
-#define UI_ROUTER_COMP_ID_MAX  64U
+#define UI_ROUTER_COMP_ID_MAX  80U
 
 typedef struct
 {
@@ -78,8 +78,10 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_GAS_1606:
     case COMP_PPO2_0806:
     case COMP_MOD_0806:
+    case COMP_MOD_1612:
     case COMP_GAS_MIX_1606:
     case COMP_GAS_DENS_0806:
+    case COMP_GAS_DENS_1612:
     case COMP_FIO2_0806:
     case COMP_POD_0806:
     case COMP_GTR_0806:
@@ -88,6 +90,7 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
         return DIRTY_GAS_SUPPLY | DIRTY_SYSTEM;
     case COMP_SYS_1606:
     case COMP_TEMP_0806:
+    case COMP_TEMP_1612:
     case COMP_TIME_1606:
     case COMP_BATTERY_0806:
     case COMP_BATT_TEMP_0806:
@@ -101,9 +104,11 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_TISSUE_GF_4012:
     case COMP_TISSUE_RAW_4012:
     case COMP_SURF_GF_0806:
+    case COMP_SURF_GF_1612:
     case COMP_GF99_0806:
     case COMP_CNS_0806:
     case COMP_OTU_0806:
+    case COMP_OTU_1612:
         return DIRTY_TISSUE_TOX;
     case COMP_GF_0806:
         return DIRTY_DIVE_CONFIG;

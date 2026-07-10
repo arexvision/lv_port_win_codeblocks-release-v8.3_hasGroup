@@ -40,6 +40,7 @@ extern const lv_font_t lv_font_consola_20;
 extern const lv_font_t lv_font_consola_24;
 extern const lv_font_t lv_font_consola_28;
 extern const lv_font_t lv_font_consola_32;
+extern const lv_font_t lv_font_consola_40;
 extern const lv_font_t lv_font_consola_48;
 extern const lv_font_t lv_font_consola_56;
 extern const lv_font_t lv_font_consola_58;
@@ -54,6 +55,7 @@ extern const lv_font_t lv_font_courier_14;
 extern const lv_font_t lv_font_courier_20;
 extern const lv_font_t lv_font_courier_28;
 extern const lv_font_t lv_font_courier_32;
+extern const lv_font_t lv_font_courier_40;
 extern const lv_font_t lv_font_courier_48;
 extern const lv_font_t lv_font_courier_56;
 extern const lv_font_t lv_font_courier_58;
@@ -69,6 +71,7 @@ extern const lv_font_t lv_font_ordinar_20;
 extern const lv_font_t lv_font_ordinar_24;
 extern const lv_font_t lv_font_ordinar_28;
 extern const lv_font_t lv_font_ordinar_32;
+extern const lv_font_t lv_font_ordinar_40;
 extern const lv_font_t lv_font_ordinar_48;
 extern const lv_font_t lv_font_ordinar_56;
 extern const lv_font_t lv_font_ordinar_58;
@@ -84,6 +87,7 @@ extern const lv_font_t lv_font_ordinar_64;
 #define FONT_14       (&lv_font_consola_14)  /* 14px  极小辅助文字 */
 #define FONT_TITLE    (&lv_font_consola_20)  /* 20px  菜单项/卡片标题(规范21px) */
 #define FONT_MEDIUM   (&lv_font_consola_32)  /* 32px  中字体 - 数据值 */
+#define FONT_40       (&lv_font_consola_40)  /* 40px  大模块标题 */
 #define FONT_LARGE    (&lv_font_consola_64)  /* 64px  大字体 - 深度大数字 */
 #define FONT_HUGE     (&lv_font_consola_64)  /* 64px  大字体 */
 #define FONT_NDL      (&lv_font_consola_56)  /* 56px  NDL减压时间专用 */
@@ -94,6 +98,7 @@ extern const lv_font_t lv_font_ordinar_64;
 #define FONT_14       (&lv_font_courier_14)  /* 14px  极小辅助文字 */
 #define FONT_TITLE    (&lv_font_courier_20)  /* 20px  菜单项/卡片标题(规范21px) */
 #define FONT_MEDIUM   (&lv_font_courier_32)  /* 32px  中字体 - 数据值 */
+#define FONT_40       (&lv_font_courier_40)  /* 40px  大模块标题 */
 #define FONT_LARGE    (&lv_font_courier_64)  /* 64px  大字体 - 深度大数字 */
 #define FONT_HUGE     (&lv_font_courier_64)  /* 64px  大字体 */
 #define FONT_NDL      (&lv_font_courier_56)  /* 56px  NDL减压时间专用 */
@@ -104,6 +109,7 @@ extern const lv_font_t lv_font_ordinar_64;
 #define FONT_14       (&lv_font_ordinar_14)  /* 14px  极小辅助文字 */
 #define FONT_TITLE    (&lv_font_ordinar_20)  /* 20px  菜单项/卡片标题 */
 #define FONT_MEDIUM   (&lv_font_ordinar_32)  /* 32px  中字体 - 数据值 */
+#define FONT_40       (&lv_font_ordinar_40)  /* 40px  大模块标题 */
 #define FONT_LARGE    (&lv_font_ordinar_64)  /* 64px  大字体 - 深度大数字 */
 #define FONT_HUGE     (&lv_font_ordinar_64)  /* 64px  大字体 */
 #define FONT_NDL      (&lv_font_ordinar_58)  /* 56px  NDL减压时间专用 */
@@ -115,6 +121,7 @@ extern const lv_font_t lv_font_ordinar_64;
 #define FONT_14       (lv_font_montserrat_14)
 #define FONT_TITLE    (lv_font_montserrat_20)
 #define FONT_MEDIUM   (lv_font_montserrat_32)
+#define FONT_40       (lv_font_montserrat_40)
 #define FONT_LARGE    (lv_font_montserrat_64)
 #define FONT_HUGE     (lv_font_montserrat_64)
 #define FONT_NDL      (lv_font_montserrat_56)

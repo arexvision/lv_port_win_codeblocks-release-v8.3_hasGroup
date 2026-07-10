@@ -197,9 +197,9 @@ void sys_config_defaults(sys_config_t *cfg)
     /* ========== [A] 自定义网格：默认展示全部组件模块 ========== */
     static const char *module_titles[] =
     {
-        "CORE LARGE", "DECO LIMITS", "DIVE STATS", "SENSORS", "TISSUES"
+        "CORE LARGE", "LARGE 2X2", "DECO LIMITS", "DIVE STATS", "SENSORS", "TISSUES"
     };
-    static const uint8_t module_counts[] = { 14U, 15U, 13U, 15U, 2U };
+    static const uint8_t module_counts[] = { 14U, 5U, 15U, 13U, 15U, 2U };
     static const grid_widget_t module_cards[][MAX_5F_WIDGETS] =
     {
         {
@@ -208,6 +208,11 @@ void sys_config_defaults(sys_config_t *cfg)
             { COMP_DEPTH_1606, 0, 3 }, { COMP_GAS_1606, 2, 3 }, { COMP_BATTERY_0806, 4, 3 },
             { COMP_TIME_1606, 0, 4 }, { COMP_SYS_1606, 2, 4 }, { COMP_ASCENT_0806, 4, 4 },
             { COMP_POD_0806, 0, 5 }, { COMP_HEADING_0806, 1, 5 },
+        },
+        {
+            { COMP_TEMP_1612, 0, 0 }, { COMP_SURF_GF_1612, 2, 0 },
+            { COMP_OTU_1612, 0, 2 }, { COMP_MOD_1612, 2, 2 },
+            { COMP_GAS_DENS_1612, 0, 4 },
         },
         {
             { COMP_STOP_TIME_1606, 0, 0 }, { COMP_GAS_MIX_1606, 2, 0 }, { COMP_STOP_DEPTH_0806, 4, 0 },
@@ -371,9 +376,10 @@ lv_align_t align_to_lv_align(uint8_t align)
  *   FONT_ID_SMALL  (0) 20px  标签/单位/Badge
  *   FONT_ID_TITLE  (1) 20px  菜单卡片标题
  *   FONT_ID_MEDIUM (2) 32px  数据
- *   FONT_ID_LARGE  (3) 64px  深度大数
- *   FONT_ID_HUGE   (4) 64px  大字
- *   FONT_ID_NDL    (5) 48px  NDL减压时间
+ *   FONT_ID_BIG_TITLE (3) 40px  大模块标题
+ *   FONT_ID_LARGE  (4) 64px  深度大数
+ *   FONT_ID_HUGE   (5) 64px  大字
+ *   FONT_ID_NDL    (6) 48px  NDL减压时间
  * ========================================================= */
 const lv_font_t *get_font(uint8_t font_id)
 {
@@ -385,6 +391,8 @@ const lv_font_t *get_font(uint8_t font_id)
         return FONT_TITLE;   /* 20px */
     case FONT_ID_MEDIUM:
         return FONT_MEDIUM;  /* 32px */
+    case FONT_ID_BIG_TITLE:
+        return FONT_40;      /* 40px */
     case FONT_ID_LARGE:
         return FONT_LARGE;   /* 64px */
     case FONT_ID_HUGE:

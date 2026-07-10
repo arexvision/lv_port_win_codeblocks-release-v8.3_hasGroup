@@ -1935,6 +1935,9 @@
 		<Unit filename="src/ui/fonts/lv_font_consola_32.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="src/ui/fonts/lv_font_consola_40.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="src/ui/fonts/lv_font_consola_48.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -1957,6 +1960,9 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/fonts/lv_font_courier_32.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/fonts/lv_font_courier_40.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/fonts/lv_font_courier_48.c">
@@ -1984,6 +1990,9 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/fonts/lv_font_ordinar_32.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="src/ui/fonts/lv_font_ordinar_40.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/ui/fonts/lv_font_ordinar_48.c">

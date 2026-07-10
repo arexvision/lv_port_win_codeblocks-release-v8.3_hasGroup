@@ -225,10 +225,12 @@ static void layout_set_default_card_order(sys_config_t *cfg)
     cfg->card_order[PAGE_POS_5] = PAGE_ID_GAS;
     cfg->card_order[PAGE_POS_6] = PAGE_ID_CUSTOM_GRID;
     cfg->card_order[PAGE_POS_7] = PAGE_ID_CUSTOM_GRID;
+    cfg->card_order[PAGE_POS_8] = PAGE_ID_CUSTOM_GRID;
     cfg->card_order[PAGE_POS_SETUP] = PAGE_ID_SETUP;
     (void)memset(cfg->custom_card_slot, 0xFF, sizeof(cfg->custom_card_slot));
     cfg->custom_card_slot[PAGE_POS_6] = 0U;
     cfg->custom_card_slot[PAGE_POS_7] = 1U;
+    cfg->custom_card_slot[PAGE_POS_8] = 2U;
 }
 
 static void layout_set_default_fixed_widgets(sys_config_t *cfg, bool horizontal)
@@ -266,6 +268,14 @@ static void layout_set_default_fixed_widgets(sys_config_t *cfg, bool horizontal)
 static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
 {
     static const grid_widget_t side_custom[] =
+    {
+        { COMP_TEMP_1612, 0, 0 },
+        { COMP_SURF_GF_1612, 2, 0 },
+        { COMP_OTU_1612, 0, 2 },
+        { COMP_MOD_1612, 2, 2 },
+        { COMP_GAS_DENS_1612, 0, 4 },
+    };
+    static const grid_widget_t side_alarm[] =
     {
         { COMP_DEPTH_1606, 0, 0 },
         { COMP_PPO2_0806, 2, 0 },
@@ -308,6 +318,14 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
     };
     static const grid_widget_t top_custom[] =
     {
+        { COMP_TEMP_1612, 0, 0 },
+        { COMP_SURF_GF_1612, 2, 0 },
+        { COMP_OTU_1612, 4, 0 },
+        { COMP_MOD_1612, 0, 2 },
+        { COMP_GAS_DENS_1612, 2, 2 },
+    };
+    static const grid_widget_t top_alarm[] =
+    {
         { COMP_DEPTH_1606, 0, 0 },
         { COMP_PPO2_0806, 2, 0 },
         { COMP_BATTERY_0806, 3, 0 },
@@ -344,18 +362,23 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
         { COMP_PRJ_TEMP_0806, 4, 3 },
     };
     const grid_widget_t *custom = horizontal ? top_custom : side_custom;
+    const grid_widget_t *alarm = horizontal ? top_alarm : side_alarm;
     const grid_widget_t *sensor = horizontal ? top_sensor : side_sensor;
     uint8_t custom_count = horizontal ? (uint8_t)(sizeof(top_custom) / sizeof(top_custom[0])) : (uint8_t)(sizeof(side_custom) / sizeof(side_custom[0]));
+    uint8_t alarm_count = horizontal ? (uint8_t)(sizeof(top_alarm) / sizeof(top_alarm[0])) : (uint8_t)(sizeof(side_alarm) / sizeof(side_alarm[0]));
     uint8_t sensor_count = horizontal ? (uint8_t)(sizeof(top_sensor) / sizeof(top_sensor[0])) : (uint8_t)(sizeof(side_sensor) / sizeof(side_sensor[0]));
 
     (void)memset(cfg->custom_cards, 0, sizeof(cfg->custom_cards));
-    cfg->custom_card_count = 2U;
+    cfg->custom_card_count = 3U;
     cfg->custom_cards[0].widget_count = custom_count;
-    cfg->custom_cards[1].widget_count = sensor_count;
-    (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "ALARM TARGETS");
-    (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "SENSOR PREVIEW");
+    cfg->custom_cards[1].widget_count = alarm_count;
+    cfg->custom_cards[2].widget_count = sensor_count;
+    (void)snprintf(cfg->custom_cards[0].title, sizeof(cfg->custom_cards[0].title), "%s", "LARGE 2X2");
+    (void)snprintf(cfg->custom_cards[1].title, sizeof(cfg->custom_cards[1].title), "%s", "ALARM TARGETS");
+    (void)snprintf(cfg->custom_cards[2].title, sizeof(cfg->custom_cards[2].title), "%s", "SENSOR PREVIEW");
     for (uint8_t i = 0U; i < custom_count; i++) cfg->custom_cards[0].widgets[i] = custom[i];
-    for (uint8_t i = 0U; i < sensor_count; i++) cfg->custom_cards[1].widgets[i] = sensor[i];
+    for (uint8_t i = 0U; i < alarm_count; i++) cfg->custom_cards[1].widgets[i] = alarm[i];
+    for (uint8_t i = 0U; i < sensor_count; i++) cfg->custom_cards[2].widgets[i] = sensor[i];
 }
 
 static void layout_apply_direction_defaults(theme_t theme, order_t order)

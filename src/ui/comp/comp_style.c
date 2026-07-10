@@ -122,6 +122,17 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
+        .widget_id = COMP_TEMP_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = NULL,
+        .title = "TEMP",
+        .title_offset_x = 8, .title_offset_y = -2, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -8, .value_offset_y = -6, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
         .widget_id = COMP_TIME_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
@@ -235,6 +246,17 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
+        .widget_id = COMP_SURF_GF_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = NULL,
+        .title = "SurfGF",
+        .title_offset_x = 8, .title_offset_y = -2, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -8, .value_offset_y = -6, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
         .widget_id = COMP_GF99_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
@@ -268,6 +290,17 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
+        .widget_id = COMP_OTU_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = NULL,
+        .title = "OTU",
+        .title_offset_x = 8, .title_offset_y = -2, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -8, .value_offset_y = -6, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
         .widget_id = COMP_GF_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
@@ -288,6 +321,17 @@ static const comp_style_t g_widget_styles[] =
         .title = "MOD",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_MOD_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = NULL,
+        .title = "MOD",
+        .title_offset_x = 8, .title_offset_y = -2, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -8, .value_offset_y = -6, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_CEILING_0806,
@@ -349,6 +393,17 @@ static const comp_style_t g_widget_styles[] =
         .title = "DENS",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_GAS_DENS_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = NULL,
+        .title = "DENS",
+        .title_offset_x = 8, .title_offset_y = -2, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -8, .value_offset_y = -6, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_FIO2_0806,

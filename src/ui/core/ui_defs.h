@@ -101,6 +101,7 @@ typedef enum
     FONT_ID_SMALL = 0,
     FONT_ID_TITLE,
     FONT_ID_MEDIUM,
+    FONT_ID_BIG_TITLE,
     FONT_ID_LARGE,
     FONT_ID_HUGE,
     FONT_ID_NDL,
@@ -230,7 +231,14 @@ typedef enum
     COMP_GTR_0806         = 59,  /* 剩余气体时间 */
     COMP_RMV_0806         = 60,  /* 呼吸分钟通气量 */
     COMP_SAC_0806         = 61,  /* 水面耗气率 */
-    COMP_SURFACE_TIME_1606 = 62  /* 水面/出水时间 */
+
+    //后期添加的2x2
+    COMP_SURFACE_TIME_1606 = 62, /* 水面/出水时间 */
+    COMP_TEMP_1612        = 63,  /* 2x2 温度 */
+    COMP_SURF_GF_1612     = 64,  /* 2x2 出水GF */
+    COMP_OTU_1612         = 65,  /* 2x2 OTU */
+    COMP_MOD_1612         = 66,  /* 2x2 MOD */
+    COMP_GAS_DENS_1612    = 67   /* 2x2 气体密度 */
 } comp_id_t;
 
 typedef enum

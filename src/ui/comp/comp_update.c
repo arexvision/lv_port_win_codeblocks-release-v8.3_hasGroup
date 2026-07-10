@@ -457,6 +457,7 @@ void comp_sync_data(comp_id_t w_id)
      * 5. 基础组件 (Basic)
      * ========================================================= */
     case COMP_TEMP_0806:
+    case COMP_TEMP_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
@@ -501,6 +502,7 @@ void comp_sync_data(comp_id_t w_id)
      * 6. 技术潜(Tech Dive)
      * ========================================================= */
     case COMP_SURF_GF_0806:
+    case COMP_SURF_GF_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
@@ -517,10 +519,12 @@ void comp_sync_data(comp_id_t w_id)
         break;
 
     case COMP_OTU_0806:
+    case COMP_OTU_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
     case COMP_MOD_0806:
+    case COMP_MOD_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
@@ -533,6 +537,7 @@ void comp_sync_data(comp_id_t w_id)
         break;
 
     case COMP_GAS_DENS_0806:
+    case COMP_GAS_DENS_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
