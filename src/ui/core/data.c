@@ -274,6 +274,15 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
         { COMP_OTU_1612, 0, 2 },
         { COMP_MOD_1612, 2, 2 },
         { COMP_GAS_DENS_1612, 0, 4 },
+        { COMP_TTS_0806, 4, 0 },
+        { COMP_PPO2_0806, 4, 1 },
+        { COMP_GF99_0806, 4, 2 },
+        { COMP_CNS_0806, 4, 3 },
+        { COMP_GF_0806, 2, 4 },
+        { COMP_CEILING_0806, 3, 4 },
+        { COMP_FIO2_0806, 4, 4 },
+        { COMP_NOFLY_0806, 2, 5 },
+        { COMP_STOP_TIME_1606, 3, 5 },
     };
     static const grid_widget_t side_alarm[] =
     {
@@ -323,6 +332,14 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
         { COMP_OTU_1612, 4, 0 },
         { COMP_MOD_1612, 0, 2 },
         { COMP_GAS_DENS_1612, 2, 2 },
+        { COMP_TTS_0806, 6, 0 },
+        { COMP_PPO2_0806, 6, 1 },
+        { COMP_GF99_0806, 4, 2 },
+        { COMP_CNS_0806, 5, 2 },
+        { COMP_GF_0806, 6, 2 },
+        { COMP_CEILING_0806, 4, 3 },
+        { COMP_FIO2_0806, 5, 3 },
+        { COMP_NOFLY_0806, 6, 3 },
     };
     static const grid_widget_t top_alarm[] =
     {
