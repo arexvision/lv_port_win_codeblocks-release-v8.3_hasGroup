@@ -197,9 +197,9 @@ void sys_config_defaults(sys_config_t *cfg)
     /* ========== [A] 自定义网格：默认展示全部组件模块 ========== */
     static const char *module_titles[] =
     {
-        "CORE LARGE", "LARGE 2X2", "DECO LIMITS", "DIVE STATS", "SENSORS", "TISSUES"
+        "CORE LARGE", "LARGE 2X2", "LARGE BASIC", "LARGE TECH", "DECO LIMITS", "DIVE STATS", "SENSORS", "TISSUES"
     };
-    static const uint8_t module_counts[] = { 14U, 13U, 15U, 13U, 15U, 2U };
+    static const uint8_t module_counts[] = { 14U, 13U, 6U, 4U, 15U, 13U, 15U, 2U };
     static const grid_widget_t module_cards[][MAX_5F_WIDGETS] =
     {
         {
@@ -216,6 +216,15 @@ void sys_config_defaults(sys_config_t *cfg)
             { COMP_GF99_0806, 4, 2 }, { COMP_CNS_0806, 4, 3 }, { COMP_GF_0806, 2, 4 },
             { COMP_CEILING_0806, 3, 4 }, { COMP_FIO2_0806, 4, 4 }, { COMP_NOFLY_0806, 2, 5 },
             { COMP_STOP_TIME_1606, 3, 5 },
+        },
+        {
+            { COMP_TIME_1612, 0, 0 }, { COMP_TTS_1612, 2, 0 },
+            { COMP_ASCENT_1612, 0, 2 }, { COMP_STOP_DEPTH_1612, 2, 2 },
+            { COMP_STOP_TIME_1612, 0, 4 }, { COMP_NDL_STOP_1612, 2, 4 },
+        },
+        {
+            { COMP_GF99_1612, 0, 0 }, { COMP_CNS_1612, 2, 0 },
+            { COMP_GF_1612, 0, 2 }, { COMP_CEILING_1612, 2, 2 },
         },
         {
             { COMP_STOP_TIME_1606, 0, 0 }, { COMP_GAS_MIX_1606, 2, 0 }, { COMP_STOP_DEPTH_0806, 4, 0 },
