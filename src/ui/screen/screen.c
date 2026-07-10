@@ -672,7 +672,6 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         case COMP_MOD_1612:
         case COMP_GAS_MIX_1606:
         case COMP_GAS_DENS_0806:
-        case COMP_GAS_DENS_1612:
         case COMP_FIO2_0806:
         case COMP_POD_0806:
         case COMP_GTR_0806:

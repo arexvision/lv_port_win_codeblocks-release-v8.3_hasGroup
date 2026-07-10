@@ -87,7 +87,6 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_MOD_1612:
     case COMP_GAS_MIX_1606:
     case COMP_GAS_DENS_0806:
-    case COMP_GAS_DENS_1612:
     case COMP_FIO2_0806:
     case COMP_POD_0806:
     case COMP_GTR_0806:

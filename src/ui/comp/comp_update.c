@@ -547,7 +547,6 @@ void comp_sync_data(comp_id_t w_id)
         break;
 
     case COMP_GAS_DENS_0806:
-    case COMP_GAS_DENS_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 

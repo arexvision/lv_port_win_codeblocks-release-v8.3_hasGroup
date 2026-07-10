@@ -678,7 +678,6 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text,sizeof(vm->text),"%u/%u",(unsigned)bus_get_gas_mix_o2(),(unsigned)bus_get_gas_mix_he());
         break;
     case COMP_GAS_DENS_0806:
-    case COMP_GAS_DENS_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%.2f", (double)bus_get_gas_density());
         break;
     case COMP_FIO2_0806:

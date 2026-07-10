@@ -238,7 +238,6 @@ typedef enum
     COMP_SURF_GF_1612     = 64,  /* 2x2 出水GF */
     COMP_OTU_1612         = 65,  /* 2x2 OTU */
     COMP_MOD_1612         = 66,  /* 2x2 MOD */
-    COMP_GAS_DENS_1612    = 67,  /* 2x2 气体密度 */
     COMP_NDL_STOP_1612    = 68,  /* 2x2 NDL/停留 */
     COMP_TIME_1612        = 69,  /* 2x2 当前时间 */
     COMP_TTS_1612         = 70,  /* 2x2 TTS */
