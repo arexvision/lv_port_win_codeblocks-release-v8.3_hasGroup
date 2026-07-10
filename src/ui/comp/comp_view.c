@@ -1905,7 +1905,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         }
         return obj;
     }
-    else if (w_id == COMP_NDL_STOP_1606)
+    else if (w_id == COMP_NDL_STOP_1606 || w_id == COMP_NDL_STOP_1612)
     {
         /* NDL 变形金刚：从 style->spec.ndl_stop 读取所有位置参*/
         /* NDL/SAFE/DECO 三种状态共用同一个物理组件容器，
@@ -2054,6 +2054,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             {
             case COMP_DEPTH_1612:
             case COMP_NDL_STOP_1606:
+            case COMP_NDL_STOP_1612:
             case COMP_TEMP_0806:
             case COMP_BATTERY_0806:
             case COMP_STOP_TIME_1606:
@@ -2126,7 +2127,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             if (s_ascent_icon_count < MAX_ASCENT_ICONS)
                 s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
         }
-        else if (w_id == COMP_ASCENT_0812)
+        else if (w_id == COMP_ASCENT_0812 || w_id == COMP_ASCENT_1612)
         {
             /* ASCENT_0812 (1x2)：绘制上升速率方向箭头图标（工厂自主查字典决定*/
             lv_obj_t *sudu_img = lv_img_create(obj);

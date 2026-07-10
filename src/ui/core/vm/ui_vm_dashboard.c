@@ -509,13 +509,16 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         vm_format_sys_time(vm->text, sizeof(vm->text));
         break;
     case COMP_TIME_1606:
+    case COMP_TIME_1612:
         vm_format_sys_time(vm->text, sizeof(vm->text));
         break;
     case COMP_TTS_0806:
+    case COMP_TTS_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%d", (int)bus_get_tts());
         break;
     case COMP_ASCENT_0806:
     case COMP_ASCENT_0812:
+    case COMP_ASCENT_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%+.1f", (double)bus_get_ascent_rate());
         break;
     case COMP_COMPASS_1612:
@@ -624,9 +627,11 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%s", bus_get_sensor_status());
         break;
     case COMP_STOP_DEPTH_0806:
+    case COMP_STOP_DEPTH_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_stop_depth_m()));
         break;
     case COMP_STOP_TIME_1606:
+    case COMP_STOP_TIME_1612:
     {
         ui_vm_ndl_stop_t ndl_vm;
         ui_vm_ndl_stop_update(&ndl_vm, NULL);
@@ -646,9 +651,11 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%.0f%%", (double)bus_get_surf_gf());
         break;
     case COMP_GF99_0806:
+    case COMP_GF99_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%.0f%%", (double)bus_get_gf99());
         break;
     case COMP_CNS_0806:
+    case COMP_CNS_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%u%%", (unsigned)bus_get_cns_pct());
         break;
     case COMP_OTU_0806:
@@ -656,6 +663,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%u", (unsigned)bus_get_otu());
         break;
     case COMP_GF_0806:
+    case COMP_GF_1612:
         (void)snprintf(vm->text,sizeof(vm->text),"%u/%u",(unsigned)bus_get_gf_low(),(unsigned)bus_get_gf_high());
         break;
     case COMP_MOD_0806:
@@ -663,6 +671,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_mod_m()));
         break;
     case COMP_CEILING_0806:
+    case COMP_CEILING_1612:
         (void)snprintf(vm->text, sizeof(vm->text), "%.1f", (double)bus_get_depth_display(bus_get_ceiling_m()));
         break;
     case COMP_GAS_MIX_1606:

@@ -54,6 +54,7 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     switch (widget_id)
     {
     case COMP_NDL_STOP_1606:
+    case COMP_NDL_STOP_1612:
         return DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS;
     case COMP_DEPTH_1612:
     case COMP_DEPTH_1606:
@@ -62,13 +63,18 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_SURFACE_TIME_1606:
     case COMP_ASCENT_0806:
     case COMP_ASCENT_0812:
+    case COMP_ASCENT_1612:
     case COMP_DEPTH_MAX_0806:
     case COMP_DEPTH_AVG_0806:
         return DIRTY_DIVE_PROFILE | DIRTY_SYSTEM;
     case COMP_TTS_0806:
+    case COMP_TTS_1612:
     case COMP_STOP_DEPTH_0806:
+    case COMP_STOP_DEPTH_1612:
     case COMP_STOP_TIME_1606:
+    case COMP_STOP_TIME_1612:
     case COMP_CEILING_0806:
+    case COMP_CEILING_1612:
     case COMP_TTS_AT_5MIN_0806:
     case COMP_TTS_DELTA_5MIN_0806:
     case COMP_NDL_UP_3M_0806:
@@ -92,6 +98,7 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_TEMP_0806:
     case COMP_TEMP_1612:
     case COMP_TIME_1606:
+    case COMP_TIME_1612:
     case COMP_BATTERY_0806:
     case COMP_BATT_TEMP_0806:
     case COMP_PRJ_TEMP_0806:
@@ -106,11 +113,14 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
     case COMP_SURF_GF_0806:
     case COMP_SURF_GF_1612:
     case COMP_GF99_0806:
+    case COMP_GF99_1612:
     case COMP_CNS_0806:
+    case COMP_CNS_1612:
     case COMP_OTU_0806:
     case COMP_OTU_1612:
         return DIRTY_TISSUE_TOX;
     case COMP_GF_0806:
+    case COMP_GF_1612:
         return DIRTY_DIVE_CONFIG;
     case COMP_GYRO_2406:
     case COMP_BATT_V_0806:
@@ -319,7 +329,8 @@ static bool ui_router_deco_vm_needed(dirty_mask_t mask, const ui_router_visible_
         return true;
     }
 
-    return ui_router_widget_visible(COMP_NDL_STOP_1606, ctx);
+    return ui_router_widget_visible(COMP_NDL_STOP_1606, ctx) ||
+           ui_router_widget_visible(COMP_NDL_STOP_1612, ctx);
 }
 
 static dirty_mask_t ui_router_subscription_mask(const ui_router_visible_ctx_t *ctx)
@@ -411,7 +422,8 @@ void ui_update_router_dispatch(dirty_mask_t mask)
     if ((mask & DIRTY_DIVE_PROFILE) &&
         (ui_router_widget_visible(COMP_DEPTH_1612, &visible_ctx) ||
          ui_router_widget_visible(COMP_ASCENT_0806, &visible_ctx) ||
-         ui_router_widget_visible(COMP_ASCENT_0812, &visible_ctx)))
+         ui_router_widget_visible(COMP_ASCENT_0812, &visible_ctx) ||
+         ui_router_widget_visible(COMP_ASCENT_1612, &visible_ctx)))
     {
         uint32_t start_ms = lv_tick_get();
         ui_vm_ascent_update(&ascent_vm, bus_get_ascent_rate());
@@ -420,7 +432,8 @@ void ui_update_router_dispatch(dirty_mask_t mask)
     }
 
     if ((mask & (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS)) &&
-        ui_router_widget_visible(COMP_NDL_STOP_1606, &visible_ctx))
+        (ui_router_widget_visible(COMP_NDL_STOP_1606, &visible_ctx) ||
+         ui_router_widget_visible(COMP_NDL_STOP_1612, &visible_ctx)))
     {
         uint32_t start_ms = lv_tick_get();
         ui_vm_ndl_stop_update(&ndl_stop_vm, NULL);

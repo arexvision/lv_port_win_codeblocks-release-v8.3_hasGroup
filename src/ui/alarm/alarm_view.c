@@ -362,6 +362,11 @@ static bool alarm_view_target_match(uintptr_t raw, comp_id_t target)
         return true;
     }
 #endif
+    if ((target == COMP_NDL_STOP_1606 && raw == (uintptr_t)COMP_NDL_STOP_1612) ||
+        (target == COMP_NDL_STOP_1612 && raw == (uintptr_t)COMP_NDL_STOP_1606))
+    {
+        return true;
+    }
     if (target == COMP_POD_0806)
     {
         return (raw % 1000U) == (uintptr_t)COMP_POD_0806;

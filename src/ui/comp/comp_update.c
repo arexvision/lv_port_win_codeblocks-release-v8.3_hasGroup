@@ -403,6 +403,7 @@ void comp_sync_data(comp_id_t w_id)
      * 1. 核心驻留& 复杂状态机 (这些由专属函数处理，这里做兜
      * ========================================================= */
     case COMP_NDL_STOP_1606:
+    case COMP_NDL_STOP_1612:
     case COMP_TISSUE_GF_4012:
     case COMP_TISSUE_RAW_4012:
         /*
@@ -410,7 +411,7 @@ void comp_sync_data(comp_id_t w_id)
          * 这里补一次完整同步，确保布局重建/初次进入时不会残留占位态，
          * 也避免外部只触发全量刷新时看起来像“数据源未绑定”。
          */
-        if (w_id == COMP_NDL_STOP_1606)
+        if (w_id == COMP_NDL_STOP_1606 || w_id == COMP_NDL_STOP_1612)
         {
             comp_refresh_ndl_stop(DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS);
         }
@@ -462,10 +463,12 @@ void comp_sync_data(comp_id_t w_id)
         break;
 
     case COMP_TIME_1606:
+    case COMP_TIME_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
     case COMP_TTS_0806:
+    case COMP_TTS_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
@@ -479,6 +482,7 @@ void comp_sync_data(comp_id_t w_id)
 
     case COMP_ASCENT_0806:
     case COMP_ASCENT_0812:
+    case COMP_ASCENT_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
@@ -487,10 +491,12 @@ void comp_sync_data(comp_id_t w_id)
         break;
 
     case COMP_STOP_DEPTH_0806:
+    case COMP_STOP_DEPTH_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
     case COMP_STOP_TIME_1606:
+    case COMP_STOP_TIME_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
@@ -507,14 +513,17 @@ void comp_sync_data(comp_id_t w_id)
         break;
 
     case COMP_GF99_0806:
+    case COMP_GF99_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
     case COMP_GF_0806:
+    case COMP_GF_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
     case COMP_CNS_0806:
+    case COMP_CNS_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 
@@ -529,6 +538,7 @@ void comp_sync_data(comp_id_t w_id)
         break;
 
     case COMP_CEILING_0806:
+    case COMP_CEILING_1612:
         comp_sync_text_from_vm(w_id, 0U);
         break;
 

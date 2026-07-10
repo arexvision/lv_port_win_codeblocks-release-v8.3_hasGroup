@@ -637,6 +637,7 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         switch (widget->widget_id)
         {
         case COMP_NDL_STOP_1606:
+        case COMP_NDL_STOP_1612:
             mask |= DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS;
             break;
         case COMP_DEPTH_1612:
@@ -645,14 +646,19 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         case COMP_SURFACE_TIME_1606:
         case COMP_ASCENT_0806:
         case COMP_ASCENT_0812:
+        case COMP_ASCENT_1612:
         case COMP_DEPTH_MAX_0806:
         case COMP_DEPTH_AVG_0806:
             mask |= DIRTY_DIVE_PROFILE | DIRTY_SYSTEM;
             break;
         case COMP_TTS_0806:
+        case COMP_TTS_1612:
         case COMP_STOP_DEPTH_0806:
+        case COMP_STOP_DEPTH_1612:
         case COMP_STOP_TIME_1606:
+        case COMP_STOP_TIME_1612:
         case COMP_CEILING_0806:
+        case COMP_CEILING_1612:
         case COMP_TTS_AT_5MIN_0806:
         case COMP_TTS_DELTA_5MIN_0806:
         case COMP_NDL_UP_3M_0806:
@@ -678,6 +684,7 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         case COMP_TEMP_0806:
         case COMP_TEMP_1612:
         case COMP_TIME_1606:
+        case COMP_TIME_1612:
         case COMP_BATTERY_0806:
         case COMP_BATT_TEMP_0806:
         case COMP_PRJ_TEMP_0806:
@@ -694,12 +701,15 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         case COMP_SURF_GF_0806:
         case COMP_SURF_GF_1612:
         case COMP_GF99_0806:
+        case COMP_GF99_1612:
         case COMP_CNS_0806:
+        case COMP_CNS_1612:
         case COMP_OTU_0806:
         case COMP_OTU_1612:
             mask |= DIRTY_TISSUE_TOX;
             break;
         case COMP_GF_0806:
+        case COMP_GF_1612:
             mask |= DIRTY_DIVE_CONFIG;
             break;
         case COMP_GYRO_2406:

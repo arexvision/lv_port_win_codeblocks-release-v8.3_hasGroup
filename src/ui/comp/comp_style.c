@@ -67,6 +67,27 @@ static const comp_style_t g_widget_styles[] =
         }
     },
     {
+        .widget_id = COMP_NDL_STOP_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_BAR,
+        .font_id = FONT_ID_NDL,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = "min",
+        .title = "NDL",
+        .title_offset_x = 10, .title_offset_y = 0, .title_align = LV_TEXT_ALIGN_LEFT,
+        .spec.ndl_stop = {
+            .vert_offset_x = 10, .vert_offset_y = 0, .vert_align = LV_ALIGN_LEFT_MID,
+            .vert_w = 14, .vert_h = 40,
+            .horiz_offset_x = 0, .horiz_offset_y = -4, .horiz_w = 140, .horiz_h = 6,
+            .norm_main_x = 0, .norm_main_y = 0,  .norm_main_align = LV_ALIGN_LEFT_MID,
+            .norm_sub_x  = 0, .norm_sub_y  = -5, .norm_sub_align  = LV_ALIGN_BOTTOM_LEFT,
+            .deco_title_x = 2,  .deco_title_y = -2,  .deco_title_align = LV_ALIGN_TOP_LEFT,
+            .deco_main_x  = -4, .deco_main_y  = -12, .deco_main_align  = LV_ALIGN_BOTTOM_RIGHT,
+            .deco_bar_side_pad = 16, .deco_bar_h = 10, .deco_bar_x = 0, .deco_bar_y = -4,
+            .deco_sub_x   = 0,  .deco_sub_y   = -14,.deco_sub_align   = LV_ALIGN_BOTTOM_LEFT
+        }
+    },
+    {
         .widget_id = COMP_DIVE_TIME_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_BAR,
@@ -144,11 +165,33 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
+        .widget_id = COMP_TIME_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = NULL,
+        .title = "TIME",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
         .widget_id = COMP_TTS_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "TTS",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_TTS_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
         .unit = NULL,
         .title = "TTS",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
@@ -175,6 +218,17 @@ static const comp_style_t g_widget_styles[] =
         .title = NULL,
         .title_offset_x = 10, .title_offset_y = 0, .title_align = LV_ALIGN_TOP_MID,
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_MID }
+    },
+    {
+        .widget_id = COMP_ASCENT_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_BAR,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = NULL,
+        .title = "RATE",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_COMPASS_1612,
@@ -213,11 +267,33 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
+        .widget_id = COMP_STOP_DEPTH_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = NULL,
+        .title = "STOP",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
         .widget_id = COMP_STOP_TIME_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "STIME",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_STOP_TIME_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
         .unit = NULL,
         .title = "STIME",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
@@ -268,11 +344,33 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
+        .widget_id = COMP_GF99_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = NULL,
+        .title = "GF99",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
         .widget_id = COMP_CNS_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "CNS",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_CNS_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
         .unit = NULL,
         .title = "CNS",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
@@ -312,6 +410,17 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -5, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
+        .widget_id = COMP_GF_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = NULL,
+        .title = "GF",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
         .widget_id = COMP_MOD_0806,
         .span_w = 1, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE,
@@ -339,6 +448,17 @@ static const comp_style_t g_widget_styles[] =
         .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = FONT_ID_MEDIUM,
         .title_font_id = FONT_ID_SMALL,
+        .unit = NULL,
+        .title = "CEIL",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
+        .widget_id = COMP_CEILING_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE,
+        .font_id = FONT_ID_HUGE,
+        .title_font_id = FONT_ID_BIG_TITLE,
         .unit = NULL,
         .title = "CEIL",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
