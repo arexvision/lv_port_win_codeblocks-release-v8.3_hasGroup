@@ -663,8 +663,10 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         case COMP_GAS_1606:
         case COMP_PPO2_0806:
         case COMP_MOD_0806:
+        case COMP_MOD_1612:
         case COMP_GAS_MIX_1606:
         case COMP_GAS_DENS_0806:
+        case COMP_GAS_DENS_1612:
         case COMP_FIO2_0806:
         case COMP_POD_0806:
         case COMP_GTR_0806:
@@ -674,6 +676,7 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
             break;
         case COMP_SYS_1606:
         case COMP_TEMP_0806:
+        case COMP_TEMP_1612:
         case COMP_TIME_1606:
         case COMP_BATTERY_0806:
         case COMP_BATT_TEMP_0806:
@@ -689,9 +692,11 @@ static dirty_mask_t screen_custom_card_dirty_mask(uint8_t custom_card_idx)
         case COMP_TISSUE_GF_4012:
         case COMP_TISSUE_RAW_4012:
         case COMP_SURF_GF_0806:
+        case COMP_SURF_GF_1612:
         case COMP_GF99_0806:
         case COMP_CNS_0806:
         case COMP_OTU_0806:
+        case COMP_OTU_1612:
             mask |= DIRTY_TISSUE_TOX;
             break;
         case COMP_GF_0806:
