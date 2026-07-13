@@ -348,6 +348,16 @@ static void alarm_view_show_banner(const alarm_view_context_t *ctx,
     lv_label_set_text(s_alarm_banner_lbl, text ? text : "");
 }
 
+static bool alarm_view_target_is_depth(comp_id_t target)
+{
+    return target == COMP_DEPTH_1606 || target == COMP_DEPTH_1612 || target == COMP_DEPTH_DATA_1612;
+}
+
+static bool alarm_view_raw_is_depth(uintptr_t raw)
+{
+    return raw == (uintptr_t)COMP_DEPTH_1606 || raw == (uintptr_t)COMP_DEPTH_1612 || raw == (uintptr_t)COMP_DEPTH_DATA_1612;
+}
+
 static bool alarm_view_target_match(uintptr_t raw, comp_id_t target)
 {
     /* 这里同时兼容完整 ID 和 POD 这类做过压缩编码的目标。 */
@@ -356,12 +366,7 @@ static bool alarm_view_target_match(uintptr_t raw, comp_id_t target)
         return true;
     }
 #if ALARM_TARGET_MATCH_DEPTH_1612
-    if ((target == COMP_DEPTH_1606 && raw == (uintptr_t)COMP_DEPTH_1612) ||
-        (target == COMP_DEPTH_1606 && raw == (uintptr_t)COMP_DEPTH_DATA_1612) ||
-        (target == COMP_DEPTH_1612 && raw == (uintptr_t)COMP_DEPTH_1606) ||
-        (target == COMP_DEPTH_1612 && raw == (uintptr_t)COMP_DEPTH_DATA_1612) ||
-        (target == COMP_DEPTH_DATA_1612 && raw == (uintptr_t)COMP_DEPTH_1606) ||
-        (target == COMP_DEPTH_DATA_1612 && raw == (uintptr_t)COMP_DEPTH_1612))
+    if (alarm_view_target_is_depth(target) && alarm_view_raw_is_depth(raw))
     {
         return true;
     }

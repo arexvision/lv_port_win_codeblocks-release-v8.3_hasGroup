@@ -106,6 +106,11 @@ static uint32_t alarm_now(void)
     return lv_tick_get();
 }
 
+static bool alarm_target_is_depth(comp_id_t target)
+{
+    return target == COMP_DEPTH_1606 || target == COMP_DEPTH_1612 || target == COMP_DEPTH_DATA_1612;
+}
+
 static bool alarm_target_equivalent(comp_id_t visible, comp_id_t target)
 {
     if (visible == target)
@@ -114,12 +119,7 @@ static bool alarm_target_equivalent(comp_id_t visible, comp_id_t target)
     }
 
 #if ALARM_TARGET_MATCH_DEPTH_1612
-    if ((target == COMP_DEPTH_1606 && visible == COMP_DEPTH_1612) ||
-        (target == COMP_DEPTH_1606 && visible == COMP_DEPTH_DATA_1612) ||
-        (target == COMP_DEPTH_1612 && visible == COMP_DEPTH_1606) ||
-        (target == COMP_DEPTH_1612 && visible == COMP_DEPTH_DATA_1612) ||
-        (target == COMP_DEPTH_DATA_1612 && visible == COMP_DEPTH_1606) ||
-        (target == COMP_DEPTH_DATA_1612 && visible == COMP_DEPTH_1612))
+    if (alarm_target_is_depth(target) && alarm_target_is_depth(visible))
     {
         return true;
     }
