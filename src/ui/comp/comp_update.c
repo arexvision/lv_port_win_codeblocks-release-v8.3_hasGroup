@@ -439,6 +439,10 @@ void comp_sync_data(comp_id_t w_id)
         comp_set_value(w_id, bus_get_depth());
         break;
 
+    case COMP_DEPTH_DATA_1612:
+        comp_sync_text_from_vm(w_id, 0U);
+        break;
+
     /* =========================================================
      * 3. 潜水时间（MM:SS 格式化）
      * ========================================================= */

@@ -471,6 +471,7 @@ void ui_vm_value_text_update(ui_vm_value_text_t *vm,
     switch (w_id)
     {
     case COMP_DEPTH_1606:
+    case COMP_DEPTH_DATA_1612:
     {
         ui_vm_depth_t depth_vm;
         ui_vm_depth_update(&depth_vm, NULL);

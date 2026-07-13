@@ -289,6 +289,7 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
         { COMP_FIO2_0806, 4, 4 },
         { COMP_NOFLY_0806, 2, 5 },
         { COMP_STOP_TIME_1606, 3, 5 },
+        { COMP_DEPTH_DATA_1612, 0, 4 },
     };
     static const grid_widget_t side_large_basic[] =
     {
@@ -358,6 +359,7 @@ static void layout_set_default_custom_cards(sys_config_t *cfg, bool horizontal)
         { COMP_GF99_0806, 4, 2 },
         { COMP_CNS_0806, 5, 2 },
         { COMP_GF_0806, 6, 2 },
+        { COMP_DEPTH_DATA_1612, 2, 2 },
         { COMP_CEILING_0806, 4, 3 },
         { COMP_FIO2_0806, 5, 3 },
         { COMP_NOFLY_0806, 6, 3 },

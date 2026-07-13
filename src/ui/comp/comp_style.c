@@ -46,6 +46,17 @@ static const comp_style_t g_widget_styles[] =
         .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
+        .widget_id = COMP_DEPTH_DATA_1612,
+        .span_w = 2, .span_h = 2,
+        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .font_id = FONT_ID_NDL,
+        .title_font_id = FONT_ID_BIG_TITLE,
+        .unit = "m",
+        .title = "DEPTH",
+        .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
+        .spec.basic = { .value_offset_x = -8, .value_offset_y = -8, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+    },
+    {
         .widget_id = COMP_NDL_STOP_1606,
         .span_w = 2, .span_h = 1,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT | ELEM_BAR,
@@ -87,7 +98,7 @@ static const comp_style_t g_widget_styles[] =
             .norm_sub_x  = 8, .norm_sub_y  = -28, .norm_sub_align  = LV_ALIGN_BOTTOM_LEFT,
             .norm_sub_font_id = FONT_ID_MEDIUM,
             .deco_title_x = 8,  .deco_title_y = 6,  .deco_title_align = LV_ALIGN_TOP_LEFT,
-            .deco_title_font_id = FONT_ID_SMALL,
+            .deco_title_font_id = FONT_ID_MEDIUM,
             .deco_main_x  = -8, .deco_main_y  = -24, .deco_main_align  = LV_ALIGN_BOTTOM_RIGHT,
             .deco_main_font_id = FONT_ID_BIG_TITLE,
             .deco_bar_side_pad = 16, .deco_bar_h = 10, .deco_bar_x = 0, .deco_bar_y = -4,
@@ -181,7 +192,7 @@ static const comp_style_t g_widget_styles[] =
         .unit = NULL,
         .title = "TIME",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = 0, .value_offset_y = -12, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_TTS_0806,
@@ -231,7 +242,7 @@ static const comp_style_t g_widget_styles[] =
         .widget_id = COMP_ASCENT_1612,
         .span_w = 2, .span_h = 2,
         .elements = ELEM_TITLE | ELEM_VALUE | ELEM_BAR,
-        .font_id = FONT_ID_HUGE,
+        .font_id = FONT_ID_BIG_TITLE,
         .title_font_id = FONT_ID_BIG_TITLE,
         .unit = NULL,
         .title = "RATE",
@@ -300,12 +311,12 @@ static const comp_style_t g_widget_styles[] =
         .widget_id = COMP_STOP_TIME_1612,
         .span_w = 2, .span_h = 2,
         .elements = ELEM_TITLE | ELEM_VALUE,
-        .font_id = FONT_ID_HUGE,
+        .font_id = FONT_ID_BIG_TITLE,
         .title_font_id = FONT_ID_BIG_TITLE,
         .unit = NULL,
         .title = "STIME",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = 0, .value_offset_y = -12, .value_align = LV_ALIGN_BOTTOM_MID }
+        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
     },
     {
         .widget_id = COMP_PPO2_0806,

@@ -52,7 +52,7 @@ extern "C" {
 #define BLACK  lv_color_make(0x00, 0x00, 0x00)  /* 黑色底色 */
 #define BG     lv_color_make(0x05, 0x05, 0x05)  /* 全局背景色 */
 
-#define DEBUG_BORDERS             0       /* 全局布局调试边框开关 */
+#define DEBUG_BORDERS             1       /* 全局布局调试边框开关 */
 #define CARD_DEBUG_BORDERS        1       /* 卡片内部调试边框开关 */
 #define INNER_BORDER_W            2       /* 通用内部边框宽度 */
 #define MENU_LIST_TOP_NUDGE_PX    0       /* 菜单列表向标题方向上移量 */
@@ -247,7 +247,8 @@ typedef enum
     COMP_GF99_1612        = 73,  /* 2x2 GF99 */
     COMP_CNS_1612         = 74,  /* 2x2 CNS */
     COMP_GF_1612          = 75,  /* 2x2 GF设置 */
-    COMP_CEILING_1612     = 76   /* 2x2 ceiling */
+    COMP_CEILING_1612     = 76,  /* 2x2 ceiling */
+    COMP_DEPTH_DATA_1612  = 77   /* 2x2 深度纯数据 */
 } comp_id_t;
 
 typedef enum

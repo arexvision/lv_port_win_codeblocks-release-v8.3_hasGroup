@@ -58,6 +58,7 @@ static dirty_mask_t ui_router_widget_dirty_mask(comp_id_t widget_id)
         return DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS;
     case COMP_DEPTH_1612:
     case COMP_DEPTH_1606:
+    case COMP_DEPTH_DATA_1612:
         return DIRTY_DIVE_PROFILE | DIRTY_SYSTEM;
     case COMP_DIVE_TIME_1606:
     case COMP_SURFACE_TIME_1606:
