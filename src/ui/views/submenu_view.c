@@ -1,7 +1,7 @@
 /*
- * 文件: src/app_ui/ui/views/submenu_view.c
+ * 文件: src/ui/views/submenu_view.c
  * 作用: 该文件属于视图表现模块，负责菜单、子菜单、模态框或特定视图状态的展示与交互联动。
- * 说明: 本文件位于 app_ui 目录下，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
+ * 说明: 本文件位于 UI 视图层，主要服务于潜水电脑前端界面的构建、刷新与交互流程；阅读时建议结合同目录下的 .h/.c 配对文件、上层状态机入口以及页面注册关系一起理解。
  * 维护: 维护时需要同时关注 UI 状态机、LVGL 对象生命周期以及跨模块回调关系，避免只改显示层而忽略状态同步、对象释放或重建后的引用有效性。
  */
 
@@ -10,6 +10,7 @@
 #include "../../config/build/ui_debug_flags.h"
 #include "../core/callbacks.h"
 #include "../core/data.h"
+#include "../ports/logbook_io_port.h"
 #include "../screen/screen.h"
 #include "menu_actions.h"
 #include "submenu_model.h"
@@ -39,8 +40,21 @@ static bool s_dive_plan_last_vm_valid = false;
 static bool s_submenu_selection_scroll_silent = false;
 static lv_coord_t s_submenu_target_scroll_y = 0;
 static bool s_light_color_preview_active = false;
-static light_color_t s_light_color_preview_original = LIGHT_COLOR_RED;
+static uint32_t s_light_color_preview_original_rgb = 0xFFFFFFUL;
+static uint16_t s_light_color_preview_hue = 0U;
+static lv_obj_t *s_light_color_title_lbl = NULL;
+static lv_obj_t *s_light_color_hex_lbl = NULL;
+static lv_obj_t *s_light_color_swatch = NULL;
+static lv_obj_t *s_light_color_cursor = NULL;
 static uint8_t s_submenu_selected_idx = 0xFFU;
+
+enum
+{
+    LIGHT_COLOR_HUE_MAX = 360U,
+    LIGHT_COLOR_HUE_STEP_DEG = 6U,
+    LIGHT_COLOR_BAR_SEGMENTS = 36U,
+    LIGHT_COLOR_ROTARY_ROW_INDEX = 0U,
+};
 
 static bool normalize_rotate_steps(int8_t steps, int8_t *out_dir, uint8_t *out_count)
 {
@@ -63,6 +77,105 @@ static bool normalize_rotate_steps(int8_t steps, int8_t *out_dir, uint8_t *out_c
     return true;
 }
 
+static uint32_t light_rgb_make(uint8_t r, uint8_t g, uint8_t b)
+{
+    return (((uint32_t)r) << 16) | (((uint32_t)g) << 8) | (uint32_t)b;
+}
+
+static lv_color_t light_lv_color_from_rgb(uint32_t rgb)
+{
+    return lv_color_make((uint8_t)((rgb >> 16) & 0xFFU),
+                         (uint8_t)((rgb >> 8) & 0xFFU),
+                         (uint8_t)(rgb & 0xFFU));
+}
+
+static uint32_t light_color_rgb_from_hue(uint16_t hue)
+{
+    uint16_t h = (uint16_t)(hue % LIGHT_COLOR_HUE_MAX);
+    uint8_t sector = (uint8_t)(h / 60U);
+    uint8_t offset = (uint8_t)(h % 60U);
+    uint8_t rising = (uint8_t)(((uint16_t)offset * 255U) / 60U);
+    uint8_t falling = (uint8_t)(255U - rising);
+
+    switch (sector)
+    {
+    case 0U: return light_rgb_make(255U, rising, 0U);
+    case 1U: return light_rgb_make(falling, 255U, 0U);
+    case 2U: return light_rgb_make(0U, 255U, rising);
+    case 3U: return light_rgb_make(0U, falling, 255U);
+    case 4U: return light_rgb_make(rising, 0U, 255U);
+    default: return light_rgb_make(255U, 0U, falling);
+    }
+}
+
+static uint16_t light_color_hue_from_rgb(uint32_t rgb)
+{
+    uint8_t r = (uint8_t)((rgb >> 16) & 0xFFU);
+    uint8_t g = (uint8_t)((rgb >> 8) & 0xFFU);
+    uint8_t b = (uint8_t)(rgb & 0xFFU);
+    uint8_t max = r;
+    uint8_t min = r;
+    int32_t hue;
+    uint8_t delta;
+
+    if (g > max) max = g;
+    if (b > max) max = b;
+    if (g < min) min = g;
+    if (b < min) min = b;
+
+    delta = (uint8_t)(max - min);
+    if (delta == 0U)
+    {
+        return 0U;
+    }
+
+    if (max == r)
+    {
+        hue = (60L * ((int32_t)g - (int32_t)b)) / (int32_t)delta;
+    }
+    else if (max == g)
+    {
+        hue = 120L + (60L * ((int32_t)b - (int32_t)r)) / (int32_t)delta;
+    }
+    else
+    {
+        hue = 240L + (60L * ((int32_t)r - (int32_t)g)) / (int32_t)delta;
+    }
+
+    while (hue < 0L) hue += LIGHT_COLOR_HUE_MAX;
+    while (hue >= (int32_t)LIGHT_COLOR_HUE_MAX) hue -= LIGHT_COLOR_HUE_MAX;
+    return (uint16_t)hue;
+}
+
+static bool submenu_current_menu_is_readonly_info(void)
+{
+    return menu_defs_is_readonly_menu(menu_runtime_current_id());
+}
+
+static dirty_mask_t submenu_info_refresh_mask_for_current_menu(void)
+{
+    /* INFO 子菜单以前对 DIRTY_INFO_REFRESH_MASK 全量响应，停在 LAST DIVE 时
+     * 罗盘/传感器高频 dirty 也会触发 lv_obj_clean + 重建列表。按当前页订阅
+     * 真正使用的数据域，可以把旋转/后台刷新期间的无关重建降下来。 */
+    switch (menu_runtime_current_id())
+    {
+    case MENU_INFO_LAST_DIVE:
+        return DIRTY_DIVE_PROFILE | DIRTY_LOGBOOK;
+    case MENU_INFO_DIVE_PLAN:
+        return DIRTY_PLAN | DIRTY_DIVE_PROFILE | DIRTY_DIVE_CONFIG | DIRTY_GAS_SUPPLY;
+    case MENU_INFO_TISSUE_TOX:
+        return DIRTY_TISSUE_TOX | DIRTY_DIVE_CONFIG;
+    case MENU_INFO_GAS_CALC:
+        return DIRTY_GAS_SUPPLY | DIRTY_DIVE_CONFIG;
+    case MENU_INFO_SENSOR_DEVICE:
+        return DIRTY_SYSTEM | DIRTY_GAS_SUPPLY;
+    case MENU_INFO_DIVE_LOG:
+        return DIRTY_LOGBOOK;
+    default:
+        return DIRTY_INFO_REFRESH_MASK;
+    }
+}
+
 typedef enum
 {
     LOGBOOK_PAGE_PICK = 0,
@@ -74,6 +187,7 @@ typedef enum
 typedef struct
 {
     bool valid;
+    logbook_record_key_t record_key;
     logbook_meta_t meta;
     uint8_t recovered;
     uint8_t abnormal_end;
@@ -82,6 +196,8 @@ typedef struct
 enum
 {
     LOGBOOK_PICKER_VISIBLE_ROWS = 5U,
+    LOGBOOK_SUMMARY_RETRY_MAX = 5U,
+    LOGBOOK_SUMMARY_RETRY_BASE_MS = 100U,
 };
 
 static logbook_page_t s_logbook_page = LOGBOOK_PAGE_PICK;
@@ -98,13 +214,21 @@ static const dive_pt_t *s_logbook_points = NULL;
 static uint16_t s_logbook_point_count;
 static lv_timer_t *s_logbook_load_timer = NULL;
 static lv_timer_t *s_logbook_detail_timer = NULL;
+static lv_timer_t *s_logbook_retry_timer = NULL;
 static uint16_t s_logbook_load_page = 0U;
 static uint8_t s_logbook_load_offset = 0U;
-static bool s_logbook_load_prefetch = false;
+static uint8_t s_logbook_load_retry_count = 0U;
+static bool s_logbook_load_background = false;
 static bool s_logbook_load_page_dirty = false;
-static uint16_t s_logbook_detail_index = 0U;
+static uint16_t s_logbook_detail_backend_index = 0U;
 static uint16_t s_logbook_detail_display_index = 0U;
+static logbook_record_key_t s_logbook_detail_record_key = LOGBOOK_INVALID_RECORD_KEY;
+#ifndef PC_SIMULATOR
+static uint32_t s_logbook_detail_request_id = 0U;
+#endif
 static bool s_logbook_detail_loading = false;
+static bool s_logbook_detail_load_failed = false;
+static bool s_logbook_picker_refresh_pending = false;
 static bool s_logbook_picker_view_ready = false;
 static bool s_logbook_loading = false;
 static lv_obj_t *s_logbook_picker_title = NULL;
@@ -117,66 +241,18 @@ static lv_obj_t *s_logbook_picker_back = NULL;
 static lv_obj_t *s_logbook_picker_back_lbl = NULL;
 static lv_obj_t *s_logbook_picker_next = NULL;
 static lv_obj_t *s_logbook_picker_next_lbl = NULL;
-static bool s_logbook_valid = false;
+/* 只表示列表已确认至少存在一条日志；详情失败不得修改该状态。 */
+static bool s_logbook_has_logs = false;
 static bool s_logbook_points_loaded = false;
-static const dive_pt_t *s_logbook_prefetch_points = NULL;
-static uint16_t s_logbook_prefetch_index = 0xFFFFU;
-static uint16_t s_logbook_prefetch_point_count = 0U;
-static bool s_logbook_prefetch_ready = false;
 
-#ifndef PC_SIMULATOR
-enum
-{
-    LOGBOOK_DETAIL_THREAD_STACK_SIZE = 4096U,
-    LOGBOOK_DETAIL_THREAD_PRIORITY = 15U,
-    LOGBOOK_DETAIL_THREAD_TICK = 10U,
-    LOGBOOK_PREFETCH_THREAD_STACK_SIZE = 3072U,
-    LOGBOOK_PREFETCH_THREAD_PRIORITY = 16U,
-    LOGBOOK_PREFETCH_THREAD_TICK = 10U,
+enum {
+    LOGBOOK_EMPTY_CONFIRM_UNKNOWN = 0U,
+    LOGBOOK_EMPTY_CONFIRM_PENDING = 1U,
+    LOGBOOK_EMPTY_CONFIRM_DONE = 2U,
+    LOGBOOK_EMPTY_CONFIRM_RETRY_MAX = 4U,
 };
-
-typedef struct
-{
-    uint32_t id;
-    uint16_t index;
-    uint16_t display_index;
-    bool load_points;
-} logbook_detail_request_t;
-
-typedef struct
-{
-    uint32_t id;
-    uint16_t index;
-    uint16_t display_index;
-    bool success;
-    bool has_points;
-    logbook_entry_t entry;
-    const dive_pt_t *points;
-    uint16_t point_count;
-} logbook_detail_result_t;
-
-typedef struct
-{
-    uint32_t id;
-    uint16_t index;
-    uint16_t display_index;
-} logbook_prefetch_request_t;
-
-static volatile bool s_logbook_detail_async_running = false;
-static volatile bool s_logbook_detail_async_done = false;
-static volatile uint32_t s_logbook_detail_async_generation = 0U;
-static logbook_detail_request_t s_logbook_detail_async_request;
-static logbook_detail_result_t s_logbook_detail_async_result;
-static rt_thread_t s_logbook_detail_thread = RT_NULL;
-static rt_sem_t s_logbook_detail_sem = RT_NULL;
-static rt_mutex_t s_logbook_detail_mutex = RT_NULL;
-static volatile bool s_logbook_prefetch_running = false;
-static volatile uint32_t s_logbook_prefetch_generation = 0U;
-static logbook_prefetch_request_t s_logbook_prefetch_request;
-static rt_thread_t s_logbook_prefetch_thread = RT_NULL;
-static rt_sem_t s_logbook_prefetch_sem = RT_NULL;
-static rt_mutex_t s_logbook_prefetch_mutex = RT_NULL;
-#endif
+static uint8_t s_logbook_empty_confirm_state = LOGBOOK_EMPTY_CONFIRM_UNKNOWN;
+static uint8_t s_logbook_empty_confirm_retry_count = 0U;
 
 #if UI_LOGBOOK_PROFILE_ENABLED
 static uint32_t logbook_profile_begin(void)
@@ -210,9 +286,13 @@ static bool logbook_picker_snapshot_refresh(void);
 static void logbook_picker_bind_current_page(void);
 static void logbook_picker_load_page_sync(uint16_t page_index);
 static uint16_t logbook_display_to_backend_index(uint16_t display_index);
-static void logbook_picker_item_from_entry(logbook_picker_item_t *dst, const logbook_entry_t *src);
+static bool logbook_picker_load_summary(uint16_t index,
+                                        logbook_entry_t *out_entry,
+                                        logbook_record_key_t *out_record_key);
+static void logbook_picker_item_from_entry(logbook_picker_item_t *dst,
+                                           const logbook_entry_t *src,
+                                           logbook_record_key_t record_key);
 static void logbook_entry_from_picker_item(logbook_entry_t *dst, const logbook_picker_item_t *src);
-static void logbook_entry_make_pending(logbook_entry_t *dst, uint16_t index);
 static uint8_t logbook_picker_focus_to_index(uint8_t focus, uint8_t visible_count);
 static bool logbook_picker_has_back(void);
 static bool logbook_picker_has_next(void);
@@ -222,18 +302,21 @@ static uint8_t logbook_picker_focus_count(void);
 static void logbook_picker_focus_default(void);
 static void logbook_picker_sync_focus(void);
 static void submenu_populate_current(void);
+static void logbook_load_current(void);
 static void logbook_picker_stop_loader(void);
-static void logbook_picker_start_loader(uint16_t page_index, bool prefetch);
+static bool logbook_picker_page_has_missing(uint16_t page_index);
+static void logbook_picker_start_loader(uint16_t page_index, bool background);
 static void logbook_detail_stop_loader(void);
 static void logbook_detail_start_loader(uint16_t index);
-static void logbook_prefetch_cancel(void);
-static void logbook_prefetch_start(uint16_t index);
-static bool logbook_prefetch_take(uint16_t index);
+static void logbook_retry_stop(void);
+static void logbook_retry_start(void);
 static void logbook_picker_view_reset(void);
 static void logbook_picker_view_forget(void);
 static void logbook_picker_load_timer_cb(lv_timer_t *timer);
 static void logbook_detail_load_timer_cb(lv_timer_t *timer);
-static bool logbook_points_load(uint16_t index);
+static void logbook_retry_timer_cb(lv_timer_t *timer);
+static void light_color_preview_clear_refs(void);
+static void light_color_preview_cancel_if_active(void);
 
 static void logbook_points_release(void)
 {
@@ -242,481 +325,24 @@ static void logbook_points_release(void)
         return;
     }
 
+#ifdef PC_SIMULATOR
     logbook_backend_release_samples(s_logbook_points);
+#else
+    logbook_io_release_points(s_logbook_points);
+#endif
     s_logbook_points = NULL;
     s_logbook_point_count = 0U;
     s_logbook_points_loaded = false;
 }
 
-static void logbook_prefetch_release_ready(void)
+static logbook_record_key_t logbook_record_key_for_display_index(uint16_t index)
 {
-    if (s_logbook_prefetch_ready && s_logbook_prefetch_points != NULL)
+    if (s_logbook_snapshot_entries == NULL || index >= s_logbook_snapshot_count)
     {
-        logbook_backend_release_samples(s_logbook_prefetch_points);
+        return LOGBOOK_INVALID_RECORD_KEY;
     }
-    s_logbook_prefetch_points = NULL;
-    s_logbook_prefetch_point_count = 0U;
-    s_logbook_prefetch_index = 0xFFFFU;
-    s_logbook_prefetch_ready = false;
+    return s_logbook_snapshot_entries[index].record_key;
 }
-
-#ifndef PC_SIMULATOR
-static bool logbook_detail_async_lock(void)
-{
-    return (s_logbook_detail_mutex != RT_NULL) &&
-           (rt_mutex_take(s_logbook_detail_mutex, rt_tick_from_millisecond(50U)) == RT_EOK);
-}
-
-static bool logbook_detail_async_lock_wait(void)
-{
-    return (s_logbook_detail_mutex != RT_NULL) &&
-           (rt_mutex_take(s_logbook_detail_mutex, RT_WAITING_FOREVER) == RT_EOK);
-}
-
-static void logbook_detail_async_unlock(void)
-{
-    if (s_logbook_detail_mutex != RT_NULL)
-    {
-        rt_mutex_release(s_logbook_detail_mutex);
-    }
-}
-
-static void logbook_detail_async_worker(void *parameter)
-{
-    (void)parameter;
-
-    while (1)
-    {
-        if (s_logbook_detail_sem == RT_NULL ||
-            rt_sem_take(s_logbook_detail_sem, RT_WAITING_FOREVER) != RT_EOK)
-        {
-            continue;
-        }
-
-        logbook_detail_request_t request;
-        logbook_entry_t entry;
-        const dive_pt_t *points = NULL;
-        uint16_t point_count = 0U;
-        bool success = false;
-        bool has_points = false;
-
-        if (!logbook_detail_async_lock_wait())
-        {
-            continue;
-        }
-        request = s_logbook_detail_async_request;
-        logbook_detail_async_unlock();
-
-        uint32_t profile_start_ms = logbook_profile_begin();
-        if (request.load_points)
-        {
-            success = logbook_backend_get_detail_and_acquire_samples(request.index, &entry, &points, &point_count);
-            logbook_profile_end("detail_async_get_detail_samples", profile_start_ms);
-            has_points = (points != NULL) && (point_count > 0U);
-        }
-        else
-        {
-            success = logbook_backend_get_detail(request.index, &entry);
-            logbook_profile_end("detail_async_get_detail", profile_start_ms);
-        }
-        if (!has_points)
-        {
-            points = NULL;
-            point_count = 0U;
-        }
-
-        if (!logbook_detail_async_lock_wait())
-        {
-            if (has_points)
-            {
-                logbook_backend_release_samples(points);
-            }
-            continue;
-        }
-
-        if (request.id == s_logbook_detail_async_request.id &&
-            request.index == s_logbook_detail_async_request.index)
-        {
-            s_logbook_detail_async_result.id = request.id;
-            s_logbook_detail_async_result.index = request.index;
-            s_logbook_detail_async_result.display_index = request.display_index;
-            s_logbook_detail_async_result.success = success;
-            s_logbook_detail_async_result.has_points = has_points;
-            s_logbook_detail_async_result.entry = entry;
-            s_logbook_detail_async_result.points = points;
-            s_logbook_detail_async_result.point_count = point_count;
-            s_logbook_detail_async_done = true;
-            s_logbook_detail_async_running = false;
-        }
-        else if (has_points)
-        {
-            logbook_backend_release_samples(points);
-        }
-        logbook_detail_async_unlock();
-    }
-}
-
-static bool logbook_detail_async_ensure_worker(void)
-{
-    if (s_logbook_detail_mutex == RT_NULL)
-    {
-        s_logbook_detail_mutex = rt_mutex_create("ldlogM", RT_IPC_FLAG_FIFO);
-        if (s_logbook_detail_mutex == RT_NULL)
-        {
-            return false;
-        }
-    }
-
-    if (s_logbook_detail_sem == RT_NULL)
-    {
-        s_logbook_detail_sem = rt_sem_create("ldlogS", 0U, RT_IPC_FLAG_FIFO);
-        if (s_logbook_detail_sem == RT_NULL)
-        {
-            return false;
-        }
-    }
-
-    if (s_logbook_detail_thread != RT_NULL)
-    {
-        return true;
-    }
-
-    s_logbook_detail_thread = rt_thread_create("ldlog",
-                                               logbook_detail_async_worker,
-                                               RT_NULL,
-                                               LOGBOOK_DETAIL_THREAD_STACK_SIZE,
-                                               LOGBOOK_DETAIL_THREAD_PRIORITY,
-                                               LOGBOOK_DETAIL_THREAD_TICK);
-    if (s_logbook_detail_thread == RT_NULL)
-    {
-        return false;
-    }
-
-    rt_thread_startup(s_logbook_detail_thread);
-    return true;
-}
-
-static bool logbook_detail_async_start(uint16_t index)
-{
-    if (!logbook_detail_async_ensure_worker())
-    {
-        return false;
-    }
-    if (!logbook_detail_async_lock())
-    {
-        return false;
-    }
-    if (s_logbook_detail_async_running)
-    {
-        logbook_detail_async_unlock();
-        return false;
-    }
-
-    s_logbook_detail_async_generation++;
-    if (s_logbook_detail_async_generation == 0U)
-    {
-        s_logbook_detail_async_generation = 1U;
-    }
-
-    s_logbook_detail_async_request.id = s_logbook_detail_async_generation;
-    s_logbook_detail_async_request.index = index;
-    s_logbook_detail_async_request.display_index = s_logbook_detail_display_index;
-    s_logbook_detail_async_request.load_points = !s_logbook_points_loaded;
-    s_logbook_detail_async_result.id = s_logbook_detail_async_generation;
-    s_logbook_detail_async_result.index = index;
-    s_logbook_detail_async_result.display_index = s_logbook_detail_display_index;
-    s_logbook_detail_async_result.success = false;
-    s_logbook_detail_async_result.has_points = false;
-    s_logbook_detail_async_result.points = NULL;
-    s_logbook_detail_async_result.point_count = 0U;
-    s_logbook_detail_async_done = false;
-    s_logbook_detail_async_running = true;
-    logbook_detail_async_unlock();
-
-    if (rt_sem_release(s_logbook_detail_sem) != RT_EOK)
-    {
-        if (logbook_detail_async_lock())
-        {
-            s_logbook_detail_async_running = false;
-            logbook_detail_async_unlock();
-        }
-        return false;
-    }
-    return true;
-}
-
-static bool logbook_detail_async_fetch(logbook_detail_result_t *result)
-{
-    bool ready = false;
-
-    if (result == NULL)
-    {
-        return false;
-    }
-
-    if (!logbook_detail_async_lock())
-    {
-        return false;
-    }
-
-    if (s_logbook_detail_async_done)
-    {
-        *result = s_logbook_detail_async_result;
-        s_logbook_detail_async_done = false;
-        ready = true;
-    }
-    logbook_detail_async_unlock();
-    return ready;
-}
-
-static void logbook_detail_async_cancel(void)
-{
-    if (!logbook_detail_async_lock_wait())
-    {
-        return;
-    }
-
-    s_logbook_detail_async_generation++;
-    if (s_logbook_detail_async_generation == 0U)
-    {
-        s_logbook_detail_async_generation = 1U;
-    }
-    if (s_logbook_detail_async_done && s_logbook_detail_async_result.has_points &&
-        s_logbook_detail_async_result.points != NULL)
-    {
-        logbook_backend_release_samples(s_logbook_detail_async_result.points);
-    }
-    s_logbook_detail_async_done = false;
-    s_logbook_detail_async_running = false;
-    logbook_detail_async_unlock();
-}
-#endif
-
-#ifndef PC_SIMULATOR
-static bool logbook_prefetch_lock(void)
-{
-    return (s_logbook_prefetch_mutex != RT_NULL) &&
-           (rt_mutex_take(s_logbook_prefetch_mutex, rt_tick_from_millisecond(20U)) == RT_EOK);
-}
-
-static bool logbook_prefetch_lock_wait(void)
-{
-    return (s_logbook_prefetch_mutex != RT_NULL) &&
-           (rt_mutex_take(s_logbook_prefetch_mutex, RT_WAITING_FOREVER) == RT_EOK);
-}
-
-static void logbook_prefetch_unlock(void)
-{
-    if (s_logbook_prefetch_mutex != RT_NULL)
-    {
-        rt_mutex_release(s_logbook_prefetch_mutex);
-    }
-}
-
-static void logbook_prefetch_worker(void *parameter)
-{
-    (void)parameter;
-
-    while (1)
-    {
-        if (s_logbook_prefetch_sem == RT_NULL ||
-            rt_sem_take(s_logbook_prefetch_sem, RT_WAITING_FOREVER) != RT_EOK)
-        {
-            continue;
-        }
-
-        logbook_prefetch_request_t request;
-        const dive_pt_t *points = NULL;
-        uint16_t point_count = 0U;
-        bool ok;
-        uint32_t profile_start_ms;
-
-        if (!logbook_prefetch_lock_wait())
-        {
-            continue;
-        }
-        request = s_logbook_prefetch_request;
-        logbook_prefetch_unlock();
-
-        profile_start_ms = logbook_profile_begin();
-        ok = logbook_backend_acquire_samples(request.index, &points, &point_count);
-        logbook_profile_end("prefetch_points", profile_start_ms);
-        if (!ok)
-        {
-            points = NULL;
-            point_count = 0U;
-        }
-
-        if (!logbook_prefetch_lock_wait())
-        {
-            if (points != NULL)
-            {
-                logbook_backend_release_samples(points);
-            }
-            continue;
-        }
-
-        if (request.id == s_logbook_prefetch_request.id &&
-            request.index == s_logbook_prefetch_request.index)
-        {
-            logbook_prefetch_release_ready();
-            s_logbook_prefetch_index = request.display_index;
-            s_logbook_prefetch_points = points;
-            s_logbook_prefetch_point_count = point_count;
-            s_logbook_prefetch_ready = ok && (points != NULL) && (point_count > 0U);
-            s_logbook_prefetch_running = false;
-        }
-        else if (points != NULL)
-        {
-            logbook_backend_release_samples(points);
-        }
-        logbook_prefetch_unlock();
-    }
-}
-
-static bool logbook_prefetch_ensure_worker(void)
-{
-    if (s_logbook_prefetch_mutex == RT_NULL)
-    {
-        s_logbook_prefetch_mutex = rt_mutex_create("lpfM", RT_IPC_FLAG_FIFO);
-        if (s_logbook_prefetch_mutex == RT_NULL)
-        {
-            return false;
-        }
-    }
-
-    if (s_logbook_prefetch_sem == RT_NULL)
-    {
-        s_logbook_prefetch_sem = rt_sem_create("lpfS", 0U, RT_IPC_FLAG_FIFO);
-        if (s_logbook_prefetch_sem == RT_NULL)
-        {
-            return false;
-        }
-    }
-
-    if (s_logbook_prefetch_thread != RT_NULL)
-    {
-        return true;
-    }
-
-    s_logbook_prefetch_thread = rt_thread_create("lpf",
-                                                 logbook_prefetch_worker,
-                                                 RT_NULL,
-                                                 LOGBOOK_PREFETCH_THREAD_STACK_SIZE,
-                                                 LOGBOOK_PREFETCH_THREAD_PRIORITY,
-                                                 LOGBOOK_PREFETCH_THREAD_TICK);
-    if (s_logbook_prefetch_thread == RT_NULL)
-    {
-        return false;
-    }
-
-    rt_thread_startup(s_logbook_prefetch_thread);
-    return true;
-}
-
-static void logbook_prefetch_cancel(void)
-{
-    if (!logbook_prefetch_lock())
-    {
-        return;
-    }
-
-    s_logbook_prefetch_generation++;
-    if (s_logbook_prefetch_generation == 0U)
-    {
-        s_logbook_prefetch_generation = 1U;
-    }
-    s_logbook_prefetch_running = false;
-    logbook_prefetch_release_ready();
-    logbook_prefetch_unlock();
-}
-
-static void logbook_prefetch_start(uint16_t index)
-{
-    uint16_t backend_index;
-
-    if (index >= s_logbook_snapshot_count)
-    {
-        return;
-    }
-    backend_index = logbook_display_to_backend_index(index);
-    if (!logbook_prefetch_ensure_worker() || !logbook_prefetch_lock())
-    {
-        return;
-    }
-    if (s_logbook_prefetch_ready && s_logbook_prefetch_index == index)
-    {
-        logbook_prefetch_unlock();
-        return;
-    }
-    if (s_logbook_prefetch_running && s_logbook_prefetch_request.display_index == index)
-    {
-        logbook_prefetch_unlock();
-        return;
-    }
-
-    s_logbook_prefetch_generation++;
-    if (s_logbook_prefetch_generation == 0U)
-    {
-        s_logbook_prefetch_generation = 1U;
-    }
-    logbook_prefetch_release_ready();
-    s_logbook_prefetch_request.id = s_logbook_prefetch_generation;
-    s_logbook_prefetch_request.index = backend_index;
-    s_logbook_prefetch_request.display_index = index;
-    s_logbook_prefetch_running = true;
-    logbook_prefetch_unlock();
-
-    if (rt_sem_release(s_logbook_prefetch_sem) != RT_EOK && logbook_prefetch_lock())
-    {
-        s_logbook_prefetch_running = false;
-        logbook_prefetch_unlock();
-    }
-}
-
-static bool logbook_prefetch_take(uint16_t index)
-{
-    bool taken = false;
-
-    if (!logbook_prefetch_lock())
-    {
-        return false;
-    }
-
-    if (s_logbook_prefetch_ready &&
-        s_logbook_prefetch_index == index &&
-        s_logbook_prefetch_points != NULL)
-    {
-        s_logbook_points = s_logbook_prefetch_points;
-        s_logbook_point_count = s_logbook_prefetch_point_count;
-        s_logbook_points_loaded = true;
-        s_logbook_prefetch_points = NULL;
-        s_logbook_prefetch_point_count = 0U;
-        s_logbook_prefetch_index = 0xFFFFU;
-        s_logbook_prefetch_ready = false;
-        taken = true;
-    }
-    logbook_prefetch_unlock();
-    return taken;
-}
-
-#else
-static void logbook_prefetch_cancel(void)
-{
-    logbook_prefetch_release_ready();
-}
-
-static void logbook_prefetch_start(uint16_t index)
-{
-    (void)index;
-}
-
-static bool logbook_prefetch_take(uint16_t index)
-{
-    (void)index;
-    return false;
-}
-#endif
 
 static void logbook_picker_cache_invalidate(void)
 {
@@ -735,9 +361,9 @@ static void logbook_picker_cache_invalidate(void)
     s_logbook_picker_focus = 0U;
     s_logbook_index = 0U;
     s_logbook_focus = 0U;
+    s_logbook_detail_backend_index = 0U;
     s_logbook_detail_display_index = 0U;
-    s_logbook_detail_index = 0U;
-    logbook_prefetch_cancel();
+    s_logbook_detail_record_key = LOGBOOK_INVALID_RECORD_KEY;
 }
 
 static bool logbook_picker_cache_reserve(uint16_t count)
@@ -791,7 +417,28 @@ static uint16_t logbook_display_to_backend_index(uint16_t display_index)
     return (uint16_t)(s_logbook_snapshot_count - 1U - display_index);
 }
 
-static void logbook_picker_item_from_entry(logbook_picker_item_t *dst, const logbook_entry_t *src)
+static bool logbook_picker_load_summary(uint16_t index,
+                                        logbook_entry_t *out_entry,
+                                        logbook_record_key_t *out_record_key)
+{
+    if (out_entry == NULL || out_record_key == NULL)
+    {
+        return false;
+    }
+
+#ifdef PC_SIMULATOR
+    *out_record_key = LOGBOOK_INVALID_RECORD_KEY;
+    return logbook_backend_get_summary(logbook_display_to_backend_index(index), out_entry);
+#else
+    return logbook_io_get_summary(logbook_display_to_backend_index(index),
+                                  out_entry,
+                                  out_record_key);
+#endif
+}
+
+static void logbook_picker_item_from_entry(logbook_picker_item_t *dst,
+                                           const logbook_entry_t *src,
+                                           logbook_record_key_t record_key)
 {
     if ((dst == NULL) || (src == NULL))
     {
@@ -799,6 +446,7 @@ static void logbook_picker_item_from_entry(logbook_picker_item_t *dst, const log
     }
 
     dst->valid = src->valid;
+    dst->record_key = record_key;
     dst->meta = src->meta;
     dst->recovered = src->recovered;
     dst->abnormal_end = src->abnormal_end;
@@ -816,21 +464,6 @@ static void logbook_entry_from_picker_item(logbook_entry_t *dst, const logbook_p
     dst->meta = src->meta;
     dst->recovered = src->recovered;
     dst->abnormal_end = src->abnormal_end;
-}
-
-static void logbook_entry_make_pending(logbook_entry_t *dst, uint16_t index)
-{
-    if (dst == NULL)
-    {
-        return;
-    }
-
-    (void)memset(dst, 0, sizeof(*dst));
-    dst->valid = true;
-    dst->meta.log_no = logbook_display_to_backend_index(index);
-    dst->meta.log_no++;
-    (void)snprintf(dst->mode, sizeof(dst->mode), "--");
-    (void)snprintf(dst->deco_model, sizeof(dst->deco_model), "--");
 }
 
 static void logbook_picker_bind_current_page(void)
@@ -938,41 +571,81 @@ static void logbook_picker_stop_loader(void)
     }
     s_logbook_load_page = 0U;
     s_logbook_load_offset = 0U;
-    s_logbook_load_prefetch = false;
+    s_logbook_load_retry_count = 0U;
+    s_logbook_load_background = false;
     s_logbook_load_page_dirty = false;
 }
 
-static void logbook_detail_stop_loader(void)
+static void logbook_detail_finish_loader(bool load_failed)
 {
     if (s_logbook_detail_timer != NULL)
     {
         lv_timer_del(s_logbook_detail_timer);
         s_logbook_detail_timer = NULL;
     }
-    s_logbook_detail_loading = false;
 #ifndef PC_SIMULATOR
-    logbook_detail_async_cancel();
+    if (s_logbook_detail_request_id != 0U)
+    {
+        logbook_io_cancel_detail(s_logbook_detail_request_id);
+        s_logbook_detail_request_id = 0U;
+    }
 #endif
+    s_logbook_detail_loading = false;
+    s_logbook_detail_load_failed = load_failed;
+}
+static void logbook_detail_stop_loader(void)
+{
+    logbook_detail_finish_loader(false);
+}
+
+static void logbook_retry_stop(void)
+{
+    if (s_logbook_retry_timer != NULL)
+    {
+        lv_timer_del(s_logbook_retry_timer);
+        s_logbook_retry_timer = NULL;
+    }
+}
+
+static void logbook_retry_start(void)
+{
+    if (!s_logbook_loading)
+    {
+        logbook_retry_stop();
+        return;
+    }
+
+    if (s_logbook_retry_timer == NULL)
+    {
+        s_logbook_retry_timer = lv_timer_create(logbook_retry_timer_cb, 500U, NULL);
+    }
 }
 
 static void logbook_detail_start_loader(uint16_t index)
 {
-    uint16_t backend_index = logbook_display_to_backend_index(index);
-
     logbook_detail_stop_loader();
+    s_logbook_detail_backend_index = logbook_display_to_backend_index(index);
     s_logbook_detail_display_index = index;
-    s_logbook_detail_index = backend_index;
+    s_logbook_detail_record_key = logbook_record_key_for_display_index(index);
     s_logbook_detail_loading = true;
+    s_logbook_detail_load_failed = false;
+
 #ifndef PC_SIMULATOR
-    if (!logbook_detail_async_start(backend_index))
+    if (s_logbook_detail_record_key == LOGBOOK_INVALID_RECORD_KEY ||
+        !logbook_io_request_detail(s_logbook_detail_record_key,
+                                   &s_logbook_detail_request_id))
     {
-        s_logbook_detail_loading = false;
+        logbook_detail_finish_loader(true);
         return;
     }
 #endif
-    s_logbook_detail_timer = lv_timer_create(logbook_detail_load_timer_cb, 10U, NULL);
-}
 
+    s_logbook_detail_timer = lv_timer_create(logbook_detail_load_timer_cb, 10U, NULL);
+    if (s_logbook_detail_timer == NULL)
+    {
+        logbook_detail_finish_loader(true);
+    }
+}
 static void logbook_picker_prepare_page(uint16_t page_index)
 {
     if (page_index >= s_logbook_page_count)
@@ -984,7 +657,12 @@ static void logbook_picker_prepare_page(uint16_t page_index)
     logbook_picker_load_page_sync(page_index);
     logbook_picker_bind_current_page();
 
-    if ((page_index + 1U) < s_logbook_page_count)
+    if (logbook_picker_page_has_missing(page_index))
+    {
+        /* count 已可信但单条 summary 仍可能遇到 dlogfs 短暂繁忙；当前页优先有限重试。 */
+        logbook_picker_start_loader(page_index, false);
+    }
+    else if ((page_index + 1U) < s_logbook_page_count)
     {
         logbook_picker_start_loader((uint16_t)(page_index + 1U), true);
     }
@@ -1044,7 +722,7 @@ static bool logbook_picker_page_has_missing(uint16_t page_index)
     return false;
 }
 
-static void logbook_picker_start_loader(uint16_t page_index, bool prefetch)
+static void logbook_picker_start_loader(uint16_t page_index, bool background)
 {
     if (page_index >= s_logbook_page_count)
     {
@@ -1052,7 +730,7 @@ static void logbook_picker_start_loader(uint16_t page_index, bool prefetch)
         return;
     }
 
-    if (prefetch && !logbook_picker_page_has_missing(page_index))
+    if (background && !logbook_picker_page_has_missing(page_index))
     {
         if ((page_index + 1U) < s_logbook_page_count)
         {
@@ -1067,7 +745,8 @@ static void logbook_picker_start_loader(uint16_t page_index, bool prefetch)
 
     s_logbook_load_page = page_index;
     s_logbook_load_offset = 0U;
-    s_logbook_load_prefetch = prefetch;
+    s_logbook_load_retry_count = 0U;
+    s_logbook_load_background = background;
     s_logbook_load_page_dirty = false;
     if (s_logbook_load_timer == NULL)
     {
@@ -1075,15 +754,8 @@ static void logbook_picker_start_loader(uint16_t page_index, bool prefetch)
     }
     else
     {
+        lv_timer_set_period(s_logbook_load_timer, 1U);
         lv_timer_ready(s_logbook_load_timer);
-    }
-}
-
-static void logbook_picker_release_objects(void)
-{
-    if (s_logbook_picker_view_ready)
-    {
-        logbook_picker_view_reset();
     }
 }
 
@@ -1117,9 +789,10 @@ static void logbook_picker_load_page_sync(uint16_t page_index)
         }
 
         logbook_entry_t entry;
-        if (logbook_backend_get_summary(logbook_display_to_backend_index(index), &entry))
+        logbook_record_key_t record_key = LOGBOOK_INVALID_RECORD_KEY;
+        if (logbook_picker_load_summary(index, &entry, &record_key))
         {
-            logbook_picker_item_from_entry(&s_logbook_snapshot_entries[index], &entry);
+            logbook_picker_item_from_entry(&s_logbook_snapshot_entries[index], &entry, record_key);
         }
     }
 }
@@ -1194,12 +867,18 @@ static void logbook_picker_view_reset(void)
 
 static void logbook_picker_load_timer_cb(lv_timer_t *timer)
 {
-    (void)timer;
-
     if ((s_logbook_snapshot_entries == NULL) || !menu_runtime_is_logbook() || (s_logbook_page != LOGBOOK_PAGE_PICK))
     {
         logbook_picker_stop_loader();
         return;
+    }
+
+    if (!s_logbook_load_background &&
+        s_logbook_load_retry_count > 0U &&
+        s_logbook_load_offset == 0U)
+    {
+        /* 退避只发生在两轮扫描之间；进入新一轮后仍快速跳过已经成功的行。 */
+        lv_timer_set_period(timer, 1U);
     }
 
     const uint16_t start = (uint16_t)(s_logbook_load_page * LOGBOOK_PICKER_VISIBLE_ROWS);
@@ -1217,14 +896,25 @@ static void logbook_picker_load_timer_cb(lv_timer_t *timer)
 
     if (s_logbook_load_offset >= page_remain)
     {
-        if (s_logbook_load_page_dirty && !s_logbook_load_prefetch &&
+        if (s_logbook_load_page_dirty && !s_logbook_load_background &&
             (s_logbook_load_page == s_logbook_page_index))
         {
             s_logbook_load_page_dirty = false;
             submenu_populate_current();
         }
 
-        if (!s_logbook_load_prefetch)
+        if (!s_logbook_load_background &&
+            logbook_picker_page_has_missing(s_logbook_load_page) &&
+            s_logbook_load_retry_count < LOGBOOK_SUMMARY_RETRY_MAX)
+        {
+            s_logbook_load_retry_count++;
+            s_logbook_load_offset = 0U;
+            lv_timer_set_period(s_logbook_load_timer,
+                                LOGBOOK_SUMMARY_RETRY_BASE_MS * s_logbook_load_retry_count);
+            return;
+        }
+
+        if (!s_logbook_load_background)
         {
             if ((s_logbook_load_page + 1U) < s_logbook_page_count)
             {
@@ -1242,10 +932,11 @@ static void logbook_picker_load_timer_cb(lv_timer_t *timer)
     if (!s_logbook_snapshot_entries[index].valid)
     {
         logbook_entry_t entry;
-        if (logbook_backend_get_summary(logbook_display_to_backend_index(index), &entry))
+        logbook_record_key_t record_key = LOGBOOK_INVALID_RECORD_KEY;
+        if (logbook_picker_load_summary(index, &entry, &record_key))
         {
-            logbook_picker_item_from_entry(&s_logbook_snapshot_entries[index], &entry);
-            if (!s_logbook_load_prefetch && (s_logbook_load_page == s_logbook_page_index))
+            logbook_picker_item_from_entry(&s_logbook_snapshot_entries[index], &entry, record_key);
+            if (!s_logbook_load_background && (s_logbook_load_page == s_logbook_page_index))
             {
                 s_logbook_load_page_dirty = true;
                 submenu_populate_current();
@@ -1259,9 +950,6 @@ static void logbook_picker_load_timer_cb(lv_timer_t *timer)
 static void logbook_detail_load_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
-#ifndef PC_SIMULATOR
-    logbook_detail_result_t result;
-#endif
 
     if (!s_logbook_detail_loading ||
         !menu_runtime_is_logbook() ||
@@ -1271,27 +959,60 @@ static void logbook_detail_load_timer_cb(lv_timer_t *timer)
         return;
     }
 
-#ifndef PC_SIMULATOR
-    if (!logbook_detail_async_fetch(&result))
+#ifdef PC_SIMULATOR
+    logbook_entry_t detail_entry;
+    bool profile_loaded = s_logbook_points_loaded;
+
+    memset(&detail_entry, 0, sizeof(detail_entry));
+    if (logbook_backend_get_detail(s_logbook_detail_backend_index, &detail_entry) && detail_entry.valid)
+    {
+        s_logbook_entry = detail_entry;
+        if (!profile_loaded)
+        {
+            const bool acquired = logbook_backend_acquire_samples(s_logbook_detail_backend_index,
+                                                                  &s_logbook_points,
+                                                                  &s_logbook_point_count);
+            profile_loaded = acquired && s_logbook_points != NULL && s_logbook_point_count > 0U;
+            if (!profile_loaded && s_logbook_points != NULL)
+            {
+                logbook_backend_release_samples(s_logbook_points);
+                s_logbook_points = NULL;
+                s_logbook_point_count = 0U;
+            }
+            s_logbook_points_loaded = profile_loaded;
+        }
+        logbook_detail_finish_loader(!profile_loaded);
+    }
+    else
+    {
+        /* PC 内存后端的一条详情失败也不能反向宣告整个日志库为空。 */
+        logbook_detail_finish_loader(true);
+    }
+#else
+    logbook_io_result_t result;
+
+    memset(&result, 0, sizeof(result));
+    if (!logbook_io_take_detail(s_logbook_detail_request_id, &result))
     {
         return;
     }
 
-    if (result.index != s_logbook_detail_index)
+    if (result.record_key != s_logbook_detail_record_key)
     {
-        if (result.has_points && result.points != NULL)
+        if (result.points != NULL)
         {
-            logbook_backend_release_samples(result.points);
+            logbook_io_release_points(result.points);
         }
         logbook_detail_stop_loader();
         return;
     }
 
-    s_logbook_valid = result.success && result.entry.valid;
-    if (s_logbook_valid)
+    if ((result.status == LOGBOOK_IO_READY ||
+         result.status == LOGBOOK_IO_PROFILE_UNAVAILABLE) &&
+        result.entry.valid)
     {
         s_logbook_entry = result.entry;
-        if (result.has_points && result.points != NULL)
+        if (result.points != NULL && result.point_count > 0U)
         {
             logbook_points_release();
             s_logbook_points = result.points;
@@ -1299,32 +1020,50 @@ static void logbook_detail_load_timer_cb(lv_timer_t *timer)
             s_logbook_points_loaded = true;
             result.points = NULL;
         }
+        logbook_detail_finish_loader(result.status == LOGBOOK_IO_PROFILE_UNAVAILABLE &&
+                                     !s_logbook_points_loaded);
     }
-    if (result.has_points && result.points != NULL)
+    else
     {
-        logbook_backend_release_samples(result.points);
+        /* 列表 summary 已证明记录存在；详情失败只影响当前记录，绝不能显示 NO LOGS。 */
+        logbook_detail_finish_loader(true);
     }
-    logbook_detail_stop_loader();
-    if (menu_runtime_is_logbook() &&
-        s_logbook_page != LOGBOOK_PAGE_PICK &&
-        s_logbook_index == s_logbook_detail_display_index)
+
+    if (result.points != NULL)
     {
-        submenu_populate_current();
-    }
-#else
-    s_logbook_valid = logbook_backend_get_detail(s_logbook_detail_index, &s_logbook_entry);
-    if (s_logbook_valid && !s_logbook_points_loaded)
-    {
-        (void)logbook_points_load(s_logbook_detail_index);
-    }
-    logbook_detail_stop_loader();
-    if (menu_runtime_is_logbook() &&
-        s_logbook_page != LOGBOOK_PAGE_PICK &&
-        s_logbook_index == s_logbook_detail_display_index)
-    {
-        submenu_populate_current();
+        logbook_io_release_points(result.points);
     }
 #endif
+
+    if (menu_runtime_is_logbook() &&
+        s_logbook_page != LOGBOOK_PAGE_PICK &&
+        s_logbook_index == s_logbook_detail_display_index)
+    {
+        submenu_populate_current();
+    }
+}
+static void logbook_retry_timer_cb(lv_timer_t *timer)
+{
+    (void)timer;
+
+    if (!menu_runtime_is_logbook() || (s_logbook_page != LOGBOOK_PAGE_PICK))
+    {
+        logbook_retry_stop();
+        return;
+    }
+
+    if (!s_logbook_loading)
+    {
+        logbook_retry_stop();
+        return;
+    }
+
+    logbook_load_current();
+    submenu_populate_current();
+    if (!s_logbook_loading)
+    {
+        logbook_retry_stop();
+    }
 }
 
 static bool logbook_picker_snapshot_refresh(void)
@@ -1333,33 +1072,53 @@ static bool logbook_picker_snapshot_refresh(void)
     s_logbook_loading = !logbook_backend_is_ready();
     if (s_logbook_loading)
     {
+        s_logbook_empty_confirm_state = LOGBOOK_EMPTY_CONFIRM_UNKNOWN;
+        s_logbook_empty_confirm_retry_count = 0U;
         return false;
     }
 
-    uint16_t count = logbook_backend_count();
+    uint16_t count = 0U;
+    if (!logbook_backend_count_ex(&count))
+    {
+        /* 后端 ready 只代表 SD/FAT 可访问，不代表索引已经可信。
+         * 旧存档首次升级、空索引重建或短暂目录枚举失败时，count 查询失败
+         * 必须保持 LOADING 并重试，不能落成 NO LOGS。 */
+        s_logbook_loading = true;
+        s_logbook_empty_confirm_state = LOGBOOK_EMPTY_CONFIRM_UNKNOWN;
+        s_logbook_empty_confirm_retry_count = 0U;
+        return false;
+    }
+
     if (count == 0U)
     {
+        if (s_logbook_empty_confirm_state != LOGBOOK_EMPTY_CONFIRM_DONE &&
+            s_logbook_empty_confirm_retry_count < LOGBOOK_EMPTY_CONFIRM_RETRY_MAX)
+        {
+            /* FAT 首次枚举、旧索引重建刚完成或后端空缓存复核期间，0 条是最容易
+             * 误伤用户的可见结论。用有界重试覆盖 1~2s 的挂载/目录恢复抖动，
+             * 超出窗口后才显示 NO LOGS，避免现场永久 LOADING。 */
+            s_logbook_empty_confirm_state = LOGBOOK_EMPTY_CONFIRM_PENDING;
+            s_logbook_empty_confirm_retry_count++;
+            s_logbook_loading = true;
+            return false;
+        }
+        s_logbook_empty_confirm_state = LOGBOOK_EMPTY_CONFIRM_DONE;
+        s_logbook_loading = false;
         return false;
     }
 
+    s_logbook_empty_confirm_state = LOGBOOK_EMPTY_CONFIRM_UNKNOWN;
+    s_logbook_empty_confirm_retry_count = 0U;
     if (!logbook_picker_cache_reserve(count))
     {
+        s_logbook_loading = true;
         return false;
     }
+    s_logbook_loading = false;
     s_logbook_picker_visible = (count > LOGBOOK_PICKER_VISIBLE_ROWS) ? LOGBOOK_PICKER_VISIBLE_ROWS : (uint8_t)count;
     logbook_picker_prepare_page(s_logbook_page_index);
     logbook_picker_focus_default();
     return (s_logbook_snapshot_count > 0U);
-}
-
-static bool logbook_points_load(uint16_t index)
-{
-    uint32_t profile_start_ms = logbook_profile_begin();
-
-    logbook_points_release();
-    s_logbook_points_loaded = logbook_backend_acquire_samples(index, &s_logbook_points, &s_logbook_point_count);
-    logbook_profile_end("points_load", profile_start_ms);
-    return s_logbook_points_loaded;
 }
 
 static void submenu_dive_plan_render_cache_reset(void)
@@ -1384,11 +1143,18 @@ static void logbook_load_current(void)
 {
     uint32_t profile_start_ms = logbook_profile_begin();
 
-    s_logbook_valid = false;
+    s_logbook_has_logs = false;
     logbook_points_release();
-    logbook_prefetch_cancel();
-    s_logbook_valid = logbook_picker_snapshot_refresh();
-    if (s_logbook_valid)
+    s_logbook_has_logs = logbook_picker_snapshot_refresh();
+    if (s_logbook_loading)
+    {
+        logbook_retry_start();
+    }
+    else
+    {
+        logbook_retry_stop();
+    }
+    if (s_logbook_has_logs)
     {
         uint8_t offset = logbook_picker_focus_to_index(s_logbook_picker_focus, s_logbook_picker_visible);
         s_logbook_index = (uint16_t)(s_logbook_page_index * LOGBOOK_PICKER_VISIBLE_ROWS + offset);
@@ -1403,14 +1169,17 @@ static void logbook_load_current(void)
 static void logbook_reset_state(void)
 {
     s_logbook_page = LOGBOOK_PAGE_PICK;
+    s_logbook_picker_refresh_pending = false;
     s_logbook_page_index = 0U;
     s_logbook_picker_focus = 0U;
     s_logbook_focus = 0U;
     s_logbook_index = 0U;
     logbook_picker_stop_loader();
     logbook_detail_stop_loader();
-    logbook_prefetch_cancel();
+    logbook_retry_stop();
     logbook_picker_cache_invalidate();
+    s_logbook_empty_confirm_state = LOGBOOK_EMPTY_CONFIRM_UNKNOWN;
+    s_logbook_empty_confirm_retry_count = 0U;
     logbook_load_current();
 }
 
@@ -1497,45 +1266,122 @@ static lv_obj_t *logbook_label(lv_obj_t *parent, const char *text, font_id_t fon
     return lbl;
 }
 
+static void logbook_label_set_text_if_changed(lv_obj_t *label, const char *text)
+{
+    const char *next = (text != NULL) ? text : "";
+    const char *old = NULL;
+
+    if (label == NULL)
+    {
+        return;
+    }
+
+    old = lv_label_get_text(label);
+    if ((old == NULL) || (strcmp(old, next) != 0))
+    {
+        lv_label_set_text(label, next);
+    }
+}
+
+static void logbook_set_hidden_if_changed(lv_obj_t *obj, bool hidden)
+{
+    if (obj == NULL)
+    {
+        return;
+    }
+
+    if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN) == hidden)
+    {
+        return;
+    }
+    if (hidden)
+    {
+        lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    }
+    else
+    {
+        lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
 static void logbook_apply_row_style(lv_obj_t *row, lv_obj_t *left_lbl, lv_obj_t *right_lbl,
                                     bool focused, uint16_t h)
 {
     font_id_t row_font = focused ? FONT_ID_TITLE : FONT_ID_SMALL;
+    lv_color_t border_color = focused ? GREEN : DARK;
+    lv_coord_t border_width = focused ? 2 : 1;
+    const lv_font_t *font = get_font(row_font);
+    lv_color_t color = focused ? LIGHT : GREEN;
     (void)h;
 
     if (row != NULL)
     {
         lv_obj_set_style_bg_color(row, BLACK, 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(row, focused ? GREEN : DARK, 0);
-        lv_obj_set_style_border_width(row, focused ? 2 : 1, 0);
+        if (lv_obj_get_style_border_color(row, LV_PART_MAIN).full != border_color.full)
+        {
+            lv_obj_set_style_border_color(row, border_color, 0);
+        }
+        if (lv_obj_get_style_border_width(row, LV_PART_MAIN) != border_width)
+        {
+            lv_obj_set_style_border_width(row, border_width, 0);
+        }
     }
     if (left_lbl != NULL)
     {
-        lv_obj_set_style_text_font(left_lbl, get_font(row_font), 0);
-        lv_obj_set_style_text_color(left_lbl, focused ? LIGHT : GREEN, 0);
+        if (lv_obj_get_style_text_font(left_lbl, LV_PART_MAIN) != font)
+        {
+            lv_obj_set_style_text_font(left_lbl, font, 0);
+        }
+        if (lv_obj_get_style_text_color(left_lbl, LV_PART_MAIN).full != color.full)
+        {
+            lv_obj_set_style_text_color(left_lbl, color, 0);
+        }
     }
     if (right_lbl != NULL)
     {
-        lv_obj_set_style_text_font(right_lbl, get_font(row_font), 0);
-        lv_obj_set_style_text_color(right_lbl, focused ? LIGHT : GREEN, 0);
+        if (lv_obj_get_style_text_font(right_lbl, LV_PART_MAIN) != font)
+        {
+            lv_obj_set_style_text_font(right_lbl, font, 0);
+        }
+        if (lv_obj_get_style_text_color(right_lbl, LV_PART_MAIN).full != color.full)
+        {
+            lv_obj_set_style_text_color(right_lbl, color, 0);
+        }
     }
 }
 
 static void logbook_apply_nav_button_style(lv_obj_t *btn, lv_obj_t *lbl, bool focused)
 {
+    lv_color_t border_color = focused ? GREEN : DARK;
+    lv_coord_t border_width = focused ? INNER_BORDER_W + 2 : INNER_BORDER_W;
+    const lv_font_t *font = get_font(focused ? FONT_ID_MEDIUM : FONT_ID_TITLE);
+    lv_color_t color = focused ? LIGHT : GREEN;
+
     if (btn != NULL)
     {
         lv_obj_set_style_bg_color(btn, BLACK, 0);
         lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
-        lv_obj_set_style_border_color(btn, focused ? GREEN : DARK, 0);
-        lv_obj_set_style_border_width(btn, focused ? INNER_BORDER_W + 2 : INNER_BORDER_W, 0);
+        if (lv_obj_get_style_border_color(btn, LV_PART_MAIN).full != border_color.full)
+        {
+            lv_obj_set_style_border_color(btn, border_color, 0);
+        }
+        if (lv_obj_get_style_border_width(btn, LV_PART_MAIN) != border_width)
+        {
+            lv_obj_set_style_border_width(btn, border_width, 0);
+        }
         lv_obj_set_style_radius(btn, 0, 0);
     }
     if (lbl != NULL)
     {
-        lv_obj_set_style_text_font(lbl, get_font(focused ? FONT_ID_MEDIUM : FONT_ID_TITLE), 0);
-        lv_obj_set_style_text_color(lbl, focused ? LIGHT : GREEN, 0);
+        if (lv_obj_get_style_text_font(lbl, LV_PART_MAIN) != font)
+        {
+            lv_obj_set_style_text_font(lbl, font, 0);
+        }
+        if (lv_obj_get_style_text_color(lbl, LV_PART_MAIN).full != color.full)
+        {
+            lv_obj_set_style_text_color(lbl, color, 0);
+        }
         lv_obj_set_size(lbl, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_CLIP);
@@ -1628,7 +1474,7 @@ static void logbook_draw_summary(lv_obj_t *parent, uint16_t w, uint16_t h)
     lv_obj_add_event_cb(chart, logbook_chart_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
     if (!s_logbook_points_loaded || s_logbook_points == NULL || s_logbook_point_count == 0U)
     {
-        logbook_label(parent, "PROFILE...", FONT_ID_SMALL, DARK, 50, (int16_t)(48 + chart_h / 2U - 10U), (uint16_t)(w - 70U), 20U, LV_TEXT_ALIGN_CENTER);
+        logbook_label(parent, s_logbook_detail_load_failed ? "PROFILE UNAVAILABLE" : "PROFILE...", FONT_ID_SMALL, DARK, 50, (int16_t)(48 + chart_h / 2U - 10U), (uint16_t)(w - 70U), 20U, LV_TEXT_ALIGN_CENTER);
     }
     (void)snprintf(buf, sizeof(buf), "%.0f%s", (double)bus_get_depth_display(s_logbook_entry.max_depth_m), bus_get_depth_unit_label());
     logbook_label(parent, buf, FONT_ID_TITLE, LIGHT, 8, axis_y, 56, 24, LV_TEXT_ALIGN_LEFT);
@@ -1750,11 +1596,11 @@ static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
         }
     }
 
-    if (s_logbook_picker_title) lv_label_set_text(s_logbook_picker_title, "DIVE LOG");
+    if (s_logbook_picker_title) logbook_label_set_text_if_changed(s_logbook_picker_title, "DIVE LOG");
     if (s_logbook_picker_count)
     {
         (void)snprintf(right, sizeof(right), "%u LOGS", (unsigned)s_logbook_snapshot_count);
-        lv_label_set_text(s_logbook_picker_count, right);
+        logbook_label_set_text_if_changed(s_logbook_picker_count, right);
     }
     if (s_logbook_page_count > 0U)
     {
@@ -1767,7 +1613,7 @@ static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
     if (s_logbook_picker_page && page_w > 0U)
     {
         lv_obj_set_style_text_align(s_logbook_picker_page, LV_TEXT_ALIGN_CENTER, 0);
-        lv_label_set_text(s_logbook_picker_page, page_text);
+        logbook_label_set_text_if_changed(s_logbook_picker_page, page_text);
     }
 
     for (uint8_t row = 0U; row < LOGBOOK_PICKER_VISIBLE_ROWS; row++)
@@ -1775,41 +1621,39 @@ static void logbook_draw_picker(lv_obj_t *parent, uint16_t w, uint16_t h)
         char date[20];
         if (row >= visible_count)
         {
-            if (s_logbook_picker_rows[row]) lv_obj_add_flag(s_logbook_picker_rows[row], LV_OBJ_FLAG_HIDDEN);
+            logbook_set_hidden_if_changed(s_logbook_picker_rows[row], true);
             continue;
         }
-        if (s_logbook_picker_rows[row]) lv_obj_clear_flag(s_logbook_picker_rows[row], LV_OBJ_FLAG_HIDDEN);
+        logbook_set_hidden_if_changed(s_logbook_picker_rows[row], false);
         uint16_t page_offset = row;
         uint16_t entry_index = (uint16_t)(s_logbook_page_index * LOGBOOK_PICKER_VISIBLE_ROWS + page_offset);
         if ((entry_index >= s_logbook_snapshot_count) || !s_logbook_snapshot_entries[entry_index].valid)
         {
-            if (s_logbook_picker_left[row]) lv_label_set_text(s_logbook_picker_left[row], "...");
-            if (s_logbook_picker_right[row]) lv_label_set_text(s_logbook_picker_right[row], "");
+            logbook_label_set_text_if_changed(s_logbook_picker_left[row], "...");
+            logbook_label_set_text_if_changed(s_logbook_picker_right[row], "");
             logbook_apply_row_style(s_logbook_picker_rows[row], s_logbook_picker_left[row], s_logbook_picker_right[row], (s_logbook_picker_focus == row), row_h);
             continue;
         }
         logbook_format_date(date, sizeof(date), &s_logbook_snapshot_entries[entry_index].meta);
         logbook_format_picker_id(left, sizeof(left), &s_logbook_snapshot_entries[entry_index]);
         (void)snprintf(right, sizeof(right), "%s", date);
-        if (s_logbook_picker_left[row]) lv_label_set_text(s_logbook_picker_left[row], left);
-        if (s_logbook_picker_right[row]) lv_label_set_text(s_logbook_picker_right[row], right);
+        logbook_label_set_text_if_changed(s_logbook_picker_left[row], left);
+        logbook_label_set_text_if_changed(s_logbook_picker_right[row], right);
         logbook_apply_row_style(s_logbook_picker_rows[row], s_logbook_picker_left[row], s_logbook_picker_right[row], (s_logbook_picker_focus == row), row_h);
     }
     for (uint8_t row = visible_count; row < LOGBOOK_PICKER_VISIBLE_ROWS; ++row)
     {
-        if (s_logbook_picker_rows[row]) lv_obj_add_flag(s_logbook_picker_rows[row], LV_OBJ_FLAG_HIDDEN);
-        if (s_logbook_picker_left[row]) lv_label_set_text(s_logbook_picker_left[row], "");
-        if (s_logbook_picker_right[row]) lv_label_set_text(s_logbook_picker_right[row], "");
+        logbook_set_hidden_if_changed(s_logbook_picker_rows[row], true);
+        logbook_label_set_text_if_changed(s_logbook_picker_left[row], "");
+        logbook_label_set_text_if_changed(s_logbook_picker_right[row], "");
     }
     if (s_logbook_picker_back)
     {
-        if (has_back) lv_obj_clear_flag(s_logbook_picker_back, LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_add_flag(s_logbook_picker_back, LV_OBJ_FLAG_HIDDEN);
+        logbook_set_hidden_if_changed(s_logbook_picker_back, !has_back);
     }
     if (s_logbook_picker_next)
     {
-        if (has_next) lv_obj_clear_flag(s_logbook_picker_next, LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_add_flag(s_logbook_picker_next, LV_OBJ_FLAG_HIDDEN);
+        logbook_set_hidden_if_changed(s_logbook_picker_next, !has_next);
     }
     if (has_back) logbook_apply_nav_button_style(s_logbook_picker_back, s_logbook_picker_back_lbl, (s_logbook_picker_focus == logbook_picker_focus_back()));
     if (has_next) logbook_apply_nav_button_style(s_logbook_picker_next, s_logbook_picker_next_lbl, (s_logbook_picker_focus == logbook_picker_focus_next()));
@@ -1909,10 +1753,15 @@ static void submenu_populate_logbook(void)
         lv_obj_clean(s_submenu_list);
     }
 
-    if (!s_logbook_valid)
+    if (!s_logbook_has_logs)
     {
+        /* NO LOGS 只允许表示 picker 已确认 count==0。详情失败属于单条记录加载状态，
+         * 即使所有重试耗尽也只能显示 LOAD FAILED，不能反向宣告整个日志库为空。 */
+        const char *empty_text = (s_logbook_page == LOGBOOK_PAGE_PICK) ?
+                                 (s_logbook_loading ? "LOADING" : "NO LOGS") :
+                                 (s_logbook_detail_loading ? "LOADING" : "LOAD FAILED");
         logbook_label(s_submenu_list,
-                      s_logbook_loading ? "LOADING" : "NO LOGS",
+                      empty_text,
                       FONT_ID_MEDIUM,
                       LIGHT,
                       0,
@@ -1933,13 +1782,6 @@ static void submenu_populate_logbook(void)
         logbook_draw_picker(s_submenu_list, w, h);
         ui_state_set_sub_item_count(logbook_picker_focus_count());
         ui_state_set_sub_menu_idx(s_logbook_picker_focus);
-        if (s_logbook_picker_focus < s_logbook_picker_visible)
-        {
-            const uint16_t prefetch_index =
-                (uint16_t)(s_logbook_page_index * LOGBOOK_PICKER_VISIBLE_ROWS +
-                           logbook_picker_focus_to_index(s_logbook_picker_focus, s_logbook_picker_visible));
-            logbook_prefetch_start(prefetch_index);
-        }
         break;
     case LOGBOOK_PAGE_DETAIL_1:
         logbook_draw_detail_1(s_submenu_list, w, h);
@@ -2027,9 +1869,11 @@ static lv_color_t submenu_light_status_color(const menu_row_t *row)
 void submenu_view_reset(void)
 {
     /* 布局重建后，旧的子菜单对象和菜单运行时都需要一起清空。 */
-    logbook_points_release();
+    light_color_preview_cancel_if_active();
     logbook_picker_stop_loader();
     logbook_detail_stop_loader();
+    logbook_retry_stop();
+    logbook_points_release();
     logbook_picker_cache_invalidate();
     logbook_picker_view_forget();
     s_submenu_layer = NULL;
@@ -2038,6 +1882,10 @@ void submenu_view_reset(void)
     s_submenu_title_line = NULL;
     s_submenu_list = NULL;
     s_light_status_lbl = NULL;
+    s_light_color_title_lbl = NULL;
+    s_light_color_hex_lbl = NULL;
+    s_light_color_swatch = NULL;
+    s_light_color_cursor = NULL;
     s_submenu_width = 0;
     s_submenu_height = 0;
     s_submenu_target_scroll_y = 0;
@@ -2075,7 +1923,17 @@ static void submenu_list_set_page_geometry(void)
 
 static lv_anim_enable_t submenu_selection_scroll_anim(void)
 {
-    return (MENU_LIST_SCROLL_ANIM_ENABLED && !s_submenu_selection_scroll_silent) ? LV_ANIM_ON : LV_ANIM_OFF;
+    if (!MENU_LIST_SCROLL_ANIM_ENABLED || s_submenu_selection_scroll_silent)
+    {
+        return LV_ANIM_OFF;
+    }
+    if (submenu_current_menu_is_readonly_info())
+    {
+        /* 只读 INFO 页的旋转目标是“立即跟手”。这里关闭列表自动滚动动画，
+         * 避免快速旋转时多段 scroll 动画排队，表现成选中态延迟和 handler 拉长。 */
+        return LV_ANIM_OFF;
+    }
+    return LV_ANIM_ON;
 }
 
 static void submenu_list_restore_scroll(lv_coord_t scroll_y)
@@ -2090,7 +1948,12 @@ static void submenu_list_restore_scroll(lv_coord_t scroll_y)
         scroll_y = 0;
     }
 
-    lv_obj_update_layout(s_submenu_list);
+    if (s_submenu_target_scroll_y == scroll_y &&
+        lv_obj_get_scroll_y(s_submenu_list) == scroll_y)
+    {
+        return;
+    }
+
     lv_anim_del(s_submenu_list, (lv_anim_exec_xcb_t)0);
     lv_obj_scroll_to_y(s_submenu_list, scroll_y, LV_ANIM_OFF);
     s_submenu_target_scroll_y = lv_obj_get_scroll_y(s_submenu_list);
@@ -2105,7 +1968,6 @@ static void submenu_list_scroll_item_to_view(lv_obj_t *item)
     lv_coord_t target_y;
     lv_coord_t margin = MENU_LIST_EDGE_PAD_PX;
 
-    lv_obj_update_layout(s_submenu_list);
     visible_h = lv_obj_get_height(s_submenu_list);
     item_y = lv_obj_get_y(item);
     item_h = lv_obj_get_height(item);
@@ -2116,6 +1978,12 @@ static void submenu_list_scroll_item_to_view(lv_obj_t *item)
     if (item_y - margin < scroll_y) target_y = item_y - margin;
     else if (item_y + item_h + margin > scroll_y + visible_h) target_y = item_y + item_h + margin - visible_h;
     if (target_y < 0) target_y = 0;
+
+    if (target_y == s_submenu_target_scroll_y &&
+        lv_obj_get_scroll_y(s_submenu_list) == target_y)
+    {
+        return;
+    }
 
     s_submenu_target_scroll_y = target_y;
     lv_obj_scroll_to_y(s_submenu_list, target_y, submenu_selection_scroll_anim());
@@ -2540,6 +2408,124 @@ static void plan_draw_error(lv_obj_t *parent, int w)
     plan_make_label(parent, vm.error_hint, FONT_ID_SMALL, LIGHT, 0, 176, w, 24, LV_TEXT_ALIGN_CENTER);
 }
 
+static void light_color_preview_clear_refs(void)
+{
+    s_light_color_title_lbl = NULL;
+    s_light_color_hex_lbl = NULL;
+    s_light_color_swatch = NULL;
+    s_light_color_cursor = NULL;
+}
+
+static void light_color_preview_refresh(void)
+{
+    uint32_t rgb = bus_get_light_rgb();
+    uint16_t w = submenu_right_width();
+    uint16_t bar_w = (w > 80U) ? (uint16_t)(w - 80U) : (uint16_t)(w - 24U);
+    uint16_t cursor_x;
+    char text[32];
+
+    if (s_light_color_hex_lbl != NULL)
+    {
+        lv_snprintf(text, sizeof(text), "0x%06X", (unsigned int)(rgb & 0x00FFFFFFUL));
+        lv_label_set_text(s_light_color_hex_lbl, text);
+    }
+    if (s_light_color_title_lbl != NULL)
+    {
+        lv_snprintf(text, sizeof(text), "HUE %03u", (unsigned int)s_light_color_preview_hue);
+        lv_label_set_text(s_light_color_title_lbl, text);
+    }
+    if (s_light_color_swatch != NULL)
+    {
+        lv_obj_set_style_bg_color(s_light_color_swatch, light_lv_color_from_rgb(rgb), 0);
+    }
+    if (s_light_color_cursor != NULL)
+    {
+        cursor_x = (uint16_t)((((uint32_t)s_light_color_preview_hue * (uint32_t)bar_w) +
+                               (LIGHT_COLOR_HUE_MAX / 2U)) /
+                              LIGHT_COLOR_HUE_MAX);
+        if (cursor_x > bar_w)
+        {
+            cursor_x = bar_w;
+        }
+        lv_obj_set_x(s_light_color_cursor, (lv_coord_t)(40 + cursor_x - 2));
+    }
+}
+
+static void light_color_preview_draw_page(void)
+{
+    const uint16_t w = submenu_right_width();
+    const uint16_t bar_x = 40U;
+    const uint16_t bar_y = 190U;
+    const uint16_t bar_w = (w > 80U) ? (uint16_t)(w - 80U) : (uint16_t)(w - 24U);
+    const uint16_t bar_h = 52U;
+    const uint16_t segment_w = (bar_w + LIGHT_COLOR_BAR_SEGMENTS - 1U) / LIGHT_COLOR_BAR_SEGMENTS;
+    uint16_t x = bar_x;
+
+    lv_obj_clean(s_submenu_list);
+    light_color_preview_clear_refs();
+    submenu_list_set_page_geometry();
+    lv_obj_clear_flag(s_submenu_title, LV_OBJ_FLAG_HIDDEN);
+    if (s_submenu_title_line)
+    {
+        lv_obj_clear_flag(s_submenu_title_line, LV_OBJ_FLAG_HIDDEN);
+    }
+    lv_label_set_text(s_submenu_title, "LIGHT COLOR");
+
+    s_light_color_title_lbl = logbook_label(s_submenu_list,
+                                            "",
+                                            FONT_ID_TITLE,
+                                            GREEN,
+                                            0,
+                                            54,
+                                            w,
+                                            34U,
+                                            LV_TEXT_ALIGN_CENTER);
+
+    s_light_color_swatch = lv_obj_create(s_submenu_list);
+    lv_obj_remove_style_all(s_light_color_swatch);
+    lv_obj_set_size(s_light_color_swatch, 54, 54);
+    lv_obj_set_pos(s_light_color_swatch, (lv_coord_t)((w > 54U) ? ((w - 54U) / 2U) : 0U), 92);
+    lv_obj_set_style_bg_opa(s_light_color_swatch, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(s_light_color_swatch, GREEN, 0);
+    lv_obj_set_style_border_width(s_light_color_swatch, INNER_BORDER_W, 0);
+    lv_obj_clear_flag(s_light_color_swatch, LV_OBJ_FLAG_SCROLLABLE);
+
+    s_light_color_hex_lbl = logbook_label(s_submenu_list,
+                                          "",
+                                          FONT_ID_SMALL,
+                                          LIGHT,
+                                          0,
+                                          154,
+                                          w,
+                                          24U,
+                                          LV_TEXT_ALIGN_CENTER);
+
+    for (uint8_t i = 0U; i < LIGHT_COLOR_BAR_SEGMENTS; i++)
+    {
+        lv_obj_t *seg = lv_obj_create(s_submenu_list);
+        const uint16_t next_x = (uint16_t)(bar_x + (((uint32_t)(i + 1U) * bar_w) / LIGHT_COLOR_BAR_SEGMENTS));
+        const uint16_t hue = (uint16_t)(((uint32_t)i * LIGHT_COLOR_HUE_MAX) / LIGHT_COLOR_BAR_SEGMENTS);
+        lv_obj_remove_style_all(seg);
+        lv_obj_set_pos(seg, x, bar_y);
+        lv_obj_set_size(seg, (lv_coord_t)((next_x > x) ? (next_x - x) : segment_w), bar_h);
+        lv_obj_set_style_bg_color(seg, light_lv_color_from_rgb(light_color_rgb_from_hue(hue)), 0);
+        lv_obj_set_style_bg_opa(seg, LV_OPA_COVER, 0);
+        lv_obj_clear_flag(seg, LV_OBJ_FLAG_SCROLLABLE);
+        x = next_x;
+    }
+
+    s_light_color_cursor = lv_obj_create(s_submenu_list);
+    lv_obj_remove_style_all(s_light_color_cursor);
+    lv_obj_set_size(s_light_color_cursor, 4, (lv_coord_t)(bar_h + 12U));
+    lv_obj_set_pos(s_light_color_cursor, bar_x, (lv_coord_t)(bar_y - 6U));
+    lv_obj_set_style_bg_color(s_light_color_cursor, LIGHT, 0);
+    lv_obj_set_style_bg_opa(s_light_color_cursor, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_light_color_cursor, 0, 0);
+    lv_obj_clear_flag(s_light_color_cursor, LV_OBJ_FLAG_SCROLLABLE);
+
+    light_color_preview_refresh();
+}
+
 static void submenu_populate_dive_plan(const menu_row_t *rows, uint8_t count)
 {
     ui_vm_dive_plan_view_t vm;
@@ -2610,6 +2596,10 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
 {
     if (!s_submenu_title || !s_submenu_list) return;
     if (s_submenu_hint) lv_obj_add_flag(s_submenu_hint, LV_OBJ_FLAG_HIDDEN);
+    if (!s_light_color_preview_active)
+    {
+        light_color_preview_clear_refs();
+    }
     s_submenu_selected_idx = 0xFFU;
 
     if ((menu_runtime_current_id() == MENU_INFO_LAST_DIVE) && !bus_is_last_dive_ready())
@@ -2784,6 +2774,57 @@ static void submenu_populate_current(void)
     }
 }
 
+static void submenu_label_set_text_if_changed(lv_obj_t *label, const char *text)
+{
+    const char *next = (text != NULL) ? text : "";
+    const char *old = NULL;
+
+    if (label == NULL)
+    {
+        return;
+    }
+
+    old = lv_label_get_text(label);
+    if ((old == NULL) || (strcmp(old, next) != 0))
+    {
+        lv_label_set_text(label, next);
+    }
+}
+
+static bool refresh_readonly_info_submenu_labels(const menu_row_t *rows, uint8_t count)
+{
+    if (!submenu_current_menu_is_readonly_info() || !s_submenu_list || rows == NULL)
+    {
+        return false;
+    }
+    if ((menu_runtime_current_id() == MENU_INFO_LAST_DIVE) && !bus_is_last_dive_ready())
+    {
+        /* LAST DIVE 的 LOADING 视图不是普通行对象，等后端 ready 后回退全量重建。 */
+        return false;
+    }
+    if (lv_obj_get_child_cnt(s_submenu_list) != count)
+    {
+        return false;
+    }
+
+    for (uint8_t i = 0U; i < count; i++)
+    {
+        if (submenu_row_is_light_status(&rows[i]))
+        {
+            return false;
+        }
+        lv_obj_t *item = lv_obj_get_child(s_submenu_list, i);
+        lv_obj_t *lbl = item ? lv_obj_get_child(item, 0) : NULL;
+        if (lbl == NULL)
+        {
+            return false;
+        }
+        submenu_label_set_text_if_changed(lbl, rows[i].label);
+    }
+
+    return true;
+}
+
 void screen_set_submenu_selection(uint8_t idx)
 {
     if (!s_submenu_list) return;
@@ -2839,6 +2880,7 @@ void screen_set_submenu_selection(uint8_t idx)
     }
 
     bool compact_plan = menu_runtime_is_dive_plan_result();
+    bool readonly_info = submenu_current_menu_is_readonly_info();
     uint32_t cnt = lv_obj_get_child_cnt(s_submenu_list);
     if (cnt == 0U)
     {
@@ -2867,16 +2909,22 @@ void screen_set_submenu_selection(uint8_t idx)
         /* 正在编辑的 item 由 begin_edit_value 单独管理，不参与选中态刷新 */
         if (item && !(ui_state_get_edit_active() && old_idx == ui_state_get_edit_item_index()))
         {
-            lv_obj_clear_state(item, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);  // HOTFIX: Clear LVGL states to fix bold residue.
-            if (lbl) lv_obj_clear_state(lbl, LV_STATE_ANY);  // HOTFIX: Clear LVGL states to fix bold residue.
-            lv_obj_set_style_bg_color(item, BLACK, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            if (!readonly_info)
+            {
+                lv_obj_clear_state(item, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);  // HOTFIX: Clear LVGL states to fix bold residue.
+                if (lbl) lv_obj_clear_state(lbl, LV_STATE_ANY);  // HOTFIX: Clear LVGL states to fix bold residue.
+                lv_obj_set_style_bg_color(item, BLACK, 0);
+                lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+                lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
+            }
             lv_obj_set_style_border_color(item, DARK, 0);
-            lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, GREEN, 0);
-                lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+                if (!readonly_info)
+                {
+                    lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+                }
             }
             /* LIGHT CONTROL 特殊处理：第二列状态恢复为当前状态色 */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
@@ -2884,7 +2932,10 @@ void screen_set_submenu_selection(uint8_t idx)
             {
                 const menu_row_t *row = menu_runtime_row_at(old_idx);
                 lv_obj_set_style_text_color(lbl2, submenu_light_status_color(row), 0);
-                lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+                if (!readonly_info)
+                {
+                    lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+                }
             }
         }
     }
@@ -2896,16 +2947,22 @@ void screen_set_submenu_selection(uint8_t idx)
             lv_obj_t *lbl  = item ? lv_obj_get_child(item, 0) : NULL;
             if (item == NULL) continue;
             if (ui_state_get_edit_active() && ((uint8_t)i == ui_state_get_edit_item_index())) continue;
-            lv_obj_clear_state(item, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);  // HOTFIX: Clear LVGL states to fix bold residue.
-            if (lbl) lv_obj_clear_state(lbl, LV_STATE_ANY);  // HOTFIX: Clear LVGL states to fix bold residue.
-            lv_obj_set_style_bg_color(item, BLACK, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            if (!readonly_info)
+            {
+                lv_obj_clear_state(item, LV_STATE_FOCUSED | LV_STATE_EDITED | LV_STATE_CHECKED);  // HOTFIX: Clear LVGL states to fix bold residue.
+                if (lbl) lv_obj_clear_state(lbl, LV_STATE_ANY);  // HOTFIX: Clear LVGL states to fix bold residue.
+                lv_obj_set_style_bg_color(item, BLACK, 0);
+                lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+                lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
+            }
             lv_obj_set_style_border_color(item, DARK, 0);
-            lv_obj_set_style_border_width(item, INNER_BORDER_W, 0);
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, GREEN, 0);
-                lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+                if (!readonly_info)
+                {
+                    lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+                }
             }
             /* LIGHT CONTROL 特殊处理：第二列状态恢复为当前状态色 */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
@@ -2913,7 +2970,10 @@ void screen_set_submenu_selection(uint8_t idx)
             {
                 const menu_row_t *row = menu_runtime_row_at((uint8_t)i);
                 lv_obj_set_style_text_color(lbl2, submenu_light_status_color(row), 0);
-                lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+                if (!readonly_info)
+                {
+                    lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_TITLE), 0);
+                }
             }
         }
     }
@@ -2923,22 +2983,31 @@ void screen_set_submenu_selection(uint8_t idx)
         lv_obj_t *lbl  = item ? lv_obj_get_child(item, 0) : NULL;
         if (item && !(ui_state_get_edit_active() && idx == ui_state_get_edit_item_index()))
         {
-            lv_obj_add_state(item, LV_STATE_FOCUSED);  // HOTFIX: Clear LVGL states to fix bold residue.
-            lv_obj_set_style_bg_color(item, BLACK, 0);
-            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            if (!readonly_info)
+            {
+                lv_obj_add_state(item, LV_STATE_FOCUSED);  // HOTFIX: Clear LVGL states to fix bold residue.
+                lv_obj_set_style_bg_color(item, BLACK, 0);
+                lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+                lv_obj_set_style_border_width(item, INNER_BORDER_W + 2, 0);
+            }
             lv_obj_set_style_border_color(item, GREEN, 0);
-            lv_obj_set_style_border_width(item, INNER_BORDER_W + 2, 0);
             if (lbl)
             {
                 lv_obj_set_style_text_color(lbl, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
+                if (!readonly_info)
+                {
+                    lv_obj_set_style_text_font(lbl, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
+                }
             }
             /* LIGHT CONTROL second column uses the same selected emphasis. */
             lv_obj_t *lbl2 = lv_obj_get_child(item, 1);
             if (lbl2)
             {
                 lv_obj_set_style_text_color(lbl2, LIGHT, 0);
-                lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
+                if (!readonly_info)
+                {
+                    lv_obj_set_style_text_font(lbl2, get_font(compact_plan ? FONT_ID_SMALL : FONT_ID_MEDIUM), 0);
+                }
             }
         }
     }
@@ -2989,12 +3058,30 @@ void screen_open_info_submenu(uint8_t item_idx)
 static void refresh_info_submenu_page(uint8_t keep_idx)
 {
     uint8_t count = 0;
+    const menu_row_t *rows = NULL;
     bool prev_silent = s_submenu_selection_scroll_silent;
     lv_coord_t keep_scroll_y = s_submenu_target_scroll_y;
     menu_runtime_refresh();
-    (void)menu_runtime_current_rows(&count);
+    rows = menu_runtime_current_rows(&count);
 
     s_submenu_selection_scroll_silent = true;
+    if (refresh_readonly_info_submenu_labels(rows, count))
+    {
+        ui_state_set_sub_item_count(count);
+        if (count == 0U)
+        {
+            keep_idx = 0U;
+        }
+        else if (keep_idx >= count)
+        {
+            keep_idx = (uint8_t)(count - 1U);
+        }
+        ui_state_set_sub_menu_idx(keep_idx);
+        screen_set_submenu_selection(keep_idx);
+        s_submenu_selection_scroll_silent = prev_silent;
+        return;
+    }
+
     submenu_populate_current();
     submenu_list_restore_scroll(keep_scroll_y);
     ui_state_set_sub_item_count(count);
@@ -3011,7 +3098,7 @@ static void refresh_info_submenu_page(uint8_t keep_idx)
     s_submenu_selection_scroll_silent = prev_silent;
 }
 
-void screen_refresh_info_submenu_if_open(void)
+void screen_refresh_info_submenu_if_open_for_dirty(dirty_mask_t mask)
 {
     if (!s_submenu_title || !s_submenu_list)
     {
@@ -3020,6 +3107,12 @@ void screen_refresh_info_submenu_if_open(void)
     if ((ui_state_get_state() != UI_SUB_MENU) ||
         (ui_state_get_sub_parent() != UI_INFO) ||
         (ui_state_get_sub_history_depth() != 0U))
+    {
+        return;
+    }
+
+    if ((mask == DIRTY_NONE) ||
+        ((mask & submenu_info_refresh_mask_for_current_menu()) == DIRTY_NONE))
     {
         return;
     }
@@ -3038,25 +3131,70 @@ void screen_refresh_info_submenu_if_open(void)
     refresh_info_submenu_page(ui_state_get_sub_menu_idx());
 }
 
-void screen_refresh_logbook_if_open(void)
+void screen_refresh_info_submenu_if_open(void)
 {
-    if (!s_submenu_title || !s_submenu_list)
+    dirty_mask_t mask = screen_current_info_submenu_refresh_mask();
+    if (mask == DIRTY_NONE)
     {
         return;
     }
-    const bool log_related_page =
-        menu_runtime_is_logbook() || (menu_runtime_current_id() == MENU_INFO_LAST_DIVE);
+    screen_refresh_info_submenu_if_open_for_dirty(mask);
+}
+
+dirty_mask_t screen_current_info_submenu_refresh_mask(void)
+{
+    if ((ui_state_get_state() != UI_SUB_MENU) ||
+        (ui_state_get_sub_parent() != UI_INFO) ||
+        (ui_state_get_sub_history_depth() != 0U))
+    {
+        return DIRTY_NONE;
+    }
+
+    return submenu_info_refresh_mask_for_current_menu();
+}
+
+bool screen_refresh_logbook_if_open(void)
+{
+    if (!s_submenu_title || !s_submenu_list)
+    {
+        return false;
+    }
 
     if ((ui_state_get_state() != UI_SUB_MENU) ||
         (ui_state_get_sub_parent() != UI_INFO) ||
-        (ui_state_get_sub_history_depth() != 0U) ||
-        !log_related_page)
+        (ui_state_get_sub_history_depth() != 0U))
     {
-        return;
+        return false;
+    }
+
+    if (menu_runtime_current_id() == MENU_INFO_LAST_DIVE)
+    {
+        /* LAST DIVE 只需要刷新摘要 VM；不要走 DIVE LOG picker 的
+         * logbook_load_current()，否则日志 dirty 会把只读页拖进列表快照重建。 */
+        refresh_info_submenu_page(ui_state_get_sub_menu_idx());
+        return true;
+    }
+
+    if (!menu_runtime_is_logbook())
+    {
+        return false;
+    }
+
+    s_logbook_empty_confirm_state = LOGBOOK_EMPTY_CONFIRM_UNKNOWN;
+    s_logbook_empty_confirm_retry_count = 0U;
+
+    if (menu_runtime_is_logbook() && s_logbook_page != LOGBOOK_PAGE_PICK)
+    {
+        /* 后台 meta/index 更新不能打断已经打开的详情。记录延迟刷新，等返回 picker 后
+         * 再重查索引，避免释放当前 profile 或把短暂存储忙误显示成 NO LOGS。 */
+        s_logbook_picker_refresh_pending = true;
+        submenu_populate_current();
+        return true;
     }
 
     logbook_load_current();
     submenu_populate_current();
+    return true;
 }
 
 void screen_refresh_settings_submenu_if_open(void)
@@ -3139,7 +3277,7 @@ bool screen_handle_logbook_rotate_steps(int8_t steps)
         return false;
     }
 
-    if (!s_logbook_valid)
+    if (!s_logbook_has_logs)
     {
         s_logbook_focus = 0U;
         submenu_populate_current();
@@ -3201,24 +3339,24 @@ static void light_color_preview_cancel_if_active(void)
 
     /* ROTARY COLOR 旋转只做实时预览；只有 ENTER 才允许持久化。
      * 若预览态被 BACK 以外的关闭路径打断，也按取消处理，恢复进入页面前的颜色。 */
-    bus_preview_light_color(s_light_color_preview_original);
+    bus_preview_light_rgb(s_light_color_preview_original_rgb);
     s_light_color_preview_active = false;
+    light_color_preview_clear_refs();
 }
 
 void screen_begin_light_color_preview(uint8_t item_idx)
 {
-    uint8_t select_idx;
     (void)item_idx;
 
     if (menu_runtime_current_id() != MENU_LIGHT_COLOR)
     {
         return;
     }
-    s_light_color_preview_original = bus_get_light_color();
+    s_light_color_preview_original_rgb = bus_get_light_rgb();
+    s_light_color_preview_hue = light_color_hue_from_rgb(s_light_color_preview_original_rgb);
     s_light_color_preview_active = true;
-    select_idx = (uint8_t)(1U + (uint8_t)s_light_color_preview_original);
-    ui_state_set_sub_menu_idx(select_idx);
-    screen_set_submenu_selection(select_idx);
+    ui_state_set_sub_menu_idx(LIGHT_COLOR_ROTARY_ROW_INDEX);
+    light_color_preview_draw_page();
     submenu_show_light_color_preview_hint();
     ui_state_set_state(UI_EDIT_LIGHT_COLOR);
 }
@@ -3230,9 +3368,6 @@ bool screen_handle_light_color_preview_rotate(int8_t dir)
 
 bool screen_handle_light_color_preview_rotate_steps(int8_t steps)
 {
-    int8_t next;
-    uint8_t select_idx;
-
     if (!s_light_color_preview_active || menu_runtime_current_id() != MENU_LIGHT_COLOR)
     {
         return false;
@@ -3245,17 +3380,25 @@ bool screen_handle_light_color_preview_rotate_steps(int8_t steps)
         return false;
     }
 
-    next = (int8_t)bus_get_light_color();
     for (uint8_t i = 0U; i < step_count; i++)
     {
-        next = (int8_t)(next + ((dir > 0) ? 1 : -1));
-        if (next < 0) next = (int8_t)LIGHT_COLOR_COUNT - 1;
-        if (next >= (int8_t)LIGHT_COLOR_COUNT) next = 0;
+        if (dir > 0)
+        {
+            s_light_color_preview_hue =
+                (uint16_t)((s_light_color_preview_hue + LIGHT_COLOR_HUE_STEP_DEG) % LIGHT_COLOR_HUE_MAX);
+        }
+        else if (s_light_color_preview_hue < LIGHT_COLOR_HUE_STEP_DEG)
+        {
+            s_light_color_preview_hue =
+                (uint16_t)(LIGHT_COLOR_HUE_MAX - (LIGHT_COLOR_HUE_STEP_DEG - s_light_color_preview_hue));
+        }
+        else
+        {
+            s_light_color_preview_hue = (uint16_t)(s_light_color_preview_hue - LIGHT_COLOR_HUE_STEP_DEG);
+        }
     }
-    bus_preview_light_color((light_color_t)next);
-    select_idx = (uint8_t)(1U + (uint8_t)next);
-    ui_state_set_sub_menu_idx(select_idx);
-    screen_set_submenu_selection(select_idx);
+    bus_preview_light_rgb(light_color_rgb_from_hue(s_light_color_preview_hue));
+    light_color_preview_refresh();
     submenu_show_light_color_preview_hint();
     return true;
 }
@@ -3264,24 +3407,21 @@ void screen_commit_light_color_preview(void)
 {
     if (s_light_color_preview_active)
     {
-        bus_set_light_color(bus_get_light_color());
+        bus_set_light_rgb(bus_get_light_rgb());
     }
     s_light_color_preview_active = false;
+    light_color_preview_clear_refs();
     if (s_submenu_hint) lv_obj_add_flag(s_submenu_hint, LV_OBJ_FLAG_HIDDEN);
     screen_close_submenu();
 }
 
 void screen_cancel_light_color_preview(void)
 {
-    uint8_t restore_idx;
-
     light_color_preview_cancel_if_active();
-    restore_idx = (uint8_t)(1U + (uint8_t)s_light_color_preview_original);
-    ui_state_set_sub_menu_idx(restore_idx);
-    screen_set_submenu_selection(restore_idx);
+    ui_state_set_sub_menu_idx(LIGHT_COLOR_ROTARY_ROW_INDEX);
     ui_state_set_state(UI_SUB_MENU);
     if (s_submenu_hint) lv_obj_add_flag(s_submenu_hint, LV_OBJ_FLAG_HIDDEN);
-    refresh_current_submenu_page(restore_idx);
+    refresh_current_submenu_page(LIGHT_COLOR_ROTARY_ROW_INDEX);
 }
 
 bool screen_handle_logbook_back(void)
@@ -3293,7 +3433,7 @@ bool screen_handle_logbook_back(void)
         return false;
     }
 
-    if (!s_logbook_valid)
+    if (!s_logbook_has_logs && s_logbook_page == LOGBOOK_PAGE_PICK)
     {
         screen_close_submenu();
         return true;
@@ -3304,6 +3444,11 @@ bool screen_handle_logbook_back(void)
         logbook_detail_stop_loader();
         logbook_points_release();
         s_logbook_page = LOGBOOK_PAGE_PICK;
+        if (s_logbook_picker_refresh_pending || !s_logbook_has_logs)
+        {
+            s_logbook_picker_refresh_pending = false;
+            logbook_load_current();
+        }
         logbook_picker_restore_focus(s_logbook_index);
         submenu_populate_current();
         return true;
@@ -3315,8 +3460,12 @@ bool screen_handle_logbook_back(void)
 
 static void screen_handle_logbook_select(void)
 {
-    if (!s_logbook_valid)
+    if (!s_logbook_has_logs)
     {
+        if (s_logbook_loading)
+        {
+            return;
+        }
         screen_close_submenu();
         return;
     }
@@ -3356,27 +3505,31 @@ static void screen_handle_logbook_select(void)
         {
             break;
         }
-        logbook_points_release();
+        logbook_picker_stop_loader();
         logbook_detail_stop_loader();
-        if (s_logbook_snapshot_entries[s_logbook_index].valid)
+        logbook_points_release();
+        if (!s_logbook_snapshot_entries[s_logbook_index].valid)
         {
-            logbook_entry_from_picker_item(&s_logbook_entry, &s_logbook_snapshot_entries[s_logbook_index]);
+            logbook_entry_t recovered_entry;
+            logbook_record_key_t recovered_key = LOGBOOK_INVALID_RECORD_KEY;
+            if (logbook_picker_load_summary(s_logbook_index, &recovered_entry, &recovered_key))
+            {
+                logbook_picker_item_from_entry(&s_logbook_snapshot_entries[s_logbook_index],
+                                               &recovered_entry,
+                                               recovered_key);
+            }
         }
-        else
+        if (!s_logbook_snapshot_entries[s_logbook_index].valid)
         {
-            /* 首次点击未缓存条目时，先显示占位详情页，避免同步读 summary/detail 卡住 UI。 */
-            logbook_entry_make_pending(&s_logbook_entry, s_logbook_index);
+            logbook_picker_start_loader(s_logbook_page_index, false);
+            submenu_populate_current();
+            break;
         }
-        s_logbook_valid = s_logbook_entry.valid;
+        logbook_entry_from_picker_item(&s_logbook_entry, &s_logbook_snapshot_entries[s_logbook_index]);
         s_logbook_focus = s_logbook_index;
         s_logbook_page = LOGBOOK_PAGE_SUMMARY;
         s_logbook_focus = 0U;
-        /* 进入详情页不能在 LVGL 线程等待或同步读 profile。预取命中就直接复用，
-         * 未命中时先展示 summary，曲线由 detail 异步线程补齐，避免点击日志时卡住 UI。 */
-        if (s_logbook_valid)
-        {
-            (void)logbook_prefetch_take(s_logbook_index);
-        }
+        /* 先展示 picker summary 和 PROFILE...；真机详情/profile 由唯一 worker 补齐。 */
         logbook_detail_start_loader(s_logbook_index);
         submenu_populate_current();
         break;
@@ -3529,6 +3682,10 @@ void screen_handle_submenu_select(uint8_t item_idx)
     case MENU_ACTION_CLOSE:
         screen_close_submenu();
         break;
+    case MENU_ACTION_CLOSE_PARENT_TOO:
+        screen_close_submenu();
+        screen_close_submenu();
+        break;
     case MENU_ACTION_OPEN_CHILD:
         if (menu_runtime_open_child(action.child_menu, row->id))
         {
@@ -3577,6 +3734,9 @@ void screen_close_submenu(void)
         ui_state_set_sub_menu_idx(0U);
         ui_state_set_edit_active(false);
         ui_state_set_gas_modal_from_submenu(false);
+        logbook_picker_stop_loader();
+        logbook_detail_stop_loader();
+        logbook_retry_stop();
         logbook_points_release();
         ui_state_set_state(ui_state_get_sub_parent());
         return;
@@ -3603,8 +3763,10 @@ void screen_close_submenu(void)
     submenu_slide_out();
     menu_runtime_reset();
     menu_actions_clear_pending();
-    logbook_points_release();
+    logbook_picker_stop_loader();
     logbook_detail_stop_loader();
+    logbook_retry_stop();
+    logbook_points_release();
     ui_state_set_sub_history_depth(0U);
     ui_state_set_sub_item_count(0U);
     ui_state_set_sub_menu_idx(0U);
@@ -3627,8 +3789,10 @@ void screen_confirm_submenu_setting(void)
     {
         ui_state_set_sub_history_depth(0U);
         ui_state_set_edit_active(false);
-        logbook_points_release();
+        logbook_picker_stop_loader();
         logbook_detail_stop_loader();
+        logbook_retry_stop();
+        logbook_points_release();
         menu_runtime_reset();
         menu_actions_clear_pending();
         submenu_slide_out();

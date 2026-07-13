@@ -50,6 +50,10 @@ static uint16_t s_logbook_count;
 #endif
 static logbook_entry_t s_last_dive_snapshot;
 static uint16_t s_last_dive_snapshot_source_count;
+static uint32_t s_last_dive_snapshot_checked_ms;
+
+#define LAST_DIVE_SNAPSHOT_CHECK_TTL_MS 2000U
+#define LAST_DIVE_SNAPSHOT_SOURCE_UNKNOWN 0xFFFFU
 
 #ifndef PC_SIMULATOR
 L2_RET_BSS_SECT_BEGIN(logbook_backend_heap)
@@ -3314,13 +3318,33 @@ static bool last_dive_snapshot_load_latest(logbook_entry_t *out_entry)
 {
     uint16_t count;
     logbook_entry_t latest;
+    uint32_t now_ms;
 
     if (out_entry == NULL)
     {
         return false;
     }
 
-    count = logbook_backend_count();
+    now_ms = rt_tick_get_millisecond();
+    if (s_last_dive_snapshot.valid &&
+        s_last_dive_snapshot_checked_ms != 0U &&
+        (uint32_t)(now_ms - s_last_dive_snapshot_checked_ms) < LAST_DIVE_SNAPSHOT_CHECK_TTL_MS)
+    {
+        *out_entry = s_last_dive_snapshot;
+        return true;
+    }
+
+    if (!logbook_backend_count_ex(&count))
+    {
+        s_last_dive_snapshot_checked_ms = 0U;
+        if (s_last_dive_snapshot.valid)
+        {
+            *out_entry = s_last_dive_snapshot;
+            return true;
+        }
+        return false;
+    }
+    s_last_dive_snapshot_checked_ms = now_ms;
     if (count == 0U)
     {
         if (s_last_dive_snapshot.valid && s_last_dive_snapshot_source_count == 0U)
@@ -3331,6 +3355,7 @@ static bool last_dive_snapshot_load_latest(logbook_entry_t *out_entry)
 
         (void)memset(&s_last_dive_snapshot, 0, sizeof(s_last_dive_snapshot));
         s_last_dive_snapshot_source_count = 0U;
+        s_last_dive_snapshot_checked_ms = 0U;
         return false;
     }
 
@@ -3355,14 +3380,39 @@ static bool last_dive_snapshot_load_latest(logbook_entry_t *out_entry)
     s_last_dive_snapshot = latest;
     s_last_dive_snapshot.valid = true;
     s_last_dive_snapshot_source_count = count;
+    s_last_dive_snapshot_checked_ms = now_ms;
     *out_entry = s_last_dive_snapshot;
     return true;
+}
+
+void bus_invalidate_last_dive_snapshot(void)
+{
+    if (s_last_dive_snapshot.valid)
+    {
+        s_last_dive_snapshot_source_count = LAST_DIVE_SNAPSHOT_SOURCE_UNKNOWN;
+    }
+    else
+    {
+        s_last_dive_snapshot_source_count = 0U;
+    }
+    s_last_dive_snapshot_checked_ms = 0U;
 }
 
 #ifdef PC_SIMULATOR
 uint16_t logbook_backend_count(void)
 {
     return s_logbook_count;
+}
+
+bool logbook_backend_count_ex(uint16_t *out_count)
+{
+    if (out_count == NULL)
+    {
+        return false;
+    }
+
+    *out_count = s_logbook_count;
+    return true;
 }
 
 bool logbook_backend_is_ready(void)
@@ -3483,6 +3533,7 @@ bool logbook_backend_update_meta(uint16_t index, const logbook_meta_t *meta)
     {
         s_last_dive_snapshot.meta = *meta;
         s_last_dive_snapshot_source_count = s_logbook_count;
+        s_last_dive_snapshot_checked_ms = rt_tick_get_millisecond();
     }
     bus_mark_dirty(DIRTY_LOGBOOK);
     return true;
@@ -3508,11 +3559,13 @@ bool logbook_backend_delete(uint16_t index)
     {
         s_last_dive_snapshot = s_logbook_entries[s_logbook_count - 1U];
         s_last_dive_snapshot_source_count = s_logbook_count;
+        s_last_dive_snapshot_checked_ms = rt_tick_get_millisecond();
     }
     else
     {
         (void)memset(&s_last_dive_snapshot, 0, sizeof(s_last_dive_snapshot));
         s_last_dive_snapshot_source_count = 0U;
+        s_last_dive_snapshot_checked_ms = 0U;
     }
     bus_mark_dirty(DIRTY_LOGBOOK);
     return true;
@@ -3553,6 +3606,7 @@ bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const d
 
     s_last_dive_snapshot = s_logbook_entries[index];
     s_last_dive_snapshot_source_count = s_logbook_count;
+    s_last_dive_snapshot_checked_ms = rt_tick_get_millisecond();
     bus_mark_dirty(DIRTY_LOGBOOK);
     return true;
 }
@@ -3572,6 +3626,18 @@ __attribute__((weak))
 uint16_t logbook_backend_count(void)
 {
     return 0U;
+}
+
+__attribute__((weak))
+bool logbook_backend_count_ex(uint16_t *out_count)
+{
+    if (out_count == NULL)
+    {
+        return false;
+    }
+
+    *out_count = logbook_backend_count();
+    return true;
 }
 
 __attribute__((weak))
@@ -3717,6 +3783,7 @@ bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const d
     s_last_dive_snapshot = *entry;
     s_last_dive_snapshot.valid = true;
     s_last_dive_snapshot_source_count = 0U;
+    s_last_dive_snapshot_checked_ms = rt_tick_get_millisecond();
     bus_mark_dirty(DIRTY_LOGBOOK);
     return false;
 }

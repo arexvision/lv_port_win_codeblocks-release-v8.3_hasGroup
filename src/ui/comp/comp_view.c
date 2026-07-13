@@ -67,7 +67,7 @@ LV_IMG_DECLARE(sudo_down_level6);
 #define COMPASS_WIDGET_PREDICT_REV_GAIN      0.25f
 #define COMPASS_WIDGET_TARGET_BACKSTEP_DEG   8.0f
 #define COMPASS_WIDGET_TARGET_RELEASE_DEG    7.0f
-#define COMPASS_WIDGET_TARGET_RELEASE_MS     96U
+#define COMPASS_WIDGET_TARGET_RELEASE_MS     32U
 #define COMPASS_WIDGET_TARGET_TREND_MIN_DPS  70.0f
 #define TISSUE_LEAD_COUNT          16U
 #define TISSUE_LEAD_BLINK_MS       450U
@@ -475,8 +475,8 @@ static void compass_widget_display_decay_velocity(float factor)
  * 立即释放，避免真实换向被显示层拖慢。
  */
 static bool compass_widget_display_hold_transient_backstep(float new_target,
-                                                           float delta,
-                                                           uint32_t now_tick)
+                                                            float delta,
+                                                            uint32_t now_tick)
 {
     bool has_trend = fabsf(s_compass_display_velocity_dps) >= COMPASS_WIDGET_TARGET_TREND_MIN_DPS;
     bool opposite_to_trend =
@@ -534,6 +534,26 @@ static bool compass_widget_display_hold_transient_backstep(float new_target,
     compass_widget_display_decay_velocity(0.35f);
     s_compass_display_target_tick = now_tick;
     return true;
+}
+
+static void compass_widget_display_release_stale_pending_target(uint32_t now_tick)
+{
+    if (!s_compass_display_pending_target_valid)
+    {
+        return;
+    }
+
+    if ((now_tick - s_compass_display_pending_target_tick) < COMPASS_WIDGET_TARGET_RELEASE_MS)
+    {
+        return;
+    }
+
+    /* 反向毛刺只短暂屏蔽；超时后按真实换向处理，避免显示层停住。 */
+    s_compass_display_target_deg = s_compass_display_pending_target_deg;
+    s_compass_display_target_tick = now_tick;
+    s_compass_display_velocity_dps = 0.0f;
+    s_compass_display_last_step_deg = 0.0f;
+    compass_widget_display_clear_pending_target();
 }
 
 static void compass_widget_display_note_target(uint16_t heading)
@@ -610,6 +630,8 @@ static float compass_widget_display_predict_target(void)
     {
         return (float)(bus_get_heading() % 360U);
     }
+
+    compass_widget_display_release_stale_pending_target(now_tick);
 
     dt_ms = now_tick - s_compass_display_target_tick;
     if (dt_ms > COMPASS_WIDGET_PREDICT_HOLD_MS)

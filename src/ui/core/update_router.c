@@ -275,7 +275,7 @@ static dirty_mask_t ui_router_state_subscription_mask(void)
 
     if (state == UI_SUB_MENU && ui_state_get_sub_parent() == UI_INFO)
     {
-        return DIRTY_INFO_REFRESH_MASK;
+        return screen_current_info_submenu_refresh_mask();
     }
 
     return DIRTY_NONE;
@@ -334,7 +334,7 @@ static bool ui_router_deco_vm_needed(dirty_mask_t mask, const ui_router_visible_
 
 static dirty_mask_t ui_router_subscription_mask(const ui_router_visible_ctx_t *ctx)
 {
-    return DIRTY_UI_LAYOUT | DIRTY_ALARM |
+    return DIRTY_UI_LAYOUT | DIRTY_ALARM | DIRTY_LOGBOOK |
            ui_router_layout_subscription_mask(ctx) |
            ui_router_state_subscription_mask();
 }
@@ -361,6 +361,7 @@ void ui_update_router_dispatch(dirty_mask_t mask)
     uint32_t info_ms = 0U;
     dirty_mask_t original_mask = mask;
     ui_router_visible_ctx_t visible_ctx;
+    bool logbook_refreshed_current_page = false;
 
     ui_router_visible_ctx_update(&visible_ctx);
 
@@ -495,7 +496,8 @@ void ui_update_router_dispatch(dirty_mask_t mask)
 
     if (mask & DIRTY_LOGBOOK)
     {
-        screen_refresh_logbook_if_open();
+        bus_invalidate_last_dive_snapshot();
+        logbook_refreshed_current_page = screen_refresh_logbook_if_open();
     }
 
     if (mask & DIRTY_INFO_REFRESH_MASK)
@@ -505,7 +507,10 @@ void ui_update_router_dispatch(dirty_mask_t mask)
         {
             menu_entry_update();
         }
-        screen_refresh_info_submenu_if_open();
+        if (!logbook_refreshed_current_page)
+        {
+            screen_refresh_info_submenu_if_open_for_dirty(mask);
+        }
         if (mask & DIRTY_SYSTEM)
         {
             screen_refresh_setup_menu();

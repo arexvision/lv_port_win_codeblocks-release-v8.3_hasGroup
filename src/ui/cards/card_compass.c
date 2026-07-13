@@ -65,7 +65,7 @@ void ble_sensor_debug_note_ui_dirty(uint16_t heading);
 #define COMPASS_UI_PREDICT_REV_GAIN      0.25f
 #define COMPASS_UI_TARGET_BACKSTEP_DEG   8.0f
 #define COMPASS_UI_TARGET_RELEASE_DEG    7.0f
-#define COMPASS_UI_TARGET_RELEASE_MS     96U
+#define COMPASS_UI_TARGET_RELEASE_MS     32U
 #define COMPASS_UI_TARGET_TREND_MIN_DPS  70.0f
 
 static ui_vm_compass_t s_compass_vm_cache;
@@ -246,6 +246,29 @@ static bool compass_display_hold_transient_backstep(float new_target,
     return true;
 }
 
+static void compass_display_release_stale_pending_target(uint32_t now_tick)
+{
+    if (!s_compass_display_pending_target_valid)
+    {
+        return;
+    }
+
+    if ((now_tick - s_compass_display_pending_target_tick) < COMPASS_UI_TARGET_RELEASE_MS)
+    {
+        return;
+    }
+
+    /*
+     * UI 只过滤瞬时反向毛刺。若传感器下一帧尚未到达，也要在两个
+     * 16ms tick 内释放目标，避免用户真实换向时数字看起来停住。
+     */
+    s_compass_display_target_deg = s_compass_display_pending_target_deg;
+    s_compass_display_target_tick = now_tick;
+    s_compass_display_velocity_dps = 0.0f;
+    s_compass_display_last_step_deg = 0.0f;
+    compass_display_clear_pending_target();
+}
+
 static void compass_display_note_target(uint16_t heading)
 {
     uint32_t now_tick = lv_tick_get();
@@ -320,6 +343,8 @@ static float compass_display_predict_target(void)
     {
         return (float)(s_compass_vm_cache.heading % 360U);
     }
+
+    compass_display_release_stale_pending_target(now_tick);
 
     dt_ms = now_tick - s_compass_display_target_tick;
     if (dt_ms > COMPASS_UI_PREDICT_HOLD_MS)

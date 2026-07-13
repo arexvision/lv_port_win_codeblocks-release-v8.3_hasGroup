@@ -80,6 +80,7 @@ static screen_scroll_profile_t s_scroll_profile;
 bool g_light_power_state = true;
 light_mode_t g_light_mode_state = LIGHT_MODE_ALWAYS;
 light_color_t g_light_color_state = LIGHT_COLOR_WHITE;
+uint32_t g_light_rgb_state = 0xFFFFFFUL;
 light_level_t g_light_level_state = LIGHT_LEVEL_100;
 
 /* Wall indicators */
@@ -1030,6 +1031,11 @@ static void menu_list_scroll_item_to_view(lv_obj_t *list, lv_obj_t *item, lv_ani
     if (item_y - margin < scroll_y) target_y = item_y - margin;
     else if (item_y + item_h + margin > scroll_y + visible_h) target_y = item_y + item_h + margin - visible_h;
     if (target_y < 0) target_y = 0;
+
+    if (target_y == scroll_y)
+    {
+        return;
+    }
 
     lv_obj_scroll_to_y(list, target_y, anim);
 }

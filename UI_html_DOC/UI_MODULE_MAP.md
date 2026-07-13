@@ -14,6 +14,7 @@ src/ui/
 ├─ screen/    屏幕门面、布局创建/重建、覆盖层、编辑态、页面注册表
 ├─ comp/      可复用组件工厂、组件刷新、组件样式字典
 ├─ views/     弹窗、子菜单抽屉、菜单定义/运行时/动作层、Dive Plan 子状态
+├─ ports/     UI 与平台服务之间的中性端口契约
 ├─ alarm/     告警事件引擎与告警视图
 ├─ cards/     右侧业务卡片
 ├─ menus/     右侧顶层菜单页
@@ -257,6 +258,7 @@ flowchart TD
 | `views/submenu_dive_plan_state.h/c` | DIVE PLAN 输入、分页、异步计算轮询和结果状态管理。 |
 | `views/modal_view.h` | 弹窗创建、显示、隐藏、pulse、上下文恢复 API。 |
 | `views/modal_view.c` | GAS / COMPASS / ACT 等确认弹窗的 LVGL 对象管理与动画。 |
+| `ports/logbook_io_port.h` | 潜水日志摘要和异步详情读取的中性端口；PC 使用内存后端，真机由平台实现。 |
 
 ### 告警
 

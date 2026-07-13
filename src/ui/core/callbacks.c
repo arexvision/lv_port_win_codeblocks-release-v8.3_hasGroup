@@ -22,6 +22,31 @@
 #define WEAK_CALLBACK
 #endif
 
+static uint32_t light_color_to_rgb(light_color_t color)
+{
+    switch (color)
+    {
+    case LIGHT_COLOR_RED:   return 0xFF0000UL;
+    case LIGHT_COLOR_GREEN: return 0x00FF00UL;
+    case LIGHT_COLOR_BLUE:  return 0x0000FFUL;
+    case LIGHT_COLOR_WHITE: return 0xFFFFFFUL;
+    case LIGHT_COLOR_CUSTOM:
+    default:                return g_light_rgb_state;
+    }
+}
+
+static light_color_t light_rgb_to_color(uint32_t rgb)
+{
+    switch (rgb & 0x00FFFFFFUL)
+    {
+    case 0xFF0000UL: return LIGHT_COLOR_RED;
+    case 0x00FF00UL: return LIGHT_COLOR_GREEN;
+    case 0x0000FFUL: return LIGHT_COLOR_BLUE;
+    case 0xFFFFFFUL: return LIGHT_COLOR_WHITE;
+    default:         return LIGHT_COLOR_CUSTOM;
+    }
+}
+
 /* 这些 weak 回调是 UI 层的默认落地实现。
  * 真机平台可以覆盖它们，把 UI 操作接到真实业务或硬件服务。 */
 #ifdef PC_SIMULATOR
@@ -94,6 +119,7 @@ const char *bus_get_light_color_label(void)
     case LIGHT_COLOR_RED:   return "RED";
     case LIGHT_COLOR_GREEN: return "GREEN";
     case LIGHT_COLOR_BLUE:  return "BLUE";
+    case LIGHT_COLOR_CUSTOM: return "CUSTOM";
     case LIGHT_COLOR_WHITE:
     default:                return "WHITE";
     }
@@ -116,6 +142,7 @@ WEAK_CALLBACK
 void bus_set_light_color(light_color_t color)
 {
     g_light_color_state = color;
+    g_light_rgb_state = light_color_to_rgb(color);
     UI_CALLBACK_TRACE("[LIGHT] Color: %s\n", bus_get_light_color_label());
     ui_on_light_color_set(bus_get_light_color_label(), bus_get_light_level_label());
 }
@@ -124,6 +151,7 @@ WEAK_CALLBACK
 void bus_preview_light_color(light_color_t color)
 {
     g_light_color_state = color;
+    g_light_rgb_state = light_color_to_rgb(color);
     UI_CALLBACK_TRACE("[LIGHT] Preview Color: %s\n", bus_get_light_color_label());
     ui_on_light_color_preview(bus_get_light_color_label(), bus_get_light_level_label());
 }
@@ -135,11 +163,35 @@ light_color_t bus_get_light_color(void)
 }
 
 WEAK_CALLBACK
+void bus_set_light_rgb(uint32_t rgb)
+{
+    g_light_rgb_state = rgb & 0x00FFFFFFUL;
+    g_light_color_state = light_rgb_to_color(g_light_rgb_state);
+    UI_CALLBACK_TRACE("[LIGHT] RGB Color: 0x%06X\n", (unsigned int)g_light_rgb_state);
+    ui_on_light_rgb_set(g_light_rgb_state, bus_get_light_level_label());
+}
+
+WEAK_CALLBACK
+void bus_preview_light_rgb(uint32_t rgb)
+{
+    g_light_rgb_state = rgb & 0x00FFFFFFUL;
+    g_light_color_state = light_rgb_to_color(g_light_rgb_state);
+    UI_CALLBACK_TRACE("[LIGHT] Preview RGB Color: 0x%06X\n", (unsigned int)g_light_rgb_state);
+    ui_on_light_rgb_preview(g_light_rgb_state, bus_get_light_level_label());
+}
+
+WEAK_CALLBACK
+uint32_t bus_get_light_rgb(void)
+{
+    return g_light_rgb_state & 0x00FFFFFFUL;
+}
+
+WEAK_CALLBACK
 void bus_set_light_level(light_level_t level)
 {
     g_light_level_state = level;
     UI_CALLBACK_TRACE("[LIGHT] Level: %s\n", bus_get_light_level_label());
-    ui_on_light_color_set(bus_get_light_color_label(), bus_get_light_level_label());
+    ui_on_light_rgb_set(bus_get_light_rgb(), bus_get_light_level_label());
 }
 
 WEAK_CALLBACK
@@ -158,6 +210,18 @@ WEAK_CALLBACK
 void ui_on_light_color_preview(const char *color, const char *level)
 {
     UI_CALLBACK_TRACE("[LIGHT] Preview Color: %s, Level: %s\n", color, level);
+}
+
+WEAK_CALLBACK
+void ui_on_light_rgb_set(uint32_t rgb, const char *level)
+{
+    UI_CALLBACK_TRACE("[LIGHT] RGB Color: 0x%06X, Level: %s\n", (unsigned int)(rgb & 0x00FFFFFFUL), level);
+}
+
+WEAK_CALLBACK
+void ui_on_light_rgb_preview(uint32_t rgb, const char *level)
+{
+    UI_CALLBACK_TRACE("[LIGHT] Preview RGB Color: 0x%06X, Level: %s\n", (unsigned int)(rgb & 0x00FFFFFFUL), level);
 }
 
 WEAK_CALLBACK

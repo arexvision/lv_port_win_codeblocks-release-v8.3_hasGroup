@@ -413,6 +413,7 @@ bool bus_get_deco_stop(uint8_t index, deco_stop_t *out_stop);
 /* Logbook backend：PC 模拟器使用内存 demo；嵌入式请用 SD/PSRAM 后端覆盖这些 weak API。 */
 bool logbook_backend_is_ready(void);
 uint16_t logbook_backend_count(void);
+bool logbook_backend_count_ex(uint16_t *out_count);
 bool logbook_backend_get_summary(uint16_t index, logbook_entry_t *out_entry);
 bool logbook_backend_get_detail(uint16_t index, logbook_entry_t *out_entry);
 bool logbook_backend_get_samples(uint16_t index, dive_pt_t *out_points, uint16_t max_points, uint16_t *out_count);
@@ -427,6 +428,7 @@ bool logbook_backend_delete(uint16_t index);
 bool logbook_backend_append_finalized_dive(const logbook_entry_t *entry, const dive_pt_t *points, uint16_t point_count);
 bool bus_is_last_dive_ready(void);
 bool bus_get_last_dive_snapshot(logbook_entry_t *out_entry);
+void bus_invalidate_last_dive_snapshot(void);
 
 /* --- 历史轨迹推流 --- */
 void dive_log_append(float current_time_s, float current_depth_m);

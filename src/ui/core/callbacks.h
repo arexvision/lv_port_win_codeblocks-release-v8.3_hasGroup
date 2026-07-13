@@ -27,6 +27,7 @@ typedef enum
     LIGHT_COLOR_GREEN,
     LIGHT_COLOR_BLUE,
     LIGHT_COLOR_WHITE,
+    LIGHT_COLOR_CUSTOM,
     LIGHT_COLOR_COUNT,
 } light_color_t;
 
@@ -81,6 +82,7 @@ typedef struct
 extern bool g_light_power_state;
 extern light_mode_t g_light_mode_state;
 extern light_color_t g_light_color_state;
+extern uint32_t g_light_rgb_state;
 extern light_level_t g_light_level_state;
 void bus_set_light_power(bool on);
 bool bus_get_light_power(void);
@@ -91,12 +93,17 @@ void bus_toggle_light_mode(void);
 void bus_set_light_color(light_color_t color);
 void bus_preview_light_color(light_color_t color);
 light_color_t bus_get_light_color(void);
+void bus_set_light_rgb(uint32_t rgb);
+void bus_preview_light_rgb(uint32_t rgb);
+uint32_t bus_get_light_rgb(void);
 void bus_set_light_level(light_level_t level);
 light_level_t bus_get_light_level(void);
 const char *bus_get_light_color_label(void);
 const char *bus_get_light_level_label(void);
 void ui_on_light_color_set(const char *color, const char *level);
 void ui_on_light_color_preview(const char *color, const char *level);
+void ui_on_light_rgb_set(uint32_t rgb, const char *level);
+void ui_on_light_rgb_preview(uint32_t rgb, const char *level);
 void set_software_brightness_enabled(bool enabled);
 void apply_software_brightness(uint8_t level);
 void set_brightness(uint8_t level);
