@@ -168,7 +168,7 @@ static const comp_style_t g_widget_styles[] =
         .widget_id = COMP_TIME_1612,
         .span_w = 2, .span_h = 2,
         .elements = ELEM_TITLE | ELEM_VALUE,
-        .font_id = FONT_ID_HUGE,
+        .font_id = FONT_ID_BIG_TITLE,
         .title_font_id = FONT_ID_BIG_TITLE,
         .unit = NULL,
         .title = "TIME",
