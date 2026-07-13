@@ -48,10 +48,10 @@ static const comp_style_t g_widget_styles[] =
     {
         .widget_id = COMP_DEPTH_DATA_1612,
         .span_w = 2, .span_h = 2,
-        .elements = ELEM_TITLE | ELEM_VALUE | ELEM_UNIT,
+        .elements = ELEM_TITLE | ELEM_VALUE,
         .font_id = FONT_ID_NDL,
         .title_font_id = FONT_ID_BIG_TITLE,
-        .unit = "m",
+        .unit = NULL,
         .title = "DEPTH",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = { .value_offset_x = -8, .value_offset_y = -8, .value_align = LV_ALIGN_BOTTOM_RIGHT }
