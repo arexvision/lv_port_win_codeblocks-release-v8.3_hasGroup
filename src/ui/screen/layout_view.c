@@ -57,6 +57,49 @@ static void layout_label_set_text_if_changed(lv_obj_t *label, const char *text)
     lv_label_set_text(label, text);
 }
 
+static bool left_surface_time_should_show(void)
+{
+    dive_lifecycle_phase_t phase = bus_get_dive_lifecycle_phase();
+    return phase == DIVE_LIFECYCLE_SURFACE_CONFIRMED;
+}
+
+static void left_surface_time_set_visible(lv_obj_t *obj, bool visible)
+{
+    bool hidden;
+
+    if (obj == NULL || !lv_obj_is_valid(obj)) return;
+
+    hidden = lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    if (visible && hidden)
+    {
+        lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    }
+    else if (!visible && !hidden)
+    {
+        lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+void refresh_left_surface_time_visibility(void)
+{
+    int16_t child_cnt;
+    bool visible;
+
+    if (g_left_anchor_obj == NULL || !lv_obj_is_valid(g_left_anchor_obj)) return;
+
+    visible = left_surface_time_should_show();
+    child_cnt = lv_obj_get_child_cnt(g_left_anchor_obj);
+    for (int16_t i = 0; i < child_cnt; i++)
+    {
+        lv_obj_t *child = lv_obj_get_child(g_left_anchor_obj, i);
+        if (child == NULL || !lv_obj_is_valid(child)) continue;
+        if ((uintptr_t)lv_obj_get_user_data(child) == (uintptr_t)COMP_SURFACE_TIME_1606)
+        {
+            left_surface_time_set_visible(child, visible);
+        }
+    }
+}
+
 bool safe_zone_in_danger(void)
 {
     /* 这个判断用于检测安全区偏移是否已经超过屏幕容忍范围。 */
@@ -506,6 +549,8 @@ void render_left_anchor_grid(lv_obj_t *left_anchor)
                             abs_x, abs_y, abs_w, abs_h,
                             span_w, span_h, (font_id_t)255);
     }
+
+    refresh_left_surface_time_visibility();
 
     for (uint8_t i = 0U; i < sep_boundary_count; i++)
     {

@@ -64,6 +64,7 @@ void grid_5f_rebuild_all(void);
 
 void render_left_anchor_grid(lv_obj_t *left_anchor);
 void refresh_left_aux_slots(void);
+void refresh_left_surface_time_visibility(void);
 
 lv_obj_t *render_widget(lv_obj_t *parent,
                              const comp_pos_t *pos,

@@ -431,6 +431,11 @@ void ui_update_router_dispatch(dirty_mask_t mask)
         deco_ms += lv_tick_get() - start_ms;
     }
 
+    if (mask & DIRTY_DIVE_PROFILE)
+    {
+        refresh_left_surface_time_visibility();
+    }
+
     if ((mask & (DIRTY_DIVE_PROFILE | DIRTY_DECO_STATUS)) &&
         (ui_router_widget_visible(COMP_NDL_STOP_1606, &visible_ctx) ||
          ui_router_widget_visible(COMP_NDL_STOP_1612, &visible_ctx)))
