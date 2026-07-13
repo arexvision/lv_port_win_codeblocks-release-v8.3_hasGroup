@@ -1961,7 +1961,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
         /* 顶部标题（默认隐藏，停留态时显示*/
         h->title_top = lv_label_create(obj);
-        lv_obj_set_style_text_font(h->title_top, get_font(FONT_ID_SMALL), 0);
+        lv_obj_set_style_text_font(h->title_top, get_font(s->deco_title_font_id), 0);
         lv_obj_set_style_text_color(h->title_top, GREEN, 0);
         lv_label_set_text(h->title_top, "");
         lv_obj_add_flag(h->title_top, LV_OBJ_FLAG_HIDDEN);
@@ -2376,16 +2376,16 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             comp_view_label_set_text_if_changed(h->sub_bot, "NDL");
             if (layout_changed)
             {
-                lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
+                lv_obj_set_style_text_font(h->main_val, get_font(style->font_id), 0);
                 if (is_2x2)
                 {
-                    lv_obj_set_style_text_font(h->sub_bot, get_font(FONT_ID_MEDIUM), 0);
+                    lv_obj_set_style_text_font(h->sub_bot, get_font(s->norm_sub_font_id), 0);
                     lv_obj_align(h->sub_bot, (lv_align_t)s->norm_sub_align, s->norm_sub_x, s->norm_sub_y);
                     lv_obj_align(h->main_val, (lv_align_t)s->norm_main_align, s->norm_main_x, s->norm_main_y);
                 }
                 else
                 {
-                    lv_obj_set_style_text_font(h->sub_bot, get_font(FONT_ID_SMALL), 0);
+                    lv_obj_set_style_text_font(h->sub_bot, get_font(s->norm_sub_font_id), 0);
                     lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
                     lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
                 }
@@ -2405,6 +2405,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                                                     bus_get_depth_unit_label());
             if (layout_changed)
             {
+                lv_obj_set_style_text_font(h->title_top, get_font(s->deco_title_font_id), 0);
                 if (is_2x2) lv_obj_align(h->title_top, (lv_align_t)s->deco_title_align, s->deco_title_x, s->deco_title_y);
                 else lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
             }
@@ -2419,14 +2420,14 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             }
             if (layout_changed)
             {
-                lv_obj_set_style_text_font(h->sub_bot, get_font(FONT_ID_SMALL), 0);
+                lv_obj_set_style_text_font(h->sub_bot, get_font(s->deco_sub_font_id), 0);
                 if (is_2x2) lv_obj_align(h->sub_bot, (lv_align_t)s->deco_sub_align, s->deco_sub_x, s->deco_sub_y);
                 else lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16);
             }
 
             if (layout_changed)
             {
-                lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
+                lv_obj_set_style_text_font(h->main_val, get_font(s->deco_main_font_id), 0);
             }
             comp_ndl_stop_set_time_text(h->main_val, vm->stop_time_left_s);
             if (layout_changed)
@@ -2447,11 +2448,12 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                                                     bus_get_depth_unit_label());
             if (layout_changed)
             {
+                lv_obj_set_style_text_font(h->title_top, get_font(s->deco_title_font_id), 0);
                 lv_obj_set_size(h->title_top, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
                 lv_obj_align(h->title_top, (lv_align_t)s->deco_title_align, s->deco_title_x, s->deco_title_y);
             }
 
-            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_BIG_TITLE), 0);
+            lv_obj_set_style_text_font(h->main_val, get_font(s->deco_main_font_id), 0);
             comp_ndl_stop_set_time_text(h->main_val, vm->stop_time_left_s);
             lv_obj_set_size(h->main_val, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(h->main_val, (lv_align_t)s->deco_main_align, s->deco_main_x, s->deco_main_y);

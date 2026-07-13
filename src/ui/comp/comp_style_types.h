@@ -119,6 +119,7 @@ typedef struct
     int8_t  norm_sub_x;
     int8_t norm_sub_y;
     uint8_t norm_sub_align;  /* 底部 NDL 文本 */
+    uint8_t norm_sub_font_id; /* 常态 NDL 文本字体 */
 
     /* =======================================
      * 停留态 (Deco/Safety) 排版参数
@@ -126,9 +127,11 @@ typedef struct
     int8_t  deco_title_x;
     int8_t deco_title_y;
     uint8_t deco_title_align; /* 顶部 SAFETY/DECO */
+    uint8_t deco_title_font_id; /* 顶部 SAFETY/DECO 字体 */
     int8_t  deco_main_x;
     int8_t deco_main_y;
     uint8_t deco_main_align;  /* 停留倒计时 MM:SS */
+    uint8_t deco_main_font_id; /* 停留倒计时字体 */
     int8_t  deco_bar_side_pad; /* DECO底部横条总留白，越大越短 */
     int8_t  deco_bar_h;
     int8_t  deco_bar_x;
@@ -136,6 +139,7 @@ typedef struct
     int8_t  deco_sub_x;
     int8_t deco_sub_y;
     uint8_t deco_sub_align;   /* Safety 悬浮的 NDL 文本 */
+    uint8_t deco_sub_font_id; /* Safety NDL 文本字体 */
 } style_ndl_stop_t;
 
 /* TISSUE 组织图专属样式参数

@@ -60,10 +60,14 @@ static const comp_style_t g_widget_styles[] =
             .horiz_offset_x = 0, .horiz_offset_y = -4, .horiz_w = 140, .horiz_h = 6,
             .norm_main_x = 0, .norm_main_y = 0,  .norm_main_align = LV_ALIGN_LEFT_MID,
             .norm_sub_x  = 0, .norm_sub_y  = -5, .norm_sub_align  = LV_ALIGN_BOTTOM_LEFT,
+            .norm_sub_font_id = FONT_ID_SMALL,
             .deco_title_x = 2,  .deco_title_y = -2,  .deco_title_align = LV_ALIGN_TOP_LEFT,
+            .deco_title_font_id = FONT_ID_SMALL,
             .deco_main_x  = -4, .deco_main_y  = -12, .deco_main_align  = LV_ALIGN_BOTTOM_RIGHT,
+            .deco_main_font_id = FONT_ID_MEDIUM,
             .deco_bar_side_pad = 16, .deco_bar_h = 10, .deco_bar_x = 0, .deco_bar_y = -4,
-            .deco_sub_x   = 0,  .deco_sub_y   = -14,.deco_sub_align   = LV_ALIGN_BOTTOM_LEFT
+            .deco_sub_x   = 0,  .deco_sub_y   = -14,.deco_sub_align   = LV_ALIGN_BOTTOM_LEFT,
+            .deco_sub_font_id = FONT_ID_SMALL
         }
     },
     {
@@ -81,10 +85,14 @@ static const comp_style_t g_widget_styles[] =
             .horiz_offset_x = 0, .horiz_offset_y = -10, .horiz_w = 140, .horiz_h = 6,
             .norm_main_x = 0, .norm_main_y = 4, .norm_main_align = LV_ALIGN_CENTER,
             .norm_sub_x  = 8, .norm_sub_y  = -28, .norm_sub_align  = LV_ALIGN_BOTTOM_LEFT,
+            .norm_sub_font_id = FONT_ID_MEDIUM,
             .deco_title_x = 8,  .deco_title_y = 6,  .deco_title_align = LV_ALIGN_TOP_LEFT,
+            .deco_title_font_id = FONT_ID_SMALL,
             .deco_main_x  = -8, .deco_main_y  = -24, .deco_main_align  = LV_ALIGN_BOTTOM_RIGHT,
+            .deco_main_font_id = FONT_ID_BIG_TITLE,
             .deco_bar_side_pad = 16, .deco_bar_h = 10, .deco_bar_x = 0, .deco_bar_y = -4,
-            .deco_sub_x   = 8,  .deco_sub_y   = 38, .deco_sub_align   = LV_ALIGN_TOP_LEFT
+            .deco_sub_x   = 8,  .deco_sub_y   = 38, .deco_sub_align   = LV_ALIGN_TOP_LEFT,
+            .deco_sub_font_id = FONT_ID_SMALL
         }
     },
     {
