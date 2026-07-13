@@ -1941,10 +1941,20 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         /* 创建 10 宫格的底层透明画板 */
         h->horiz_bg = lv_obj_create(obj);
         lv_obj_remove_style_all(h->horiz_bg);
+        const style_ndl_stop_t *s = &style->spec.ndl_stop;
+        lv_coord_t bar_x = 0;
+        lv_coord_t bar_y = -4;
+
+        if (w_id == COMP_NDL_STOP_1612)
+        {
+            bar_x = s->horiz_offset_x;
+            bar_y = s->horiz_offset_y;
+        }
+
         /* 🚨 宽度填满减去两边留白：abs_w - 16，两边各8px */
         lv_obj_set_size(h->horiz_bg, abs_w - 16, 10);
-        /* 贴紧底部，略微上4px */
-        lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, 0, -4);
+        /* 贴近底部，2x2 常态和停留态共用同一条方格基线。 */
+        lv_obj_align(h->horiz_bg, LV_ALIGN_BOTTOM_MID, bar_x, bar_y);
         memset(draw_vm, 0, sizeof(*draw_vm));
         lv_obj_add_event_cb(h->horiz_bg, ndl_horiz_bar_draw_cb, LV_EVENT_DRAW_MAIN, draw_vm);
         lv_obj_add_flag(h->horiz_bg, LV_OBJ_FLAG_HIDDEN);
@@ -2409,7 +2419,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             }
             if (layout_changed)
             {
-                lv_obj_set_style_text_font(h->sub_bot, get_font(is_2x2 ? FONT_ID_MEDIUM : FONT_ID_SMALL), 0);
+                lv_obj_set_style_text_font(h->sub_bot, get_font(FONT_ID_SMALL), 0);
                 if (is_2x2) lv_obj_align(h->sub_bot, (lv_align_t)s->deco_sub_align, s->deco_sub_x, s->deco_sub_y);
                 else lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16);
             }
@@ -2441,7 +2451,7 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                 lv_obj_align(h->title_top, (lv_align_t)s->deco_title_align, s->deco_title_x, s->deco_title_y);
             }
 
-            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_MEDIUM), 0);
+            lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_BIG_TITLE), 0);
             comp_ndl_stop_set_time_text(h->main_val, vm->stop_time_left_s);
             lv_obj_set_size(h->main_val, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
             lv_obj_align(h->main_val, (lv_align_t)s->deco_main_align, s->deco_main_x, s->deco_main_y);
