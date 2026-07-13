@@ -94,6 +94,7 @@ typedef struct
     lv_obj_t *main_val;
     lv_obj_t *title_top;
     lv_obj_t *sub_bot;
+    comp_id_t widget_id;
     int8_t last_stop_type;
     bool layout_valid;
 } ndl_handle_t;
@@ -1936,6 +1937,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
         ndl_handle_t *h = &s_ndl_handles[s_ndl_handle_count++];
         ui_vm_ndl_stop_t *draw_vm = &s_ndl_draw_vm[s_ndl_handle_count - 1U];
         h->comp = obj;
+        h->widget_id = w_id;
         /* 创建 10 宫格的底层透明画板 */
         h->horiz_bg = lv_obj_create(obj);
         lv_obj_remove_style_all(h->horiz_bg);
@@ -2154,7 +2156,8 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             /* ASCENT_0812 (1x2)：绘制上升速率方向箭头图标（工厂自主查字典决定*/
             lv_obj_t *sudu_img = lv_img_create(obj);
             lv_img_set_src(sudu_img, &sudo_up_level0);
-            lv_obj_align(sudu_img, LV_ALIGN_CENTER, 0, 0);
+            if (w_id == COMP_ASCENT_1612) lv_obj_align(sudu_img, LV_ALIGN_RIGHT_MID, -6, 2);
+            else lv_obj_align(sudu_img, LV_ALIGN_CENTER, 0, 0);
             if (s_ascent_icon_count < MAX_ASCENT_ICONS)
                 s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
         }
@@ -2298,20 +2301,16 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
      * 它既要更新主值，又要切换 STOP_NONE / SAFETY / DECO 三种版式，
      * 还要重绘底部 10 格进度条，所以必须走专用刷新器。 */
 
-    const comp_style_t *style = comp_get_style(COMP_NDL_STOP_1606);
-    if (!style)
-    {
-        return;
-    }
-    (void)style;
-
     for (int i = 0; i < s_ndl_handle_count; i++)
     {
         ndl_handle_t *h = &s_ndl_handles[i];
         ui_vm_ndl_stop_t *draw_vm = &s_ndl_draw_vm[i];
+        const comp_style_t *style;
+        const style_ndl_stop_t *s;
         bool vm_changed;
         bool bar_visibility_changed;
         bool layout_changed;
+        bool is_2x2;
 
         if (!ui_obj_is_valid(&h->comp) ||
             !ui_obj_is_valid(&h->horiz_bg) ||
@@ -2327,6 +2326,18 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
         {
             continue;
         }
+
+        style = comp_get_style(h->widget_id);
+        if (style == NULL)
+        {
+            style = comp_get_style(COMP_NDL_STOP_1606);
+        }
+        if (style == NULL)
+        {
+            continue;
+        }
+        s = &style->spec.ndl_stop;
+        is_2x2 = (h->widget_id == COMP_NDL_STOP_1612);
 
         vm_changed = (memcmp(draw_vm, vm, sizeof(*draw_vm)) != 0);
         bar_visibility_changed = comp_view_obj_set_hidden_if_changed(h->horiz_bg, false);
@@ -2355,9 +2366,17 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             comp_view_label_set_text_if_changed(h->sub_bot, "NDL");
             if (layout_changed)
             {
-                lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
                 lv_obj_set_style_text_font(h->main_val, get_font(FONT_ID_NDL), 0);
-                lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
+                if (is_2x2)
+                {
+                    lv_obj_align(h->sub_bot, (lv_align_t)s->norm_sub_align, s->norm_sub_x, s->norm_sub_y);
+                    lv_obj_align(h->main_val, (lv_align_t)s->norm_main_align, s->norm_main_x, s->norm_main_y);
+                }
+                else
+                {
+                    lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
+                    lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
+                }
             }
 
             comp_view_label_set_text_fmt_if_changed(h->main_val, "%d", vm->ndl);
@@ -2374,8 +2393,8 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
                                                     bus_get_depth_unit_label());
             if (layout_changed)
             {
-                lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT,
-                             comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
+                if (is_2x2) lv_obj_align(h->title_top, (lv_align_t)s->deco_title_align, s->deco_title_x, s->deco_title_y);
+                else lv_obj_align(h->title_top, LV_ALIGN_TOP_LEFT, comp_title_edge_offset_x(LV_ALIGN_TOP_LEFT, 8), 2);
             }
 
             if (vm->in_stop_zone != 0U)
@@ -2388,7 +2407,8 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             }
             if (layout_changed)
             {
-                lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16);
+                if (is_2x2) lv_obj_align(h->sub_bot, (lv_align_t)s->deco_sub_align, s->deco_sub_x, s->deco_sub_y);
+                else lv_obj_align(h->sub_bot, LV_ALIGN_BOTTOM_LEFT, 8, -16);
             }
 
             if (layout_changed)
@@ -2398,13 +2418,13 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             comp_ndl_stop_set_time_text(h->main_val, vm->stop_time_left_s);
             if (layout_changed)
             {
-                lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
+                if (is_2x2) lv_obj_align(h->main_val, (lv_align_t)s->deco_main_align, s->deco_main_x, s->deco_main_y);
+                else lv_obj_align(h->main_val, LV_ALIGN_RIGHT_MID, -4, -6);
             }
         }
         else if (vm->stop_type == STOP_DECO)
         {
             /* 减压停留态：逻辑上比 SAFETY 更强制，所以只保留 DECO 深度和剩余时间。 */
-            const style_ndl_stop_t *s = &style->spec.ndl_stop;
             comp_view_obj_set_hidden_if_changed(h->title_top, false);
             comp_view_obj_set_hidden_if_changed(h->sub_bot, true);
 

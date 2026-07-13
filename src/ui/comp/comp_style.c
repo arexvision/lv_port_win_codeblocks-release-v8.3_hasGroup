@@ -79,10 +79,10 @@ static const comp_style_t g_widget_styles[] =
             .vert_offset_x = 10, .vert_offset_y = 0, .vert_align = LV_ALIGN_LEFT_MID,
             .vert_w = 14, .vert_h = 40,
             .horiz_offset_x = 0, .horiz_offset_y = -4, .horiz_w = 140, .horiz_h = 6,
-            .norm_main_x = 0, .norm_main_y = 0,  .norm_main_align = LV_ALIGN_LEFT_MID,
-            .norm_sub_x  = 0, .norm_sub_y  = -5, .norm_sub_align  = LV_ALIGN_BOTTOM_LEFT,
-            .deco_title_x = 2,  .deco_title_y = -2,  .deco_title_align = LV_ALIGN_TOP_LEFT,
-            .deco_main_x  = -4, .deco_main_y  = -12, .deco_main_align  = LV_ALIGN_BOTTOM_RIGHT,
+            .norm_main_x = -8, .norm_main_y = -14, .norm_main_align = LV_ALIGN_BOTTOM_RIGHT,
+            .norm_sub_x  = 10, .norm_sub_y  = -22, .norm_sub_align  = LV_ALIGN_BOTTOM_LEFT,
+            .deco_title_x = 8,  .deco_title_y = 6,  .deco_title_align = LV_ALIGN_TOP_LEFT,
+            .deco_main_x  = -8, .deco_main_y  = -24, .deco_main_align  = LV_ALIGN_BOTTOM_RIGHT,
             .deco_bar_side_pad = 16, .deco_bar_h = 10, .deco_bar_x = 0, .deco_bar_y = -4,
             .deco_sub_x   = 0,  .deco_sub_y   = -14,.deco_sub_align   = LV_ALIGN_BOTTOM_LEFT
         }
@@ -173,7 +173,7 @@ static const comp_style_t g_widget_styles[] =
         .unit = NULL,
         .title = "TIME",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -12, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = COMP_TTS_0806,
@@ -228,7 +228,7 @@ static const comp_style_t g_widget_styles[] =
         .unit = NULL,
         .title = "RATE",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+        .spec.basic = { .value_offset_x = 6, .value_offset_y = -10, .value_align = LV_ALIGN_BOTTOM_LEFT }
     },
     {
         .widget_id = COMP_COMPASS_1612,
@@ -297,7 +297,7 @@ static const comp_style_t g_widget_styles[] =
         .unit = NULL,
         .title = "STIME",
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
-        .spec.basic = { .value_offset_x = -10, .value_offset_y = -4, .value_align = LV_ALIGN_BOTTOM_RIGHT }
+        .spec.basic = { .value_offset_x = 0, .value_offset_y = -12, .value_align = LV_ALIGN_BOTTOM_MID }
     },
     {
         .widget_id = COMP_PPO2_0806,
