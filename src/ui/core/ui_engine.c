@@ -268,7 +268,7 @@ void sys_config_defaults(sys_config_t *cfg)
      *    Row 1-2: DEPTH  | (2x2 160x120，带 sudu 速率图标)
      *    Row 3: POD1     | POD2    (1x1 80x60)
      *    Row 4: TIME     | (2x1 160x60)
-     *    Row 5: GAS      | (2x1 160x60)
+     *    Row 5: SURFACE  | (2x1 160x60)
      *    Row 6: SYS      | (2x1 160x60，SystemData 可配
      */
     /* 简洁位置配置：widget_id + 当前方向实际 x/y，span_w/h MCU 样式表自动推 */
@@ -291,13 +291,9 @@ void sys_config_defaults(sys_config_t *cfg)
     /* Ĭϲȹر POD1/POD2 ʾλӰ߶ */
     cfg->left_widgets[4] = (grid_widget_t)
     {
-        COMP_EMPTY,           0, 5
+        COMP_SURFACE_TIME_1606, 0, 5
     };
     cfg->left_widgets[5] = (grid_widget_t)
-    {
-        COMP_EMPTY,           1, 5
-    };
-    cfg->left_widgets[6] = (grid_widget_t)
     {
         COMP_SYS_1606,        0, 6
     };

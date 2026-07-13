@@ -249,8 +249,7 @@ static void layout_set_default_fixed_widgets(sys_config_t *cfg, bool horizontal)
         { COMP_DEPTH_1612, 0, 1 },
         { COMP_DIVE_TIME_1606, 0, 3 },
         { COMP_GAS_1606, 0, 4 },
-        { COMP_EMPTY, 0, 5 },
-        { COMP_EMPTY, 1, 5 },
+        { COMP_SURFACE_TIME_1606, 0, 5 },
         { COMP_SYS_1606, 0, 6 },
     };
     static const grid_widget_t top_widgets[] =
