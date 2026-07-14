@@ -62,6 +62,43 @@ static inline bool depth_chart_points_continue_line(const lv_point_t *start,
     return (dx1 * dx2 >= 0) && (dy1 * dy2 >= 0);
 }
 
+static inline bool depth_chart_build_profile_points(const dive_pt_t *points,
+                                                     uint16_t point_count,
+                                                     lv_coord_t x,
+                                                     lv_coord_t y,
+                                                     lv_coord_t w,
+                                                     lv_coord_t h,
+                                                     float max_time_s,
+                                                     float max_depth_m,
+                                                     lv_point_t *out_points,
+                                                     uint16_t out_capacity,
+                                                     uint16_t *out_point_count)
+{
+    uint16_t draw_count = 0U;
+
+    if (out_point_count != NULL) *out_point_count = 0U;
+    if ((points == NULL) || (point_count == 0U) || (out_points == NULL) || (out_capacity == 0U) || (out_point_count == NULL)) return false;
+
+    out_points[draw_count++] = depth_chart_map_point(&points[0], x, y, w, h, max_time_s, max_depth_m);
+    for (uint16_t i = 1U; i < point_count; i++)
+    {
+        lv_point_t next = depth_chart_map_point(&points[i], x, y, w, h, max_time_s, max_depth_m);
+        lv_point_t *last = &out_points[draw_count - 1U];
+
+        if ((next.x == last->x) && (next.y == last->y)) continue;
+        if ((draw_count >= 2U) && depth_chart_points_continue_line(&out_points[draw_count - 2U], last, &next))
+        {
+            *last = next;
+            continue;
+        }
+        if (draw_count >= out_capacity) return false;
+        out_points[draw_count++] = next;
+    }
+
+    *out_point_count = draw_count;
+    return true;
+}
+
 static inline bool depth_chart_draw_profile(lv_draw_ctx_t *draw_ctx,
                                             const dive_pt_t *points,
                                             uint16_t point_count,

@@ -12,8 +12,60 @@
 
 #define CHART_PAD 10
 
+typedef struct
+{
+    bool valid;
+    lv_area_t area;
+    uint16_t point_count;
+    lv_point_t points[MAX_DIVE_LOG];
+} plan_chart_profile_cache_t;
+
 static ui_vm_plan_chart_t s_plan_chart_vm __attribute__((section(".psram_bss")));
+static plan_chart_profile_cache_t s_profile_cache __attribute__((section(".psram_bss")));
 static lv_obj_t *s_chart_obj;
+
+static bool plan_chart_profile_cache_area_matches(const lv_area_t *area)
+{
+    return s_profile_cache.valid &&
+           s_profile_cache.area.x1 == area->x1 && s_profile_cache.area.y1 == area->y1 &&
+           s_profile_cache.area.x2 == area->x2 && s_profile_cache.area.y2 == area->y2;
+}
+
+static bool plan_chart_profile_cache_rebuild(const lv_area_t *area,
+                                             const ui_vm_plan_chart_t *vm,
+                                             lv_coord_t x,
+                                             lv_coord_t y,
+                                             lv_coord_t w,
+                                             lv_coord_t h,
+                                             float max_time_s,
+                                             float max_depth_m)
+{
+    s_profile_cache.area = *area;
+    s_profile_cache.point_count = 0U;
+    bool built = vm->dive_log_count == 0U ||
+                 depth_chart_build_profile_points(vm->dive_log, vm->dive_log_count,
+                                                  x, y, w, h, max_time_s, max_depth_m,
+                                                  s_profile_cache.points, MAX_DIVE_LOG,
+                                                  &s_profile_cache.point_count);
+    if (!built)
+    {
+        s_profile_cache.valid = false;
+        return false;
+    }
+
+    s_profile_cache.valid = true;
+    return true;
+}
+
+static void plan_chart_profile_cache_draw(lv_draw_ctx_t *draw_ctx, const lv_draw_line_dsc_t *line_dsc)
+{
+    for (uint16_t i = 1U; i < s_profile_cache.point_count; i++)
+    {
+        const lv_point_t *p1 = &s_profile_cache.points[i - 1U];
+        const lv_point_t *p2 = &s_profile_cache.points[i];
+        if (depth_chart_line_intersects_clip(draw_ctx, p1, p2, line_dsc->width)) lv_draw_line(draw_ctx, line_dsc, p1, p2);
+    }
+}
 
 static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,
                                       lv_draw_line_dsc_t *dsc,
@@ -256,8 +308,20 @@ static void plan_chart_draw_cb(lv_event_t *e)
     line_dsc.dash_width = 0;
     line_dsc.dash_gap = 0;
 
+    if (!plan_chart_profile_cache_area_matches(area))
+    {
+        (void)plan_chart_profile_cache_rebuild(area, vm,
+                                               (lv_coord_t)x_axis_left, (lv_coord_t)((float)area->y1 + pad_y_top),
+                                               (lv_coord_t)w, (lv_coord_t)h, max_t_axis_sec, max_d_axis);
+    }
+
     lv_point_t last_p;
-    if (!depth_chart_draw_profile(draw_ctx, vm->dive_log, vm->dive_log_count, (lv_coord_t)x_axis_left, (lv_coord_t)((float)area->y1 + pad_y_top), (lv_coord_t)w, (lv_coord_t)h, max_t_axis_sec, max_d_axis, line_dsc.color, line_dsc.width, line_dsc.opa, &last_p))
+    if (s_profile_cache.valid && s_profile_cache.point_count > 0U)
+    {
+        plan_chart_profile_cache_draw(draw_ctx, &line_dsc);
+        last_p = s_profile_cache.points[s_profile_cache.point_count - 1U];
+    }
+    else
     {
         last_p.x = MAP_X(0.0f);
         last_p.y = MAP_Y(0.0f);
@@ -376,6 +440,7 @@ static void plan_chart_draw_cb(lv_event_t *e)
 
 void card_plan_create(lv_obj_t *parent)
 {
+    s_profile_cache.valid = false;
     render_card_title(parent, "DIVE PLAN TRACK");
 
     int right_w = (int)ui_content_w_get();
@@ -413,6 +478,7 @@ void card_plan_update(const ui_vm_plan_chart_t *vm)
     if (vm != NULL)
     {
         s_plan_chart_vm = *vm;
+        s_profile_cache.valid = false;
     }
 
     if (!screen_page_id_refresh_visible(PAGE_ID_PLAN))
