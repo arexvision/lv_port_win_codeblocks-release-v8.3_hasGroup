@@ -22,6 +22,9 @@ static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,
 {
     int dx = p2.x - p1.x;
     int dy = p2.y - p1.y;
+
+    if (!depth_chart_line_intersects_clip(draw_ctx, &p1, &p2, dsc->width)) return;
+
     float dist = sqrtf((float)dx * (float)dx + (float)dy * (float)dy);
 
     if (dist < 1.0f)
@@ -63,7 +66,10 @@ static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,
             p1.y + (lv_coord_t)(dy * t2)
         };
 
-        lv_draw_line(draw_ctx, &solid_dsc, &seg_p1, &seg_p2);
+        if (depth_chart_line_intersects_clip(draw_ctx, &seg_p1, &seg_p2, solid_dsc.width))
+        {
+            lv_draw_line(draw_ctx, &solid_dsc, &seg_p1, &seg_p2);
+        }
     }
 }
 

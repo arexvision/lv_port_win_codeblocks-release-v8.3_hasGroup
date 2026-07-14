@@ -31,6 +31,37 @@ static inline lv_point_t depth_chart_map_point(const dive_pt_t *point,
     return out;
 }
 
+static inline bool depth_chart_line_intersects_clip(const lv_draw_ctx_t *draw_ctx,
+                                                     const lv_point_t *p1,
+                                                     const lv_point_t *p2,
+                                                     uint8_t line_width)
+{
+    if ((p1 == NULL) || (p2 == NULL)) return false;
+    if ((draw_ctx == NULL) || (draw_ctx->clip_area == NULL)) return true;
+
+    const lv_area_t *clip = draw_ctx->clip_area;
+    lv_coord_t pad = (lv_coord_t)line_width + 1;
+    lv_coord_t min_x = LV_MIN(p1->x, p2->x) - pad;
+    lv_coord_t max_x = LV_MAX(p1->x, p2->x) + pad;
+    lv_coord_t min_y = LV_MIN(p1->y, p2->y) - pad;
+    lv_coord_t max_y = LV_MAX(p1->y, p2->y) + pad;
+
+    return !(max_x < clip->x1 || min_x > clip->x2 || max_y < clip->y1 || min_y > clip->y2);
+}
+
+static inline bool depth_chart_points_continue_line(const lv_point_t *start,
+                                                     const lv_point_t *middle,
+                                                     const lv_point_t *end)
+{
+    int32_t dx1 = (int32_t)middle->x - (int32_t)start->x;
+    int32_t dy1 = (int32_t)middle->y - (int32_t)start->y;
+    int32_t dx2 = (int32_t)end->x - (int32_t)middle->x;
+    int32_t dy2 = (int32_t)end->y - (int32_t)middle->y;
+
+    if ((dx1 * dy2) != (dy1 * dx2)) return false;
+    return (dx1 * dx2 >= 0) && (dy1 * dy2 >= 0);
+}
+
 static inline bool depth_chart_draw_profile(lv_draw_ctx_t *draw_ctx,
                                             const dive_pt_t *points,
                                             uint16_t point_count,
@@ -46,6 +77,8 @@ static inline bool depth_chart_draw_profile(lv_draw_ctx_t *draw_ctx,
                                             lv_point_t *out_last)
 {
     lv_draw_line_dsc_t line_dsc;
+    lv_point_t segment_start;
+    lv_point_t segment_end;
     lv_point_t last;
 
     if ((draw_ctx == NULL) || (points == NULL) || (point_count == 0U))
@@ -60,12 +93,35 @@ static inline bool depth_chart_draw_profile(lv_draw_ctx_t *draw_ctx,
     line_dsc.dash_width = 0;
     line_dsc.dash_gap = 0;
 
-    last = depth_chart_map_point(&points[0], x, y, w, h, max_time_s, max_depth_m);
+    segment_start = depth_chart_map_point(&points[0], x, y, w, h, max_time_s, max_depth_m);
+    segment_end = segment_start;
+    last = segment_start;
     for (uint16_t i = 1U; i < point_count; i++)
     {
         lv_point_t next = depth_chart_map_point(&points[i], x, y, w, h, max_time_s, max_depth_m);
-        lv_draw_line(draw_ctx, &line_dsc, &last, &next);
         last = next;
+
+        if ((next.x == segment_end.x) && (next.y == segment_end.y)) continue;
+        if (((segment_start.x != segment_end.x) || (segment_start.y != segment_end.y)) &&
+            depth_chart_points_continue_line(&segment_start, &segment_end, &next))
+        {
+            segment_end = next;
+            continue;
+        }
+
+        if (((segment_start.x != segment_end.x) || (segment_start.y != segment_end.y)) &&
+            depth_chart_line_intersects_clip(draw_ctx, &segment_start, &segment_end, line_width))
+        {
+            lv_draw_line(draw_ctx, &line_dsc, &segment_start, &segment_end);
+        }
+        segment_start = segment_end;
+        segment_end = next;
+    }
+
+    if (((segment_start.x != segment_end.x) || (segment_start.y != segment_end.y)) &&
+        depth_chart_line_intersects_clip(draw_ctx, &segment_start, &segment_end, line_width))
+    {
+        lv_draw_line(draw_ctx, &line_dsc, &segment_start, &segment_end);
     }
 
     if (out_last != NULL)
