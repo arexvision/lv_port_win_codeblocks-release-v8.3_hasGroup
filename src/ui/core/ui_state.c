@@ -191,27 +191,44 @@ void ui_go_to_page(uint8_t tile_pos)
     s_last_dash_commit_ms = lv_tick_get();
 }
 
-static void ui_schedule_dash_page(uint8_t tile_pos)
+static bool ui_schedule_dash_page(uint8_t tile_pos, uint8_t step_count)
 {
 #if UI_DASH_ROTATE_COALESCE_ENABLED
     const uint32_t now_ms = lv_tick_get();
+    const bool defer_first_commit = (step_count >= UI_DASH_ROTATE_DEFER_MIN_STEPS);
+    if (s_pending_dash_page == tile_pos)
+    {
+        s_pending_dash_due_ms = now_ms + UI_DASH_ROTATE_COALESCE_WINDOW_MS;
+        return false;
+    }
+    if (s_pending_dash_page == 0xFFU && tile_pos == s_ui.dash_page)
+    {
+        return false;
+    }
 
     /* 首次旋转必须立即落页，保证用户得到确定的视觉反馈。
      * 只有在一个合并窗口内继续旋转，才延后到最终目标页，避免中间页反复
      * set_tile/set_text/invalidate。 */
-    if (s_pending_dash_page == 0xFFU &&
+    if (!defer_first_commit &&
+        s_pending_dash_page == 0xFFU &&
         (s_last_dash_commit_ms == 0U ||
          (now_ms - s_last_dash_commit_ms) >= UI_DASH_ROTATE_COALESCE_WINDOW_MS))
     {
         ui_go_to_page(tile_pos);
-        return;
+        return true;
     }
 
+    /* 快速旋转中间页保留视觉过渡，但只做轻量 tile 切换，不补 dirty。
+     * 停顿后 ui_flush_pending_dash_page() 会对最终落点做完整刷新。 */
     s_ui.dash_page = tile_pos;
     s_pending_dash_page = tile_pos;
     s_pending_dash_due_ms = now_ms + UI_DASH_ROTATE_COALESCE_WINDOW_MS;
+    screen_scroll_to_page_preview(tile_pos);
+    return false;
 #else
+    (void)step_count;
     ui_go_to_page(tile_pos);
+    return true;
 #endif
 }
 
@@ -315,11 +332,18 @@ static void ui_enter_device_control_page(void)
    ========================================= */
 void ui_handle_rotate(int8_t dir)
 {
-    ui_handle_rotate_steps(dir);
+    (void)ui_handle_rotate_steps_ex(dir);
 }
 
 bool ui_rotate_steps_can_coalesce(void)
 {
+    if (s_ui.state == UI_DASH)
+    {
+        /* DASH 要保留快速旋转的中间过渡；中间页刷新压力由
+         * screen_scroll_to_page_preview() 避免，而不是把所有 step 合成一次跳转。 */
+        return false;
+    }
+
     if (s_ui.state != UI_SUB_MENU)
     {
         return false;
@@ -341,15 +365,16 @@ bool ui_rotate_steps_can_coalesce(void)
     }
 }
 
-void ui_handle_rotate_steps(int8_t steps)
+bool ui_handle_rotate_steps_ex(int8_t steps)
 {
     int16_t signed_steps = (int16_t)steps;
     int8_t dir = (signed_steps > 0) ? 1 : ((signed_steps < 0) ? -1 : 0);
     uint8_t step_count = (uint8_t)((signed_steps < 0) ? -signed_steps : signed_steps);
+    bool committed = true;
 
     if (dir == 0 || step_count == 0U)
     {
-        return;
+        return false;
     }
 
     if (dir != 0)
@@ -378,13 +403,42 @@ void ui_handle_rotate_steps(int8_t steps)
         /* 仪表盘楼层循环：动态卡片 + MENU 入口页。 */
         uint8_t dash_min = PAGE_POS_DYNAMIC_FIRST;
         uint8_t dash_max = page_menu_display_pos();
-        int8_t next = (int8_t)s_ui.dash_page + dir;
+        if (dash_max < dash_min)
+        {
+            committed = false;
+            break;
+        }
+        uint8_t dash_count = (uint8_t)(dash_max - dash_min + 1U);
+        uint8_t next = s_ui.dash_page;
+        uint8_t offset;
         s_ui.wall_charge = 0;
         screen_hide_walls();
-        menu_entry_clear_selection();
-        if (next < (int8_t)dash_min) next = (int8_t)dash_max;
-        if (next > (int8_t)dash_max) next = (int8_t)dash_min;
-        ui_schedule_dash_page((uint8_t)next);
+        if (!menu_entry_selection_is_clear())
+        {
+            menu_entry_clear_selection();
+        }
+        if (next < dash_min || next > dash_max)
+        {
+            next = dash_min;
+        }
+        committed = false;
+        for (uint8_t i = 0U; i < step_count; i++)
+        {
+            offset = (uint8_t)(next - dash_min);
+            if (dir > 0)
+            {
+                offset = (uint8_t)((offset + 1U) % dash_count);
+            }
+            else
+            {
+                offset = (uint8_t)((offset + dash_count - 1U) % dash_count);
+            }
+            next = (uint8_t)(dash_min + offset);
+            if (ui_schedule_dash_page(next, step_count))
+            {
+                committed = true;
+            }
+        }
         break;
     }
 
@@ -560,6 +614,13 @@ void ui_handle_rotate_steps(int8_t steps)
     default:
         break;
     }
+
+    return committed;
+}
+
+void ui_handle_rotate_steps(int8_t steps)
+{
+    (void)ui_handle_rotate_steps_ex(steps);
 }
 
 /* =========================================

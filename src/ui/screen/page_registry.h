@@ -113,6 +113,7 @@ void card_plan_update(const ui_vm_plan_chart_t *vm);
 void card_blank_update(void);
 void menu_entry_set_selection(uint8_t idx);
 void menu_entry_clear_selection(void);
+bool menu_entry_selection_is_clear(void);
 uint8_t menu_entry_item_count(void);
 bool menu_entry_selection_is_info(uint8_t idx);
 bool menu_entry_selection_is_device(uint8_t idx);

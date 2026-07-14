@@ -151,6 +151,7 @@ void ui_state_init(void);
 
 /* dir: +1 = scroll down/right,  -1 = scroll up/left */
 void ui_handle_rotate(int8_t dir);
+bool ui_handle_rotate_steps_ex(int8_t steps);
 void ui_handle_rotate_steps(int8_t steps);
 bool ui_rotate_steps_can_coalesce(void);
 

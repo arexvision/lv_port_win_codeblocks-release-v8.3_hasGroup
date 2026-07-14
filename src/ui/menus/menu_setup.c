@@ -52,6 +52,16 @@ static lv_obj_t *s_menu_entry_items[MENU_ENTRY_COUNT];
 static lv_obj_t *s_menu_entry_hint_lbl;
 static uint8_t s_menu_entry_selected = 0xFFU;
 
+typedef struct
+{
+    uint8_t valid;
+    uint8_t visible;
+    uint8_t selected;
+    lv_coord_t y;
+} menu_entry_row_cache_t;
+
+static menu_entry_row_cache_t s_menu_entry_row_cache[MENU_ENTRY_COUNT];
+
 static const menu_item_cfg_t s_menu_entry_cfg[] =
 {
     { "INFO MENU", NULL, FONT_ID_TITLE, FONT_ID_SMALL, 2, 0 },
@@ -161,6 +171,29 @@ static void menu_entry_apply_row_style(lv_obj_t *item, lv_obj_t *label, bool sel
     }
 }
 
+static void menu_set_hidden_if_changed(lv_obj_t *obj, bool hidden)
+{
+    if (obj == NULL)
+    {
+        return;
+    }
+
+    if (hidden)
+    {
+        if (!lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN))
+        {
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    else
+    {
+        if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN))
+        {
+            lv_obj_clear_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+}
+
 void menu_entry_set_selection(uint8_t idx)
 {
     uint8_t count = menu_entry_visible_count();
@@ -174,6 +207,11 @@ void menu_entry_clear_selection(void)
 {
     s_menu_entry_selected = 0xFFU;
     menu_entry_update();
+}
+
+bool menu_entry_selection_is_clear(void)
+{
+    return s_menu_entry_selected == 0xFFU;
 }
 
 uint8_t menu_entry_item_count(void)
@@ -276,6 +314,7 @@ void menu_entry_create(lv_obj_t *parent)
     uint16_t visible_h = ui_content_h_get() > list_y ? (uint16_t)(ui_content_h_get() - list_y) : list_h;
 
     memset(s_menu_entry_items, 0, sizeof(s_menu_entry_items));
+    memset(s_menu_entry_row_cache, 0, sizeof(s_menu_entry_row_cache));
     render_card_title(parent, "MENU HUB");
 
     s_menu_entry_hint_lbl = lv_label_create(parent);
@@ -310,14 +349,7 @@ void menu_entry_update(void)
 
     if (s_menu_entry_hint_lbl != NULL && lv_obj_is_valid(s_menu_entry_hint_lbl))
     {
-        if (active)
-        {
-            lv_obj_add_flag(s_menu_entry_hint_lbl, LV_OBJ_FLAG_HIDDEN);
-        }
-        else
-        {
-            lv_obj_clear_flag(s_menu_entry_hint_lbl, LV_OBJ_FLAG_HIDDEN);
-        }
+        menu_set_hidden_if_changed(s_menu_entry_hint_lbl, active);
     }
     else
     {
@@ -328,6 +360,7 @@ void menu_entry_update(void)
     {
         s_menu_entry_list = NULL;
         memset(s_menu_entry_items, 0, sizeof(s_menu_entry_items));
+        memset(s_menu_entry_row_cache, 0, sizeof(s_menu_entry_row_cache));
         return;
     }
     for (uint8_t i = 0U; i < MENU_ENTRY_COUNT; i++)
@@ -346,15 +379,36 @@ void menu_entry_update(void)
         if (s_menu_entry_items[raw_idx] == NULL) continue;
         if (menu_entry_raw_visible(raw_idx))
         {
-            lv_obj_clear_flag(s_menu_entry_items[raw_idx], LV_OBJ_FLAG_HIDDEN);
-            lv_obj_set_y(s_menu_entry_items[raw_idx], current_y);
-            menu_entry_apply_row_style(s_menu_entry_items[raw_idx], lv_obj_get_child(s_menu_entry_items[raw_idx], 0), active && s_menu_entry_selected == visible_idx);
+            const bool selected = active && s_menu_entry_selected == visible_idx;
+            menu_entry_row_cache_t *cache = &s_menu_entry_row_cache[raw_idx];
+
+            if (!cache->valid || cache->visible == 0U)
+            {
+                menu_set_hidden_if_changed(s_menu_entry_items[raw_idx], false);
+                cache->visible = 1U;
+            }
+            if (!cache->valid || cache->y != current_y)
+            {
+                lv_obj_set_y(s_menu_entry_items[raw_idx], current_y);
+                cache->y = current_y;
+            }
+            if (!cache->valid || cache->selected != (selected ? 1U : 0U))
+            {
+                menu_entry_apply_row_style(s_menu_entry_items[raw_idx],
+                                           lv_obj_get_child(s_menu_entry_items[raw_idx], 0),
+                                           selected);
+                cache->selected = selected ? 1U : 0U;
+            }
+            cache->valid = 1U;
             current_y += lv_obj_get_height(s_menu_entry_items[raw_idx]) + (lv_coord_t)ui_menu_gap_px_get();
             visible_idx++;
         }
         else
         {
-            lv_obj_add_flag(s_menu_entry_items[raw_idx], LV_OBJ_FLAG_HIDDEN);
+            menu_set_hidden_if_changed(s_menu_entry_items[raw_idx], true);
+            s_menu_entry_row_cache[raw_idx].valid = 0U;
+            s_menu_entry_row_cache[raw_idx].visible = 0U;
+            s_menu_entry_row_cache[raw_idx].selected = 0U;
         }
     }
 }
@@ -413,6 +467,7 @@ void menu_setup_update(void)
     ui_vm_setup_menu_t vm;
     uint8_t setup_count = 0;
     const menu_item_cfg_t *setup_items = menu_defs_setup_items(&setup_count);
+    menu_setup_root_t setup_root = menu_defs_get_setup_root();
 
     if (!menu_setup_obj_is_valid(&s_list)) return;
 
@@ -438,48 +493,51 @@ void menu_setup_update(void)
             lv_obj_t *label = lv_obj_get_child(s_setup_item_objs[i], 0);
             char bluetooth_title[32];
             const char *title = setup_items[i].title_text;
-            if (menu_defs_get_setup_root() == MENU_SETUP_ROOT_DEVICE && i == 3U)
+            if (setup_root == MENU_SETUP_ROOT_DEVICE && i == 3U)
             {
                 (void)snprintf(bluetooth_title, sizeof(bluetooth_title), "BLUETOOTH: %s", vm.bluetooth_badge);
                 title = bluetooth_title;
             }
-            lv_obj_clear_flag(s_setup_item_objs[i], LV_OBJ_FLAG_HIDDEN);
+            menu_set_hidden_if_changed(s_setup_item_objs[i], false);
             if (label != NULL) menu_setup_badge_set_text_if_changed(label, title);
         }
         else
         {
-            lv_obj_add_flag(s_setup_item_objs[i], LV_OBJ_FLAG_HIDDEN);
+            menu_set_hidden_if_changed(s_setup_item_objs[i], true);
         }
     }
 
     for (uint8_t i = 0U; i < SETUP_ITEM_COUNT; i++)
     {
-        if (!menu_setup_obj_is_valid(&s_setup_badge_lbls[i])) continue;
-        menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[i], "");
-        lv_obj_add_flag(s_setup_badge_lbls[i], LV_OBJ_FLAG_HIDDEN);
-    }
+        bool badge_visible = false;
+        const char *badge_text = "";
 
-    if (menu_defs_get_setup_root() == MENU_SETUP_ROOT_DIVE)
-    {
-        if (menu_setup_obj_is_valid(&s_setup_badge_lbls[1]))
+        if (!menu_setup_obj_is_valid(&s_setup_badge_lbls[i])) continue;
+        if (setup_root == MENU_SETUP_ROOT_DIVE)
         {
-            lv_obj_clear_flag(s_setup_badge_lbls[1], LV_OBJ_FLAG_HIDDEN);
-            menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[1], vm.conservatism_badge);
+            if (i == 1U)
+            {
+                badge_visible = true;
+                badge_text = vm.conservatism_badge;
+            }
         }
-    }
-    else
-    {
-        if (menu_setup_obj_is_valid(&s_setup_badge_lbls[0]))
+        else
         {
-            lv_obj_clear_flag(s_setup_badge_lbls[0], LV_OBJ_FLAG_HIDDEN);
-            menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[0], vm.brightness_badge);
+            if (i == 0U)
+            {
+                badge_visible = true;
+                badge_text = vm.brightness_badge;
+            }
+            else if (i == 1U)
+            {
+                uint8_t idx = (vm.compass_cal_badge_idx <= 2U) ? vm.compass_cal_badge_idx : 0U;
+                badge_visible = true;
+                badge_text = cal_str[idx];
+            }
         }
-        if (menu_setup_obj_is_valid(&s_setup_badge_lbls[1]))
-        {
-            uint8_t idx = (vm.compass_cal_badge_idx <= 2U) ? vm.compass_cal_badge_idx : 0U;
-            lv_obj_clear_flag(s_setup_badge_lbls[1], LV_OBJ_FLAG_HIDDEN);
-            menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[1], cal_str[idx]);
-        }
+
+        menu_setup_badge_set_text_if_changed(s_setup_badge_lbls[i], badge_text);
+        menu_set_hidden_if_changed(s_setup_badge_lbls[i], !badge_visible);
     }
     if (vm.compass_cal_state != last_cal_state)
     {

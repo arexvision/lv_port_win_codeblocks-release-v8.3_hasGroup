@@ -43,6 +43,7 @@ static uint32_t s_layout_generation = 1U;
 static uint32_t s_tile_layout_generation[PAGE_COUNT];
 #define SCREEN_VISIBLE_TILE_INVALID 0xFFU
 static uint8_t s_visible_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
+static uint8_t s_preview_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
 #if UI_PAGE_DIRTY_DEFER_ENABLED
 static uint8_t s_pending_page_dirty_pos = 0xFFU;
 static uint32_t s_pending_page_dirty_due_ms = 0U;
@@ -399,6 +400,29 @@ void screen_create(void)
 /* =========================================================
  * Tileview 导航
  * ========================================================= */
+static void screen_update_scroll_dots_for_tile(uint8_t tile_pos)
+{
+    /* DIVE MENU 目标页不显示 dots，DASH 楼层（动态卡片 + MENU 入口）才更新。 */
+    if (tile_pos >= PAGE_POS_DYNAMIC_FIRST && tile_pos < page_setup_display_pos())
+    {
+        /* 根据当前可见动态页数量重新计算小圆点高亮位置。 */
+        uint8_t active_idx = 0;
+        for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
+        {
+            uint8_t page_id = page_id_at(pos);
+            if (page_id != PAGE_ID_UNUSED)
+            {
+                active_idx++;
+            }
+        }
+        screen_update_scroll_dots(active_idx, true);
+    }
+    else
+    {
+        screen_update_scroll_dots(0, false);
+    }
+}
+
 void screen_scroll_to_page(uint8_t tile_pos)
 {
     uint32_t start_ms = 0U;
@@ -433,6 +457,12 @@ void screen_scroll_to_page(uint8_t tile_pos)
 
     if (tile_pos == s_visible_tile_pos)
     {
+        if (s_preview_tile_pos < page_count())
+        {
+            lv_obj_set_tile(s_tileview, tile, TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
+            s_preview_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
+            screen_update_scroll_dots_for_tile(tile_pos);
+        }
 #if UI_SCROLL_PROFILE_ENABLED
         s_scroll_profile.skipped_same++;
 #endif
@@ -453,6 +483,7 @@ void screen_scroll_to_page(uint8_t tile_pos)
     }
 
     lv_obj_set_tile(s_tileview, tile, TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
+    s_preview_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
     s_visible_tile_pos = tile_pos;
 #if UI_SCROLL_PROFILE_ENABLED
     tile_ms = lv_tick_get() - mark_ms;
@@ -494,31 +525,39 @@ void screen_scroll_to_page(uint8_t tile_pos)
     mark_ms = lv_tick_get();
 #endif
 
-    /* DIVE MENU 目标页不显示 dots，DASH 楼层（动态卡片 + MENU 入口）才更新。 */
-    if (tile_pos >= PAGE_POS_DYNAMIC_FIRST && tile_pos < page_setup_display_pos())
-    {
-        /* 根据当前可见动态页数量重新计算小圆点高亮位置。 */
-        /* 计算逻辑索引：从 DYNAMIC_FIRST 到 tile_pos 之间有多少个有效页面 */
-        uint8_t active_idx = 0;
-        for (uint8_t pos = PAGE_POS_DYNAMIC_FIRST; pos < tile_pos; pos++)
-        {
-            uint8_t page_id = page_id_at(pos);
-            if (page_id != PAGE_ID_UNUSED)
-            {
-                active_idx++;
-            }
-        }
-        screen_update_scroll_dots(active_idx, true);
-    }
-    else
-    {
-        screen_update_scroll_dots(0, false);
-    }
+    screen_update_scroll_dots_for_tile(tile_pos);
 #if UI_SCROLL_PROFILE_ENABLED
     dots_ms = lv_tick_get() - mark_ms;
     screen_scroll_profile_note(tile_pos, dirty_mask, lv_tick_get() - start_ms,
                                tile_ms, layout_ms, compass_ms, dirty_ms, dots_ms);
 #endif
+}
+
+void screen_scroll_to_page_preview(uint8_t tile_pos)
+{
+    /* 快速旋转中间页只做视觉位置过渡，不更新 visible cache，不补 dirty。
+     * 最终落点仍由 screen_scroll_to_page() 完整提交，避免中间卡片刷新拖慢手感。 */
+    if (!s_tileview) return;
+
+    if (tile_pos >= page_count())
+    {
+        return;
+    }
+    lv_obj_t *tile = s_tile_objs[tile_pos];
+    if (!tile)
+    {
+        return;
+    }
+
+    if (tile_pos == 0)
+    {
+        lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
+        lv_obj_set_y(s_tileview, 0);
+    }
+
+    lv_obj_set_tile(s_tileview, tile, TILE_ANIM_ENABLED ? LV_ANIM_ON : LV_ANIM_OFF);
+    s_preview_tile_pos = tile_pos;
+    screen_update_scroll_dots_for_tile(tile_pos);
 }
 
 uint8_t screen_visible_tile_pos_get(void)
@@ -528,7 +567,9 @@ uint8_t screen_visible_tile_pos_get(void)
 
 void screen_poll_scroll_dots(void)
 {
-    uint8_t tile_pos = s_visible_tile_pos;
+    uint8_t tile_pos = (s_preview_tile_pos < page_count())
+                           ? s_preview_tile_pos
+                           : s_visible_tile_pos;
     if (tile_pos >= page_count())
     {
         screen_update_scroll_dots(0U, false);
@@ -561,6 +602,7 @@ void screen_invalidate_visible_tile_cache(void)
      * 重建 tileview 时必须置 invalid，避免第一次切到卡片首页被“同页跳过”。
      */
     s_visible_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
+    s_preview_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
 }
 
 static void screen_flush_visible_page_dirty(uint8_t tile_pos)
@@ -982,9 +1024,16 @@ void screen_hide_walls(void)
     if (!s_tileview) return;
     if (!s_wall_top || !s_wall_bottom) return;
 
-    lv_obj_add_flag(s_wall_top,    LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
+    bool top_hidden = lv_obj_has_flag(s_wall_top, LV_OBJ_FLAG_HIDDEN);
+    bool bottom_hidden = lv_obj_has_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
     lv_coord_t cur_y = lv_obj_get_y(s_tileview);
+    if (top_hidden && bottom_hidden && cur_y == 0)
+    {
+        return;
+    }
+
+    if (!top_hidden) lv_obj_add_flag(s_wall_top, LV_OBJ_FLAG_HIDDEN);
+    if (!bottom_hidden) lv_obj_add_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
     if (cur_y == 0) return;
     lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
     lv_anim_t a;
@@ -1003,10 +1052,21 @@ void screen_hide_walls_snap(void)
     if (!s_tileview) return;
     if (!s_wall_top || !s_wall_bottom) return;
 
-    lv_obj_add_flag(s_wall_top,    LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
+    bool top_hidden = lv_obj_has_flag(s_wall_top, LV_OBJ_FLAG_HIDDEN);
+    bool bottom_hidden = lv_obj_has_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
+    lv_coord_t cur_y = lv_obj_get_y(s_tileview);
+    if (top_hidden && bottom_hidden && cur_y == 0)
+    {
+        return;
+    }
+
+    if (!top_hidden) lv_obj_add_flag(s_wall_top, LV_OBJ_FLAG_HIDDEN);
+    if (!bottom_hidden) lv_obj_add_flag(s_wall_bottom, LV_OBJ_FLAG_HIDDEN);
     lv_anim_del(s_tileview, (lv_anim_exec_xcb_t)lv_obj_set_y);
-    lv_obj_set_y(s_tileview, 0);
+    if (cur_y != 0)
+    {
+        lv_obj_set_y(s_tileview, 0);
+    }
 }
 
 /* =========================================================
@@ -1021,10 +1081,20 @@ static void menu_list_scroll_item_to_view(lv_obj_t *list, lv_obj_t *item, lv_ani
     lv_coord_t target_y;
     lv_coord_t margin = MENU_LIST_EDGE_PAD_PX;
 
-    lv_obj_update_layout(list);
     visible_h = lv_obj_get_height(list);
     item_y = lv_obj_get_y(item);
     item_h = lv_obj_get_height(item);
+    if (visible_h <= 0 || item_h <= 0)
+    {
+        lv_obj_update_layout(list);
+        visible_h = lv_obj_get_height(list);
+        item_y = lv_obj_get_y(item);
+        item_h = lv_obj_get_height(item);
+    }
+    if (visible_h <= 0 || item_h <= 0)
+    {
+        return;
+    }
     scroll_y = lv_obj_get_scroll_y(list);
     target_y = scroll_y;
     if (visible_h <= item_h + margin * 2) margin = 0;

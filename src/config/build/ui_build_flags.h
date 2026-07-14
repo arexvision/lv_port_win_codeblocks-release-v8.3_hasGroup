@@ -55,10 +55,13 @@
  * 作用：
  * - 连续旋转时只记录最终目标页；
  * - 停顿后只对最终目标页执行 screen_scroll_to_page()；
+ * - 一次消费到多步快转时先只更新目标页，避免首次大角度旋转立即触发
+ *   中间/目标卡片重刷新；
  * - 不合并菜单、编辑态、modal、边界蓄力进入 INFO/SETUP。
  */
 #define UI_DASH_ROTATE_COALESCE_ENABLED 1
 #define UI_DASH_ROTATE_COALESCE_WINDOW_MS 80U
+#define UI_DASH_ROTATE_DEFER_MIN_STEPS 2U
 
 /* 点击消费防抖，属于真实运行保护。
  *

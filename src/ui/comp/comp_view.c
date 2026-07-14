@@ -2166,8 +2166,7 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             /* ASCENT_0812 (1x2)：绘制上升速率方向箭头图标（工厂自主查字典决定*/
             lv_obj_t *sudu_img = lv_img_create(obj);
             lv_img_set_src(sudu_img, &sudo_up_level0);
-            if (w_id == COMP_ASCENT_1612) lv_obj_align(sudu_img, LV_ALIGN_RIGHT_MID, -6, 2);
-            else lv_obj_align(sudu_img, LV_ALIGN_CENTER, 0, 0);
+            lv_obj_align(sudu_img, LV_ALIGN_CENTER, 0, 0);
             if (s_ascent_icon_count < MAX_ASCENT_ICONS)
                 s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
         }
@@ -2377,15 +2376,14 @@ void comp_refresh_ndl_stop_vm(const ui_vm_ndl_stop_t *vm, dirty_mask_t dirty_mas
             if (layout_changed)
             {
                 lv_obj_set_style_text_font(h->main_val, get_font(style->font_id), 0);
+                lv_obj_set_style_text_font(h->sub_bot, get_font(s->norm_sub_font_id), 0);
                 if (is_2x2)
                 {
-                    lv_obj_set_style_text_font(h->sub_bot, get_font(s->norm_sub_font_id), 0);
                     lv_obj_align(h->sub_bot, (lv_align_t)s->norm_sub_align, s->norm_sub_x, s->norm_sub_y);
                     lv_obj_align(h->main_val, (lv_align_t)s->norm_main_align, s->norm_main_x, s->norm_main_y);
                 }
                 else
                 {
-                    lv_obj_set_style_text_font(h->sub_bot, get_font(s->norm_sub_font_id), 0);
                     lv_obj_align(h->sub_bot, LV_ALIGN_LEFT_MID, 8, -6);
                     lv_obj_align(h->main_val, LV_ALIGN_CENTER, 0, -8);
                 }
