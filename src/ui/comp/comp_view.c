@@ -105,6 +105,8 @@ typedef struct
     lv_obj_t *placeholder;
     comp_id_t widget_id;
     ui_vm_deco_t vm;
+    uint32_t render_sig;
+    bool render_sig_valid;
 } tissue_handle_t;
 
 typedef struct
@@ -116,6 +118,10 @@ typedef struct
 typedef struct
 {
     lv_obj_t *dial;
+    uint16_t render_heading;
+    uint16_t render_target;
+    bool render_locked;
+    bool render_valid;
 } compass_handle_t;
 
 typedef struct
@@ -265,6 +271,8 @@ static uint8_t s_compass_display_pending_target_count;
 static bool s_compass_display_target_valid;
 static bool s_compass_display_seeded;
 static bool s_compass_display_pending_target_valid;
+static bool s_compass_heading_available;
+static bool s_compass_unavailable_drawn;
 static uint16_t s_compass_display_heading_text = 0xFFFFU;
 /* 1612 深度大卡使用“整数+小数”两个 label，句柄池按双句柄上限预留。 */
 static comp_value_handle_t s_value_handles[MAX_VALUE_HANDLES] __attribute__((section(".psram_bss")));
@@ -274,6 +282,7 @@ static lv_obj_t *s_depth_unit_labels[MAX_WIDGET_RENDER_INSTANCES] __attribute__(
 static uint16_t s_depth_unit_label_count;
 
 static void compass_widget_anim_timer_ensure(void);
+static void compass_widget_refresh_dials(void);
 void comp_refresh_heading_text_widgets(void);
 
 static bool ui_obj_is_valid(lv_obj_t **obj_ref)
@@ -827,18 +836,6 @@ void comp_refresh_heading_text_widgets(void)
     s_compass_display_heading_text = display_heading;
 }
 
-static void compass_widget_refresh_dials(void)
-{
-    for (uint8_t i = 0U; i < s_compass_handle_count; i++)
-    {
-        compass_handle_t *h = &s_compass_handles[i];
-        if (ui_obj_is_valid(&h->dial) && screen_obj_refresh_visible(h->dial))
-        {
-            lv_obj_invalidate(h->dial);
-        }
-    }
-}
-
 static void compass_widget_anim_timer_cb(lv_timer_t *timer)
 {
     bool stepped;
@@ -850,6 +847,32 @@ static void compass_widget_anim_timer_cb(lv_timer_t *timer)
         return;
     }
 
+    s_compass_heading_available = bus_get_heading_available();
+    if (!s_compass_heading_available)
+    {
+        /*
+         * heading 不可用只表示当前帧不适合刷新目标角。头戴潜水场景下
+         * 不能把用户视野里的罗盘清成 "---"，这里冻结最后显示角度，并
+         * 只在刚进入冻结态时刷新一次，避免 16ms timer 持续重绘。
+         */
+        if (!s_compass_display_seeded)
+        {
+            compass_widget_display_seed(bus_get_heading());
+        }
+        if (!s_compass_unavailable_drawn)
+        {
+            compass_widget_display_clear_pending_target();
+            s_compass_display_target_valid = false;
+            s_compass_display_velocity_dps = 0.0f;
+            s_compass_display_last_step_deg = 0.0f;
+            comp_refresh_heading_text_widgets();
+            compass_widget_refresh_dials();
+            s_compass_unavailable_drawn = true;
+        }
+        return;
+    }
+
+    s_compass_unavailable_drawn = false;
     stepped = compass_widget_display_step_towards_target();
     if (!stepped)
     {
@@ -893,6 +916,160 @@ static void compass_point_from_angle(int16_t cx, int16_t cy, int16_t angle_deg, 
     y = (int32_t)radius * (int32_t)lv_trigo_sin((int16_t)(angle + 90));
     out->x = (lv_coord_t)(cx + (lv_coord_t)(x >> LV_TRIGO_SHIFT));
     out->y = (lv_coord_t)(cy - (lv_coord_t)(y >> LV_TRIGO_SHIFT));
+}
+
+static void compass_invalidate_area_include(lv_area_t *area,
+                                            bool *area_valid,
+                                            const lv_point_t *point,
+                                            lv_coord_t pad)
+{
+    lv_coord_t x1;
+    lv_coord_t y1;
+    lv_coord_t x2;
+    lv_coord_t y2;
+
+    if (area == NULL || area_valid == NULL || point == NULL)
+    {
+        return;
+    }
+
+    x1 = (lv_coord_t)(point->x - pad);
+    y1 = (lv_coord_t)(point->y - pad);
+    x2 = (lv_coord_t)(point->x + pad);
+    y2 = (lv_coord_t)(point->y + pad);
+    if (!*area_valid)
+    {
+        area->x1 = x1;
+        area->y1 = y1;
+        area->x2 = x2;
+        area->y2 = y2;
+        *area_valid = true;
+        return;
+    }
+
+    if (x1 < area->x1) area->x1 = x1;
+    if (y1 < area->y1) area->y1 = y1;
+    if (x2 > area->x2) area->x2 = x2;
+    if (y2 > area->y2) area->y2 = y2;
+}
+
+static void compass_invalidate_marker_area(lv_area_t *area,
+                                           bool *area_valid,
+                                           int16_t cx,
+                                           int16_t cy,
+                                           int16_t radius,
+                                           uint16_t heading,
+                                           uint16_t target)
+{
+    int16_t target_rel = (int16_t)((int)target - (int)heading);
+    lv_point_t marker_inner;
+    lv_point_t marker_outer;
+
+    while (target_rel > 180) target_rel = (int16_t)(target_rel - 360);
+    while (target_rel < -180) target_rel = (int16_t)(target_rel + 360);
+    compass_point_from_angle(cx, cy, target_rel, (int16_t)(radius - 10), &marker_inner);
+    compass_point_from_angle(cx, cy, target_rel, radius, &marker_outer);
+    compass_invalidate_area_include(area, area_valid, &marker_inner, 3);
+    compass_invalidate_area_include(area, area_valid, &marker_outer, 3);
+}
+
+static void compass_widget_invalidate_dial(compass_handle_t *h,
+                                           uint16_t heading,
+                                           bool locked,
+                                           uint16_t target)
+{
+    lv_area_t invalid_area;
+    bool area_valid = false;
+    const lv_area_t *coords;
+    int16_t w;
+    int16_t height;
+    int16_t cx;
+    int16_t cy;
+    int16_t radius;
+    lv_point_t center;
+    lv_point_t old_tip;
+    lv_point_t new_tip;
+
+    if (h == NULL || h->dial == NULL)
+    {
+        return;
+    }
+    if (!h->render_valid)
+    {
+        lv_obj_invalidate(h->dial);
+        goto cache_state;
+    }
+    if (h->render_heading == heading &&
+        h->render_locked == locked &&
+        (!locked || h->render_target == target))
+    {
+        return;
+    }
+
+    coords = &h->dial->coords;
+    w = (int16_t)lv_area_get_width(coords);
+    height = (int16_t)lv_area_get_height(coords);
+    cx = (int16_t)(coords->x1 + w / 2);
+    cy = (int16_t)(coords->y1 + height / 2);
+    radius = (w < height) ? (int16_t)(w / 2 - 5) : (int16_t)(height / 2 - 5);
+    if (radius < 16)
+    {
+        lv_obj_invalidate(h->dial);
+        goto cache_state;
+    }
+
+    /* 圆环、刻度和方位字母是静态背景。航向补帧只失效旧/新指针与
+     * 目标标记覆盖的区域，避免 16ms timer 每次刷新整个罗盘组件。 */
+    center.x = (lv_coord_t)cx;
+    center.y = (lv_coord_t)cy;
+    compass_point_from_angle(cx, cy, (int16_t)h->render_heading,
+                             (int16_t)(radius - 12), &old_tip);
+    compass_point_from_angle(cx, cy, (int16_t)heading,
+                             (int16_t)(radius - 12), &new_tip);
+    compass_invalidate_area_include(&invalid_area, &area_valid, &center, 5);
+    compass_invalidate_area_include(&invalid_area, &area_valid, &old_tip, 5);
+    compass_invalidate_area_include(&invalid_area, &area_valid, &new_tip, 5);
+    if (h->render_locked)
+    {
+        compass_invalidate_marker_area(&invalid_area, &area_valid, cx, cy, radius,
+                                       h->render_heading, h->render_target);
+    }
+    if (locked)
+    {
+        compass_invalidate_marker_area(&invalid_area, &area_valid, cx, cy, radius,
+                                       heading, target);
+    }
+
+    if (area_valid)
+    {
+        if (invalid_area.x1 < coords->x1) invalid_area.x1 = coords->x1;
+        if (invalid_area.y1 < coords->y1) invalid_area.y1 = coords->y1;
+        if (invalid_area.x2 > coords->x2) invalid_area.x2 = coords->x2;
+        if (invalid_area.y2 > coords->y2) invalid_area.y2 = coords->y2;
+        lv_obj_invalidate_area(h->dial, &invalid_area);
+    }
+
+cache_state:
+    h->render_heading = heading;
+    h->render_target = target;
+    h->render_locked = locked;
+    h->render_valid = true;
+}
+
+static void compass_widget_refresh_dials(void)
+{
+    uint16_t heading = comp_compass_display_heading_deg();
+    bool locked = bus_is_heading_locked();
+    uint16_t target = locked ? bus_get_heading_target() : 0U;
+
+    for (uint8_t i = 0U; i < s_compass_handle_count; i++)
+    {
+        compass_handle_t *h = &s_compass_handles[i];
+        if (ui_obj_is_valid(&h->dial) && screen_obj_refresh_visible(h->dial))
+        {
+            compass_widget_invalidate_dial(h, heading, locked, target);
+        }
+    }
 }
 
 static void compass_dial_draw_label(lv_draw_ctx_t *draw_ctx, const char *text, int16_t cx, int16_t cy, int16_t angle_deg, int16_t radius)
@@ -1386,6 +1563,8 @@ void reset_widget_render_state(void)
     s_sys_handle_count = 0;
     memset(s_compass_handles, 0, sizeof(s_compass_handles));
     s_compass_handle_count = 0;
+    s_compass_unavailable_drawn = false;
+    s_compass_heading_available = false;
     memset(s_depth_unit_labels, 0, sizeof(s_depth_unit_labels));
     s_depth_unit_label_count = 0;
     comp_value_handle_reset();
@@ -1586,6 +1765,71 @@ static uint16_t tissue_chart_permille_for_widget(const ui_vm_deco_t *vm, comp_id
     return tissue_chart_raw_permille(vm, index);
 }
 
+static uint32_t tissue_chart_hash_u32(uint32_t hash, uint32_t value)
+{
+    hash ^= value;
+    return hash * 16777619UL;
+}
+
+static uint32_t tissue_chart_render_signature(const tissue_handle_t *h,
+                                              const ui_vm_deco_t *vm)
+{
+    uint32_t hash = 2166136261UL;
+    uint32_t plot_span = 0U;
+    comp_id_t widget_id;
+
+    if (h == NULL || vm == NULL)
+    {
+        return 0U;
+    }
+
+    widget_id = h->widget_id;
+    if (h->chart != NULL && lv_obj_is_valid(h->chart))
+    {
+        lv_coord_t width = lv_obj_get_width(h->chart);
+        if (width > 1)
+        {
+            plot_span = (uint32_t)(width - 1);
+        }
+    }
+
+    /*
+     * 5F/自定义布局可能同时放多个组织仓小图。刷新时只比较图表真正
+     * 使用的字段，避免 CNS/OTU/GF 文本或算法中间浮点变化带着所有
+     * TISSUE_GF/TISSUE_RAW 组件一起重绘。
+     */
+    hash = tissue_chart_hash_u32(hash, (uint32_t)widget_id);
+    hash = tissue_chart_hash_u32(hash, vm->tissue_normalized_valid);
+    if (vm->tissue_normalized_valid == 0U)
+    {
+        return hash;
+    }
+
+    uint32_t pi_permille = vm->tissue_pi_permille;
+    if (pi_permille > TISSUE_CHART_MAX_PERMILLE)
+    {
+        pi_permille = TISSUE_CHART_MAX_PERMILLE;
+    }
+    hash = tissue_chart_hash_u32(hash,
+                                 (plot_span == 0U) ? pi_permille :
+                                 (pi_permille * plot_span) / TISSUE_CHART_MAX_PERMILLE);
+    for (uint8_t i = 0U; i < TISSUE_LEAD_COUNT; i++)
+    {
+        uint32_t permille = tissue_chart_permille_for_widget(vm, widget_id, i);
+        if (permille > TISSUE_CHART_MAX_PERMILLE)
+        {
+            permille = TISSUE_CHART_MAX_PERMILLE;
+        }
+        hash = tissue_chart_hash_u32(hash,
+                                     (plot_span == 0U) ? permille :
+                                     (permille * plot_span) / TISSUE_CHART_MAX_PERMILLE);
+        hash = tissue_chart_hash_u32(hash,
+                                     permille >= TISSUE_CHART_LIMIT_PERMILLE);
+    }
+
+    return hash;
+}
+
 static bool tissue_handle_danger(const tissue_handle_t *h)
 {
     if (h == NULL || (h->widget_id != COMP_TISSUE_GF_4012 && h->widget_id != COMP_TISSUE_RAW_4012))
@@ -1627,7 +1871,9 @@ static void tissue_blink_timer_cb(lv_timer_t *timer)
     for (uint8_t i = 0U; i < s_tissue_handle_count; i++)
     {
         tissue_handle_t *h = &s_tissue_handles[i];
-        if (ui_obj_is_valid(&h->chart) && screen_obj_refresh_visible(h->chart))
+        if (ui_obj_is_valid(&h->chart) &&
+            screen_obj_refresh_visible(h->chart) &&
+            tissue_handle_danger(h))
         {
             lv_obj_invalidate(h->chart);
         }
@@ -2239,6 +2485,27 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 void comp_refresh_compass_widgets(void)
 {
     compass_widget_anim_timer_ensure();
+    s_compass_heading_available = bus_get_heading_available();
+    if (!s_compass_heading_available)
+    {
+        if (!s_compass_display_seeded)
+        {
+            compass_widget_display_seed(bus_get_heading());
+        }
+        if (!s_compass_unavailable_drawn)
+        {
+            compass_widget_display_clear_pending_target();
+            s_compass_display_target_valid = false;
+            s_compass_display_velocity_dps = 0.0f;
+            s_compass_display_last_step_deg = 0.0f;
+            comp_refresh_heading_text_widgets();
+            compass_widget_refresh_dials();
+            s_compass_unavailable_drawn = true;
+        }
+        return;
+    }
+
+    s_compass_unavailable_drawn = false;
     if (!s_compass_display_seeded)
     {
         compass_widget_display_seed(bus_get_heading());
@@ -2267,6 +2534,9 @@ void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, dirty_mask_t dirty_mask
     for (uint8_t i = 0U; i < s_tissue_handle_count; i++)
     {
         tissue_handle_t *h = &s_tissue_handles[i];
+        uint32_t render_sig;
+        bool chart_already_shown;
+        bool chart_changed;
 
         if (!ui_obj_is_valid(&h->chart) ||
                 !ui_obj_is_valid(&h->placeholder))
@@ -2279,17 +2549,25 @@ void comp_refresh_tissue_widgets(const ui_vm_deco_t *vm, dirty_mask_t dirty_mask
             continue;
         }
 
-        if (memcmp(&h->vm, vm, sizeof(h->vm)) == 0 &&
-            lv_obj_has_flag(h->placeholder, LV_OBJ_FLAG_HIDDEN) &&
-            !lv_obj_has_flag(h->chart, LV_OBJ_FLAG_HIDDEN))
+        render_sig = tissue_chart_render_signature(h, vm);
+        chart_already_shown = lv_obj_has_flag(h->placeholder, LV_OBJ_FLAG_HIDDEN) &&
+                              !lv_obj_has_flag(h->chart, LV_OBJ_FLAG_HIDDEN);
+        chart_changed = !h->render_sig_valid || (h->render_sig != render_sig);
+        if (!chart_changed && chart_already_shown)
         {
+            memcpy(&h->vm, vm, sizeof(h->vm));
             continue;
         }
 
         memcpy(&h->vm, vm, sizeof(h->vm));
         lv_obj_add_flag(h->placeholder, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(h->chart, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_invalidate(h->chart);
+        h->render_sig = render_sig;
+        h->render_sig_valid = true;
+        if (chart_changed || !chart_already_shown)
+        {
+            lv_obj_invalidate(h->chart);
+        }
     }
 
     tissue_blink_sync();

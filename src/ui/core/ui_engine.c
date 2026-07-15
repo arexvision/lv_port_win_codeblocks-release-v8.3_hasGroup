@@ -54,21 +54,26 @@ __attribute__((weak)) void app_ui_perf_get_context(uint8_t *state,
                                                    uint8_t *page_id,
                                                    uint8_t *storage_pos)
 {
+    uint8_t visible_tile_pos = screen_visible_tile_pos_get();
+    uint8_t ctx_dash_page = (visible_tile_pos < page_count())
+                            ? visible_tile_pos
+                            : ui_state_get_dash_page();
+
     if (state)
     {
         *state = (uint8_t)ui_state_get_state();
     }
     if (dash_page)
     {
-        *dash_page = ui_state_get_dash_page();
+        *dash_page = ctx_dash_page;
     }
     if (page_id)
     {
-        *page_id = page_id_at(ui_state_get_dash_page());
+        *page_id = page_id_at(ctx_dash_page);
     }
     if (storage_pos)
     {
-        *storage_pos = page_storage_pos(ui_state_get_dash_page());
+        *storage_pos = page_storage_pos(ctx_dash_page);
     }
 }
 
@@ -544,6 +549,30 @@ void ui_update_flush_pending_once(void)
     if (mask == DIRTY_NONE)
     {
         return;
+    }
+
+    if (ui_state_dash_navigation_pending())
+    {
+        /*
+         * DASH 快速旋转合并窗口内，用户还没真正落到最终页。此时刷新
+         * depth/deco/compass/system 等普通业务 dirty，只会让当前旧页进入
+         * lv_task_handler() 重绘，最终又马上切走。保留结构级/告警级事件，
+         * 其余 dirty 重新排队，等最终 screen_scroll_to_page() 后一次性补齐
+         * 目标页数据，不改变旋钮采样、合并和消费节奏。
+         */
+        const dirty_mask_t urgent_mask = DIRTY_UI_LAYOUT | DIRTY_ALARM;
+        dirty_mask_t urgent = mask & urgent_mask;
+        dirty_mask_t deferred = mask & ~urgent_mask;
+
+        if (deferred != DIRTY_NONE)
+        {
+            bus_requeue_dirty(deferred);
+        }
+        mask = urgent;
+        if (mask == DIRTY_NONE)
+        {
+            return;
+        }
     }
 
     app_ui_perf_note_dirty_mask((uint32_t)mask);

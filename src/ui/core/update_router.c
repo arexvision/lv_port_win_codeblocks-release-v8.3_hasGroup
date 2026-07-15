@@ -171,12 +171,24 @@ static void ui_router_refresh_widget_if_dirty(const grid_widget_t *widget,
 
 static void ui_router_visible_ctx_update(ui_router_visible_ctx_t *ctx)
 {
+    uint8_t visible_tile_pos;
+
     if (ctx == NULL)
     {
         return;
     }
 
-    ctx->dash_page = ui_state_get_dash_page();
+    /*
+     * DASH 快速旋转启用目标页合并后，ui_state_get_dash_page() 会先更新为
+     * “待落页”，但 LVGL tileview 仍停在上一帧实际可见页。router 如果按
+     * 待落页刷新，会把尚未显示的页面/组件提前写入 LVGL，快速旋转时会把
+     * handler 压力放大。这里用 screen 层记录的实际可见 tile 做刷新裁剪；
+     * 布局刚重建且可见缓存无效时，再回退到状态机页，避免首帧漏刷。
+     */
+    visible_tile_pos = screen_visible_tile_pos_get();
+    ctx->dash_page = (visible_tile_pos < page_count())
+                     ? visible_tile_pos
+                     : ui_state_get_dash_page();
     ctx->storage_pos = page_storage_pos(ctx->dash_page);
     ctx->page_id = (ctx->storage_pos == 0xFFU) ? PAGE_ID_UNUSED : g_sys_page_order(ctx->storage_pos);
     ctx->custom_card_idx = 0xFFU;

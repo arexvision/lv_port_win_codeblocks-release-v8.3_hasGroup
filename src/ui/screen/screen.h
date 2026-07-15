@@ -66,6 +66,7 @@ void screen_create(void);
    ========================================= */
 /* 这些接口负责右侧页面切换和 tileview 级别的重建。 */
 void screen_scroll_to_page(uint8_t idx);
+uint8_t screen_visible_tile_pos_get(void);
 void screen_scroll_to_page_preview(uint8_t idx);
 void screen_poll_deferred_page_dirty(void);
 dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos);

@@ -43,7 +43,7 @@ static bool s_light_color_preview_active = false;
 static uint32_t s_light_color_preview_original_rgb = 0xFFFFFFUL;
 static uint16_t s_light_color_preview_hue = 0U;
 static lv_obj_t *s_light_color_title_lbl = NULL;
-static lv_obj_t *s_light_color_hex_lbl = NULL;
+static lv_obj_t *s_light_color_progress_lbl = NULL;
 static lv_obj_t *s_light_color_swatch = NULL;
 static lv_obj_t *s_light_color_cursor = NULL;
 static uint8_t s_submenu_selected_idx = 0xFFU;
@@ -147,6 +147,35 @@ static uint16_t light_color_hue_from_rgb(uint32_t rgb)
     return (uint16_t)hue;
 }
 
+static const char *light_color_name_from_hue(uint16_t hue)
+{
+    uint16_t h = (uint16_t)(hue % LIGHT_COLOR_HUE_MAX);
+
+    if (h < 15U || h >= 345U) return "RED";
+    if (h < 45U) return "ORANGE";
+    if (h < 75U) return "YELLOW";
+    if (h < 105U) return "LIME";
+    if (h < 150U) return "GREEN";
+    if (h < 195U) return "CYAN";
+    if (h < 255U) return "BLUE";
+    if (h < 285U) return "PURPLE";
+    if (h < 315U) return "MAGENTA";
+    return "PINK";
+}
+
+static uint8_t light_color_step_index_from_hue(uint16_t hue)
+{
+    uint16_t h = (uint16_t)(hue % LIGHT_COLOR_HUE_MAX);
+    uint8_t step = (uint8_t)((h + (LIGHT_COLOR_HUE_STEP_DEG / 2U)) / LIGHT_COLOR_HUE_STEP_DEG);
+    const uint8_t step_count = (uint8_t)(LIGHT_COLOR_HUE_MAX / LIGHT_COLOR_HUE_STEP_DEG);
+
+    if (step >= step_count)
+    {
+        step = 0U;
+    }
+    return (uint8_t)(step + 1U);
+}
+
 static bool submenu_current_menu_is_readonly_info(void)
 {
     return menu_defs_is_readonly_menu(menu_runtime_current_id());
@@ -160,7 +189,16 @@ static dirty_mask_t submenu_info_refresh_mask_for_current_menu(void)
     switch (menu_runtime_current_id())
     {
     case MENU_INFO_LAST_DIVE:
-        return DIRTY_DIVE_PROFILE | DIRTY_LOGBOOK;
+        /*
+         * LAST DIVE 展示的是已落盘/缓存的上一潜摘要，不应跟随当前潜水的
+         * depth/dive_time/ascent 等 DIRTY_DIVE_PROFILE 高频刷新。否则用户
+         * 在 LAST DIVE 页面快速旋转或模拟潜水时，会把只读列表反复重建进
+         * lv_task_handler()。水面态保留 DIRTY_DIVE_PROFILE，是为了让 SURFACE
+         * 时间继续正常刷新；潜水/出水确认窗口只保留系统/日志触发。
+         */
+        return (bus_get_dive_lifecycle_phase() == DIVE_LIFECYCLE_SURFACE_CONFIRMED)
+               ? (DIRTY_DIVE_PROFILE | DIRTY_LOGBOOK | DIRTY_SYSTEM)
+               : (DIRTY_LOGBOOK | DIRTY_SYSTEM);
     case MENU_INFO_DIVE_PLAN:
         return DIRTY_PLAN | DIRTY_DIVE_PROFILE | DIRTY_DIVE_CONFIG | DIRTY_GAS_SUPPLY;
     case MENU_INFO_TISSUE_TOX:
@@ -198,6 +236,8 @@ enum
     LOGBOOK_PICKER_VISIBLE_ROWS = 5U,
     LOGBOOK_SUMMARY_RETRY_MAX = 5U,
     LOGBOOK_SUMMARY_RETRY_BASE_MS = 100U,
+    LOGBOOK_LOADER_FOREGROUND_PERIOD_MS = 8U,
+    LOGBOOK_LOADER_BACKGROUND_PERIOD_MS = 32U,
 };
 
 static logbook_page_t s_logbook_page = LOGBOOK_PAGE_PICK;
@@ -241,6 +281,13 @@ static lv_obj_t *s_logbook_picker_back = NULL;
 static lv_obj_t *s_logbook_picker_back_lbl = NULL;
 static lv_obj_t *s_logbook_picker_next = NULL;
 static lv_obj_t *s_logbook_picker_next_lbl = NULL;
+static lv_obj_t *s_logbook_detail_roots[3];
+static lv_obj_t *s_logbook_detail_parent = NULL;
+static uint16_t s_logbook_detail_view_w = 0U;
+static uint16_t s_logbook_detail_view_h = 0U;
+static uint32_t s_logbook_detail_view_gen = 1U;
+static uint32_t s_logbook_detail_cache_gen = 0U;
+static bool s_logbook_detail_direct_content_active = false;
 /* 只表示列表已确认至少存在一条日志；详情失败不得修改该状态。 */
 static bool s_logbook_has_logs = false;
 static bool s_logbook_points_loaded = false;
@@ -310,6 +357,8 @@ static void logbook_detail_stop_loader(void);
 static void logbook_detail_start_loader(uint16_t index);
 static void logbook_retry_stop(void);
 static void logbook_retry_start(void);
+static void logbook_detail_views_invalidate(void);
+static void logbook_detail_views_reset(void);
 static void logbook_picker_view_reset(void);
 static void logbook_picker_view_forget(void);
 static void logbook_picker_load_timer_cb(lv_timer_t *timer);
@@ -333,6 +382,7 @@ static void logbook_points_release(void)
     s_logbook_points = NULL;
     s_logbook_point_count = 0U;
     s_logbook_points_loaded = false;
+    logbook_detail_views_invalidate();
 }
 
 static logbook_record_key_t logbook_record_key_for_display_index(uint16_t index)
@@ -364,6 +414,7 @@ static void logbook_picker_cache_invalidate(void)
     s_logbook_detail_backend_index = 0U;
     s_logbook_detail_display_index = 0U;
     s_logbook_detail_record_key = LOGBOOK_INVALID_RECORD_KEY;
+    logbook_detail_views_reset();
 }
 
 static bool logbook_picker_cache_reserve(uint16_t count)
@@ -578,6 +629,9 @@ static void logbook_picker_stop_loader(void)
 
 static void logbook_detail_finish_loader(bool load_failed)
 {
+    bool state_changed = (s_logbook_detail_loading != false) ||
+                         (s_logbook_detail_load_failed != load_failed);
+
     if (s_logbook_detail_timer != NULL)
     {
         lv_timer_del(s_logbook_detail_timer);
@@ -592,6 +646,10 @@ static void logbook_detail_finish_loader(bool load_failed)
 #endif
     s_logbook_detail_loading = false;
     s_logbook_detail_load_failed = load_failed;
+    if (state_changed)
+    {
+        logbook_detail_views_invalidate();
+    }
 }
 static void logbook_detail_stop_loader(void)
 {
@@ -629,6 +687,7 @@ static void logbook_detail_start_loader(uint16_t index)
     s_logbook_detail_record_key = logbook_record_key_for_display_index(index);
     s_logbook_detail_loading = true;
     s_logbook_detail_load_failed = false;
+    logbook_detail_views_invalidate();
 
 #ifndef PC_SIMULATOR
     if (s_logbook_detail_record_key == LOGBOOK_INVALID_RECORD_KEY ||
@@ -750,11 +809,16 @@ static void logbook_picker_start_loader(uint16_t page_index, bool background)
     s_logbook_load_page_dirty = false;
     if (s_logbook_load_timer == NULL)
     {
-        s_logbook_load_timer = lv_timer_create(logbook_picker_load_timer_cb, 1U, NULL);
+        s_logbook_load_timer = lv_timer_create(logbook_picker_load_timer_cb,
+                                               background ? LOGBOOK_LOADER_BACKGROUND_PERIOD_MS :
+                                                            LOGBOOK_LOADER_FOREGROUND_PERIOD_MS,
+                                               NULL);
     }
     else
     {
-        lv_timer_set_period(s_logbook_load_timer, 1U);
+        lv_timer_set_period(s_logbook_load_timer,
+                            background ? LOGBOOK_LOADER_BACKGROUND_PERIOD_MS :
+                                         LOGBOOK_LOADER_FOREGROUND_PERIOD_MS);
         lv_timer_ready(s_logbook_load_timer);
     }
 }
@@ -833,6 +897,99 @@ static void logbook_delete_cached_obj(lv_obj_t **obj_ref)
     *obj_ref = NULL;
 }
 
+static int8_t logbook_detail_page_to_root_index(logbook_page_t page)
+{
+    switch (page)
+    {
+    case LOGBOOK_PAGE_SUMMARY:
+        return 0;
+    case LOGBOOK_PAGE_DETAIL_1:
+        return 1;
+    case LOGBOOK_PAGE_DETAIL_2:
+        return 2;
+    default:
+        return -1;
+    }
+}
+
+static void logbook_detail_views_forget(void)
+{
+    for (uint8_t i = 0U; i < 3U; ++i)
+    {
+        s_logbook_detail_roots[i] = NULL;
+    }
+    s_logbook_detail_parent = NULL;
+    s_logbook_detail_view_w = 0U;
+    s_logbook_detail_view_h = 0U;
+    s_logbook_detail_cache_gen = 0U;
+    s_logbook_detail_direct_content_active = false;
+}
+
+static void logbook_detail_views_reset(void)
+{
+    if (s_logbook_detail_direct_content_active)
+    {
+        if (s_logbook_detail_parent != NULL && lv_obj_is_valid(s_logbook_detail_parent))
+        {
+            lv_obj_clean(s_logbook_detail_parent);
+        }
+        logbook_detail_views_forget();
+        return;
+    }
+
+    for (uint8_t i = 0U; i < 3U; ++i)
+    {
+        logbook_delete_cached_obj(&s_logbook_detail_roots[i]);
+    }
+    logbook_detail_views_forget();
+}
+
+static void logbook_detail_views_invalidate(void)
+{
+    s_logbook_detail_view_gen++;
+    if (s_logbook_detail_view_gen == 0U)
+    {
+        s_logbook_detail_view_gen = 1U;
+    }
+}
+
+static bool logbook_detail_views_parent_valid(lv_obj_t *parent)
+{
+    if (parent == NULL || !lv_obj_is_valid(parent))
+    {
+        return false;
+    }
+
+    for (uint8_t i = 0U; i < 3U; ++i)
+    {
+        lv_obj_t *root = s_logbook_detail_roots[i];
+        if (root == NULL)
+        {
+            continue;
+        }
+        if (!lv_obj_is_valid(root) || (lv_obj_get_parent(root) != parent))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+static lv_obj_t *logbook_detail_views_create_root(lv_obj_t *parent, uint16_t w, uint16_t h)
+{
+    lv_obj_t *root = lv_obj_create(parent);
+    if (root == NULL)
+    {
+        return NULL;
+    }
+
+    lv_obj_remove_style_all(root);
+    lv_obj_set_pos(root, 0, 0);
+    lv_obj_set_size(root, w, h);
+    lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
+    return root;
+}
+
 static void logbook_picker_view_forget(void)
 {
     s_logbook_picker_view_ready = false;
@@ -878,7 +1035,7 @@ static void logbook_picker_load_timer_cb(lv_timer_t *timer)
         s_logbook_load_offset == 0U)
     {
         /* 退避只发生在两轮扫描之间；进入新一轮后仍快速跳过已经成功的行。 */
-        lv_timer_set_period(timer, 1U);
+        lv_timer_set_period(timer, LOGBOOK_LOADER_FOREGROUND_PERIOD_MS);
     }
 
     const uint16_t start = (uint16_t)(s_logbook_load_page * LOGBOOK_PICKER_VISIBLE_ROWS);
@@ -939,8 +1096,6 @@ static void logbook_picker_load_timer_cb(lv_timer_t *timer)
             if (!s_logbook_load_background && (s_logbook_load_page == s_logbook_page_index))
             {
                 s_logbook_load_page_dirty = true;
-                submenu_populate_current();
-                s_logbook_load_page_dirty = false;
             }
         }
     }
@@ -1736,6 +1891,60 @@ static void logbook_draw_detail_2(lv_obj_t *parent, uint16_t w, uint16_t h)
     (void)h;
 }
 
+static bool logbook_detail_views_show(lv_obj_t *parent, uint16_t w, uint16_t h, logbook_page_t page)
+{
+    const int8_t active = logbook_detail_page_to_root_index(page);
+    if (active < 0)
+    {
+        return false;
+    }
+
+    if (!logbook_detail_views_parent_valid(parent) ||
+        s_logbook_detail_parent != parent ||
+        s_logbook_detail_view_w != w ||
+        s_logbook_detail_view_h != h ||
+        s_logbook_detail_cache_gen != s_logbook_detail_view_gen)
+    {
+        /* 详情页快速旋转时只切换 root 的隐藏状态；只有数据/尺寸/父容器变化才重建。
+         * 这能避开 LAST DIVE 内页每一步旋转都 clean + recreate 整棵对象树的 CPU 峰值。 */
+        logbook_detail_views_reset();
+        s_logbook_detail_parent = parent;
+        s_logbook_detail_view_w = w;
+        s_logbook_detail_view_h = h;
+        s_logbook_detail_cache_gen = s_logbook_detail_view_gen;
+    }
+
+    if (s_logbook_detail_roots[(uint8_t)active] == NULL)
+    {
+        lv_obj_t *root = logbook_detail_views_create_root(parent, w, h);
+        if (root == NULL)
+        {
+            return false;
+        }
+
+        s_logbook_detail_roots[(uint8_t)active] = root;
+        switch (page)
+        {
+        case LOGBOOK_PAGE_DETAIL_1:
+            logbook_draw_detail_1(root, w, h);
+            break;
+        case LOGBOOK_PAGE_DETAIL_2:
+            logbook_draw_detail_2(root, w, h);
+            break;
+        case LOGBOOK_PAGE_SUMMARY:
+        default:
+            logbook_draw_summary(root, w, h);
+            break;
+        }
+    }
+
+    for (uint8_t i = 0U; i < 3U; ++i)
+    {
+        logbook_set_hidden_if_changed(s_logbook_detail_roots[i], i != (uint8_t)active);
+    }
+    return true;
+}
+
 static void submenu_populate_logbook(void)
 {
     uint16_t w = s_submenu_width;
@@ -1743,18 +1952,31 @@ static void submenu_populate_logbook(void)
     uint32_t profile_start_ms = logbook_profile_begin();
     bool picker_page = (s_logbook_page == LOGBOOK_PAGE_PICK);
 
-    if (!picker_page && s_logbook_picker_view_ready)
+    if (picker_page)
+    {
+        logbook_detail_views_reset();
+    }
+    else if (s_logbook_picker_view_ready)
     {
         logbook_picker_view_reset();
     }
 
-    if (!picker_page || !s_logbook_picker_view_ready)
+    if (picker_page && !s_logbook_picker_view_ready)
     {
         lv_obj_clean(s_submenu_list);
     }
 
     if (!s_logbook_has_logs)
     {
+        /* 空/失败状态不能叠加在上一轮 picker rows 或详情 root 上。 */
+        logbook_detail_views_reset();
+        if (s_logbook_picker_view_ready)
+        {
+            logbook_picker_view_reset();
+        }
+        lv_obj_clean(s_submenu_list);
+        s_logbook_detail_parent = s_submenu_list;
+        s_logbook_detail_direct_content_active = true;
         /* NO LOGS 只允许表示 picker 已确认 count==0。详情失败属于单条记录加载状态，
          * 即使所有重试耗尽也只能显示 LOAD FAILED，不能反向宣告整个日志库为空。 */
         const char *empty_text = (s_logbook_page == LOGBOOK_PAGE_PICK) ?
@@ -1784,17 +2006,38 @@ static void submenu_populate_logbook(void)
         ui_state_set_sub_menu_idx(s_logbook_picker_focus);
         break;
     case LOGBOOK_PAGE_DETAIL_1:
-        logbook_draw_detail_1(s_submenu_list, w, h);
+        if (!logbook_detail_views_show(s_submenu_list, w, h, s_logbook_page))
+        {
+            logbook_detail_views_reset();
+            lv_obj_clean(s_submenu_list);
+            logbook_draw_detail_1(s_submenu_list, w, h);
+            s_logbook_detail_parent = s_submenu_list;
+            s_logbook_detail_direct_content_active = true;
+        }
         ui_state_set_sub_item_count(0U);
         break;
     case LOGBOOK_PAGE_DETAIL_2:
-        logbook_draw_detail_2(s_submenu_list, w, h);
+        if (!logbook_detail_views_show(s_submenu_list, w, h, s_logbook_page))
+        {
+            logbook_detail_views_reset();
+            lv_obj_clean(s_submenu_list);
+            logbook_draw_detail_2(s_submenu_list, w, h);
+            s_logbook_detail_parent = s_submenu_list;
+            s_logbook_detail_direct_content_active = true;
+        }
         ui_state_set_sub_item_count(0U);
         ui_state_set_sub_menu_idx(s_logbook_focus);
         break;
     case LOGBOOK_PAGE_SUMMARY:
     default:
-        logbook_draw_summary(s_submenu_list, w, h);
+        if (!logbook_detail_views_show(s_submenu_list, w, h, s_logbook_page))
+        {
+            logbook_detail_views_reset();
+            lv_obj_clean(s_submenu_list);
+            logbook_draw_summary(s_submenu_list, w, h);
+            s_logbook_detail_parent = s_submenu_list;
+            s_logbook_detail_direct_content_active = true;
+        }
         ui_state_set_sub_item_count(0U);
         ui_state_set_sub_menu_idx(s_logbook_focus);
         break;
@@ -1883,7 +2126,7 @@ void submenu_view_reset(void)
     s_submenu_list = NULL;
     s_light_status_lbl = NULL;
     s_light_color_title_lbl = NULL;
-    s_light_color_hex_lbl = NULL;
+    s_light_color_progress_lbl = NULL;
     s_light_color_swatch = NULL;
     s_light_color_cursor = NULL;
     s_submenu_width = 0;
@@ -2409,7 +2652,7 @@ static void plan_draw_error(lv_obj_t *parent, int w)
 static void light_color_preview_clear_refs(void)
 {
     s_light_color_title_lbl = NULL;
-    s_light_color_hex_lbl = NULL;
+    s_light_color_progress_lbl = NULL;
     s_light_color_swatch = NULL;
     s_light_color_cursor = NULL;
 }
@@ -2422,15 +2665,16 @@ static void light_color_preview_refresh(void)
     uint16_t cursor_x;
     char text[32];
 
-    if (s_light_color_hex_lbl != NULL)
-    {
-        lv_snprintf(text, sizeof(text), "0x%06X", (unsigned int)(rgb & 0x00FFFFFFUL));
-        lv_label_set_text(s_light_color_hex_lbl, text);
-    }
     if (s_light_color_title_lbl != NULL)
     {
-        lv_snprintf(text, sizeof(text), "HUE %03u", (unsigned int)s_light_color_preview_hue);
-        lv_label_set_text(s_light_color_title_lbl, text);
+        lv_label_set_text(s_light_color_title_lbl, light_color_name_from_hue(s_light_color_preview_hue));
+    }
+    if (s_light_color_progress_lbl != NULL)
+    {
+        const uint8_t step = light_color_step_index_from_hue(s_light_color_preview_hue);
+        const uint8_t step_count = (uint8_t)(LIGHT_COLOR_HUE_MAX / LIGHT_COLOR_HUE_STEP_DEG);
+        lv_snprintf(text, sizeof(text), "%02u/%02u", (unsigned int)step, (unsigned int)step_count);
+        lv_label_set_text(s_light_color_progress_lbl, text);
     }
     if (s_light_color_swatch != NULL)
     {
@@ -2488,15 +2732,15 @@ static void light_color_preview_draw_page(void)
     lv_obj_set_style_border_width(s_light_color_swatch, INNER_BORDER_W, 0);
     lv_obj_clear_flag(s_light_color_swatch, LV_OBJ_FLAG_SCROLLABLE);
 
-    s_light_color_hex_lbl = logbook_label(s_submenu_list,
-                                          "",
-                                          FONT_ID_SMALL,
-                                          LIGHT,
-                                          0,
-                                          154,
-                                          w,
-                                          24U,
-                                          LV_TEXT_ALIGN_CENTER);
+    s_light_color_progress_lbl = logbook_label(s_submenu_list,
+                                               "",
+                                               FONT_ID_SMALL,
+                                               LIGHT,
+                                               0,
+                                               154,
+                                               w,
+                                               24U,
+                                               LV_TEXT_ALIGN_CENTER);
 
     for (uint8_t i = 0U; i < LIGHT_COLOR_BAR_SEGMENTS; i++)
     {
@@ -2599,6 +2843,12 @@ static void submenu_populate(const char *title, const menu_row_t *rows, uint8_t 
         light_color_preview_clear_refs();
     }
     s_submenu_selected_idx = 0xFFU;
+    if (!menu_runtime_is_logbook())
+    {
+        /* 非 Logbook 分支下面会直接 clean 共享容器。先销毁缓存 root，
+         * 避免下次进入时持有已被 LVGL 释放并可能复用的对象地址。 */
+        logbook_detail_views_reset();
+    }
 
     if ((menu_runtime_current_id() == MENU_INFO_LAST_DIVE) && !bus_is_last_dive_ready())
     {
@@ -3285,11 +3535,17 @@ bool screen_handle_logbook_rotate_steps(int8_t steps)
     if (s_logbook_page == LOGBOOK_PAGE_PICK)
     {
         uint8_t focus_count = logbook_picker_focus_count();
+        uint8_t old_focus = s_logbook_picker_focus;
+        uint16_t old_logbook_focus = s_logbook_focus;
         int16_t next = (int16_t)s_logbook_picker_focus + ((int16_t)dir * (int16_t)step_count);
         if (focus_count == 0U)
         {
-            s_logbook_picker_focus = 0U;
-            submenu_populate_current();
+            if (s_logbook_picker_focus != 0U || s_logbook_focus != 0U)
+            {
+                s_logbook_picker_focus = 0U;
+                s_logbook_focus = 0U;
+                submenu_populate_current();
+            }
             return true;
         }
         if (next < 0) next = 0;
@@ -3300,10 +3556,16 @@ bool screen_handle_logbook_rotate_steps(int8_t steps)
             s_logbook_focus = (uint16_t)(s_logbook_page_index * LOGBOOK_PICKER_VISIBLE_ROWS +
                                          logbook_picker_focus_to_index(s_logbook_picker_focus, s_logbook_picker_visible));
         }
+        if (s_logbook_picker_focus == old_focus &&
+            s_logbook_focus == old_logbook_focus)
+        {
+            return true;
+        }
         submenu_populate_current();
         return true;
     }
 
+    logbook_page_t old_page = s_logbook_page;
     int16_t next_page = (int16_t)s_logbook_page + ((int16_t)dir * (int16_t)step_count);
     if (next_page < (int16_t)LOGBOOK_PAGE_SUMMARY)
     {
@@ -3315,6 +3577,10 @@ bool screen_handle_logbook_rotate_steps(int8_t steps)
     }
     s_logbook_page = (logbook_page_t)next_page;
     s_logbook_focus = 0U;
+    if (s_logbook_page == old_page)
+    {
+        return true;
+    }
     submenu_populate_current();
     return true;
 }
@@ -3724,6 +3990,9 @@ void screen_handle_submenu_select(uint8_t item_idx)
 void screen_close_submenu(void)
 {
     light_color_preview_cancel_if_active();
+    /* 任何返回路径后续都可能 clean/reuse s_submenu_list。必须先删除详情页
+     * root，不能把已释放对象地址留到下次进入 Logbook 再判断。 */
+    logbook_detail_views_reset();
 
     if (!s_submenu_layer || !s_submenu_title || !s_submenu_list)
     {
@@ -3790,6 +4059,7 @@ void screen_confirm_submenu_setting(void)
         logbook_picker_stop_loader();
         logbook_detail_stop_loader();
         logbook_retry_stop();
+        logbook_detail_views_reset();
         logbook_points_release();
         menu_runtime_reset();
         menu_actions_clear_pending();

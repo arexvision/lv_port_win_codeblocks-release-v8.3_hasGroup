@@ -179,6 +179,7 @@ typedef struct
     uint8_t sys_time_s;
     float   ascent_rate;
     uint16_t heading;
+    bool    heading_available;
     bool    heading_locked;
     uint16_t heading_target;
     float   ppo2[GAS_COUNT];

@@ -50,6 +50,9 @@ static lv_obj_t *s_lbl_gf_setting;
 static lv_timer_t *s_tissue_flash_timer;
 static bool        s_tissue_flash_phase;
 static ui_vm_deco_t s_deco_vm_cache __attribute__((section(".psram_bss")));
+static bool s_deco_vm_rendered_valid = false;
+static uint32_t s_tissue_chart_render_sig;
+static bool s_tissue_chart_render_sig_valid;
 static bool        s_surf_gf_alert_cache;
 static bool        s_surf_gf_style_cache_valid;
 
@@ -107,6 +110,67 @@ static bool any_tissue_danger(void)
         if (s_deco_vm_cache.tissue_bar_permille[i] >= TISSUE_UI_MVALUE_PERMILLE) return true;
     }
     return false;
+}
+
+static uint32_t deco_hash_u32(uint32_t hash, uint32_t value)
+{
+    hash ^= value;
+    return hash * 16777619UL;
+}
+
+static uint32_t deco_tissue_permille_pixel(uint16_t permille, uint32_t plot_span)
+{
+    uint32_t draw_permille = permille;
+
+    if (draw_permille > TISSUE_UI_MAX_PERMILLE)
+    {
+        draw_permille = TISSUE_UI_MAX_PERMILLE;
+    }
+    return (plot_span == 0U) ? draw_permille :
+           (draw_permille * plot_span) / TISSUE_UI_MAX_PERMILLE;
+}
+
+static uint32_t deco_tissue_chart_render_signature(const ui_vm_deco_t *vm)
+{
+    uint32_t hash = 2166136261UL;
+    uint32_t plot_span = 0U;
+
+    if (vm == NULL)
+    {
+        return 0U;
+    }
+
+    /*
+     * 组织仓图是 DECO 页最重的绘制对象之一。VM 中 CNS/OTU/GF 文本、
+     * 浮点算法中间值等变化并不会改变这张图的像素，不能因此整图重绘。
+     * 这里仅纳入 draw callback 实际使用、且会改变图形像素的字段。
+     */
+    if (s_tissue_chart != NULL && lv_obj_is_valid(s_tissue_chart))
+    {
+        lv_coord_t width = lv_obj_get_width(s_tissue_chart);
+        if (width > 1)
+        {
+            plot_span = (uint32_t)(width - 1);
+        }
+    }
+
+    hash = deco_hash_u32(hash, vm->tissue_normalized_valid);
+    if (vm->tissue_normalized_valid == 0U)
+    {
+        return hash;
+    }
+
+    hash = deco_hash_u32(hash,
+                         deco_tissue_permille_pixel(vm->tissue_pi_permille, plot_span));
+    for (uint8_t i = 0U; i < TISSUE_COMPARTMENT_COUNT; i++)
+    {
+        hash = deco_hash_u32(hash,
+                             deco_tissue_permille_pixel(vm->tissue_bar_permille[i], plot_span));
+        hash = deco_hash_u32(hash,
+                             vm->tissue_bar_permille[i] >= TISSUE_UI_MVALUE_PERMILLE);
+    }
+
+    return hash;
 }
 
 static void tissue_danger_flash_cb(lv_timer_t *t)
@@ -395,6 +459,9 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 void card_deco_create(lv_obj_t *parent)
 {
     s_tissue_chart = NULL;
+    s_deco_vm_rendered_valid = false;
+    s_tissue_chart_render_sig = 0U;
+    s_tissue_chart_render_sig_valid = false;
     s_surf_gf_alert_cache = false;
     s_surf_gf_style_cache_valid = false;
 
@@ -460,14 +527,30 @@ void card_deco_update(void)
 
 void card_deco_update_vm(const ui_vm_deco_t *vm)
 {
+    bool unchanged;
+    uint32_t chart_sig;
+    bool chart_changed;
+
     if (vm == NULL)
     {
         return;
     }
 
+    unchanged = s_deco_vm_rendered_valid &&
+                (memcmp(&s_deco_vm_cache, vm, sizeof(s_deco_vm_cache)) == 0);
     s_deco_vm_cache = *vm;
     if (!deco_page_refresh_visible())
     {
+        if (!unchanged)
+        {
+            s_deco_vm_rendered_valid = false;
+            s_tissue_chart_render_sig_valid = false;
+        }
+        return;
+    }
+    if (unchanged)
+    {
+        tissue_flash_ensure();
         return;
     }
 
@@ -498,8 +581,17 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
     }
 
     tissue_flash_ensure();
+    chart_sig = deco_tissue_chart_render_signature(&s_deco_vm_cache);
+    chart_changed = !s_tissue_chart_render_sig_valid ||
+                    (s_tissue_chart_render_sig != chart_sig);
     if (deco_obj_is_valid(&s_tissue_chart))
     {
-        lv_obj_invalidate(s_tissue_chart);
+        if (chart_changed)
+        {
+            lv_obj_invalidate(s_tissue_chart);
+        }
     }
+    s_tissue_chart_render_sig = chart_sig;
+    s_tissue_chart_render_sig_valid = true;
+    s_deco_vm_rendered_valid = true;
 }

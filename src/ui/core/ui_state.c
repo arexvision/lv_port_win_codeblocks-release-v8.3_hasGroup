@@ -195,9 +195,34 @@ static bool ui_schedule_dash_page(uint8_t tile_pos, uint8_t step_count)
 {
 #if UI_DASH_ROTATE_COALESCE_ENABLED
     const uint32_t now_ms = lv_tick_get();
+    const uint8_t visible_tile_pos = screen_visible_tile_pos_get();
+#if UI_DASH_ROTATE_DELAYED_DISPLAY_ENABLED
     const bool defer_first_commit = (step_count >= UI_DASH_ROTATE_DEFER_MIN_STEPS);
+#else
+    const bool defer_first_commit = false;
+#endif
+
+    if (visible_tile_pos == tile_pos)
+    {
+        /*
+         * 快速旋转时，合并后的步数可能刚好绕回当前可见页。此时没有视觉目标变化，
+         * 不能把它当成一次 committed page switch，否则 display task 会立即 flush
+         * 普通 dirty，把传感器/图表刷新塞进正在旋转的 lv_task_handler()。
+         */
+        s_ui.dash_page = tile_pos;
+        s_pending_dash_page = 0xFFU;
+        s_pending_dash_due_ms = 0U;
+        s_last_dash_commit_ms = now_ms;
+        return false;
+    }
+
     if (s_pending_dash_page == tile_pos)
     {
+        /*
+         * 目标页没变不代表用户已经停手；同一目标可能来自高速旋转取模、抖动回退
+         * 或连续输入被合并。必须延长 quiet window，避免 ui_state_poll_deferred_navigation()
+         * 在用户仍然旋转时提前落页并触发整页 dirty 刷新。
+         */
         s_pending_dash_due_ms = now_ms + UI_DASH_ROTATE_COALESCE_WINDOW_MS;
         return false;
     }
@@ -223,7 +248,9 @@ static bool ui_schedule_dash_page(uint8_t tile_pos, uint8_t step_count)
     s_ui.dash_page = tile_pos;
     s_pending_dash_page = tile_pos;
     s_pending_dash_due_ms = now_ms + UI_DASH_ROTATE_COALESCE_WINDOW_MS;
+#if UI_DASH_ROTATE_DELAYED_DISPLAY_ENABLED
     screen_scroll_to_page_preview(tile_pos);
+#endif
     return false;
 #else
     (void)step_count;
@@ -268,6 +295,15 @@ void ui_state_poll_deferred_navigation(void)
     }
 
     ui_flush_pending_dash_page();
+#endif
+}
+
+bool ui_state_dash_navigation_pending(void)
+{
+#if UI_DASH_ROTATE_COALESCE_ENABLED
+    return s_pending_dash_page != 0xFFU;
+#else
+    return false;
 #endif
 }
 
@@ -695,10 +731,12 @@ void ui_handle_click(void)
             /* 罗盘页点击用于切换航向锁定状态，首次点击会锁定当前航向。 */
             if (!bus_is_heading_locked())
             {
-                g_heading_lock_pending = true;
-                bus_lock_heading_to_current();
-                g_heading_lock_active = true;
-                screen_refresh_compass_target();
+                if (bus_lock_heading_to_current())
+                {
+                    g_heading_lock_pending = true;
+                    g_heading_lock_active = true;
+                    screen_refresh_compass_target();
+                }
             }
             else
             {

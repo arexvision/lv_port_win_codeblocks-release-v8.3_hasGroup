@@ -23,6 +23,7 @@ void card_compass_update(void);
 void card_compass_refresh_heading_vm(const ui_vm_compass_t *vm, bool force_refresh);
 void card_compass_refresh_heading(bool force_refresh);
 uint16_t card_compass_display_heading_deg(void);
+bool card_compass_display_heading_available(void);
 
 #ifdef __cplusplus
 }

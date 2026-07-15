@@ -181,6 +181,7 @@ void ui_vm_compass_update(ui_vm_compass_t *vm,
         vm->heading = bus_get_heading();
         vm->heading_target = bus_get_heading_target();
         vm->locked = bus_is_heading_locked() ? 1U : 0U;
+        vm->heading_available = bus_get_heading_available() ? 1U : 0U;
         vm->right_canvas_w = ui_content_w_get();
         vm->reserved = 0U;
         return;
@@ -189,6 +190,7 @@ void ui_vm_compass_update(ui_vm_compass_t *vm,
     vm->heading = sensor->heading;
     vm->heading_target = sensor->heading_target;
     vm->locked = sensor->heading_locked ? 1U : 0U;
+    vm->heading_available = sensor->heading_available ? 1U : 0U;
     vm->right_canvas_w = vm_content_w_from_config(config);
 }
 

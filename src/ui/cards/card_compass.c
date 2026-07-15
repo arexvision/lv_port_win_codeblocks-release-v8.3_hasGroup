@@ -82,6 +82,8 @@ static uint8_t s_compass_display_pending_target_count = 0U;
 static bool s_compass_display_target_valid = false;
 static bool s_compass_display_seeded = false;
 static bool s_compass_display_pending_target_valid = false;
+static bool s_compass_heading_available = false;
+static bool s_compass_unavailable_drawn = false;
 static uint16_t s_compass_display_heading_text = 0xFFFFU;
 
 static float compass_normalize_heading_float(float deg)
@@ -133,6 +135,11 @@ static float compass_display_heading_snapshot(void);
 uint16_t card_compass_display_heading_deg(void)
 {
     return compass_heading_from_float(compass_display_heading_snapshot());
+}
+
+bool card_compass_display_heading_available(void)
+{
+    return s_compass_heading_available;
 }
 
 static float compass_display_heading_snapshot(void)
@@ -698,6 +705,17 @@ static void compass_anim_timer_cb(lv_timer_t *timer)
         return;
     }
 
+    if (!s_compass_heading_available)
+    {
+        if (!s_compass_unavailable_drawn)
+        {
+            compass_update_heading_label_from_display(false);
+            s_compass_unavailable_drawn = true;
+        }
+        return;
+    }
+
+    s_compass_unavailable_drawn = false;
     stepped = compass_display_step_towards_target();
     if (!stepped)
     {
@@ -763,7 +781,8 @@ void render_compass_custom(lv_obj_t *parent_card)
     lv_obj_set_style_text_color(s_heading_val_lbl, GREEN, 0);
     /* 核心修复：绝对居中，并稍微往上抬一点点 */
     lv_obj_align(s_heading_val_lbl, LV_ALIGN_CENTER, 0, -10);
-    lv_label_set_text_fmt(s_heading_val_lbl, "%03d", s_compass_vm_cache.heading);
+    lv_label_set_text(s_heading_val_lbl, "000");
+    compass_update_heading_label_from_display(true);
 
     /* 度数空心小圆圈 */
     lv_obj_t *degree_circle = lv_obj_create(parent_card);
@@ -792,6 +811,8 @@ void render_compass_custom(lv_obj_t *parent_card)
 void card_compass_create(lv_obj_t *parent)
 {
     ui_vm_compass_update(&s_compass_vm_cache, NULL, NULL);
+    s_compass_heading_available = (s_compass_vm_cache.heading_available != 0U);
+    s_compass_unavailable_drawn = false;
     compass_display_seed(s_compass_vm_cache.heading);
     render_compass_custom(parent);
     compass_anim_timer_ensure();
@@ -843,6 +864,37 @@ void card_compass_refresh_heading_vm(const ui_vm_compass_t *vm, bool force_refre
         return;
     }
 
+    s_compass_heading_available = (s_compass_vm_cache.heading_available != 0U);
+    if (!s_compass_heading_available)
+    {
+        if (!s_compass_unavailable_drawn || force_refresh)
+        {
+            /*
+             * 头戴罗盘在极端俯仰/短时无效时，UI 不能清成 "---"。
+             * 此处只冻结显示层目标，继续显示最后一次可展示角度；算法层
+             * available=false 仍保留给日志和 BLE 诊断。静态冻结画面只刷新一次，
+             * 避免 33ms fast path 重复 invalidate 罗盘卷尺。
+             */
+            if (!s_compass_display_seeded)
+            {
+                compass_display_seed(s_compass_vm_cache.heading);
+            }
+            compass_display_clear_pending_target();
+            s_compass_display_target_valid = false;
+            s_compass_display_velocity_dps = 0.0f;
+            s_compass_display_last_step_deg = 0.0f;
+            compass_update_heading_label_from_display(true);
+            if (compass_obj_is_valid(&s_compass_tape_obj))
+            {
+                lv_obj_invalidate(s_compass_tape_obj);
+            }
+            compass_update_hint_label();
+            s_compass_unavailable_drawn = true;
+        }
+        return;
+    }
+
+    s_compass_unavailable_drawn = false;
     if (force_refresh || !s_compass_display_seeded)
     {
         /*

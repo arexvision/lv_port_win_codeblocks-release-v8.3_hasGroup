@@ -41,6 +41,7 @@ lv_obj_t *s_tileview;
 lv_obj_t *s_tile_objs[PAGE_COUNT];
 static uint32_t s_layout_generation = 1U;
 static uint32_t s_tile_layout_generation[PAGE_COUNT];
+static uint32_t s_tile_dirty_generation[PAGE_COUNT];
 #define SCREEN_VISIBLE_TILE_INVALID 0xFFU
 static uint8_t s_visible_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
 static uint8_t s_preview_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
@@ -272,6 +273,7 @@ void screen_mark_tiles_layout_dirty(void)
     {
         s_layout_generation = 1U;
         memset(s_tile_layout_generation, 0, sizeof(s_tile_layout_generation));
+        memset(s_tile_dirty_generation, 0, sizeof(s_tile_dirty_generation));
     }
 }
 
@@ -466,7 +468,15 @@ void screen_scroll_to_page(uint8_t tile_pos)
 #if UI_SCROLL_PROFILE_ENABLED
         s_scroll_profile.skipped_same++;
 #endif
-        screen_schedule_visible_page_dirty(tile_pos);
+        /* 同页跳转通常来自 DASH 旋钮合并窗口内的重复目标页。页面和布局都没变时
+         * 不再重复补 dirty，否则快速旋转会把同一页的组件刷新反复排进
+         * lv_task_handler()，放大 handler 慢帧。布局重建后 generation 变化，
+         * 仍会按下面条件补一次当前页数据。 */
+        if (s_tile_dirty_generation[tile_pos] != s_layout_generation)
+        {
+            screen_schedule_visible_page_dirty(tile_pos);
+            s_tile_dirty_generation[tile_pos] = s_layout_generation;
+        }
 #if UI_SCROLL_PROFILE_ENABLED
         dirty_ms = lv_tick_get() - mark_ms;
         screen_scroll_profile_note(tile_pos, screen_visible_page_dirty_mask(tile_pos),
@@ -516,6 +526,7 @@ void screen_scroll_to_page(uint8_t tile_pos)
 
     dirty_mask = screen_visible_page_dirty_mask(tile_pos);
     screen_schedule_visible_page_dirty(tile_pos);
+    s_tile_dirty_generation[tile_pos] = s_layout_generation;
     if (page_id_at(tile_pos) == PAGE_ID_MENU)
     {
         menu_entry_update();
@@ -600,8 +611,9 @@ void screen_invalidate_visible_tile_cache(void)
      * LVGL tileview 新建后真实选中页是第 0 页；本模块的缓存只有在
      * screen_scroll_to_page() 成功调用 lv_obj_set_tile() 后才可信。
      * 重建 tileview 时必须置 invalid，避免第一次切到卡片首页被“同页跳过”。
-     */
+    */
     s_visible_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
+    memset(s_tile_dirty_generation, 0, sizeof(s_tile_dirty_generation));
     s_preview_tile_pos = SCREEN_VISIBLE_TILE_INVALID;
 }
 
@@ -795,7 +807,13 @@ dirty_mask_t screen_visible_page_dirty_mask(uint8_t tile_pos)
     case PAGE_ID_PLAN:
         return DIRTY_PLAN;
     case PAGE_ID_MENU:
-        return DIRTY_INFO_REFRESH_MASK;
+        /*
+         * DASH 里的 MENU 入口页只是一个轻量 hub，切入时 screen_scroll_to_page()
+         * 已经直接调用 menu_entry_update()。这里不要再补 DIRTY_INFO_REFRESH_MASK，
+         * 否则快速旋转经过 MENU 页会把 INFO 子菜单/日志等刷新链路一起排进
+         * lv_task_handler()，造成与旋钮无关的慢帧峰值。
+         */
+        return DIRTY_NONE;
     case PAGE_ID_CUSTOM_GRID:
     {
         uint8_t storage_pos = page_storage_pos(tile_pos);

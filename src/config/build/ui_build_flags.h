@@ -61,6 +61,11 @@
  */
 #define UI_DASH_ROTATE_COALESCE_ENABLED 1
 #define UI_DASH_ROTATE_COALESCE_WINDOW_MS 80U
+/* DASH 旋转显示策略：
+ * - 0：本地策略，首次旋转立即提交页面，连续快速旋转再合并最终落点；
+ * - 1：远程策略，一次消费到多步旋转时先做轻量预览，停顿后再提交页面刷新。
+ */
+#define UI_DASH_ROTATE_DELAYED_DISPLAY_ENABLED 1
 #define UI_DASH_ROTATE_DEFER_MIN_STEPS 2U
 
 /* 点击消费防抖，属于真实运行保护。

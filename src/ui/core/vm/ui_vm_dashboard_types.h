@@ -25,6 +25,7 @@ typedef struct
     uint16_t right_canvas_w;
     uint8_t reserved;
     unsigned locked : 1;
+    unsigned heading_available : 1;
 } ui_vm_compass_t;
 
 typedef struct

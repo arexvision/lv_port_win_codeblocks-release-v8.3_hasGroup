@@ -9,62 +9,120 @@
 #include "../fonts/fonts.h"
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 #define CHART_PAD 10
 
-typedef struct
-{
-    bool valid;
-    lv_area_t area;
-    uint16_t point_count;
-    lv_point_t points[MAX_DIVE_LOG];
-} plan_chart_profile_cache_t;
-
 static ui_vm_plan_chart_t s_plan_chart_vm __attribute__((section(".psram_bss")));
-static plan_chart_profile_cache_t s_profile_cache __attribute__((section(".psram_bss")));
 static lv_obj_t *s_chart_obj;
+static uint32_t s_plan_chart_render_sig;
+static bool s_plan_chart_render_sig_valid;
 
-static bool plan_chart_profile_cache_area_matches(const lv_area_t *area)
+static uint32_t plan_chart_hash_u32(uint32_t hash, uint32_t value)
 {
-    return s_profile_cache.valid &&
-           s_profile_cache.area.x1 == area->x1 && s_profile_cache.area.y1 == area->y1 &&
-           s_profile_cache.area.x2 == area->x2 && s_profile_cache.area.y2 == area->y2;
+    hash ^= value;
+    return hash * 16777619UL;
 }
 
-static bool plan_chart_profile_cache_rebuild(const lv_area_t *area,
-                                             const ui_vm_plan_chart_t *vm,
-                                             lv_coord_t x,
-                                             lv_coord_t y,
-                                             lv_coord_t w,
-                                             lv_coord_t h,
-                                             float max_time_s,
-                                             float max_depth_m)
+static uint32_t plan_chart_hash_i32(uint32_t hash, int32_t value)
 {
-    s_profile_cache.area = *area;
-    s_profile_cache.point_count = 0U;
-    bool built = vm->dive_log_count == 0U ||
-                 depth_chart_build_profile_points(vm->dive_log, vm->dive_log_count,
-                                                  x, y, w, h, max_time_s, max_depth_m,
-                                                  s_profile_cache.points, MAX_DIVE_LOG,
-                                                  &s_profile_cache.point_count);
-    if (!built)
-    {
-        s_profile_cache.valid = false;
-        return false;
-    }
-
-    s_profile_cache.valid = true;
-    return true;
+    return plan_chart_hash_u32(hash, (uint32_t)value);
 }
 
-static void plan_chart_profile_cache_draw(lv_draw_ctx_t *draw_ctx, const lv_draw_line_dsc_t *line_dsc)
+static uint32_t plan_chart_hash_float_q10(uint32_t hash, float value)
 {
-    for (uint16_t i = 1U; i < s_profile_cache.point_count; i++)
+    return plan_chart_hash_i32(hash, (int32_t)(value * 10.0f));
+}
+
+static uint32_t plan_chart_render_signature(const ui_vm_plan_chart_t *vm)
+{
+    if (vm == NULL)
     {
-        const lv_point_t *p1 = &s_profile_cache.points[i - 1U];
-        const lv_point_t *p2 = &s_profile_cache.points[i];
-        if (depth_chart_line_intersects_clip(draw_ctx, p1, p2, line_dsc->width)) lv_draw_line(draw_ctx, line_dsc, p1, p2);
+        return 0U;
     }
+
+    uint32_t hash = 2166136261UL;
+    hash = plan_chart_hash_u32(hash, vm->draw_enabled);
+    hash = plan_chart_hash_u32(hash, vm->deco_stop_count);
+    hash = plan_chart_hash_u32(hash, vm->x_step_s);
+    hash = plan_chart_hash_u32(hash, (uint32_t)bus_get_stop_type());
+    hash = plan_chart_hash_float_q10(hash, vm->max_depth_axis_m);
+    hash = plan_chart_hash_float_q10(hash, vm->max_time_axis_s);
+
+    if ((s_chart_obj == NULL) || !lv_obj_is_valid(s_chart_obj) || (vm->draw_enabled == 0U))
+    {
+        return hash;
+    }
+
+    const lv_area_t *area = &s_chart_obj->coords;
+    float pad_x = 45.0f;
+    float pad_y_top = 15.0f;
+    float pad_y_bot = 34.0f;
+    float pad_right = 24.0f;
+    float chart_w = (float)(area->x2 - area->x1);
+    float chart_h = (float)(area->y2 - area->y1);
+    float w = chart_w - pad_x - pad_right;
+    float h = chart_h - pad_y_top - pad_y_bot;
+    float x_axis_left = (float)area->x1 + pad_x;
+    float max_t_axis_sec = (vm->max_time_axis_s > 0.0f) ? vm->max_time_axis_s : 20.0f;
+    float max_d_axis = (vm->max_depth_axis_m > 0.0f) ? vm->max_depth_axis_m : 60.0f;
+
+    if (w < 1.0f) w = 1.0f;
+    if (h < 1.0f) h = 1.0f;
+
+#define PLAN_SIG_X(t_sec) ((int32_t)(x_axis_left + ((t_sec) / max_t_axis_sec) * w))
+#define PLAN_SIG_Y(d)     ((int32_t)(area->y1 + pad_y_top + ((d) / max_d_axis) * h))
+
+    hash = plan_chart_hash_i32(hash, PLAN_SIG_X(vm->current_time_s));
+    hash = plan_chart_hash_i32(hash, PLAN_SIG_Y(vm->current_depth_m));
+
+    bool profile_point_valid = false;
+    int32_t profile_last_x = 0;
+    int32_t profile_last_y = 0;
+    uint16_t profile_pixel_count = 0U;
+    for (uint8_t i = 0U; i < vm->dive_log_count; i++)
+    {
+        int32_t point_x = PLAN_SIG_X(vm->dive_log[i].time_s);
+        int32_t point_y = PLAN_SIG_Y(vm->dive_log[i].depth_m);
+
+        /* 新采样仍落在上一显示像素时，曲线画面没有变化。不要让原始
+         * sample_count 增长强制整张 PLAN 图重绘。 */
+        if (profile_point_valid && point_x == profile_last_x && point_y == profile_last_y)
+        {
+            continue;
+        }
+
+        hash = plan_chart_hash_i32(hash, point_x);
+        hash = plan_chart_hash_i32(hash, point_y);
+        profile_last_x = point_x;
+        profile_last_y = point_y;
+        profile_point_valid = true;
+        profile_pixel_count++;
+    }
+    hash = plan_chart_hash_u32(hash, profile_pixel_count);
+
+    float sig_cur_t_sec = vm->current_time_s;
+    float sig_draw_d = vm->current_depth_m;
+    for (uint8_t i = 0U; i < vm->deco_stop_count; i++)
+    {
+        float asc_t = (sig_draw_d > vm->deco_stops[i].depth_m)
+                      ? (sig_draw_d - vm->deco_stops[i].depth_m) * 6.0f : 0.0f;
+        float hold_t_sec = vm->deco_stops[i].stay_min * 60.0f;
+        sig_cur_t_sec += asc_t;
+        hash = plan_chart_hash_i32(hash, PLAN_SIG_X(sig_cur_t_sec));
+        hash = plan_chart_hash_i32(hash, PLAN_SIG_Y(vm->deco_stops[i].depth_m));
+        hash = plan_chart_hash_i32(hash, (int32_t)hold_t_sec);
+        sig_cur_t_sec += hold_t_sec;
+        hash = plan_chart_hash_i32(hash, PLAN_SIG_X(sig_cur_t_sec));
+        hash = plan_chart_hash_i32(hash, PLAN_SIG_X(sig_cur_t_sec - hold_t_sec / 2.0f));
+        hash = plan_chart_hash_i32(hash, (int32_t)ceilf(vm->deco_stops[i].stay_min));
+        sig_draw_d = vm->deco_stops[i].depth_m;
+    }
+
+#undef PLAN_SIG_X
+#undef PLAN_SIG_Y
+
+    return hash;
 }
 
 static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,
@@ -72,23 +130,28 @@ static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,
                                       lv_point_t p1,
                                       lv_point_t p2)
 {
-    int dx = p2.x - p1.x;
-    int dy = p2.y - p1.y;
-
-    if (!depth_chart_line_intersects_clip(draw_ctx, &p1, &p2, dsc->width)) return;
-
-    float dist = sqrtf((float)dx * (float)dx + (float)dy * (float)dy);
-
-    if (dist < 1.0f)
+    if ((p1.x == p2.x) && (p1.y == p2.y))
     {
         return;
     }
 
-    float dash_len = 6.0f;
-    float gap_len = 5.0f;
-    float step = dash_len + gap_len;
-    int num_steps = (int)ceilf(dist / step);
+    lv_draw_line_dsc_t dashed_dsc = *dsc;
+    dashed_dsc.dash_width = 6;
+    dashed_dsc.dash_gap = 5;
+    if (p1.x == p2.x || p1.y == p2.y)
+    {
+        /* LVGL v8 软件渲染器只对水平/垂直线应用 dash。停站保持段是
+         * 水平线，可合并为一次 draw call；斜向上升段继续显式分段。 */
+        lv_draw_line(draw_ctx, &dashed_dsc, &p1, &p2);
+        return;
+    }
 
+    int dx = p2.x - p1.x;
+    int dy = p2.y - p1.y;
+    float dist = sqrtf((float)dx * (float)dx + (float)dy * (float)dy);
+    const float dash_len = 6.0f;
+    const float step = 11.0f;
+    int num_steps = (int)ceilf(dist / step);
     lv_draw_line_dsc_t solid_dsc = *dsc;
     solid_dsc.dash_width = 0;
     solid_dsc.dash_gap = 0;
@@ -97,15 +160,8 @@ static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,
     {
         float t1 = (i * step) / dist;
         float t2 = (i * step + dash_len) / dist;
-
-        if (t1 > 1.0f)
-        {
-            break;
-        }
-        if (t2 > 1.0f)
-        {
-            t2 = 1.0f;
-        }
+        if (t1 > 1.0f) break;
+        if (t2 > 1.0f) t2 = 1.0f;
 
         lv_point_t seg_p1 =
         {
@@ -117,11 +173,7 @@ static void draw_diagonal_dashed_line(lv_draw_ctx_t *draw_ctx,
             p1.x + (lv_coord_t)(dx * t2),
             p1.y + (lv_coord_t)(dy * t2)
         };
-
-        if (depth_chart_line_intersects_clip(draw_ctx, &seg_p1, &seg_p2, solid_dsc.width))
-        {
-            lv_draw_line(draw_ctx, &solid_dsc, &seg_p1, &seg_p2);
-        }
+        lv_draw_line(draw_ctx, &solid_dsc, &seg_p1, &seg_p2);
     }
 }
 
@@ -308,20 +360,8 @@ static void plan_chart_draw_cb(lv_event_t *e)
     line_dsc.dash_width = 0;
     line_dsc.dash_gap = 0;
 
-    if (!plan_chart_profile_cache_area_matches(area))
-    {
-        (void)plan_chart_profile_cache_rebuild(area, vm,
-                                               (lv_coord_t)x_axis_left, (lv_coord_t)((float)area->y1 + pad_y_top),
-                                               (lv_coord_t)w, (lv_coord_t)h, max_t_axis_sec, max_d_axis);
-    }
-
     lv_point_t last_p;
-    if (s_profile_cache.valid && s_profile_cache.point_count > 0U)
-    {
-        plan_chart_profile_cache_draw(draw_ctx, &line_dsc);
-        last_p = s_profile_cache.points[s_profile_cache.point_count - 1U];
-    }
-    else
+    if (!depth_chart_draw_profile(draw_ctx, vm->dive_log, vm->dive_log_count, (lv_coord_t)x_axis_left, (lv_coord_t)((float)area->y1 + pad_y_top), (lv_coord_t)w, (lv_coord_t)h, max_t_axis_sec, max_d_axis, line_dsc.color, line_dsc.width, line_dsc.opa, &last_p))
     {
         last_p.x = MAP_X(0.0f);
         last_p.y = MAP_Y(0.0f);
@@ -440,7 +480,6 @@ static void plan_chart_draw_cb(lv_event_t *e)
 
 void card_plan_create(lv_obj_t *parent)
 {
-    s_profile_cache.valid = false;
     render_card_title(parent, "DIVE PLAN TRACK");
 
     int right_w = (int)ui_content_w_get();
@@ -471,23 +510,37 @@ void card_plan_create(lv_obj_t *parent)
     lv_obj_set_size(s_chart_obj, chart_w, chart_h);
     lv_obj_set_pos(s_chart_obj, chart_x, chart_y);
     lv_obj_add_event_cb(s_chart_obj, plan_chart_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
+    s_plan_chart_render_sig_valid = false;
 }
 
 void card_plan_update(const ui_vm_plan_chart_t *vm)
 {
+    bool vm_changed = false;
+
     if (vm != NULL)
     {
+        vm_changed = (memcmp(&s_plan_chart_vm, vm, sizeof(s_plan_chart_vm)) != 0);
         s_plan_chart_vm = *vm;
-        s_profile_cache.valid = false;
     }
 
     if (!screen_page_id_refresh_visible(PAGE_ID_PLAN))
     {
+        if (vm_changed)
+        {
+            s_plan_chart_render_sig_valid = false;
+        }
         return;
     }
 
     if (s_chart_obj != NULL && lv_obj_is_valid(s_chart_obj))
     {
+        uint32_t render_sig = plan_chart_render_signature(&s_plan_chart_vm);
+        if (s_plan_chart_render_sig_valid && s_plan_chart_render_sig == render_sig)
+        {
+            return;
+        }
+        s_plan_chart_render_sig = render_sig;
+        s_plan_chart_render_sig_valid = true;
         lv_obj_invalidate(s_chart_obj);
     }
 }

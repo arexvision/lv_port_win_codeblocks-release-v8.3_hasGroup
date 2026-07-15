@@ -73,6 +73,7 @@ typedef enum
 
 static sys_config_t s_layout_archives[LAYOUT_ARCHIVE_COUNT] __attribute__((section(".psram_bss")));
 static bool s_layout_archive_valid[LAYOUT_ARCHIVE_COUNT];
+static bool s_heading_state_initialized;
 #if UI_DIRTY_THROTTLE_ENABLED
 static dirty_mask_t s_dirty_throttle_bypass_once;
 #endif
@@ -696,6 +697,8 @@ void data_init(void)
     g_sensor_data.ambient_pressure_mbar = 1013.0f;
     g_sensor_data.nofly_time_min = 0U;
     g_sensor_data.fps = 0U;
+    g_sensor_data.heading_available = false;
+    s_heading_state_initialized = false;
     strncpy(g_sensor_data.sensor_status, "OK", sizeof(g_sensor_data.sensor_status) - 1);
 
     conservatism = g_sys_config.conservatism;
@@ -955,9 +958,41 @@ void bus_set_sys_time(uint8_t hour, uint8_t minute, uint8_t second)
 
 void bus_set_heading(uint16_t heading_deg)
 {
-    if (g_sensor_data.heading != heading_deg)
+    heading_deg %= 360U;
+
+    if (g_sensor_data.heading != heading_deg || !g_sensor_data.heading_available)
     {
         g_sensor_data.heading = heading_deg;
+        g_sensor_data.heading_available = true;
+        s_heading_state_initialized = true;
+        bus_mark_dirty(DIRTY_COMPASS);
+    }
+}
+
+void bus_set_heading_state(uint16_t heading_deg, bool available)
+{
+    heading_deg %= 360U;
+
+    if (available)
+    {
+        if (g_sensor_data.heading != heading_deg || !g_sensor_data.heading_available)
+        {
+            g_sensor_data.heading = heading_deg;
+            g_sensor_data.heading_available = true;
+            s_heading_state_initialized = true;
+            bus_mark_dirty(DIRTY_COMPASS);
+        }
+        return;
+    }
+
+    /*
+     * heading 不可用时只清可用标志，不把无效角度发布成真实方位。
+     * 首次上报不可用也触发一次刷新，让 UI 退出旧动画/旧数字状态；连续不可用不重复刷屏。
+     */
+    if (g_sensor_data.heading_available || !s_heading_state_initialized)
+    {
+        g_sensor_data.heading_available = false;
+        s_heading_state_initialized = true;
         bus_mark_dirty(DIRTY_COMPASS);
     }
 }
@@ -3202,19 +3237,31 @@ uint16_t bus_get_heading(void)
     return g_sensor_data.heading;
 }
 
+bool bus_get_heading_available(void)
+{
+    return g_sensor_data.heading_available;
+}
+
 uint16_t bus_get_heading_target(void)
 {
     return g_sensor_data.heading_target;
 }
 
-void bus_lock_heading_to_current(void)
+bool bus_lock_heading_to_current(void)
 {
+    if (!g_sensor_data.heading_available)
+    {
+        return false;
+    }
+
     if (!g_sensor_data.heading_locked)
     {
         g_sensor_data.heading_locked = true;
         g_sensor_data.heading_target = g_sensor_data.heading;
         bus_mark_dirty(DIRTY_COMPASS);
     }
+
+    return true;
 }
 
 void bus_clear_heading_lock(void)

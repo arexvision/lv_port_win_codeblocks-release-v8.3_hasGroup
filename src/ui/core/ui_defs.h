@@ -35,7 +35,7 @@ extern "C" {
 #define PLAN_TRACK_DECO_STOP_TIME_LABELS_ENABLED  1  /* 减压站标签停留时间开关 */
 #define PLAN_TRACK_STOP_LABEL_W_PX                72  /* 停站标签最大宽度 */
 #define PLAN_TRACK_STOP_LABEL_GAP_PX              6  /* 停站标签距节点距离 */
-#define PLAN_TRACK_STOP_LABEL_OFFSET_Y_PX         4  /* 停站标签整体纵向微调 */
+#define PLAN_TRACK_STOP_LABEL_OFFSET_Y_PX         0  /* 停站标签整体纵向微调 */
 #define PLAN_TRACK_NOW_DOT_RADIUS_PX              5  /* NOW 当前点半径 */
 #define PLAN_TRACK_HOUR_MODE_THRESHOLD_S       10800U /* PLAN图超过该秒数才切小时刻度 */
 #define PLAN_TRACK_LONG_MINUTE_STEP_S           1800U /* PLAN图1~3h分钟刻度步进 */
@@ -52,7 +52,7 @@ extern "C" {
 #define BLACK  lv_color_make(0x00, 0x00, 0x00)  /* 黑色底色 */
 #define BG     lv_color_make(0x05, 0x05, 0x05)  /* 全局背景色 */
 
-#define DEBUG_BORDERS             1       /* 全局布局调试边框开关 */
+#define DEBUG_BORDERS             0       /* 全局布局调试边框开关 */
 #define CARD_DEBUG_BORDERS        1       /* 卡片内部调试边框开关 */
 #define INNER_BORDER_W            2       /* 通用内部边框宽度 */
 #define MENU_LIST_TOP_NUDGE_PX    0       /* 菜单列表向标题方向上移量 */
@@ -248,7 +248,7 @@ typedef enum
     COMP_CNS_1612         = 74,  /* 2x2 CNS */
     COMP_GF_1612          = 75,  /* 2x2 GF设置 */
     COMP_CEILING_1612     = 76,  /* 2x2 ceiling */
-    COMP_DEPTH_DATA_1612  = 77   /* 2x2 深度纯数据 */
+    COMP_DEPTH_DATA_1612  = 77   /* 2x2 深度数据 */
 } comp_id_t;
 
 typedef enum

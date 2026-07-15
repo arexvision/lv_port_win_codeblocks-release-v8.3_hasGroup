@@ -116,6 +116,7 @@ void bus_set_pod(uint8_t pod_idx, float bar);   /* pod_idx: 0=pod1, 1=pod2 */
 void bus_set_battery(float pct);
 void bus_set_sys_time(uint8_t hour, uint8_t minute, uint8_t second);
 void bus_set_heading(uint16_t heading_deg);
+void bus_set_heading_state(uint16_t heading_deg, bool available);
 void bus_set_dive_time(uint32_t dive_s);
 void bus_set_surface_time(uint32_t surface_s);
 void bus_set_dive_lifecycle_phase(dive_lifecycle_phase_t phase);
@@ -399,8 +400,9 @@ uint16_t bus_get_time_alarm_min(void);
 uint16_t bus_get_ndl_alarm_min(void);
 bool bus_is_heading_locked(void);
 uint16_t bus_get_heading(void);
+bool bus_get_heading_available(void);
 uint16_t bus_get_heading_target(void);
-void bus_lock_heading_to_current(void);
+bool bus_lock_heading_to_current(void);
 void bus_clear_heading_lock(void);
 
 /* --- 历史轨迹 / 减压停留原始数据只读接口 --- */
