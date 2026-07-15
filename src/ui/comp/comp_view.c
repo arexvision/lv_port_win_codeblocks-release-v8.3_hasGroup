@@ -2166,7 +2166,10 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
             /* ASCENT_0812 (1x2)：绘制上升速率方向箭头图标（工厂自主查字典决定*/
             lv_obj_t *sudu_img = lv_img_create(obj);
             lv_img_set_src(sudu_img, &sudo_up_level0);
-            lv_obj_align(sudu_img, LV_ALIGN_CENTER, 0, 0);
+            lv_obj_align(sudu_img,
+                         (lv_align_t)style->spec.basic.icon_align,
+                         style->spec.basic.icon_offset_x,
+                         style->spec.basic.icon_offset_y);
             if (s_ascent_icon_count < MAX_ASCENT_ICONS)
                 s_img_ascent_rate[s_ascent_icon_count++] = sudu_img;
         }

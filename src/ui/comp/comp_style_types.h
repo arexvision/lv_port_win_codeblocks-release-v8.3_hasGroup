@@ -172,6 +172,9 @@ typedef struct
     int8_t  value_offset_x; /* 数值 X 偏移 */
     int8_t  value_offset_y; /* 数值 Y 偏移 */
     uint8_t value_align;     /* 数值对齐方式 */
+    int8_t  icon_offset_x;  /* 图标 X 偏移 */
+    int8_t  icon_offset_y;  /* 图标 Y 偏移 */
+    uint8_t icon_align;      /* 图标对齐方式 */
 } style_basic_t;
 
 /* =========================================================
