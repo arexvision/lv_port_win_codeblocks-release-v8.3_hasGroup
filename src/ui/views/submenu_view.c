@@ -2249,7 +2249,7 @@ static void plan_draw_input(lv_obj_t *parent, int w)
     lv_obj_remove_style_all(underline);
     lv_obj_set_pos(underline, (w - 38) / 2, underline_y);
     lv_obj_set_size(underline, 38, 4);
-    lv_obj_set_style_bg_color(underline, lv_color_make(255, 255, 0), 0);
+    lv_obj_set_style_bg_color(underline, GREEN, 0);
     lv_obj_set_style_bg_opa(underline, LV_OPA_COVER, 0);
 
     plan_make_label(parent, vm.input_prompt, FONT_ID_SMALL, LIGHT, 0, prompt_y, w, 22, LV_TEXT_ALIGN_CENTER);
