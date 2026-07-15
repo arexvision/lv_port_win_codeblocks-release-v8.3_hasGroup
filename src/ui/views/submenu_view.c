@@ -2277,9 +2277,7 @@ static void plan_draw_input(lv_obj_t *parent, int w)
     {
         lv_snprintf(buf, sizeof(buf), "%s", vm.depth_value);
     }
-    plan_make_label(spin, buf, FONT_ID_SMALL, BLACK, 6, 2, 78, 20, LV_TEXT_ALIGN_RIGHT);
-    plan_make_label(spin, "^", FONT_ID_SMALL, DARK, 84, 0, 14, 12, LV_TEXT_ALIGN_CENTER);
-    plan_make_label(spin, "v", FONT_ID_SMALL, DARK, 84, 12, 14, 12, LV_TEXT_ALIGN_CENTER);
+    plan_make_label(spin, buf, FONT_ID_SMALL, BLACK, 0, 2, 100, 20, LV_TEXT_ALIGN_CENTER);
 }
 
 static void plan_draw_ready(lv_obj_t *parent, int w)
