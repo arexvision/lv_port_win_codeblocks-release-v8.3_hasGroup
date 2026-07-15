@@ -252,7 +252,7 @@ static const comp_style_t g_widget_styles[] =
         .title_offset_x = 10, .title_offset_y = 4, .title_align = LV_ALIGN_TOP_LEFT,
         .spec.basic = {
             .value_offset_x = 6, .value_offset_y = -10, .value_align = LV_ALIGN_BOTTOM_LEFT,
-            .icon_offset_x = 0, .icon_offset_y = 0, .icon_align = LV_ALIGN_CENTER
+            .icon_offset_x = -10, .icon_offset_y = -4, .icon_align = LV_ALIGN_BOTTOM_RIGHT
         }
     },
     {
