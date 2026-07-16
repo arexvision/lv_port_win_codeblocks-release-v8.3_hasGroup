@@ -455,7 +455,7 @@ DIVE MENU 的顶层入口来自 `menu_defs.c`：
   - `MOD PO2: x.x`
   - `SAFETY STOP: OFF / 3MIN / 4MIN / 5MIN / ADAPT / CNTUP`
   - `LAST DECO: 3M / 6M`
-  - `ALTITUDE: 0-300m/0-980ft (default) / 300-1500m/980-4900ft / 1500-3000m/4900-9800ft`
+  - `ALTITUDE` 按 `UNITS` 显示：公制 `0-300m`（默认）/ `300-1500m` / `1500-3000m`；英制 `0-980ft`（默认）/ `980-4900ft` / `4900-9800ft`
 - 可编辑范围：
   - `MOD PO2`
     - 最小：1.0

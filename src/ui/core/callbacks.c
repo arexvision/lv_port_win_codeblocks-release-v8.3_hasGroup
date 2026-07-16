@@ -289,13 +289,21 @@ void ui_on_last_deco_stop_set(uint8_t depth_m)
 WEAK_CALLBACK
 void ui_on_altitude_range_set(uint8_t level)
 {
-    static const char *labels[] =
+    enum { ALTITUDE_LABEL_COUNT = 3 };
+    static const char *metric_labels[] =
     {
-        "0-300m/0-980ft",
-        "300-1500m/980-4900ft",
-        "1500-3000m/4900-9800ft",
+        "0-300m",
+        "300-1500m",
+        "1500-3000m",
     };
-    const char *label = (level < (sizeof(labels) / sizeof(labels[0]))) ? labels[level] : "UNKNOWN";
+    static const char *imperial_labels[] =
+    {
+        "0-980ft",
+        "980-4900ft",
+        "4900-9800ft",
+    };
+    const char **labels = (bus_get_units_mode() == UI_UNITS_IMPERIAL) ? imperial_labels : metric_labels;
+    const char *label = (level < ALTITUDE_LABEL_COUNT) ? labels[level] : "UNKNOWN";
     bus_set_altitude_level(level);
     (void)label;
     UI_CALLBACK_TRACE("[DIVE_SETUP] Altitude: %s\n", label);
@@ -641,7 +649,7 @@ void ui_on_reset_defaults(void)
     bus_set_dive_start_depth_m(UI_DIVE_START_DEPTH_DEFAULT_M);
     bus_set_depth_comp_enabled(UI_DEPTH_COMP_DEFAULT_ENABLED != 0U);
     bus_set_depth_comp_m(UI_DEPTH_COMP_DEFAULT_M);
-    bus_set_altitude_level(0U);  /* 默认 0-300m/0-980ft */
+    bus_set_altitude_level(0U);  /* 默认第一档 */
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     bus_set_time_24h_enabled(true);
     bus_set_units_mode(UI_UNITS_DEFAULT);

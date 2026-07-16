@@ -262,7 +262,7 @@ mindmap
       LAST DECO
         原地点击切换 3M / 6M
       ALTITUDE
-        原地点击切换 0-300m/0-980ft（默认）/ 300-1500m/980-4900ft / 1500-3000m/4900-9800ft
+        原地点击切换三档，按 UNITS 显示为 0-300m / 300-1500m / 1500-3000m 或 0-980ft / 980-4900ft / 4900-9800ft，默认第一档
     AI SETUP
       T1 MAIN
         原地点击切换 UNPAIRED / PAIRING / PAIRED
@@ -379,7 +379,7 @@ mindmap
 | DIVE SETUP | MOD PO2 | 确认键 | 进入 1.0 - 1.6 的数值编辑 |
 | DIVE SETUP | SAFETY STOP | 确认键 | 原地切换安全停留模式 |
 | DIVE SETUP | LAST DECO | 确认键 | 原地切换 `3M / 6M` |
-| DIVE SETUP | ALTITUDE | 确认键 | 原地切换 `0-300m/0-980ft（默认）/ 300-1500m/980-4900ft / 1500-3000m/4900-9800ft` |
+| DIVE SETUP | ALTITUDE | 确认键 | 原地切换三档，按 UNITS 显示为 `0-300m / 300-1500m / 1500-3000m` 或 `0-980ft / 980-4900ft / 4900-9800ft`，默认第一档 |
 | AI SETUP | T1 MAIN / T2 BUDDY | 确认键 | 原地切换 `UNPAIRED / PAIRING / PAIRED` |
 | AI SETUP | GTR MODE | 确认键 | 原地切换 `ON / OFF` |
 | ALERTS SETUP | DEPTH / TIME / LOW NDL ALARM | 确认键 | 进入对应告警阈值数值编辑 |

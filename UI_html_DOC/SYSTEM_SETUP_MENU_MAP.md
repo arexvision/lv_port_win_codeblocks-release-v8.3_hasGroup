@@ -79,7 +79,7 @@ flowchart TD
     DiveSetup --> DepthComp["DEPTH COMP<br/>ON / OFF"]
     DepthComp --> CompValue["COMP VALUE<br/>仅 DEPTH COMP=ON 时显示<br/>0.1-0.5m, step 0.1"]
     DiveSetup --> TissueReset["TISSUE RESET<br/>二次确认<br/>水下不可用"]
-    DiveSetup --> Altitude["ALTITUDE<br/>0-300m/0-980ft (default)<br/>300-1500m/980-4900ft<br/>1500-3000m/4900-9800ft"]
+    DiveSetup --> Altitude["ALTITUDE<br/>Metric: 0-300m (default) / 300-1500m / 1500-3000m<br/>Imperial: 0-980ft (default) / 980-4900ft / 4900-9800ft"]
 
     AiSetup --> Tank1["T1 MAIN<br/>UNPAIRED / PAIRING / PAIRED"]
     AiSetup --> Tank2["T2 BUDDY<br/>UNPAIRED / PAIRING / PAIRED"]
@@ -164,7 +164,7 @@ flowchart LR
 | DIVE SETUP | DEPTH COMP | 直接切换 | ON / OFF |
 | DIVE SETUP | COMP VALUE | 数字编辑 | 0.1-0.5m, step 0.1，仅 DEPTH COMP=ON 时显示 |
 | DIVE SETUP | TISSUE RESET | 二次确认 | 水下不可用 |
-| DIVE SETUP | ALTITUDE | 直接切换 | 0-300m/0-980ft (default) / 300-1500m/980-4900ft / 1500-3000m/4900-9800ft |
+| DIVE SETUP | ALTITUDE | 直接切换 | 按 UNITS 显示：0-300m / 300-1500m / 1500-3000m，或 0-980ft / 980-4900ft / 4900-9800ft；默认第一档 |
 | AI SETUP | T1 MAIN | 直接切换 | UNPAIRED / PAIRING / PAIRED |
 | AI SETUP | T2 BUDDY | 直接切换 | UNPAIRED / PAIRING / PAIRED |
 | AI SETUP | GTR MODE | 直接切换 | ON / OFF |

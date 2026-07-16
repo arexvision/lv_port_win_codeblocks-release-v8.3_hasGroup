@@ -48,14 +48,16 @@ static void vm_format_depth_1(char *buf, size_t buf_size, float depth_m)
 
 static const char *vm_altitude_label(uint8_t value)
 {
+    bool imperial = (bus_get_units_mode() == UI_UNITS_IMPERIAL);
+
     switch (value)
     {
     case 0U:
-        return "0-300m/0-980ft";
+        return imperial ? "0-980ft" : "0-300m";
     case 1U:
-        return "300-1500m/980-4900ft";
+        return imperial ? "980-4900ft" : "300-1500m";
     case 2U:
-        return "1500-3000m/4900-9800ft";
+        return imperial ? "4900-9800ft" : "1500-3000m";
     default:
         return "--";
     }
