@@ -641,7 +641,7 @@ void ui_on_reset_defaults(void)
     bus_set_dive_start_depth_m(UI_DIVE_START_DEPTH_DEFAULT_M);
     bus_set_depth_comp_enabled(UI_DEPTH_COMP_DEFAULT_ENABLED != 0U);
     bus_set_depth_comp_m(UI_DEPTH_COMP_DEFAULT_M);
-    bus_set_altitude_level(0U);
+    bus_set_altitude_level(0U);  /* 默认 0-300m/0-980ft */
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     bus_set_time_24h_enabled(true);
     bus_set_units_mode(UI_UNITS_DEFAULT);

@@ -100,7 +100,7 @@ static uint8_t s_surface_confirm_min = UI_SURFACE_CONFIRM_DEFAULT_MIN;
 static float s_dive_start_depth_m = UI_DIVE_START_DEPTH_DEFAULT_M;
 static uint8_t s_depth_comp_enabled = UI_DEPTH_COMP_DEFAULT_ENABLED;
 static float s_depth_comp_m = UI_DEPTH_COMP_DEFAULT_M;
-static uint8_t s_altitude_level = 0;     /* 0=0-300m, 1=300-1500m, 2=1500-3000m */
+static uint8_t s_altitude_level = 0;     /* 0=默认0-300m, 1=300-1500m, 2=1500-3000m */
 static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS, 3=OC Tech */
 static float s_air_ppo2 = 1.4f;
 static uint8_t s_nitrox_o2_pct = 32;
