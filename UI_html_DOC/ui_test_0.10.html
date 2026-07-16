@@ -1627,7 +1627,7 @@
                 else if (currentSubItem.includes('>')) {
                     let deeperOptions = []; const deepTitle = currentSubItem.replace('>', '').trim();
                     if(deepTitle === 'MODE SETUP') deeperOptions = ['AIR', 'NITROX', '3 GAS NX', 'GAUGE', '< BACK'];
-                    else if(deepTitle === 'DIVE SETUP') deeperOptions = [`SALINITY: FRESH`, `MOD PO2: ${settings.modPpo2.toFixed(1)}`, 'SAFETY STOP: 3 MIN', 'ALTITUDE: AUTO', '< BACK'];
+                    else if(deepTitle === 'DIVE SETUP') deeperOptions = [`SALINITY: FRESH`, `MOD PO2: ${settings.modPpo2.toFixed(1)}`, 'SAFETY STOP: 3 MIN', 'ALTITUDE: 0-300m/0-980ft', '< BACK'];
                     else if(deepTitle === 'AI SETUP') deeperOptions = ['PAIR T1', 'PAIR T2', 'GTR MODE: ON', '< BACK'];
                     else if(deepTitle === 'ALERTS SETUP') deeperOptions = ['DEPTH ALARM: 40m', 'TIME ALARM: 60m', 'LOW NDL: 5m', 'TEST VIBRATION', '< BACK'];
                     else if(deepTitle === 'DISPLAY / SYS') deeperOptions = ['UNITS: METRIC', 'DATE & CLOCK', 'LOG RATE: 10s', 'BLUETOOTH: OFF', 'RESET TO DEFAULTS', '< BACK'];

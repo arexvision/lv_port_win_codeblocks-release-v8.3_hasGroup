@@ -69,7 +69,7 @@ static const char *s_setup_titles[SUBMENU_SETUP_COUNT] =
     "GAS SWITCH", "CONSERVATISM", "BRIGHTNESS", "COMPASS CAL", "LIGHT CONTROL", "SYSTEMS SETUP"
 };
 
-static char s_menu_vm_str[MENU_MAX_ROWS][40];
+static char s_menu_vm_str[MENU_MAX_ROWS][48];
 static const char *s_menu_vm_dyn[MENU_MAX_ROWS + 1U];
 
 static const char *s_nested_light_color[] = { "ROTARY COLOR", "RED", "GREEN", "BLUE", "WHITE", NULL };
@@ -100,7 +100,7 @@ static uint8_t s_surface_confirm_min = UI_SURFACE_CONFIRM_DEFAULT_MIN;
 static float s_dive_start_depth_m = UI_DIVE_START_DEPTH_DEFAULT_M;
 static uint8_t s_depth_comp_enabled = UI_DEPTH_COMP_DEFAULT_ENABLED;
 static float s_depth_comp_m = UI_DEPTH_COMP_DEFAULT_M;
-static uint8_t s_altitude_level = 0;     /* 0=AUTO, 1=SEA, 2=L1, 3=L2 */
+static uint8_t s_altitude_level = 0;     /* 0=0-300m, 1=300-1500m, 2=1500-3000m */
 static uint8_t s_dive_mode = 0;          /* 0=AIR, 1=NITROX, 2=3 GAS, 3=OC Tech */
 static float s_air_ppo2 = 1.4f;
 static uint8_t s_nitrox_o2_pct = 32;
@@ -434,7 +434,7 @@ static const char **copy_simple_menu_items(const ui_vm_simple_menu_t *vm, uint8_
     return s_menu_vm_dyn;
 }
 
-static const char **copy_menu_lines(const char items[][32], uint8_t count, uint8_t *out_count)
+static const char **copy_menu_lines(const char items[][48], uint8_t count, uint8_t *out_count)
 {
     uint8_t copy_count = count;
 
@@ -802,7 +802,7 @@ static void submenu_commit_setting_value(submenu_setting_kind_t kind, uint8_t ar
         s_last_deco_mode = (value > 1) ? 0 : (uint8_t)value;
         break;
     case SUBMENU_SETTING_ALTITUDE:
-        s_altitude_level = (value > 3) ? 0 : (uint8_t)value;
+        s_altitude_level = (value > 2) ? 0 : (uint8_t)value;
         break;
     case SUBMENU_SETTING_AI_TANK_STATE:
         if (arg < 2U)
@@ -1739,7 +1739,7 @@ bool submenu_direct_setting_from_selection(const char *current_title,
 
     if (is_dive_setup && item_text != NULL && strncmp(item_text, "ALTITUDE:", 9U) == 0)
     {
-        uint8_t next = (uint8_t)((s_altitude_level + 1) % 4);
+        uint8_t next = (uint8_t)((s_altitude_level + 1) % 3);
         out_setting->kind = SUBMENU_SETTING_ALTITUDE;
         out_setting->value = next;
         return true;
@@ -2247,7 +2247,7 @@ bool submenu_direct_setting_from_ids(menu_id_t current_menu,
             return true;
         case MENU_ITEM_DIVE_ALTITUDE:
             out_setting->kind = SUBMENU_SETTING_ALTITUDE;
-            out_setting->value = (uint8_t)((s_altitude_level + 1U) % 4U);
+            out_setting->value = (uint8_t)((s_altitude_level + 1U) % 3U);
             return true;
         default:
             break;

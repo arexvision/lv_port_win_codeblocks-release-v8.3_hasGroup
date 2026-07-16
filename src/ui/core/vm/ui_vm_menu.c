@@ -51,13 +51,11 @@ static const char *vm_altitude_label(uint8_t value)
     switch (value)
     {
     case 0U:
-        return "SEA";
+        return "0-300m/0-980ft";
     case 1U:
-        return "ALT1";
+        return "300-1500m/980-4900ft";
     case 2U:
-        return "ALT2";
-    case 3U:
-        return "ALT3";
+        return "1500-3000m/4900-9800ft";
     default:
         return "--";
     }

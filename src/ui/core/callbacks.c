@@ -291,11 +291,9 @@ void ui_on_altitude_range_set(uint8_t level)
 {
     static const char *labels[] =
     {
-        "AUTO",
-        "0-700m",
-        "700-1500m",
-        "1500-2400m",
-        "2400-3700m",
+        "0-300m/0-980ft",
+        "300-1500m/980-4900ft",
+        "1500-3000m/4900-9800ft",
     };
     const char *label = (level < (sizeof(labels) / sizeof(labels[0]))) ? labels[level] : "UNKNOWN";
     bus_set_altitude_level(level);
