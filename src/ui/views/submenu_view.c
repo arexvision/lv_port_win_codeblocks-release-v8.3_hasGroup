@@ -53,6 +53,10 @@ enum
 {
     LIGHT_COLOR_HUE_MAX = 360U,
     LIGHT_COLOR_HUE_STEP_DEG = 6U,
+    LIGHT_COLOR_BAR_PAD_X = 5U,
+    LIGHT_COLOR_BAR_PAD_Y = 7U,
+    LIGHT_COLOR_BAR_FILL_H = 10U,
+    LIGHT_COLOR_BAR_TICK_COUNT = 10U,
     LIGHT_COLOR_ROTARY_ROW_INDEX = 0U,
 };
 
@@ -184,6 +188,16 @@ static lv_color_t light_color_progress_green(uint8_t step, uint8_t step_count)
         level = 0xFFU;
     }
     return lv_color_make(0x00, (uint8_t)level, 0x00);
+}
+
+static uint16_t light_color_bar_outer_w(uint16_t w)
+{
+    return (w > 96U) ? (uint16_t)(w - 96U) : (uint16_t)(w - 24U);
+}
+
+static uint16_t light_color_bar_inner_w(uint16_t outer_w)
+{
+    return (outer_w > (LIGHT_COLOR_BAR_PAD_X * 2U)) ? (uint16_t)(outer_w - (LIGHT_COLOR_BAR_PAD_X * 2U)) : 1U;
 }
 
 static bool submenu_current_menu_is_readonly_info(void)
@@ -2671,7 +2685,8 @@ static void light_color_preview_clear_refs(void)
 static void light_color_preview_refresh(void)
 {
     uint16_t w = submenu_right_width();
-    uint16_t bar_w = (w > 96U) ? (uint16_t)(w - 96U) : (uint16_t)(w - 24U);
+    uint16_t bar_w = light_color_bar_outer_w(w);
+    uint16_t inner_w = light_color_bar_inner_w(bar_w);
     uint16_t cursor_x;
     uint16_t fill_w;
     char text[32];
@@ -2693,27 +2708,27 @@ static void light_color_preview_refresh(void)
     }
     if (s_light_color_bar_fill != NULL)
     {
-        fill_w = (uint16_t)((((uint32_t)step * (uint32_t)bar_w) + (step_count / 2U)) / step_count);
+        fill_w = (uint16_t)((((uint32_t)step * (uint32_t)inner_w) + (step_count / 2U)) / step_count);
         if (fill_w < 2U)
         {
             fill_w = 2U;
         }
-        if (fill_w > bar_w)
+        if (fill_w > inner_w)
         {
-            fill_w = bar_w;
+            fill_w = inner_w;
         }
         lv_obj_set_width(s_light_color_bar_fill, (lv_coord_t)fill_w);
-        lv_obj_set_style_bg_color(s_light_color_bar_fill, lv_color_make(0x00, 0x55, 0x00), 0);
+        lv_obj_set_style_bg_color(s_light_color_bar_fill, lv_color_make(0x00, 0x6E, 0x00), 0);
         lv_obj_set_style_bg_grad_color(s_light_color_bar_fill, light_color_progress_green(step, step_count), 0);
     }
     if (s_light_color_cursor != NULL)
     {
-        cursor_x = (uint16_t)((((uint32_t)step * (uint32_t)bar_w) + (step_count / 2U)) / step_count);
-        if (cursor_x > bar_w)
+        cursor_x = (uint16_t)((((uint32_t)step * (uint32_t)inner_w) + (step_count / 2U)) / step_count);
+        if (cursor_x > inner_w)
         {
-            cursor_x = bar_w;
+            cursor_x = inner_w;
         }
-        lv_obj_set_x(s_light_color_cursor, (lv_coord_t)(48 + cursor_x - 2));
+        lv_obj_set_x(s_light_color_cursor, (lv_coord_t)(48 + LIGHT_COLOR_BAR_PAD_X + cursor_x - 2));
     }
 }
 
@@ -2721,10 +2736,12 @@ static void light_color_preview_draw_page(void)
 {
     const uint16_t w = submenu_right_width();
     const uint16_t bar_x = 48U;
-    const uint16_t bar_y = 190U;
-    const uint16_t bar_w = (w > 96U) ? (uint16_t)(w - 96U) : (uint16_t)(w - 24U);
-    const uint16_t bar_h = 34U;
+    const uint16_t bar_y = 198U;
+    const uint16_t bar_w = light_color_bar_outer_w(w);
+    const uint16_t inner_w = light_color_bar_inner_w(bar_w);
+    const uint16_t bar_h = 28U;
     lv_obj_t *bar_bg;
+    lv_obj_t *bar_track;
 
     lv_obj_clean(s_submenu_list);
     light_color_preview_clear_refs();
@@ -2769,27 +2786,50 @@ static void light_color_preview_draw_page(void)
     lv_obj_remove_style_all(bar_bg);
     lv_obj_set_pos(bar_bg, bar_x, bar_y);
     lv_obj_set_size(bar_bg, bar_w, bar_h);
-    lv_obj_set_style_bg_color(bar_bg, lv_color_make(0x00, 0x20, 0x00), 0);
+    lv_obj_set_style_bg_color(bar_bg, BLACK, 0);
     lv_obj_set_style_bg_opa(bar_bg, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(bar_bg, GREEN, 0);
     lv_obj_set_style_border_width(bar_bg, 2, 0);
     lv_obj_clear_flag(bar_bg, LV_OBJ_FLAG_SCROLLABLE);
 
-    s_light_color_bar_fill = lv_obj_create(bar_bg);
+    bar_track = lv_obj_create(bar_bg);
+    lv_obj_remove_style_all(bar_track);
+    lv_obj_set_pos(bar_track, LIGHT_COLOR_BAR_PAD_X, LIGHT_COLOR_BAR_PAD_Y);
+    lv_obj_set_size(bar_track, inner_w, LIGHT_COLOR_BAR_FILL_H);
+    lv_obj_set_style_bg_color(bar_track, lv_color_make(0x00, 0x24, 0x00), 0);
+    lv_obj_set_style_bg_opa(bar_track, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(bar_track, DARK, 0);
+    lv_obj_set_style_border_width(bar_track, 1, 0);
+    lv_obj_clear_flag(bar_track, LV_OBJ_FLAG_SCROLLABLE);
+
+    s_light_color_bar_fill = lv_obj_create(bar_track);
     lv_obj_remove_style_all(s_light_color_bar_fill);
-    lv_obj_set_pos(s_light_color_bar_fill, 2, 2);
-    lv_obj_set_size(s_light_color_bar_fill, 2, (lv_coord_t)(bar_h - 4U));
+    lv_obj_set_pos(s_light_color_bar_fill, 0, 0);
+    lv_obj_set_size(s_light_color_bar_fill, 2, LIGHT_COLOR_BAR_FILL_H);
     lv_obj_set_style_bg_opa(s_light_color_bar_fill, LV_OPA_COVER, 0);
     lv_obj_set_style_bg_grad_dir(s_light_color_bar_fill, LV_GRAD_DIR_HOR, 0);
     lv_obj_clear_flag(s_light_color_bar_fill, LV_OBJ_FLAG_SCROLLABLE);
 
+    for (uint8_t i = 0U; i <= LIGHT_COLOR_BAR_TICK_COUNT; i++)
+    {
+        lv_obj_t *tick = lv_obj_create(bar_bg);
+        lv_coord_t tick_x = (lv_coord_t)(LIGHT_COLOR_BAR_PAD_X + (((uint32_t)i * inner_w) / LIGHT_COLOR_BAR_TICK_COUNT));
+        lv_obj_remove_style_all(tick);
+        lv_obj_set_pos(tick, (lv_coord_t)(tick_x - 1), (lv_coord_t)(bar_h - 7U));
+        lv_obj_set_size(tick, (i == 0U || i == LIGHT_COLOR_BAR_TICK_COUNT) ? 2 : 1, 5);
+        lv_obj_set_style_bg_color(tick, (i == 0U || i == LIGHT_COLOR_BAR_TICK_COUNT) ? GREEN : DARK, 0);
+        lv_obj_set_style_bg_opa(tick, LV_OPA_COVER, 0);
+        lv_obj_clear_flag(tick, LV_OBJ_FLAG_SCROLLABLE);
+    }
+
     s_light_color_cursor = lv_obj_create(s_submenu_list);
     lv_obj_remove_style_all(s_light_color_cursor);
-    lv_obj_set_size(s_light_color_cursor, 4, (lv_coord_t)(bar_h + 12U));
-    lv_obj_set_pos(s_light_color_cursor, bar_x, (lv_coord_t)(bar_y - 6U));
+    lv_obj_set_size(s_light_color_cursor, 4, (lv_coord_t)(bar_h + 6U));
+    lv_obj_set_pos(s_light_color_cursor, (lv_coord_t)(bar_x + LIGHT_COLOR_BAR_PAD_X), (lv_coord_t)(bar_y - 3U));
     lv_obj_set_style_bg_color(s_light_color_cursor, LIGHT, 0);
     lv_obj_set_style_bg_opa(s_light_color_cursor, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(s_light_color_cursor, 0, 0);
+    lv_obj_set_style_border_color(s_light_color_cursor, GREEN, 0);
+    lv_obj_set_style_border_width(s_light_color_cursor, 1, 0);
     lv_obj_clear_flag(s_light_color_cursor, LV_OBJ_FLAG_SCROLLABLE);
 
     light_color_preview_refresh();
