@@ -4,6 +4,7 @@
 // Compatibility aggregation header. Prefer the narrower headers when reviewing
 // or editing constants by category.
 #include "arex_deco/abi_constants.h"
+#include "arex_deco/environment.h"
 #include "arex_deco/defaults.h"
 #include "arex_deco/model_constants.h"
 

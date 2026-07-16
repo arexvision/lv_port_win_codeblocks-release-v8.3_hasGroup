@@ -46,23 +46,6 @@ static void vm_format_depth_1(char *buf, size_t buf_size, float depth_m)
     (void)snprintf(buf, buf_size, "%.1f%s", (double)bus_get_depth_display(depth_m), bus_get_depth_unit_label());
 }
 
-static const char *vm_altitude_label(uint8_t value)
-{
-    bool imperial = (bus_get_units_mode() == UI_UNITS_IMPERIAL);
-
-    switch (value)
-    {
-    case 0U:
-        return imperial ? "0-980ft" : "0-300m";
-    case 1U:
-        return imperial ? "980-4900ft" : "300-1500m";
-    case 2U:
-        return imperial ? "4900-9800ft" : "1500-3000m";
-    default:
-        return "--";
-    }
-}
-
 static const char *vm_units_label(uint8_t value)
 {
     return (value == 0U) ? "METRIC" : "IMPERIAL";
@@ -257,8 +240,7 @@ void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
                                   uint8_t surface_confirm_min,
                                   float dive_start_depth_m,
                                   uint8_t depth_comp_enabled,
-                                  float depth_comp_m,
-                                  uint8_t altitude_level)
+                                  float depth_comp_m)
 {
     char last_deco_depth[12];
     char start_depth[12];
@@ -287,7 +269,6 @@ void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
         (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "COMP VALUE: %s", comp_depth);
     }
     (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "%s", "TISSUE RESET");
-    (void)snprintf(vm->items[row++], sizeof(vm->items[0]), "ALTITUDE: %s", vm_altitude_label(altitude_level));
     vm->count = row;
 }
 

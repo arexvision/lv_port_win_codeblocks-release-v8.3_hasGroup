@@ -26,13 +26,6 @@ extern "C" {
 #define DECO_CEILING_ACTIVE_M 0.01f           /* ceiling 大于该值即认为有实时减压义务 */
 #define DECO_STOP_ZONE_SHALLOW_MARGIN_M 1.0f  /* 减压站允许比显示站浅的范围 */
 #define DECO_STOP_ZONE_DEEP_MARGIN_M 1.5f     /* 减压站允许比显示站深的范围 */
-#define DECO_GAS_DENSITY_COMPRESSIBILITY_Z 1.0f /* 真实气体压缩因子，当前按理想气体 */
-#define DECO_TEMPERATURE_KELVIN_OFFSET 273.15f /* 摄氏度转 Kelvin */
-#define DECO_PRESSURE_PA_PER_BAR 100000.0f      /* 1 bar 对应 Pa */
-#define DECO_GRAVITY_M_S2 9.80665f              /* 标准重力加速度 */
-#define DECO_WATER_DENSITY_FRESH_KG_M3 1000.0f  /* 淡水密度 */
-#define DECO_WATER_DENSITY_SALT_KG_M3 1030.0f   /* 盐水密度 */
-#define DECO_WATER_DENSITY_EN13319_KG_M3 1020.0f /* EN13319 欧标密度 */
 #define DECO_FORECAST_TTS_HOLD_SECONDS 300U   /* TTS hold 预测 5 分钟 */
 #define DECO_FORECAST_TTS_INTERVAL_S 5U       /* TTS forecast 低频刷新间隔 */
 #define DECO_NDL_EXCURSION_DELTA_M 3.0f       /* NDL 上/下 3m 试探 */
@@ -471,8 +464,15 @@ static bool debug_print_schedule(const ArexDecoSchedule *schedule)
 
 static float pressure_bar_at_depth(const ArexDecoConfig *config, float depth_m)
 {
+    float pressure_bar = AREX_DECO_STANDARD_ATMOSPHERE_BAR;
+    if (config == NULL) return pressure_bar;
     if (depth_m < 0.0f) depth_m = 0.0f;
-    return config->surface_pressure_bar + depth_m / config->meters_per_bar;
+    if (arex_deco_depth_to_pressure_bar(config, depth_m, &pressure_bar) == AREX_DECO_STATUS_OK &&
+        isfinite(pressure_bar))
+    {
+        return pressure_bar;
+    }
+    return config->surface_pressure_bar;
 }
 
 static void fill_pressure_step_input(ArexDecoPressureStepInput *input,
@@ -673,23 +673,18 @@ static uint32_t safety_stop_seconds_from_mode(uint8_t mode, uint8_t *enabled)
     }
 }
 
-static float water_density_from_salinity(uint8_t mode)
+static ArexDecoWaterType water_type_from_salinity(uint8_t mode)
 {
     switch (mode)
     {
     case 2U:
-        return DECO_WATER_DENSITY_EN13319_KG_M3;
+        return AREX_DECO_WATER_EN13319;
     case 1U:
-        return DECO_WATER_DENSITY_SALT_KG_M3;
+        return AREX_DECO_WATER_SALT;
     case 0U:
     default:
-        return DECO_WATER_DENSITY_FRESH_KG_M3;
+        return AREX_DECO_WATER_FRESH;
     }
-}
-
-static float meters_per_bar_from_salinity(uint8_t mode)
-{
-    return DECO_PRESSURE_PA_PER_BAR / (water_density_from_salinity(mode) * DECO_GRAVITY_M_S2);
 }
 
 static void fill_config_from_ui(ArexDecoConfig *config)
@@ -697,15 +692,21 @@ static void fill_config_from_ui(ArexDecoConfig *config)
     uint8_t safety_enabled;
 
     (void)arex_deco_make_default_config(config);
-    config->surface_pressure_bar = AREX_RUNTIME_DEFAULT_SURFACE_MBAR / 1000.0f;
+    (void)arex_deco_config_set_water_type(config, water_type_from_salinity(s_salinity_mode));
     config->gf_low = (float)s_gf_low_pct / 100.0f;
     config->gf_high = (float)s_gf_high_pct / 100.0f;
     config->last_stop_m = (float)s_final_deco_stop_depth_m;
     config->deco_step_m = 3.0f;
-    config->meters_per_bar = meters_per_bar_from_salinity(s_salinity_mode);
     config->safety_stop_seconds = safety_stop_seconds_from_mode(s_safety_stop_mode, &safety_enabled);
     config->safety_stop_enabled = safety_enabled;
     config->gas_switch_penalty_seconds = DECO_GAS_SWITCH_PENALTY_SECONDS;
+    if (arex_deco_validate_config(config) != AREX_DECO_STATUS_OK)
+    {
+        rt_kprintf("[DECO_CORE] invalid UI config, salinity=%u gf=%u/%u\n",
+                   (unsigned)s_salinity_mode,
+                   (unsigned)s_gf_low_pct,
+                   (unsigned)s_gf_high_pct);
+    }
 }
 
 static bool fill_gas_plan_from_ui(const ArexDecoConfig *config, ArexDecoGasPlan *gas_plan)
@@ -936,11 +937,11 @@ static void sync_gas_data(void)
     bus_set_mod(core_mod_depth_for_gas(&s_state.config, active_gas));
 
     float gas_density = 0.0f;
-    float temperature_kelvin = s_temperature_c + DECO_TEMPERATURE_KELVIN_OFFSET;
+    float temperature_kelvin = s_temperature_c + AREX_DECO_CELSIUS_TO_KELVIN_OFFSET;
     if (s_temperature_valid &&
         isfinite(temperature_kelvin) &&
         temperature_kelvin > 0.0f &&
-        arex_deco_calculate_gas_density(&s_state.config, active_gas, s_state.current_depth_m, temperature_kelvin, DECO_GAS_DENSITY_COMPRESSIBILITY_Z, &gas_density) == AREX_DECO_STATUS_OK &&
+        arex_deco_calculate_gas_density(&s_state.config, active_gas, s_state.current_depth_m, temperature_kelvin, AREX_DECO_IDEAL_GAS_COMPRESSIBILITY_Z, &gas_density) == AREX_DECO_STATUS_OK &&
         isfinite(gas_density))
     {
         bus_set_gas_density(gas_density);
@@ -1409,7 +1410,7 @@ void deco_core_tick(float depth_m, float temperature_c, uint32_t delta_time_s)
 {
     ArexDecoDiveState step_state;
     s_temperature_c = temperature_c;
-    s_temperature_valid = isfinite(temperature_c) && temperature_c > -DECO_TEMPERATURE_KELVIN_OFFSET;
+    s_temperature_valid = isfinite(temperature_c) && temperature_c > -AREX_DECO_CELSIUS_TO_KELVIN_OFFSET;
     if (!ensure_initialized()) return;
     if (delta_time_s == 0U) delta_time_s = 1U;
     if (depth_m < 0.0f) depth_m = 0.0f;

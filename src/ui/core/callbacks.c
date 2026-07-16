@@ -287,29 +287,6 @@ void ui_on_last_deco_stop_set(uint8_t depth_m)
 }
 
 WEAK_CALLBACK
-void ui_on_altitude_range_set(uint8_t level)
-{
-    enum { ALTITUDE_LABEL_COUNT = 3 };
-    static const char *metric_labels[] =
-    {
-        "0-300m",
-        "300-1500m",
-        "1500-3000m",
-    };
-    static const char *imperial_labels[] =
-    {
-        "0-980ft",
-        "980-4900ft",
-        "4900-9800ft",
-    };
-    const char **labels = (bus_get_units_mode() == UI_UNITS_IMPERIAL) ? imperial_labels : metric_labels;
-    const char *label = (level < ALTITUDE_LABEL_COUNT) ? labels[level] : "UNKNOWN";
-    bus_set_altitude_level(level);
-    (void)label;
-    UI_CALLBACK_TRACE("[DIVE_SETUP] Altitude: %s\n", label);
-}
-
-WEAK_CALLBACK
 void ui_on_dive_mode_set(uint8_t mode)
 {
     static const char *labels[] = { "AIR", "NITROX", "3 GAS", "OC Tech" };
@@ -649,7 +626,6 @@ void ui_on_reset_defaults(void)
     bus_set_dive_start_depth_m(UI_DIVE_START_DEPTH_DEFAULT_M);
     bus_set_depth_comp_enabled(UI_DEPTH_COMP_DEFAULT_ENABLED != 0U);
     bus_set_depth_comp_m(UI_DEPTH_COMP_DEFAULT_M);
-    bus_set_altitude_level(0U);  /* 默认第一档 */
     bus_set_log_rate(UI_LOG_RATE_DEFAULT_S);
     bus_set_time_24h_enabled(true);
     bus_set_units_mode(UI_UNITS_DEFAULT);
@@ -714,7 +690,6 @@ bool ui_get_persisted_settings_snapshot(ui_persisted_settings_snapshot_t *out_sn
     out_snapshot->last_deco_stop_m = bus_get_last_deco_stop();
     out_snapshot->depth_comp_enabled = bus_get_depth_comp_enabled() ? 1U : 0U;
     out_snapshot->depth_comp_m = bus_get_depth_comp_m();
-    out_snapshot->altitude_level = bus_get_altitude_level();
     out_snapshot->depth_alarm_m = bus_get_depth_alarm_m();
     out_snapshot->time_alarm_min = bus_get_time_alarm_min();
     out_snapshot->ndl_alarm_min = bus_get_ndl_alarm_min();

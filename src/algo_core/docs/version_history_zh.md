@@ -26,6 +26,30 @@
 - smoke test
 - 文档
 
+## 0.0.34
+
+### 摘要
+
+新增环境契约 v1，把水体密度和深度/绝对压力换算收束为 Core 公共定义与唯一实现。
+现有 public struct 的字段、大小和 offset 不变；API patch 升至 `0.0.34`。
+
+### 新增公共定义
+
+- `AREX_DECO_STANDARD_ATMOSPHERE_BAR = 1.01325`
+- `AREX_DECO_STANDARD_GRAVITY_M_PER_S2 = 9.80665`
+- Fresh / EN13319 / Salt 密度分别为 `1000 / 1020 / 1030 kg/m³`
+- `ArexDecoWaterType`、`ArexDecoWaterProperties`
+- 标准水体查询、custom density 的 m/bar 计算、config 水体设置/反查、深度/压力双向换算 API
+- release manifest 记录环境契约版本、环境头 SHA-256 和各平台静态库 SHA-256
+
+### 兼容性
+
+- `ArexDecoConfig`、`ArexDecoDiveState` 和其他既有 ABI 布局不变。
+- 删除无水体语义的 `AREX_DECO_DEFAULT_METERS_PER_BAR = 10.0`；默认配置明确使用
+  `AREX_DECO_DEFAULT_WATER_TYPE = AREX_DECO_WATER_EN13319`，产品配置可通过新 API 覆盖。
+- 标准水面 fallback 为 `1.01325 bar`；本版本不定义海拔档位或海拔换算策略。
+- 默认四段上升速率为 `10/10/10/10 m/min`，并同步修复此前未更新的 L2 fixture。
+
 ## 0.0.33
 
 ### 摘要

@@ -52,8 +52,7 @@ void ui_vm_dive_setup_menu_update(ui_vm_dive_setup_menu_t *vm,
                                   uint8_t surface_confirm_min,
                                   float dive_start_depth_m,
                                   uint8_t depth_comp_enabled,
-                                  float depth_comp_m,
-                                  uint8_t altitude_level);
+                                  float depth_comp_m);
 void ui_vm_dive_context_update(ui_vm_dive_context_t *vm);
 void ui_vm_alerts_menu_update(ui_vm_simple_menu_t *vm,
                               uint16_t depth_alarm_m,

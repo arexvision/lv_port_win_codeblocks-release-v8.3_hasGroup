@@ -146,6 +146,7 @@ void screen_update_setup_badge(uint8_t item_idx, const char *value);
 
 void screen_show_modal_act(const char *action_text);
 void screen_show_modal_setup_confirm(const char *body);
+void screen_show_modal_back_notice(const char *title, const char *body);
 void screen_confirm_submenu_setting(void);
 void screen_cancel_submenu_setting(void);
 

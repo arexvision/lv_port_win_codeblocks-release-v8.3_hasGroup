@@ -45,6 +45,7 @@ static uint16_t s_light_color_preview_hue = 0U;
 static lv_obj_t *s_light_color_title_lbl = NULL;
 static lv_obj_t *s_light_color_progress_lbl = NULL;
 static lv_obj_t *s_light_color_swatch = NULL;
+static lv_obj_t *s_light_color_bar_fill = NULL;
 static lv_obj_t *s_light_color_cursor = NULL;
 static uint8_t s_submenu_selected_idx = 0xFFU;
 
@@ -52,7 +53,6 @@ enum
 {
     LIGHT_COLOR_HUE_MAX = 360U,
     LIGHT_COLOR_HUE_STEP_DEG = 6U,
-    LIGHT_COLOR_BAR_SEGMENTS = 36U,
     LIGHT_COLOR_ROTARY_ROW_INDEX = 0U,
 };
 
@@ -80,13 +80,6 @@ static bool normalize_rotate_steps(int8_t steps, int8_t *out_dir, uint8_t *out_c
 static uint32_t light_rgb_make(uint8_t r, uint8_t g, uint8_t b)
 {
     return (((uint32_t)r) << 16) | (((uint32_t)g) << 8) | (uint32_t)b;
-}
-
-static lv_color_t light_lv_color_from_rgb(uint32_t rgb)
-{
-    return lv_color_make((uint8_t)((rgb >> 16) & 0xFFU),
-                         (uint8_t)((rgb >> 8) & 0xFFU),
-                         (uint8_t)(rgb & 0xFFU));
 }
 
 static uint32_t light_color_rgb_from_hue(uint16_t hue)
@@ -174,6 +167,23 @@ static uint8_t light_color_step_index_from_hue(uint16_t hue)
         step = 0U;
     }
     return (uint8_t)(step + 1U);
+}
+
+static lv_color_t light_color_progress_green(uint8_t step, uint8_t step_count)
+{
+    uint16_t level;
+
+    if (step_count == 0U)
+    {
+        return lv_color_make(0x00, 0xFF, 0x00);
+    }
+
+    level = (uint16_t)(0x40U + (((uint16_t)step * 0xBFU) / step_count));
+    if (level > 0xFFU)
+    {
+        level = 0xFFU;
+    }
+    return lv_color_make(0x00, (uint8_t)level, 0x00);
 }
 
 static bool submenu_current_menu_is_readonly_info(void)
@@ -2654,16 +2664,19 @@ static void light_color_preview_clear_refs(void)
     s_light_color_title_lbl = NULL;
     s_light_color_progress_lbl = NULL;
     s_light_color_swatch = NULL;
+    s_light_color_bar_fill = NULL;
     s_light_color_cursor = NULL;
 }
 
 static void light_color_preview_refresh(void)
 {
-    uint32_t rgb = bus_get_light_rgb();
     uint16_t w = submenu_right_width();
-    uint16_t bar_w = (w > 80U) ? (uint16_t)(w - 80U) : (uint16_t)(w - 24U);
+    uint16_t bar_w = (w > 96U) ? (uint16_t)(w - 96U) : (uint16_t)(w - 24U);
     uint16_t cursor_x;
+    uint16_t fill_w;
     char text[32];
+    const uint8_t step = light_color_step_index_from_hue(s_light_color_preview_hue);
+    const uint8_t step_count = (uint8_t)(LIGHT_COLOR_HUE_MAX / LIGHT_COLOR_HUE_STEP_DEG);
 
     if (s_light_color_title_lbl != NULL)
     {
@@ -2671,37 +2684,47 @@ static void light_color_preview_refresh(void)
     }
     if (s_light_color_progress_lbl != NULL)
     {
-        const uint8_t step = light_color_step_index_from_hue(s_light_color_preview_hue);
-        const uint8_t step_count = (uint8_t)(LIGHT_COLOR_HUE_MAX / LIGHT_COLOR_HUE_STEP_DEG);
         lv_snprintf(text, sizeof(text), "%02u/%02u", (unsigned int)step, (unsigned int)step_count);
         lv_label_set_text(s_light_color_progress_lbl, text);
     }
     if (s_light_color_swatch != NULL)
     {
-        lv_obj_set_style_bg_color(s_light_color_swatch, light_lv_color_from_rgb(rgb), 0);
+        lv_obj_set_style_bg_color(s_light_color_swatch, light_color_progress_green(step, step_count), 0);
+    }
+    if (s_light_color_bar_fill != NULL)
+    {
+        fill_w = (uint16_t)((((uint32_t)step * (uint32_t)bar_w) + (step_count / 2U)) / step_count);
+        if (fill_w < 2U)
+        {
+            fill_w = 2U;
+        }
+        if (fill_w > bar_w)
+        {
+            fill_w = bar_w;
+        }
+        lv_obj_set_width(s_light_color_bar_fill, (lv_coord_t)fill_w);
+        lv_obj_set_style_bg_color(s_light_color_bar_fill, lv_color_make(0x00, 0x55, 0x00), 0);
+        lv_obj_set_style_bg_grad_color(s_light_color_bar_fill, light_color_progress_green(step, step_count), 0);
     }
     if (s_light_color_cursor != NULL)
     {
-        cursor_x = (uint16_t)((((uint32_t)s_light_color_preview_hue * (uint32_t)bar_w) +
-                               (LIGHT_COLOR_HUE_MAX / 2U)) /
-                              LIGHT_COLOR_HUE_MAX);
+        cursor_x = (uint16_t)((((uint32_t)step * (uint32_t)bar_w) + (step_count / 2U)) / step_count);
         if (cursor_x > bar_w)
         {
             cursor_x = bar_w;
         }
-        lv_obj_set_x(s_light_color_cursor, (lv_coord_t)(40 + cursor_x - 2));
+        lv_obj_set_x(s_light_color_cursor, (lv_coord_t)(48 + cursor_x - 2));
     }
 }
 
 static void light_color_preview_draw_page(void)
 {
     const uint16_t w = submenu_right_width();
-    const uint16_t bar_x = 40U;
+    const uint16_t bar_x = 48U;
     const uint16_t bar_y = 190U;
-    const uint16_t bar_w = (w > 80U) ? (uint16_t)(w - 80U) : (uint16_t)(w - 24U);
-    const uint16_t bar_h = 52U;
-    const uint16_t segment_w = (bar_w + LIGHT_COLOR_BAR_SEGMENTS - 1U) / LIGHT_COLOR_BAR_SEGMENTS;
-    uint16_t x = bar_x;
+    const uint16_t bar_w = (w > 96U) ? (uint16_t)(w - 96U) : (uint16_t)(w - 24U);
+    const uint16_t bar_h = 34U;
+    lv_obj_t *bar_bg;
 
     lv_obj_clean(s_submenu_list);
     light_color_preview_clear_refs();
@@ -2742,19 +2765,23 @@ static void light_color_preview_draw_page(void)
                                                24U,
                                                LV_TEXT_ALIGN_CENTER);
 
-    for (uint8_t i = 0U; i < LIGHT_COLOR_BAR_SEGMENTS; i++)
-    {
-        lv_obj_t *seg = lv_obj_create(s_submenu_list);
-        const uint16_t next_x = (uint16_t)(bar_x + (((uint32_t)(i + 1U) * bar_w) / LIGHT_COLOR_BAR_SEGMENTS));
-        const uint16_t hue = (uint16_t)(((uint32_t)i * LIGHT_COLOR_HUE_MAX) / LIGHT_COLOR_BAR_SEGMENTS);
-        lv_obj_remove_style_all(seg);
-        lv_obj_set_pos(seg, x, bar_y);
-        lv_obj_set_size(seg, (lv_coord_t)((next_x > x) ? (next_x - x) : segment_w), bar_h);
-        lv_obj_set_style_bg_color(seg, light_lv_color_from_rgb(light_color_rgb_from_hue(hue)), 0);
-        lv_obj_set_style_bg_opa(seg, LV_OPA_COVER, 0);
-        lv_obj_clear_flag(seg, LV_OBJ_FLAG_SCROLLABLE);
-        x = next_x;
-    }
+    bar_bg = lv_obj_create(s_submenu_list);
+    lv_obj_remove_style_all(bar_bg);
+    lv_obj_set_pos(bar_bg, bar_x, bar_y);
+    lv_obj_set_size(bar_bg, bar_w, bar_h);
+    lv_obj_set_style_bg_color(bar_bg, lv_color_make(0x00, 0x20, 0x00), 0);
+    lv_obj_set_style_bg_opa(bar_bg, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(bar_bg, GREEN, 0);
+    lv_obj_set_style_border_width(bar_bg, 2, 0);
+    lv_obj_clear_flag(bar_bg, LV_OBJ_FLAG_SCROLLABLE);
+
+    s_light_color_bar_fill = lv_obj_create(bar_bg);
+    lv_obj_remove_style_all(s_light_color_bar_fill);
+    lv_obj_set_pos(s_light_color_bar_fill, 2, 2);
+    lv_obj_set_size(s_light_color_bar_fill, 2, (lv_coord_t)(bar_h - 4U));
+    lv_obj_set_style_bg_opa(s_light_color_bar_fill, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_grad_dir(s_light_color_bar_fill, LV_GRAD_DIR_HOR, 0);
+    lv_obj_clear_flag(s_light_color_bar_fill, LV_OBJ_FLAG_SCROLLABLE);
 
     s_light_color_cursor = lv_obj_create(s_submenu_list);
     lv_obj_remove_style_all(s_light_color_cursor);
@@ -3981,6 +4008,10 @@ void screen_handle_submenu_select(uint8_t item_idx)
         break;
     case MENU_ACTION_SHOW_TEXT_MODAL:
         screen_show_modal_act(action.modal_text);
+        break;
+    case MENU_ACTION_SHOW_BACK_NOTICE:
+        screen_show_modal_back_notice("DIVING", action.modal_text);
+        ui_state_set_state(UI_MODAL_DIVE_LOCKED);
         break;
     default:
         break;

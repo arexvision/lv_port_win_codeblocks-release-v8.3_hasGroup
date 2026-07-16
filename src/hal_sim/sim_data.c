@@ -3,6 +3,7 @@
 #include "../ui/core/data.h"
 #include "../ui/core/ui_dirty.h"
 #include "../algo_sim/deco_core.h"
+#include "arex_deco/arex_deco.h"
 #ifndef PC_SIMULATOR
 #define PC_SIMULATOR
 #endif
@@ -13,6 +14,7 @@
 #include "lvgl/lvgl.h"
 
 #include <stdbool.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -46,6 +48,39 @@ static float sim_default_air_mod_m(void)
 {
     float mod_m = bus_calculate_gas_mod(21U, 0U, 1.4f);
     return (mod_m > 0.0f) ? mod_m : 56.0f;
+}
+
+static ArexDecoWaterType sim_water_type_from_salinity(uint8_t mode)
+{
+    switch (mode)
+    {
+    case 2U:
+        return AREX_DECO_WATER_EN13319;
+    case 1U:
+        return AREX_DECO_WATER_SALT;
+    case 0U:
+    default:
+        return AREX_DECO_WATER_FRESH;
+    }
+}
+
+static float sim_pressure_mbar_at_depth(float depth_m)
+{
+    ArexDecoConfig config;
+    float pressure_bar = 0.0f;
+
+    if (depth_m < 0.0f)
+    {
+        depth_m = 0.0f;
+    }
+    if (arex_deco_make_default_config(&config) != AREX_DECO_STATUS_OK ||
+        arex_deco_config_set_water_type(&config, sim_water_type_from_salinity(bus_get_salinity_mode())) != AREX_DECO_STATUS_OK ||
+        arex_deco_depth_to_pressure_bar(&config, depth_m, &pressure_bar) != AREX_DECO_STATUS_OK ||
+        !isfinite(pressure_bar))
+    {
+        return SIM_SURFACE_PRESSURE_MBAR;
+    }
+    return pressure_bar * AREX_DECO_PRESSURE_MBAR_PER_BAR;
 }
 
 typedef enum
@@ -123,8 +158,7 @@ static sim_state_t s_sim = {
 
 static float sim_calc_ppo2(uint8_t o2_pct, float depth_m)
 {
-    float pressure_depth_m = (depth_m > 0.0f) ? depth_m : 0.0f;
-    float pressure_mbar = SIM_SURFACE_PRESSURE_MBAR + (pressure_depth_m / SIM_WATER_METERS_PER_BAR) * 1000.0f;
+    float pressure_mbar = sim_pressure_mbar_at_depth(depth_m);
     return bus_calculate_ppo2_bar(o2_pct, pressure_mbar);
 }
 

@@ -1,13 +1,12 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.33`。
+本文档描述当前 core API。当前 API 版本为 `0.0.34`。
 
-`0.0.33` 是 `0.0.32-alpha1-anchor-first-real` 收敛后的下水对标测试版本。
-设备侧显示为 `0.0.33`，release commit 为
-`cccdea36be8876e6c068702192cee7f2b043d847`，tag 为 `v0.0.33`。本版本继承
-`0.0.32` OTU surface recovery hotfix、first-real GF anchor、压力域 GF release，
-并补入 NDL transition / latent 3 m stop / runtime selector depth-layered promotion
-修正。最终构建 commit 必须通过固件包名、构建 manifest、测试记录和日志目录追溯。
+`0.0.34` 新增版本化环境契约，由 Core 统一定义标准大气压、标准重力、
+Fresh / EN13319 / Salt 水体密度，以及密度、深度和绝对压力之间的换算。
+现有 public struct 的字段、大小和 offset 不变；新增 API 和
+`ArexDecoWaterProperties` 为纯增量导出。最终构建 commit 必须通过固件包名、
+构建 manifest、测试记录和日志目录追溯。
 
 ## 适用场景
 
@@ -22,7 +21,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 33`
+- `AREX_DECO_API_VERSION_PATCH = 34`
 
 固定容量：
 
@@ -34,6 +33,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 常量归类：
 
+- `environment.h`：压力单位、标准大气压、标准重力、标准水体及环境契约版本。
 - `abi_constants.h`：API 版本、固定容量和跨语言 ABI 哨兵。
 - `defaults.h`：默认配置模板、默认气体策略和 runtime selector 默认策略。
 - `model_constants.h`：算法模型固定规则、物理常数、数值容差和安全停留/禁飞/CNS 机制常量。
@@ -42,13 +42,14 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `surface_pressure_bar = 1.01325`
 - `water_vapor_pressure_bar = 0.0627`
-- `meters_per_bar = 10.0`
+- 默认水体为 `AREX_DECO_WATER_EN13319`
+- `meters_per_bar ≈ 9.9972178`
 - `gf_low = 0.50`
 - `gf_high = 0.70`
-- `ascent_rate.rate_75_percent_m_per_min = 9.0`
-- `ascent_rate.rate_50_percent_m_per_min = 9.0`
-- `ascent_rate.rate_stops_m_per_min = 9.0`
-- `ascent_rate.rate_last_6m_m_per_min = 9.0`
+- `ascent_rate.rate_75_percent_m_per_min = 10.0`
+- `ascent_rate.rate_50_percent_m_per_min = 10.0`
+- `ascent_rate.rate_stops_m_per_min = 10.0`
+- `ascent_rate.rate_last_6m_m_per_min = 10.0`
 - `deco_step_m = 3.0`
 - `last_stop_m = 3.0`
 - `safety_stop_enabled = 1`
@@ -61,9 +62,9 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 - `AREX_DECO_SAFETY_STOP_DEPTH_M = 5.0`
 
 core 的实时推进只接受绝对环境压力。`surface_pressure_bar` 和 `meters_per_bar`
-只用于把压力确定性换算成米制深度，供 planner 网格、MOD、显示字段和既有
-depth-based 辅助函数使用；fresh/salt、盐度、水密度来源、传感器标定都属于产品层。
-英制展示由产品层自行从米换算。
+用于把压力确定性换算成米制深度，供 planner 网格、MOD、显示字段和既有
+depth-based 辅助函数使用。Core 定义标准水体的物理口径；实际选择哪个水体、
+传感器标定和英制展示仍属于产品层。
 
 CNS 衰减（0.0.3 起）：
 
@@ -119,7 +120,7 @@ runtime current-stop selector 默认策略（0.0.28 起）：
 | `api_version` | `ArexDecoVersion` | - | API 版本 |
 | `surface_pressure_bar` | `float` | bar | 水面绝对压强 |
 | `water_vapor_pressure_bar` | `float` | bar | 水蒸气压 |
-| `meters_per_bar` | `float` | m/bar | 绝对压强与显示深度的换算比例；core 不推导水体类型 |
+| `meters_per_bar` | `float` | m/bar | 绝对压强与显示深度的换算比例；可由环境 API 按标准水体或 custom density 写入 |
 | `gf_low` | `float` | 0-1 | 低 GF |
 | `gf_high` | `float` | 0-1 | 高 GF，必须大于等于 `gf_low` |
 | `ascent_rate` | `ArexDecoAscentRate` | m/min | 上升速率 profile，按 Subsurface core planner 的四段规则选择速率 |
@@ -490,6 +491,51 @@ ArexDecoVersion arex_deco_get_api_version(void);
 该函数不需要输入参数，也不会返回状态码。集成方可在启动时调用它，并
 与头文件期望版本或交付包 `MANIFEST.txt` 中记录的版本比对；不一致时应
 停止使用该库，避免头文件和静态库来自不同版本导致 ABI 假设失效。
+
+### 环境契约与换算
+
+```c
+ArexDecoStatus arex_deco_calculate_meters_per_bar(
+    float density_kg_per_m3,
+    float* meters_per_bar);
+
+ArexDecoStatus arex_deco_get_water_properties(
+    ArexDecoWaterType water_type,
+    ArexDecoWaterProperties* properties);
+
+ArexDecoStatus arex_deco_config_set_water_type(
+    ArexDecoConfig* config,
+    ArexDecoWaterType water_type);
+
+ArexDecoStatus arex_deco_config_get_water_type(
+    const ArexDecoConfig* config,
+    ArexDecoWaterType* water_type);
+
+ArexDecoStatus arex_deco_depth_to_pressure_bar(
+    const ArexDecoConfig* config,
+    float depth_m,
+    float* pressure_bar);
+
+ArexDecoStatus arex_deco_pressure_bar_to_depth_m(
+    const ArexDecoConfig* config,
+    float pressure_bar,
+    float* depth_m);
+```
+
+标准水体为 `AREX_DECO_WATER_FRESH`（1000 kg/m³）、
+`AREX_DECO_WATER_EN13319`（1020 kg/m³）和
+`AREX_DECO_WATER_SALT`（1030 kg/m³）。`meters_per_bar` 使用
+`100000 / (density * 9.80665)` 计算。`config_set_water_type()` 只更新
+`config.meters_per_bar`，不修改 GF、水面压力或其他配置。反向查询使用环境契约中的
+`AREX_DECO_WATER_METERS_PER_BAR_MATCH_TOLERANCE`；custom density 不会被误报为标准水体。
+
+深度转压力要求非负有限深度；压力转深度要求正有限绝对压力。压力不高于水面压力
+时输出 0 m。所有函数在参数无效时返回 `AREX_DECO_STATUS_INVALID_ARGUMENT`，
+且不覆盖调用方输出。
+
+`arex_deco_make_default_config()` 明确使用 `AREX_DECO_DEFAULT_WATER_TYPE`，当前为
+EN13319。产品集成仍应根据用户设置显式调用 `arex_deco_config_set_water_type()`。
+Core 不再提供无水体语义的 `10.0 m/bar` 默认常量。
 
 ### `arex_deco_make_default_config`
 

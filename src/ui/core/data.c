@@ -2123,15 +2123,6 @@ void bus_set_depth_comp_m(float depth_m)
     }
 }
 
-void bus_set_altitude_level(uint8_t level)
-{
-    if (g_sys_config.altitude_level != level)
-    {
-        g_sys_config.altitude_level = level;
-        bus_mark_dirty(DIRTY_DIVE_CONFIG);
-    }
-}
-
 void bus_set_depth_alarm_m(uint16_t depth_m)
 {
     if (g_sys_config.depth_alarm_m != depth_m)
@@ -3163,11 +3154,6 @@ float bus_get_deco_input_depth_m(float raw_depth_m)
 {
     float depth_m = (raw_depth_m > 0.0f) ? raw_depth_m : 0.0f;
     return bus_get_depth_comp_enabled() ? (depth_m + bus_get_depth_comp_m()) : depth_m;
-}
-
-uint8_t bus_get_altitude_level(void)
-{
-    return g_sys_config.altitude_level;
 }
 
 uint16_t bus_get_depth_alarm_m(void)

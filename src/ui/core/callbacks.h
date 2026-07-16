@@ -46,7 +46,6 @@ typedef struct
     uint8_t salinity_mode;
     uint8_t safety_stop_mode;
     uint8_t last_deco_stop_m;
-    uint8_t altitude_level;
     uint16_t depth_alarm_m;
     uint16_t time_alarm_min;
     uint16_t ndl_alarm_min;
@@ -115,7 +114,6 @@ void ui_on_dive_start_depth_set(float depth_m);
 void ui_on_depth_comp_enabled_set(bool enabled);
 void ui_on_depth_comp_value_set(float depth_m);
 void ui_on_last_deco_stop_set(uint8_t depth_m);
-void ui_on_altitude_range_set(uint8_t level);
 void ui_on_dive_mode_set(uint8_t mode);
 void ui_on_gas_profile_commit(void);
 float ui_calculate_gas_mod(uint8_t o2_pct, uint8_t he_pct, float max_ppo2);

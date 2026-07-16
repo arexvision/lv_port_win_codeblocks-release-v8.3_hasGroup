@@ -138,6 +138,17 @@ void screen_show_modal_setup_confirm(const char *body)
     lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
 }
 
+void screen_show_modal_back_notice(const char *title, const char *body)
+{
+    /* 只有 BACK 的提示框用于阻止当前状态下不可执行的设置。 */
+    if (!s_modal)
+    {
+        return;
+    }
+    modal_set_content(title ? title : "NOTICE", body ? body : "", "[ BACK ]");
+    lv_obj_clear_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
+}
+
 void screen_show_modal_gas(void)
 {
     /* 气体弹窗内容完全由 VM 提供，view 层只负责显示。 */

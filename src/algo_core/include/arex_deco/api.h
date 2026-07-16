@@ -9,6 +9,26 @@ extern "C" {
 #endif
 
 ArexDecoStatus arex_deco_make_default_config(ArexDecoConfig* config);
+ArexDecoStatus arex_deco_calculate_meters_per_bar(
+    float density_kg_per_m3,
+    float* meters_per_bar);
+ArexDecoStatus arex_deco_get_water_properties(
+    ArexDecoWaterType water_type,
+    ArexDecoWaterProperties* properties);
+ArexDecoStatus arex_deco_config_set_water_type(
+    ArexDecoConfig* config,
+    ArexDecoWaterType water_type);
+ArexDecoStatus arex_deco_config_get_water_type(
+    const ArexDecoConfig* config,
+    ArexDecoWaterType* water_type);
+ArexDecoStatus arex_deco_depth_to_pressure_bar(
+    const ArexDecoConfig* config,
+    float depth_m,
+    float* pressure_bar);
+ArexDecoStatus arex_deco_pressure_bar_to_depth_m(
+    const ArexDecoConfig* config,
+    float pressure_bar,
+    float* depth_m);
 ArexDecoStatus arex_deco_make_default_air_gas(const ArexDecoConfig* config, ArexDecoGas* gas);
 ArexDecoStatus arex_deco_make_default_gas_plan(const ArexDecoConfig* config, ArexDecoGasPlan* gas_plan);
 ArexDecoStatus arex_deco_reset_tissue_to_surface(

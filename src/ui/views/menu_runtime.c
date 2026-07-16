@@ -385,7 +385,6 @@ static void build_rows(void)
         ids[n++] = MENU_ITEM_DIVE_DEPTH_COMP;
         if (bus_get_depth_comp_enabled()) ids[n++] = MENU_ITEM_DIVE_DEPTH_COMP_VALUE;
         ids[n++] = MENU_ITEM_DIVE_TISSUE_RESET;
-        ids[n++] = MENU_ITEM_DIVE_ALTITUDE;
         build_nested_by_title("DIVE SETUP", ids, NULL);
         break;
     }

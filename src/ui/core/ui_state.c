@@ -47,6 +47,7 @@ static uint8_t s_pending_dash_page = 0xFFU;
 static uint32_t s_pending_dash_due_ms = 0U;
 static uint32_t s_last_dash_commit_ms = 0U;
 static uint32_t s_last_click_ms = 0U;
+static ui_state_t s_turn_off_modal_return_state = UI_SETUP;
 
 #if UI_CLICK_PROFILE_ENABLED
 extern void rt_kprintf(const char *fmt, ...);
@@ -161,6 +162,7 @@ void ui_state_init(void)
     s_pending_dash_due_ms = 0U;
     s_last_dash_commit_ms = 0U;
     s_last_click_ms = 0U;
+    s_turn_off_modal_return_state = UI_SETUP;
 }
 
 /* =========================================
@@ -659,6 +661,13 @@ void ui_handle_rotate_steps(int8_t steps)
     (void)ui_handle_rotate_steps_ex(steps);
 }
 
+static void ui_open_turn_off_confirm(ui_state_t return_state)
+{
+    s_turn_off_modal_return_state = return_state;
+    s_ui.state = UI_MODAL_TURN_OFF;
+    screen_show_modal_setup_confirm("TURN OFF\nCONFIRM SLEEP");
+}
+
 /* =========================================
    Click handler
    ========================================= */
@@ -871,6 +880,10 @@ void ui_handle_click(void)
         screen_refresh_left_panel();
         break;
 
+    case UI_MODAL_DIVE_LOCKED:
+        screen_pulse_modal();
+        break;
+
     case UI_MODAL_SETUP_CONFIRM:
         screen_confirm_submenu_setting();
         break;
@@ -910,8 +923,7 @@ void ui_handle_click(void)
         }
         if (setup_menu == MENU_SETUP_TURN_OFF)
         {
-            s_ui.state = UI_MODAL_TURN_OFF;
-            screen_show_modal_setup_confirm("TURN OFF\nCONFIRM SLEEP");
+            ui_open_turn_off_confirm(UI_SETUP);
             break;
         }
         screen_open_setup_submenu(s_ui.menu_setup_idx);
@@ -993,6 +1005,7 @@ void ui_handle_back(void)
 
     case UI_MODAL_COMPASS:
     case UI_MODAL_ACT:
+    case UI_MODAL_DIVE_LOCKED:
         screen_hide_modal();
         if (s_ui.sub_item_count > 0)
         {
@@ -1009,17 +1022,25 @@ void ui_handle_back(void)
         break;
 
     case UI_MODAL_END_DIVE:
+        screen_hide_modal();
+        s_ui.state = UI_MENU_ENTRY;
+        menu_entry_set_selection(s_ui.menu_entry_idx);
+        break;
+
     case UI_MODAL_TURN_OFF:
         screen_hide_modal();
-        if (s_ui.state == UI_MODAL_END_DIVE)
+        s_ui.state = s_turn_off_modal_return_state;
+        if (s_ui.state == UI_SETUP)
         {
-            s_ui.state = UI_MENU_ENTRY;
+            screen_set_setup_selection(s_ui.menu_setup_idx);
+        }
+        else if (s_ui.state == UI_MENU_ENTRY)
+        {
             menu_entry_set_selection(s_ui.menu_entry_idx);
         }
-        else
+        else if (s_ui.state == UI_SUB_MENU)
         {
-            s_ui.state = UI_SETUP;
-            screen_set_setup_selection(s_ui.menu_setup_idx);
+            screen_set_submenu_selection(s_ui.sub_menu_idx);
         }
         break;
 
@@ -1054,6 +1075,15 @@ void ui_handle_back(void)
     default:
         break;
     }
+}
+
+void ui_show_turn_off_confirm(void)
+{
+    ui_flush_pending_dash_page();
+    screen_hide_walls_snap();
+    screen_hide_modal();
+    s_ui.wall_charge = 0U;
+    ui_open_turn_off_confirm(s_ui.state);
 }
 
 /* =========================================

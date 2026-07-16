@@ -40,6 +40,7 @@ typedef enum
     UI_MODAL_END_DIVE = 11, /* confirm manual dive end from MENU HUB */
     UI_MODAL_TURN_OFF = 12, /* confirm device sleep/power off */
     UI_EDIT_LIGHT_COLOR = 13, /* live light color preview before confirm */
+    UI_MODAL_DIVE_LOCKED = 14, /* BACK-only notice for locked dive settings */
 } ui_state_t;
 
 /* Sub-menu history entry */
@@ -157,6 +158,7 @@ bool ui_rotate_steps_can_coalesce(void);
 
 void ui_handle_click(void);
 void ui_handle_back(void);
+void ui_show_turn_off_confirm(void);
 void ui_state_poll_deferred_navigation(void);
 bool ui_state_dash_navigation_pending(void);
 

@@ -17,6 +17,7 @@
 
 static submenu_setting_confirm_t s_pending_setting;
 static const char *kTissueResetUnavailableText = "TISSUE RESET\nNOT AVAILABLE\nUNDERWATER";
+static const char *kDiveSettingsLockedText = "DIVE IN PROGRESS\nSETTING LOCKED";
 
 /* 清空 action 输出，避免 view 误执行上一次残留动作。 */
 static void action_clear(menu_action_t *action)
@@ -61,9 +62,6 @@ static void dispatch_setting_callback(const submenu_setting_confirm_t *setting)
         break;
     case SUBMENU_SETTING_DEPTH_COMP_ENABLED:
         ui_on_depth_comp_enabled_set(setting->value != 0U);
-        break;
-    case SUBMENU_SETTING_ALTITUDE:
-        ui_on_altitude_range_set((uint8_t)setting->value);
         break;
     case SUBMENU_SETTING_AI_PAIR:
         ui_on_ai_pair((uint8_t)setting->value);
@@ -172,6 +170,59 @@ static bool tissue_reset_unavailable_underwater(void)
      * confirmed surface, do not even show the destructive confirmation dialog.
      */
     return bus_get_dive_lifecycle_phase() != DIVE_LIFECYCLE_SURFACE_CONFIRMED;
+}
+
+static bool dive_setting_locked_underwater(void)
+{
+    return bus_get_dive_lifecycle_phase() != DIVE_LIFECYCLE_SURFACE_CONFIRMED;
+}
+
+static bool is_dive_setting_locked_item(menu_item_id_t id)
+{
+    switch (id)
+    {
+    case MENU_ITEM_SETUP_CONSERVATISM:
+    case MENU_ITEM_SYSTEM_MODE_SETUP:
+    case MENU_ITEM_SYSTEM_DIVE_SETUP:
+    case MENU_ITEM_CONSERVATISM_LOW:
+    case MENU_ITEM_CONSERVATISM_MED:
+    case MENU_ITEM_CONSERVATISM_HIGH:
+    case MENU_ITEM_CONSERVATISM_CUSTOM:
+    case MENU_ITEM_MODE_AIR:
+    case MENU_ITEM_MODE_NITROX:
+    case MENU_ITEM_MODE_THREE_GAS:
+    case MENU_ITEM_MODE_OC_TECH:
+    case MENU_ITEM_NITROX_O2:
+    case MENU_ITEM_NITROX_CONFIRM:
+    case MENU_ITEM_THREE_GAS_O2_0:
+    case MENU_ITEM_THREE_GAS_O2_1:
+    case MENU_ITEM_THREE_GAS_O2_2:
+    case MENU_ITEM_THREE_GAS_CONFIRM:
+    case MENU_ITEM_OC_TECH_SLOT_0:
+    case MENU_ITEM_OC_TECH_SLOT_1:
+    case MENU_ITEM_OC_TECH_SLOT_2:
+    case MENU_ITEM_OC_TECH_SLOT_3:
+    case MENU_ITEM_OC_TECH_SLOT_4:
+    case MENU_ITEM_OC_TECH_CONFIRM:
+    case MENU_ITEM_OC_TECH_EDIT_O2:
+    case MENU_ITEM_OC_TECH_EDIT_HE:
+    case MENU_ITEM_GAS_EDIT_PPO2:
+    case MENU_ITEM_GAS_EDIT_MOD:
+    case MENU_ITEM_GAS_EDIT_ACTIVE:
+    case MENU_ITEM_OC_TECH_EDIT_SAVE:
+    case MENU_ITEM_DIVE_SALINITY:
+    case MENU_ITEM_DIVE_MOD_PPO2:
+    case MENU_ITEM_DIVE_SAFETY_STOP:
+    case MENU_ITEM_DIVE_LAST_DECO:
+    case MENU_ITEM_DIVE_TISSUE_RESET:
+    case MENU_ITEM_DIVE_SURFACE_CONFIRM:
+    case MENU_ITEM_DIVE_START_DEPTH:
+    case MENU_ITEM_DIVE_DEPTH_COMP:
+    case MENU_ITEM_DIVE_DEPTH_COMP_VALUE:
+        return true;
+    default:
+        return false;
+    }
 }
 
 static bool edit_spec_for_row(uint8_t row_index,
@@ -360,6 +411,13 @@ bool menu_actions_handle_select(uint8_t row_index,
 
     if (row->type == MENU_ROW_READONLY || menu_defs_is_readonly_menu(menu_runtime_current_id()))
     {
+        return true;
+    }
+
+    if (dive_setting_locked_underwater() && is_dive_setting_locked_item(row->id))
+    {
+        out_action->type = MENU_ACTION_SHOW_BACK_NOTICE;
+        out_action->modal_text = kDiveSettingsLockedText;
         return true;
     }
 

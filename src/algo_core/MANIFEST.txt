@@ -1,9 +1,11 @@
 arex-deco-core release bundle
-API version: 0.0.33
-Source commit: 3cd7547abfc588736c892e4f400bc6d77cb314f1
+API version: 0.0.34
+Environment contract version: 1
+Environment header SHA-256: 22320931fcca5d518def15de12f7b4a6ce2525ac0bda19d834ac11793a7ee2df
+Source commit: 5fb4fd23b6444e267675c21dad3a24925c7aee55
 Source dirty: no
 Build host: Linux 6.17.0-22-generic x86_64
-Built at: 2026-07-08T13:53:03Z
+Built at: 2026-07-16T05:54:58Z
 Platforms: sf32, mingw64
 
 Archive layout:
@@ -16,3 +18,7 @@ Archive layout:
 Platform toolchains:
   sf32: arm-none-eabi-gcc, SF32LB52X, cortex-m33 + fpv5-sp-d16 hard float
   mingw64: x86_64-w64-mingw32-g++, Windows x86_64 COFF static archive
+
+Library SHA-256:
+  sf32: 6950bb43d21f51de8950294d97514e4c44da85d579746443b384167dc9e0c85a
+  mingw64: 0bf5aaa492609eafcea8b8f8ec7fa3c346adbb411c8be40d1dd4f25f23aaaa6d

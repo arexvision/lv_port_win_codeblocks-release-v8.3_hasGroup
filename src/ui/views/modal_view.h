@@ -20,6 +20,7 @@ void modal_view_create(lv_obj_t *parent, uint16_t width, uint16_t height);
 
 void screen_show_modal_act(const char *action_text);
 void screen_show_modal_setup_confirm(const char *body);
+void screen_show_modal_back_notice(const char *title, const char *body);
 void screen_show_modal_gas(void);
 void screen_show_modal_compass(void);
 void screen_pulse_modal(void);

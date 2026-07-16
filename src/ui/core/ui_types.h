@@ -82,7 +82,6 @@ typedef struct
     uint8_t date_format;
     uint8_t temperature_unit;
     uint8_t safety_stop_mode;
-    uint8_t altitude_level;
     uint16_t depth_alarm_m;
     uint16_t time_alarm_min;
     uint16_t ndl_alarm_min;
