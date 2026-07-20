@@ -621,17 +621,42 @@ static bool debug_parse_u16_auto(const char *text, uint16_t *out)
     return true;
 }
 
-static void debug_apply_compass_cal(compass_cal_ui_state_t state,
+static bool debug_apply_compass_cal(compass_cal_ui_state_t state,
                                     uint8_t progress_pct,
                                     compass_cal_hint_t hint,
                                     uint16_t coverage_mask,
                                     uint8_t coverage_bins)
 {
-    set_compass_calibration_ui_state(state);
-    set_compass_calibration_progress(progress_pct);
-    set_compass_calibration_hint(hint);
-    set_compass_calibration_coverage(coverage_mask, coverage_bins);
+#if defined(UI_STATE_COMPASS_CALIBRATION_SNAPSHOT_API)
+    static uint32_t s_compass_cal_tcp_session_id = 1U;
+    compass_cal_ui_snapshot_t snapshot;
+
+    if (state == COMPASS_CAL_IDLE)
+    {
+        s_compass_cal_tcp_session_id++;
+        if (s_compass_cal_tcp_session_id == 0U)
+        {
+            s_compass_cal_tcp_session_id = 1U;
+        }
+    }
+
+    snapshot.session_id = s_compass_cal_tcp_session_id;
+    snapshot.state = state;
+    snapshot.progress_pct = progress_pct;
+    snapshot.hint = hint;
+    snapshot.coverage_mask = coverage_mask;
+    snapshot.coverage_bins = coverage_bins;
+    set_compass_calibration_snapshot(&snapshot);
     debug_compass_repaint();
+    return true;
+#else
+    (void)state;
+    (void)progress_pct;
+    (void)hint;
+    (void)coverage_mask;
+    (void)coverage_bins;
+    return false;
+#endif
 }
 
 static void debug_depth_goto_cancel(void)
@@ -2057,7 +2082,11 @@ static void debug_exec_line(char *line)
             coverage_mask = 0U;
             coverage_bins = 0U;
         }
-        debug_apply_compass_cal(state, progress, hint, coverage_mask, coverage_bins);
+        if (!debug_apply_compass_cal(state, progress, hint, coverage_mask, coverage_bins))
+        {
+            debug_send_raw("ERR compass_cal unavailable: ui_state snapshot write API missing\r\n");
+            return;
+        }
         debug_sendf("OK compass_cal %s progress=%u hint=%s coverage=%04x bins=%u\r\n",
                     debug_compass_cal_state_name(state),
                     (unsigned)progress,

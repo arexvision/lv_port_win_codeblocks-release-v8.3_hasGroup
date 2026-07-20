@@ -20,6 +20,8 @@ extern "C" {
 #define ENABLE_INFO_MENU 1
 #endif
 
+#define UI_STATE_COMPASS_CALIBRATION_SNAPSHOT_API 1
+
 /* =========================================
    UI State Machine — mirrors HTML STATE obj
    ========================================= */
