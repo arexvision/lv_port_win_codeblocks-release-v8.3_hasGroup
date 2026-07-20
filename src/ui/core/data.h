@@ -400,6 +400,7 @@ bool bus_is_heading_locked(void);
 uint16_t bus_get_heading(void);
 bool bus_get_heading_available(void);
 uint16_t bus_get_heading_target(void);
+bool bus_lock_heading(uint16_t heading);
 bool bus_lock_heading_to_current(void);
 void bus_clear_heading_lock(void);
 

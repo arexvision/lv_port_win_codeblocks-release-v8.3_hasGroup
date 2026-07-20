@@ -1336,6 +1336,19 @@ void screen_refresh_compass_target(void)
     if (c && c->update_cb) c->update_cb();
 }
 
+uint16_t screen_get_compass_display_heading(void)
+{
+    /*
+     * 用户标记的是眼前看到的航向。UI 补帧期间显示角可能与最新传感器角有
+     * 短暂差值，若保存后者，目标游标会在按下瞬间偏离中心。
+     */
+    if (card_compass_display_heading_available())
+    {
+        return card_compass_display_heading_deg();
+    }
+    return bus_get_heading();
+}
+
 void screen_refresh_gas_menu(void)
 {
     page_t *c = page_get_by_id(PAGE_ID_GAS);

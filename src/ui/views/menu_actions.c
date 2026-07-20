@@ -219,6 +219,7 @@ static bool is_dive_setting_locked_item(menu_item_id_t id)
     case MENU_ITEM_DIVE_START_DEPTH:
     case MENU_ITEM_DIVE_DEPTH_COMP:
     case MENU_ITEM_DIVE_DEPTH_COMP_VALUE:
+    case MENU_ITEM_DISPLAY_LOG_RATE:
         return true;
     default:
         return false;
@@ -300,7 +301,6 @@ static bool handle_compass(menu_item_id_t id, menu_action_t *action)
     if (id == MENU_ITEM_COMPASS_CAL_START)
     {
         request_compass_calibration_start();
-        set_compass_calibration_ui_state(COMPASS_CAL_RUNNING);
         screen_refresh_setup_menu();
         action->type = MENU_ACTION_REFRESH;
         return true;
@@ -308,7 +308,6 @@ static bool handle_compass(menu_item_id_t id, menu_action_t *action)
     if (id == MENU_ITEM_COMPASS_CAL_RESET)
     {
         request_compass_calibration_reset();
-        set_compass_calibration_ui_state(COMPASS_CAL_IDLE);
         screen_refresh_setup_menu();
         action->type = MENU_ACTION_REFRESH;
         return true;

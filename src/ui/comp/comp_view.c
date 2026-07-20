@@ -59,16 +59,20 @@ LV_IMG_DECLARE(sudo_down_level6);
 #define COMPASS_WIDGET_ANIM_REVERSAL_EPS_DEG 0.35f
 #define COMPASS_WIDGET_PREDICT_SAMPLE_MIN_MS 12U
 #define COMPASS_WIDGET_PREDICT_SAMPLE_MAX_MS 320U
-#define COMPASS_WIDGET_PREDICT_HOLD_MS       120U
-#define COMPASS_WIDGET_PREDICT_MAX_AHEAD_DEG 2.5f
+#define COMPASS_WIDGET_PREDICT_HOLD_MS       180U
+#define COMPASS_WIDGET_PREDICT_MAX_AHEAD_DEG 1.5f
 #define COMPASS_WIDGET_PREDICT_SPEED_ALPHA   0.38f
 #define COMPASS_WIDGET_PREDICT_MAX_DPS       260.0f
-#define COMPASS_WIDGET_PREDICT_SAME_DECAY    0.55f
 #define COMPASS_WIDGET_PREDICT_REV_GAIN      0.25f
 #define COMPASS_WIDGET_TARGET_BACKSTEP_DEG   8.0f
 #define COMPASS_WIDGET_TARGET_RELEASE_DEG    7.0f
 #define COMPASS_WIDGET_TARGET_RELEASE_MS     32U
 #define COMPASS_WIDGET_TARGET_TREND_MIN_DPS  70.0f
+#define COMPASS_WIDGET_STILL_SPEED_MAX_DPS   12.0f
+#define COMPASS_WIDGET_LARGE_JUMP_DEG        45.0f
+#define COMPASS_WIDGET_LARGE_JUMP_MATCH_DEG  12.0f
+#define COMPASS_WIDGET_LARGE_JUMP_MOVE_DEG   3.0f
+#define COMPASS_WIDGET_LARGE_JUMP_CONFIRM_MS 220U
 #define TISSUE_LEAD_COUNT          16U
 #define TISSUE_LEAD_BLINK_MS       450U
 #define TISSUE_CHART_PAMB_PERMILLE 400
@@ -265,13 +269,18 @@ static float s_compass_display_target_deg;
 static float s_compass_display_velocity_dps;
 static float s_compass_display_pending_target_deg;
 static float s_compass_display_pending_delta_deg;
+static float s_compass_display_large_jump_target_deg;
+static float s_compass_display_large_jump_delta_deg;
 static uint32_t s_compass_display_target_tick;
 static uint32_t s_compass_display_pending_target_tick;
+static uint32_t s_compass_display_large_jump_tick;
 static uint8_t s_compass_display_pending_target_count;
 static bool s_compass_display_target_valid;
 static bool s_compass_display_seeded;
 static bool s_compass_display_pending_target_valid;
+static bool s_compass_display_large_jump_valid;
 static bool s_compass_heading_available;
+static bool s_compass_has_valid_heading;
 static bool s_compass_unavailable_drawn;
 static uint16_t s_compass_display_heading_text = 0xFFFFU;
 /* 1612 深度大卡使用“整数+小数”两个 label，句柄池按双句柄上限预留。 */
@@ -453,12 +462,16 @@ static void compass_widget_display_seed(uint16_t heading)
     s_compass_display_velocity_dps = 0.0f;
     s_compass_display_pending_target_deg = 0.0f;
     s_compass_display_pending_delta_deg = 0.0f;
+    s_compass_display_large_jump_target_deg = 0.0f;
+    s_compass_display_large_jump_delta_deg = 0.0f;
     s_compass_display_target_tick = lv_tick_get();
     s_compass_display_pending_target_tick = 0U;
+    s_compass_display_large_jump_tick = 0U;
     s_compass_display_pending_target_count = 0U;
     s_compass_display_target_valid = true;
     s_compass_display_seeded = true;
     s_compass_display_pending_target_valid = false;
+    s_compass_display_large_jump_valid = false;
     s_compass_display_heading_text = 0xFFFFU;
 }
 
@@ -469,6 +482,72 @@ static void compass_widget_display_clear_pending_target(void)
     s_compass_display_pending_target_tick = 0U;
     s_compass_display_pending_target_deg = 0.0f;
     s_compass_display_pending_delta_deg = 0.0f;
+}
+
+static void compass_widget_display_clear_large_jump(void)
+{
+    s_compass_display_large_jump_valid = false;
+    s_compass_display_large_jump_target_deg = 0.0f;
+    s_compass_display_large_jump_delta_deg = 0.0f;
+    s_compass_display_large_jump_tick = 0U;
+}
+
+/* 通用罗盘组件与主罗盘卡片共用静止单帧大跳确认策略。 */
+static bool compass_widget_display_hold_unconfirmed_large_jump(float new_target,
+                                                               float delta,
+                                                               uint32_t now_tick)
+{
+    float pending_move;
+    bool continues_turn;
+
+    if ((fabsf(s_compass_display_velocity_dps) > COMPASS_WIDGET_STILL_SPEED_MAX_DPS) ||
+        (fabsf(delta) < COMPASS_WIDGET_LARGE_JUMP_DEG))
+    {
+        compass_widget_display_clear_large_jump();
+        return false;
+    }
+
+    if (!s_compass_display_large_jump_valid)
+    {
+        s_compass_display_large_jump_target_deg = new_target;
+        s_compass_display_large_jump_delta_deg = delta;
+        s_compass_display_large_jump_tick = now_tick;
+        s_compass_display_large_jump_valid = true;
+        return true;
+    }
+
+    pending_move = compass_widget_shortest_delta_float(
+        s_compass_display_large_jump_target_deg,
+        new_target);
+    continues_turn =
+        ((s_compass_display_large_jump_delta_deg > 0.0f) &&
+         (delta > 0.0f) &&
+         (pending_move >= COMPASS_WIDGET_LARGE_JUMP_MOVE_DEG)) ||
+        ((s_compass_display_large_jump_delta_deg < 0.0f) &&
+         (delta < 0.0f) &&
+         (pending_move <= -COMPASS_WIDGET_LARGE_JUMP_MOVE_DEG));
+    if (continues_turn)
+    {
+        compass_widget_display_clear_large_jump();
+        return false;
+    }
+
+    if (fabsf(pending_move) > COMPASS_WIDGET_LARGE_JUMP_MATCH_DEG)
+    {
+        s_compass_display_large_jump_target_deg = new_target;
+        s_compass_display_large_jump_delta_deg = delta;
+        s_compass_display_large_jump_tick = now_tick;
+        return true;
+    }
+
+    if ((now_tick - s_compass_display_large_jump_tick) <
+        COMPASS_WIDGET_LARGE_JUMP_CONFIRM_MS)
+    {
+        return true;
+    }
+
+    compass_widget_display_clear_large_jump();
+    return false;
 }
 
 static void compass_widget_display_decay_velocity(float factor)
@@ -585,8 +664,13 @@ static void compass_widget_display_note_target(uint16_t heading)
     if (fabsf(delta) <= 0.01f)
     {
         compass_widget_display_clear_pending_target();
-        compass_widget_display_decay_velocity(COMPASS_WIDGET_PREDICT_SAME_DECAY);
-        s_compass_display_target_tick = now_tick;
+        compass_widget_display_clear_large_jump();
+        /* 重复 UI 刷新不是新航向样本，保留真实目标时间供样本间补帧。 */
+        return;
+    }
+
+    if (compass_widget_display_hold_unconfirmed_large_jump(new_target, delta, now_tick))
+    {
         return;
     }
 
@@ -635,6 +719,7 @@ static float compass_widget_display_predict_target(void)
     uint32_t now_tick = lv_tick_get();
     uint32_t dt_ms;
     float ahead;
+    float decay = 1.0f;
 
     if (!s_compass_display_target_valid)
     {
@@ -644,9 +729,17 @@ static float compass_widget_display_predict_target(void)
     compass_widget_display_release_stale_pending_target(now_tick);
 
     dt_ms = now_tick - s_compass_display_target_tick;
+    if (dt_ms >= COMPASS_WIDGET_PREDICT_SAMPLE_MAX_MS)
+    {
+        s_compass_display_velocity_dps = 0.0f;
+        return s_compass_display_target_deg;
+    }
+
     if (dt_ms > COMPASS_WIDGET_PREDICT_HOLD_MS)
     {
-        return s_compass_display_target_deg;
+        decay = (float)(COMPASS_WIDGET_PREDICT_SAMPLE_MAX_MS - dt_ms) /
+                (float)(COMPASS_WIDGET_PREDICT_SAMPLE_MAX_MS - COMPASS_WIDGET_PREDICT_HOLD_MS);
+        dt_ms = COMPASS_WIDGET_PREDICT_HOLD_MS;
     }
 
     ahead = s_compass_display_velocity_dps * (float)dt_ms / 1000.0f;
@@ -658,6 +751,7 @@ static float compass_widget_display_predict_target(void)
     {
         ahead = -COMPASS_WIDGET_PREDICT_MAX_AHEAD_DEG;
     }
+    ahead *= decay;
 
     return compass_widget_normalize_heading_float(s_compass_display_target_deg + ahead);
 }
@@ -839,6 +933,7 @@ void comp_refresh_heading_text_widgets(void)
 static void compass_widget_anim_timer_cb(lv_timer_t *timer)
 {
     bool stepped;
+    bool had_valid_heading;
 
     (void)timer;
 
@@ -847,7 +942,17 @@ static void compass_widget_anim_timer_cb(lv_timer_t *timer)
         return;
     }
 
+    had_valid_heading = s_compass_has_valid_heading;
     s_compass_heading_available = bus_get_heading_available();
+    if (s_compass_heading_available && !had_valid_heading)
+    {
+        s_compass_has_valid_heading = true;
+        s_compass_unavailable_drawn = false;
+        compass_widget_display_seed(bus_get_heading());
+        comp_refresh_heading_text_widgets();
+        compass_widget_refresh_dials();
+        return;
+    }
     if (!s_compass_heading_available)
     {
         /*
@@ -862,6 +967,7 @@ static void compass_widget_anim_timer_cb(lv_timer_t *timer)
         if (!s_compass_unavailable_drawn)
         {
             compass_widget_display_clear_pending_target();
+            compass_widget_display_clear_large_jump();
             s_compass_display_target_valid = false;
             s_compass_display_velocity_dps = 0.0f;
             s_compass_display_last_step_deg = 0.0f;
@@ -1565,6 +1671,8 @@ void reset_widget_render_state(void)
     s_compass_handle_count = 0;
     s_compass_unavailable_drawn = false;
     s_compass_heading_available = false;
+    s_compass_has_valid_heading = false;
+    compass_widget_display_clear_large_jump();
     memset(s_depth_unit_labels, 0, sizeof(s_depth_unit_labels));
     s_depth_unit_label_count = 0;
     comp_value_handle_reset();
@@ -2484,7 +2592,10 @@ lv_obj_t *render_widget_by_id(lv_obj_t *parent,
 
 void comp_refresh_compass_widgets(void)
 {
+    bool had_valid_heading;
+
     compass_widget_anim_timer_ensure();
+    had_valid_heading = s_compass_has_valid_heading;
     s_compass_heading_available = bus_get_heading_available();
     if (!s_compass_heading_available)
     {
@@ -2495,6 +2606,7 @@ void comp_refresh_compass_widgets(void)
         if (!s_compass_unavailable_drawn)
         {
             compass_widget_display_clear_pending_target();
+            compass_widget_display_clear_large_jump();
             s_compass_display_target_valid = false;
             s_compass_display_velocity_dps = 0.0f;
             s_compass_display_last_step_deg = 0.0f;
@@ -2502,6 +2614,16 @@ void comp_refresh_compass_widgets(void)
             compass_widget_refresh_dials();
             s_compass_unavailable_drawn = true;
         }
+        return;
+    }
+
+    if (!had_valid_heading)
+    {
+        s_compass_has_valid_heading = true;
+        s_compass_unavailable_drawn = false;
+        compass_widget_display_seed(bus_get_heading());
+        comp_refresh_heading_text_widgets();
+        compass_widget_refresh_dials();
         return;
     }
 

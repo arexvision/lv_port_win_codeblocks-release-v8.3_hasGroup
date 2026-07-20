@@ -48,7 +48,11 @@ typedef struct ArexDecoConfig {
     uint32_t safety_stop_seconds;
     uint32_t gas_switch_penalty_seconds;
     uint8_t safety_stop_enabled;
-    uint8_t reserved[7];
+    uint8_t reserved[3];
+    // Positive values move the decompression reference vertically below the
+    // pressure sensor. The Core converts this meter offset into pressure using
+    // meters_per_bar before tissue integration.
+    float pressure_reference_offset_m;
 } ArexDecoConfig;
 
 typedef struct ArexDecoGas {

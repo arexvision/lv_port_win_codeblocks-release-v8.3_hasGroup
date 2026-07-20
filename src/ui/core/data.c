@@ -3233,7 +3233,7 @@ uint16_t bus_get_heading_target(void)
     return g_sensor_data.heading_target;
 }
 
-bool bus_lock_heading_to_current(void)
+bool bus_lock_heading(uint16_t heading)
 {
     if (!g_sensor_data.heading_available)
     {
@@ -3243,11 +3243,16 @@ bool bus_lock_heading_to_current(void)
     if (!g_sensor_data.heading_locked)
     {
         g_sensor_data.heading_locked = true;
-        g_sensor_data.heading_target = g_sensor_data.heading;
+        g_sensor_data.heading_target = (uint16_t)(heading % 360U);
         bus_mark_dirty(DIRTY_COMPASS);
     }
 
     return true;
+}
+
+bool bus_lock_heading_to_current(void)
+{
+    return bus_lock_heading(g_sensor_data.heading);
 }
 
 void bus_clear_heading_lock(void)

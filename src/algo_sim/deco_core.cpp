@@ -962,7 +962,9 @@ static void sync_gas_recommendation(const ArexDecoGasRecommendation *gas_rec, co
     int8_t recommended_idx = -1;
     dive_lifecycle_phase_t phase = bus_get_dive_lifecycle_phase();
     bool lifecycle_allows_prompt = phase == DIVE_LIFECYCLE_ACTIVE || phase == DIVE_LIFECYCLE_SURFACING_PENDING;
-    bool deco_context = runtime_stop != NULL && runtime_stop->available != 0U && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M;
+    /* 0.0.35+ final-stop headroom may keep a mandatory runtime stop after the
+     * hard ceiling has cleared, so the UI prompt follows selector availability. */
+    bool deco_context = runtime_stop != NULL && runtime_stop->available != 0U;
 
     if (lifecycle_allows_prompt &&
         deco_context &&
@@ -1043,7 +1045,9 @@ static void sync_stop_data(const ArexDecoRuntimeStop *runtime_stop)
     }
 
     (void)memset(&safety_stop, 0, sizeof(safety_stop));
-    if (runtime_stop != NULL && runtime_stop->available != 0U && s_metrics.ceiling_depth_m > DECO_CEILING_ACTIVE_M)
+    /* Do not gate this on hard ceiling. 0.0.35+ can legally expose a final
+     * mandatory stop through the runtime selector after ceiling_depth_m is 0. */
+    if (runtime_stop != NULL && runtime_stop->available != 0U)
     {
         stop_type = STOP_DECO;
         stop_depth_m = runtime_stop->depth_m;

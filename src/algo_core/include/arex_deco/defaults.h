@@ -24,6 +24,7 @@ extern "C" {
 #define AREX_DECO_DEFAULT_GAS_SWITCH_PENALTY_SECONDS 60u
 #define AREX_DECO_DEFAULT_DECO_STEP_M 3.0f
 #define AREX_DECO_DEFAULT_LAST_STOP_M 3.0f
+#define AREX_DECO_DEFAULT_PRESSURE_REFERENCE_OFFSET_M 0.55f
 
 // Default gas ppO2 policies. These are commonly written into gas defaults and
 // then checked by validate_gas().

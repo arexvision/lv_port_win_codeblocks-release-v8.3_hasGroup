@@ -26,6 +26,60 @@
 - smoke test
 - 文档
 
+## 0.0.36（PressureReferenceOffset-0.55m）
+
+### 摘要
+
+新增压力参考点偏移配置，用于兼容“压力传感器位置”和“减压计算参考点”存在垂直距离的产品结构。
+本版本保留 `0.0.35` 的 final-stop headroom 实验行为，同时把 API patch 升至 `0.0.36`。
+
+### ABI 变化
+
+- `ArexDecoConfig` 原 `reserved[7]` 改为 `reserved[3] + float pressure_reference_offset_m`。
+- `ArexDecoConfig` 总大小保持不变，但字段语义和 offset 已变化，跨语言绑定必须同步。
+- `arex_deco_make_default_config()` 默认写入 `pressure_reference_offset_m = 0.55f`。
+
+### 行为变更
+
+- 正值 `pressure_reference_offset_m` 表示减压参考点位于压力传感器下方。
+- Core 会将该米制偏移按 `meters_per_bar` 换算为压力偏移，用于组织仓推进。
+- 偏移在原始深度前 `1.0 m` 内渐入，保证水面样本仍精确等于水面压力。
+- 最大允许偏移为 `2.0 m`，异常配置由 `arex_deco_validate_config()` 拒绝。
+
+### 非变更项
+
+- 不改变水体密度、标准大气压、上升速率、气体策略、安全停留和 runtime selector 的公共口径。
+- 不移除 `0.0.35` 的 `GF High - 1.8 GF percentage points` 最终站释放补偿。
+
+## 0.0.35（FinalStopHeadroom-1.8GF 实验版）
+
+### 摘要
+
+用于 2026-07-17 下水 A/B 测试的最终减压站释放实验。设备侧只能显示三段版本号，
+因此本实验算法使用 API patch `0.0.35`，用于和基线 `0.0.34` 明确区分；public C ABI
+结构体布局、字段大小和 offset 均未改变。
+
+### 行为变更
+
+- 当一次 mandatory decompression 已建立 GF anchor 后，最终减压站到水面的释放目标由
+  `GF High` 改为 `GF High - 1.8 GF percentage points`。
+- 例如 GF `35/75` 的最终释放目标为 `73.2%`，GF `50/70` 为 `68.2%`。
+- 补偿同时适用于配置为 `3 m` 或 `6 m` 的最终站，仅改变最终站到水面的释放条件。
+- 实时重规划会保留这项最终站义务，直到组织状态满足补偿后的目标，避免原 GF High
+  ceiling 清除后过早进入 no-deco schedule。
+
+### 非变更项
+
+- 不改变中间减压站释放、线性 GF path、GF-low anchor 和 GF 插值方式。
+- 不改变 ZHL-16C 系数、组织舱更新、上升速率、气体策略、安全停留和 runtime selector。
+- 不会在普通 no-deco 潜水中凭空生成 mandatory stop；实验义务要求已有有效 GF anchor。
+
+### 测试定位
+
+本版本不是对 Shearwater 内部机制的声明。`1.8 GF` 是针对真实日志中最终站残差设计的
+显式实验补偿，目标是在同一潜水中直接比较 `0.0.34`、`0.0.35` 与 Shearwater 的
+3 m / 6 m 最终站释放时序。
+
 ## 0.0.34
 
 ### 摘要

@@ -19,6 +19,18 @@ extern "C" {
 #define AREX_DECO_MAX_STOP_SECONDS 21600.0f
 #define AREX_DECO_STOP_TIME_GRANULARITY_SECONDS 1u
 
+// 0.0.35 field experiment, retained by 0.0.36: once mandatory decompression has established a GF
+// anchor, the final stop remains active until the surface endpoint satisfies
+// GF High minus this absolute GF fraction. Intermediate stops and the GF path
+// are unchanged. 0.018 means 1.8 GF percentage points.
+#define AREX_DECO_FINAL_STOP_RELEASE_HEADROOM_GF_FRACTION 0.018f
+
+// 0.0.36 pressure-reference compatibility policy. The configurable offset is
+// expressed in vertical meters and ramps in over the first meter of raw depth
+// so a surface pressure sample remains exactly at surface pressure.
+#define AREX_DECO_PRESSURE_REFERENCE_OFFSET_RAMP_DEPTH_M 1.0f
+#define AREX_DECO_MAX_PRESSURE_REFERENCE_OFFSET_M 2.0f
+
 // Physical gas constants.
 #define AREX_DECO_AIR_OXYGEN_FRACTION 0.21f
 #define AREX_DECO_AIR_NITROGEN_FRACTION 0.79f

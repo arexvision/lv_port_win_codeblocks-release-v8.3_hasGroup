@@ -174,6 +174,7 @@ void screen_cancel_edit_value(void);
    ========================================= */
 /* 罗盘相关刷新目前主要集中在目标指示和航向显示同步。 */
 void screen_refresh_compass_target(void);
+uint16_t screen_get_compass_display_heading(void);
 
 /* =========================================
    Scroll dots indicator

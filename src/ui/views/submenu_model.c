@@ -974,7 +974,11 @@ static const char *compass_cal_status_text(void)
 {
     compass_cal_ui_state_t st = get_compass_calibration_ui_state();
     if (st == COMPASS_CAL_RUNNING) return "LEARN";
+    if (st == COMPASS_CAL_SAVING) return "SAVE";
+    if (st == COMPASS_CAL_VERIFYING) return "CHECK";
     if (st == COMPASS_CAL_READY) return "OK";
+    if (st == COMPASS_CAL_SAVE_ERROR) return "FAIL";
+    if (st == COMPASS_CAL_ERROR) return "ERROR";
     return "AUTO";
 }
 

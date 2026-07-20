@@ -1,8 +1,16 @@
 # AREX Deco Core API 文档
 
-本文档描述当前 core API。当前 API 版本为 `0.0.34`。
+本文档描述当前 core API。当前 API 版本为 `0.0.36`。
 
-`0.0.34` 新增版本化环境契约，由 Core 统一定义标准大气压、标准重力、
+`0.0.36` 新增压力参考点偏移配置，用于把减压计算参考点从压力传感器位置向下平移。
+默认偏移为 `0.55 m`，并在浅水首米内渐入，保证水面压力样本仍等于水面压力。
+
+`0.0.35` 是 `FinalStopHeadroom-1.8GF` 下水实验版本：在已有 mandatory
+decompression GF anchor 的前提下，最终站到水面的释放目标使用
+`GF High - 1.8 GF percentage points`。它不改变中间站、线性 GF path、anchor、
+组织舱模型或 runtime selector，且不改变 public ABI 布局。
+
+`0.0.34` 新增的版本化环境契约继续有效，由 Core 统一定义标准大气压、标准重力、
 Fresh / EN13319 / Salt 水体密度，以及密度、深度和绝对压力之间的换算。
 现有 public struct 的字段、大小和 offset 不变；新增 API 和
 `ArexDecoWaterProperties` 为纯增量导出。最终构建 commit 必须通过固件包名、
@@ -21,7 +29,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 
 - `AREX_DECO_API_VERSION_MAJOR = 0`
 - `AREX_DECO_API_VERSION_MINOR = 0`
-- `AREX_DECO_API_VERSION_PATCH = 34`
+- `AREX_DECO_API_VERSION_PATCH = 36`
 
 固定容量：
 
@@ -38,6 +46,18 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 - `defaults.h`：默认配置模板、默认气体策略和 runtime selector 默认策略。
 - `model_constants.h`：算法模型固定规则、物理常数、数值容差和安全停留/禁飞/CNS 机制常量。
 
+0.0.35 实验常量：
+
+- `AREX_DECO_FINAL_STOP_RELEASE_HEADROOM_GF_FRACTION = 0.018`
+- 该值是绝对 GF fraction，即 `1.8 GF percentage points`，不是 GF High 的 `1.8%`。
+- 只作用于 mandatory decompression 的最后一站到水面释放；中间站 target GF 不变。
+
+0.0.36 压力参考常量：
+
+- `AREX_DECO_DEFAULT_PRESSURE_REFERENCE_OFFSET_M = 0.55`
+- `AREX_DECO_PRESSURE_REFERENCE_OFFSET_RAMP_DEPTH_M = 1.0`
+- `AREX_DECO_MAX_PRESSURE_REFERENCE_OFFSET_M = 2.0`
+
 默认参数：
 
 - `surface_pressure_bar = 1.01325`
@@ -52,6 +72,7 @@ core 只负责减压算法、组织舱状态、氧暴露、计划输出和禁飞
 - `ascent_rate.rate_last_6m_m_per_min = 10.0`
 - `deco_step_m = 3.0`
 - `last_stop_m = 3.0`
+- `pressure_reference_offset_m = 0.55`
 - `safety_stop_enabled = 1`
 - `safety_stop_seconds = 180`
 - `gas_switch_penalty_seconds = 60`
@@ -129,6 +150,7 @@ runtime current-stop selector 默认策略（0.0.28 起）：
 | `safety_stop_seconds` | `uint32_t` | s | 非强制减压时的安全停留时长 |
 | `gas_switch_penalty_seconds` | `uint32_t` | s | 计划中预测切换气体时附加的同深度延迟；penalty 期间按新气体推进组织舱，并计入停站 `duration_seconds` 和 TTS |
 | `safety_stop_enabled` | `uint8_t` | - | 非强制减压安全停留开关，`1` 启用，`0` 关闭 |
+| `pressure_reference_offset_m` | `float` | m | 正值表示减压参考点位于压力传感器下方；Core 会按 `meters_per_bar` 换算为压力偏移并在组织仓推进中使用 |
 
 `ArexDecoAscentRate` 字段：
 

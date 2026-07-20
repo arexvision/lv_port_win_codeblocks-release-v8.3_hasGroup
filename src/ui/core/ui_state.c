@@ -39,7 +39,14 @@ static gas_ignore_cmd_t g_gas_ignore_cmd = {false, 0};
 /* 罗盘校准命令：UI 只负责发起/撤销请求，真正的校准流程由底层状态机推进。 */
 static compass_cal_cmd_t g_compass_cal_cmd = {false, COMPASS_CAL_CMD_NONE};
 /* 校准界面的状态镜像，供 UI 决定是否显示校准中、等待确认或空闲提示。 */
-static compass_cal_ui_state_t g_compass_cal_ui_state = COMPASS_CAL_IDLE;
+static compass_cal_ui_snapshot_t g_compass_cal_snapshot = {
+    0U,
+    COMPASS_CAL_IDLE,
+    0U,
+    COMPASS_CAL_HINT_LEVEL_SWEEP,
+    0U,
+    0U,
+};
 /* 罗盘航向锁定相关状态：pending 表示待触发，active 表示已经进入锁定。 */
 static bool g_heading_lock_pending = false;
 static bool g_heading_lock_active = false;
@@ -47,6 +54,7 @@ static uint8_t s_pending_dash_page = 0xFFU;
 static uint32_t s_pending_dash_due_ms = 0U;
 static uint32_t s_last_dash_commit_ms = 0U;
 static uint32_t s_last_click_ms = 0U;
+static dive_lifecycle_phase_t s_last_lifecycle_for_navigation = DIVE_LIFECYCLE_SURFACE_CONFIRMED;
 static ui_state_t s_turn_off_modal_return_state = UI_SETUP;
 
 #if UI_CLICK_PROFILE_ENABLED
@@ -162,6 +170,7 @@ void ui_state_init(void)
     s_pending_dash_due_ms = 0U;
     s_last_dash_commit_ms = 0U;
     s_last_click_ms = 0U;
+    s_last_lifecycle_for_navigation = DIVE_LIFECYCLE_SURFACE_CONFIRMED;
     s_turn_off_modal_return_state = UI_SETUP;
 }
 
@@ -327,6 +336,85 @@ static void ui_return_to_card_home(void)
     s_ui.state = UI_DASH;
     s_ui.dash_page = PAGE_POS_DYNAMIC_FIRST;
     ui_go_to_page(PAGE_POS_DYNAMIC_FIRST);
+}
+
+static bool ui_state_should_leave_for_dive_entry(ui_state_t state)
+{
+    switch (state)
+    {
+    case UI_INFO:
+    case UI_SETUP:
+    case UI_MENU_ENTRY:
+    case UI_SUB_MENU:
+    case UI_EDIT_VALUE:
+    case UI_MODAL_ACT:
+    case UI_MODAL_SETUP_CONFIRM:
+    case UI_MODAL_TURN_OFF:
+    case UI_EDIT_LIGHT_COLOR:
+    case UI_MODAL_DIVE_LOCKED:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static void ui_abort_menu_context_for_dive_entry(void)
+{
+    switch (s_ui.state)
+    {
+    case UI_MODAL_ACT:
+    case UI_MODAL_SETUP_CONFIRM:
+    case UI_MODAL_DIVE_LOCKED:
+        screen_hide_modal();
+        s_ui.state = UI_SUB_MENU;
+        break;
+    case UI_MODAL_TURN_OFF:
+        screen_hide_modal();
+        s_ui.state = s_turn_off_modal_return_state;
+        break;
+    case UI_EDIT_VALUE:
+    case UI_EDIT_LIGHT_COLOR:
+        s_ui.edit_ctx.active = false;
+        s_ui.state = UI_SUB_MENU;
+        break;
+    default:
+        break;
+    }
+
+    /* 入水后必须从配置层完整退回卡片首页；子菜单可能有多级历史，不能只退一层。 */
+    for (uint8_t i = 0U; i <= SUB_HISTORY_MAX && s_ui.state == UI_SUB_MENU; ++i)
+    {
+        screen_close_submenu();
+    }
+
+    s_ui.edit_ctx.active = false;
+    s_ui.sub_history_depth = 0U;
+    s_ui.sub_item_count = 0U;
+    s_ui.sub_menu_idx = 0U;
+    s_ui.sub_parent = UI_DASH;
+    s_ui.menu_info_idx = 0U;
+    s_ui.menu_setup_idx = 0U;
+    s_ui.menu_entry_idx = 0U;
+    s_ui.gas_modal_from_submenu = false;
+    ui_return_to_card_home();
+}
+
+void ui_state_poll_dive_lifecycle_navigation(void)
+{
+    dive_lifecycle_phase_t phase = bus_get_dive_lifecycle_phase();
+    bool entered_water = (s_last_lifecycle_for_navigation == DIVE_LIFECYCLE_SURFACE_CONFIRMED) &&
+                         (phase != DIVE_LIFECYCLE_SURFACE_CONFIRMED);
+
+    s_last_lifecycle_for_navigation = phase;
+    if (!entered_water)
+    {
+        return;
+    }
+
+    if (ui_state_should_leave_for_dive_entry(s_ui.state))
+    {
+        ui_abort_menu_context_for_dive_entry();
+    }
 }
 
 static void ui_enter_info_menu_page(void)
@@ -740,7 +828,7 @@ void ui_handle_click(void)
             /* 罗盘页点击用于切换航向锁定状态，首次点击会锁定当前航向。 */
             if (!bus_is_heading_locked())
             {
-                if (bus_lock_heading_to_current())
+                if (bus_lock_heading(screen_get_compass_display_heading()))
                 {
                     g_heading_lock_pending = true;
                     g_heading_lock_active = true;
@@ -1133,40 +1221,118 @@ void clear_gas_ignore_cmd(void)
 
 void request_compass_calibration_start(void)
 {
+    rt_base_t level = rt_hw_interrupt_disable();
     g_compass_cal_cmd.pending = true;
     g_compass_cal_cmd.action = COMPASS_CAL_CMD_START;
+    rt_hw_interrupt_enable(level);
 }
 
 void request_compass_calibration_reset(void)
 {
+    rt_base_t level = rt_hw_interrupt_disable();
     g_compass_cal_cmd.pending = true;
     g_compass_cal_cmd.action = COMPASS_CAL_CMD_RESET;
+    rt_hw_interrupt_enable(level);
 }
 
-bool has_pending_compass_calibration(compass_cal_cmd_action_t *out_action)
+bool take_pending_compass_calibration(compass_cal_cmd_action_t *out_action)
 {
-    if (g_compass_cal_cmd.pending && out_action != NULL)
+    bool found = false;
+    rt_base_t level;
+
+    if (out_action == NULL)
+    {
+        return false;
+    }
+
+    level = rt_hw_interrupt_disable();
+    if (g_compass_cal_cmd.pending)
     {
         *out_action = g_compass_cal_cmd.action;
-        return true;
+        g_compass_cal_cmd.pending = false;
+        g_compass_cal_cmd.action = COMPASS_CAL_CMD_NONE;
+        found = true;
     }
-    return false;
-}
-
-void clear_compass_calibration_cmd(void)
-{
-    g_compass_cal_cmd.pending = false;
-    g_compass_cal_cmd.action = COMPASS_CAL_CMD_NONE;
-}
-
-void set_compass_calibration_ui_state(compass_cal_ui_state_t state)
-{
-    g_compass_cal_ui_state = state;
+    rt_hw_interrupt_enable(level);
+    return found;
 }
 
 compass_cal_ui_state_t get_compass_calibration_ui_state(void)
 {
-    return g_compass_cal_ui_state;
+    compass_cal_ui_snapshot_t snapshot;
+    return get_compass_calibration_snapshot(&snapshot) ?
+        snapshot.state : COMPASS_CAL_IDLE;
+}
+
+uint8_t get_compass_calibration_progress(void)
+{
+    compass_cal_ui_snapshot_t snapshot;
+    return get_compass_calibration_snapshot(&snapshot) ?
+        snapshot.progress_pct : 0U;
+}
+
+compass_cal_hint_t get_compass_calibration_hint(void)
+{
+    compass_cal_ui_snapshot_t snapshot;
+    return get_compass_calibration_snapshot(&snapshot) ?
+        snapshot.hint : COMPASS_CAL_HINT_LEVEL_SWEEP;
+}
+
+uint16_t get_compass_calibration_coverage_mask(void)
+{
+    compass_cal_ui_snapshot_t snapshot;
+    return get_compass_calibration_snapshot(&snapshot) ?
+        snapshot.coverage_mask : 0U;
+}
+
+uint8_t get_compass_calibration_coverage_bins(void)
+{
+    compass_cal_ui_snapshot_t snapshot;
+    return get_compass_calibration_snapshot(&snapshot) ?
+        snapshot.coverage_bins : 0U;
+}
+
+void set_compass_calibration_snapshot(
+    const compass_cal_ui_snapshot_t *snapshot)
+{
+    compass_cal_ui_snapshot_t sanitized;
+    rt_base_t level;
+
+    if (snapshot == NULL)
+    {
+        return;
+    }
+
+    sanitized = *snapshot;
+    if (sanitized.progress_pct > 100U)
+    {
+        sanitized.progress_pct = 100U;
+    }
+    if (sanitized.coverage_bins > 16U)
+    {
+        sanitized.coverage_bins = 16U;
+    }
+
+    /* 结构体只有十余字节，短临界区比无锁双槽更容易证明且不会阻塞UI。 */
+    level = rt_hw_interrupt_disable();
+    g_compass_cal_snapshot = sanitized;
+    rt_hw_interrupt_enable(level);
+}
+
+bool get_compass_calibration_snapshot(
+    compass_cal_ui_snapshot_t *out_snapshot)
+{
+    rt_base_t level;
+
+    if (out_snapshot == NULL)
+    {
+        return false;
+    }
+
+    level = rt_hw_interrupt_disable();
+    *out_snapshot = g_compass_cal_snapshot;
+    rt_hw_interrupt_enable(level);
+    return true;
 }
 
 ui_state_t ui_state_get_state(void)

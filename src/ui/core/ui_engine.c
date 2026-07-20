@@ -541,6 +541,7 @@ void ui_update_flush_pending_once(void)
      * dirty mask”立即落到当前可见对象，避免再等 100ms UI timer 才补齐页面首帧。
      */
     ui_state_poll_deferred_navigation();
+    ui_state_poll_dive_lifecycle_navigation();
     screen_poll_deferred_page_dirty();
     screen_poll_scroll_dots();
 

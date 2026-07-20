@@ -85,8 +85,34 @@ typedef enum
 {
     COMPASS_CAL_IDLE = 0,
     COMPASS_CAL_RUNNING,
+    COMPASS_CAL_SAVING,
+    COMPASS_CAL_VERIFYING,
     COMPASS_CAL_READY,
+    COMPASS_CAL_SAVE_ERROR,
+    COMPASS_CAL_ERROR,
 } compass_cal_ui_state_t;
+
+typedef enum
+{
+    COMPASS_CAL_HINT_LEVEL_SWEEP = 0,
+    COMPASS_CAL_HINT_MORE_COVERAGE,
+    COMPASS_CAL_HINT_MAG_ENVIRONMENT,
+    COMPASS_CAL_HINT_ROLL_CIRCLE,
+    COMPASS_CAL_HINT_RETURN_LEVEL,
+    COMPASS_CAL_HINT_FACTORY_SERVICE,
+    COMPASS_CAL_HINT_SENSOR_DATA,
+    COMPASS_CAL_HINT_MODEL_QUALITY,
+} compass_cal_hint_t;
+
+typedef struct
+{
+    uint32_t session_id;
+    compass_cal_ui_state_t state;
+    uint8_t progress_pct;
+    compass_cal_hint_t hint;
+    uint16_t coverage_mask;
+    uint8_t coverage_bins;
+} compass_cal_ui_snapshot_t;
 
 /* =========================================
    UI Context — state store (private to ui_state.c)
@@ -160,6 +186,7 @@ void ui_handle_click(void);
 void ui_handle_back(void);
 void ui_show_turn_off_confirm(void);
 void ui_state_poll_deferred_navigation(void);
+void ui_state_poll_dive_lifecycle_navigation(void);
 bool ui_state_dash_navigation_pending(void);
 
 ui_state_t ui_state_get_state(void);
@@ -242,10 +269,16 @@ void clear_gas_ignore_cmd(void);
 /* 罗盘校准命令（UI -> 传感器任务） */
 void request_compass_calibration_start(void);
 void request_compass_calibration_reset(void);
-bool has_pending_compass_calibration(compass_cal_cmd_action_t *out_action);
-void clear_compass_calibration_cmd(void);
-void set_compass_calibration_ui_state(compass_cal_ui_state_t state);
+bool take_pending_compass_calibration(compass_cal_cmd_action_t *out_action);
 compass_cal_ui_state_t get_compass_calibration_ui_state(void);
+uint8_t get_compass_calibration_progress(void);
+compass_cal_hint_t get_compass_calibration_hint(void);
+uint16_t get_compass_calibration_coverage_mask(void);
+uint8_t get_compass_calibration_coverage_bins(void);
+void set_compass_calibration_snapshot(
+    const compass_cal_ui_snapshot_t *snapshot);
+bool get_compass_calibration_snapshot(
+    compass_cal_ui_snapshot_t *out_snapshot);
 
 #ifdef __cplusplus
 }

@@ -119,7 +119,9 @@ void ui_vm_setup_menu_update(ui_vm_setup_menu_t *vm)
 
     vm->compass_cal_state = cal_state;
     vm->compass_cal_badge_idx = 0U;
-    if (cal_state == COMPASS_CAL_RUNNING)
+    if ((cal_state == COMPASS_CAL_RUNNING) ||
+        (cal_state == COMPASS_CAL_SAVING) ||
+        (cal_state == COMPASS_CAL_VERIFYING))
     {
         vm->compass_cal_badge_idx = 1U;
     }
