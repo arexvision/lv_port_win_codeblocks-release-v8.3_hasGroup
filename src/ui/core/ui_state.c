@@ -18,6 +18,9 @@
 #include "../views/menu_runtime.h"
 
 #include "lvgl/lvgl.h"
+#ifdef PC_SIMULATOR
+#include <stdio.h>
+#endif
 #include <string.h>
 
 #ifndef UI_MENU_ROTATE_LEGACY_WALL_RETURN
@@ -61,7 +64,12 @@ static bool s_dash_orphan_candidate_active = false;
 static dive_lifecycle_phase_t s_last_lifecycle_for_navigation = DIVE_LIFECYCLE_SURFACE_CONFIRMED;
 static ui_state_t s_turn_off_modal_return_state = UI_SETUP;
 
+#ifdef PC_SIMULATOR
+#define ui_state_log printf
+#else
 extern void rt_kprintf(const char *fmt, ...);
+#define ui_state_log rt_kprintf
+#endif
 
 #if UI_CLICK_PROFILE_ENABLED
 typedef struct
@@ -97,21 +105,21 @@ static void ui_click_profile_maybe_print(uint32_t now_ms)
     }
 
     const uint32_t count = (s_click_profile.count == 0U) ? 1U : s_click_profile.count;
-    rt_kprintf("[UI_CLICK] count=%lu debounced=%lu total_avg/max=%lu/%lu "
-               "flush_avg/max=%lu/%lu action_avg/max=%lu/%lu slow=%lu "
-               "max_state:%u->%u max_page=%u\n",
-               (unsigned long)s_click_profile.count,
-               (unsigned long)s_click_profile.debounced,
-               (unsigned long)(s_click_profile.total_ms / count),
-               (unsigned long)s_click_profile.max_ms,
-               (unsigned long)(s_click_profile.flush_ms_total / count),
-               (unsigned long)s_click_profile.flush_ms_max,
-               (unsigned long)(s_click_profile.action_ms_total / count),
-               (unsigned long)s_click_profile.action_ms_max,
-               (unsigned long)s_click_profile.slow_count,
-               (unsigned)s_click_profile.max_state_before,
-               (unsigned)s_click_profile.max_state_after,
-               (unsigned)s_click_profile.max_page_id);
+    ui_state_log("[UI_CLICK] count=%lu debounced=%lu total_avg/max=%lu/%lu "
+                 "flush_avg/max=%lu/%lu action_avg/max=%lu/%lu slow=%lu "
+                 "max_state:%u->%u max_page=%u\n",
+                 (unsigned long)s_click_profile.count,
+                 (unsigned long)s_click_profile.debounced,
+                 (unsigned long)(s_click_profile.total_ms / count),
+                 (unsigned long)s_click_profile.max_ms,
+                 (unsigned long)(s_click_profile.flush_ms_total / count),
+                 (unsigned long)s_click_profile.flush_ms_max,
+                 (unsigned long)(s_click_profile.action_ms_total / count),
+                 (unsigned long)s_click_profile.action_ms_max,
+                 (unsigned long)s_click_profile.slow_count,
+                 (unsigned)s_click_profile.max_state_before,
+                 (unsigned)s_click_profile.max_state_after,
+                 (unsigned)s_click_profile.max_page_id);
 
     memset(&s_click_profile, 0, sizeof(s_click_profile));
     s_click_profile.last_print_ms = now_ms;
@@ -432,13 +440,13 @@ static bool ui_state_recover_dash_orphan_if_needed(const char *reason)
     screen_hide_modal();
     menu_entry_clear_selection();
 
-    rt_kprintf("[UI_RECOVER] reason=%s state=%u->%u visible=%u dash=%u age=%lu\n",
-               (reason != NULL) ? reason : "unknown",
-               (unsigned)old_state,
-               (unsigned)s_ui.state,
-               (unsigned)visible_tile_pos,
-               (unsigned)s_ui.dash_page,
-               (unsigned long)(now_ms - s_dash_orphan_candidate_since_ms));
+    ui_state_log("[UI_RECOVER] reason=%s state=%u->%u visible=%u dash=%u age=%lu\n",
+                 (reason != NULL) ? reason : "unknown",
+                 (unsigned)old_state,
+                 (unsigned)s_ui.state,
+                 (unsigned)visible_tile_pos,
+                 (unsigned)s_ui.dash_page,
+                 (unsigned long)(now_ms - s_dash_orphan_candidate_since_ms));
     ui_state_clear_dash_orphan_candidate();
     return true;
 }
