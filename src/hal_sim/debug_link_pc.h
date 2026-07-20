@@ -37,6 +37,8 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bo
 #include "../ui/core/ui_dirty.h"
 #include "../ui/core/ui_engine.h"
 #include "../ui/core/ui_state.h"
+#include "../ui/screen/page_registry.h"
+#include "../ui/screen/screen.h"
 #include "sim_alert_policy.h"
 #include "lvgl/lvgl.h"
 
@@ -621,6 +623,54 @@ static bool debug_parse_u16_auto(const char *text, uint16_t *out)
     return true;
 }
 
+static const char *debug_ui_state_name(ui_state_t state)
+{
+    switch (state)
+    {
+    case UI_DASH: return "dash";
+    case UI_INFO: return "info";
+    case UI_SETUP: return "setup";
+    case UI_EDIT_GAS: return "edit_gas";
+    case UI_MODAL_GAS: return "modal_gas";
+    case UI_MODAL_COMPASS: return "modal_compass";
+    case UI_SUB_MENU: return "sub_menu";
+    case UI_MODAL_ACT: return "modal_act";
+    case UI_EDIT_VALUE: return "edit_value";
+    case UI_MODAL_SETUP_CONFIRM: return "modal_setup_confirm";
+    case UI_MENU_ENTRY: return "menu_entry";
+    case UI_MODAL_END_DIVE: return "modal_end_dive";
+    case UI_MODAL_TURN_OFF: return "modal_turn_off";
+    case UI_EDIT_LIGHT_COLOR: return "edit_light_color";
+    case UI_MODAL_DIVE_LOCKED: return "modal_dive_locked";
+    default: return "unknown";
+    }
+}
+
+static bool debug_parse_orphan_state(const char *text, ui_state_t *out_state)
+{
+    if (!text || !out_state)
+    {
+        return false;
+    }
+    if (debug_streq(text, "submenu") || debug_streq(text, "sub_menu")) { *out_state = UI_SUB_MENU; return true; }
+    if (debug_streq(text, "edit") || debug_streq(text, "edit_value")) { *out_state = UI_EDIT_VALUE; return true; }
+    if (debug_streq(text, "modal") || debug_streq(text, "modal_gas")) { *out_state = UI_MODAL_GAS; return true; }
+    if (debug_streq(text, "confirm") || debug_streq(text, "setup_confirm")) { *out_state = UI_MODAL_SETUP_CONFIRM; return true; }
+    if (debug_streq(text, "menu") || debug_streq(text, "menu_entry")) { *out_state = UI_MENU_ENTRY; return true; }
+    if (debug_streq(text, "turn_off")) { *out_state = UI_MODAL_TURN_OFF; return true; }
+    return false;
+}
+
+static void debug_force_dash_orphan(ui_state_t orphan_state, uint8_t tile_pos)
+{
+    screen_hide_modal();
+    screen_close_submenu();
+    screen_hide_walls_snap();
+    ui_state_set_edit_active(false);
+    ui_go_to_page(tile_pos);
+    ui_state_set_state(orphan_state);
+}
+
 static bool debug_apply_compass_cal(compass_cal_ui_state_t state,
                                     uint8_t progress_pct,
                                     compass_cal_hint_t hint,
@@ -922,6 +972,7 @@ static void debug_send_help(void)
         "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back [2] | manual on|off | auto on|off | speed <1..120> | heading_speed <0..3600>\r\n"
+        "  click | rotate [steps] | orphan <submenu|edit|modal|confirm|menu|turn_off> [tile_pos]\r\n"
         "  depth <m> | goto <m> [m_min]|stop | glitch on [min max spike speed] | glitch <min> <max> [spike speed] | glitch off\r\n"
         "  sample <time_s> <depth_m> | rate <m_min> | time <s>\r\n"
         "  rtc_offline <seconds> | rtc_sleep_mark | rtc_sleep_apply | rtc_sleep_status\r\n"
@@ -944,8 +995,12 @@ static void debug_send_help(void)
 static void debug_send_state(void)
 {
     debug_sendf(
-        "STATE tcp=%u depth_manual=%u manual=%u speed=%u heading_speed=%u goto=%u target=%.1f goto_rate=%.1f glitch=%u glitch_range=%.1f..%.1f glitch_spike=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um heading=%u avail=%u mag=%.1f,%.1f,%.1f mlx=%.1f,%.1f,%.1f tmag=%.1f att=%d,%d,%u cal=%s/%u/%s/%04x/%u\r\n",
+        "STATE tcp=%u ui=%u:%s dash=%u visible=%u depth_manual=%u manual=%u speed=%u heading_speed=%u goto=%u target=%.1f goto_rate=%.1f glitch=%u glitch_range=%.1f..%.1f glitch_spike=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um heading=%u avail=%u mag=%.1f,%.1f,%.1f mlx=%.1f,%.1f,%.1f tmag=%.1f att=%d,%d,%u cal=%s/%u/%s/%04x/%u\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
+        (unsigned)ui_state_get_state(),
+        debug_ui_state_name(ui_state_get_state()),
+        (unsigned)ui_state_get_dash_page(),
+        (unsigned)screen_visible_tile_pos_get(),
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
         (unsigned)debug_link_pc_time_scale(),
@@ -1191,6 +1246,84 @@ static void debug_exec_line(char *line)
     if (debug_streq(cmd, "state"))
     {
         debug_send_state();
+        return;
+    }
+
+    if (debug_streq(cmd, "click") || debug_streq(cmd, "enter"))
+    {
+        if (debug_next_token(&cursor) != NULL)
+        {
+            debug_send_raw("ERR usage: click\r\n");
+            return;
+        }
+        ui_handle_click();
+        debug_sendf("OK click ui=%u:%s dash=%u visible=%u\r\n",
+                    (unsigned)ui_state_get_state(),
+                    debug_ui_state_name(ui_state_get_state()),
+                    (unsigned)ui_state_get_dash_page(),
+                    (unsigned)screen_visible_tile_pos_get());
+        return;
+    }
+
+    if (debug_streq(cmd, "rotate") || debug_streq(cmd, "rot"))
+    {
+        int steps = 1;
+        char *steps_text = debug_next_token(&cursor);
+
+        if (steps_text && (!debug_parse_int(steps_text, &steps) || steps < -20 || steps > 20 || steps == 0))
+        {
+            debug_send_raw("ERR usage: rotate [steps -20..20 nonzero]\r\n");
+            return;
+        }
+        if (debug_next_token(&cursor) != NULL)
+        {
+            debug_send_raw("ERR usage: rotate [steps]\r\n");
+            return;
+        }
+        ui_handle_rotate_steps((int8_t)steps);
+        debug_sendf("OK rotate %d ui=%u:%s dash=%u visible=%u\r\n",
+                    steps,
+                    (unsigned)ui_state_get_state(),
+                    debug_ui_state_name(ui_state_get_state()),
+                    (unsigned)ui_state_get_dash_page(),
+                    (unsigned)screen_visible_tile_pos_get());
+        return;
+    }
+
+    if (debug_streq(cmd, "orphan"))
+    {
+        ui_state_t orphan_state;
+        uint8_t tile_pos = PAGE_POS_DYNAMIC_FIRST;
+        int tile_arg;
+        char *state_text = debug_next_token(&cursor);
+        char *tile_text = debug_next_token(&cursor);
+
+        if (!debug_parse_orphan_state(state_text, &orphan_state))
+        {
+            debug_send_raw("ERR usage: orphan <submenu|edit|modal|confirm|menu|turn_off> [tile_pos]\r\n");
+            return;
+        }
+        if (tile_text)
+        {
+            if (!debug_parse_int(tile_text, &tile_arg) || tile_arg < PAGE_POS_DYNAMIC_FIRST || tile_arg >= page_count())
+            {
+                debug_sendf("ERR tile_pos %u..%u\r\n", (unsigned)PAGE_POS_DYNAMIC_FIRST, (unsigned)(page_count() - 1U));
+                return;
+            }
+            tile_pos = (uint8_t)tile_arg;
+        }
+        if (debug_next_token(&cursor) != NULL)
+        {
+            debug_send_raw("ERR usage: orphan <state> [tile_pos]\r\n");
+            return;
+        }
+
+        debug_force_dash_orphan(orphan_state, tile_pos);
+        debug_sendf("OK orphan ui=%u:%s dash=%u visible=%u; send click/rotate once, wait >1s, send click/rotate again\r\n",
+                    (unsigned)ui_state_get_state(),
+                    debug_ui_state_name(ui_state_get_state()),
+                    (unsigned)ui_state_get_dash_page(),
+                    (unsigned)screen_visible_tile_pos_get());
         return;
     }
 
