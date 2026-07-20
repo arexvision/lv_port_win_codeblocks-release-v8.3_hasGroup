@@ -3221,16 +3221,6 @@ void screen_set_submenu_selection(uint8_t idx)
         idx = (uint8_t)(cnt - 1U);
     }
 
-    if (s_submenu_selected_idx == idx)
-    {
-        lv_obj_t *selected_item = lv_obj_get_child(s_submenu_list, idx);
-        if (selected_item)
-        {
-            submenu_list_scroll_item_to_view(selected_item);
-        }
-        return;
-    }
-
     if (s_submenu_selected_idx < cnt)
     {
         uint8_t old_idx = s_submenu_selected_idx;
