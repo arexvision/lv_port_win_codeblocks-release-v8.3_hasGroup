@@ -9,6 +9,7 @@
 #define MODAL_VIEW_H
 
 #include "lvgl/lvgl.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -24,6 +25,7 @@ void screen_show_modal_back_notice(const char *title, const char *body);
 void screen_show_modal_gas(void);
 void screen_show_modal_compass(void);
 void screen_pulse_modal(void);
+bool screen_modal_visible(void);
 void screen_hide_modal(void);
 
 #ifdef __cplusplus

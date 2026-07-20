@@ -68,6 +68,15 @@
 #define UI_DASH_ROTATE_DELAYED_DISPLAY_ENABLED 1
 #define UI_DASH_ROTATE_DEFER_MIN_STEPS 2U
 
+/* DASH 状态机孤儿态恢复延迟。
+ *
+ * 作用：
+ * - 仅当视觉已经回到 DASH 楼层，但状态机仍停留在隐藏 modal/submenu/edit 态时生效；
+ * - 失配需要持续一段时间才恢复，避免正常切页/弹窗/子菜单动画边界被误判；
+ * - 命中后会打印 [UI_RECOVER]，便于现场确认是否真的触发了自恢复。
+ */
+#define UI_DASH_ORPHAN_RECOVERY_DELAY_MS 1000U
+
 /* 点击消费防抖，属于真实运行保护。
  *
  * 取值：

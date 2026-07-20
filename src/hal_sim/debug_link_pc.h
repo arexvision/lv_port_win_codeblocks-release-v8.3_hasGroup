@@ -34,14 +34,14 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bo
 
 #include "../ui/alarm/alarm.h"
 #include "../ui/core/data.h"
+#include "../ui/core/ui_dirty.h"
 #include "../ui/core/ui_engine.h"
 #include "../ui/core/ui_state.h"
-#include "../ui/screen/page_registry.h"
-#include "../ui/screen/screen.h"
 #include "sim_alert_policy.h"
 #include "lvgl/lvgl.h"
 
 #include <ctype.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -51,7 +51,7 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bo
 
 #define DEBUG_TCP_PORT 7623U
 #define DEBUG_RX_BUF_SIZE 512U
-#define DEBUG_TX_BUF_SIZE 768U
+#define DEBUG_TX_BUF_SIZE 1024U
 #define DEBUG_DEPTH_GOTO_DESCENT_MPM 18.0f
 #define DEBUG_DEPTH_GOTO_ASCENT_MPM 10.0f
 #define DEBUG_DEPTH_GOTO_MIN_MPM 0.1f
@@ -62,26 +62,11 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bo
 #define DEBUG_DEPTH_GLITCH_DEFAULT_SPIKE_M 30.0f
 #define DEBUG_DEPTH_GLITCH_MAX_M 200.0f
 #define DEBUG_HEADING_SPEED_MAX_DPS 3600U      /* 指南针模拟最大度/秒 */
+#define DEBUG_COMPASS_SYNTH_FIELD_UT 50.0f
+#define DEBUG_COMPASS_SYNTH_Z_UT 8.0f
+#define DEBUG_COMPASS_PI_F 3.14159265358979323846f
 #define DEBUG_RTC_VALID_AFTER_EPOCH 1577836800LL
 #define DEBUG_RTC_OFFLINE_MAX_SECONDS (30UL * 24UL * 60UL * 60UL)
-#define DEBUG_COMPASS_CAL_DEFAULT_MS 8000UL
-#define DEBUG_COMPASS_CAL_MIN_MS 500UL
-#define DEBUG_COMPASS_CAL_MAX_MS 60000UL
-
-#ifndef OTA_UPDATE_VIEW_H
-typedef struct
-{
-    uint8_t active;
-    uint8_t phase;
-    uint8_t progress_pct;
-    uint16_t error_code;
-    uint32_t detail;
-    char reason[64];
-} ota_update_view_status_t;
-#endif
-
-extern void ota_update_view_refresh(const ota_update_view_status_t *status) __attribute__((weak));
-extern void ota_update_view_hide(void) __attribute__((weak));
 
 typedef int (WSAAPI *wsa_startup_fn)(WORD, LPWSADATA);
 typedef int (WSAAPI *wsa_cleanup_fn)(void);
@@ -121,16 +106,6 @@ typedef struct
     float depth_glitch_min_m;
     float depth_glitch_max_m;
     float depth_glitch_spike_m;
-    bool compass_cal_anim_active;
-    bool compass_cal_anim_hint_fixed;
-    uint32_t compass_cal_anim_start_ms;
-    uint32_t compass_cal_anim_duration_ms;
-    uint32_t compass_cal_anim_session_id;
-    uint8_t compass_cal_anim_start_pct;
-    uint8_t compass_cal_anim_target_pct;
-    compass_cal_ui_state_t compass_cal_anim_final_state;
-    compass_cal_hint_t compass_cal_anim_hint;
-    compass_cal_hint_t compass_cal_anim_final_hint;
     bool rtc_sleep_mark_valid;
     time_t rtc_sleep_mark;
     debug_link_pc_rtc_offline_fn rtc_offline_handler;
@@ -155,8 +130,6 @@ static debug_link_pc_t s_debug_link =
     .time_scale = 1,
     .heading_speed_dps = 1,
 };
-
-static uint32_t s_debug_compass_cal_session = 0U;
 
 static uint16_t debug_swap16(uint16_t value)
 {
@@ -395,390 +368,6 @@ static bool debug_parse_bool(const char *text, bool *out)
     return false;
 }
 
-static int debug_clamp_int(int value, int min_value, int max_value)
-{
-    if (value < min_value) return min_value;
-    if (value > max_value) return max_value;
-    return value;
-}
-
-static const char *debug_page_name(page_id_t id)
-{
-    switch (id)
-    {
-    case PAGE_ID_INFO: return "info";
-    case PAGE_ID_COMPASS: return "compass";
-    case PAGE_ID_DECO: return "deco";
-    case PAGE_ID_GAS: return "gas";
-    case PAGE_ID_PLAN: return "plan";
-    case PAGE_ID_CUSTOM_GRID: return "custom";
-    case PAGE_ID_BLANK: return "blank";
-    case PAGE_ID_SETUP: return "setup";
-    case PAGE_ID_MENU: return "menu";
-    default: return "unknown";
-    }
-}
-
-static bool debug_parse_page_id(const char *text, page_id_t *out)
-{
-    if (!text || !out)
-    {
-        return false;
-    }
-    if (debug_streq(text, "info")) { *out = PAGE_ID_INFO; return true; }
-    if (debug_streq(text, "compass") || debug_streq(text, "nav")) { *out = PAGE_ID_COMPASS; return true; }
-    if (debug_streq(text, "deco")) { *out = PAGE_ID_DECO; return true; }
-    if (debug_streq(text, "gas")) { *out = PAGE_ID_GAS; return true; }
-    if (debug_streq(text, "plan") || debug_streq(text, "dive_plan")) { *out = PAGE_ID_PLAN; return true; }
-    if (debug_streq(text, "custom") || debug_streq(text, "custom_grid") || debug_streq(text, "5f")) { *out = PAGE_ID_CUSTOM_GRID; return true; }
-    if (debug_streq(text, "blank")) { *out = PAGE_ID_BLANK; return true; }
-    if (debug_streq(text, "setup")) { *out = PAGE_ID_SETUP; return true; }
-    if (debug_streq(text, "menu") || debug_streq(text, "dive_menu")) { *out = PAGE_ID_MENU; return true; }
-    return false;
-}
-
-static bool debug_find_page_display_pos(page_id_t page_id, uint8_t *out_pos)
-{
-    uint8_t i;
-
-    if (!out_pos)
-    {
-        return false;
-    }
-    for (i = 0U; i < page_count(); i++)
-    {
-        if (page_id_at(i) == page_id)
-        {
-            *out_pos = i;
-            return true;
-        }
-    }
-    return false;
-}
-
-static void debug_show_page(page_id_t page_id)
-{
-    uint8_t pos;
-
-    if (!debug_find_page_display_pos(page_id, &pos))
-    {
-        debug_sendf("ERR page %s is not in current card_order\r\n", debug_page_name(page_id));
-        return;
-    }
-
-    screen_hide_modal();
-    screen_close_submenu();
-    ui_state_set_state(UI_DASH);
-    ui_go_to_page(pos);
-    if (page_id == PAGE_ID_COMPASS)
-    {
-        bus_requeue_dirty_immediate(DIRTY_COMPASS);
-    }
-    debug_sendf("OK page %s pos=%u\r\n", debug_page_name(page_id), (unsigned)pos);
-}
-
-static const char *debug_compass_cal_state_name(compass_cal_ui_state_t state)
-{
-    switch (state)
-    {
-    case COMPASS_CAL_IDLE: return "idle";
-    case COMPASS_CAL_RUNNING: return "running";
-    case COMPASS_CAL_SAVING: return "saving";
-    case COMPASS_CAL_VERIFYING: return "verifying";
-    case COMPASS_CAL_READY: return "ready";
-    case COMPASS_CAL_SAVE_ERROR: return "save_error";
-    case COMPASS_CAL_ERROR: return "error";
-    default: return "unknown";
-    }
-}
-
-static bool debug_parse_compass_cal_state(const char *text, compass_cal_ui_state_t *out)
-{
-    if (!text || !out)
-    {
-        return false;
-    }
-    if (debug_streq(text, "idle") || debug_streq(text, "off")) { *out = COMPASS_CAL_IDLE; return true; }
-    if (debug_streq(text, "run") || debug_streq(text, "running") || debug_streq(text, "start")) { *out = COMPASS_CAL_RUNNING; return true; }
-    if (debug_streq(text, "save") || debug_streq(text, "saving")) { *out = COMPASS_CAL_SAVING; return true; }
-    if (debug_streq(text, "verify") || debug_streq(text, "verifying") || debug_streq(text, "check")) { *out = COMPASS_CAL_VERIFYING; return true; }
-    if (debug_streq(text, "ready") || debug_streq(text, "ok") || debug_streq(text, "done")) { *out = COMPASS_CAL_READY; return true; }
-    if (debug_streq(text, "save_error") || debug_streq(text, "save_fail")) { *out = COMPASS_CAL_SAVE_ERROR; return true; }
-    if (debug_streq(text, "error") || debug_streq(text, "fail")) { *out = COMPASS_CAL_ERROR; return true; }
-    return false;
-}
-
-static const char *debug_compass_cal_hint_name(compass_cal_hint_t hint)
-{
-    switch (hint)
-    {
-    case COMPASS_CAL_HINT_LEVEL_SWEEP: return "level_sweep";
-    case COMPASS_CAL_HINT_MORE_COVERAGE: return "more_coverage";
-    case COMPASS_CAL_HINT_MAG_ENVIRONMENT: return "mag_environment";
-    case COMPASS_CAL_HINT_ROLL_CIRCLE: return "roll_circle";
-    case COMPASS_CAL_HINT_RETURN_LEVEL: return "return_level";
-    case COMPASS_CAL_HINT_FACTORY_SERVICE: return "factory_service";
-    case COMPASS_CAL_HINT_SENSOR_DATA: return "sensor_data";
-    case COMPASS_CAL_HINT_MODEL_QUALITY: return "model_quality";
-    default: return "unknown";
-    }
-}
-
-static bool debug_parse_compass_cal_hint(const char *text, compass_cal_hint_t *out)
-{
-    if (!text || !out)
-    {
-        return false;
-    }
-    if (debug_streq(text, "level") || debug_streq(text, "level_sweep") || debug_streq(text, "sweep")) { *out = COMPASS_CAL_HINT_LEVEL_SWEEP; return true; }
-    if (debug_streq(text, "more") || debug_streq(text, "coverage") || debug_streq(text, "more_coverage")) { *out = COMPASS_CAL_HINT_MORE_COVERAGE; return true; }
-    if (debug_streq(text, "mag") || debug_streq(text, "env") || debug_streq(text, "mag_environment")) { *out = COMPASS_CAL_HINT_MAG_ENVIRONMENT; return true; }
-    if (debug_streq(text, "roll") || debug_streq(text, "circle") || debug_streq(text, "roll_circle")) { *out = COMPASS_CAL_HINT_ROLL_CIRCLE; return true; }
-    if (debug_streq(text, "return") || debug_streq(text, "return_level")) { *out = COMPASS_CAL_HINT_RETURN_LEVEL; return true; }
-    if (debug_streq(text, "factory") || debug_streq(text, "service") || debug_streq(text, "factory_service")) { *out = COMPASS_CAL_HINT_FACTORY_SERVICE; return true; }
-    if (debug_streq(text, "sensor") || debug_streq(text, "data") || debug_streq(text, "sensor_data")) { *out = COMPASS_CAL_HINT_SENSOR_DATA; return true; }
-    if (debug_streq(text, "quality") || debug_streq(text, "model") || debug_streq(text, "model_quality")) { *out = COMPASS_CAL_HINT_MODEL_QUALITY; return true; }
-    return false;
-}
-
-static uint8_t debug_default_compass_cal_progress(compass_cal_ui_state_t state)
-{
-    switch (state)
-    {
-    case COMPASS_CAL_IDLE: return 0U;
-    case COMPASS_CAL_RUNNING: return 35U;
-    case COMPASS_CAL_SAVING: return 80U;
-    case COMPASS_CAL_VERIFYING: return 90U;
-    case COMPASS_CAL_READY: return 100U;
-    case COMPASS_CAL_SAVE_ERROR: return 55U;
-    case COMPASS_CAL_ERROR: return 55U;
-    default: return 0U;
-    }
-}
-
-static uint8_t debug_default_compass_cal_bins(compass_cal_ui_state_t state)
-{
-    switch (state)
-    {
-    case COMPASS_CAL_RUNNING: return 6U;
-    case COMPASS_CAL_SAVING:
-    case COMPASS_CAL_VERIFYING:
-    case COMPASS_CAL_READY: return 16U;
-    case COMPASS_CAL_SAVE_ERROR:
-    case COMPASS_CAL_ERROR: return 8U;
-    default: return 0U;
-    }
-}
-
-static void debug_apply_compass_cal_session(compass_cal_ui_state_t state, uint8_t progress_pct, uint8_t coverage_bins, compass_cal_hint_t hint, uint32_t session_id)
-{
-    compass_cal_ui_snapshot_t snapshot;
-    uint32_t mask;
-
-    memset(&snapshot, 0, sizeof(snapshot));
-    coverage_bins = (uint8_t)debug_clamp_int(coverage_bins, 0, 16);
-    progress_pct = (uint8_t)debug_clamp_int(progress_pct, 0, 100);
-    mask = coverage_bins >= 16U ? 0xFFFFUL : ((1UL << coverage_bins) - 1UL);
-
-    snapshot.session_id = session_id;
-    snapshot.state = state;
-    snapshot.progress_pct = progress_pct;
-    snapshot.hint = hint;
-    snapshot.coverage_mask = (uint16_t)mask;
-    snapshot.coverage_bins = coverage_bins;
-    set_compass_calibration_snapshot(&snapshot);
-    bus_requeue_dirty_immediate(DIRTY_COMPASS);
-    screen_refresh_compass_cal_submenu_if_open();
-}
-
-static void debug_apply_compass_cal(compass_cal_ui_state_t state, uint8_t progress_pct, uint8_t coverage_bins, compass_cal_hint_t hint)
-{
-    debug_apply_compass_cal_session(state, progress_pct, coverage_bins, hint, ++s_debug_compass_cal_session);
-}
-
-static void debug_compass_cal_anim_cancel(void)
-{
-    s_debug_link.compass_cal_anim_active = false;
-    s_debug_link.compass_cal_anim_hint_fixed = false;
-    s_debug_link.compass_cal_anim_start_ms = 0U;
-    s_debug_link.compass_cal_anim_duration_ms = 0U;
-    s_debug_link.compass_cal_anim_session_id = 0U;
-    s_debug_link.compass_cal_anim_start_pct = 0U;
-    s_debug_link.compass_cal_anim_target_pct = 0U;
-    s_debug_link.compass_cal_anim_final_state = COMPASS_CAL_IDLE;
-    s_debug_link.compass_cal_anim_hint = COMPASS_CAL_HINT_LEVEL_SWEEP;
-    s_debug_link.compass_cal_anim_final_hint = COMPASS_CAL_HINT_LEVEL_SWEEP;
-}
-
-static compass_cal_hint_t debug_compass_cal_anim_auto_hint(uint8_t progress_pct)
-{
-    if (progress_pct < 25U) return COMPASS_CAL_HINT_LEVEL_SWEEP;
-    if (progress_pct < 65U) return COMPASS_CAL_HINT_ROLL_CIRCLE;
-    if (progress_pct < 90U) return COMPASS_CAL_HINT_MORE_COVERAGE;
-    return COMPASS_CAL_HINT_RETURN_LEVEL;
-}
-
-static uint8_t debug_compass_cal_bins_for_progress(uint8_t progress_pct)
-{
-    return (uint8_t)(((uint16_t)progress_pct * 16U + 99U) / 100U);
-}
-
-static void debug_compass_cal_enter_learn(void)
-{
-    debug_compass_cal_anim_cancel();
-    s_debug_link.compass_cal_anim_session_id = ++s_debug_compass_cal_session;
-    debug_apply_compass_cal_session(COMPASS_CAL_RUNNING, 0U, 0U, COMPASS_CAL_HINT_LEVEL_SWEEP, s_debug_link.compass_cal_anim_session_id);
-    screen_refresh_compass_cal_submenu_if_open();
-}
-
-static bool debug_compass_cal_can_finish(uint32_t *out_session_id, uint8_t *out_start_pct)
-{
-    compass_cal_ui_snapshot_t snapshot;
-
-    if (!get_compass_calibration_snapshot(&snapshot))
-    {
-        return false;
-    }
-    if (snapshot.state != COMPASS_CAL_RUNNING)
-    {
-        return false;
-    }
-    if (out_session_id)
-    {
-        *out_session_id = snapshot.session_id;
-    }
-    if (out_start_pct)
-    {
-        *out_start_pct = snapshot.progress_pct;
-    }
-    return true;
-}
-
-static void debug_compass_cal_anim_start(uint32_t duration_ms, uint8_t start_pct, uint8_t target_pct, compass_cal_ui_state_t final_state, bool hint_fixed, compass_cal_hint_t hint, compass_cal_hint_t final_hint, uint32_t session_id)
-{
-    if (duration_ms < DEBUG_COMPASS_CAL_MIN_MS) duration_ms = DEBUG_COMPASS_CAL_MIN_MS;
-    if (duration_ms > DEBUG_COMPASS_CAL_MAX_MS) duration_ms = DEBUG_COMPASS_CAL_MAX_MS;
-    start_pct = (uint8_t)debug_clamp_int(start_pct, 0, 100);
-    target_pct = (uint8_t)debug_clamp_int(target_pct, 0, 100);
-    if (start_pct > target_pct)
-    {
-        start_pct = 0U;
-    }
-
-    s_debug_link.compass_cal_anim_active = true;
-    s_debug_link.compass_cal_anim_hint_fixed = hint_fixed;
-    s_debug_link.compass_cal_anim_start_ms = lv_tick_get();
-    s_debug_link.compass_cal_anim_duration_ms = duration_ms;
-    s_debug_link.compass_cal_anim_session_id = session_id ? session_id : ++s_debug_compass_cal_session;
-    s_debug_link.compass_cal_anim_start_pct = start_pct;
-    s_debug_link.compass_cal_anim_target_pct = target_pct;
-    s_debug_link.compass_cal_anim_final_state = final_state;
-    s_debug_link.compass_cal_anim_hint = hint;
-    s_debug_link.compass_cal_anim_final_hint = final_hint;
-    debug_apply_compass_cal_session(COMPASS_CAL_RUNNING, start_pct, debug_compass_cal_bins_for_progress(start_pct), hint_fixed ? hint : debug_compass_cal_anim_auto_hint(start_pct), s_debug_link.compass_cal_anim_session_id);
-}
-
-static void debug_compass_cal_anim_tick(void)
-{
-    uint32_t now_ms;
-    uint32_t elapsed_ms;
-    uint8_t progress_pct;
-    uint8_t coverage_bins;
-    compass_cal_hint_t hint;
-
-    if (!s_debug_link.compass_cal_anim_active)
-    {
-        return;
-    }
-
-    now_ms = lv_tick_get();
-    elapsed_ms = now_ms - s_debug_link.compass_cal_anim_start_ms;
-    if (elapsed_ms >= s_debug_link.compass_cal_anim_duration_ms)
-    {
-        debug_apply_compass_cal_session(s_debug_link.compass_cal_anim_final_state, s_debug_link.compass_cal_anim_target_pct, debug_compass_cal_bins_for_progress(s_debug_link.compass_cal_anim_target_pct), s_debug_link.compass_cal_anim_final_hint, s_debug_link.compass_cal_anim_session_id);
-        if (s_debug_link.compass_cal_anim_final_state == COMPASS_CAL_READY)
-        {
-            debug_send_raw("OK compass_cal ready\r\n");
-        }
-        else if (s_debug_link.compass_cal_anim_final_state == COMPASS_CAL_SAVE_ERROR)
-        {
-            debug_send_raw("OK compass_cal fail\r\n");
-        }
-        else
-        {
-            debug_sendf("OK compass_cal %s\r\n", debug_compass_cal_state_name(s_debug_link.compass_cal_anim_final_state));
-        }
-        debug_compass_cal_anim_cancel();
-        return;
-    }
-
-    progress_pct = (uint8_t)(s_debug_link.compass_cal_anim_start_pct + (((uint32_t)(s_debug_link.compass_cal_anim_target_pct - s_debug_link.compass_cal_anim_start_pct) * elapsed_ms) / s_debug_link.compass_cal_anim_duration_ms));
-    coverage_bins = debug_compass_cal_bins_for_progress(progress_pct);
-    hint = s_debug_link.compass_cal_anim_hint_fixed ? s_debug_link.compass_cal_anim_hint : debug_compass_cal_anim_auto_hint(progress_pct);
-    debug_apply_compass_cal_session(COMPASS_CAL_RUNNING, progress_pct, coverage_bins, hint, s_debug_link.compass_cal_anim_session_id);
-}
-
-static void debug_compass_cal_poll_pending_cmd(void)
-{
-    compass_cal_cmd_action_t action;
-
-    if (!take_pending_compass_calibration(&action))
-    {
-        return;
-    }
-    if (action == COMPASS_CAL_CMD_START || action == COMPASS_CAL_CMD_RESET)
-    {
-        debug_compass_cal_enter_learn();
-        debug_send_raw("OK compass_cal learn\r\n");
-    }
-}
-
-static bool debug_parse_ota_phase(const char *text, uint8_t *out_phase)
-{
-    if (!text || !out_phase)
-    {
-        return false;
-    }
-    if (debug_streq(text, "wait") || debug_streq(text, "waiting")) { *out_phase = 0U; return true; }
-    if (debug_streq(text, "prepare") || debug_streq(text, "preparing")) { *out_phase = 1U; return true; }
-    if (debug_streq(text, "recv") || debug_streq(text, "receive") || debug_streq(text, "receiving")) { *out_phase = 2U; return true; }
-    if (debug_streq(text, "verify") || debug_streq(text, "verifying")) { *out_phase = 3U; return true; }
-    if (debug_streq(text, "install") || debug_streq(text, "installing")) { *out_phase = 4U; return true; }
-    if (debug_streq(text, "reboot") || debug_streq(text, "rebooting")) { *out_phase = 5U; return true; }
-    if (debug_streq(text, "error") || debug_streq(text, "fail")) { *out_phase = 6U; return true; }
-    return false;
-}
-
-static const char *debug_ota_phase_name(uint8_t phase)
-{
-    switch (phase)
-    {
-    case 0U: return "wait";
-    case 1U: return "prepare";
-    case 2U: return "recv";
-    case 3U: return "verify";
-    case 4U: return "install";
-    case 5U: return "reboot";
-    case 6U: return "error";
-    default: return "unknown";
-    }
-}
-
-static uint8_t debug_default_ota_progress(uint8_t phase)
-{
-    switch (phase)
-    {
-    case 0U: return 0U;
-    case 1U: return 8U;
-    case 2U: return 45U;
-    case 3U: return 72U;
-    case 4U: return 88U;
-    case 5U: return 100U;
-    case 6U: return 62U;
-    default: return 0U;
-    }
-}
-
 static void debug_format_gas_name(char *out, size_t out_size, int o2, int he)
 {
     if (!out || out_size == 0U)
@@ -819,6 +408,230 @@ static void debug_update_gas_derived(void)
 
     bus_set_fio2(fio2 * 100.0f);
     bus_set_gas_density(surface_density * ambient_ata);
+}
+
+static uint16_t debug_compass_normalize_heading_int(int heading)
+{
+    int normalized = heading % 360;
+    if (normalized < 0)
+    {
+        normalized += 360;
+    }
+    return (uint16_t)normalized;
+}
+
+static uint16_t debug_compass_heading_from_xy(float x_ut, float y_ut)
+{
+    float heading = atan2f(y_ut, x_ut) * (180.0f / DEBUG_COMPASS_PI_F);
+
+    if (!isfinite(heading))
+    {
+        return bus_get_heading();
+    }
+    if (heading < 0.0f)
+    {
+        heading += 360.0f;
+    }
+    return debug_compass_normalize_heading_int((int)(heading + 0.5f));
+}
+
+static void debug_compass_synth_mag_from_heading(uint16_t heading_deg,
+        float *out_x_ut,
+        float *out_y_ut,
+        float *out_z_ut)
+{
+    float rad = (float)(heading_deg % 360U) * (DEBUG_COMPASS_PI_F / 180.0f);
+
+    if (out_x_ut)
+    {
+        *out_x_ut = cosf(rad) * DEBUG_COMPASS_SYNTH_FIELD_UT;
+    }
+    if (out_y_ut)
+    {
+        *out_y_ut = sinf(rad) * DEBUG_COMPASS_SYNTH_FIELD_UT;
+    }
+    if (out_z_ut)
+    {
+        *out_z_ut = DEBUG_COMPASS_SYNTH_Z_UT;
+    }
+}
+
+static void debug_compass_repaint(void)
+{
+    bus_requeue_dirty_immediate(DIRTY_COMPASS | DIRTY_SENSOR);
+}
+
+static void debug_apply_compass_heading(uint16_t heading_deg,
+                                        bool available,
+                                        int16_t pitch_deg,
+                                        int16_t roll_deg,
+                                        bool synth_mag)
+{
+    heading_deg %= 360U;
+    bus_set_heading_state(heading_deg, available);
+    bus_set_attitude(pitch_deg, roll_deg, heading_deg);
+
+    if (available && synth_mag)
+    {
+        float x_ut = 0.0f;
+        float y_ut = 0.0f;
+        float z_ut = 0.0f;
+
+        debug_compass_synth_mag_from_heading(heading_deg, &x_ut, &y_ut, &z_ut);
+        bus_set_mag(x_ut, y_ut, z_ut);
+    }
+    debug_compass_repaint();
+}
+
+static const char *debug_compass_cal_state_name(compass_cal_ui_state_t state)
+{
+    switch (state)
+    {
+    case COMPASS_CAL_RUNNING:    return "running";
+    case COMPASS_CAL_SAVING:     return "saving";
+    case COMPASS_CAL_VERIFYING:  return "verifying";
+    case COMPASS_CAL_READY:      return "ready";
+    case COMPASS_CAL_SAVE_ERROR: return "save_error";
+    case COMPASS_CAL_ERROR:      return "error";
+    case COMPASS_CAL_IDLE:
+    default:                     return "idle";
+    }
+}
+
+static bool debug_parse_compass_cal_state(const char *text, compass_cal_ui_state_t *out_state)
+{
+    if (!text || !out_state)
+    {
+        return false;
+    }
+    if (debug_streq(text, "idle")) { *out_state = COMPASS_CAL_IDLE; return true; }
+    if (debug_streq(text, "run") || debug_streq(text, "running") || debug_streq(text, "learn"))
+    {
+        *out_state = COMPASS_CAL_RUNNING;
+        return true;
+    }
+    if (debug_streq(text, "save") || debug_streq(text, "saving"))
+    {
+        *out_state = COMPASS_CAL_SAVING;
+        return true;
+    }
+    if (debug_streq(text, "check") || debug_streq(text, "verify") || debug_streq(text, "verifying"))
+    {
+        *out_state = COMPASS_CAL_VERIFYING;
+        return true;
+    }
+    if (debug_streq(text, "ok") || debug_streq(text, "ready"))
+    {
+        *out_state = COMPASS_CAL_READY;
+        return true;
+    }
+    if (debug_streq(text, "fail") || debug_streq(text, "save_error"))
+    {
+        *out_state = COMPASS_CAL_SAVE_ERROR;
+        return true;
+    }
+    if (debug_streq(text, "err") || debug_streq(text, "error"))
+    {
+        *out_state = COMPASS_CAL_ERROR;
+        return true;
+    }
+    return false;
+}
+
+static const char *debug_compass_cal_hint_name(compass_cal_hint_t hint)
+{
+    switch (hint)
+    {
+    case COMPASS_CAL_HINT_MORE_COVERAGE:    return "more_coverage";
+    case COMPASS_CAL_HINT_MAG_ENVIRONMENT:  return "mag_environment";
+    case COMPASS_CAL_HINT_ROLL_CIRCLE:      return "roll_circle";
+    case COMPASS_CAL_HINT_RETURN_LEVEL:     return "return_level";
+    case COMPASS_CAL_HINT_FACTORY_SERVICE:  return "factory_service";
+    case COMPASS_CAL_HINT_SENSOR_DATA:      return "sensor_data";
+    case COMPASS_CAL_HINT_MODEL_QUALITY:    return "model_quality";
+    case COMPASS_CAL_HINT_LEVEL_SWEEP:
+    default:                                return "level_sweep";
+    }
+}
+
+static bool debug_parse_compass_cal_hint(const char *text, compass_cal_hint_t *out_hint)
+{
+    if (!text || !out_hint)
+    {
+        return false;
+    }
+    if (debug_streq(text, "level") || debug_streq(text, "level_sweep"))
+    {
+        *out_hint = COMPASS_CAL_HINT_LEVEL_SWEEP;
+        return true;
+    }
+    if (debug_streq(text, "coverage") || debug_streq(text, "more") || debug_streq(text, "more_coverage"))
+    {
+        *out_hint = COMPASS_CAL_HINT_MORE_COVERAGE;
+        return true;
+    }
+    if (debug_streq(text, "mag") || debug_streq(text, "environment") || debug_streq(text, "mag_environment"))
+    {
+        *out_hint = COMPASS_CAL_HINT_MAG_ENVIRONMENT;
+        return true;
+    }
+    if (debug_streq(text, "roll") || debug_streq(text, "roll_circle"))
+    {
+        *out_hint = COMPASS_CAL_HINT_ROLL_CIRCLE;
+        return true;
+    }
+    if (debug_streq(text, "return") || debug_streq(text, "return_level"))
+    {
+        *out_hint = COMPASS_CAL_HINT_RETURN_LEVEL;
+        return true;
+    }
+    if (debug_streq(text, "factory") || debug_streq(text, "factory_service"))
+    {
+        *out_hint = COMPASS_CAL_HINT_FACTORY_SERVICE;
+        return true;
+    }
+    if (debug_streq(text, "sensor") || debug_streq(text, "sensor_data"))
+    {
+        *out_hint = COMPASS_CAL_HINT_SENSOR_DATA;
+        return true;
+    }
+    if (debug_streq(text, "quality") || debug_streq(text, "model_quality"))
+    {
+        *out_hint = COMPASS_CAL_HINT_MODEL_QUALITY;
+        return true;
+    }
+    return false;
+}
+
+static bool debug_parse_u16_auto(const char *text, uint16_t *out)
+{
+    char *end = NULL;
+    unsigned long value;
+
+    if (!text || !out)
+    {
+        return false;
+    }
+    value = strtoul(text, &end, 0);
+    if (end == text || (end && *end != '\0') || value > 0xFFFFUL)
+    {
+        return false;
+    }
+    *out = (uint16_t)value;
+    return true;
+}
+
+static void debug_apply_compass_cal(compass_cal_ui_state_t state,
+                                    uint8_t progress_pct,
+                                    compass_cal_hint_t hint,
+                                    uint16_t coverage_mask,
+                                    uint8_t coverage_bins)
+{
+    set_compass_calibration_ui_state(state);
+    set_compass_calibration_progress(progress_pct);
+    set_compass_calibration_hint(hint);
+    set_compass_calibration_coverage(coverage_mask, coverage_bins);
+    debug_compass_repaint();
 }
 
 static void debug_depth_goto_cancel(void)
@@ -1084,15 +897,15 @@ static void debug_send_help(void)
         "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back [2] | manual on|off | auto on|off | speed <1..120> | heading_speed <0..3600>\r\n"
-        "  page <info|compass|deco|plan|gas|custom|blank|setup|menu>\r\n"
-        "  compass_cal reset | compass_cal success|fail [duration_ms] [hint] | compass_cal set <state> [progress] [bins] [hint]\r\n"
-        "  compass_lock <deg|current|off> | ota off | ota <wait|prepare|recv|verify|install|reboot|error> [progress] [detail] [reason]\r\n"
         "  depth <m> | goto <m> [m_min]|stop | glitch on [min max spike speed] | glitch <min> <max> [spike speed] | glitch off\r\n"
         "  sample <time_s> <depth_m> | rate <m_min> | time <s>\r\n"
         "  rtc_offline <seconds> | rtc_sleep_mark | rtc_sleep_apply | rtc_sleep_status\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
         "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
-        "  heading <deg> [on|off] | heading off | ppo2 <slot> <bar> | gf <low> <high> | gf99 <pct> | surf_gf <pct>\r\n"
+        "  heading <deg> [pitch roll] | compass on|off|<deg> [pitch roll]\r\n"
+        "  mag <x> <y> <z> | mlx <x> <y> <z> | tmag <x> <y> <z> | attitude <pitch> <roll> [heading]\r\n"
+        "  compass_cal <state> [progress] [hint] [coverage_mask] [bins]\r\n"
+        "  ppo2 <slot> <bar> | gf <low> <high> | gf99 <pct> | surf_gf <pct>\r\n"
         "  last_deco <3|6> | final_stop <3|6>\r\n"
         "  cns <pct> | otu <value> | mod <m> | ceiling <m> | mix <o2> <he> | dens <g_l> | fio2 <pct>\r\n"
         "  gas_count <n> | gas <slot> [name] | gas_slot <slot> <o2> <he> <mod> [name]\r\n"
@@ -1106,19 +919,12 @@ static void debug_send_help(void)
 static void debug_send_state(void)
 {
     debug_sendf(
-        "STATE tcp=%u depth_manual=%u manual=%u speed=%u heading_speed=%u page=%u/%u heading=%u avail=%u lock=%u lock_target=%u cal_anim=%u goto=%u target=%.1f goto_rate=%.1f glitch=%u glitch_range=%.1f..%.1f glitch_spike=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um\r\n",
+        "STATE tcp=%u depth_manual=%u manual=%u speed=%u heading_speed=%u goto=%u target=%.1f goto_rate=%.1f glitch=%u glitch_range=%.1f..%.1f glitch_spike=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um heading=%u avail=%u mag=%.1f,%.1f,%.1f mlx=%.1f,%.1f,%.1f tmag=%.1f att=%d,%d,%u cal=%s/%u/%s/%04x/%u\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
         (unsigned)debug_link_pc_time_scale(),
         (unsigned)debug_link_pc_heading_speed_dps(),
-        (unsigned)ui_state_get_dash_page(),
-        (unsigned)screen_visible_tile_pos_get(),
-        (unsigned)bus_get_heading(),
-        bus_get_heading_available() ? 1U : 0U,
-        bus_is_heading_locked() ? 1U : 0U,
-        (unsigned)bus_get_heading_target(),
-        s_debug_link.compass_cal_anim_active ? 1U : 0U,
         s_debug_link.depth_goto_active ? 1U : 0U,
         (double)s_debug_link.depth_goto_target_m,
         (double)s_debug_link.depth_goto_rate_mpm,
@@ -1137,7 +943,24 @@ static void debug_send_state(void)
         (double)g_sensor_data.pod2_bar,
         (unsigned)g_sensor_data.gf_low,
         (unsigned)g_sensor_data.gf_high,
-        (unsigned)((g_sys_config.last_deco_stop_m == 6U) ? 6U : 3U));
+        (unsigned)((g_sys_config.last_deco_stop_m == 6U) ? 6U : 3U),
+        (unsigned)bus_get_heading(),
+        bus_get_heading_available() ? 1U : 0U,
+        (double)bus_get_mag_x_ut(),
+        (double)bus_get_mag_y_ut(),
+        (double)bus_get_mag_z_ut(),
+        (double)bus_get_mlx_x_ut(),
+        (double)bus_get_mlx_y_ut(),
+        (double)bus_get_mlx_z_ut(),
+        (double)bus_get_tmag_ut(),
+        (int)bus_get_pitch_deg(),
+        (int)bus_get_roll_deg(),
+        (unsigned)bus_get_attitude_heading_deg(),
+        debug_compass_cal_state_name(get_compass_calibration_ui_state()),
+        (unsigned)get_compass_calibration_progress(),
+        debug_compass_cal_hint_name(get_compass_calibration_hint()),
+        (unsigned)get_compass_calibration_coverage_mask(),
+        (unsigned)get_compass_calibration_coverage_bins());
 }
 
 static void debug_layout_fill_left(ble_ui_sync_payload_t *payload)
@@ -1343,322 +1166,6 @@ static void debug_exec_line(char *line)
     if (debug_streq(cmd, "state"))
     {
         debug_send_state();
-        return;
-    }
-
-    if (debug_streq(cmd, "page") || debug_streq(cmd, "show") || debug_streq(cmd, "jump"))
-    {
-        page_id_t page_id;
-        char *page_text = debug_next_token(&cursor);
-
-        if (!debug_parse_page_id(page_text, &page_id) || debug_next_token(&cursor) != NULL)
-        {
-            debug_send_raw("ERR usage: page <info|compass|deco|plan|gas|custom|blank|setup|menu>\r\n");
-            return;
-        }
-
-        debug_show_page(page_id);
-        return;
-    }
-
-    if (debug_streq(cmd, "compass_cal") || debug_streq(cmd, "cal"))
-    {
-        compass_cal_ui_state_t state;
-        compass_cal_hint_t hint = COMPASS_CAL_HINT_LEVEL_SWEEP;
-        uint8_t progress_pct;
-        uint8_t coverage_bins;
-        char *state_text = debug_next_token(&cursor);
-        char *progress_text;
-        char *bins_text;
-        char *hint_text;
-        int value;
-
-        if (!state_text || debug_streq(state_text, "list"))
-        {
-            debug_send_raw("COMPASS_CAL: reset | success|fail [duration_ms] [hint] | set <idle|run|saving|verify|ready|save_error|error> [progress] [bins] [hint]; hints: level_sweep more_coverage mag_environment roll_circle return_level factory_service sensor_data model_quality\r\n");
-            return;
-        }
-        if (debug_streq(state_text, "reset") || debug_streq(state_text, "learn"))
-        {
-            if (debug_next_token(&cursor) != NULL)
-            {
-                debug_send_raw("ERR usage: compass_cal reset\r\n");
-                return;
-            }
-            debug_compass_cal_enter_learn();
-            screen_refresh_compass_cal_submenu_if_open();
-            debug_send_raw("OK compass_cal learn\r\n");
-            return;
-        }
-        if (debug_streq(state_text, "success") || debug_streq(state_text, "ok") || debug_streq(state_text, "pass") || debug_streq(state_text, "run") || debug_streq(state_text, "running"))
-        {
-            uint32_t duration_ms = DEBUG_COMPASS_CAL_DEFAULT_MS;
-            bool hint_fixed = false;
-            uint32_t session_id;
-            uint8_t start_pct;
-            progress_text = debug_next_token(&cursor);
-            hint_text = debug_next_token(&cursor);
-
-            if (progress_text && debug_parse_int(progress_text, &value))
-            {
-                if (value < (int)DEBUG_COMPASS_CAL_MIN_MS || value > (int)DEBUG_COMPASS_CAL_MAX_MS)
-                {
-                    debug_send_raw("ERR usage: compass_cal success [duration_ms 500..60000] [hint]\r\n");
-                    return;
-                }
-                duration_ms = (uint32_t)value;
-            }
-            else if (progress_text && !hint_text && debug_parse_compass_cal_hint(progress_text, &hint))
-            {
-                hint_fixed = true;
-            }
-            else if (progress_text)
-            {
-                debug_send_raw("ERR usage: compass_cal success [duration_ms 500..60000] [hint]\r\n");
-                return;
-            }
-            if (hint_text && !debug_parse_compass_cal_hint(hint_text, &hint))
-            {
-                debug_send_raw("ERR hint: level_sweep more_coverage mag_environment roll_circle return_level factory_service sensor_data model_quality\r\n");
-                return;
-            }
-            if (hint_text)
-            {
-                hint_fixed = true;
-            }
-            if (debug_next_token(&cursor) != NULL)
-            {
-                debug_send_raw("ERR usage: compass_cal success [duration_ms] [hint]\r\n");
-                return;
-            }
-            if (!debug_compass_cal_can_finish(&session_id, &start_pct))
-            {
-                debug_send_raw("ERR compass_cal reset required first\r\n");
-                return;
-            }
-
-            debug_compass_cal_anim_start(duration_ms, start_pct, 100U, COMPASS_CAL_READY, hint_fixed, hint, COMPASS_CAL_HINT_MODEL_QUALITY, session_id);
-            debug_sendf("OK compass_cal success duration=%lums hint=%s\r\n", (unsigned long)duration_ms, hint_fixed ? debug_compass_cal_hint_name(hint) : "auto");
-            return;
-        }
-        if (debug_streq(state_text, "fail") || debug_streq(state_text, "failed"))
-        {
-            uint32_t duration_ms = (DEBUG_COMPASS_CAL_DEFAULT_MS / 2UL);
-            bool hint_fixed = false;
-            uint32_t session_id;
-            uint8_t start_pct;
-            hint = COMPASS_CAL_HINT_MAG_ENVIRONMENT;
-            progress_text = debug_next_token(&cursor);
-            hint_text = debug_next_token(&cursor);
-
-            if (progress_text && debug_parse_int(progress_text, &value))
-            {
-                if (value < (int)DEBUG_COMPASS_CAL_MIN_MS || value > (int)DEBUG_COMPASS_CAL_MAX_MS)
-                {
-                    debug_send_raw("ERR usage: compass_cal fail [duration_ms 500..60000] [hint]\r\n");
-                    return;
-                }
-                duration_ms = (uint32_t)value;
-            }
-            else if (progress_text && !hint_text && debug_parse_compass_cal_hint(progress_text, &hint))
-            {
-                hint_fixed = true;
-            }
-            else if (progress_text)
-            {
-                debug_send_raw("ERR usage: compass_cal fail [duration_ms 500..60000] [hint]\r\n");
-                return;
-            }
-            if (hint_text && !debug_parse_compass_cal_hint(hint_text, &hint))
-            {
-                debug_send_raw("ERR hint: level_sweep more_coverage mag_environment roll_circle return_level factory_service sensor_data model_quality\r\n");
-                return;
-            }
-            if (hint_text)
-            {
-                hint_fixed = true;
-            }
-            if (debug_next_token(&cursor) != NULL)
-            {
-                debug_send_raw("ERR usage: compass_cal fail [duration_ms] [hint]\r\n");
-                return;
-            }
-            if (!debug_compass_cal_can_finish(&session_id, &start_pct))
-            {
-                debug_send_raw("ERR compass_cal reset required first\r\n");
-                return;
-            }
-
-            debug_compass_cal_anim_start(duration_ms, start_pct, 50U, COMPASS_CAL_SAVE_ERROR, hint_fixed, hint, hint, session_id);
-            debug_sendf("OK compass_cal fail duration=%lums hint=%s\r\n", (unsigned long)duration_ms, debug_compass_cal_hint_name(hint));
-            return;
-        }
-        if (debug_streq(state_text, "set"))
-        {
-            state_text = debug_next_token(&cursor);
-        }
-        if (!debug_parse_compass_cal_state(state_text, &state))
-        {
-            debug_send_raw("ERR usage: compass_cal reset | compass_cal success|fail [duration_ms] [hint] | compass_cal set <state> [progress] [bins] [hint]\r\n");
-            return;
-        }
-
-        progress_pct = debug_default_compass_cal_progress(state);
-        coverage_bins = debug_default_compass_cal_bins(state);
-        progress_text = debug_next_token(&cursor);
-        bins_text = debug_next_token(&cursor);
-        hint_text = debug_next_token(&cursor);
-
-        if (progress_text && (!debug_parse_int(progress_text, &value) || value < 0 || value > 100))
-        {
-            debug_send_raw("ERR usage: compass_cal <state> [progress 0..100] [bins 0..16] [hint]\r\n");
-            return;
-        }
-        if (progress_text)
-        {
-            progress_pct = (uint8_t)value;
-        }
-        if (bins_text && (!debug_parse_int(bins_text, &value) || value < 0 || value > 16))
-        {
-            debug_send_raw("ERR usage: compass_cal <state> [progress 0..100] [bins 0..16] [hint]\r\n");
-            return;
-        }
-        if (bins_text)
-        {
-            coverage_bins = (uint8_t)value;
-        }
-        if (hint_text && !debug_parse_compass_cal_hint(hint_text, &hint))
-        {
-            debug_send_raw("ERR hint: level_sweep more_coverage mag_environment roll_circle return_level factory_service sensor_data model_quality\r\n");
-            return;
-        }
-        if (debug_next_token(&cursor) != NULL)
-        {
-            debug_send_raw("ERR usage: compass_cal <state> [progress] [bins] [hint]\r\n");
-            return;
-        }
-
-        debug_compass_cal_anim_cancel();
-        debug_apply_compass_cal(state, progress_pct, coverage_bins, hint);
-        debug_sendf("OK compass_cal %s progress=%u bins=%u hint=%s\r\n", debug_compass_cal_state_name(state), (unsigned)progress_pct, (unsigned)coverage_bins, debug_compass_cal_hint_name(hint));
-        return;
-    }
-
-    if (debug_streq(cmd, "compass_lock") || debug_streq(cmd, "target"))
-    {
-        char *target_text = debug_next_token(&cursor);
-        int heading;
-
-        if (!target_text || debug_next_token(&cursor) != NULL)
-        {
-            debug_send_raw("ERR usage: compass_lock <deg|current|off>\r\n");
-            return;
-        }
-        if (debug_streq(target_text, "off") || debug_streq(target_text, "clear") || debug_streq(target_text, "none"))
-        {
-            bus_clear_heading_lock();
-            ui_state_set_heading_lock_active(false);
-            ui_state_set_heading_lock_pending(false);
-            bus_requeue_dirty_immediate(DIRTY_COMPASS);
-            screen_refresh_compass_target();
-            debug_send_raw("OK compass_lock off\r\n");
-            return;
-        }
-        if (debug_streq(target_text, "current"))
-        {
-            heading = (int)screen_get_compass_display_heading();
-        }
-        else if (!debug_parse_int(target_text, &heading))
-        {
-            debug_send_raw("ERR usage: compass_lock <deg|current|off>\r\n");
-            return;
-        }
-
-        if (heading < 0)
-        {
-            heading = 0;
-        }
-        if (!bus_get_heading_available())
-        {
-            bus_set_heading_state(bus_get_heading(), true);
-        }
-        if (!bus_lock_heading((uint16_t)(heading % 360)))
-        {
-            debug_send_raw("ERR compass heading unavailable\r\n");
-            return;
-        }
-        ui_state_set_heading_lock_active(true);
-        ui_state_set_heading_lock_pending(false);
-        bus_requeue_dirty_immediate(DIRTY_COMPASS);
-        screen_refresh_compass_target();
-        debug_sendf("OK compass_lock %d\r\n", heading % 360);
-        return;
-    }
-
-    if (debug_streq(cmd, "ota"))
-    {
-        ota_update_view_status_t status;
-        uint8_t phase;
-        char *phase_text = debug_next_token(&cursor);
-        char *progress_text;
-        char *detail_text;
-        char *reason_text;
-        int value;
-
-        if (!ota_update_view_refresh || !ota_update_view_hide)
-        {
-            debug_send_raw("ERR ota view not linked in this build\r\n");
-            return;
-        }
-        if (debug_streq(phase_text, "off") || debug_streq(phase_text, "hide") || debug_streq(phase_text, "clear"))
-        {
-            ota_update_view_hide();
-            debug_send_raw("OK ota off\r\n");
-            return;
-        }
-        if (!debug_parse_ota_phase(phase_text, &phase))
-        {
-            debug_send_raw("ERR usage: ota off | ota <wait|prepare|recv|verify|install|reboot|error> [progress] [detail] [reason]\r\n");
-            return;
-        }
-
-        memset(&status, 0, sizeof(status));
-        status.active = 1U;
-        status.phase = phase;
-        status.progress_pct = debug_default_ota_progress(phase);
-        progress_text = debug_next_token(&cursor);
-        detail_text = debug_next_token(&cursor);
-        reason_text = debug_trim(cursor);
-
-        if (progress_text && (!debug_parse_int(progress_text, &value) || value < 0 || value > 100))
-        {
-            debug_send_raw("ERR usage: ota <phase> [progress 0..100] [detail] [reason]\r\n");
-            return;
-        }
-        if (progress_text)
-        {
-            status.progress_pct = (uint8_t)value;
-        }
-        if (detail_text && (!debug_parse_int(detail_text, &value) || value < 0))
-        {
-            debug_send_raw("ERR usage: ota <phase> [progress] [detail >=0] [reason]\r\n");
-            return;
-        }
-        if (detail_text)
-        {
-            status.detail = (uint32_t)value;
-        }
-        if (phase == 6U)
-        {
-            status.error_code = status.detail > 0U ? (uint16_t)status.detail : 1U;
-        }
-        if (reason_text && reason_text[0] != '\0')
-        {
-            (void)snprintf(status.reason, sizeof(status.reason), "%s", reason_text);
-        }
-
-        ota_update_view_refresh(&status);
-        debug_sendf("OK ota %s progress=%u detail=%lu\r\n", debug_ota_phase_name(phase), (unsigned)status.progress_pct, (unsigned long)status.detail);
         return;
     }
 
@@ -2295,36 +1802,268 @@ static void debug_exec_line(char *line)
     if (debug_streq(cmd, "heading"))
     {
         int heading;
-        char *heading_text = debug_next_token(&cursor);
-        char *available_text = debug_next_token(&cursor);
-        bool available = true;
-
-        if (debug_streq(heading_text, "off") || debug_streq(heading_text, "invalid") || debug_streq(heading_text, "none") || debug_streq(heading_text, "na"))
+        int pitch = bus_get_pitch_deg();
+        int roll = bus_get_roll_deg();
+        if (!debug_parse_int(debug_next_token(&cursor), &heading))
         {
-            if (available_text != NULL)
+            debug_send_raw("ERR usage: heading <deg> [pitch roll]\r\n");
+            return;
+        }
+        {
+            char *pitch_arg = debug_next_token(&cursor);
+            if (pitch_arg != NULL)
             {
-                debug_send_raw("ERR usage: heading <deg> [on|off] | heading off\r\n");
+                if (!debug_parse_int(pitch_arg, &pitch) ||
+                        !debug_parse_int(debug_next_token(&cursor), &roll))
+                {
+                    debug_send_raw("ERR usage: heading <deg> [pitch roll]\r\n");
+                    return;
+                }
+            }
+        }
+        debug_apply_compass_heading(debug_compass_normalize_heading_int(heading),
+                                    true,
+                                    (int16_t)pitch,
+                                    (int16_t)roll,
+                                    true);
+        debug_sendf("OK heading %u pitch=%d roll=%d\r\n",
+                    (unsigned)debug_compass_normalize_heading_int(heading),
+                    pitch,
+                    roll);
+        return;
+    }
+
+    if (debug_streq(cmd, "compass"))
+    {
+        char *arg = debug_next_token(&cursor);
+        bool enabled;
+        int heading;
+        int pitch = bus_get_pitch_deg();
+        int roll = bus_get_roll_deg();
+
+        if (!arg)
+        {
+            debug_send_raw("ERR usage: compass on|off|<deg> [pitch roll]\r\n");
+            return;
+        }
+        if (debug_parse_bool(arg, &enabled))
+        {
+            if (!enabled)
+            {
+                s_debug_link.heading_speed_dps = 0U;
+            }
+            debug_apply_compass_heading(bus_get_heading(),
+                                        enabled,
+                                        (int16_t)pitch,
+                                        (int16_t)roll,
+                                        false);
+            debug_sendf("OK compass %s\r\n", enabled ? "on" : "off");
+            return;
+        }
+        if (!debug_parse_int(arg, &heading))
+        {
+            debug_send_raw("ERR usage: compass on|off|<deg> [pitch roll]\r\n");
+            return;
+        }
+        {
+            char *pitch_arg = debug_next_token(&cursor);
+            if (pitch_arg != NULL)
+            {
+                if (!debug_parse_int(pitch_arg, &pitch) ||
+                        !debug_parse_int(debug_next_token(&cursor), &roll))
+                {
+                    debug_send_raw("ERR usage: compass on|off|<deg> [pitch roll]\r\n");
+                    return;
+                }
+            }
+        }
+        debug_apply_compass_heading(debug_compass_normalize_heading_int(heading),
+                                    true,
+                                    (int16_t)pitch,
+                                    (int16_t)roll,
+                                    true);
+        debug_sendf("OK compass %u pitch=%d roll=%d\r\n",
+                    (unsigned)debug_compass_normalize_heading_int(heading),
+                    pitch,
+                    roll);
+        return;
+    }
+
+    if (debug_streq(cmd, "mag"))
+    {
+        float x_ut;
+        float y_ut;
+        float z_ut;
+        uint16_t heading;
+
+        if (!debug_parse_float(debug_next_token(&cursor), &x_ut) ||
+                !debug_parse_float(debug_next_token(&cursor), &y_ut) ||
+                !debug_parse_float(debug_next_token(&cursor), &z_ut))
+        {
+            debug_send_raw("ERR usage: mag <x> <y> <z>\r\n");
+            return;
+        }
+        heading = debug_compass_heading_from_xy(x_ut, y_ut);
+        bus_set_mag(x_ut, y_ut, z_ut);
+        debug_apply_compass_heading(heading,
+                                    true,
+                                    bus_get_pitch_deg(),
+                                    bus_get_roll_deg(),
+                                    false);
+        debug_sendf("OK mag %.1f %.1f %.1f heading=%u\r\n",
+                    (double)x_ut,
+                    (double)y_ut,
+                    (double)z_ut,
+                    (unsigned)heading);
+        return;
+    }
+
+    if (debug_streq(cmd, "mlx"))
+    {
+        float x_ut;
+        float y_ut;
+        float z_ut;
+
+        if (!debug_parse_float(debug_next_token(&cursor), &x_ut) ||
+                !debug_parse_float(debug_next_token(&cursor), &y_ut) ||
+                !debug_parse_float(debug_next_token(&cursor), &z_ut))
+        {
+            debug_send_raw("ERR usage: mlx <x> <y> <z>\r\n");
+            return;
+        }
+        bus_set_mlx(x_ut, y_ut, z_ut);
+        debug_compass_repaint();
+        debug_sendf("OK mlx %.1f %.1f %.1f\r\n",
+                    (double)x_ut,
+                    (double)y_ut,
+                    (double)z_ut);
+        return;
+    }
+
+    if (debug_streq(cmd, "tmag"))
+    {
+        float x_ut;
+        float y_ut;
+        float z_ut;
+
+        if (!debug_parse_float(debug_next_token(&cursor), &x_ut) ||
+                !debug_parse_float(debug_next_token(&cursor), &y_ut) ||
+                !debug_parse_float(debug_next_token(&cursor), &z_ut))
+        {
+            debug_send_raw("ERR usage: tmag <x> <y> <z>\r\n");
+            return;
+        }
+        bus_set_tmag(x_ut, y_ut, z_ut);
+        debug_compass_repaint();
+        debug_sendf("OK tmag %.1f %.1f %.1f total=%.1f\r\n",
+                    (double)x_ut,
+                    (double)y_ut,
+                    (double)z_ut,
+                    (double)bus_get_tmag_ut());
+        return;
+    }
+
+    if (debug_streq(cmd, "attitude") || debug_streq(cmd, "att"))
+    {
+        int pitch;
+        int roll;
+        int heading = (int)bus_get_heading();
+        char *heading_arg;
+
+        if (!debug_parse_int(debug_next_token(&cursor), &pitch) ||
+                !debug_parse_int(debug_next_token(&cursor), &roll))
+        {
+            debug_send_raw("ERR usage: attitude <pitch> <roll> [heading]\r\n");
+            return;
+        }
+        heading_arg = debug_next_token(&cursor);
+        if (heading_arg != NULL && !debug_parse_int(heading_arg, &heading))
+        {
+            debug_send_raw("ERR usage: attitude <pitch> <roll> [heading]\r\n");
+            return;
+        }
+        debug_apply_compass_heading(debug_compass_normalize_heading_int(heading),
+                                    bus_get_heading_available(),
+                                    (int16_t)pitch,
+                                    (int16_t)roll,
+                                    heading_arg != NULL);
+        debug_sendf("OK attitude pitch=%d roll=%d heading=%u\r\n",
+                    pitch,
+                    roll,
+                    (unsigned)debug_compass_normalize_heading_int(heading));
+        return;
+    }
+
+    if (debug_streq(cmd, "compass_cal"))
+    {
+        compass_cal_ui_state_t state;
+        compass_cal_hint_t hint = get_compass_calibration_hint();
+        uint8_t progress = get_compass_calibration_progress();
+        uint16_t coverage_mask = get_compass_calibration_coverage_mask();
+        uint8_t coverage_bins = get_compass_calibration_coverage_bins();
+        int progress_arg;
+        int bins_arg;
+        uint16_t mask_arg;
+        char *arg = debug_next_token(&cursor);
+        char *token;
+
+        if (!debug_parse_compass_cal_state(arg, &state))
+        {
+            debug_send_raw("ERR usage: compass_cal <idle|running|saving|verifying|ready|save_error|error> [progress] [hint] [coverage_mask] [bins]\r\n");
+            return;
+        }
+        token = debug_next_token(&cursor);
+        if (token != NULL)
+        {
+            if (!debug_parse_int(token, &progress_arg) || progress_arg < 0 || progress_arg > 100)
+            {
+                debug_send_raw("ERR compass_cal progress 0..100\r\n");
                 return;
             }
-            bus_set_heading_state(bus_get_heading(), false);
-            bus_requeue_dirty_immediate(DIRTY_COMPASS);
-            debug_send_raw("OK heading off\r\n");
-            return;
+            progress = (uint8_t)progress_arg;
         }
-        if (!debug_parse_int(heading_text, &heading) ||
-                (available_text && !debug_parse_bool(available_text, &available)) ||
-                debug_next_token(&cursor) != NULL)
+        token = debug_next_token(&cursor);
+        if (token != NULL)
         {
-            debug_send_raw("ERR usage: heading <deg> [on|off] | heading off\r\n");
-            return;
+            if (!debug_parse_compass_cal_hint(token, &hint))
+            {
+                debug_send_raw("ERR compass_cal hint level_sweep|more_coverage|mag_environment|roll_circle|return_level|factory_service|sensor_data|model_quality\r\n");
+                return;
+            }
         }
-        if (heading < 0)
+        token = debug_next_token(&cursor);
+        if (token != NULL)
         {
-            heading = 0;
+            if (!debug_parse_u16_auto(token, &mask_arg))
+            {
+                debug_send_raw("ERR compass_cal coverage_mask decimal or 0x0000..0xffff\r\n");
+                return;
+            }
+            coverage_mask = mask_arg;
         }
-        bus_set_heading_state((uint16_t)(heading % 360), available);
-        bus_requeue_dirty_immediate(DIRTY_COMPASS);
-        debug_sendf("OK heading %d %s\r\n", heading % 360, available ? "on" : "off");
+        token = debug_next_token(&cursor);
+        if (token != NULL)
+        {
+            if (!debug_parse_int(token, &bins_arg) || bins_arg < 0 || bins_arg > 16)
+            {
+                debug_send_raw("ERR compass_cal bins 0..16\r\n");
+                return;
+            }
+            coverage_bins = (uint8_t)bins_arg;
+        }
+        if (state == COMPASS_CAL_IDLE)
+        {
+            progress = 0U;
+            coverage_mask = 0U;
+            coverage_bins = 0U;
+        }
+        debug_apply_compass_cal(state, progress, hint, coverage_mask, coverage_bins);
+        debug_sendf("OK compass_cal %s progress=%u hint=%s coverage=%04x bins=%u\r\n",
+                    debug_compass_cal_state_name(state),
+                    (unsigned)progress,
+                    debug_compass_cal_hint_name(hint),
+                    (unsigned)coverage_mask,
+                    (unsigned)coverage_bins);
         return;
     }
 
@@ -2577,7 +2316,6 @@ static void debug_disconnect_client(void)
 {
     debug_depth_goto_cancel();
     debug_depth_glitch_cancel();
-    debug_compass_cal_anim_cancel();
     debug_close_socket(&s_debug_link.client);
     s_debug_link.rx_len = 0;
     printf("[DBG] TCP debug client disconnected\r\n");
@@ -2604,7 +2342,6 @@ static void debug_poll_cb(lv_timer_t *timer)
             s_debug_link.time_scale = 1;
             debug_depth_goto_cancel();
             debug_depth_glitch_cancel();
-            debug_compass_cal_anim_cancel();
             s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
             s_debug_link.depth_rate_valid = false;
             s_debug_link.depth_rate_last_m = g_sensor_data.depth;
@@ -2623,9 +2360,6 @@ static void debug_poll_cb(lv_timer_t *timer)
         }
         return;
     }
-
-    debug_compass_cal_poll_pending_cmd();
-    debug_compass_cal_anim_tick();
 
     for (;;)
     {

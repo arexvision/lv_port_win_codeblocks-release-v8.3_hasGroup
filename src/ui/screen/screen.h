@@ -141,6 +141,7 @@ void screen_cancel_light_color_preview(void);
 void screen_refresh_compass_cal_submenu_if_open(void);
 
 void screen_open_nested_submenu(const char *title, const char **items, uint8_t count);
+bool screen_submenu_visible(void);
 
 void screen_update_setup_badge(uint8_t item_idx, const char *value);
 
@@ -159,6 +160,7 @@ void screen_begin_edit_value(uint8_t item_idx, const submenu_edit_spec_t *spec);
 void screen_show_modal_gas(void);
 void screen_show_modal_compass(void);
 void screen_pulse_modal(void);
+bool screen_modal_visible(void);
 void screen_hide_modal(void);
 
 /* =========================================

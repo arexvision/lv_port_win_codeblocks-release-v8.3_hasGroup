@@ -162,6 +162,43 @@ static float sim_calc_ppo2(uint8_t o2_pct, float depth_m)
     return bus_calculate_ppo2_bar(o2_pct, pressure_mbar);
 }
 
+static void sim_compass_mag_from_heading(uint16_t heading_deg,
+        uint32_t tick_s,
+        float *out_x_ut,
+        float *out_y_ut,
+        float *out_z_ut)
+{
+    float rad = (float)(heading_deg % 360U) * (3.14159265358979323846f / 180.0f);
+    float wobble = (float)(tick_s % 20U) - 10.0f;
+
+    if (out_x_ut)
+    {
+        *out_x_ut = cosf(rad) * 50.0f;
+    }
+    if (out_y_ut)
+    {
+        *out_y_ut = sinf(rad) * 50.0f;
+    }
+    if (out_z_ut)
+    {
+        *out_z_ut = 8.0f + (wobble * 0.2f);
+    }
+}
+
+static void sim_apply_compass_snapshot(uint16_t heading_deg, uint32_t tick_s)
+{
+    float x_ut = 0.0f;
+    float y_ut = 0.0f;
+    float z_ut = 0.0f;
+
+    heading_deg %= 360U;
+    sim_compass_mag_from_heading(heading_deg, tick_s, &x_ut, &y_ut, &z_ut);
+    bus_set_heading_state(heading_deg, true);
+    bus_set_mag(x_ut, y_ut, z_ut);
+    bus_set_attitude(bus_get_pitch_deg(), bus_get_roll_deg(), heading_deg);
+    bus_requeue_dirty_immediate(DIRTY_COMPASS | DIRTY_SENSOR);
+}
+
 static void sim_update_heading_auto(uint16_t step_deg)
 {
     if (step_deg == 0U)
@@ -169,7 +206,7 @@ static void sim_update_heading_auto(uint16_t step_deg)
         return;
     }
     s_sim.heading_deg = (uint16_t)((bus_get_heading() + step_deg) % 360U);
-    bus_set_heading(s_sim.heading_deg);
+    sim_apply_compass_snapshot(s_sim.heading_deg, s_sim.runtime_tick_s);
 }
 
 static uint16_t sim_heading_speed_dps(void)
@@ -283,6 +320,7 @@ static void sim_seed_original_defaults(void)
     bus_set_ceiling(0.0f);
     bus_set_gas_mix(21, 0);
     sim_update_gas_derived(0.0f);
+    sim_apply_compass_snapshot(s_sim.heading_deg, s_sim.runtime_tick_s);
 }
 
 static void sim_seed_logbook_demo_if_empty(void)
@@ -361,6 +399,7 @@ static void sim_seed_tcp_algo_defaults(void)
     bus_set_gas_mix(21, 0);
     sim_update_gas_derived(0.0f);
     bus_update_deco(99, STOP_NONE, 0.0f, 0U, 0U, false);
+    sim_apply_compass_snapshot(s_sim.heading_deg, s_sim.runtime_tick_s);
 }
 
 static void sim_reset_for_tcp_debug(void)
@@ -920,7 +959,6 @@ static void sim_tick_cb(lv_timer_t *t)
             bus_set_battery(s_sim.battery_pct);
 
             sim_update_temperature();
-            sim_update_mlx_diagnostics(s_sim.dive_time_s);
             sim_update_runtime_metrics(time_scale);
 
             deco_core_tick(sim_deco_input_depth_m(current_depth_m), s_sim.temperature_c, 1U);

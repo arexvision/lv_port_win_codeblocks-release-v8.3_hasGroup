@@ -2338,6 +2338,21 @@ static void submenu_slide_out(void)
     lv_anim_start(&a);
 }
 
+bool screen_submenu_visible(void)
+{
+    if (s_submenu_layer == NULL || !lv_obj_is_valid(s_submenu_layer))
+    {
+        return false;
+    }
+
+    if (lv_anim_get(s_submenu_layer, (lv_anim_exec_xcb_t)lv_obj_set_x) != NULL)
+    {
+        return true;
+    }
+
+    return lv_obj_get_x(s_submenu_layer) < (lv_coord_t)submenu_right_width();
+}
+
 static lv_obj_t *plan_make_label(lv_obj_t *parent,
                                  const char *text,
                                  uint8_t font_id,

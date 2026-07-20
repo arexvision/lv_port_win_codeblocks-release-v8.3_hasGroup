@@ -54,12 +54,16 @@ static uint8_t s_pending_dash_page = 0xFFU;
 static uint32_t s_pending_dash_due_ms = 0U;
 static uint32_t s_last_dash_commit_ms = 0U;
 static uint32_t s_last_click_ms = 0U;
+static uint32_t s_dash_orphan_candidate_since_ms = 0U;
+static uint8_t s_dash_orphan_candidate_tile_pos = 0xFFU;
+static ui_state_t s_dash_orphan_candidate_state = UI_DASH;
+static bool s_dash_orphan_candidate_active = false;
 static dive_lifecycle_phase_t s_last_lifecycle_for_navigation = DIVE_LIFECYCLE_SURFACE_CONFIRMED;
 static ui_state_t s_turn_off_modal_return_state = UI_SETUP;
 
-#if UI_CLICK_PROFILE_ENABLED
 extern void rt_kprintf(const char *fmt, ...);
 
+#if UI_CLICK_PROFILE_ENABLED
 typedef struct
 {
     uint32_t count;
@@ -170,6 +174,10 @@ void ui_state_init(void)
     s_pending_dash_due_ms = 0U;
     s_last_dash_commit_ms = 0U;
     s_last_click_ms = 0U;
+    s_dash_orphan_candidate_since_ms = 0U;
+    s_dash_orphan_candidate_tile_pos = 0xFFU;
+    s_dash_orphan_candidate_state = UI_DASH;
+    s_dash_orphan_candidate_active = false;
     s_last_lifecycle_for_navigation = DIVE_LIFECYCLE_SURFACE_CONFIRMED;
     s_turn_off_modal_return_state = UI_SETUP;
 }
@@ -326,6 +334,113 @@ static uint8_t ui_wrap_index(uint8_t current, int8_t dir, uint8_t count)
     while (next < 0) next += count;
     while (next >= (int16_t)count) next -= count;
     return (uint8_t)next;
+}
+
+static bool ui_state_visible_pos_is_dash_floor(uint8_t tile_pos)
+{
+    uint8_t dash_min = PAGE_POS_DYNAMIC_FIRST;
+    uint8_t dash_max = page_menu_display_pos();
+
+    return (dash_max >= dash_min) &&
+           (tile_pos >= dash_min) &&
+           (tile_pos <= dash_max) &&
+           (tile_pos < page_count());
+}
+
+static bool ui_state_can_recover_dash_orphan(ui_state_t state, uint8_t visible_tile_pos)
+{
+    switch (state)
+    {
+    case UI_MENU_ENTRY:
+        return visible_tile_pos != page_menu_display_pos();
+    case UI_SUB_MENU:
+    case UI_EDIT_VALUE:
+    case UI_EDIT_LIGHT_COLOR:
+    case UI_MODAL_GAS:
+    case UI_MODAL_COMPASS:
+    case UI_MODAL_ACT:
+    case UI_MODAL_SETUP_CONFIRM:
+    case UI_MODAL_END_DIVE:
+    case UI_MODAL_TURN_OFF:
+    case UI_MODAL_DIVE_LOCKED:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static void ui_state_clear_dash_orphan_candidate(void)
+{
+    s_dash_orphan_candidate_since_ms = 0U;
+    s_dash_orphan_candidate_tile_pos = 0xFFU;
+    s_dash_orphan_candidate_state = UI_DASH;
+    s_dash_orphan_candidate_active = false;
+}
+
+static bool ui_state_recover_dash_orphan_if_needed(const char *reason)
+{
+    uint8_t visible_tile_pos = screen_visible_tile_pos_get();
+    ui_state_t old_state = s_ui.state;
+    uint32_t now_ms = lv_tick_get();
+
+    if (!ui_state_visible_pos_is_dash_floor(visible_tile_pos))
+    {
+        ui_state_clear_dash_orphan_candidate();
+        return false;
+    }
+
+    if (!ui_state_can_recover_dash_orphan(old_state, visible_tile_pos))
+    {
+        ui_state_clear_dash_orphan_candidate();
+        return false;
+    }
+
+    if (screen_modal_visible() || screen_submenu_visible() || s_ui.edit_ctx.active)
+    {
+        ui_state_clear_dash_orphan_candidate();
+        return false;
+    }
+
+    if (!s_dash_orphan_candidate_active ||
+        s_dash_orphan_candidate_state != old_state ||
+        s_dash_orphan_candidate_tile_pos != visible_tile_pos)
+    {
+        s_dash_orphan_candidate_since_ms = now_ms;
+        s_dash_orphan_candidate_tile_pos = visible_tile_pos;
+        s_dash_orphan_candidate_state = old_state;
+        s_dash_orphan_candidate_active = true;
+        return false;
+    }
+
+    if ((uint32_t)(now_ms - s_dash_orphan_candidate_since_ms) < UI_DASH_ORPHAN_RECOVERY_DELAY_MS)
+    {
+        return false;
+    }
+
+    /*
+     * 防卡死恢复：只处理“视觉已回到 DASH 楼层，但状态机仍停在隐藏的菜单/
+     * modal/edit 态”的孤儿状态。不要重建整屏，避免把正常弹窗或子菜单强拉回主页。
+     */
+    s_pending_dash_page = 0xFFU;
+    s_pending_dash_due_ms = 0U;
+    s_ui.wall_charge = 0U;
+    s_ui.state = UI_DASH;
+    s_ui.dash_page = visible_tile_pos;
+    s_ui.edit_ctx.active = false;
+    s_ui.gas_modal_from_submenu = false;
+    screen_hide_walls_snap();
+    screen_hide_modal();
+    menu_entry_clear_selection();
+
+    rt_kprintf("[UI_RECOVER] reason=%s state=%u->%u visible=%u dash=%u age=%lu\n",
+               (reason != NULL) ? reason : "unknown",
+               (unsigned)old_state,
+               (unsigned)s_ui.state,
+               (unsigned)visible_tile_pos,
+               (unsigned)s_ui.dash_page,
+               (unsigned long)(now_ms - s_dash_orphan_candidate_since_ms));
+    ui_state_clear_dash_orphan_candidate();
+    return true;
 }
 
 static void ui_return_to_card_home(void)
@@ -502,6 +617,8 @@ bool ui_handle_rotate_steps_ex(int8_t steps)
     {
         return false;
     }
+
+    (void)ui_state_recover_dash_orphan_if_needed("rotate");
 
     if (dir != 0)
     {
@@ -784,6 +901,7 @@ void ui_handle_click(void)
     s_last_click_ms = click_start_ms;
 #endif
 
+    (void)ui_state_recover_dash_orphan_if_needed("click");
     ui_flush_pending_dash_page();
 #if UI_CLICK_PROFILE_ENABLED
     flush_ms = lv_tick_get() - mark_ms;

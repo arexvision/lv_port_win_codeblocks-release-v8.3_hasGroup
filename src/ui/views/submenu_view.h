@@ -9,6 +9,7 @@
 #define SUBMENU_VIEW_H
 
 #include "lvgl/lvgl.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -20,6 +21,7 @@ void submenu_view_reset(void);
 void submenu_view_create(lv_obj_t *parent, uint16_t width, uint16_t height);
 /* 返回当前子菜单列表对象，供 screen 层做选中态控制。 */
 lv_obj_t *submenu_view_get_list(void);
+bool screen_submenu_visible(void);
 
 #ifdef __cplusplus
 }

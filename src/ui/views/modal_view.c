@@ -203,6 +203,13 @@ void screen_pulse_modal(void)
     lv_anim_start(&a);
 }
 
+bool screen_modal_visible(void)
+{
+    return (s_modal != NULL) &&
+           lv_obj_is_valid(s_modal) &&
+           !lv_obj_has_flag(s_modal, LV_OBJ_FLAG_HIDDEN);
+}
+
 void screen_hide_modal(void)
 {
     /* 隐藏时只加 hidden 标志，保留对象以便下次复用。 */
