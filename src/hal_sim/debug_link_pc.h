@@ -661,6 +661,19 @@ static bool debug_parse_orphan_state(const char *text, ui_state_t *out_state)
     return false;
 }
 
+static uint8_t debug_orphan_default_tile_pos(void)
+{
+    uint8_t visible_tile_pos = screen_visible_tile_pos_get();
+
+    if (visible_tile_pos >= PAGE_POS_DYNAMIC_FIRST &&
+        visible_tile_pos <= page_menu_display_pos() &&
+        visible_tile_pos < page_count())
+    {
+        return visible_tile_pos;
+    }
+    return PAGE_POS_DYNAMIC_FIRST;
+}
+
 static void debug_force_dash_orphan(ui_state_t orphan_state, uint8_t tile_pos)
 {
     screen_hide_modal();
@@ -1293,7 +1306,7 @@ static void debug_exec_line(char *line)
     if (debug_streq(cmd, "orphan"))
     {
         ui_state_t orphan_state;
-        uint8_t tile_pos = PAGE_POS_DYNAMIC_FIRST;
+        uint8_t tile_pos = debug_orphan_default_tile_pos();
         int tile_arg;
         char *state_text = debug_next_token(&cursor);
         char *tile_text = debug_next_token(&cursor);
