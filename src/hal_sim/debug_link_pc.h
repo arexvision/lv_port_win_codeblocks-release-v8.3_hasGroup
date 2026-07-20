@@ -126,7 +126,11 @@ typedef struct
     uint32_t compass_cal_anim_start_ms;
     uint32_t compass_cal_anim_duration_ms;
     uint32_t compass_cal_anim_session_id;
+    uint8_t compass_cal_anim_start_pct;
+    uint8_t compass_cal_anim_target_pct;
+    compass_cal_ui_state_t compass_cal_anim_final_state;
     compass_cal_hint_t compass_cal_anim_hint;
+    compass_cal_hint_t compass_cal_anim_final_hint;
     bool rtc_sleep_mark_valid;
     time_t rtc_sleep_mark;
     debug_link_pc_rtc_offline_fn rtc_offline_handler;
@@ -599,7 +603,11 @@ static void debug_compass_cal_anim_cancel(void)
     s_debug_link.compass_cal_anim_start_ms = 0U;
     s_debug_link.compass_cal_anim_duration_ms = 0U;
     s_debug_link.compass_cal_anim_session_id = 0U;
+    s_debug_link.compass_cal_anim_start_pct = 0U;
+    s_debug_link.compass_cal_anim_target_pct = 0U;
+    s_debug_link.compass_cal_anim_final_state = COMPASS_CAL_IDLE;
     s_debug_link.compass_cal_anim_hint = COMPASS_CAL_HINT_LEVEL_SWEEP;
+    s_debug_link.compass_cal_anim_final_hint = COMPASS_CAL_HINT_LEVEL_SWEEP;
 }
 
 static compass_cal_hint_t debug_compass_cal_anim_auto_hint(uint8_t progress_pct)
@@ -610,18 +618,64 @@ static compass_cal_hint_t debug_compass_cal_anim_auto_hint(uint8_t progress_pct)
     return COMPASS_CAL_HINT_RETURN_LEVEL;
 }
 
-static void debug_compass_cal_anim_start(uint32_t duration_ms, bool hint_fixed, compass_cal_hint_t hint)
+static uint8_t debug_compass_cal_bins_for_progress(uint8_t progress_pct)
+{
+    return (uint8_t)(((uint16_t)progress_pct * 16U + 99U) / 100U);
+}
+
+static void debug_compass_cal_enter_learn(void)
+{
+    debug_compass_cal_anim_cancel();
+    s_debug_link.compass_cal_anim_session_id = ++s_debug_compass_cal_session;
+    debug_apply_compass_cal_session(COMPASS_CAL_RUNNING, 0U, 0U, COMPASS_CAL_HINT_LEVEL_SWEEP, s_debug_link.compass_cal_anim_session_id);
+    screen_refresh_compass_cal_submenu_if_open();
+}
+
+static bool debug_compass_cal_can_finish(uint32_t *out_session_id, uint8_t *out_start_pct)
+{
+    compass_cal_ui_snapshot_t snapshot;
+
+    if (!get_compass_calibration_snapshot(&snapshot))
+    {
+        return false;
+    }
+    if (snapshot.state != COMPASS_CAL_RUNNING)
+    {
+        return false;
+    }
+    if (out_session_id)
+    {
+        *out_session_id = snapshot.session_id;
+    }
+    if (out_start_pct)
+    {
+        *out_start_pct = snapshot.progress_pct;
+    }
+    return true;
+}
+
+static void debug_compass_cal_anim_start(uint32_t duration_ms, uint8_t start_pct, uint8_t target_pct, compass_cal_ui_state_t final_state, bool hint_fixed, compass_cal_hint_t hint, compass_cal_hint_t final_hint, uint32_t session_id)
 {
     if (duration_ms < DEBUG_COMPASS_CAL_MIN_MS) duration_ms = DEBUG_COMPASS_CAL_MIN_MS;
     if (duration_ms > DEBUG_COMPASS_CAL_MAX_MS) duration_ms = DEBUG_COMPASS_CAL_MAX_MS;
+    start_pct = (uint8_t)debug_clamp_int(start_pct, 0, 100);
+    target_pct = (uint8_t)debug_clamp_int(target_pct, 0, 100);
+    if (start_pct > target_pct)
+    {
+        start_pct = 0U;
+    }
 
     s_debug_link.compass_cal_anim_active = true;
     s_debug_link.compass_cal_anim_hint_fixed = hint_fixed;
     s_debug_link.compass_cal_anim_start_ms = lv_tick_get();
     s_debug_link.compass_cal_anim_duration_ms = duration_ms;
-    s_debug_link.compass_cal_anim_session_id = ++s_debug_compass_cal_session;
+    s_debug_link.compass_cal_anim_session_id = session_id ? session_id : ++s_debug_compass_cal_session;
+    s_debug_link.compass_cal_anim_start_pct = start_pct;
+    s_debug_link.compass_cal_anim_target_pct = target_pct;
+    s_debug_link.compass_cal_anim_final_state = final_state;
     s_debug_link.compass_cal_anim_hint = hint;
-    debug_apply_compass_cal_session(COMPASS_CAL_RUNNING, 0U, 0U, hint_fixed ? hint : COMPASS_CAL_HINT_LEVEL_SWEEP, s_debug_link.compass_cal_anim_session_id);
+    s_debug_link.compass_cal_anim_final_hint = final_hint;
+    debug_apply_compass_cal_session(COMPASS_CAL_RUNNING, start_pct, debug_compass_cal_bins_for_progress(start_pct), hint_fixed ? hint : debug_compass_cal_anim_auto_hint(start_pct), s_debug_link.compass_cal_anim_session_id);
 }
 
 static void debug_compass_cal_anim_tick(void)
@@ -641,16 +695,42 @@ static void debug_compass_cal_anim_tick(void)
     elapsed_ms = now_ms - s_debug_link.compass_cal_anim_start_ms;
     if (elapsed_ms >= s_debug_link.compass_cal_anim_duration_ms)
     {
-        debug_apply_compass_cal_session(COMPASS_CAL_READY, 100U, 16U, COMPASS_CAL_HINT_MODEL_QUALITY, s_debug_link.compass_cal_anim_session_id);
+        debug_apply_compass_cal_session(s_debug_link.compass_cal_anim_final_state, s_debug_link.compass_cal_anim_target_pct, debug_compass_cal_bins_for_progress(s_debug_link.compass_cal_anim_target_pct), s_debug_link.compass_cal_anim_final_hint, s_debug_link.compass_cal_anim_session_id);
+        if (s_debug_link.compass_cal_anim_final_state == COMPASS_CAL_READY)
+        {
+            debug_send_raw("OK compass_cal ready\r\n");
+        }
+        else if (s_debug_link.compass_cal_anim_final_state == COMPASS_CAL_SAVE_ERROR)
+        {
+            debug_send_raw("OK compass_cal fail\r\n");
+        }
+        else
+        {
+            debug_sendf("OK compass_cal %s\r\n", debug_compass_cal_state_name(s_debug_link.compass_cal_anim_final_state));
+        }
         debug_compass_cal_anim_cancel();
-        debug_send_raw("OK compass_cal ready\r\n");
         return;
     }
 
-    progress_pct = (uint8_t)((elapsed_ms * 100UL) / s_debug_link.compass_cal_anim_duration_ms);
-    coverage_bins = (uint8_t)((progress_pct * 16U + 99U) / 100U);
+    progress_pct = (uint8_t)(s_debug_link.compass_cal_anim_start_pct + (((uint32_t)(s_debug_link.compass_cal_anim_target_pct - s_debug_link.compass_cal_anim_start_pct) * elapsed_ms) / s_debug_link.compass_cal_anim_duration_ms));
+    coverage_bins = debug_compass_cal_bins_for_progress(progress_pct);
     hint = s_debug_link.compass_cal_anim_hint_fixed ? s_debug_link.compass_cal_anim_hint : debug_compass_cal_anim_auto_hint(progress_pct);
     debug_apply_compass_cal_session(COMPASS_CAL_RUNNING, progress_pct, coverage_bins, hint, s_debug_link.compass_cal_anim_session_id);
+}
+
+static void debug_compass_cal_poll_pending_cmd(void)
+{
+    compass_cal_cmd_action_t action;
+
+    if (!take_pending_compass_calibration(&action))
+    {
+        return;
+    }
+    if (action == COMPASS_CAL_CMD_START || action == COMPASS_CAL_CMD_RESET)
+    {
+        debug_compass_cal_enter_learn();
+        debug_send_raw("OK compass_cal learn\r\n");
+    }
 }
 
 static bool debug_parse_ota_phase(const char *text, uint8_t *out_phase)
@@ -1005,7 +1085,7 @@ static void debug_send_help(void)
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back [2] | manual on|off | auto on|off | speed <1..120> | heading_speed <0..3600>\r\n"
         "  page <info|compass|deco|plan|gas|custom|blank|setup|menu>\r\n"
-        "  compass_cal run [duration_ms] [hint] | compass_cal set <state> [progress] [bins] [hint] | compass_cal list\r\n"
+        "  compass_cal reset | compass_cal success|fail [duration_ms] [hint] | compass_cal set <state> [progress] [bins] [hint]\r\n"
         "  compass_lock <deg|current|off> | ota off | ota <wait|prepare|recv|verify|install|reboot|error> [progress] [detail] [reason]\r\n"
         "  depth <m> | goto <m> [m_min]|stop | glitch on [min max spike speed] | glitch <min> <max> [spike speed] | glitch off\r\n"
         "  sample <time_s> <depth_m> | rate <m_min> | time <s>\r\n"
@@ -1295,13 +1375,27 @@ static void debug_exec_line(char *line)
 
         if (!state_text || debug_streq(state_text, "list"))
         {
-            debug_send_raw("COMPASS_CAL: run [duration_ms] [hint] | set <idle|run|saving|verify|ready|save_error|error> [progress] [bins] [hint]; hints: level_sweep more_coverage mag_environment roll_circle return_level factory_service sensor_data model_quality\r\n");
+            debug_send_raw("COMPASS_CAL: reset | success|fail [duration_ms] [hint] | set <idle|run|saving|verify|ready|save_error|error> [progress] [bins] [hint]; hints: level_sweep more_coverage mag_environment roll_circle return_level factory_service sensor_data model_quality\r\n");
             return;
         }
-        if (debug_streq(state_text, "run") || debug_streq(state_text, "running") || debug_streq(state_text, "start"))
+        if (debug_streq(state_text, "reset") || debug_streq(state_text, "learn"))
+        {
+            if (debug_next_token(&cursor) != NULL)
+            {
+                debug_send_raw("ERR usage: compass_cal reset\r\n");
+                return;
+            }
+            debug_compass_cal_enter_learn();
+            screen_refresh_compass_cal_submenu_if_open();
+            debug_send_raw("OK compass_cal learn\r\n");
+            return;
+        }
+        if (debug_streq(state_text, "success") || debug_streq(state_text, "ok") || debug_streq(state_text, "pass") || debug_streq(state_text, "run") || debug_streq(state_text, "running"))
         {
             uint32_t duration_ms = DEBUG_COMPASS_CAL_DEFAULT_MS;
             bool hint_fixed = false;
+            uint32_t session_id;
+            uint8_t start_pct;
             progress_text = debug_next_token(&cursor);
             hint_text = debug_next_token(&cursor);
 
@@ -1309,7 +1403,7 @@ static void debug_exec_line(char *line)
             {
                 if (value < (int)DEBUG_COMPASS_CAL_MIN_MS || value > (int)DEBUG_COMPASS_CAL_MAX_MS)
                 {
-                    debug_send_raw("ERR usage: compass_cal run [duration_ms 500..60000] [hint]\r\n");
+                    debug_send_raw("ERR usage: compass_cal success [duration_ms 500..60000] [hint]\r\n");
                     return;
                 }
                 duration_ms = (uint32_t)value;
@@ -1320,7 +1414,7 @@ static void debug_exec_line(char *line)
             }
             else if (progress_text)
             {
-                debug_send_raw("ERR usage: compass_cal run [duration_ms 500..60000] [hint]\r\n");
+                debug_send_raw("ERR usage: compass_cal success [duration_ms 500..60000] [hint]\r\n");
                 return;
             }
             if (hint_text && !debug_parse_compass_cal_hint(hint_text, &hint))
@@ -1334,13 +1428,69 @@ static void debug_exec_line(char *line)
             }
             if (debug_next_token(&cursor) != NULL)
             {
-                debug_send_raw("ERR usage: compass_cal run [duration_ms] [hint]\r\n");
+                debug_send_raw("ERR usage: compass_cal success [duration_ms] [hint]\r\n");
+                return;
+            }
+            if (!debug_compass_cal_can_finish(&session_id, &start_pct))
+            {
+                debug_send_raw("ERR compass_cal reset required first\r\n");
                 return;
             }
 
-            debug_compass_cal_anim_start(duration_ms, hint_fixed, hint);
-            debug_show_page(PAGE_ID_COMPASS);
-            debug_sendf("OK compass_cal run duration=%lums hint=%s\r\n", (unsigned long)duration_ms, hint_fixed ? debug_compass_cal_hint_name(hint) : "auto");
+            debug_compass_cal_anim_start(duration_ms, start_pct, 100U, COMPASS_CAL_READY, hint_fixed, hint, COMPASS_CAL_HINT_MODEL_QUALITY, session_id);
+            debug_sendf("OK compass_cal success duration=%lums hint=%s\r\n", (unsigned long)duration_ms, hint_fixed ? debug_compass_cal_hint_name(hint) : "auto");
+            return;
+        }
+        if (debug_streq(state_text, "fail") || debug_streq(state_text, "failed"))
+        {
+            uint32_t duration_ms = (DEBUG_COMPASS_CAL_DEFAULT_MS / 2UL);
+            bool hint_fixed = false;
+            uint32_t session_id;
+            uint8_t start_pct;
+            hint = COMPASS_CAL_HINT_MAG_ENVIRONMENT;
+            progress_text = debug_next_token(&cursor);
+            hint_text = debug_next_token(&cursor);
+
+            if (progress_text && debug_parse_int(progress_text, &value))
+            {
+                if (value < (int)DEBUG_COMPASS_CAL_MIN_MS || value > (int)DEBUG_COMPASS_CAL_MAX_MS)
+                {
+                    debug_send_raw("ERR usage: compass_cal fail [duration_ms 500..60000] [hint]\r\n");
+                    return;
+                }
+                duration_ms = (uint32_t)value;
+            }
+            else if (progress_text && !hint_text && debug_parse_compass_cal_hint(progress_text, &hint))
+            {
+                hint_fixed = true;
+            }
+            else if (progress_text)
+            {
+                debug_send_raw("ERR usage: compass_cal fail [duration_ms 500..60000] [hint]\r\n");
+                return;
+            }
+            if (hint_text && !debug_parse_compass_cal_hint(hint_text, &hint))
+            {
+                debug_send_raw("ERR hint: level_sweep more_coverage mag_environment roll_circle return_level factory_service sensor_data model_quality\r\n");
+                return;
+            }
+            if (hint_text)
+            {
+                hint_fixed = true;
+            }
+            if (debug_next_token(&cursor) != NULL)
+            {
+                debug_send_raw("ERR usage: compass_cal fail [duration_ms] [hint]\r\n");
+                return;
+            }
+            if (!debug_compass_cal_can_finish(&session_id, &start_pct))
+            {
+                debug_send_raw("ERR compass_cal reset required first\r\n");
+                return;
+            }
+
+            debug_compass_cal_anim_start(duration_ms, start_pct, 50U, COMPASS_CAL_SAVE_ERROR, hint_fixed, hint, hint, session_id);
+            debug_sendf("OK compass_cal fail duration=%lums hint=%s\r\n", (unsigned long)duration_ms, debug_compass_cal_hint_name(hint));
             return;
         }
         if (debug_streq(state_text, "set"))
@@ -1349,7 +1499,7 @@ static void debug_exec_line(char *line)
         }
         if (!debug_parse_compass_cal_state(state_text, &state))
         {
-            debug_send_raw("ERR usage: compass_cal run [duration_ms] [hint] | compass_cal set <state> [progress] [bins] [hint]\r\n");
+            debug_send_raw("ERR usage: compass_cal reset | compass_cal success|fail [duration_ms] [hint] | compass_cal set <state> [progress] [bins] [hint]\r\n");
             return;
         }
 
@@ -2474,6 +2624,7 @@ static void debug_poll_cb(lv_timer_t *timer)
         return;
     }
 
+    debug_compass_cal_poll_pending_cmd();
     debug_compass_cal_anim_tick();
 
     for (;;)
