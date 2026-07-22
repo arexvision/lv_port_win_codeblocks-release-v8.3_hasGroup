@@ -26,6 +26,7 @@ static lv_timer_t *s_sim_timer;
 static lv_timer_t *s_heading_timer;
 static uint32_t s_heading_accum_mdeg;
 
+#define SIM_FIXED_BATTERY_PCT 83.0f
 #define SIM_VIDEO_DURATION_S 15U
 
 typedef struct
@@ -154,7 +155,7 @@ static sim_state_t s_sim = {
     .start_m = 55,
     .start_cns_pct = 0,
     .otu = 0,
-    .battery_pct = 85.0f,
+    .battery_pct = SIM_FIXED_BATTERY_PCT,
     .temperature_c = SIM_TEMP_C,
     .layout_tick = 0,
     .layout_phase = 0,
@@ -424,7 +425,7 @@ static void sim_seed_tcp_algo_defaults(void)
 static void sim_reset_for_tcp_debug(void)
 {
     memset(&s_sim, 0, sizeof(s_sim));
-    s_sim.battery_pct = 86.0f;
+    s_sim.battery_pct = SIM_FIXED_BATTERY_PCT;
     s_sim.temperature_c = SIM_TEMP_C;
     s_sim.next_log_no = 1U;
     s_sim.start_h = 10U;
@@ -1105,7 +1106,7 @@ static void sim_tick_cb(lv_timer_t *t)
             }
             s_sim.rate_sample_depth_m = current_depth_m;
 
-            s_sim.battery_pct += 1.2f;
+            s_sim.battery_pct = SIM_FIXED_BATTERY_PCT;
             bus_set_battery(s_sim.battery_pct);
 
             sim_update_temperature();
@@ -1140,7 +1141,7 @@ static void sim_tick_cb(lv_timer_t *t)
     }
     s_sim.rate_sample_depth_m = current_depth_m;
 
-    s_sim.battery_pct += 1.2f;
+    s_sim.battery_pct = SIM_FIXED_BATTERY_PCT;
     bus_set_battery(s_sim.battery_pct);
 
     sim_update_temperature();
