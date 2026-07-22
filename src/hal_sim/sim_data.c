@@ -959,6 +959,15 @@ static void sim_video_start(uint8_t mode)
     s_heading_accum_mdeg = 0U;
     s_sim.rate_sample_valid = false;
     bus_set_ascent_rate(0.0f);
+    if (mode == 2U)
+    {
+        deco_core_reset();
+        sim_start_dive(13.0f);
+        sim_update_temperature();
+        deco_core_tick(sim_deco_input_depth_m(13.0f), s_sim.temperature_c, 1684U);
+        s_sim.depth_m = 13.0f;
+        s_sim.dive_time_s = 1684U;
+    }
 }
 
 static void sim_video_stop(void)
@@ -968,7 +977,7 @@ static void sim_video_stop(void)
     s_video.elapsed_s = 0U;
 }
 
-static void sim_video_apply_sample(float depth_m, uint32_t dive_time_s, int16_t ndl_min, uint16_t heading_deg)
+static void sim_video_apply_sample(float depth_m, uint32_t dive_time_s, int16_t ndl_min, uint16_t heading_deg, bool fixed_ndl, uint32_t algo_delta_s)
 {
     s_sim.runtime_tick_s++;
     s_sim.depth_m = depth_m;
@@ -981,10 +990,17 @@ static void sim_video_apply_sample(float depth_m, uint32_t dive_time_s, int16_t 
     bus_set_ascent_rate(0.0f);
     bus_set_dive_time(dive_time_s);
     bus_set_surface_time(0U);
-    bus_set_ndl(ndl_min);
-    bus_set_ndl_bar_pct((uint8_t)((ndl_min >= 99) ? 100U : ndl_min));
     sim_apply_compass_snapshot(heading_deg, s_sim.runtime_tick_s);
     sim_update_temperature();
+    if (fixed_ndl)
+    {
+        bus_set_ndl(ndl_min);
+        bus_set_ndl_bar_pct((uint8_t)((ndl_min >= 99) ? 100U : ndl_min));
+    }
+    else if (algo_delta_s > 0U)
+    {
+        deco_core_tick(sim_deco_input_depth_m(depth_m), s_sim.temperature_c, algo_delta_s);
+    }
     sim_update_runtime_metrics(1U);
     sim_update_gas_derived(depth_m);
     dive_log_append_sampled((float)dive_time_s, depth_m);
@@ -1012,11 +1028,11 @@ static bool sim_video_tick(void)
 
     if (s_video.mode == 1U)
     {
-        sim_video_apply_sample(sim_video_mode1_depth(elapsed_s), elapsed_s, 70, bus_get_heading());
+        sim_video_apply_sample(sim_video_mode1_depth(elapsed_s), elapsed_s, 70, bus_get_heading(), true, 0U);
     }
     else
     {
-        sim_video_apply_sample(13.0f, 1684U + elapsed_s, 99, sim_video_mode2_heading(elapsed_s));
+        sim_video_apply_sample(13.0f, 1684U + elapsed_s, 0, sim_video_mode2_heading(elapsed_s), false, elapsed_s == 0U ? 0U : 1U);
     }
 
     s_video.elapsed_s++;
