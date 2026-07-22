@@ -296,7 +296,7 @@ void sys_config_defaults(sys_config_t *cfg)
     /* Ĭϲȹر POD1/POD2 ʾλӰ߶ */
     cfg->left_widgets[4] = (grid_widget_t)
     {
-        COMP_SURFACE_TIME_1606, 0, 5
+        COMP_EMPTY, 0, 5
     };
     cfg->left_widgets[5] = (grid_widget_t)
     {

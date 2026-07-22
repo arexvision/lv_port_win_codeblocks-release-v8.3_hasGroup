@@ -26,7 +26,7 @@ static lv_timer_t *s_sim_timer;
 static lv_timer_t *s_heading_timer;
 static uint32_t s_heading_accum_mdeg;
 
-#define SIM_FIXED_BATTERY_PCT 83.0f
+#define SIM_FIXED_BATTERY_PCT 87.0f
 #define SIM_VIDEO_DURATION_S 15U
 
 typedef struct
