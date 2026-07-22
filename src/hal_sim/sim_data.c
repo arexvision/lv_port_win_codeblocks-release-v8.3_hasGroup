@@ -949,7 +949,7 @@ static float sim_video_mode1_depth(uint8_t elapsed_s)
 
 static uint16_t sim_video_mode2_heading(uint8_t elapsed_s)
 {
-    return (uint16_t)(271U + (((uint16_t)elapsed_s * 9U + (SIM_VIDEO_DURATION_S / 2U)) / SIM_VIDEO_DURATION_S));
+    return (uint16_t)(271U + ((uint16_t)elapsed_s / 2U));
 }
 
 static void sim_video_start(uint8_t mode)
