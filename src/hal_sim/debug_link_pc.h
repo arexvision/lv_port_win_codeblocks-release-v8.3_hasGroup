@@ -15,6 +15,9 @@ void debug_link_pc_set_rtc_offline_handler(debug_link_pc_rtc_offline_fn handler)
 bool debug_link_pc_manual_mode(void);
 bool debug_link_pc_consume_connect_event(void);
 bool debug_link_pc_paused(void);
+bool debug_link_pc_consume_video_start(uint8_t *out_mode);
+uint8_t debug_link_pc_video_mode(void);
+void debug_link_pc_video_finish(void);
 uint16_t debug_link_pc_time_scale(void);
 uint16_t debug_link_pc_heading_speed_dps(void);
 bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bool *out_reached);
@@ -91,6 +94,8 @@ typedef struct
     bool manual_mode;
     bool connect_event;
     bool paused;
+    bool video_start_event;
+    uint8_t video_mode;
     SOCKET listener;
     SOCKET client;
     lv_timer_t *timer;
@@ -739,6 +744,12 @@ static void debug_depth_glitch_cancel(void)
     s_debug_link.depth_glitch_spike_m = 0.0f;
 }
 
+static void debug_video_cancel(void)
+{
+    s_debug_link.video_mode = 0U;
+    s_debug_link.video_start_event = false;
+}
+
 static float debug_random_0_1(void)
 {
     return (float)rand() / (float)RAND_MAX;
@@ -906,6 +917,7 @@ static void debug_apply_depth_sample(float depth)
 
     debug_depth_goto_cancel();
     debug_depth_glitch_cancel();
+    debug_video_cancel();
 
     sample_time_s = g_sensor_data.dive_time_s;
     s_debug_link.sample_time_s = sample_time_s;
@@ -987,6 +999,7 @@ static void debug_send_help(void)
         "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
         "  help | state | back [2] | manual on|off | auto on|off | pause on|off|toggle | speed <1..120> | heading_speed <0..3600>\r\n"
+        "  video <1|2|3|4|stop> | demo <1|2|3|4|stop>\r\n"
         "  click | rotate [steps] | orphan <submenu|edit|modal|confirm|menu|turn_off> [tile_pos]\r\n"
         "  depth <m> | goto <m> [m_min]|stop | glitch on [min max spike speed] | glitch <min> <max> [spike speed] | glitch off\r\n"
         "  sample <time_s> <depth_m> | rate <m_min> | time <s>\r\n"
@@ -1004,13 +1017,13 @@ static void debug_send_help(void)
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "  alert ids: asc po2 po2min po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
-        "Slots are 0-based. TCP disables the auto depth script; pause freezes PC simulation data while TCP/UI stay responsive.\r\n");
+        "Slots are 0-based. video 1/2 run 15s recording scripts; 3/4 are reserved until their data curves are defined.\r\n");
 }
 
 static void debug_send_state(void)
 {
     debug_sendf(
-        "STATE tcp=%u ui=%u:%s dash=%u visible=%u depth_manual=%u manual=%u paused=%u speed=%u heading_speed=%u goto=%u target=%.1f goto_rate=%.1f glitch=%u glitch_range=%.1f..%.1f glitch_spike=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um heading=%u avail=%u mag=%.1f,%.1f,%.1f mlx=%.1f,%.1f,%.1f tmag=%.1f att=%d,%d,%u cal=%s/%u/%s/%04x/%u\r\n",
+        "STATE tcp=%u ui=%u:%s dash=%u visible=%u depth_manual=%u manual=%u paused=%u video=%u speed=%u heading_speed=%u goto=%u target=%.1f goto_rate=%.1f glitch=%u glitch_range=%.1f..%.1f glitch_spike=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um heading=%u avail=%u mag=%.1f,%.1f,%.1f mlx=%.1f,%.1f,%.1f tmag=%.1f att=%d,%d,%u cal=%s/%u/%s/%04x/%u\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (unsigned)ui_state_get_state(),
         debug_ui_state_name(ui_state_get_state()),
@@ -1019,6 +1032,7 @@ static void debug_send_state(void)
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
         s_debug_link.paused ? 1U : 0U,
+        (unsigned)s_debug_link.video_mode,
         (unsigned)debug_link_pc_time_scale(),
         (unsigned)debug_link_pc_heading_speed_dps(),
         s_debug_link.depth_goto_active ? 1U : 0U,
@@ -1293,6 +1307,43 @@ static void debug_exec_line(char *line)
         return;
     }
 
+    if (debug_streq(cmd, "video") || debug_streq(cmd, "demo"))
+    {
+        int mode;
+        arg = debug_next_token(&cursor);
+        if (!arg || debug_next_token(&cursor) != NULL)
+        {
+            debug_send_raw("ERR usage: video <1|2|3|4|stop>\r\n");
+            return;
+        }
+        if (debug_streq(arg, "stop") || debug_streq(arg, "off") || debug_streq(arg, "cancel"))
+        {
+            debug_video_cancel();
+            debug_send_raw("OK video stop\r\n");
+            return;
+        }
+        if (!debug_parse_int(arg, &mode) || mode < 1 || mode > 4)
+        {
+            debug_send_raw("ERR usage: video <1|2|3|4|stop>\r\n");
+            return;
+        }
+        if (mode > 2)
+        {
+            debug_send_raw("ERR video 3/4 reserved: send their 15s curves first\r\n");
+            return;
+        }
+        debug_depth_goto_cancel();
+        debug_depth_glitch_cancel();
+        s_debug_link.paused = false;
+        s_debug_link.heading_speed_dps = 0U;
+        s_debug_link.video_mode = (uint8_t)mode;
+        s_debug_link.video_start_event = true;
+        s_debug_link.depth_rate_valid = false;
+        bus_set_ascent_rate(0.0f);
+        debug_sendf("OK video %u 15s\r\n", (unsigned)s_debug_link.video_mode);
+        return;
+    }
+
     if (debug_streq(cmd, "click") || debug_streq(cmd, "enter"))
     {
         if (debug_next_token(&cursor) != NULL)
@@ -1547,6 +1598,7 @@ static void debug_exec_line(char *line)
         {
             debug_depth_goto_cancel();
             debug_depth_glitch_cancel();
+            debug_video_cancel();
             debug_send_raw("OK goto off\r\n");
             return;
         }
@@ -1565,6 +1617,7 @@ static void debug_exec_line(char *line)
         {
             return;
         }
+        debug_video_cancel();
         if (s_debug_link.depth_goto_rate_mpm > 0.0f)
         {
             debug_sendf("OK goto %.1f %.1fm/min\r\n", (double)s_debug_link.depth_goto_target_m, (double)s_debug_link.depth_goto_rate_mpm);
@@ -1595,6 +1648,7 @@ static void debug_exec_line(char *line)
         else if (debug_streq(first_arg, "off") || debug_streq(first_arg, "stop") || debug_streq(first_arg, "cancel"))
         {
             debug_depth_glitch_cancel();
+            debug_video_cancel();
             bus_set_ascent_rate(0.0f);
             s_debug_link.depth_rate_valid = false;
             debug_send_raw("OK glitch off\r\n");
@@ -1625,6 +1679,7 @@ static void debug_exec_line(char *line)
         {
             return;
         }
+        debug_video_cancel();
         if (speed > 0)
         {
             s_debug_link.time_scale = (uint16_t)speed;
@@ -1683,6 +1738,7 @@ static void debug_exec_line(char *line)
         {
             debug_depth_goto_cancel();
             debug_depth_glitch_cancel();
+            debug_video_cancel();
         }
         debug_sendf("OK manual %s\r\n", enabled ? "on" : "off");
         return;
@@ -1702,6 +1758,7 @@ static void debug_exec_line(char *line)
         {
             debug_depth_goto_cancel();
             debug_depth_glitch_cancel();
+            debug_video_cancel();
         }
         debug_sendf("OK auto %s\r\n", enabled ? "on" : "off");
         return;
@@ -1733,6 +1790,7 @@ static void debug_exec_line(char *line)
         }
         debug_depth_goto_cancel();
         debug_depth_glitch_cancel();
+        debug_video_cancel();
         bus_set_dive_time((uint32_t)time_s);
         dive_log_append_sampled((float)time_s, depth);
         bus_set_depth(depth);
@@ -1762,6 +1820,7 @@ static void debug_exec_line(char *line)
             debug_send_raw("ERR usage: rate <m_min>\r\n");
             return;
         }
+        debug_video_cancel();
         bus_set_ascent_rate(rate_mpm);
         sim_alert_tick();
         debug_sendf("OK rate %+.1f\r\n", (double)g_sensor_data.ascent_rate);
@@ -1776,6 +1835,7 @@ static void debug_exec_line(char *line)
             debug_send_raw("ERR usage: time <seconds>\r\n");
             return;
         }
+        debug_video_cancel();
         bus_set_dive_time((uint32_t)time_s);
         s_debug_link.sample_time_s = (uint32_t)time_s;
         debug_sendf("OK time %d\r\n", time_s);
@@ -2522,6 +2582,7 @@ static void debug_disconnect_client(void)
 {
     debug_depth_goto_cancel();
     debug_depth_glitch_cancel();
+    debug_video_cancel();
     debug_close_socket(&s_debug_link.client);
     s_debug_link.paused = false;
     s_debug_link.rx_len = 0;
@@ -2550,6 +2611,7 @@ static void debug_poll_cb(lv_timer_t *timer)
             s_debug_link.time_scale = 1;
             debug_depth_goto_cancel();
             debug_depth_glitch_cancel();
+            debug_video_cancel();
             s_debug_link.sample_time_s = g_sensor_data.dive_time_s;
             s_debug_link.depth_rate_valid = false;
             s_debug_link.depth_rate_last_m = g_sensor_data.depth;
@@ -2753,6 +2815,27 @@ bool debug_link_pc_paused(void)
     return s_debug_link.paused;
 }
 
+bool debug_link_pc_consume_video_start(uint8_t *out_mode)
+{
+    bool event = s_debug_link.video_start_event;
+    if (out_mode)
+    {
+        *out_mode = s_debug_link.video_mode;
+    }
+    s_debug_link.video_start_event = false;
+    return event;
+}
+
+uint8_t debug_link_pc_video_mode(void)
+{
+    return s_debug_link.video_mode;
+}
+
+void debug_link_pc_video_finish(void)
+{
+    debug_video_cancel();
+}
+
 uint16_t debug_link_pc_time_scale(void)
 {
     return s_debug_link.time_scale > 0U ? s_debug_link.time_scale : 1U;
@@ -2787,6 +2870,24 @@ bool debug_link_pc_consume_connect_event(void)
 bool debug_link_pc_paused(void)
 {
     return false;
+}
+
+bool debug_link_pc_consume_video_start(uint8_t *out_mode)
+{
+    if (out_mode)
+    {
+        *out_mode = 0U;
+    }
+    return false;
+}
+
+uint8_t debug_link_pc_video_mode(void)
+{
+    return 0U;
+}
+
+void debug_link_pc_video_finish(void)
+{
 }
 
 uint16_t debug_link_pc_time_scale(void)

@@ -26,6 +26,17 @@ static lv_timer_t *s_sim_timer;
 static lv_timer_t *s_heading_timer;
 static uint32_t s_heading_accum_mdeg;
 
+#define SIM_VIDEO_DURATION_S 15U
+
+typedef struct
+{
+    bool active;
+    uint8_t mode;
+    uint8_t elapsed_s;
+} sim_video_state_t;
+
+static sim_video_state_t s_video;
+
 static void sim_fill_logbook_tanks(logbook_entry_t *entry);
 static void sim_raise_next_log_no_from_logbook(void);
 
@@ -244,7 +255,7 @@ static void sim_heading_tick_cb(lv_timer_t *t)
     (void)t;
 
 #if TCP_ALGO_DEBUG
-    if (debug_link_pc_paused())
+    if (debug_link_pc_paused() || debug_link_pc_video_mode() != 0U)
     {
         s_heading_accum_mdeg = 0U;
         return;
@@ -920,6 +931,104 @@ static void sim_lifecycle_tick(float depth_m)
     }
 }
 
+#if TCP_ALGO_DEBUG
+static float sim_video_lerp(float from, float to, uint8_t elapsed_s, uint8_t duration_s)
+{
+    return from + ((to - from) * (float)elapsed_s / (float)duration_s);
+}
+
+static float sim_video_mode1_depth(uint8_t elapsed_s)
+{
+    if (elapsed_s <= 7U)
+    {
+        return sim_video_lerp(8.3f, 8.5f, elapsed_s, 7U);
+    }
+    return sim_video_lerp(8.5f, 8.2f, (uint8_t)(elapsed_s - 7U), 8U);
+}
+
+static uint16_t sim_video_mode2_heading(uint8_t elapsed_s)
+{
+    return (uint16_t)(271U + (((uint16_t)elapsed_s * 9U + (SIM_VIDEO_DURATION_S / 2U)) / SIM_VIDEO_DURATION_S));
+}
+
+static void sim_video_start(uint8_t mode)
+{
+    s_video.active = (mode >= 1U && mode <= 2U);
+    s_video.mode = mode;
+    s_video.elapsed_s = 0U;
+    s_heading_accum_mdeg = 0U;
+    s_sim.rate_sample_valid = false;
+    bus_set_ascent_rate(0.0f);
+}
+
+static void sim_video_stop(void)
+{
+    s_video.active = false;
+    s_video.mode = 0U;
+    s_video.elapsed_s = 0U;
+}
+
+static void sim_video_apply_sample(float depth_m, uint32_t dive_time_s, int16_t ndl_min, uint16_t heading_deg)
+{
+    s_sim.runtime_tick_s++;
+    s_sim.depth_m = depth_m;
+    s_sim.dive_time_s = dive_time_s;
+    if (s_sim.lifecycle_state != SIM_LIFE_DIVING)
+    {
+        sim_lifecycle_set_state(SIM_LIFE_DIVING);
+    }
+    bus_set_depth_force(depth_m);
+    bus_set_ascent_rate(0.0f);
+    bus_set_dive_time(dive_time_s);
+    bus_set_surface_time(0U);
+    bus_set_ndl(ndl_min);
+    bus_set_ndl_bar_pct((uint8_t)((ndl_min >= 99) ? 100U : ndl_min));
+    sim_apply_compass_snapshot(heading_deg, s_sim.runtime_tick_s);
+    sim_update_temperature();
+    sim_update_runtime_metrics(1U);
+    sim_update_gas_derived(depth_m);
+    dive_log_append_sampled((float)dive_time_s, depth_m);
+    sim_alert_tick();
+}
+
+static bool sim_video_tick(void)
+{
+    uint8_t requested_mode = debug_link_pc_video_mode();
+    uint8_t elapsed_s;
+
+    if (!s_video.active || requested_mode == 0U || requested_mode != s_video.mode)
+    {
+        sim_video_stop();
+        return false;
+    }
+
+    elapsed_s = s_video.elapsed_s;
+    if (elapsed_s > SIM_VIDEO_DURATION_S)
+    {
+        sim_video_stop();
+        debug_link_pc_video_finish();
+        return false;
+    }
+
+    if (s_video.mode == 1U)
+    {
+        sim_video_apply_sample(sim_video_mode1_depth(elapsed_s), elapsed_s, 70, bus_get_heading());
+    }
+    else
+    {
+        sim_video_apply_sample(13.0f, 1684U + elapsed_s, 99, sim_video_mode2_heading(elapsed_s));
+    }
+
+    s_video.elapsed_s++;
+    if (s_video.elapsed_s > SIM_VIDEO_DURATION_S)
+    {
+        sim_video_stop();
+        debug_link_pc_video_finish();
+    }
+    return true;
+}
+#endif
+
 static void sim_tick_cb(lv_timer_t *t)
 {
     float current_depth_m;
@@ -927,12 +1036,25 @@ static void sim_tick_cb(lv_timer_t *t)
     (void)t;
 
 #if TCP_ALGO_DEBUG
+    {
+        uint8_t video_mode = 0U;
+        if (debug_link_pc_consume_video_start(&video_mode)) {
+            sim_video_start(video_mode);
+        }
+    }
+
     if (debug_link_pc_consume_connect_event()) {
         sim_reset_for_tcp_debug();
     }
 
     if (debug_link_pc_paused()) {
         return;
+    }
+
+    if (s_video.active || debug_link_pc_video_mode() != 0U) {
+        if (sim_video_tick()) {
+            return;
+        }
     }
 
     if (!debug_link_pc_manual_mode()) {
