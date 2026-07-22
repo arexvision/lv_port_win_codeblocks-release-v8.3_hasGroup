@@ -50,6 +50,8 @@ static lv_obj_t *s_lbl_gf_setting;
 static lv_timer_t *s_tissue_flash_timer;
 static bool        s_tissue_flash_phase;
 static ui_vm_deco_t s_deco_vm_cache __attribute__((section(".psram_bss")));
+static uint32_t    s_tissue_chart_render_sig;
+static bool        s_tissue_chart_render_sig_valid;
 static bool        s_surf_gf_alert_cache;
 static bool        s_surf_gf_style_cache_valid;
 
@@ -107,6 +109,103 @@ static bool any_tissue_danger(void)
         if (s_deco_vm_cache.tissue_bar_permille[i] >= TISSUE_UI_MVALUE_PERMILLE) return true;
     }
     return false;
+}
+
+static bool tissue_chart_active_for_vm(const ui_vm_deco_t *vm)
+{
+    if (vm == NULL)
+    {
+        return false;
+    }
+
+    if (vm->tissue_normalized_valid != 0U || vm->chart_active != 0U)
+    {
+        return true;
+    }
+
+    for (uint8_t i = 0U; i < TISSUE_COMPARTMENT_COUNT; i++)
+    {
+        if (vm->tissue_raw_pct[i] != 0 || vm->tissue_gf_pct[i] > 0U)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool tissue_danger_for_vm(const ui_vm_deco_t *vm)
+{
+    if (vm == NULL || vm->tissue_normalized_valid == 0U)
+    {
+        return false;
+    }
+
+    for (uint8_t i = 0U; i < TISSUE_COMPARTMENT_COUNT; i++)
+    {
+        if (vm->tissue_bar_permille[i] >= TISSUE_UI_MVALUE_PERMILLE) return true;
+    }
+    return false;
+}
+
+static uint32_t tissue_chart_hash_u32(uint32_t hash, uint32_t value)
+{
+    hash ^= value;
+    return hash * 16777619UL;
+}
+
+static uint32_t tissue_chart_permille_pixel(uint16_t permille, uint32_t plot_span)
+{
+    uint32_t draw_permille = permille;
+
+    if (draw_permille > TISSUE_UI_MAX_PERMILLE)
+    {
+        draw_permille = TISSUE_UI_MAX_PERMILLE;
+    }
+    return (plot_span == 0U) ? draw_permille : (draw_permille * plot_span) / TISSUE_UI_MAX_PERMILLE;
+}
+
+static uint32_t tissue_chart_render_signature(const ui_vm_deco_t *vm)
+{
+    uint32_t hash = 2166136261UL;
+    uint32_t plot_span = 0U;
+    bool danger = tissue_danger_for_vm(vm);
+
+    if (vm == NULL)
+    {
+        return 0U;
+    }
+
+    hash = tissue_chart_hash_u32(hash, tissue_chart_active_for_vm(vm) ? 1U : 0U);
+    hash = tissue_chart_hash_u32(hash, vm->tissue_normalized_valid);
+    hash = tissue_chart_hash_u32(hash, danger ? 1U : 0U);
+    hash = tissue_chart_hash_u32(hash, (danger && s_tissue_flash_phase) ? 1U : 0U);
+
+    if (s_tissue_chart != NULL && lv_obj_is_valid(s_tissue_chart))
+    {
+        lv_coord_t width = lv_obj_get_width(s_tissue_chart);
+        lv_coord_t height = lv_obj_get_height(s_tissue_chart);
+        if (width > 1)
+        {
+            plot_span = (uint32_t)(width - 1);
+        }
+        hash = tissue_chart_hash_u32(hash, (uint32_t)((width > 0) ? width : 0));
+        hash = tissue_chart_hash_u32(hash, (uint32_t)((height > 0) ? height : 0));
+    }
+
+    if (vm->tissue_normalized_valid == 0U)
+    {
+        return hash;
+    }
+
+    hash = tissue_chart_hash_u32(hash, tissue_chart_permille_pixel(vm->tissue_pi_permille, plot_span));
+    for (uint8_t i = 0U; i < TISSUE_COMPARTMENT_COUNT; i++)
+    {
+        hash = tissue_chart_hash_u32(hash, tissue_chart_permille_pixel(vm->tissue_bar_permille[i], plot_span));
+        hash = tissue_chart_hash_u32(hash, vm->tissue_bar_permille[i] >= TISSUE_UI_MVALUE_PERMILLE);
+    }
+
+    return hash;
 }
 
 static void tissue_danger_flash_cb(lv_timer_t *t)
@@ -395,6 +494,8 @@ static void make_grid_row(lv_obj_t *parent, lv_coord_t y,
 void card_deco_create(lv_obj_t *parent)
 {
     s_tissue_chart = NULL;
+    s_tissue_chart_render_sig = 0U;
+    s_tissue_chart_render_sig_valid = false;
     s_surf_gf_alert_cache = false;
     s_surf_gf_style_cache_valid = false;
 
@@ -460,6 +561,9 @@ void card_deco_update(void)
 
 void card_deco_update_vm(const ui_vm_deco_t *vm)
 {
+    uint32_t chart_sig;
+    bool chart_changed;
+
     if (vm == NULL)
     {
         return;
@@ -468,6 +572,7 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
     s_deco_vm_cache = *vm;
     if (!deco_page_refresh_visible())
     {
+        s_tissue_chart_render_sig_valid = false;
         return;
     }
 
@@ -500,6 +605,17 @@ void card_deco_update_vm(const ui_vm_deco_t *vm)
     tissue_flash_ensure();
     if (deco_obj_is_valid(&s_tissue_chart))
     {
-        lv_obj_invalidate(s_tissue_chart);
+        chart_sig = tissue_chart_render_signature(&s_deco_vm_cache);
+        chart_changed = !s_tissue_chart_render_sig_valid || (s_tissue_chart_render_sig != chart_sig);
+        if (chart_changed)
+        {
+            lv_obj_invalidate(s_tissue_chart);
+            s_tissue_chart_render_sig = chart_sig;
+            s_tissue_chart_render_sig_valid = true;
+        }
+    }
+    else
+    {
+        s_tissue_chart_render_sig_valid = false;
     }
 }
