@@ -243,6 +243,14 @@ static void sim_heading_tick_cb(lv_timer_t *t)
 
     (void)t;
 
+#if TCP_ALGO_DEBUG
+    if (debug_link_pc_paused())
+    {
+        s_heading_accum_mdeg = 0U;
+        return;
+    }
+#endif
+
     speed_dps = sim_heading_speed_dps();
     if (speed_dps == 0U)
     {
@@ -921,6 +929,10 @@ static void sim_tick_cb(lv_timer_t *t)
 #if TCP_ALGO_DEBUG
     if (debug_link_pc_consume_connect_event()) {
         sim_reset_for_tcp_debug();
+    }
+
+    if (debug_link_pc_paused()) {
+        return;
     }
 
     if (!debug_link_pc_manual_mode()) {

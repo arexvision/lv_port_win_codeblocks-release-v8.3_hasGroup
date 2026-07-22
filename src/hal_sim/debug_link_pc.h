@@ -14,6 +14,7 @@ void debug_link_pc_start(void);
 void debug_link_pc_set_rtc_offline_handler(debug_link_pc_rtc_offline_fn handler);
 bool debug_link_pc_manual_mode(void);
 bool debug_link_pc_consume_connect_event(void);
+bool debug_link_pc_paused(void);
 uint16_t debug_link_pc_time_scale(void);
 uint16_t debug_link_pc_heading_speed_dps(void);
 bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bool *out_reached);
@@ -89,6 +90,7 @@ typedef struct
     bool started;
     bool manual_mode;
     bool connect_event;
+    bool paused;
     SOCKET listener;
     SOCKET client;
     lv_timer_t *timer;
@@ -984,7 +986,7 @@ static void debug_send_help(void)
     debug_send_raw(
         "TCP debug commands:\r\n"
         "  <number> writes depth directly and appends one trajectory sample\r\n"
-        "  help | state | back [2] | manual on|off | auto on|off | speed <1..120> | heading_speed <0..3600>\r\n"
+        "  help | state | back [2] | manual on|off | auto on|off | pause on|off|toggle | speed <1..120> | heading_speed <0..3600>\r\n"
         "  click | rotate [steps] | orphan <submenu|edit|modal|confirm|menu|turn_off> [tile_pos]\r\n"
         "  depth <m> | goto <m> [m_min]|stop | glitch on [min max spike speed] | glitch <min> <max> [spike speed] | glitch off\r\n"
         "  sample <time_s> <depth_m> | rate <m_min> | time <s>\r\n"
@@ -1002,13 +1004,13 @@ static void debug_send_help(void)
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "  alert ids: asc po2 po2min po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
-        "Slots are 0-based. TCP disables the auto depth script; goto defaults to 18m/min down, 10m/min up; speed accelerates goto/glitch simulated time.\r\n");
+        "Slots are 0-based. TCP disables the auto depth script; pause freezes PC simulation data while TCP/UI stay responsive.\r\n");
 }
 
 static void debug_send_state(void)
 {
     debug_sendf(
-        "STATE tcp=%u ui=%u:%s dash=%u visible=%u depth_manual=%u manual=%u speed=%u heading_speed=%u goto=%u target=%.1f goto_rate=%.1f glitch=%u glitch_range=%.1f..%.1f glitch_spike=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um heading=%u avail=%u mag=%.1f,%.1f,%.1f mlx=%.1f,%.1f,%.1f tmag=%.1f att=%d,%d,%u cal=%s/%u/%s/%04x/%u\r\n",
+        "STATE tcp=%u ui=%u:%s dash=%u visible=%u depth_manual=%u manual=%u paused=%u speed=%u heading_speed=%u goto=%u target=%.1f goto_rate=%.1f glitch=%u glitch_range=%.1f..%.1f glitch_spike=%.1f depth=%.1f rate=%+.1f time=%lu gas=%u:%s batt=%.0f temp=%.1f pod=%.0f/%.0f gf=%u/%u last_deco=%um heading=%u avail=%u mag=%.1f,%.1f,%.1f mlx=%.1f,%.1f,%.1f tmag=%.1f att=%d,%d,%u cal=%s/%u/%s/%04x/%u\r\n",
         s_debug_link.client != INVALID_SOCKET ? 1U : 0U,
         (unsigned)ui_state_get_state(),
         debug_ui_state_name(ui_state_get_state()),
@@ -1016,6 +1018,7 @@ static void debug_send_state(void)
         (unsigned)screen_visible_tile_pos_get(),
         (s_debug_link.manual_mode || s_debug_link.client != INVALID_SOCKET) ? 1U : 0U,
         s_debug_link.manual_mode ? 1U : 0U,
+        s_debug_link.paused ? 1U : 0U,
         (unsigned)debug_link_pc_time_scale(),
         (unsigned)debug_link_pc_heading_speed_dps(),
         s_debug_link.depth_goto_active ? 1U : 0U,
@@ -1259,6 +1262,34 @@ static void debug_exec_line(char *line)
     if (debug_streq(cmd, "state"))
     {
         debug_send_state();
+        return;
+    }
+
+    if (debug_streq(cmd, "pause") || debug_streq(cmd, "freeze"))
+    {
+        bool paused;
+        arg = debug_next_token(&cursor);
+        if (!arg || debug_streq(arg, "toggle"))
+        {
+            paused = !s_debug_link.paused;
+        }
+        else if (!debug_parse_bool(arg, &paused))
+        {
+            debug_send_raw("ERR usage: pause on|off|toggle\r\n");
+            return;
+        }
+        if (debug_next_token(&cursor) != NULL)
+        {
+            debug_send_raw("ERR usage: pause on|off|toggle\r\n");
+            return;
+        }
+        s_debug_link.paused = paused;
+        if (paused)
+        {
+            bus_set_ascent_rate(0.0f);
+            s_debug_link.depth_rate_valid = false;
+        }
+        debug_sendf("OK pause %s\r\n", paused ? "on" : "off");
         return;
     }
 
@@ -2492,6 +2523,7 @@ static void debug_disconnect_client(void)
     debug_depth_goto_cancel();
     debug_depth_glitch_cancel();
     debug_close_socket(&s_debug_link.client);
+    s_debug_link.paused = false;
     s_debug_link.rx_len = 0;
     printf("[DBG] TCP debug client disconnected\r\n");
 }
@@ -2514,6 +2546,7 @@ static void debug_poll_cb(lv_timer_t *timer)
             s_debug_link.client = client;
             s_debug_link.rx_len = 0;
             s_debug_link.connect_event = true;
+            s_debug_link.paused = false;
             s_debug_link.time_scale = 1;
             debug_depth_goto_cancel();
             debug_depth_glitch_cancel();
@@ -2715,6 +2748,11 @@ bool debug_link_pc_consume_connect_event(void)
     return event;
 }
 
+bool debug_link_pc_paused(void)
+{
+    return s_debug_link.paused;
+}
+
 uint16_t debug_link_pc_time_scale(void)
 {
     return s_debug_link.time_scale > 0U ? s_debug_link.time_scale : 1U;
@@ -2742,6 +2780,11 @@ bool debug_link_pc_manual_mode(void)
 }
 
 bool debug_link_pc_consume_connect_event(void)
+{
+    return false;
+}
+
+bool debug_link_pc_paused(void)
 {
     return false;
 }

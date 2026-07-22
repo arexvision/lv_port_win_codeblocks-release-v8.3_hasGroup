@@ -16,6 +16,7 @@
 - 模拟数据层应尽量通过 `bus_set_*()` 写数据，模拟真实硬件/算法任务接入方式。
 - `TCP_ALGO_DEBUG=1` 时，模拟 tick 在 TCP client 连接前不推进数据；连接成功后触发一次调试重置，再用 TCP 深度驱动 Arex 减压算法。
 - TCP 指令支持 `back` 模拟返回键，`speed <1..120>` 设置算法调试倍速；该倍速只加速深度、潜水时间和算法 tick，不加速指南针自动转动。
+- TCP 指令支持 `pause on|off|toggle` 临时冻结 PC 模拟推进（深度、潜水时间、goto/glitch、自动指南针）；LVGL 和 TCP 仍继续运行，方便继续发指令恢复。
 - TCP 指令支持 `orphan <submenu|edit|modal|confirm|menu|turn_off> [tile_pos]` 制造 DASH 孤儿态；随后发一次 `click` 或 `rotate` 记录候选，等待 1 秒以上后再发一次 `click` 或 `rotate`，可验证 UI 状态机延迟自恢复。
 - TCP 指令支持 `heading_speed <0..3600>` 设置指南针自动旋转速度，单位为度/秒；指南针用独立 10ms 定时器推进，`heading_speed 10` 会在 1 秒内连续显示约 10 次 1° 变化，`heading_speed 0` 暂停自动旋转。
 - 指南针 TCP 调试同步写入 UI bus 的 heading、指南针原始磁场和姿态数据：`heading <deg> [pitch roll]` / `compass on|off|<deg> [pitch roll]` / `mag <x> <y> <z>` / `attitude <pitch> <roll> [heading]`；`mlx <x> <y> <z>` 和 `tmag <x> <y> <z>` 只更新对应诊断字段，不直接改变 heading。
