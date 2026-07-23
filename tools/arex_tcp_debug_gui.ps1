@@ -101,26 +101,36 @@ public sealed class ArexTcpDebugForm : Form
 
         Panel quickPanel = new Panel();
         quickPanel.Dock = DockStyle.Bottom;
-        quickPanel.Height = 38;
+        quickPanel.Height = 76;
         quickPanel.Padding = new Padding(8, 2, 8, 4);
         Controls.Add(quickPanel);
 
         int quickX = 8;
-        string[] commands = new string[] { "help", "state", "12.3", "depth 0", "manual on", "auto on" };
+        int quickY = 4;
+        const int quickButtonWidth = 96;
+        string[] commands = new string[] {
+            "help", "state", "batt 15", "batt auto", "temp 8", "temp auto",
+            "bat_temp 45", "prj_temp 50", "12.3", "depth 0", "manual on", "auto on"
+        };
         foreach (string command in commands)
         {
+            if (quickX + quickButtonWidth > 720)
+            {
+                quickX = 8;
+                quickY += 34;
+            }
             Button button = new Button();
             button.Text = command;
             button.Tag = command;
-            button.Location = new Point(quickX, 4);
-            button.Width = 86;
+            button.Location = new Point(quickX, quickY);
+            button.Width = quickButtonWidth;
             button.Click += async delegate(object sender, EventArgs e) {
                 string text = (string)((Button)sender).Tag;
                 inputBox.Text = text;
                 await SendLineAsync(text);
             };
             quickPanel.Controls.Add(button);
-            quickX += 92;
+            quickX += quickButtonWidth + 6;
         }
 
         logBox.Dock = DockStyle.Fill;

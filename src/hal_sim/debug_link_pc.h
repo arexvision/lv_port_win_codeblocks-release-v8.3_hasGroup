@@ -21,6 +21,10 @@ void debug_link_pc_video_finish(void);
 uint16_t debug_link_pc_time_scale(void);
 uint16_t debug_link_pc_heading_speed_dps(void);
 bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bool *out_reached);
+bool debug_link_pc_battery_pct(float *out_pct);
+bool debug_link_pc_temperature_c(float *out_temp_c);
+bool debug_link_pc_bat_temperature_c(float *out_temp_c);
+bool debug_link_pc_prj_temperature_c(float *out_temp_c);
 
 #ifdef __cplusplus
 }
@@ -115,6 +119,14 @@ typedef struct
     float depth_glitch_min_m;
     float depth_glitch_max_m;
     float depth_glitch_spike_m;
+    bool battery_override;
+    float battery_pct;
+    bool temperature_override;
+    float temperature_c;
+    bool bat_temperature_override;
+    float bat_temperature_c;
+    bool prj_temperature_override;
+    float prj_temperature_c;
     bool rtc_sleep_mark_valid;
     time_t rtc_sleep_mark;
     debug_link_pc_rtc_offline_fn rtc_offline_handler;
@@ -1005,7 +1017,7 @@ static void debug_send_help(void)
         "  sample <time_s> <depth_m> | rate <m_min> | time <s>\r\n"
         "  rtc_offline <seconds> | rtc_sleep_mark | rtc_sleep_apply | rtc_sleep_status\r\n"
         "  ndl <min> | tts <min> | stop <none|safety|deco> <ndl> <depth> <total_s> <left_s> <zone0|1>\r\n"
-        "  pod <0|1> <bar> | batt <pct> | temp <c> | bat_temp <c> | prj_temp <c>\r\n"
+        "  pod <0|1> <bar> | batt <pct|auto> | temp <c|auto> | bat_temp <c|auto> | prj_temp <c|auto>\r\n"
         "  heading <deg> [pitch roll] | compass on|off|<deg> [pitch roll]\r\n"
         "  mag <x> <y> <z> | mlx <x> <y> <z> | tmag <x> <y> <z> | attitude <pitch> <roll> [heading]\r\n"
         "  compass_cal <state> [progress] [hint] [coverage_mask] [bins]\r\n"
@@ -2022,39 +2034,78 @@ static void debug_exec_line(char *line)
         return;
     }
 
-    if (debug_streq(cmd, "batt") || debug_streq(cmd, "battery"))
+    if (debug_streq(cmd, "batt") || debug_streq(cmd, "battery") || debug_streq(cmd, "battery_pct"))
     {
+        char *arg = debug_next_token(&cursor);
         float pct;
-        if (!debug_parse_float(debug_next_token(&cursor), &pct))
+        if (debug_streq(arg, "auto") || debug_streq(arg, "default"))
         {
-            debug_send_raw("ERR usage: batt <pct>\r\n");
+            s_debug_link.battery_override = false;
+            debug_send_raw("OK batt auto\r\n");
             return;
         }
+        if (!debug_parse_float(arg, &pct))
+        {
+            debug_send_raw("ERR usage: batt <pct|auto>\r\n");
+            return;
+        }
+        s_debug_link.battery_override = true;
+        s_debug_link.battery_pct = pct;
         bus_set_battery(pct);
         debug_sendf("OK batt %.0f\r\n", (double)pct);
         return;
     }
 
     if (debug_streq(cmd, "temp") ||
+            debug_streq(cmd, "temperature") ||
             debug_streq(cmd, "bat_temp") ||
-            debug_streq(cmd, "prj_temp"))
+            debug_streq(cmd, "battery_temp") ||
+            debug_streq(cmd, "prj_temp") ||
+            debug_streq(cmd, "projector_temp"))
     {
+        char *arg = debug_next_token(&cursor);
         float temp;
-        if (!debug_parse_float(debug_next_token(&cursor), &temp))
+        bool is_bat_temp = debug_streq(cmd, "bat_temp") || debug_streq(cmd, "battery_temp");
+        bool is_prj_temp = debug_streq(cmd, "prj_temp") || debug_streq(cmd, "projector_temp");
+
+        if (debug_streq(arg, "auto") || debug_streq(arg, "default"))
         {
-            debug_send_raw("ERR usage: temp <c> | bat_temp <c> | prj_temp <c>\r\n");
+            if (is_bat_temp)
+            {
+                s_debug_link.bat_temperature_override = false;
+            }
+            else if (is_prj_temp)
+            {
+                s_debug_link.prj_temperature_override = false;
+            }
+            else
+            {
+                s_debug_link.temperature_override = false;
+            }
+            debug_sendf("OK %s auto\r\n", cmd);
             return;
         }
-        if (debug_streq(cmd, "bat_temp"))
+        if (!debug_parse_float(arg, &temp))
         {
+            debug_send_raw("ERR usage: temp <c|auto> | bat_temp <c|auto> | prj_temp <c|auto>\r\n");
+            return;
+        }
+        if (is_bat_temp)
+        {
+            s_debug_link.bat_temperature_override = true;
+            s_debug_link.bat_temperature_c = temp;
             bus_set_bat_temperature(temp);
         }
-        else if (debug_streq(cmd, "prj_temp"))
+        else if (is_prj_temp)
         {
+            s_debug_link.prj_temperature_override = true;
+            s_debug_link.prj_temperature_c = temp;
             bus_set_prj_temperature(temp);
         }
         else
         {
+            s_debug_link.temperature_override = true;
+            s_debug_link.temperature_c = temp;
             bus_set_temperature(temp);
         }
         debug_sendf("OK %s %.1f\r\n", cmd, (double)temp);
@@ -2583,6 +2634,10 @@ static void debug_disconnect_client(void)
     debug_depth_goto_cancel();
     debug_depth_glitch_cancel();
     debug_video_cancel();
+    s_debug_link.battery_override = false;
+    s_debug_link.temperature_override = false;
+    s_debug_link.bat_temperature_override = false;
+    s_debug_link.prj_temperature_override = false;
     debug_close_socket(&s_debug_link.client);
     s_debug_link.paused = false;
     s_debug_link.rx_len = 0;
@@ -2846,6 +2901,46 @@ uint16_t debug_link_pc_heading_speed_dps(void)
     return s_debug_link.heading_speed_dps;
 }
 
+bool debug_link_pc_battery_pct(float *out_pct)
+{
+    if (!out_pct || !s_debug_link.battery_override)
+    {
+        return false;
+    }
+    *out_pct = s_debug_link.battery_pct;
+    return true;
+}
+
+bool debug_link_pc_temperature_c(float *out_temp_c)
+{
+    if (!out_temp_c || !s_debug_link.temperature_override)
+    {
+        return false;
+    }
+    *out_temp_c = s_debug_link.temperature_c;
+    return true;
+}
+
+bool debug_link_pc_bat_temperature_c(float *out_temp_c)
+{
+    if (!out_temp_c || !s_debug_link.bat_temperature_override)
+    {
+        return false;
+    }
+    *out_temp_c = s_debug_link.bat_temperature_c;
+    return true;
+}
+
+bool debug_link_pc_prj_temperature_c(float *out_temp_c)
+{
+    if (!out_temp_c || !s_debug_link.prj_temperature_override)
+    {
+        return false;
+    }
+    *out_temp_c = s_debug_link.prj_temperature_c;
+    return true;
+}
+
 #else
 
 void debug_link_pc_start(void)
@@ -2905,6 +3000,30 @@ bool debug_link_pc_depth_goto_step(float current_depth_m, float *out_depth_m, bo
     (void)current_depth_m;
     (void)out_depth_m;
     (void)out_reached;
+    return false;
+}
+
+bool debug_link_pc_battery_pct(float *out_pct)
+{
+    (void)out_pct;
+    return false;
+}
+
+bool debug_link_pc_temperature_c(float *out_temp_c)
+{
+    (void)out_temp_c;
+    return false;
+}
+
+bool debug_link_pc_bat_temperature_c(float *out_temp_c)
+{
+    (void)out_temp_c;
+    return false;
+}
+
+bool debug_link_pc_prj_temperature_c(float *out_temp_c)
+{
+    (void)out_temp_c;
     return false;
 }
 

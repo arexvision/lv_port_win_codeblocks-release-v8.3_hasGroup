@@ -303,10 +303,27 @@ static void sim_update_mlx_diagnostics(uint32_t tick_s)
 
 static void sim_update_temperature(void)
 {
-    s_sim.temperature_c = SIM_TEMP_C;
-    bus_set_temperature(s_sim.temperature_c);
-    bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
-    bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+    float temp_c = SIM_TEMP_C;
+    float bat_temp_c = temp_c + 1.0f;
+    float prj_temp_c = temp_c - 1.0f;
+    float battery_pct = SIM_FIXED_BATTERY_PCT;
+
+    /* TCP 调试覆盖值必须每个 tick 重新落到 bus，避免被默认模拟脚本冲掉。 */
+    if (debug_link_pc_temperature_c(&temp_c))
+    {
+        bat_temp_c = temp_c + 1.0f;
+        prj_temp_c = temp_c - 1.0f;
+    }
+    (void)debug_link_pc_bat_temperature_c(&bat_temp_c);
+    (void)debug_link_pc_prj_temperature_c(&prj_temp_c);
+    (void)debug_link_pc_battery_pct(&battery_pct);
+
+    s_sim.temperature_c = temp_c;
+    s_sim.battery_pct = battery_pct;
+    bus_set_temperature(temp_c);
+    bus_set_bat_temperature(bat_temp_c);
+    bus_set_prj_temperature(prj_temp_c);
+    bus_set_battery(battery_pct);
 }
 
 static void sim_update_runtime_metrics(uint16_t time_scale)
@@ -439,10 +456,7 @@ static void sim_reset_for_tcp_debug(void)
     bus_set_ascent_rate(0.0f);
     bus_set_dive_time(0U);
     bus_set_surface_time(0U);
-    bus_set_battery(s_sim.battery_pct);
-    bus_set_temperature(s_sim.temperature_c);
-    bus_set_bat_temperature(s_sim.temperature_c + 1.0f);
-    bus_set_prj_temperature(s_sim.temperature_c - 1.0f);
+    sim_update_temperature();
     bus_set_cpu_load(12U);
     bus_set_fps(33U);
     sim_seed_tcp_algo_defaults();
@@ -1106,9 +1120,6 @@ static void sim_tick_cb(lv_timer_t *t)
             }
             s_sim.rate_sample_depth_m = current_depth_m;
 
-            s_sim.battery_pct = SIM_FIXED_BATTERY_PCT;
-            bus_set_battery(s_sim.battery_pct);
-
             sim_update_temperature();
             sim_update_runtime_metrics(time_scale);
 
@@ -1140,9 +1151,6 @@ static void sim_tick_cb(lv_timer_t *t)
         s_sim.rate_sample_valid = true;
     }
     s_sim.rate_sample_depth_m = current_depth_m;
-
-    s_sim.battery_pct = SIM_FIXED_BATTERY_PCT;
-    bus_set_battery(s_sim.battery_pct);
 
     sim_update_temperature();
     sim_update_mlx_diagnostics(s_sim.dive_time_s);
