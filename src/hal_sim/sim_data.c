@@ -29,7 +29,7 @@ static uint32_t s_heading_accum_mdeg;
 #define SIM_FIXED_BATTERY_PCT 83.0f
 #define SIM_VIDEO_DURATION_S 15U
 #define SIM_VIDEO2_DEPTH_M 27.0f
-#define SIM_VIDEO2_START_HEADING_DEG 271U
+#define SIM_VIDEO2_START_HEADING_DEG 273U
 #define SIM_VIDEO2_END_HEADING_DEG 260U
 
 typedef struct
