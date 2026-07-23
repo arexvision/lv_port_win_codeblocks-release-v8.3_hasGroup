@@ -28,6 +28,9 @@ static uint32_t s_heading_accum_mdeg;
 
 #define SIM_FIXED_BATTERY_PCT 83.0f
 #define SIM_VIDEO_DURATION_S 15U
+#define SIM_VIDEO2_DEPTH_M 27.0f
+#define SIM_VIDEO2_START_HEADING_DEG 271U
+#define SIM_VIDEO2_END_HEADING_DEG 260U
 
 typedef struct
 {
@@ -963,7 +966,9 @@ static float sim_video_mode1_depth(uint8_t elapsed_s)
 
 static uint16_t sim_video_mode2_heading(uint8_t elapsed_s)
 {
-    return (uint16_t)(271U + ((uint16_t)elapsed_s / 2U));
+    uint16_t delta_deg = SIM_VIDEO2_START_HEADING_DEG - SIM_VIDEO2_END_HEADING_DEG;
+    uint16_t step_deg = (uint16_t)(((uint16_t)elapsed_s * delta_deg + (SIM_VIDEO_DURATION_S / 2U)) / SIM_VIDEO_DURATION_S);
+    return (uint16_t)(SIM_VIDEO2_START_HEADING_DEG - step_deg);
 }
 
 static void sim_video_start(uint8_t mode)
@@ -977,10 +982,10 @@ static void sim_video_start(uint8_t mode)
     if (mode == 2U)
     {
         deco_core_reset();
-        sim_start_dive(13.0f);
+        sim_start_dive(SIM_VIDEO2_DEPTH_M);
         sim_update_temperature();
-        deco_core_tick(sim_deco_input_depth_m(13.0f), s_sim.temperature_c, 1684U);
-        s_sim.depth_m = 13.0f;
+        deco_core_tick(sim_deco_input_depth_m(SIM_VIDEO2_DEPTH_M), s_sim.temperature_c, 1684U);
+        s_sim.depth_m = SIM_VIDEO2_DEPTH_M;
         s_sim.dive_time_s = 1684U;
     }
 }
@@ -1047,7 +1052,7 @@ static bool sim_video_tick(void)
     }
     else
     {
-        sim_video_apply_sample(13.0f, 1684U + elapsed_s, 0, sim_video_mode2_heading(elapsed_s), false, elapsed_s == 0U ? 0U : 1U);
+        sim_video_apply_sample(SIM_VIDEO2_DEPTH_M, 1684U + elapsed_s, 0, sim_video_mode2_heading(elapsed_s), false, elapsed_s == 0U ? 0U : 1U);
     }
 
     s_video.elapsed_s++;
