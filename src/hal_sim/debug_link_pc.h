@@ -1029,7 +1029,7 @@ static void debug_send_help(void)
         "  a <id> | a clear [id|all] | a auto on|off | a list\r\n"
         "  alarm <info|warn|crit> <text> | alarm clear\r\n"
         "  alert ids: asc po2 po2min po2w ceil lock batt dead ndl cns otu safety depth time ss done\r\n"
-        "Slots are 0-based. video 1/2 run 15s recording scripts; 3/4 are reserved until their data curves are defined.\r\n");
+        "Slots are 0-based. video 1 runs 15s, video 2 runs 17s; 3/4 are reserved until their data curves are defined.\r\n");
 }
 
 static void debug_send_state(void)
@@ -1322,6 +1322,7 @@ static void debug_exec_line(char *line)
     if (debug_streq(cmd, "video") || debug_streq(cmd, "demo"))
     {
         int mode;
+        unsigned duration_s;
         arg = debug_next_token(&cursor);
         if (!arg || debug_next_token(&cursor) != NULL)
         {
@@ -1341,7 +1342,7 @@ static void debug_exec_line(char *line)
         }
         if (mode > 2)
         {
-            debug_send_raw("ERR video 3/4 reserved: send their 15s curves first\r\n");
+            debug_send_raw("ERR video 3/4 reserved: send their curves first\r\n");
             return;
         }
         debug_depth_goto_cancel();
@@ -1352,7 +1353,8 @@ static void debug_exec_line(char *line)
         s_debug_link.video_start_event = true;
         s_debug_link.depth_rate_valid = false;
         bus_set_ascent_rate(0.0f);
-        debug_sendf("OK video %u 15s\r\n", (unsigned)s_debug_link.video_mode);
+        duration_s = (mode == 2) ? 17U : 15U;
+        debug_sendf("OK video %u %us\r\n", (unsigned)s_debug_link.video_mode, duration_s);
         return;
     }
 

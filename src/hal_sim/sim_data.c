@@ -27,10 +27,11 @@ static lv_timer_t *s_heading_timer;
 static uint32_t s_heading_accum_mdeg;
 
 #define SIM_FIXED_BATTERY_PCT 83.0f
-#define SIM_VIDEO_DURATION_S 15U
+#define SIM_VIDEO1_DURATION_S 15U
+#define SIM_VIDEO2_DURATION_S 17U
 #define SIM_VIDEO2_DEPTH_M 27.0f
 #define SIM_VIDEO2_START_HEADING_DEG 273U
-#define SIM_VIDEO2_END_HEADING_DEG 260U
+#define SIM_VIDEO2_END_HEADING_DEG 258U
 
 typedef struct
 {
@@ -961,14 +962,19 @@ static float sim_video_mode1_depth(uint8_t elapsed_s)
     {
         return sim_video_lerp(8.3f, 8.5f, elapsed_s, 7U);
     }
-    return sim_video_lerp(8.5f, 8.2f, (uint8_t)(elapsed_s - 7U), 8U);
+    return sim_video_lerp(8.5f, 8.2f, (uint8_t)(elapsed_s - 7U), (uint8_t)(SIM_VIDEO1_DURATION_S - 7U));
 }
 
 static uint16_t sim_video_mode2_heading(uint8_t elapsed_s)
 {
     uint16_t delta_deg = SIM_VIDEO2_START_HEADING_DEG - SIM_VIDEO2_END_HEADING_DEG;
-    uint16_t step_deg = (uint16_t)(((uint16_t)elapsed_s * delta_deg + (SIM_VIDEO_DURATION_S / 2U)) / SIM_VIDEO_DURATION_S);
+    uint16_t step_deg = (uint16_t)(((uint16_t)elapsed_s * delta_deg + (SIM_VIDEO2_DURATION_S / 2U)) / SIM_VIDEO2_DURATION_S);
     return (uint16_t)(SIM_VIDEO2_START_HEADING_DEG - step_deg);
+}
+
+static uint8_t sim_video_duration_s(uint8_t mode)
+{
+    return (mode == 2U) ? SIM_VIDEO2_DURATION_S : SIM_VIDEO1_DURATION_S;
 }
 
 static void sim_video_start(uint8_t mode)
@@ -1030,6 +1036,7 @@ static void sim_video_apply_sample(float depth_m, uint32_t dive_time_s, int16_t 
 static bool sim_video_tick(void)
 {
     uint8_t requested_mode = debug_link_pc_video_mode();
+    uint8_t duration_s;
     uint8_t elapsed_s;
 
     if (!s_video.active || requested_mode == 0U || requested_mode != s_video.mode)
@@ -1039,7 +1046,8 @@ static bool sim_video_tick(void)
     }
 
     elapsed_s = s_video.elapsed_s;
-    if (elapsed_s > SIM_VIDEO_DURATION_S)
+    duration_s = sim_video_duration_s(s_video.mode);
+    if (elapsed_s > duration_s)
     {
         sim_video_stop();
         debug_link_pc_video_finish();
@@ -1056,7 +1064,7 @@ static bool sim_video_tick(void)
     }
 
     s_video.elapsed_s++;
-    if (s_video.elapsed_s > SIM_VIDEO_DURATION_S)
+    if (s_video.elapsed_s > duration_s)
     {
         sim_video_stop();
         debug_link_pc_video_finish();
